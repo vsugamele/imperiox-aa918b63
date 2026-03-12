@@ -41,7 +41,7 @@ interface Props {
 function extractSection(text: string, heading: string): string {
   const regex = new RegExp(`##?#?\\s*${heading}[^\\n]*\\n([\\s\\S]*?)(?=\\n##|$)`, "i");
   const match = text.match(regex);
-  return match ? match[1].trim() : "";
+  return match?.[1]?.trim() || "";
 }
 
 function extractTableValue(text: string, key: string): string {
