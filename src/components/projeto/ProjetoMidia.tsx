@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Image } from "lucide-react";
+import { FileUpload } from "@/components/FileUpload";
 
 const CATEGORIES = [
   { key: "expert", label: "📸 Fotos do Expert" },
@@ -20,12 +21,12 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   const midia = data.midia || {};
   const [newUrl, setNewUrl] = useState<Record<string, string>>({});
 
-  const addImage = (cat: string) => {
-    const url = newUrl[cat]?.trim();
-    if (!url) return;
+  const addImage = (cat: string, url?: string) => {
+    const finalUrl = url || newUrl[cat]?.trim();
+    if (!finalUrl) return;
     const current = midia[cat] || [];
-    onUpdateData({ ...data, midia: { ...midia, [cat]: [...current, url] } });
-    setNewUrl({ ...newUrl, [cat]: "" });
+    onUpdateData({ ...data, midia: { ...midia, [cat]: [...current, finalUrl] } });
+    if (!url) setNewUrl({ ...newUrl, [cat]: "" });
   };
 
   const removeImage = (cat: string, i: number) => {
@@ -56,7 +57,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Input
                 value={newUrl[c.key] || ""}
                 onChange={(e) => setNewUrl({ ...newUrl, [c.key]: e.target.value })}
@@ -65,6 +66,11 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                 onKeyDown={(e) => e.key === "Enter" && addImage(c.key)}
               />
               <Button size="sm" variant="outline" onClick={() => addImage(c.key)}><Plus className="h-3 w-3" /></Button>
+              <FileUpload
+                bucket="project-media"
+                path={`${project.id}/${c.key}`}
+                onUpload={(url) => addImage(c.key, url)}
+              />
             </div>
           </CardContent>
         </Card>

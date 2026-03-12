@@ -23,8 +23,9 @@ export function ProjetoDocs({ projectId }: Props) {
   useEffect(() => { fetchDocs(); }, [projectId]);
 
   const createDoc = async () => {
-    const { data, error } = await supabase.from("imphq_docs").insert({ project_id: projectId, title: "Novo Documento", content: "" } as any).select().single();
-    if (error) { toast.error("Erro ao criar doc"); return; }
+    const newId = crypto.randomUUID();
+    const { data, error } = await supabase.from("imphq_docs").insert({ id: newId, project_id: projectId, title: "Novo Documento", content: "" } as any).select().single();
+    if (error) { toast.error("Erro ao criar doc: " + error.message); return; }
     setDocs([data, ...docs]);
     setEditing(data);
   };

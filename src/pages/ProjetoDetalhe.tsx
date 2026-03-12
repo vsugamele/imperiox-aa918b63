@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { ProjetoBriefing } from "@/components/projeto/ProjetoBriefing";
 import { ProjetoExpert } from "@/components/projeto/ProjetoExpert";
 import { ProjetoAvatar } from "@/components/projeto/ProjetoAvatar";
@@ -14,12 +15,16 @@ import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
+import { Pencil } from "lucide-react";
 
 const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
 
 export default function ProjetoDetalhe() {
   const { id } = useParams();
   const [project, setProject] = useState<any>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [editingIcon, setEditingIcon] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(false);
   const save = useAutoSave(id);
 
   useEffect(() => {
@@ -48,12 +53,63 @@ export default function ProjetoDetalhe() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <span className="text-4xl">{project.icon || "📁"}</span>
+          {/* Editable Icon */}
+          {editingIcon ? (
+            <Input
+              value={project.icon || ""}
+              onChange={(e) => setProject((p: any) => ({ ...p, icon: e.target.value }))}
+              onBlur={() => { setEditingIcon(false); updateField("icon", project.icon); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { setEditingIcon(false); updateField("icon", project.icon); } }}
+              className="w-16 h-14 text-4xl text-center bg-secondary"
+              autoFocus
+            />
+          ) : (
+            <span className="text-4xl cursor-pointer hover:opacity-70 transition-opacity" onClick={() => setEditingIcon(true)}>
+              {project.icon || "📁"}
+            </span>
+          )}
           <div>
-            <h1 className="font-display text-3xl font-bold">{project.name}</h1>
+            {/* Editable Name */}
+            {editingName ? (
+              <Input
+                value={project.name || ""}
+                onChange={(e) => setProject((p: any) => ({ ...p, name: e.target.value }))}
+                onBlur={() => { setEditingName(false); updateField("name", project.name); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setEditingName(false); updateField("name", project.name); } }}
+                className="text-2xl font-bold bg-secondary h-10 max-w-md"
+                autoFocus
+              />
+            ) : (
+              <h1
+                className="font-display text-3xl font-bold cursor-pointer hover:opacity-70 transition-opacity inline-flex items-center gap-2 group"
+                onClick={() => setEditingName(true)}
+              >
+                {project.name}
+                <Pencil className="h-4 w-4 opacity-0 group-hover:opacity-50 transition-opacity" />
+              </h1>
+            )}
             <p className="text-sm text-muted-foreground mt-1">{project.description || "Sem descrição"}</p>
-            <div className="flex gap-2 mt-2">
-              {project.category && <Badge variant="secondary">{project.category}</Badge>}
+            <div className="flex gap-2 mt-2 items-center">
+              {/* Editable Category */}
+              {editingCategory ? (
+                <Input
+                  value={project.category || ""}
+                  onChange={(e) => setProject((p: any) => ({ ...p, category: e.target.value }))}
+                  onBlur={() => { setEditingCategory(false); updateField("category", project.category); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { setEditingCategory(false); updateField("category", project.category); } }}
+                  className="bg-secondary h-7 text-xs max-w-[160px]"
+                  placeholder="Categoria..."
+                  autoFocus
+                />
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer hover:opacity-70 transition-opacity"
+                  onClick={() => setEditingCategory(true)}
+                >
+                  {project.category || "Sem categoria"}
+                </Badge>
+              )}
               {project.data?.status && <Badge variant="outline" className="capitalize">{project.data.status}</Badge>}
             </div>
           </div>
