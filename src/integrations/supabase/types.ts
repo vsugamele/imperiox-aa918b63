@@ -9189,6 +9189,7 @@ export type Database = {
         Row: {
           ai_generated: boolean | null
           assignee_id: string | null
+          board: string | null
           column_id: string | null
           created_at: string | null
           description: string | null
@@ -9205,6 +9206,7 @@ export type Database = {
         Insert: {
           ai_generated?: boolean | null
           assignee_id?: string | null
+          board?: string | null
           column_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -9221,6 +9223,7 @@ export type Database = {
         Update: {
           ai_generated?: boolean | null
           assignee_id?: string | null
+          board?: string | null
           column_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -9288,6 +9291,7 @@ export type Database = {
       }
       imphq_kanban_columns: {
         Row: {
+          board: string | null
           color: string | null
           created_at: string | null
           id: string
@@ -9296,6 +9300,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          board?: string | null
           color?: string | null
           created_at?: string | null
           id?: string
@@ -9304,6 +9309,7 @@ export type Database = {
           title: string
         }
         Update: {
+          board?: string | null
           color?: string | null
           created_at?: string | null
           id?: string
