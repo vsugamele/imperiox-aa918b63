@@ -135,7 +135,7 @@ export default function Leads() {
 
     // Sales from imphq_vendas
     promises.push(
-      supabase.from("imphq_vendas").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false })
+      Promise.resolve(supabase.from("imphq_vendas").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }))
         .then(({ data }) => {
           (data || []).forEach((v: any) => {
             events.push({
