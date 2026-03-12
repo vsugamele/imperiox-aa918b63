@@ -9,17 +9,25 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye } from "lucide-react";
 import { toast } from "sonner";
 
-const BOARDS = ["agentes", "humanas", "criativos", "campanhas"];
-const DEFAULT_COLUMNS = ["backlog", "doing", "stuck", "review", "done"];
-const COL_COLORS: Record<string, string> = {
-  backlog: "border-muted-foreground/30",
-  doing: "border-primary/50",
-  stuck: "border-destructive/50",
-  review: "border-warning/50",
-  done: "border-success/50",
+const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
+const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
+
+const COL_CONFIG: Record<string, { icon: React.ReactNode; bg: string; border: string; headerBg: string }> = {
+  backlog: { icon: <Inbox className="h-3.5 w-3.5" />, bg: "bg-muted/20", border: "border-l-muted-foreground/40", headerBg: "bg-muted/30" },
+  fazendo: { icon: <Flame className="h-3.5 w-3.5 text-warning" />, bg: "bg-warning/5", border: "border-l-warning/50", headerBg: "bg-warning/10" },
+  travado: { icon: <AlertTriangle className="h-3.5 w-3.5 text-destructive" />, bg: "bg-destructive/5", border: "border-l-destructive/50", headerBg: "bg-destructive/10" },
+  "revisão": { icon: <Eye className="h-3.5 w-3.5 text-primary" />, bg: "bg-primary/5", border: "border-l-primary/50", headerBg: "bg-primary/10" },
+  feito: { icon: <CheckCircle2 className="h-3.5 w-3.5 text-success" />, bg: "bg-success/5", border: "border-l-success/50", headerBg: "bg-success/10" },
+};
+
+const PRIORITY_DOT: Record<string, string> = {
+  urgent: "bg-destructive",
+  high: "bg-warning",
+  medium: "bg-success",
+  low: "bg-muted-foreground/40",
 };
 
 interface KanbanColumn { id: string; title: string; color: string; position: number; board: string; }
@@ -31,99 +39,167 @@ interface KanbanCard {
 export default function KanbanPage() {
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [activeBoard, setActiveBoard] = useState("agentes");
+  const [allCards, setAllCards] = useState<KanbanCard[]>([]);
+  const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
+  const [activeBoard, setActiveBoard] = useState("geral");
   const [showNewCard, setShowNewCard] = useState<string | null>(null);
   const [editCard, setEditCard] = useState<KanbanCard | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newPriority, setNewPriority] = useState("medium");
   const [newDueDate, setNewDueDate] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newBoard, setNewBoard] = useState("agentes");
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const loadData = useCallback(async (board: string) => {
+  const loadAllData = useCallback(async () => {
     setLoading(true);
     const [colRes, cardRes] = await Promise.all([
-      supabase.from("imphq_kanban_columns").select("*").eq("board", board).order("position"),
-      supabase.from("imphq_kanban_cards").select("*").eq("board", board).order("position"),
+      supabase.from("imphq_kanban_columns").select("*").order("position"),
+      supabase.from("imphq_kanban_cards").select("*").order("position"),
     ]);
 
     let cols = (colRes.data || []) as KanbanColumn[];
+    const existingBoards = new Set(cols.map(c => c.board));
 
-    // Auto-init columns if none exist for this board
-    if (cols.length === 0) {
-      const newCols = DEFAULT_COLUMNS.map((title, i) => ({
-        title,
-        color: COL_COLORS[title] || "#8b5cf6",
-        position: i,
-        board,
-      }));
-      const { data } = await supabase.from("imphq_kanban_columns").insert(newCols).select();
-      cols = (data || []) as KanbanColumn[];
+    // Auto-init columns for boards that don't have any
+    for (const board of ["agentes", "humanas", "criativos", "campanhas"]) {
+      if (!existingBoards.has(board)) {
+        const newCols = DEFAULT_COLUMNS.map((title, i) => ({
+          title, color: "#8b5cf6", position: i, board,
+        }));
+        const { data } = await supabase.from("imphq_kanban_columns").insert(newCols).select();
+        if (data) cols = [...cols, ...(data as KanbanColumn[])];
+      }
     }
 
-    setColumns(cols);
-    setCards((cardRes.data || []) as KanbanCard[]);
+    setAllColumns(cols);
+    setAllCards((cardRes.data || []) as KanbanCard[]);
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadData(activeBoard); }, [activeBoard, loadData]);
+  useEffect(() => { loadAllData(); }, [loadAllData]);
 
-  const handleBoardChange = (board: string) => { setActiveBoard(board); };
+  // Derive board-specific data
+  useEffect(() => {
+    if (activeBoard === "geral") {
+      // Merge all columns by title, use first found id per title
+      const mergedMap = new Map<string, KanbanColumn>();
+      for (const col of allColumns) {
+        const key = col.title.toLowerCase();
+        if (!mergedMap.has(key)) mergedMap.set(key, col);
+      }
+      setColumns(Array.from(mergedMap.values()).sort((a, b) => a.position - b.position));
+      setCards(allCards);
+    } else {
+      const boardCols = allColumns.filter(c => c.board === activeBoard);
+      setColumns(boardCols);
+      setCards(allCards.filter(c => c.board === activeBoard));
+    }
+  }, [activeBoard, allColumns, allCards]);
+
+  // Counters
+  const getColTitle = (card: KanbanCard) => {
+    const col = allColumns.find(c => c.id === card.column_id);
+    return col?.title.toLowerCase() || "";
+  };
+  const countByCol = (title: string) => allCards.filter(c => getColTitle(c) === title).length;
+  const stuckCount = countByCol("travado");
+  const doingCount = countByCol("fazendo");
+  const doneCount = countByCol("feito");
+
+  const filteredCards = (colId: string) => {
+    let filtered: KanbanCard[];
+    if (activeBoard === "geral") {
+      const col = allColumns.find(c => c.id === colId);
+      const colTitle = col?.title.toLowerCase() || "";
+      filtered = allCards.filter(c => getColTitle(c) === colTitle);
+    } else {
+      filtered = cards.filter(c => c.column_id === colId);
+    }
+    if (searchTerm) {
+      filtered = filtered.filter(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    return filtered;
+  };
 
   const createCard = async () => {
     if (!newTitle.trim() || !showNewCard) return;
+    const board = activeBoard === "geral" ? newBoard : activeBoard;
+    // Find the actual column for this board matching the selected column title
+    let targetColId = showNewCard;
+    if (activeBoard === "geral") {
+      const selectedCol = allColumns.find(c => c.id === showNewCard);
+      const colTitle = selectedCol?.title.toLowerCase() || "";
+      const boardCol = allColumns.find(c => c.board === board && c.title.toLowerCase() === colTitle);
+      if (boardCol) targetColId = boardCol.id;
+    }
     const { error } = await supabase.from("imphq_kanban_cards").insert({
-      column_id: showNewCard,
-      title: newTitle.trim(),
-      priority: newPriority,
-      due_date: newDueDate || null,
-      description: newDesc || null,
-      board: activeBoard,
-      position: cards.filter(c => c.column_id === showNewCard).length,
-      tags: [],
+      column_id: targetColId, title: newTitle.trim(), priority: newPriority,
+      due_date: newDueDate || null, description: newDesc || null,
+      board, position: allCards.filter(c => c.column_id === targetColId).length, tags: [],
     });
     if (error) { toast.error("Erro ao criar card"); return; }
     toast.success("Card criado!");
-    setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc("");
-    loadData(activeBoard);
+    setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes");
+    loadAllData();
   };
 
   const updateCard = async () => {
     if (!editCard) return;
     const { error } = await supabase.from("imphq_kanban_cards")
-      .update({ title: editCard.title, description: editCard.description, priority: editCard.priority, due_date: editCard.due_date || null })
+      .update({ title: editCard.title, description: editCard.description, priority: editCard.priority, due_date: editCard.due_date || null, column_id: editCard.column_id })
       .eq("id", editCard.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Card atualizado!");
     setEditCard(null);
-    loadData(activeBoard);
+    loadAllData();
   };
 
   const deleteCard = async (id: string) => {
     await supabase.from("imphq_kanban_cards").delete().eq("id", id);
     toast.success("Card removido");
     setEditCard(null);
-    loadData(activeBoard);
+    loadAllData();
   };
 
   const moveCard = async (card: KanbanCard, direction: number) => {
-    const colIndex = columns.findIndex(c => c.id === card.column_id);
+    const boardCols = allColumns.filter(c => c.board === card.board).sort((a, b) => a.position - b.position);
+    const colIndex = boardCols.findIndex(c => c.id === card.column_id);
     const newColIndex = colIndex + direction;
-    if (newColIndex < 0 || newColIndex >= columns.length) return;
-    const newCol = columns[newColIndex];
-    await supabase.from("imphq_kanban_cards")
-      .update({ column_id: newCol.id })
-      .eq("id", card.id);
-    loadData(activeBoard);
+    if (newColIndex < 0 || newColIndex >= boardCols.length) return;
+    const newCol = boardCols[newColIndex];
+    await supabase.from("imphq_kanban_cards").update({ column_id: newCol.id }).eq("id", card.id);
+    loadAllData();
   };
 
-  const boardColumns = columns;
+  const isOverdue = (d?: string) => d ? new Date(d) < new Date() : false;
 
   return (
-    <div className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-primary">Kanban</h1>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-display text-3xl font-bold text-primary">Kanban</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge className="bg-destructive/15 text-destructive border-destructive/30 gap-1.5 px-3 py-1">
+            <AlertTriangle className="h-3 w-3" /> {stuckCount} Travados
+          </Badge>
+          <Badge className="bg-warning/15 text-warning border-warning/30 gap-1.5 px-3 py-1">
+            <Flame className="h-3 w-3" /> {doingCount} Fazendo
+          </Badge>
+          <Badge className="bg-success/15 text-success border-success/30 gap-1.5 px-3 py-1">
+            <CheckCircle2 className="h-3 w-3" /> {doneCount} Feitos
+          </Badge>
+        </div>
+      </div>
 
-      <Tabs value={activeBoard} onValueChange={handleBoardChange}>
+      {/* Search */}
+      <div className="relative max-w-xs">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar cards..." className="pl-9 bg-secondary" />
+      </div>
+
+      <Tabs value={activeBoard} onValueChange={setActiveBoard}>
         <TabsList className="bg-secondary">
           {BOARDS.map((b) => (
             <TabsTrigger key={b} value={b} className="capitalize">{b}</TabsTrigger>
@@ -136,52 +212,68 @@ export default function KanbanPage() {
               <p className="text-sm text-muted-foreground">Carregando...</p>
             ) : (
               <div className="grid grid-cols-5 gap-3 min-h-[60vh]">
-                {boardColumns.map((col, colIdx) => {
-                  const colCards = cards.filter(c => c.column_id === col.id);
+                {columns.map((col, colIdx) => {
                   const colTitle = col.title.toLowerCase();
+                  const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
+                  const colCards = filteredCards(col.id);
                   return (
-                    <div key={col.id} className={`rounded-lg border-t-2 ${COL_COLORS[colTitle] || "border-primary/30"} bg-secondary/30 p-3`}>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center justify-between">
-                        {col.title}
+                    <div key={col.id} className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3`}>
+                      <div className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}>
+                        <div className="flex items-center gap-2">
+                          {config.icon}
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">
+                            {col.title}
+                          </h3>
+                        </div>
                         <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-[10px]">{colCards.length}</Badge>
-                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setShowNewCard(col.id); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); }}>
+                          <Badge variant="outline" className="text-[10px] h-5 min-w-[20px] justify-center">{colCards.length}</Badge>
+                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setShowNewCard(col.id); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); }}>
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
-                      </h3>
+                      </div>
                       <div className="space-y-2">
-                        {colCards.map((card) => (
-                          <Card key={card.id} className="bg-card border-border hover:border-primary/20 transition-colors group">
-                            <CardContent className="p-3">
-                              <div className="flex items-start justify-between gap-1">
-                                <p className="text-sm font-medium cursor-pointer flex-1" onClick={() => setEditCard({ ...card })}>{card.title}</p>
-                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {colIdx > 0 && (
-                                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => moveCard(card, -1)}>
-                                      <ChevronLeft className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                  {colIdx < boardColumns.length - 1 && (
-                                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => moveCard(card, 1)}>
-                                      <ChevronRight className="h-3 w-3" />
-                                    </Button>
+                        {colCards.length === 0 && (
+                          <p className="text-xs text-muted-foreground/50 text-center py-6 italic">Nenhuma tarefa</p>
+                        )}
+                        {colCards.map((card) => {
+                          const cardBoardCols = allColumns.filter(c => c.board === card.board).sort((a, b) => a.position - b.position);
+                          const cardColIdx = cardBoardCols.findIndex(c => c.id === card.column_id);
+                          return (
+                            <Card key={card.id} className="bg-card border-border hover:border-primary/20 transition-colors group cursor-pointer" onClick={() => setEditCard({ ...card })}>
+                              <CardContent className="p-3">
+                                <div className="flex items-start justify-between gap-1">
+                                  <p className="text-sm font-medium flex-1">{card.title}</p>
+                                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                    {cardColIdx > 0 && (
+                                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => moveCard(card, -1)}>
+                                        <ChevronLeft className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                    {cardColIdx < cardBoardCols.length - 1 && (
+                                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => moveCard(card, 1)}>
+                                        <ChevronRight className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between mt-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
+                                    {activeBoard === "geral" && (
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
+                                    )}
+                                  </div>
+                                  {card.due_date && (
+                                    <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
+                                      {new Date(card.due_date).toLocaleDateString("pt-BR")}
+                                    </p>
                                   )}
                                 </div>
-                              </div>
-                              {card.due_date && (
-                                <p className="text-[10px] font-mono text-muted-foreground mt-1">
-                                  {new Date(card.due_date).toLocaleDateString("pt-BR")}
-                                </p>
-                              )}
-                              {card.priority && card.priority !== "medium" && (
-                                <Badge variant="outline" className={`mt-2 text-[10px] ${card.priority === "urgent" ? "border-destructive text-destructive" : card.priority === "high" ? "border-warning text-warning" : "border-muted text-muted-foreground"}`}>
-                                  {card.priority}
-                                </Badge>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -205,15 +297,26 @@ export default function KanbanPage() {
                 <Select value={newPriority} onValueChange={setNewPriority}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">Baixa</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="urgent">Urgente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div><Label>Data Limite</Label><Input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} /></div>
             </div>
+            {activeBoard === "geral" && (
+              <div>
+                <Label>Quadro</Label>
+                <Select value={newBoard} onValueChange={setNewBoard}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {BOARDS.filter(b => b !== "geral").map(b => <SelectItem key={b} value={b} className="capitalize">{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter><Button onClick={createCard}>Criar</Button></DialogFooter>
         </DialogContent>
@@ -233,10 +336,10 @@ export default function KanbanPage() {
                   <Select value={editCard.priority} onValueChange={v => setEditCard({ ...editCard, priority: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="low">Baixa</SelectItem>
+                      <SelectItem value="medium">Média</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="urgent">Urgente</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -246,7 +349,7 @@ export default function KanbanPage() {
                 <Select value={editCard.column_id} onValueChange={v => setEditCard({ ...editCard, column_id: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {columns.map(col => <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>)}
+                    {allColumns.filter(c => c.board === editCard.board).map(col => <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
