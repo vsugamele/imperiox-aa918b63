@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_kanban_cards ADD COLUMN IF NOT EXISTS member_id TEXT;

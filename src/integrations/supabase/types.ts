@@ -9290,6 +9290,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          member_id: string | null
           metadata: Json | null
           position: number | null
           priority: string | null
@@ -9307,6 +9308,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          member_id?: string | null
           metadata?: Json | null
           position?: number | null
           priority?: string | null
@@ -9324,6 +9326,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          member_id?: string | null
           metadata?: Json | null
           position?: number | null
           priority?: string | null
