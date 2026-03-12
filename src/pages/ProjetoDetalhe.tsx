@@ -103,6 +103,9 @@ export default function ProjetoDetalhe() {
         <TabsContent value="docs" className="mt-4">
           <ProjetoDocs projectId={id!} />
         </TabsContent>
+        <TabsContent value="concorrentes" className="mt-4">
+          <ConcorrentesTab projectId={id!} />
+        </TabsContent>
       </Tabs>
     </div>
   );
