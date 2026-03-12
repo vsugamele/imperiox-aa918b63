@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
@@ -30,10 +31,12 @@ const PRIORITY_DOT: Record<string, string> = {
   low: "bg-muted-foreground/40",
 };
 
+interface TeamMember { id: string; nome: string; avatar_url?: string; cargo?: string; }
 interface KanbanColumn { id: string; title: string; color: string; position: number; board: string; }
 interface KanbanCard {
   id: string; column_id: string; title: string; description?: string;
   priority: string; due_date?: string; tags: string[]; position: number; board: string;
+  member_id?: string;
 }
 
 export default function KanbanPage() {
@@ -41,6 +44,7 @@ export default function KanbanPage() {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
   const [activeBoard, setActiveBoard] = useState("geral");
   const [showNewCard, setShowNewCard] = useState<string | null>(null);
   const [editCard, setEditCard] = useState<KanbanCard | null>(null);
@@ -49,20 +53,22 @@ export default function KanbanPage() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newBoard, setNewBoard] = useState("agentes");
+  const [newMemberId, setNewMemberId] = useState("none");
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterMember, setFilterMember] = useState("all");
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [colRes, cardRes] = await Promise.all([
+    const [colRes, cardRes, memberRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
+      supabase.from("imphq_team_members").select("id, nome, avatar_url, cargo"),
     ]);
 
     let cols = (colRes.data || []) as KanbanColumn[];
     const existingBoards = new Set(cols.map(c => c.board));
 
-    // Auto-init columns for boards that don't have any
     for (const board of ["agentes", "humanas", "criativos", "campanhas"]) {
       if (!existingBoards.has(board)) {
         const newCols = DEFAULT_COLUMNS.map((title, i) => ({
@@ -75,15 +81,14 @@ export default function KanbanPage() {
 
     setAllColumns(cols);
     setAllCards((cardRes.data || []) as KanbanCard[]);
+    setMembers((memberRes.data || []) as TeamMember[]);
     setLoading(false);
   }, []);
 
   useEffect(() => { loadAllData(); }, [loadAllData]);
 
-  // Derive board-specific data
   useEffect(() => {
     if (activeBoard === "geral") {
-      // Merge all columns by title, use first found id per title
       const mergedMap = new Map<string, KanbanColumn>();
       for (const col of allColumns) {
         const key = col.title.toLowerCase();
@@ -98,7 +103,6 @@ export default function KanbanPage() {
     }
   }, [activeBoard, allColumns, allCards]);
 
-  // Counters
   const getColTitle = (card: KanbanCard) => {
     const col = allColumns.find(c => c.id === card.column_id);
     return col?.title.toLowerCase() || "";
@@ -120,13 +124,17 @@ export default function KanbanPage() {
     if (searchTerm) {
       filtered = filtered.filter(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()));
     }
+    if (filterMember !== "all") {
+      filtered = filtered.filter(c => c.member_id === filterMember);
+    }
     return filtered;
   };
+
+  const getMember = (memberId?: string) => memberId ? members.find(m => m.id === memberId) : undefined;
 
   const createCard = async () => {
     if (!newTitle.trim() || !showNewCard) return;
     const board = activeBoard === "geral" ? newBoard : activeBoard;
-    // Find the actual column for this board matching the selected column title
     let targetColId = showNewCard;
     if (activeBoard === "geral") {
       const selectedCol = allColumns.find(c => c.id === showNewCard);
@@ -138,17 +146,22 @@ export default function KanbanPage() {
       column_id: targetColId, title: newTitle.trim(), priority: newPriority,
       due_date: newDueDate || null, description: newDesc || null,
       board, position: allCards.filter(c => c.column_id === targetColId).length, tags: [],
+      member_id: newMemberId === "none" ? null : newMemberId,
     });
     if (error) { toast.error("Erro ao criar card"); return; }
     toast.success("Card criado!");
-    setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes");
+    setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none");
     loadAllData();
   };
 
   const updateCard = async () => {
     if (!editCard) return;
     const { error } = await supabase.from("imphq_kanban_cards")
-      .update({ title: editCard.title, description: editCard.description, priority: editCard.priority, due_date: editCard.due_date || null, column_id: editCard.column_id })
+      .update({
+        title: editCard.title, description: editCard.description, priority: editCard.priority,
+        due_date: editCard.due_date || null, column_id: editCard.column_id,
+        member_id: editCard.member_id || null,
+      })
       .eq("id", editCard.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Card atualizado!");
@@ -193,10 +206,35 @@ export default function KanbanPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar cards..." className="pl-9 bg-secondary" />
+      {/* Search + Member Filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-xs flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar cards..." className="pl-9 bg-secondary" />
+        </div>
+        <Select value={filterMember} onValueChange={setFilterMember}>
+          <SelectTrigger className="w-[180px] h-9">
+            <Users className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue placeholder="Responsável" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            {members.map(m => (
+              <SelectItem key={m.id} value={m.id}>
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-4 w-4">
+                    {m.avatar_url ? <AvatarImage src={m.avatar_url} /> : null}
+                    <AvatarFallback className="text-[8px] bg-secondary">{(m.nome || "?")[0]}</AvatarFallback>
+                  </Avatar>
+                  {m.nome}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {filterMember !== "all" && (
+          <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => setFilterMember("all")}>Limpar</Button>
+        )}
       </div>
 
       <Tabs value={activeBoard} onValueChange={setActiveBoard}>
@@ -212,7 +250,7 @@ export default function KanbanPage() {
               <p className="text-sm text-muted-foreground">Carregando...</p>
             ) : (
               <div className="grid grid-cols-5 gap-3 min-h-[60vh]">
-                {columns.map((col, colIdx) => {
+                {columns.map((col) => {
                   const colTitle = col.title.toLowerCase();
                   const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
                   const colCards = filteredCards(col.id);
@@ -227,7 +265,7 @@ export default function KanbanPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Badge variant="outline" className="text-[10px] h-5 min-w-[20px] justify-center">{colCards.length}</Badge>
-                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setShowNewCard(col.id); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); }}>
+                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setShowNewCard(col.id); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); }}>
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
@@ -239,6 +277,7 @@ export default function KanbanPage() {
                         {colCards.map((card) => {
                           const cardBoardCols = allColumns.filter(c => c.board === card.board).sort((a, b) => a.position - b.position);
                           const cardColIdx = cardBoardCols.findIndex(c => c.id === card.column_id);
+                          const member = getMember(card.member_id);
                           return (
                             <Card key={card.id} className="bg-card border-border hover:border-primary/20 transition-colors group cursor-pointer" onClick={() => setEditCard({ ...card })}>
                               <CardContent className="p-3">
@@ -264,11 +303,19 @@ export default function KanbanPage() {
                                       <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
                                     )}
                                   </div>
-                                  {card.due_date && (
-                                    <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
-                                      {new Date(card.due_date).toLocaleDateString("pt-BR")}
-                                    </p>
-                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    {card.due_date && (
+                                      <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
+                                        {new Date(card.due_date).toLocaleDateString("pt-BR")}
+                                      </p>
+                                    )}
+                                    {member && (
+                                      <Avatar className="h-5 w-5" title={member.nome}>
+                                        {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
+                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{(member.nome || "?")[0]}</AvatarFallback>
+                                      </Avatar>
+                                    )}
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
@@ -305,6 +352,26 @@ export default function KanbanPage() {
                 </Select>
               </div>
               <div><Label>Data Limite</Label><Input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} /></div>
+            </div>
+            <div>
+              <Label>Responsável</Label>
+              <Select value={newMemberId} onValueChange={setNewMemberId}>
+                <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {members.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-4 w-4">
+                          {m.avatar_url ? <AvatarImage src={m.avatar_url} /> : null}
+                          <AvatarFallback className="text-[8px] bg-secondary">{(m.nome || "?")[0]}</AvatarFallback>
+                        </Avatar>
+                        {m.nome}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {activeBoard === "geral" && (
               <div>
@@ -344,6 +411,26 @@ export default function KanbanPage() {
                   </Select>
                 </div>
                 <div><Label>Data Limite</Label><Input type="date" value={editCard.due_date || ""} onChange={e => setEditCard({ ...editCard, due_date: e.target.value })} /></div>
+              </div>
+              <div>
+                <Label>Responsável</Label>
+                <Select value={editCard.member_id || "none"} onValueChange={v => setEditCard({ ...editCard, member_id: v === "none" ? undefined : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {members.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-4 w-4">
+                            {m.avatar_url ? <AvatarImage src={m.avatar_url} /> : null}
+                            <AvatarFallback className="text-[8px] bg-secondary">{(m.nome || "?")[0]}</AvatarFallback>
+                          </Avatar>
+                          {m.nome}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div><Label>Mover para coluna</Label>
                 <Select value={editCard.column_id} onValueChange={v => setEditCard({ ...editCard, column_id: v })}>

@@ -12,6 +12,114 @@ async function hashSHA256(value: string): Promise<string> {
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Map event names to Facebook CAPI event names
+const CAPI_EVENT_MAP: Record<string, string> = {
+  compra_aprovada: "Purchase",
+  lead_capturado: "Lead",
+  inicio_checkout: "InitiateCheckout",
+  visualizacao_conteudo: "ViewContent",
+};
+
+async function sendCAPIEvent(
+  fbToken: string,
+  fbPixelId: string,
+  fbTestCode: string | undefined,
+  eventName: string,
+  email: string,
+  nome: string,
+  phone: string,
+  valor: number,
+  produto: string,
+) {
+  const eventData: any = {
+    data: [{
+      event_name: eventName,
+      event_time: Math.floor(Date.now() / 1000),
+      action_source: "website",
+      user_data: {
+        em: email ? [await hashSHA256(email.toLowerCase())] : undefined,
+        fn: nome ? [await hashSHA256(nome.toLowerCase().split(" ")[0])] : undefined,
+        ph: phone ? [await hashSHA256(phone.replace(/\D/g, ""))] : undefined,
+      },
+      custom_data: {
+        currency: "BRL",
+        value: valor || 0,
+        content_name: produto || undefined,
+      },
+    }],
+  };
+  if (fbTestCode) eventData.test_event_code = fbTestCode;
+
+  const capiRes = await fetch(
+    `https://graph.facebook.com/v18.0/${fbPixelId}/events?access_token=${fbToken}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(eventData),
+    }
+  );
+  return await capiRes.json();
+}
+
+function parseWebhookBody(body: any, hotmartToken: string | null) {
+  let plataforma = "desconhecido";
+  let evento = "desconhecido";
+  let email = "";
+  let nome = "";
+  let phone = "";
+  let valor = 0;
+  let produto = "";
+
+  if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
+    plataforma = "Hotmart";
+    const ev = body.event || "";
+    if (ev.includes("APPROVED") || ev.includes("COMPLETE")) evento = "compra_aprovada";
+    else if (ev.includes("REFUND")) evento = "reembolso";
+    else if (ev.includes("ABANDONED") || ev.includes("CHECKOUT")) evento = "carrinho_abandonado";
+    else evento = ev.toLowerCase();
+
+    const buyer = body.data?.buyer || {};
+    email = buyer.email || "";
+    nome = buyer.name || "";
+    phone = buyer.checkout_phone || "";
+    valor = body.data?.purchase?.price?.value || 0;
+    produto = body.data?.product?.name || "";
+  } else if (body?.webhook_event_type || body?.order_status) {
+    plataforma = "Kiwify";
+    const status = body.order_status || body.webhook_event_type || "";
+    if (status === "paid" || status === "approved") evento = "compra_aprovada";
+    else if (status === "refunded") evento = "reembolso";
+    else if (status === "waiting_payment") evento = "carrinho_abandonado";
+    else evento = status;
+
+    const customer = body.Customer || body.customer || {};
+    email = customer.email || body.customer_email || "";
+    nome = customer.full_name || customer.name || "";
+    phone = customer.mobile || "";
+    valor = parseFloat(body.sale_amount || body.order_value || "0");
+    produto = body.product_name || body.Product?.name || "";
+  } else if (body?.tipo_evento || body?.dados) {
+    plataforma = "Ticto";
+    evento = body.tipo_evento === "venda_aprovada" ? "compra_aprovada" : body.tipo_evento || "desconhecido";
+    const dados = body.dados || {};
+    email = dados.email_comprador || "";
+    nome = dados.nome_comprador || "";
+    phone = dados.telefone_comprador || "";
+    valor = parseFloat(dados.valor || "0");
+    produto = dados.nome_produto || "";
+  } else {
+    plataforma = body.plataforma || "Outro";
+    evento = body.evento || body.event_type || "desconhecido";
+    email = body.email || body.customer?.email || "";
+    nome = body.nome || body.customer?.name || "";
+    phone = body.phone || body.customer?.phone || "";
+    valor = parseFloat(body.valor || body.amount || "0");
+    produto = body.produto || body.product || "";
+  }
+
+  return { plataforma, evento, email, nome, phone, valor, produto };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,70 +131,30 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Read project_id from query string (priority)
     const url = new URL(req.url);
     const queryProjectId = url.searchParams.get("project");
+    // Allow overriding event type via query param (e.g. ?event=Lead)
+    const queryEvent = url.searchParams.get("event");
 
     const body = await req.json();
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    let plataforma = "desconhecido";
-    let evento = "desconhecido";
-    let email = "";
-    let nome = "";
-    let phone = "";
-    let valor = 0;
-    let produto = "";
-    let projectId: string | null = queryProjectId;
+    let { plataforma, evento, email, nome, phone, valor, produto } = parseWebhookBody(body, hotmartToken);
 
-    if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
-      plataforma = "Hotmart";
-      const ev = body.event || "";
-      if (ev.includes("APPROVED") || ev.includes("COMPLETE")) evento = "compra_aprovada";
-      else if (ev.includes("REFUND")) evento = "reembolso";
-      else if (ev.includes("ABANDONED") || ev.includes("CHECKOUT")) evento = "carrinho_abandonado";
-      else evento = ev.toLowerCase();
-
-      const buyer = body.data?.buyer || {};
-      email = buyer.email || "";
-      nome = buyer.name || "";
-      phone = buyer.checkout_phone || "";
-      valor = body.data?.purchase?.price?.value || 0;
-      produto = body.data?.product?.name || "";
-    } else if (body?.webhook_event_type || body?.order_status) {
-      plataforma = "Kiwify";
-      const status = body.order_status || body.webhook_event_type || "";
-      if (status === "paid" || status === "approved") evento = "compra_aprovada";
-      else if (status === "refunded") evento = "reembolso";
-      else if (status === "waiting_payment") evento = "carrinho_abandonado";
-      else evento = status;
-
-      const customer = body.Customer || body.customer || {};
-      email = customer.email || body.customer_email || "";
-      nome = customer.full_name || customer.name || "";
-      phone = customer.mobile || "";
-      valor = parseFloat(body.sale_amount || body.order_value || "0");
-      produto = body.product_name || body.Product?.name || "";
-    } else if (body?.tipo_evento || body?.dados) {
-      plataforma = "Ticto";
-      evento = body.tipo_evento === "venda_aprovada" ? "compra_aprovada" : body.tipo_evento || "desconhecido";
-      const dados = body.dados || {};
-      email = dados.email_comprador || "";
-      nome = dados.nome_comprador || "";
-      phone = dados.telefone_comprador || "";
-      valor = parseFloat(dados.valor || "0");
-      produto = dados.nome_produto || "";
-    } else {
-      plataforma = body.plataforma || "Outro";
-      evento = body.evento || body.event_type || "desconhecido";
-      email = body.email || body.customer?.email || "";
-      nome = body.nome || body.customer?.name || "";
-      phone = body.phone || body.customer?.phone || "";
-      valor = parseFloat(body.valor || body.amount || "0");
-      produto = body.produto || body.product || "";
+    // Override evento if query param ?event= is provided
+    if (queryEvent) {
+      const eventMap: Record<string, string> = {
+        Lead: "lead_capturado",
+        InitiateCheckout: "inicio_checkout",
+        ViewContent: "visualizacao_conteudo",
+        Purchase: "compra_aprovada",
+      };
+      evento = eventMap[queryEvent] || queryEvent.toLowerCase();
     }
 
-    // Try to find project by product name match (only if no query param)
+    let projectId: string | null = queryProjectId;
+
+    // Try to find project by product name match
     if (!projectId && produto) {
       const { data: proj } = await supabase
         .from("imphq_projects")
@@ -134,7 +202,24 @@ Deno.serve(async (req) => {
       processado: false,
     });
 
-    // If purchase approved, create sale and update lead
+    // Get project CAPI config (needed for multiple event types)
+    let fbToken: string | undefined;
+    let fbPixelId: string | undefined;
+    let fbTestCode: string | undefined;
+
+    if (projectId) {
+      const { data: proj } = await supabase
+        .from("imphq_projects")
+        .select("data")
+        .eq("id", projectId)
+        .single();
+
+      fbToken = proj?.data?.facebook_access_token;
+      fbPixelId = proj?.data?.facebook_pixel_id;
+      fbTestCode = proj?.data?.facebook_test_event_code;
+    }
+
+    // Handle purchase
     if (evento === "compra_aprovada" && leadId && valor > 0) {
       await supabase.from("imphq_vendas").insert({
         id: crypto.randomUUID(),
@@ -150,54 +235,19 @@ Deno.serve(async (req) => {
         .from("imphq_leads")
         .update({ status: "cliente" })
         .eq("id", leadId);
+    }
 
-      // Send Facebook CAPI event if project has access token configured
-      if (projectId) {
-        const { data: proj } = await supabase
-          .from("imphq_projects")
-          .select("data")
-          .eq("id", projectId)
-          .single();
-
-        const fbToken = proj?.data?.facebook_access_token;
-        const fbPixelId = proj?.data?.facebook_pixel_id;
-        const fbTestCode = proj?.data?.facebook_test_event_code;
-
-        if (fbToken && fbPixelId) {
-          try {
-            const eventData: any = {
-              data: [{
-                event_name: "Purchase",
-                event_time: Math.floor(Date.now() / 1000),
-                action_source: "website",
-                user_data: {
-                  em: [await hashSHA256(email.toLowerCase())],
-                  fn: nome ? [await hashSHA256(nome.toLowerCase().split(" ")[0])] : undefined,
-                  ph: phone ? [await hashSHA256(phone.replace(/\D/g, ""))] : undefined,
-                },
-                custom_data: {
-                  currency: "BRL",
-                  value: valor,
-                  content_name: produto,
-                },
-              }],
-            };
-            if (fbTestCode) eventData.test_event_code = fbTestCode;
-
-            const capiRes = await fetch(
-              `https://graph.facebook.com/v18.0/${fbPixelId}/events?access_token=${fbToken}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(eventData),
-              }
-            );
-            const capiResult = await capiRes.json();
-            console.log(`[webhook-pagamento] CAPI Purchase enviado:`, capiResult);
-          } catch (capiErr) {
-            console.error("[webhook-pagamento] Erro CAPI:", capiErr);
-          }
-        }
+    // Send CAPI event for supported event types
+    const capiEventName = CAPI_EVENT_MAP[evento];
+    if (capiEventName && fbToken && fbPixelId) {
+      try {
+        const capiResult = await sendCAPIEvent(
+          fbToken, fbPixelId, fbTestCode,
+          capiEventName, email, nome, phone, valor, produto
+        );
+        console.log(`[webhook-pagamento] CAPI ${capiEventName} enviado:`, capiResult);
+      } catch (capiErr) {
+        console.error("[webhook-pagamento] Erro CAPI:", capiErr);
       }
     }
 
@@ -206,6 +256,8 @@ Deno.serve(async (req) => {
       compra_aprovada: "compra_aprovada",
       carrinho_abandonado: "carrinho_abandonado",
       reembolso: "reembolso",
+      lead_capturado: "lead_capturado",
+      inicio_checkout: "inicio_checkout",
     };
     const triggerTipo = triggerMap[evento];
     if (triggerTipo) {

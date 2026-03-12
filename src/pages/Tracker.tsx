@@ -223,6 +223,9 @@ export default function Tracker() {
   // Store landing page
   if(!localStorage.getItem("imp_landing")) localStorage.setItem("imp_landing", window.location.href);
   
+  // Helper: generate event_id for deduplication
+  function genEventId(){ return crypto.randomUUID(); }
+  
   // Helper: post to Supabase
   function sbPost(table, data){
     return fetch(SB_URL + "/rest/v1/" + table, {
@@ -253,9 +256,14 @@ export default function Tracker() {
   }
   
   // Track event function
-  function trackEvent(eventName, eventData){
+  function trackEvent(eventName, eventData, eventId){
+    var eid = eventId || genEventId();
+    // Fire fbq if available
+    if(window.fbq){
+      try { window.fbq("trackCustom", eventName, eventData || {}, { eventID: eid }); } catch(e){}
+    }
     return sbPost("imphq_events", {
-      id: crypto.randomUUID(),
+      id: eid,
       visitor_id: visitorId,
       session_id: sessionId,
       event_name: eventName,
@@ -271,6 +279,19 @@ export default function Tracker() {
     });
   }
   
+  // Load Facebook Pixel dynamically
+  var pixelId = document.querySelector('meta[name="imp-pixel-id"]');
+  if(pixelId){ pixelId = pixelId.getAttribute("content"); }
+  if(pixelId){
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,"script","https://connect.facebook.net/en_US/fbevents.js");
+    fbq("init", pixelId);
+    fbq("track", "PageView", {}, { eventID: genEventId() });
+  }
+  
   // Auto-track PageView
   trackEvent("PageView", { title: document.title });
   
@@ -280,8 +301,20 @@ export default function Tracker() {
     getVisitorId: function(){ return visitorId; },
     getSessionId: function(){ return sessionId; },
     trackEvent: trackEvent,
+    trackViewContent: function(data){
+      var eid = genEventId();
+      if(window.fbq) fbq("track", "ViewContent", data || {}, { eventID: eid });
+      return trackEvent("ViewContent", data, eid);
+    },
+    trackAddToCart: function(data){
+      var eid = genEventId();
+      if(window.fbq) fbq("track", "AddToCart", data || {}, { eventID: eid });
+      return trackEvent("AddToCart", data, eid);
+    },
     trackLead: function(data){
-      trackEvent("LeadCapture", { email: data.email, nome: data.nome });
+      var eid = genEventId();
+      if(window.fbq) fbq("track", "Lead", { email: data.email }, { eventID: eid });
+      trackEvent("LeadCapture", { email: data.email, nome: data.nome }, eid);
       return sbPost("imphq_leads", Object.assign({
         id: crypto.randomUUID(),
         plataforma: utms.utm_source || null,

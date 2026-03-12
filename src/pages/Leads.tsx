@@ -9,8 +9,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
-import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -30,6 +31,25 @@ interface Lead {
   _isNew?: boolean;
 }
 
+interface TimelineEvent {
+  id: string;
+  type: "PageView" | "LeadCapture" | "ViewContent" | "AddToCart" | "Purchase" | "click" | string;
+  timestamp: string;
+  title: string;
+  subtitle?: string;
+  details?: Record<string, any>;
+}
+
+const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+  PageView: { icon: <Globe className="h-3 w-3" />, color: "bg-blue-500", label: "Página Vista" },
+  LeadCapture: { icon: <Users className="h-3 w-3" />, color: "bg-emerald-500", label: "Lead Capturado" },
+  ViewContent: { icon: <Eye className="h-3 w-3" />, color: "bg-violet-500", label: "Conteúdo Visto" },
+  AddToCart: { icon: <ShoppingCart className="h-3 w-3" />, color: "bg-amber-500", label: "Add ao Carrinho" },
+  Purchase: { icon: <DollarSign className="h-3 w-3" />, color: "bg-primary", label: "Compra" },
+  click: { icon: <MousePointerClick className="h-3 w-3" />, color: "bg-cyan-500", label: "Click UTM" },
+  ButtonClick: { icon: <Zap className="h-3 w-3" />, color: "bg-orange-500", label: "Click" },
+};
+
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -41,6 +61,8 @@ export default function Leads() {
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", phone: "", plataforma: "", status: "lead", tags: [] as string[] });
   const [realtimeActive, setRealtimeActive] = useState(false);
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -64,10 +86,7 @@ export default function Leads() {
         { event: "INSERT", schema: "public", table: "imphq_leads" },
         (payload) => {
           const newLead = payload.new as Lead;
-          // Add with _isNew flag for animation
           setLeads((prev) => [{ ...newLead, _isNew: true }, ...prev]);
-          
-          // Show toast if matches current project filter
           const pf = projectFilterRef.current;
           const matchesFilter = pf === "all" || newLead.project_id === pf || (!newLead.project_id && pf === "none");
           if (matchesFilter) {
@@ -75,8 +94,6 @@ export default function Leads() {
               description: newLead.plataforma ? `Via ${newLead.plataforma}` : undefined,
             });
           }
-
-          // Remove _isNew flag after animation
           setTimeout(() => {
             setLeads((prev) => prev.map((l) => l.id === newLead.id ? { ...l, _isNew: false } : l));
           }, 3000);
@@ -85,11 +102,89 @@ export default function Leads() {
       .subscribe((status) => {
         setRealtimeActive(status === "SUBSCRIBED");
       });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Load timeline when editLead changes
+  const loadTimeline = async (lead: Lead) => {
+    setTimelineLoading(true);
+    setTimeline([]);
+    const events: TimelineEvent[] = [];
+    const visitorId = lead.data?.visitor_id;
+
+    const promises: Promise<any>[] = [];
+
+    // Events from imphq_events (by visitor_id or email)
+    if (visitorId) {
+      promises.push(
+        supabase.from("imphq_events").select("*").eq("visitor_id", visitorId).order("created_at", { ascending: false }).limit(100)
+          .then(({ data }) => {
+            (data || []).forEach((e: any) => {
+              events.push({
+                id: e.id,
+                type: e.event_name || "PageView",
+                timestamp: e.created_at,
+                title: e.event_name || "Evento",
+                subtitle: e.page_url ? new URL(e.page_url).pathname : undefined,
+                details: { ...e.event_data, utm_source: e.utm_source, utm_medium: e.utm_medium, utm_campaign: e.utm_campaign },
+              });
+            });
+          })
+      );
+    }
+
+    // Sales from imphq_vendas
+    promises.push(
+      supabase.from("imphq_vendas").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false })
+        .then(({ data }) => {
+          (data || []).forEach((v: any) => {
+            events.push({
+              id: v.id,
+              type: "Purchase",
+              timestamp: v.created_at,
+              title: `Compra: ${v.produto || "—"}`,
+              subtitle: `R$ ${parseFloat(v.valor || 0).toFixed(2)} via ${v.plataforma || "—"}`,
+              details: { status: v.status },
+            });
+          });
+        })
+    );
+
+    // Clicks from imphq_clicks (by email match in lead data utms)
+    if (lead.email) {
+      promises.push(
+        supabase.from("imphq_clicks").select("*").order("created_at", { ascending: false }).limit(50)
+          .then(({ data }) => {
+            // Only include clicks that match visitor_id in the page_url or user_agent
+            // Since clicks don't have visitor_id, we include recent ones if UTMs match
+            const leadUtmSource = lead.data?.utms?.utm_source;
+            (data || []).forEach((c: any) => {
+              if (leadUtmSource && c.utm_source === leadUtmSource) {
+                events.push({
+                  id: c.id,
+                  type: "click",
+                  timestamp: c.created_at,
+                  title: "Click UTM",
+                  subtitle: c.page_url ? new URL(c.page_url).pathname : c.utm_campaign,
+                  details: { utm_source: c.utm_source, utm_medium: c.utm_medium, utm_campaign: c.utm_campaign },
+                });
+              }
+            });
+          })
+      );
+    }
+
+    await Promise.all(promises);
+
+    // Sort by timestamp desc
+    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    setTimeline(events);
+    setTimelineLoading(false);
+  };
+
+  useEffect(() => {
+    if (editLead) loadTimeline(editLead);
+  }, [editLead?.id]);
 
   const filtered = leads.filter((l) => {
     const matchSearch = !search || l.nome?.toLowerCase().includes(search.toLowerCase()) || l.email?.toLowerCase().includes(search.toLowerCase());
@@ -370,44 +465,100 @@ export default function Leads() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit Lead Dialog */}
+        {/* Edit Lead Dialog with Tabs */}
         <Dialog open={!!editLead} onOpenChange={() => setEditLead(null)}>
-          <DialogContent>
+          <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>Editar Lead</DialogTitle></DialogHeader>
             {editLead && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 pb-2">
-                  <Avatar className="h-10 w-10 bg-secondary">
-                    <AvatarFallback className="font-bold bg-secondary text-foreground">{(editLead.nome || "?")[0].toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{editLead.nome}</p>
-                    <p className="text-xs text-muted-foreground">{editLead.email}</p>
+              <Tabs defaultValue="dados" className="space-y-3">
+                <TabsList className="w-full">
+                  <TabsTrigger value="dados" className="flex-1">📝 Dados</TabsTrigger>
+                  <TabsTrigger value="jornada" className="flex-1">🗺️ Jornada ({timeline.length})</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="dados" className="space-y-3">
+                  <div className="flex items-center gap-3 pb-2">
+                    <Avatar className="h-10 w-10 bg-secondary">
+                      <AvatarFallback className="font-bold bg-secondary text-foreground">{(editLead.nome || "?")[0].toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{editLead.nome}</p>
+                      <p className="text-xs text-muted-foreground">{editLead.email}</p>
+                    </div>
                   </div>
-                </div>
-                <div><Label>Nome</Label><Input value={editLead.nome || ""} onChange={e => setEditLead({ ...editLead, nome: e.target.value })} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Email</Label><Input value={editLead.email || ""} onChange={e => setEditLead({ ...editLead, email: e.target.value })} /></div>
-                  <div><Label>Telefone</Label><Input value={editLead.phone || ""} onChange={e => setEditLead({ ...editLead, phone: e.target.value })} /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Plataforma</Label>
-                    <Select value={editLead.plataforma || ""} onValueChange={v => setEditLead({ ...editLead, plataforma: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                      <SelectContent>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                    </Select>
+                  <div><Label>Nome</Label><Input value={editLead.nome || ""} onChange={e => setEditLead({ ...editLead, nome: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Email</Label><Input value={editLead.email || ""} onChange={e => setEditLead({ ...editLead, email: e.target.value })} /></div>
+                    <div><Label>Telefone</Label><Input value={editLead.phone || ""} onChange={e => setEditLead({ ...editLead, phone: e.target.value })} /></div>
                   </div>
-                  <div>
-                    <Label>Status</Label>
-                    <Select value={editLead.status || "lead"} onValueChange={v => setEditLead({ ...editLead, status: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Plataforma</Label>
+                      <Select value={editLead.plataforma || ""} onValueChange={v => setEditLead({ ...editLead, plataforma: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                        <SelectContent>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Status</Label>
+                      <Select value={editLead.status || "lead"} onValueChange={v => setEditLead({ ...editLead, status: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-                <div><Label>Tags</Label><EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} /></div>
-              </div>
+                  <div><Label>Tags</Label><EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} /></div>
+                </TabsContent>
+
+                <TabsContent value="jornada">
+                  {timelineLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Carregando jornada...</p>
+                  ) : timeline.length === 0 ? (
+                    <div className="text-center py-8 space-y-2">
+                      <Globe className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                      <p className="text-sm text-muted-foreground">Nenhum evento registrado</p>
+                      <p className="text-[10px] text-muted-foreground">Instale o script imptrack.js para rastrear a jornada</p>
+                    </div>
+                  ) : (
+                    <div className="relative max-h-[400px] overflow-y-auto pr-2">
+                      {/* Timeline line */}
+                      <div className="absolute left-[15px] top-0 bottom-0 w-px bg-border" />
+                      <div className="space-y-3">
+                        {timeline.map((ev) => {
+                          const config = EVENT_CONFIG[ev.type] || { icon: <Zap className="h-3 w-3" />, color: "bg-muted-foreground", label: ev.type };
+                          return (
+                            <div key={ev.id} className="flex gap-3 relative">
+                              <div className={`h-[30px] w-[30px] rounded-full ${config.color} flex items-center justify-center text-white shrink-0 z-10`}>
+                                {config.icon}
+                              </div>
+                              <div className="flex-1 min-w-0 pb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium">{config.label}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {format(new Date(ev.timestamp), "dd/MM HH:mm")}
+                                  </span>
+                                </div>
+                                {ev.subtitle && (
+                                  <p className="text-[11px] text-muted-foreground truncate">{ev.subtitle}</p>
+                                )}
+                                {ev.details && Object.keys(ev.details).filter(k => ev.details![k]).length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {Object.entries(ev.details).filter(([, v]) => v).slice(0, 4).map(([k, v]) => (
+                                      <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">
+                                        {k}: {String(v).substring(0, 30)}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             )}
             <DialogFooter className="flex justify-between">
               <Button variant="destructive" size="sm" onClick={() => editLead && deleteLead(editLead.id)}>
