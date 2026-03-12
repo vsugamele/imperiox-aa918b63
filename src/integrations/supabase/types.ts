@@ -9821,6 +9821,78 @@ export type Database = {
           },
         ]
       }
+      imphq_skills: {
+        Row: {
+          categoria: string
+          created_at: string | null
+          descricao: string | null
+          icone: string | null
+          id: string
+          nome: string
+          owner_id: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string | null
+          descricao?: string | null
+          icone?: string | null
+          id: string
+          nome: string
+          owner_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          categoria?: string
+          created_at?: string | null
+          descricao?: string | null
+          icone?: string | null
+          id?: string
+          nome?: string
+          owner_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_skills_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skills_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skills_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_skills_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skills_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_tasks: {
         Row: {
           assignee_id: string | null
