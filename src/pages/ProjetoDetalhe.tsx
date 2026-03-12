@@ -76,6 +76,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="pipeline">⚡ Pipeline</TabsTrigger>
           <TabsTrigger value="midia">🖼️ Mídia</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
+          <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="briefing" className="mt-4">
