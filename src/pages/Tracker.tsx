@@ -128,7 +128,7 @@ export default function Tracker() {
     const id = crypto.randomUUID();
     const { error } = await supabase.from("imphq_tracking_links").insert({
       id, nome: form.nome, destino: form.destino, plataforma: form.plataforma,
-      project_id: form.project_id || null,
+      project_id: form.project_id === "none" ? null : form.project_id || null,
       utm_source: form.utm_source || null, utm_medium: form.utm_medium || null,
       utm_campaign: form.utm_campaign || null, utm_content: form.utm_content || null,
       utm_term: form.utm_term || null, ativo: true,
