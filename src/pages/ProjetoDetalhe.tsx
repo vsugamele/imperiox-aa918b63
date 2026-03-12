@@ -135,6 +135,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="midia">🖼️ Mídia</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
+          <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="briefing" className="mt-4">
