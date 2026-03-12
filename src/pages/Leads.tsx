@@ -117,7 +117,7 @@ export default function Leads() {
     // Events from imphq_events (by visitor_id or email)
     if (visitorId) {
       promises.push(
-        supabase.from("imphq_events").select("*").eq("visitor_id", visitorId).order("created_at", { ascending: false }).limit(100)
+        Promise.resolve(supabase.from("imphq_events").select("*").eq("visitor_id", visitorId).order("created_at", { ascending: false }).limit(100))
           .then(({ data }) => {
             (data || []).forEach((e: any) => {
               events.push({
