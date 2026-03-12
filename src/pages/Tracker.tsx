@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 interface TrackingLink {
@@ -17,11 +18,29 @@ interface TrackingLink {
   created_at: string; clickCount?: number;
 }
 
+interface KPITargets {
+  roas_target: number;
+  cpa_target: number;
+  ctr_target: number;
+  cpm_target: number;
+  thumbstop_target: number;
+}
+
+const DEFAULT_TARGETS: KPITargets = {
+  roas_target: 3,
+  cpa_target: 35,
+  ctr_target: 2,
+  cpm_target: 25,
+  thumbstop_target: 30,
+};
+
 export default function Tracker() {
   const [links, setLinks] = useState<TrackingLink[]>([]);
   const [clicks, setClicks] = useState<any[]>([]);
   const [vendas, setVendas] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
+  const [showTargets, setShowTargets] = useState(false);
+  const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [form, setForm] = useState({ nome: "", destino: "", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
 
   const load = async () => {
@@ -32,7 +51,6 @@ export default function Tracker() {
     ]);
     const linksData = (lRes.data || []) as TrackingLink[];
     const clicksData = cRes.data || [];
-    // Enrich links with click counts
     const enriched = linksData.map(l => ({
       ...l,
       clickCount: clicksData.filter((c: any) => c.link_id === l.id).length,
@@ -40,9 +58,19 @@ export default function Tracker() {
     setLinks(enriched);
     setClicks(clicksData);
     setVendas(vRes.data || []);
+    
+    // Load targets from localStorage
+    const saved = localStorage.getItem("imphq_kpi_targets");
+    if (saved) setTargets(JSON.parse(saved));
   };
 
   useEffect(() => { load(); }, []);
+
+  const saveTargets = () => {
+    localStorage.setItem("imphq_kpi_targets", JSON.stringify(targets));
+    toast.success("Metas salvas!");
+    setShowTargets(false);
+  };
 
   const buildUrl = (l: Partial<TrackingLink>) => {
     if (!l.destino) return "";
@@ -84,79 +112,157 @@ export default function Tracker() {
 
   const copyLink = (link: TrackingLink) => {
     navigator.clipboard.writeText(buildUrl(link));
-    toast({ title: "URL copiada!" } as any);
+    toast.success("URL copiada!");
   };
 
-  // KPI calculations
+  // V5 KPI calculations
   const totalClicks = clicks.length;
   const totalVendas = vendas.length;
   const totalReceita = vendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
-  const cpl = totalClicks > 0 ? (totalReceita / totalClicks).toFixed(2) : "—";
-  const convRate = totalClicks > 0 ? ((totalVendas / totalClicks) * 100).toFixed(1) : "—";
+  const totalGasto = clicks.reduce((s: number, c: any) => s + (parseFloat(c.custo) || 0), 0);
+
+  // Core metrics
+  const cpl = totalClicks > 0 ? totalGasto / totalClicks : 0;
+  const cpa = totalVendas > 0 ? totalGasto / totalVendas : 0;
+  const roas = totalGasto > 0 ? totalReceita / totalGasto : 0;
+  const ctr = totalClicks > 0 ? (totalVendas / totalClicks) * 100 : 0;
+  const cvr = totalClicks > 0 ? (totalVendas / totalClicks) * 100 : 0;
+  const cpm = totalClicks > 0 ? (totalGasto / totalClicks) * 1000 : 0;
+  const ltv = totalVendas > 0 ? totalReceita / totalVendas : 0;
+  const cac = totalVendas > 0 ? totalGasto / totalVendas : 0;
+
+  // Alert status: green = on target, red = off target
+  const getStatus = (real: number, target: number, higherIsBetter: boolean) => {
+    if (target === 0) return "neutral";
+    return higherIsBetter ? (real >= target ? "good" : "bad") : (real <= target ? "good" : "bad");
+  };
+
+  const roasStatus = getStatus(roas, targets.roas_target, true);
+  const cpaStatus = getStatus(cpa, targets.cpa_target, false);
+  const ctrStatus = getStatus(ctr, targets.ctr_target, true);
+  const cpmStatus = getStatus(cpm, targets.cpm_target, false);
+
+  const statusColor = (s: string) => s === "good" ? "text-emerald-400" : s === "bad" ? "text-destructive" : "text-muted-foreground";
+  const statusIcon = (s: string) => s === "good" ? <ArrowUpRight className="h-3 w-3" /> : s === "bad" ? <ArrowDownRight className="h-3 w-3" /> : null;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">UTM Tracker</h1>
-        <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Link</Button>
+        <h1 className="font-display text-3xl font-bold text-primary">⚡ Tracker / Meta</h1>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowTargets(true)}>
+            <Target className="h-4 w-4 mr-1" /> Metas
+          </Button>
+          <Button size="sm" onClick={() => setShowNew(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Novo Link
+          </Button>
+        </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-card border-border"><CardContent className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><MousePointerClick className="h-3 w-3" /> Total Clicks</div>
-          <p className="text-2xl font-bold text-primary font-mono">{totalClicks}</p>
-        </CardContent></Card>
-        <Card className="bg-card border-border"><CardContent className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><DollarSign className="h-3 w-3" /> Receita</div>
-          <p className="text-2xl font-bold text-primary font-mono">R$ {totalReceita.toFixed(2)}</p>
-        </CardContent></Card>
-        <Card className="bg-card border-border"><CardContent className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Target className="h-3 w-3" /> CPL</div>
-          <p className="text-2xl font-bold text-primary font-mono">R$ {cpl}</p>
-        </CardContent></Card>
-        <Card className="bg-card border-border"><CardContent className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><TrendingUp className="h-3 w-3" /> Conv. Rate</div>
-          <p className="text-2xl font-bold text-primary font-mono">{convRate}%</p>
-        </CardContent></Card>
-      </div>
+      <Tabs defaultValue="dashboard" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="dashboard"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Dashboard</TabsTrigger>
+          <TabsTrigger value="links"><MousePointerClick className="h-3.5 w-3.5 mr-1" /> Links UTM</TabsTrigger>
+        </TabsList>
 
-      {/* Links Table */}
-      <div className="rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Medium</TableHead>
-              <TableHead>Campaign</TableHead>
-              <TableHead>Clicks</TableHead>
-              <TableHead>Ativo</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {links.map((l) => (
-              <TableRow key={l.id}>
-                <TableCell className="font-medium">{l.nome}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{l.utm_source || "—"}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{l.utm_medium || "—"}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{l.utm_campaign || "—"}</TableCell>
-                <TableCell className="font-mono text-primary">{l.clickCount ?? 0}</TableCell>
-                <TableCell>
-                  <Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
-                    <Button size="icon" variant="ghost" onClick={() => deleteLink(l.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+        <TabsContent value="dashboard" className="space-y-4">
+          {/* Row 1: Core Financial */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
+            <KPICard icon={<DollarSign className="h-3 w-3" />} label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} />
+            <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Total Clicks" value={String(totalClicks)} />
+            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendas)} />
+          </div>
+
+          {/* Row 2: V5 KPIs with targets */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KPICardTarget
+              label="ROAS" value={roas.toFixed(2)} suffix="x"
+              target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`}
+              status={roasStatus}
+            />
+            <KPICardTarget
+              label="CPA" value={`R$ ${cpa.toFixed(2)}`}
+              target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`}
+              status={cpaStatus}
+            />
+            <KPICardTarget
+              label="CTR" value={`${ctr.toFixed(1)}%`}
+              target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`}
+              status={ctrStatus}
+            />
+            <KPICardTarget
+              label="CPM" value={`R$ ${cpm.toFixed(2)}`}
+              target={targets.cpm_target} targetLabel={`Meta: R$ ${targets.cpm_target}`}
+              status={cpmStatus}
+            />
+          </div>
+
+          {/* Row 3: Advanced KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KPICard icon={<Target className="h-3 w-3" />} label="CPL" value={`R$ ${cpl.toFixed(2)}`} />
+            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(1)}%`} />
+            <KPICard icon={<DollarSign className="h-3 w-3" />} label="LTV" value={`R$ ${ltv.toFixed(2)}`} />
+            <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={`R$ ${cac.toFixed(2)}`} />
+          </div>
+
+          {/* Alerts */}
+          {(roasStatus === "bad" || cpaStatus === "bad") && (
+            <Card className="border-destructive/50 bg-destructive/5">
+              <CardContent className="p-4 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-destructive">Alerta de Performance</p>
+                  {roasStatus === "bad" && (
+                    <p className="text-xs text-muted-foreground">ROAS ({roas.toFixed(2)}x) está abaixo da meta ({targets.roas_target}x). Considere otimizar campanhas ou pausar as que não performam.</p>
+                  )}
+                  {cpaStatus === "bad" && (
+                    <p className="text-xs text-muted-foreground">CPA (R$ {cpa.toFixed(2)}) está acima da meta (R$ {targets.cpa_target}). O custo de aquisição está elevado.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="links" className="space-y-4">
+          <div className="rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Medium</TableHead>
+                  <TableHead>Campaign</TableHead>
+                  <TableHead>Clicks</TableHead>
+                  <TableHead>Ativo</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {links.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="font-medium">{l.nome}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{l.utm_source || "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{l.utm_medium || "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{l.utm_campaign || "—"}</TableCell>
+                    <TableCell className="font-mono text-primary">{l.clickCount ?? 0}</TableCell>
+                    <TableCell>
+                      <Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
+                        <Button size="icon" variant="ghost" onClick={() => deleteLink(l.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* New Link Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -183,6 +289,58 @@ export default function Tracker() {
           <DialogFooter><Button onClick={createLink}>Criar Link</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Targets Dialog */}
+      <Dialog open={showTargets} onOpenChange={setShowTargets}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Metas de KPI (V5)</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>ROAS Target</Label><Input type="number" step="0.1" value={targets.roas_target} onChange={e => setTargets({ ...targets, roas_target: parseFloat(e.target.value) || 0 })} /></div>
+              <div><Label>CPA Target (R$)</Label><Input type="number" value={targets.cpa_target} onChange={e => setTargets({ ...targets, cpa_target: parseFloat(e.target.value) || 0 })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>CTR Target (%)</Label><Input type="number" step="0.1" value={targets.ctr_target} onChange={e => setTargets({ ...targets, ctr_target: parseFloat(e.target.value) || 0 })} /></div>
+              <div><Label>CPM Target (R$)</Label><Input type="number" value={targets.cpm_target} onChange={e => setTargets({ ...targets, cpm_target: parseFloat(e.target.value) || 0 })} /></div>
+            </div>
+            <div><Label>Thumbstop Target (%)</Label><Input type="number" step="0.1" value={targets.thumbstop_target} onChange={e => setTargets({ ...targets, thumbstop_target: parseFloat(e.target.value) || 0 })} /></div>
+          </div>
+          <DialogFooter><Button onClick={saveTargets}>Salvar Metas</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function KPICard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <Card className="bg-card border-border">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">{icon} {label}</div>
+        <p className="text-xl font-bold text-foreground font-mono">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function KPICardTarget({ label, value, suffix, target, targetLabel, status }: {
+  label: string; value: string; suffix?: string; target: number; targetLabel: string; status: string;
+}) {
+  const color = status === "good" ? "text-emerald-400" : status === "bad" ? "text-destructive" : "text-muted-foreground";
+  const borderColor = status === "good" ? "border-emerald-400/30" : status === "bad" ? "border-destructive/30" : "border-border";
+  return (
+    <Card className={`bg-card ${borderColor}`}>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">{label}</span>
+          <span className={`text-[10px] ${color} flex items-center gap-0.5`}>
+            {status === "good" ? <ArrowUpRight className="h-3 w-3" /> : status === "bad" ? <ArrowDownRight className="h-3 w-3" /> : null}
+            {status === "good" ? "On target" : status === "bad" ? "Off target" : "—"}
+          </span>
+        </div>
+        <p className={`text-xl font-bold font-mono ${color}`}>{value}{suffix}</p>
+        <p className="text-[10px] text-muted-foreground mt-1">{targetLabel}</p>
+      </CardContent>
+    </Card>
   );
 }
