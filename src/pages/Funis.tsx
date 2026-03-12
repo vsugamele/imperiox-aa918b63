@@ -259,7 +259,7 @@ export default function Funis() {
             <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Funil VSL Principal" /></div>
             <div>
               <Label>Projeto</Label>
-              <Select value={form.project_id} onValueChange={v => setForm({ ...form, project_id: v })}>
+              <Select value={form.project_id || "none"} onValueChange={v => setForm({ ...form, project_id: v === "none" ? "" : v })}>
                 <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
