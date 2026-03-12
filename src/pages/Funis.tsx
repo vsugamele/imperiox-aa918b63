@@ -43,7 +43,7 @@ export default function Funis() {
     const etapasData = DEFAULT_ETAPAS.map(e => ({ nome: e.nome, visitantes: e.visitantes, conversoes: e.conversoes }));
     const { error } = await supabase.from("imphq_funis").insert([{
       id, nome: form.nome, tipo: form.tipo, status: form.status,
-      data: { etapas: etapasData } as unknown as Record<string, unknown>,
+      data: { etapas: etapasData } as any,
     }]);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Funil criado!"); setShowNew(false); setForm({ nome: "", tipo: "Perpétuo", status: "Rascunho" });
