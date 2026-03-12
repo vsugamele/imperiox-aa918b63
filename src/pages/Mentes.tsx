@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain, Send, Copy, Settings2, ChevronDown, ChevronUp } from "lucide-react";
+import { Brain, Send, Copy, Settings2, ChevronDown, ChevronUp, Wrench } from "lucide-react";
 import { KB_SECTIONS } from "@/data/kbTemplates";
 import { toast } from "sonner";
 
@@ -16,6 +16,27 @@ interface Message {
   role: "user" | "assistant" | "system";
   content: string;
 }
+
+interface SkillItem {
+  id: string;
+  nome: string;
+  descricao: string;
+  categoria: string;
+  status: string;
+}
+
+const DEFAULT_SKILLS: SkillItem[] = [
+  { id: "coding-agent", nome: "Coding Agent", descricao: "Agente de codificação autônomo", categoria: "Código", status: "Ativo" },
+  { id: "gemini-flash", nome: "Gemini Flash", descricao: "Modelo de linguagem rápido do Google", categoria: "IA", status: "Ativo" },
+  { id: "image-vision", nome: "Image Vision", descricao: "Análise de imagens com IA", categoria: "IA", status: "Ativo" },
+  { id: "whisper-api", nome: "Whisper API", descricao: "Transcrição de áudio", categoria: "IA", status: "Ativo" },
+  { id: "copy-engine", nome: "Copy Engine", descricao: "Geração de copies persuasivas", categoria: "IA", status: "Beta" },
+  { id: "google-sheets", nome: "Google Sheets", descricao: "Leitura e escrita em planilhas", categoria: "Dados", status: "Ativo" },
+  { id: "meta-ads-api", nome: "Meta Ads API", descricao: "Métricas de campanhas Meta", categoria: "Dados", status: "Beta" },
+  { id: "hotmart-api", nome: "Hotmart API", descricao: "Dados de vendas Hotmart", categoria: "Dados", status: "Ativo" },
+  { id: "telegram-bot", nome: "Telegram Bot", descricao: "Automações no Telegram", categoria: "Automação", status: "Ativo" },
+  { id: "youtube", nome: "YouTube", descricao: "Busca e análise no YouTube", categoria: "Pesquisa", status: "Ativo" },
+];
 
 export default function Mentes() {
   const [chats, setChats] = useState<any[]>([]);
@@ -27,6 +48,8 @@ export default function Mentes() {
   const [selectedKBSections, setSelectedKBSections] = useState<string[]>([]);
   const [showContextPanel, setShowContextPanel] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [skills, setSkills] = useState<SkillItem[]>(DEFAULT_SKILLS);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -35,12 +58,18 @@ export default function Mentes() {
       supabase.from("imphq_ai_chats").select("*").order("updated_at", { ascending: false }).limit(20),
       supabase.from("imphq_projects").select("*").order("name"),
       supabase.from("imphq_kb").select("*").order("order_idx"),
-    ]).then(([chatRes, projRes, kbRes]) => {
+      supabase.from("imphq_skills").select("*").order("created_at"),
+    ]).then(([chatRes, projRes, kbRes, skillsRes]) => {
       setChats(chatRes.data || []);
       setProjects(projRes.data || []);
       const map: Record<string, any> = {};
       (kbRes.data || []).forEach((k: any) => { map[k.section_key] = k; });
       setKbEntries(map);
+      const custom = (skillsRes.data || []).map((s: any) => ({
+        id: s.id, nome: s.nome, descricao: s.descricao || "",
+        categoria: s.categoria || "Outro", status: s.status || "Ativo",
+      }));
+      setSkills([...DEFAULT_SKILLS, ...custom]);
     });
   }, [user]);
 
@@ -49,7 +78,6 @@ export default function Mentes() {
     ctx += "PAPEL DO AGENTE: Você é um agente operacional generalista do Império Digital.\n\n";
     ctx += "REGRAS:\n- Responda sempre em Português do Brasil\n- Use o tom de voz e branding do projeto\n- Consulte o avatar antes de criar copy\n- Documente outputs importantes\n\n";
 
-    // Project briefing + avatar
     if (selectedProject !== "none") {
       const proj = projects.find(p => p.id === selectedProject);
       if (proj) {
@@ -81,6 +109,18 @@ export default function Mentes() {
           ctx += "\n";
         }
       }
+    }
+
+    // Skills
+    if (selectedSkills.length > 0) {
+      ctx += `${"═".repeat(60)}\n\n## SKILLS DISPONÍVEIS PARA ESTE AGENTE\n\n${"═".repeat(60)}\n\n`;
+      for (const id of selectedSkills) {
+        const skill = skills.find(s => s.id === id);
+        if (skill) {
+          ctx += `- **${skill.nome}** [${skill.categoria}] (${skill.status}): ${skill.descricao}\n`;
+        }
+      }
+      ctx += "\nO agente pode usar as skills acima quando necessário para executar tarefas.\n\n";
     }
 
     // KB Sections
@@ -116,11 +156,16 @@ export default function Mentes() {
     );
   };
 
+  const toggleSkill = (id: string) => {
+    setSelectedSkills(prev =>
+      prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]
+    );
+  };
+
   const handleSend = () => {
     if (!input.trim()) return;
     const newMessages: Message[] = [...messages];
 
-    // Inject system prompt if set and not yet injected
     if (systemPrompt && !messages.some(m => m.role === "system")) {
       newMessages.push({ role: "system", content: systemPrompt });
     }
@@ -143,7 +188,6 @@ export default function Mentes() {
         </Button>
       </div>
 
-      {/* Context Builder Panel */}
       {showContextPanel && (
         <Card className="bg-card border-border animate-fade-in">
           <CardHeader className="pb-2">
@@ -152,7 +196,7 @@ export default function Mentes() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs font-medium">Projeto</Label>
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -179,6 +223,25 @@ export default function Mentes() {
                   ))}
                 </div>
               </div>
+
+              <div>
+                <Label className="text-xs font-medium flex items-center gap-1">
+                  <Wrench className="h-3 w-3" /> Skills do Agente
+                </Label>
+                <div className="mt-1 max-h-40 overflow-y-auto space-y-1 border border-border rounded-md p-2">
+                  {skills.filter(s => s.status !== "Planejado").map(skill => (
+                    <label key={skill.id} className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 px-1 py-0.5 rounded text-xs">
+                      <Checkbox
+                        checked={selectedSkills.includes(skill.id)}
+                        onCheckedChange={() => toggleSkill(skill.id)}
+                      />
+                      <span className="truncate">{skill.nome}</span>
+                      <Badge variant="outline" className="text-[8px] ml-auto shrink-0">{skill.categoria}</Badge>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">{selectedSkills.length} skills selecionadas</p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -190,8 +253,9 @@ export default function Mentes() {
               </Button>
               <Button size="sm" variant="outline" onClick={() => {
                 setSelectedKBSections(KB_SECTIONS.map(s => s.key));
+                setSelectedSkills(skills.filter(s => s.status === "Ativo").map(s => s.id));
               }}>
-                Selecionar Todas
+                Selecionar Tudo
               </Button>
               {systemPrompt && (
                 <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400">
@@ -204,7 +268,6 @@ export default function Mentes() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Recent Chats */}
         <div className="lg:col-span-1 space-y-2">
           <h3 className="text-sm font-medium text-muted-foreground">Conversas Recentes</h3>
           {chats.map((c) => (
@@ -217,13 +280,13 @@ export default function Mentes() {
           ))}
         </div>
 
-        {/* Chat */}
         <div className="lg:col-span-3 flex flex-col">
           <Card className="bg-card border-border flex-1 flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="font-display text-lg flex items-center gap-2">
                 <Brain className="h-4 w-4 text-primary" /> Chat
                 {systemPrompt && <Badge variant="outline" className="text-[9px] ml-2">Com Contexto</Badge>}
+                {selectedSkills.length > 0 && <Badge variant="outline" className="text-[9px] ml-1">{selectedSkills.length} Skills</Badge>}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, MoveUp, MoveDown, MoveLeft, MoveRight, ZoomIn, ZoomOut } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 
 interface Etapa {
@@ -21,11 +21,11 @@ interface Funil {
 }
 
 const DEFAULT_ETAPAS: Etapa[] = [
-  { nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 0, pos_y: 0 },
-  { nome: "Opt-in", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 1, pos_y: 0 },
-  { nome: "VSL/Webinar", tipo: "vsl", visitantes: 0, conversoes: 0, pos_x: 2, pos_y: 0 },
-  { nome: "Checkout", tipo: "checkout", visitantes: 0, conversoes: 0, pos_x: 3, pos_y: 0 },
-  { nome: "Upsell", tipo: "upsell", visitantes: 0, conversoes: 0, pos_x: 4, pos_y: 0 },
+  { nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 },
+  { nome: "Opt-in", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 400, pos_y: 80 },
+  { nome: "VSL/Webinar", tipo: "vsl", visitantes: 0, conversoes: 0, pos_x: 720, pos_y: 80 },
+  { nome: "Checkout", tipo: "checkout", visitantes: 0, conversoes: 0, pos_x: 1040, pos_y: 80 },
+  { nome: "Upsell", tipo: "upsell", visitantes: 0, conversoes: 0, pos_x: 1360, pos_y: 80 },
 ];
 
 const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
@@ -51,9 +51,9 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const CARD_W = 240;
-const CARD_H = 320;
-const GAP_X = 60;
-const GAP_Y = 40;
+const CARD_H = 340;
+const CANVAS_W = 4000;
+const CANVAS_H = 3000;
 
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
@@ -62,7 +62,12 @@ export default function Funis() {
   const [showNew, setShowNew] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.85);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
@@ -104,27 +109,28 @@ export default function Funis() {
   const addEtapa = () => {
     if (!selectedFunil) return;
     const etapas = selectedFunil.data.etapas || [];
-    const maxX = etapas.reduce((m, e) => Math.max(m, e.pos_x ?? 0), -1);
-    const newEtapa: Etapa = { nome: "Nova Etapa", tipo: "outro", visitantes: 0, conversoes: 0, pos_x: maxX + 1, pos_y: 0 };
-    updateEtapa(selectedFunil.id, [...etapas, newEtapa]);
+    // Place new card at center of current viewport
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cx = rect ? (-pan.x + rect.width / 2) / zoom : 400;
+    const cy = rect ? (-pan.y + rect.height / 2) / zoom : 200;
+    const newEtapa: Etapa = { nome: "Nova Etapa", tipo: "outro", visitantes: 0, conversoes: 0, pos_x: Math.round(cx - CARD_W / 2), pos_y: Math.round(cy - CARD_H / 2) };
+    const updated = [...etapas, newEtapa];
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
   };
+
   const removeEtapa = (idx: number) => {
     if (!selectedFunil) return;
-    updateEtapa(selectedFunil.id, (selectedFunil.data.etapas || []).filter((_, i) => i !== idx));
+    const updated = (selectedFunil.data.etapas || []).filter((_, i) => i !== idx);
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
   };
-  const moveEtapa = (idx: number, dx: number, dy: number) => {
-    if (!selectedFunil) return;
-    const etapas = [...(selectedFunil.data.etapas || [])];
-    const e = etapas[idx];
-    etapas[idx] = { ...e, pos_x: Math.max(0, (e.pos_x ?? 0) + dx), pos_y: Math.max(0, (e.pos_y ?? 0) + dy) };
-    updateEtapa(selectedFunil.id, etapas);
-  };
+
   const setEtapaField = (idx: number, field: string, value: any) => {
     if (!selectedFunil) return;
     const etapas = [...(selectedFunil.data.etapas || [])];
     etapas[idx] = { ...etapas[idx], [field]: value };
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
   };
+
   const saveEtapas = () => {
     if (!selectedFunil) return;
     updateEtapa(selectedFunil.id, selectedFunil.data.etapas || []);
@@ -133,15 +139,59 @@ export default function Funis() {
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
 
+  // --- Drag handlers ---
+  const handleCardMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
+    if ((e.target as HTMLElement).closest("input, select, button, [role='combobox']")) return;
+    e.stopPropagation();
+    const etapas = selectedFunil?.data.etapas || [];
+    const etapa = etapas[idx];
+    setDraggingIdx(idx);
+    setDragOffset({
+      x: e.clientX / zoom - (etapa.pos_x ?? 0),
+      y: e.clientY / zoom - (etapa.pos_y ?? 0),
+    });
+  }, [selectedFunil, zoom]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (draggingIdx !== null && selectedFunil) {
+      const etapas = [...(selectedFunil.data.etapas || [])];
+      const newX = Math.max(0, Math.round(e.clientX / zoom - dragOffset.x));
+      const newY = Math.max(0, Math.round(e.clientY / zoom - dragOffset.y));
+      etapas[draggingIdx] = { ...etapas[draggingIdx], pos_x: newX, pos_y: newY };
+      setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+      return;
+    }
+    if (isPanning) {
+      setPan({
+        x: pan.x + (e.clientX - panStart.x),
+        y: pan.y + (e.clientY - panStart.y),
+      });
+      setPanStart({ x: e.clientX, y: e.clientY });
+    }
+  }, [draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setDraggingIdx(null);
+    setIsPanning(false);
+  }, []);
+
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest(".etapa-card")) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    setZoom(z => Math.min(2, Math.max(0.25, z + delta)));
+  }, []);
+
   // Canvas detail view
   if (selectedFunil) {
     const etapas = selectedFunil.data.etapas || [];
-    const maxX = etapas.reduce((m, e) => Math.max(m, e.pos_x ?? 0), 0);
-    const maxY = etapas.reduce((m, e) => Math.max(m, e.pos_y ?? 0), 0);
-    const canvasW = (maxX + 1) * (CARD_W + GAP_X) + 100;
-    const canvasH = (maxY + 1) * (CARD_H + GAP_Y) + 100;
 
-    // Build connector pairs: connect sequential etapas by index
+    // Build connector pairs
     const connectors: { from: Etapa; to: Etapa }[] = [];
     for (let i = 0; i < etapas.length - 1; i++) {
       connectors.push({ from: etapas[i], to: etapas[i + 1] });
@@ -158,26 +208,37 @@ export default function Funis() {
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
           {selectedFunil.project_id && <Badge variant="outline" className="text-[10px]">{projectName(selectedFunil.project_id)}</Badge>}
           <div className="ml-auto flex items-center gap-1">
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.4, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
             <span className="text-xs text-muted-foreground font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.min(1.5, z + 0.1))}><ZoomIn className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.min(2, z + 0.1))}><ZoomIn className="h-3.5 w-3.5" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => { setPan({ x: 0, y: 0 }); setZoom(0.85); }}>Reset</Button>
           </div>
         </div>
 
-        {/* 2D Canvas */}
+        {/* 2D Canvas with pan & zoom */}
         <div
           ref={canvasRef}
-          className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-auto"
-          style={{ maxHeight: "70vh" }}
+          className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none"
+          style={{ height: "75vh", cursor: isPanning ? "grabbing" : draggingIdx !== null ? "move" : "grab" }}
+          onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
         >
-          <div style={{ width: canvasW * zoom, height: canvasH * zoom, transform: `scale(${zoom})`, transformOrigin: "top left", position: "relative" }}>
+          <div style={{
+            width: CANVAS_W, height: CANVAS_H,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "0 0",
+            position: "relative",
+          }}>
             {/* SVG Connectors */}
-            <svg className="absolute inset-0 pointer-events-none" width={canvasW} height={canvasH}>
+            <svg className="absolute inset-0 pointer-events-none" width={CANVAS_W} height={CANVAS_H}>
               {connectors.map((c, i) => {
-                const fromX = (c.from.pos_x ?? 0) * (CARD_W + GAP_X) + 50 + CARD_W;
-                const fromY = (c.from.pos_y ?? 0) * (CARD_H + GAP_Y) + 50 + CARD_H / 2;
-                const toX = (c.to.pos_x ?? 0) * (CARD_W + GAP_X) + 50;
-                const toY = (c.to.pos_y ?? 0) * (CARD_H + GAP_Y) + 50 + CARD_H / 2;
+                const fromX = (c.from.pos_x ?? 0) + CARD_W;
+                const fromY = (c.from.pos_y ?? 0) + CARD_H / 2;
+                const toX = (c.to.pos_x ?? 0);
+                const toY = (c.to.pos_y ?? 0) + CARD_H / 2;
                 const midX = (fromX + toX) / 2;
                 return (
                   <g key={i}>
@@ -207,38 +268,25 @@ export default function Funis() {
               const taxa = etapa.visitantes > 0 ? (etapa.conversoes / etapa.visitantes) * 100 : 0;
               const convColors = getConversionColor(taxa);
               const tipoStyle = TIPO_STYLES[etapa.tipo || "outro"] || TIPO_STYLES.outro;
-              const x = (etapa.pos_x ?? i) * (CARD_W + GAP_X) + 50;
-              const y = (etapa.pos_y ?? 0) * (CARD_H + GAP_Y) + 50;
+              const x = etapa.pos_x ?? 80;
+              const y = etapa.pos_y ?? 80;
 
               return (
                 <div
                   key={i}
-                  className={`absolute rounded-xl border-2 ${tipoStyle.border} ${tipoStyle.bg} backdrop-blur-sm p-3 space-y-2 hover:shadow-lg transition-all animate-fade-in`}
-                  style={{
-                    left: x, top: y, width: CARD_W,
-                    animationDelay: `${i * 60}ms`, animationFillMode: "both",
-                  }}
+                  className={`etapa-card absolute rounded-xl border-2 ${tipoStyle.border} ${tipoStyle.bg} backdrop-blur-sm p-3 space-y-2 hover:shadow-lg transition-shadow`}
+                  style={{ left: x, top: y, width: CARD_W, zIndex: draggingIdx === i ? 50 : 1 }}
+                  onMouseDown={(e) => handleCardMouseDown(e, i)}
                 >
-                  {/* Move buttons */}
-                  <div className="absolute -top-2 -right-2 flex gap-0.5 z-10">
-                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, 0, -1)}>
-                      <MoveUp className="h-2.5 w-2.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, 0, 1)}>
-                      <MoveDown className="h-2.5 w-2.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, -1, 0)}>
-                      <MoveLeft className="h-2.5 w-2.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, 1, 0)}>
-                      <MoveRight className="h-2.5 w-2.5" />
-                    </Button>
+                  {/* Drag handle */}
+                  <div className="flex items-center justify-between">
+                    <div className="cursor-grab active:cursor-grabbing p-0.5">
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    </div>
+                    <Badge variant="outline" className={`text-[9px] ${tipoStyle.text} ${tipoStyle.border}`}>
+                      {tipoStyle.label}
+                    </Badge>
                   </div>
-
-                  {/* Tipo badge */}
-                  <Badge variant="outline" className={`text-[9px] ${tipoStyle.text} ${tipoStyle.border}`}>
-                    {tipoStyle.label}
-                  </Badge>
 
                   {/* Thumbnail */}
                   {etapa.image_url ? (
@@ -325,6 +373,7 @@ export default function Funis() {
           <Button size="sm" variant="outline" onClick={addEtapa}><Plus className="h-3 w-3 mr-1" /> Etapa</Button>
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
+          <span className="text-[10px] text-muted-foreground ml-2">Arraste os cards para posicionar • Scroll para zoom • Arraste o fundo para mover</span>
         </div>
       </div>
     );
@@ -370,8 +419,6 @@ export default function Funis() {
                 {etapas.length > 0 && (
                   <div className="flex items-center gap-1 mt-2 overflow-hidden">
                     {etapas.slice(0, 5).map((e, i) => {
-                      const taxa = e.visitantes > 0 ? (e.conversoes / e.visitantes) * 100 : 0;
-                      const c = getConversionColor(taxa);
                       const ts = TIPO_STYLES[e.tipo || "outro"] || TIPO_STYLES.outro;
                       return (
                         <div key={i} className="flex items-center">
