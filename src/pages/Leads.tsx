@@ -153,10 +153,8 @@ export default function Leads() {
     // Clicks from imphq_clicks (by email match in lead data utms)
     if (lead.email) {
       promises.push(
-        supabase.from("imphq_clicks").select("*").order("created_at", { ascending: false }).limit(50)
+        Promise.resolve(supabase.from("imphq_clicks").select("*").order("created_at", { ascending: false }).limit(50))
           .then(({ data }) => {
-            // Only include clicks that match visitor_id in the page_url or user_agent
-            // Since clicks don't have visitor_id, we include recent ones if UTMs match
             const leadUtmSource = lead.data?.utms?.utm_source;
             (data || []).forEach((c: any) => {
               if (leadUtmSource && c.utm_source === leadUtmSource) {
