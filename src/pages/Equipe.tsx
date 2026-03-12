@@ -201,11 +201,12 @@ export default function Equipe() {
                     </p>
                   </div>
                 </div>
-                <Switch
-                  checked={m.is_active}
-                  onCheckedChange={(e) => { e.stopPropagation?.(); toggleActive(m); }}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Switch
+                    checked={m.is_active}
+                    onCheckedChange={() => toggleActive(m)}
+                  />
+                </div>
               </div>
               <div className="flex items-center gap-2 mt-3">
                 <Badge className={`text-[10px] ${ROLE_COLORS[m.role] || ROLE_COLORS.Viewer}`}>
