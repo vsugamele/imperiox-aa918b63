@@ -253,7 +253,7 @@ function CronJobsTab() {
 
       <div className="space-y-3">
         {CRON_JOBS.map(job => {
-          const st = statuses[job.key] || {};
+          const st = statuses[job.key] as { enabled?: boolean; lastRun?: string; status?: string } | undefined;
           return (
             <Card key={job.key} className="bg-card border-border">
               <CardContent className="p-4">
@@ -266,8 +266,8 @@ function CronJobsTab() {
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <Badge variant="outline" className="text-[9px] font-mono">{job.cron}</Badge>
                         <Badge variant="secondary" className="text-[9px]">{job.frequency}</Badge>
-                        {st.lastRun && (
-                          <Badge className={`text-[9px] ${st.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                        {st?.lastRun && (
+                          <Badge className={`text-[9px] ${st.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-destructive/20 text-destructive"}`}>
                             Último: {new Date(st.lastRun).toLocaleString("pt-BR")}
                           </Badge>
                         )}
@@ -290,7 +290,7 @@ function CronJobsTab() {
                       {running === job.key ? "Executando..." : "Executar"}
                     </Button>
                     <Switch
-                      checked={st.enabled || false}
+                      checked={st?.enabled || false}
                       onCheckedChange={() => toggleCron(job.key)}
                     />
                   </div>
