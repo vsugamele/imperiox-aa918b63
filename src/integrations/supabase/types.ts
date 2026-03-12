@@ -8700,6 +8700,62 @@ export type Database = {
           },
         ]
       }
+      imphq_calendar_events: {
+        Row: {
+          all_day: boolean | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          end_date: string | null
+          event_date: string
+          event_type: string | null
+          id: string
+          project_id: string | null
+          reminder: boolean | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          event_date: string
+          event_type?: string | null
+          id?: string
+          project_id?: string | null
+          reminder?: boolean | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          all_day?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          event_date?: string
+          event_type?: string | null
+          id?: string
+          project_id?: string | null
+          reminder?: boolean | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_calendar_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_clicks: {
         Row: {
           converted_at: string | null
@@ -8909,6 +8965,56 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_content_library: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          file_type: string | null
+          file_url: string
+          id: string
+          project_id: string | null
+          size_bytes: number | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          project_id?: string | null
+          size_bytes?: number | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          project_id?: string | null
+          size_bytes?: number | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_content_library_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
         ]
