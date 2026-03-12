@@ -323,21 +323,58 @@ function getImportSummary(data: any): { label: string; count: number; emoji: str
 export function AvatarImporter({ open, onClose, onImport }: Props) {
   const [html, setHtml] = useState("");
   const [preview, setPreview] = useState<any>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const doParse = useCallback((content: string) => {
+    const parsed = parseAvatarHTML(content);
+    setPreview(parsed);
+    const keys = Object.keys(parsed);
+    if (keys.length > 0) {
+      toast.success(`${keys.length} seções encontradas`);
+    } else {
+      toast.error("Nenhum dado reconhecido no HTML");
+    }
+  }, []);
 
   const handleParse = () => {
     if (!html.trim()) {
       toast.error("Cole o HTML primeiro");
       return;
     }
-    const parsed = parseAvatarHTML(html);
-    setPreview(parsed);
-    const keys = Object.keys(parsed);
-    toast.success(`${keys.length} seções encontradas`);
+    doParse(html);
   };
+
+  const handleFileRead = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      setHtml(content);
+      doParse(content);
+      toast.success(`Arquivo "${file.name}" carregado`);
+    };
+    reader.readAsText(file);
+  }, [doParse]);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileRead(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.name.endsWith(".html") || file.name.endsWith(".htm"))) {
+      handleFileRead(file);
+    } else {
+      toast.error("Envie um arquivo .html");
+    }
+  }, [handleFileRead]);
 
   const handleImport = () => {
     if (!preview) return;
-    // Attach raw HTML so it can be viewed later
     const dataWithHtml = { ...preview, html_original: html };
     onImport(dataWithHtml);
     toast.success("Dados importados com sucesso!");
@@ -356,13 +393,39 @@ export function AvatarImporter({ open, onClose, onImport }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Cole o HTML do "Sistema de Inteligência de Avatar" aqui. O parser extrai automaticamente: desejos, problemas, cenas de voyerismo, crenças, palavras-gatilho, sub-avatares, fases de ativação e síntese.
+            Arraste um arquivo .html ou cole o código manualmente abaixo.
           </p>
+
+          {/* Dropzone */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html,.htm"
+            onChange={handleFileInput}
+            className="hidden"
+          />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={`flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+              dragging
+                ? "border-primary bg-primary/10"
+                : "border-border hover:border-primary/50 hover:bg-secondary/50"
+            }`}
+          >
+            <FileUp className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              📁 Arraste um arquivo .html aqui ou <span className="text-primary underline">clique para selecionar</span>
+            </span>
+          </div>
+
           <Textarea
             value={html}
             onChange={e => setHtml(e.target.value)}
-            className="bg-secondary min-h-[200px] font-mono text-xs"
-            placeholder="Cole o HTML completo aqui..."
+            className="bg-secondary min-h-[150px] font-mono text-xs"
+            placeholder="Ou cole o HTML completo aqui..."
           />
           {preview && summary.length > 0 && (
             <div className="p-4 rounded-lg bg-secondary/50 border border-border space-y-2">
