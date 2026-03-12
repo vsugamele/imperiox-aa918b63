@@ -8659,6 +8659,47 @@ export type Database = {
           },
         ]
       }
+      imphq_automacoes: {
+        Row: {
+          acoes: Json | null
+          ativo: boolean | null
+          created_at: string | null
+          id: string
+          nome: string
+          project_id: string | null
+          trigger_tipo: string
+          updated_at: string | null
+        }
+        Insert: {
+          acoes?: Json | null
+          ativo?: boolean | null
+          created_at?: string | null
+          id: string
+          nome: string
+          project_id?: string | null
+          trigger_tipo: string
+          updated_at?: string | null
+        }
+        Update: {
+          acoes?: Json | null
+          ativo?: boolean | null
+          created_at?: string | null
+          id?: string
+          nome?: string
+          project_id?: string | null
+          trigger_tipo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_automacoes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_clicks: {
         Row: {
           converted_at: string | null
@@ -9575,6 +9616,7 @@ export type Database = {
           avatar: Json | null
           brand_kit: Json | null
           category: string | null
+          clarity_id: string | null
           color: string | null
           created_at: string | null
           data: Json | null
@@ -9582,6 +9624,7 @@ export type Database = {
           fb_access_token: string | null
           fb_pixel_id: string | null
           fb_test_event_code: string | null
+          ga_id: string | null
           icon: string | null
           id: string
           is_archived: boolean | null
@@ -9597,6 +9640,7 @@ export type Database = {
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
+          clarity_id?: string | null
           color?: string | null
           created_at?: string | null
           data?: Json | null
@@ -9604,6 +9648,7 @@ export type Database = {
           fb_access_token?: string | null
           fb_pixel_id?: string | null
           fb_test_event_code?: string | null
+          ga_id?: string | null
           icon?: string | null
           id: string
           is_archived?: boolean | null
@@ -9619,6 +9664,7 @@ export type Database = {
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
+          clarity_id?: string | null
           color?: string | null
           created_at?: string | null
           data?: Json | null
@@ -9626,6 +9672,7 @@ export type Database = {
           fb_access_token?: string | null
           fb_pixel_id?: string | null
           fb_test_event_code?: string | null
+          ga_id?: string | null
           icon?: string | null
           id?: string
           is_archived?: boolean | null
@@ -9720,6 +9767,59 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      imphq_referencias: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string | null
+          notas: string | null
+          plataforma: string | null
+          project_id: string | null
+          score: number | null
+          tags: string[] | null
+          tipo: string | null
+          titulo: string
+          updated_at: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          image_url?: string | null
+          notas?: string | null
+          plataforma?: string | null
+          project_id?: string | null
+          score?: number | null
+          tags?: string[] | null
+          tipo?: string | null
+          titulo: string
+          updated_at?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          notas?: string | null
+          plataforma?: string | null
+          project_id?: string | null
+          score?: number | null
+          tags?: string[] | null
+          tipo?: string | null
+          titulo?: string
+          updated_at?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_referencias_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_tasks: {
         Row: {
@@ -10128,6 +10228,54 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_webhooks: {
+        Row: {
+          created_at: string | null
+          evento: string
+          id: string
+          lead_id: string | null
+          payload: Json | null
+          plataforma: string
+          processado: boolean | null
+          project_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          evento: string
+          id?: string
+          lead_id?: string | null
+          payload?: Json | null
+          plataforma: string
+          processado?: boolean | null
+          project_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          evento?: string
+          id?: string
+          lead_id?: string | null
+          payload?: Json | null
+          plataforma?: string
+          processado?: boolean | null
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_webhooks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
         ]
