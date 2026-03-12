@@ -23,7 +23,7 @@ export function ProjetoDocs({ projectId }: Props) {
   useEffect(() => { fetchDocs(); }, [projectId]);
 
   const createDoc = async () => {
-    const { data, error } = await supabase.from("imphq_docs").insert({ project_id: projectId, title: "Novo Documento", content: "" }).select().single();
+    const { data, error } = await supabase.from("imphq_docs").insert({ project_id: projectId, title: "Novo Documento", content: "" } as any).select().single();
     if (error) { toast.error("Erro ao criar doc"); return; }
     setDocs([data, ...docs]);
     setEditing(data);
