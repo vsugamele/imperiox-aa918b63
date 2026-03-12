@@ -56,7 +56,8 @@ export default function Funis() {
   };
 
   const updateEtapa = async (funilId: string, etapas: Etapa[]) => {
-    await supabase.from("imphq_funis").update({ data: { etapas } }).eq("id", funilId);
+    const etapasData = etapas.map(e => ({ nome: e.nome, visitantes: e.visitantes, conversoes: e.conversoes }));
+    await supabase.from("imphq_funis").update({ data: { etapas: etapasData } as unknown as Record<string, unknown> }).eq("id", funilId);
     setSelectedFunil(prev => prev ? { ...prev, data: { ...prev.data, etapas } } : null);
   };
 

@@ -13,8 +13,8 @@ import { toast } from "sonner";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
-  cliente: "bg-emerald-500/20 text-emerald-400",
-  vip: "bg-amber-500/20 text-amber-400",
+  cliente: "bg-primary/10 text-primary",
+  vip: "bg-accent/20 text-accent-foreground",
   inativo: "bg-muted text-muted-foreground",
 };
 const STATUSES = ["lead", "cliente", "vip", "inativo"];
