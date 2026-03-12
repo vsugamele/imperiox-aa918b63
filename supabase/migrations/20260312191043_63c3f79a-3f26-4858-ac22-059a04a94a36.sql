@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_team_members DROP CONSTRAINT IF EXISTS imphq_team_members_user_id_key;
