@@ -3,24 +3,70 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AppLayout } from "@/components/AppLayout";
+
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Projetos from "./pages/Projetos";
+import ProjetoDetalhe from "./pages/ProjetoDetalhe";
+import KanbanPage from "./pages/KanbanPage";
+import Tarefas from "./pages/Tarefas";
+import Leads from "./pages/Leads";
+import Financas from "./pages/Financas";
+import MarketIntel from "./pages/MarketIntel";
+import Mentes from "./pages/Mentes";
+import Funis from "./pages/Funis";
+import OpenFlow from "./pages/OpenFlow";
+import Docs from "./pages/Docs";
+import WhatsAppPage from "./pages/WhatsAppPage";
+import Tracker from "./pages/Tracker";
+import Referencias from "./pages/Referencias";
+import Skills from "./pages/Skills";
+import Equipe from "./pages/Equipe";
+import Empresa from "./pages/Empresa";
+import Configuracoes from "./pages/Configuracoes";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="projetos" element={<Projetos />} />
+              <Route path="projetos/:id" element={<ProjetoDetalhe />} />
+              <Route path="kanban" element={<KanbanPage />} />
+              <Route path="tarefas" element={<Tarefas />} />
+              <Route path="leads" element={<Leads />} />
+              <Route path="financas" element={<Financas />} />
+              <Route path="market-intel" element={<MarketIntel />} />
+              <Route path="mentes" element={<Mentes />} />
+              <Route path="funis" element={<Funis />} />
+              <Route path="openflow" element={<OpenFlow />} />
+              <Route path="docs" element={<Docs />} />
+              <Route path="whatsapp" element={<WhatsAppPage />} />
+              <Route path="tracker" element={<Tracker />} />
+              <Route path="referencias" element={<Referencias />} />
+              <Route path="skills" element={<Skills />} />
+              <Route path="equipe" element={<Equipe />} />
+              <Route path="empresa" element={<Empresa />} />
+              <Route path="configuracoes" element={<Configuracoes />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
