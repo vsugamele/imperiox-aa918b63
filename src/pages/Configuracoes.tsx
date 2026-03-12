@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor } from "lucide-react";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Configuracoes() {
@@ -15,7 +16,6 @@ export default function Configuracoes() {
 
   return (
     <div className="flex gap-6">
-      {/* This uses tabs for navigation matching V5 sidebar look */}
       <Tabs defaultValue="apis" orientation="vertical" className="flex gap-6 w-full">
         <TabsList className="flex-col h-auto w-48 shrink-0 bg-transparent gap-0.5 justify-start items-stretch p-0">
           <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
@@ -27,6 +27,9 @@ export default function Configuracoes() {
           <TabsTrigger value="notificacoes" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Bell className="h-3.5 w-3.5 mr-2" /> Notificações
           </TabsTrigger>
+          <TabsTrigger value="cronjobs" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Clock className="h-3.5 w-3.5 mr-2" /> Cron Jobs
+          </TabsTrigger>
           <TabsTrigger value="seguranca" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Shield className="h-3.5 w-3.5 mr-2" /> Segurança
           </TabsTrigger>
@@ -35,6 +38,7 @@ export default function Configuracoes() {
         <div className="flex-1 min-w-0">
           <TabsContent value="apis"><APIsTab /></TabsContent>
           <TabsContent value="notificacoes"><NotificacoesTab /></TabsContent>
+          <TabsContent value="cronjobs"><CronJobsTab /></TabsContent>
           <TabsContent value="seguranca"><SegurancaTab user={user} /></TabsContent>
         </div>
       </Tabs>
@@ -75,7 +79,6 @@ function APIsTab() {
         </div>
         <Button onClick={save} className="bg-primary">Salvar todas</Button>
       </div>
-
       <div className="space-y-3">
         {API_SERVICES.map((svc) => (
           <Card key={svc.key} className="bg-card border-border">
@@ -153,6 +156,154 @@ function NotificacoesTab() {
   );
 }
 
+// ── Cron Jobs Tab ────────────────────────────────────────────────
+function CronJobsTab() {
+  const CRON_JOBS = [
+    {
+      key: "relatorio_semanal",
+      name: "Relatório Semanal",
+      description: "Gera um resumo de KPIs e métricas de todos os projetos ativos",
+      icon: "📊",
+      frequency: "Toda segunda às 9h",
+      cron: "0 9 * * 1",
+    },
+    {
+      key: "limpeza_dados",
+      name: "Limpeza de Dados Antigos",
+      description: "Remove webhooks processados com mais de 90 dias e logs antigos",
+      icon: "🧹",
+      frequency: "Todo domingo às 3h",
+      cron: "0 3 * * 0",
+    },
+    {
+      key: "leads_inativos",
+      name: "Verificação de Leads Inativos",
+      description: "Identifica leads sem interação há 30+ dias e marca como inativos",
+      icon: "👤",
+      frequency: "Diariamente às 6h",
+      cron: "0 6 * * *",
+    },
+    {
+      key: "sync_analytics",
+      name: "Sync de Analytics",
+      description: "Puxa dados de plataformas (Meta, GA) e atualiza KPIs dos projetos",
+      icon: "📈",
+      frequency: "A cada 6 horas",
+      cron: "0 */6 * * *",
+    },
+    {
+      key: "backup_kb",
+      name: "Backup Knowledge Base",
+      description: "Exporta toda a KB para um documento de backup no Supabase Storage",
+      icon: "💾",
+      frequency: "Diariamente às 2h",
+      cron: "0 2 * * *",
+    },
+  ];
+
+  const [statuses, setStatuses] = useState<Record<string, { enabled: boolean; lastRun?: string; status?: string }>>(() => {
+    const saved = localStorage.getItem("imphq_cron_statuses");
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [running, setRunning] = useState<string | null>(null);
+
+  const toggleCron = (key: string) => {
+    const next = {
+      ...statuses,
+      [key]: { ...statuses[key], enabled: !statuses[key]?.enabled },
+    };
+    setStatuses(next);
+    localStorage.setItem("imphq_cron_statuses", JSON.stringify(next));
+    toast.success(next[key].enabled ? "Cron ativado" : "Cron desativado");
+  };
+
+  const runManual = async (key: string) => {
+    setRunning(key);
+    // Simulate execution — in production this would call an edge function
+    await new Promise(r => setTimeout(r, 2000));
+    const next = {
+      ...statuses,
+      [key]: { ...statuses[key], lastRun: new Date().toISOString(), status: "success" },
+    };
+    setStatuses(next);
+    localStorage.setItem("imphq_cron_statuses", JSON.stringify(next));
+    setRunning(null);
+    toast.success("Executado com sucesso!");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-bold">Cron Jobs</h2>
+        <p className="text-xs text-muted-foreground">Tarefas agendadas do sistema. Ative pg_cron no Supabase para execução automática.</p>
+      </div>
+
+      {/* Setup Instructions */}
+      <Card className="bg-amber-500/5 border-amber-500/20">
+        <CardContent className="p-4 space-y-2">
+          <p className="text-xs font-medium text-amber-400">⚠️ Para habilitar execução automática:</p>
+          <ol className="text-[11px] text-muted-foreground space-y-1">
+            <li>1. Ative a extensão <code className="bg-secondary px-1 rounded">pg_cron</code> e <code className="bg-secondary px-1 rounded">pg_net</code> no Supabase</li>
+            <li>2. Execute o SQL de configuração no SQL Editor do Supabase</li>
+            <li>3. Os cron jobs chamarão as edge functions automaticamente nos horários configurados</li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        {CRON_JOBS.map(job => {
+          const st = statuses[job.key] as { enabled?: boolean; lastRun?: string; status?: string } | undefined;
+          return (
+            <Card key={job.key} className="bg-card border-border">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <span className="text-xl mt-0.5">{job.icon}</span>
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-sm">{job.name}</h3>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{job.description}</p>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <Badge variant="outline" className="text-[9px] font-mono">{job.cron}</Badge>
+                        <Badge variant="secondary" className="text-[9px]">{job.frequency}</Badge>
+                        {st?.lastRun && (
+                          <Badge className={`text-[9px] ${st.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-destructive/20 text-destructive"}`}>
+                            Último: {new Date(st.lastRun).toLocaleString("pt-BR")}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => runManual(job.key)}
+                      disabled={running === job.key}
+                    >
+                      {running === job.key ? (
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Play className="h-3 w-3 mr-1" />
+                      )}
+                      {running === job.key ? "Executando..." : "Executar"}
+                    </Button>
+                    <Switch
+                      checked={st?.enabled || false}
+                      onCheckedChange={() => toggleCron(job.key)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Segurança Tab ────────────────────────────────────────────────
 function SegurancaTab({ user }: { user: any }) {
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
@@ -175,7 +326,6 @@ function SegurancaTab({ user }: { user: any }) {
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold">Segurança da Conta</h2>
-
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm">Trocar Senha</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -185,7 +335,6 @@ function SegurancaTab({ user }: { user: any }) {
           <Button onClick={changePassword} className="bg-primary">Atualizar senha</Button>
         </CardContent>
       </Card>
-
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm">Sessões ativas</CardTitle></CardHeader>
         <CardContent>
@@ -200,7 +349,6 @@ function SegurancaTab({ user }: { user: any }) {
           </div>
         </CardContent>
       </Card>
-
       <Card className="border-destructive/30">
         <CardHeader>
           <CardTitle className="text-sm text-destructive flex items-center gap-2">

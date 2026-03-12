@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 const TRIGGERS = [
@@ -114,96 +115,110 @@ export default function OpenFlow() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">⚡ Automações</h1>
+        <h1 className="font-display text-3xl font-bold text-primary">⚡ OpenFlow</h1>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Automação</Button>
       </div>
 
-      {/* Webhook URL info */}
-      <Card className="bg-gradient-to-br from-violet-500/10 to-violet-500/5 border-violet-500/20">
-        <CardContent className="p-4 space-y-3">
-          <p className="text-xs text-muted-foreground mb-1">🔗 URL do Webhook (cole nas plataformas de pagamento):</p>
-          <div className="flex items-center gap-2">
-            <Select value={webhookProject} onValueChange={setWebhookProject}>
-              <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">URL genérica</SelectItem>
-                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <code className="text-xs bg-secondary px-3 py-1.5 rounded flex-1 truncate font-mono">{webhookUrl}</code>
-            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Copiado!"); }}>
-              <Copy className="h-3 w-3 mr-1" /> Copiar
-            </Button>
-          </div>
-          <p className="text-[10px] text-muted-foreground">Compatível com: Hotmart, Kiwify, Ticto, Eduzz e outros</p>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="automacoes">
+        <TabsList>
+          <TabsTrigger value="automacoes">Automações</TabsTrigger>
+          <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia do Webhook</TabsTrigger>
+        </TabsList>
 
-      {/* Automações list */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {automacoes.map((a, i) => (
-          <Card
-            key={a.id}
-            className={`bg-card border-border border-l-4 ${triggerColor(a.trigger_tipo)} hover:border-primary/20 cursor-pointer transition-all hover:scale-[1.01] animate-fade-in`}
-            style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
-            onClick={() => setEditing({ ...a })}
-          >
+        <TabsContent value="automacoes" className="space-y-6 mt-4">
+          {/* Webhook URL info */}
+          <Card className="bg-gradient-to-br from-violet-500/10 to-violet-500/5 border-violet-500/20">
             <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{triggerIcon(a.trigger_tipo)}</span>
-                  <h3 className="font-medium text-sm">{a.nome}</h3>
-                </div>
-                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                  <Switch checked={a.ativo} onCheckedChange={v => toggleAtivo(a.id, v)} />
-                </div>
+              <p className="text-xs text-muted-foreground mb-1">🔗 URL do Webhook (cole nas plataformas de pagamento):</p>
+              <div className="flex items-center gap-2">
+                <Select value={webhookProject} onValueChange={setWebhookProject}>
+                  <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">URL genérica</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="text-[10px]">{triggerLabel(a.trigger_tipo)}</Badge>
-                <Badge variant={a.ativo ? "default" : "secondary"} className="text-[10px]">{a.ativo ? "Ativo" : "Inativo"}</Badge>
-                {a.project_id && <Badge className="text-[9px] bg-primary/20 text-primary">{projectName(a.project_id)}</Badge>}
+              <div className="flex items-center gap-2">
+                <code className="text-xs bg-secondary px-3 py-1.5 rounded flex-1 truncate font-mono">{webhookUrl}</code>
+                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Copiado!"); }}>
+                  <Copy className="h-3 w-3 mr-1" /> Copiar
+                </Button>
               </div>
-              <div className="flex items-center gap-1">
-                {a.acoes.map((ac, i) => {
-                  const AcIcon = ACAO_TIPOS.find(t => t.value === ac.tipo)?.icon || Zap;
-                  return (
-                    <div key={i} className="flex items-center gap-1">
-                      <div className="p-1 bg-secondary rounded"><AcIcon className="h-3 w-3 text-primary" /></div>
-                      {ac.delay_min > 0 && <span className="text-[9px] text-muted-foreground">{ac.delay_min}min</span>}
-                      {i < a.acoes.length - 1 && <span className="text-muted-foreground/50">→</span>}
-                    </div>
-                  );
-                })}
-                {a.acoes.length === 0 && <span className="text-[10px] text-muted-foreground">Sem ações configuradas</span>}
-              </div>
+              <p className="text-[10px] text-muted-foreground">Compatível com: Hotmart, Kiwify, Ticto, Eduzz e outros</p>
             </CardContent>
           </Card>
-        ))}
-        {automacoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma automação criada</p>}
-      </div>
 
-      {/* Recent Webhooks */}
-      {webhooks.length > 0 && (
-        <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "300ms", animationFillMode: "both" }}>
-          <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📡 Webhooks Recentes</CardTitle></CardHeader>
-          <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
-            {webhooks.slice(0, 20).map(w => (
-              <div key={w.id} className="flex items-center justify-between p-2 rounded bg-secondary/50 border border-border text-xs">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[9px]">{w.plataforma}</Badge>
-                  <span className="text-muted-foreground">{w.evento}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {w.processado && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400">Processado</Badge>}
-                  <span className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString("pt-BR")}</span>
-                </div>
-              </div>
+          {/* Automações list */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {automacoes.map((a, i) => (
+              <Card
+                key={a.id}
+                className={`bg-card border-border border-l-4 ${triggerColor(a.trigger_tipo)} hover:border-primary/20 cursor-pointer transition-all hover:scale-[1.01] animate-fade-in`}
+                style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
+                onClick={() => setEditing({ ...a })}
+              >
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{triggerIcon(a.trigger_tipo)}</span>
+                      <h3 className="font-medium text-sm">{a.nome}</h3>
+                    </div>
+                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                      <Switch checked={a.ativo} onCheckedChange={v => toggleAtivo(a.id, v)} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-[10px]">{triggerLabel(a.trigger_tipo)}</Badge>
+                    <Badge variant={a.ativo ? "default" : "secondary"} className="text-[10px]">{a.ativo ? "Ativo" : "Inativo"}</Badge>
+                    {a.project_id && <Badge className="text-[9px] bg-primary/20 text-primary">{projectName(a.project_id)}</Badge>}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {a.acoes.map((ac, i) => {
+                      const AcIcon = ACAO_TIPOS.find(t => t.value === ac.tipo)?.icon || Zap;
+                      return (
+                        <div key={i} className="flex items-center gap-1">
+                          <div className="p-1 bg-secondary rounded"><AcIcon className="h-3 w-3 text-primary" /></div>
+                          {ac.delay_min > 0 && <span className="text-[9px] text-muted-foreground">{ac.delay_min}min</span>}
+                          {i < a.acoes.length - 1 && <span className="text-muted-foreground/50">→</span>}
+                        </div>
+                      );
+                    })}
+                    {a.acoes.length === 0 && <span className="text-[10px] text-muted-foreground">Sem ações configuradas</span>}
+                  </div>
+                </CardContent>
+              </Card>
             ))}
-          </CardContent>
-        </Card>
-      )}
+            {automacoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma automação criada</p>}
+          </div>
+
+          {/* Recent Webhooks */}
+          {webhooks.length > 0 && (
+            <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "300ms", animationFillMode: "both" }}>
+              <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📡 Webhooks Recentes</CardTitle></CardHeader>
+              <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
+                {webhooks.slice(0, 20).map(w => (
+                  <div key={w.id} className="flex items-center justify-between p-2 rounded bg-secondary/50 border border-border text-xs">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[9px]">{w.plataforma}</Badge>
+                      <span className="text-muted-foreground">{w.evento}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {w.processado && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400">Processado</Badge>}
+                      <span className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString("pt-BR")}</span>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Webhook Guide Tab */}
+        <TabsContent value="guia" className="space-y-6 mt-4">
+          <WebhookGuide projects={projects} />
+        </TabsContent>
+      </Tabs>
 
       {/* New Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -255,8 +270,6 @@ export default function OpenFlow() {
                 <Label>Ativo</Label>
                 <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
               </div>
-
-              {/* Ações */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Ações</Label>
@@ -301,6 +314,168 @@ export default function OpenFlow() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Webhook Guide Component ──────────────────────────────────────
+function WebhookGuide({ projects }: { projects: any[] }) {
+  const baseUrl = "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento";
+
+  const platforms = [
+    {
+      name: "Hotmart",
+      icon: "🟧",
+      steps: [
+        "Acesse Ferramentas → Webhooks no painel da Hotmart",
+        "Clique em 'Configurar Webhook'",
+        "Cole a URL do webhook (com ?project=ID se quiser vincular a um projeto)",
+        "Selecione os eventos: PURCHASE_APPROVED, PURCHASE_REFUNDED, PURCHASE_CANCELED",
+        "Salve e teste com o botão 'Enviar Teste'",
+      ],
+      fields: ["transaction", "product.name", "buyer.name", "buyer.email", "buyer.phone", "purchase.price.value"],
+    },
+    {
+      name: "Kiwify",
+      icon: "🟩",
+      steps: [
+        "Acesse Configurações → Webhooks no painel Kiwify",
+        "Clique em 'Adicionar Webhook'",
+        "Cole a URL do webhook",
+        "Selecione eventos: order_paid, order_refunded",
+        "Salve a configuração",
+      ],
+      fields: ["order_id", "Customer.full_name", "Customer.email", "Customer.mobile", "Product.product_name", "order_status"],
+    },
+    {
+      name: "Ticto",
+      icon: "🟦",
+      steps: [
+        "Acesse Integrações → Webhooks no painel Ticto",
+        "Adicione a URL do webhook",
+        "Configure os eventos desejados (venda aprovada, reembolso)",
+        "Salve e teste",
+      ],
+      fields: ["transaction_id", "customer_name", "customer_email", "customer_phone", "product_name", "amount"],
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Flow Diagram */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📐 Fluxo de Dados</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center gap-2 flex-wrap py-4">
+            {[
+              { label: "Plataforma", sub: "Hotmart / Kiwify / Ticto", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+              null,
+              { label: "POST Webhook", sub: "Edge Function", color: "bg-violet-500/20 text-violet-400 border-violet-500/30" },
+              null,
+              { label: "Processamento", sub: "Lead + Venda + CAPI", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+              null,
+              { label: "Automações", sub: "Email / WA / Telegram", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+            ].map((item, i) => item === null ? (
+              <ArrowRight key={i} className="h-5 w-5 text-muted-foreground shrink-0" />
+            ) : (
+              <div key={i} className={`px-4 py-3 rounded-lg border text-center min-w-[140px] ${item.color}`}>
+                <p className="text-sm font-medium">{item.label}</p>
+                <p className="text-[10px] opacity-80">{item.sub}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* URL Generator */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔗 Gerar URL por Projeto</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">Cada projeto pode ter sua URL única. Isso permite que o sistema vincule a venda ao projeto correto automaticamente.</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <code className="text-xs bg-secondary px-3 py-2 rounded flex-1 font-mono truncate">{baseUrl}</code>
+              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(baseUrl); toast.success("Copiado!"); }}>
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
+            {projects.map(p => (
+              <div key={p.id} className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] shrink-0">{p.name}</Badge>
+                <code className="text-[10px] bg-secondary px-2 py-1.5 rounded flex-1 font-mono truncate">
+                  {baseUrl}?project={p.id}
+                </code>
+                <Button size="sm" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => {
+                  navigator.clipboard.writeText(`${baseUrl}?project=${p.id}`);
+                  toast.success(`URL de ${p.name} copiada!`);
+                }}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Platform Instructions */}
+      {platforms.map(platform => (
+        <Card key={platform.name} className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <span>{platform.icon}</span> {platform.name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Passo a passo:</p>
+              <ol className="space-y-1.5">
+                {platform.steps.map((step, i) => (
+                  <li key={i} className="text-xs flex items-start gap-2">
+                    <Badge variant="outline" className="text-[9px] shrink-0 mt-0.5">{i + 1}</Badge>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Campos extraídos automaticamente:</p>
+              <div className="flex flex-wrap gap-1">
+                {platform.fields.map(f => (
+                  <Badge key={f} variant="secondary" className="text-[9px] font-mono">{f}</Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* What Happens */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚙️ O que acontece quando o webhook chega?</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {[
+            { step: "1", text: "O payload é recebido e salvo na tabela imphq_webhooks para auditoria", icon: "📥" },
+            { step: "2", text: "O sistema identifica a plataforma (Hotmart, Kiwify, etc.) pelo formato do payload", icon: "🔍" },
+            { step: "3", text: "Se for uma compra aprovada: cria/atualiza lead + registra venda em imphq_vendas", icon: "💰" },
+            { step: "4", text: "Se o projeto tiver Facebook CAPI configurado: envia evento Purchase para o Meta", icon: "📊" },
+            { step: "5", text: "Automações vinculadas ao trigger são disparadas (email, WhatsApp, Telegram)", icon: "⚡" },
+          ].map(item => (
+            <div key={item.step} className="flex items-start gap-3 p-2 rounded bg-secondary/50 border border-border">
+              <span className="text-lg shrink-0">{item.icon}</span>
+              <div>
+                <Badge variant="outline" className="text-[9px] mb-1">Etapa {item.step}</Badge>
+                <p className="text-xs">{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }
