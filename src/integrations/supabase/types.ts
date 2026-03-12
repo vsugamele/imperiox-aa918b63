@@ -8721,6 +8721,157 @@ export type Database = {
           },
         ]
       }
+      imphq_competitors: {
+        Row: {
+          ads_ativos: boolean | null
+          bonus: string | null
+          canais_keywords: Json | null
+          canais_principais: string | null
+          color: string | null
+          created_at: string | null
+          cta: string | null
+          data: Json | null
+          fraqueza: string | null
+          garantia: string | null
+          headline: string | null
+          hook: string | null
+          id: string
+          importado_em: string | null
+          insights: string | null
+          mecanismo_unico: string | null
+          name: string
+          nicho: string | null
+          oferta_principal: string | null
+          paginas_funil: Json | null
+          ponto_forte: string | null
+          preco: string | null
+          project_id: string
+          publico_alvo: string | null
+          score_escala: number | null
+          score_max: number | null
+          screenshot_url: string | null
+          stack_tecnologico: Json | null
+          sub_nicho: string | null
+          trafego_est: string | null
+          updated_at: string | null
+          url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          ads_ativos?: boolean | null
+          bonus?: string | null
+          canais_keywords?: Json | null
+          canais_principais?: string | null
+          color?: string | null
+          created_at?: string | null
+          cta?: string | null
+          data?: Json | null
+          fraqueza?: string | null
+          garantia?: string | null
+          headline?: string | null
+          hook?: string | null
+          id?: string
+          importado_em?: string | null
+          insights?: string | null
+          mecanismo_unico?: string | null
+          name?: string
+          nicho?: string | null
+          oferta_principal?: string | null
+          paginas_funil?: Json | null
+          ponto_forte?: string | null
+          preco?: string | null
+          project_id: string
+          publico_alvo?: string | null
+          score_escala?: number | null
+          score_max?: number | null
+          screenshot_url?: string | null
+          stack_tecnologico?: Json | null
+          sub_nicho?: string | null
+          trafego_est?: string | null
+          updated_at?: string | null
+          url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          ads_ativos?: boolean | null
+          bonus?: string | null
+          canais_keywords?: Json | null
+          canais_principais?: string | null
+          color?: string | null
+          created_at?: string | null
+          cta?: string | null
+          data?: Json | null
+          fraqueza?: string | null
+          garantia?: string | null
+          headline?: string | null
+          hook?: string | null
+          id?: string
+          importado_em?: string | null
+          insights?: string | null
+          mecanismo_unico?: string | null
+          name?: string
+          nicho?: string | null
+          oferta_principal?: string | null
+          paginas_funil?: Json | null
+          ponto_forte?: string | null
+          preco?: string | null
+          project_id?: string
+          publico_alvo?: string | null
+          score_escala?: number | null
+          score_max?: number | null
+          screenshot_url?: string | null
+          stack_tecnologico?: Json | null
+          sub_nicho?: string | null
+          trafego_est?: string | null
+          updated_at?: string | null
+          url?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_competitors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_competitors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_competitors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_competitors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_competitors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_competitors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_custos: {
         Row: {
           id: string
