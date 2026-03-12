@@ -16,6 +16,8 @@ import { ProjetoPipeline } from "@/components/projeto/ProjetoPipeline";
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
+import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
+import { ProjetoConteudo } from "@/components/projeto/ProjetoConteudo";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil } from "lucide-react";
 
@@ -135,6 +137,8 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="midia">🖼️ Mídia</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
+          <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
+          <TabsTrigger value="conteudo">📦 Conteúdo</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
@@ -164,6 +168,12 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="concorrentes" className="mt-4">
           <ConcorrentesTab projectId={id!} />
+        </TabsContent>
+        <TabsContent value="calendario" className="mt-4">
+          <ProjetoCalendario projectId={id!} />
+        </TabsContent>
+        <TabsContent value="conteudo" className="mt-4">
+          <ProjetoConteudo projectId={id!} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">

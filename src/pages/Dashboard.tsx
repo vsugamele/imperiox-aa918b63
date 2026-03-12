@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 
 interface Stats {
@@ -16,11 +18,12 @@ export default function Dashboard() {
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [urgentTasks, setUrgentTasks] = useState<any[]>([]);
   const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     async function load() {
-      const [projRes, taskRes, leadRes, costRes, recentRes, urgentRes, oppRes] = await Promise.all([
+      const [projRes, taskRes, leadRes, costRes, recentRes, urgentRes, oppRes, eventsRes] = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
@@ -28,6 +31,7 @@ export default function Dashboard() {
         supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),
         supabase.from("imphq_tasks").select("*").neq("status", "done").order("due_date", { ascending: true }).limit(5),
         supabase.from("imphq_mi_opportunities").select("*").eq("ativo", true).order("score", { ascending: false }).limit(4),
+        supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
       ]);
 
       let totalCost = 0;
@@ -47,6 +51,7 @@ export default function Dashboard() {
       setRecentProjects(recentRes.data || []);
       setUrgentTasks(urgentRes.data || []);
       setOpportunities(oppRes.data || []);
+      setUpcomingEvents(eventsRes.data || []);
     }
     load();
   }, []);
@@ -155,31 +160,71 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Market Intel */}
-      {opportunities.length > 0 && (
-        <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "500ms", animationFillMode: "both" }}>
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-lg flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-              Top Oportunidades
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {opportunities.map((o, i) => (
-                <div key={o.id} className="p-3 rounded-lg bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/15 hover:scale-[1.02] transition-transform duration-200 animate-fade-in" style={{ animationDelay: `${550 + i * 60}ms`, animationFillMode: "both" }}>
-                  <p className="text-sm font-medium">{o.produto}</p>
-                  <p className="text-xs text-muted-foreground">{o.nicho} → {o.sub_nicho}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-lg font-mono font-bold text-emerald-400">{o.score}</span>
-                    {o.ticket && <span className="text-xs font-mono text-primary">R$ {o.ticket}</span>}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upcoming Events */}
+        {upcomingEvents.length > 0 && (
+          <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "480ms", animationFillMode: "both" }}>
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-primary" />
+                Próximos Eventos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {upcomingEvents.map((ev: any) => {
+                const eventDate = new Date(ev.event_date);
+                const typeIcons: Record<string, string> = { launch: "🚀", live: "🎥", deadline: "⏰", meeting: "🤝", content: "📝", general: "📌" };
+                const project = ev.imphq_projects;
+                return (
+                  <div key={ev.id} onClick={() => project && navigate(`/projetos/${ev.project_id}`)} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{typeIcons[ev.event_type] || "📌"}</span>
+                      <div>
+                        <p className="text-sm font-medium">{ev.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {project ? `${project.icon || "📁"} ${project.name}` : "Sem projeto"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-mono text-primary">{eventDate.toLocaleDateString("pt-BR")}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {formatDistanceToNow(eventDate, { locale: ptBR, addSuffix: true })}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Market Intel */}
+        {opportunities.length > 0 && (
+          <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "500ms", animationFillMode: "both" }}>
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                Top Oportunidades
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {opportunities.map((o, i) => (
+                  <div key={o.id} className="p-3 rounded-lg bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/15 hover:scale-[1.02] transition-transform duration-200 animate-fade-in" style={{ animationDelay: `${550 + i * 60}ms`, animationFillMode: "both" }}>
+                    <p className="text-sm font-medium">{o.produto}</p>
+                    <p className="text-xs text-muted-foreground">{o.nicho} → {o.sub_nicho}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-lg font-mono font-bold text-emerald-400">{o.score}</span>
+                      {o.ticket && <span className="text-xs font-mono text-primary">R$ {o.ticket}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
