@@ -143,6 +143,55 @@ Deno.serve(async (req) => {
         .from("imphq_leads")
         .update({ status: "cliente" })
         .eq("id", leadId);
+
+      // Send Facebook CAPI event if project has access token configured
+      if (projectId) {
+        const { data: proj } = await supabase
+          .from("imphq_projects")
+          .select("data")
+          .eq("id", projectId)
+          .single();
+
+        const fbToken = proj?.data?.facebook_access_token;
+        const fbPixelId = proj?.data?.facebook_pixel_id;
+        const fbTestCode = proj?.data?.facebook_test_event_code;
+
+        if (fbToken && fbPixelId) {
+          try {
+            const eventData: any = {
+              data: [{
+                event_name: "Purchase",
+                event_time: Math.floor(Date.now() / 1000),
+                action_source: "website",
+                user_data: {
+                  em: [await hashSHA256(email.toLowerCase())],
+                  fn: nome ? [await hashSHA256(nome.toLowerCase().split(" ")[0])] : undefined,
+                  ph: phone ? [await hashSHA256(phone.replace(/\D/g, ""))] : undefined,
+                },
+                custom_data: {
+                  currency: "BRL",
+                  value: valor,
+                  content_name: produto,
+                },
+              }],
+            };
+            if (fbTestCode) eventData.test_event_code = fbTestCode;
+
+            const capiRes = await fetch(
+              `https://graph.facebook.com/v18.0/${fbPixelId}/events?access_token=${fbToken}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(eventData),
+              }
+            );
+            const capiResult = await capiRes.json();
+            console.log(`[webhook-pagamento] CAPI Purchase enviado:`, capiResult);
+          } catch (capiErr) {
+            console.error("[webhook-pagamento] Erro CAPI:", capiErr);
+          }
+        }
+      }
     }
 
     // Check automations
