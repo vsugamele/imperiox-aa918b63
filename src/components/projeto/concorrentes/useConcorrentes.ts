@@ -69,5 +69,51 @@ export function useConcorrentes(projectId: string) {
     toast.success("Screenshot enviado");
   }, [projectId, updateField]);
 
-  return { competitors, loading, addCompetitor, removeCompetitor, updateField, uploadScreenshot };
+  const importCompetitors = useCallback(async (parsed: Record<string, any>[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error("Faça login primeiro"); return; }
+
+    let imported = 0;
+    for (const comp of parsed) {
+      const color = COMPETITOR_COLORS[(competitors.length + imported) % COMPETITOR_COLORS.length];
+      const row: Record<string, any> = {
+        project_id: projectId,
+        user_id: user.id,
+        name: comp.name || "Concorrente importado",
+        color,
+      };
+
+      // Map parsed fields
+      const fields = [
+        "url", "ponto_forte", "fraqueza", "nicho", "sub_nicho", "publico_alvo",
+        "mecanismo_unico", "score_escala", "score_max", "headline", "hook", "cta",
+        "oferta_principal", "preco", "garantia", "bonus", "trafego_est", "ads_ativos",
+        "insights", "canais_keywords", "stack_tecnologico", "paginas_funil"
+      ];
+      for (const f of fields) {
+        if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
+          row[f] = comp[f];
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("imphq_competitors")
+        .insert(row as any)
+        .select()
+        .single();
+
+      if (!error && data) {
+        setCompetitors(prev => [...prev, data as any]);
+        imported++;
+      }
+    }
+
+    if (imported > 0) {
+      toast.success(`${imported} concorrente(s) importado(s)`);
+    } else {
+      toast.error("Erro ao importar concorrentes");
+    }
+  }, [projectId, competitors.length]);
+
+  return { competitors, loading, addCompetitor, removeCompetitor, updateField, uploadScreenshot, importCompetitors };
 }
