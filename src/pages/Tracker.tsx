@@ -8,58 +8,65 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter } from "lucide-react";
 import { toast } from "sonner";
 
 interface TrackingLink {
   id: string; nome: string; destino: string; project_id?: string;
+  plataforma?: string;
   utm_source?: string; utm_medium?: string; utm_campaign?: string;
   utm_content?: string; utm_term?: string; ativo: boolean;
   created_at: string; clickCount?: number;
 }
 
 interface KPITargets {
-  roas_target: number;
-  cpa_target: number;
-  ctr_target: number;
-  cpm_target: number;
-  thumbstop_target: number;
+  roas_target: number; cpa_target: number; ctr_target: number;
+  cpm_target: number; thumbstop_target: number;
 }
 
-const DEFAULT_TARGETS: KPITargets = {
-  roas_target: 3,
-  cpa_target: 35,
-  ctr_target: 2,
-  cpm_target: 25,
-  thumbstop_target: 30,
+const DEFAULT_TARGETS: KPITargets = { roas_target: 3, cpa_target: 35, ctr_target: 2, cpm_target: 25, thumbstop_target: 30 };
+
+const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok Ads", "Kwai Ads", "Orgânico", "Afiliado", "Email", "Outro"];
+const PLATAFORMA_COLORS: Record<string, string> = {
+  "Meta Ads": "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  "Google Ads": "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  "TikTok Ads": "bg-pink-500/15 text-pink-400 border-pink-500/30",
+  "Kwai Ads": "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  "Orgânico": "bg-violet-500/15 text-violet-400 border-violet-500/30",
+  "Afiliado": "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  "Email": "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
+  "Outro": "bg-gray-500/15 text-gray-400 border-gray-500/30",
 };
 
 export default function Tracker() {
   const [links, setLinks] = useState<TrackingLink[]>([]);
   const [clicks, setClicks] = useState<any[]>([]);
   const [vendas, setVendas] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [showTargets, setShowTargets] = useState(false);
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
-  const [form, setForm] = useState({ nome: "", destino: "", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
+  const [filterPlataforma, setFilterPlataforma] = useState("all");
+  const [filterProject, setFilterProject] = useState("all");
+  const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
 
   const load = async () => {
-    const [lRes, cRes, vRes] = await Promise.all([
+    const [lRes, cRes, vRes, pRes] = await Promise.all([
       supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_clicks").select("*"),
       supabase.from("imphq_vendas").select("*"),
+      supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
-    const linksData = (lRes.data || []) as TrackingLink[];
     const clicksData = cRes.data || [];
-    const enriched = linksData.map(l => ({
-      ...l,
-      clickCount: clicksData.filter((c: any) => c.link_id === l.id).length,
+    const enriched = (lRes.data || []).map((l: any) => ({
+      ...l, clickCount: clicksData.filter((c: any) => c.link_id === l.id).length,
     }));
     setLinks(enriched);
     setClicks(clicksData);
     setVendas(vRes.data || []);
-    
-    // Load targets from localStorage
+    setProjects(pRes.data || []);
     const saved = localStorage.getItem("imphq_kpi_targets");
     if (saved) setTargets(JSON.parse(saved));
   };
@@ -68,8 +75,7 @@ export default function Tracker() {
 
   const saveTargets = () => {
     localStorage.setItem("imphq_kpi_targets", JSON.stringify(targets));
-    toast.success("Metas salvas!");
-    setShowTargets(false);
+    toast.success("Metas salvas!"); setShowTargets(false);
   };
 
   const buildUrl = (l: Partial<TrackingLink>) => {
@@ -88,75 +94,98 @@ export default function Tracker() {
     if (!form.nome || !form.destino) { toast.error("Nome e destino obrigatórios"); return; }
     const id = crypto.randomUUID();
     const { error } = await supabase.from("imphq_tracking_links").insert({
-      id, nome: form.nome, destino: form.destino,
+      id, nome: form.nome, destino: form.destino, plataforma: form.plataforma,
+      project_id: form.project_id || null,
       utm_source: form.utm_source || null, utm_medium: form.utm_medium || null,
       utm_campaign: form.utm_campaign || null, utm_content: form.utm_content || null,
       utm_term: form.utm_term || null, ativo: true,
     });
     if (error) { toast.error("Erro: " + error.message); return; }
-    toast.success("Link criado!");
-    setShowNew(false); setForm({ nome: "", destino: "", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
+    toast.success("Link criado!"); setShowNew(false);
+    setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
     load();
   };
 
   const toggleAtivo = async (link: TrackingLink) => {
-    await supabase.from("imphq_tracking_links").update({ ativo: !link.ativo }).eq("id", link.id);
-    load();
+    await supabase.from("imphq_tracking_links").update({ ativo: !link.ativo }).eq("id", link.id); load();
   };
-
   const deleteLink = async (id: string) => {
-    await supabase.from("imphq_tracking_links").delete().eq("id", id);
-    toast.success("Link removido");
-    load();
+    await supabase.from("imphq_tracking_links").delete().eq("id", id); toast.success("Link removido"); load();
   };
+  const copyLink = (link: TrackingLink) => { navigator.clipboard.writeText(buildUrl(link)); toast.success("URL copiada!"); };
 
-  const copyLink = (link: TrackingLink) => {
-    navigator.clipboard.writeText(buildUrl(link));
-    toast.success("URL copiada!");
-  };
+  // Filtered data
+  const filteredLinks = links.filter(l => {
+    if (filterPlataforma !== "all" && l.plataforma !== filterPlataforma) return false;
+    if (filterProject !== "all" && l.project_id !== filterProject) return false;
+    return true;
+  });
+  const filteredClicks = filterPlataforma === "all" && filterProject === "all"
+    ? clicks
+    : clicks.filter(c => filteredLinks.some(l => l.id === c.link_id));
+  const filteredVendas = filterPlataforma === "all" && filterProject === "all"
+    ? vendas
+    : vendas.filter(v => {
+        if (filterProject !== "all" && v.project_id !== filterProject) return false;
+        if (filterPlataforma !== "all" && v.plataforma !== filterPlataforma) return false;
+        return true;
+      });
 
-  // V5 KPI calculations
-  const totalClicks = clicks.length;
-  const totalVendas = vendas.length;
-  const totalReceita = vendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
-  const totalGasto = clicks.reduce((s: number, c: any) => s + (parseFloat(c.custo) || 0), 0);
-
-  // Core metrics
+  // KPIs
+  const totalClicks = filteredClicks.length;
+  const totalVendas = filteredVendas.length;
+  const totalReceita = filteredVendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+  const totalGasto = filteredClicks.reduce((s: number, c: any) => s + (parseFloat(c.custo) || 0), 0);
   const cpl = totalClicks > 0 ? totalGasto / totalClicks : 0;
   const cpa = totalVendas > 0 ? totalGasto / totalVendas : 0;
   const roas = totalGasto > 0 ? totalReceita / totalGasto : 0;
   const ctr = totalClicks > 0 ? (totalVendas / totalClicks) * 100 : 0;
-  const cvr = totalClicks > 0 ? (totalVendas / totalClicks) * 100 : 0;
+  const cvr = ctr;
   const cpm = totalClicks > 0 ? (totalGasto / totalClicks) * 1000 : 0;
   const ltv = totalVendas > 0 ? totalReceita / totalVendas : 0;
-  const cac = totalVendas > 0 ? totalGasto / totalVendas : 0;
+  const cac = cpa;
 
-  // Alert status: green = on target, red = off target
   const getStatus = (real: number, target: number, higherIsBetter: boolean) => {
     if (target === 0) return "neutral";
     return higherIsBetter ? (real >= target ? "good" : "bad") : (real <= target ? "good" : "bad");
   };
-
   const roasStatus = getStatus(roas, targets.roas_target, true);
   const cpaStatus = getStatus(cpa, targets.cpa_target, false);
   const ctrStatus = getStatus(ctr, targets.ctr_target, true);
   const cpmStatus = getStatus(cpm, targets.cpm_target, false);
 
-  const statusColor = (s: string) => s === "good" ? "text-emerald-400" : s === "bad" ? "text-destructive" : "text-muted-foreground";
-  const statusIcon = (s: string) => s === "good" ? <ArrowUpRight className="h-3 w-3" /> : s === "bad" ? <ArrowDownRight className="h-3 w-3" /> : null;
+  const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "—";
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">⚡ Tracker / Meta</h1>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowTargets(true)}>
-            <Target className="h-4 w-4 mr-1" /> Metas
-          </Button>
-          <Button size="sm" onClick={() => setShowNew(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Novo Link
-          </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowTargets(true)}><Target className="h-4 w-4 mr-1" /> Metas</Button>
+          <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Link</Button>
         </div>
+      </div>
+
+      {/* Global Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Filter className="h-4 w-4 text-muted-foreground" />
+        <Select value={filterPlataforma} onValueChange={setFilterPlataforma}>
+          <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas Plataformas</SelectItem>
+            {PLATAFORMAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos Projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {(filterPlataforma !== "all" || filterProject !== "all") && (
+          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); }}>Limpar filtros</Button>
+        )}
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
@@ -166,59 +195,32 @@ export default function Tracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
-          {/* Row 1: Core Financial */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} />
             <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Total Clicks" value={String(totalClicks)} />
             <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendas)} />
           </div>
-
-          {/* Row 2: V5 KPIs with targets */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KPICardTarget
-              label="ROAS" value={roas.toFixed(2)} suffix="x"
-              target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`}
-              status={roasStatus}
-            />
-            <KPICardTarget
-              label="CPA" value={`R$ ${cpa.toFixed(2)}`}
-              target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`}
-              status={cpaStatus}
-            />
-            <KPICardTarget
-              label="CTR" value={`${ctr.toFixed(1)}%`}
-              target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`}
-              status={ctrStatus}
-            />
-            <KPICardTarget
-              label="CPM" value={`R$ ${cpm.toFixed(2)}`}
-              target={targets.cpm_target} targetLabel={`Meta: R$ ${targets.cpm_target}`}
-              status={cpmStatus}
-            />
+            <KPICardTarget label="ROAS" value={roas.toFixed(2)} suffix="x" target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`} status={roasStatus} />
+            <KPICardTarget label="CPA" value={`R$ ${cpa.toFixed(2)}`} target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`} status={cpaStatus} />
+            <KPICardTarget label="CTR" value={`${ctr.toFixed(1)}%`} target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`} status={ctrStatus} />
+            <KPICardTarget label="CPM" value={`R$ ${cpm.toFixed(2)}`} target={targets.cpm_target} targetLabel={`Meta: R$ ${targets.cpm_target}`} status={cpmStatus} />
           </div>
-
-          {/* Row 3: Advanced KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICard icon={<Target className="h-3 w-3" />} label="CPL" value={`R$ ${cpl.toFixed(2)}`} />
             <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(1)}%`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="LTV" value={`R$ ${ltv.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={`R$ ${cac.toFixed(2)}`} />
           </div>
-
-          {/* Alerts */}
           {(roasStatus === "bad" || cpaStatus === "bad") && (
             <Card className="border-destructive/50 bg-destructive/5">
               <CardContent className="p-4 flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-destructive">Alerta de Performance</p>
-                  {roasStatus === "bad" && (
-                    <p className="text-xs text-muted-foreground">ROAS ({roas.toFixed(2)}x) está abaixo da meta ({targets.roas_target}x). Considere otimizar campanhas ou pausar as que não performam.</p>
-                  )}
-                  {cpaStatus === "bad" && (
-                    <p className="text-xs text-muted-foreground">CPA (R$ {cpa.toFixed(2)}) está acima da meta (R$ {targets.cpa_target}). O custo de aquisição está elevado.</p>
-                  )}
+                  {roasStatus === "bad" && <p className="text-xs text-muted-foreground">ROAS ({roas.toFixed(2)}x) abaixo da meta ({targets.roas_target}x)</p>}
+                  {cpaStatus === "bad" && <p className="text-xs text-muted-foreground">CPA (R$ {cpa.toFixed(2)}) acima da meta (R$ {targets.cpa_target})</p>}
                 </div>
               </CardContent>
             </Card>
@@ -231,6 +233,8 @@ export default function Tracker() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Plataforma</TableHead>
+                  <TableHead>Projeto</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Medium</TableHead>
                   <TableHead>Campaign</TableHead>
@@ -240,16 +244,20 @@ export default function Tracker() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {links.map((l) => (
+                {filteredLinks.map((l) => (
                   <TableRow key={l.id}>
                     <TableCell className="font-medium">{l.nome}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] ${PLATAFORMA_COLORS[l.plataforma || "Outro"] || PLATAFORMA_COLORS["Outro"]}`}>
+                        {l.plataforma || "—"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{projectName(l.project_id)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{l.utm_source || "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{l.utm_medium || "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{l.utm_campaign || "—"}</TableCell>
                     <TableCell className="font-mono text-primary">{l.clickCount ?? 0}</TableCell>
-                    <TableCell>
-                      <Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} />
-                    </TableCell>
+                    <TableCell><Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} /></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
@@ -266,11 +274,30 @@ export default function Tracker() {
 
       {/* New Link Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Novo Link UTM</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Meta - Campanha X" /></div>
             <div><Label>URL Destino</Label><Input value={form.destino} onChange={e => setForm({ ...form, destino: e.target.value })} placeholder="https://seusite.com/pagina" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Plataforma</Label>
+                <Select value={form.plataforma} onValueChange={v => setForm({ ...form, plataforma: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{PLATAFORMAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Projeto</Label>
+                <Select value={form.project_id} onValueChange={v => setForm({ ...form, project_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhum</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>utm_source</Label><Input value={form.utm_source} onChange={e => setForm({ ...form, utm_source: e.target.value })} placeholder="meta" /></div>
               <div><Label>utm_medium</Label><Input value={form.utm_medium} onChange={e => setForm({ ...form, utm_medium: e.target.value })} placeholder="cpc" /></div>
