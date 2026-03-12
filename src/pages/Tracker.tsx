@@ -76,7 +76,7 @@ export default function Tracker() {
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [filterPlataforma, setFilterPlataforma] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
-  const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
+  const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
 
   const load = async () => {
     const [lRes, cRes, vRes, pRes] = await Promise.all([
