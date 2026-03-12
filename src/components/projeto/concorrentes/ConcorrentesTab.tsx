@@ -1,19 +1,22 @@
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useConcorrentes } from "./useConcorrentes";
 import { VisaoGeralTab } from "./VisaoGeralTab";
 import { MercadoTab } from "./MercadoTab";
 import { CopywritingTab } from "./CopywritingTab";
 import { OfertaTab } from "./OfertaTab";
 import { DossieTab } from "./DossieTab";
+import { CompetitorImporter } from "./CompetitorImporter";
 
 interface Props {
   projectId: string;
 }
 
 export function ConcorrentesTab({ projectId }: Props) {
-  const { competitors, loading, addCompetitor, removeCompetitor, updateField, uploadScreenshot } = useConcorrentes(projectId);
+  const { competitors, loading, addCompetitor, removeCompetitor, updateField, uploadScreenshot, importCompetitors } = useConcorrentes(projectId);
+  const [showImporter, setShowImporter] = useState(false);
 
   if (loading) return <p className="text-muted-foreground p-4 text-sm">Carregando concorrentes...</p>;
 
@@ -21,9 +24,14 @@ export function ConcorrentesTab({ projectId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Análise de Concorrentes ({competitors.length})</h2>
-        <Button onClick={addCompetitor} size="sm" className="gap-1">
-          <Plus className="h-4 w-4" /> Concorrente
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowImporter(true)}>
+            <Upload className="h-4 w-4" /> Importar
+          </Button>
+          <Button onClick={addCompetitor} size="sm" className="gap-1">
+            <Plus className="h-4 w-4" /> Concorrente
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="visao">
