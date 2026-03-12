@@ -365,6 +365,156 @@ Tenho trabalhado com pessoas no mesmo momento que você — ajudei [resultado].
 Vale um papo de 5 minutos pra ver se faz sentido pra você?`,
   },
   {
+    key: "tracker_guia",
+    title: "Guia do Tracker",
+    icon: "📡",
+    description: "Como usar o sistema de rastreamento completo",
+    defaultContent: `# 📡 Guia Completo do Tracker (O Termômetro)
+
+## O que é o Tracker
+Sistema de rastreamento completo que captura:
+- **Clicks**: visitantes que chegam via links UTM
+- **Leads**: formulários capturados nas landing pages
+- **Vendas**: compras processadas via webhook de pagamento
+- **Eventos**: PageView, ações do visitante, jornada completa
+- **CAPI**: eventos enviados ao Facebook server-side
+
+## Como Criar Links UTM
+
+### 1. Acesse o Tracker no menu lateral
+### 2. Clique em "Novo Link"
+### 3. Preencha os campos:
+- **Nome**: identificador interno (ex: "Meta - Campanha Black Friday")
+- **URL Destino**: a página final (ex: https://seusite.com/oferta)
+- **Plataforma**: selecione de onde vem o tráfego
+- **Projeto**: vincule a um projeto específico
+
+### 4. Use os Templates de Macros
+Clique nos botões de template para preencher automaticamente:
+
+**Meta Ads**:
+- utm_source: \`{{site_source_name}}\`
+- utm_medium: \`{{placement}}\`
+- utm_campaign: \`{{campaign.name}}\`
+- utm_content: \`{{adset.name}}\`
+- utm_term: \`{{ad.name}}\`
+
+**Google Ads**:
+- utm_source: \`google\`
+- utm_medium: \`cpc\`
+- utm_campaign: \`{campaignid}\`
+- utm_content: \`{adgroupid}\`
+- utm_term: \`{keyword}\`
+
+**TikTok Ads**:
+- utm_source: \`tiktok\`
+- utm_medium: \`__PLACEMENT__\`
+- utm_campaign: \`__CAMPAIGN_NAME__\`
+
+## Como Instalar o Script imptrack.js
+
+### 1. No Tracker, clique no botão "Script"
+### 2. Copie o código gerado
+### 3. Cole no \`<head>\` da sua landing page
+
+O script faz automaticamente:
+- Captura todos os parâmetros UTM da URL
+- Persiste UTMs no localStorage (sobrevive navegação)
+- Registra o click na tabela \`imphq_clicks\`
+- Gera um \`visitor_id\` persistente para rastrear o mesmo visitante
+- Registra eventos de PageView automaticamente
+- Expõe funções para captura de leads e eventos customizados
+
+### Funções Disponíveis:
+\`\`\`javascript
+// Capturar UTMs atuais
+imptrack.getUtms()
+
+// Registrar lead no CRM
+imptrack.trackLead({ nome: "João", email: "joao@email.com", phone: "11999999999" })
+
+// Registrar evento customizado
+imptrack.trackEvent("ButtonClick", { button: "comprar", page: "/oferta" })
+
+// Obter visitor_id do visitante
+imptrack.getVisitorId()
+\`\`\`
+
+## Como Configurar Facebook CAPI
+
+### 1. Acesse o projeto no Império OS
+### 2. Na aba de configurações do projeto, preencha:
+- **Pixel ID**: ID do pixel do Facebook (ex: 123456789)
+- **Access Token CAPI**: token gerado no Events Manager do Facebook
+- **Test Event Code**: código para testar eventos (opcional)
+
+### 3. O que acontece automaticamente:
+- O script carrega o Pixel do Facebook na landing page
+- Quando uma venda é aprovada, o webhook envia evento \`Purchase\` via CAPI
+- Dados do comprador são hasheados com SHA-256 (email, nome, telefone)
+
+## Webhook de Pagamento
+
+### URL do Webhook
+Cada projeto gera uma URL única de webhook. Configure na sua plataforma:
+
+### Hotmart
+1. Acesse Hotmart > Ferramentas > Webhooks
+2. Cole a URL do webhook do projeto
+3. Selecione os eventos: "Compra aprovada", "Compra cancelada"
+
+### Kiwify
+1. Acesse Kiwify > Configurações > Webhooks
+2. Cole a URL do webhook do projeto
+
+### Ticto
+1. Acesse Ticto > Integrações > Webhooks
+2. Cole a URL do webhook do projeto
+
+## Fluxo Completo de Rastreamento
+
+\`\`\`
+Visitante clica no anúncio
+    ↓
+UTMs capturados pelo imptrack.js
+    ↓
+Click registrado em imphq_clicks
+    ↓
+Evento PageView registrado em imphq_events
+    ↓
+Visitante preenche formulário
+    ↓
+Lead registrado via imptrack.trackLead()
+    ↓
+Visitante compra o produto
+    ↓
+Plataforma envia webhook → webhook-pagamento
+    ↓
+Venda cruzada com lead (por email)
+    ↓
+Evento Purchase enviado via Facebook CAPI
+    ↓
+Automações disparadas (WhatsApp, email)
+\`\`\`
+
+## FAQ
+
+### Os dados ficam no meu Supabase?
+Sim. Tudo fica nas tabelas \`imphq_clicks\`, \`imphq_leads\`, \`imphq_vendas\` e \`imphq_events\`.
+
+### Preciso de servidor próprio?
+Não. O script faz chamadas diretas ao Supabase via API REST. O webhook roda como Edge Function no Supabase.
+
+### Funciona com qualquer landing page?
+Sim. Basta colar o script no \`<head>\`. Funciona com WordPress, Elementor, ClickFunnels, HTML puro, etc.
+
+### Como testar o CAPI?
+Use o Test Event Code no Events Manager do Facebook. Configure no projeto e os eventos aparecerão na aba "Test Events".
+
+### O visitor_id identifica o mesmo visitante em dispositivos diferentes?
+Não. O visitor_id é baseado em localStorage, então é por navegador/dispositivo. Para cross-device, é necessário o email do lead.`,
+  },
+  {
     key: "aprendizados",
     title: "Histórico de Aprendizados",
     icon: "💡",
