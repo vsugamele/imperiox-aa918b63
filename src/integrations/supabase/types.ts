@@ -9923,6 +9923,7 @@ export type Database = {
           destino: string
           id: string
           nome: string | null
+          plataforma: string | null
           project_id: string | null
           updated_at: string | null
           utm_campaign: string | null
@@ -9937,6 +9938,7 @@ export type Database = {
           destino: string
           id: string
           nome?: string | null
+          plataforma?: string | null
           project_id?: string | null
           updated_at?: string | null
           utm_campaign?: string | null
@@ -9951,6 +9953,7 @@ export type Database = {
           destino?: string
           id?: string
           nome?: string | null
+          plataforma?: string | null
           project_id?: string | null
           updated_at?: string | null
           utm_campaign?: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE imphq_tracking_links ADD COLUMN IF NOT EXISTS plataforma text DEFAULT 'Orgânico';
