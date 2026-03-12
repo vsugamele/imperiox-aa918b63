@@ -514,13 +514,23 @@ export default function Tracker() {
               <p className="text-xs font-medium text-primary">Funções disponíveis:</p>
               <div className="bg-secondary rounded p-3 space-y-2 text-xs font-mono text-muted-foreground">
                 <p><span className="text-primary">imptrack.getUtms()</span> → retorna objeto com UTMs capturados</p>
+                <p><span className="text-primary">imptrack.getVisitorId()</span> → retorna ID persistente do visitante</p>
+                <p><span className="text-primary">imptrack.getSessionId()</span> → retorna ID da sessão atual</p>
                 <p><span className="text-primary">imptrack.trackLead({"{"} nome, email, phone {"}"})</span> → registra lead no CRM</p>
+                <p><span className="text-primary">imptrack.trackEvent("NomeEvento", {"{"} dados {"}"})</span> → registra evento customizado</p>
               </div>
+              <p className="text-[10px] text-muted-foreground mt-1">⚡ PageView é registrado automaticamente. Visitor ID persiste entre sessões.</p>
               <p className="text-xs text-muted-foreground mt-2">
                 <span className="font-medium">Exemplo de uso no formulário:</span>
               </p>
               <div className="bg-secondary rounded p-3 text-xs font-mono text-muted-foreground">
                 {`document.querySelector("form").addEventListener("submit", function(e) {\n  e.preventDefault();\n  imptrack.trackLead({\n    nome: document.getElementById("nome").value,\n    email: document.getElementById("email").value\n  }).then(function() { window.location = "/obrigado"; });\n});`}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                <span className="font-medium">Exemplo de evento customizado:</span>
+              </p>
+              <div className="bg-secondary rounded p-3 text-xs font-mono text-muted-foreground">
+                {`imptrack.trackEvent("ButtonClick", { button: "comprar", page: "/oferta" });\nimptrack.trackEvent("VideoPlay", { video_id: "vsl-principal", percent: 50 });`}
               </div>
             </div>
           </div>
