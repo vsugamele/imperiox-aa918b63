@@ -1,14 +1,17 @@
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
+import { Trash2 } from "lucide-react";
 import { Competitor } from "./types";
 
 interface Props {
   competitors: Competitor[];
   updateField: (id: string, field: string, value: any) => void;
+  removeCompetitor: (id: string) => void;
 }
 
-export function MercadoTab({ competitors, updateField }: Props) {
+export function MercadoTab({ competitors, updateField, removeCompetitor }: Props) {
   if (!competitors.length) return <p className="text-muted-foreground text-sm p-4">Nenhum concorrente adicionado.</p>;
 
   return (
@@ -26,9 +29,19 @@ export function MercadoTab({ competitors, updateField }: Props) {
                   <span className="w-3 h-3 rounded-full" style={{ background: c.color }} />
                   <span className="text-sm font-medium">{c.name}</span>
                 </div>
-                <span className="text-sm font-mono font-bold" style={{ color: c.color }}>
-                  {c.score_escala}/{c.score_max}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-mono font-bold" style={{ color: c.color }}>
+                    {c.score_escala}/{c.score_max}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 text-destructive hover:text-destructive"
+                    onClick={() => removeCompetitor(c.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
               <Slider
                 value={[c.score_escala]}

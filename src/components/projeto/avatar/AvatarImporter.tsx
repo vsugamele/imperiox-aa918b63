@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, FileUp } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onImport: (data: any) => void;
+  projectId?: string;
 }
 
 function extractText(el: Element | null): string {
@@ -33,17 +35,75 @@ function parseAvatarHTML(html: string): any {
   const doc = parser.parseFromString(html, "text/html");
   const result: any = {};
 
+  // ── Filtro de Demanda (stat-bar + score table from M1) ──
+  const statCells = doc.querySelectorAll("#mod-avatar .stat-cell, .stat-bar .stat-cell, .stat-cell");
+  if (statCells.length) {
+    result.filtro_demanda = Array.from(statCells).map(cell => ({
+      valor: extractText(cell.querySelector(".stat-n")),
+      label: extractText(cell.querySelector(".stat-l")),
+    }));
+  }
+
+  // ── Score Table (filtro + problemas com scores) ──
+  const scoreRows = doc.querySelectorAll(".score-table tbody tr");
+  if (scoreRows.length) {
+    result.problemas = Array.from(scoreRows).map((row, i) => {
+      const cells = row.querySelectorAll("td");
+      const headers = doc.querySelectorAll(".score-table thead th");
+      const scoreKeys = Array.from(headers).slice(2, -1).map(h => extractText(h).toLowerCase().replace(/\s+/g, "_"));
+      const scores: any = {};
+      scoreKeys.forEach((key, idx) => {
+        scores[key] = parseInt(extractText(cells[idx + 2])) || 0;
+      });
+      return {
+        rank: parseInt(extractText(cells[0])) || i + 1,
+        nome: extractText(cells[1]),
+        total: parseInt(extractText(cells[cells.length - 1])) || 0,
+        scores,
+      };
+    });
+  } else {
+    // Fallback: .prob-table (used in multiple sections)
+    const probTables = doc.querySelectorAll(".prob-table");
+    probTables.forEach(table => {
+      const rows = table.querySelectorAll("tbody tr");
+      if (rows.length && !result.problemas) {
+        const headers = Array.from(table.querySelectorAll("thead th")).map(h => extractText(h).toLowerCase());
+        result.problemas = Array.from(rows).map((row, i) => {
+          const cells = row.querySelectorAll("td");
+          const item: any = { rank: i + 1 };
+          headers.forEach((h, idx) => {
+            const val = extractText(cells[idx]);
+            if (h.includes("critério") || h.includes("problema") || h === "#") {
+              if (h === "#") item.rank = parseInt(val) || i + 1;
+              else item.nome = val;
+            } else if (h.includes("score") || h.includes("total")) {
+              item.total = parseInt(val.replace(/[^\d]/g, "")) || 0;
+            } else if (h.includes("evidência") || h.includes("cena")) {
+              item.cena_voyerismo = val;
+            } else {
+              item[h.replace(/\s+/g, "_")] = val;
+            }
+          });
+          return item;
+        });
+      }
+    });
+  }
+
   // ── Desejos (by section ID or fallback) ──
-  const desejosB1 = doc.querySelector("#desejos-b1, [id*='desejos-b1']");
   const desejosB2 = doc.querySelector("#desejos-b2, [id*='desejos-b2']");
   const desejosB3 = doc.querySelector("#desejos-b3, [id*='desejos-b3']");
+  const desejosB4 = doc.querySelector("#desejos-b4, [id*='desejos-b4']");
 
-  const externos = parseDesireItems(desejosB1);
-  const internos = parseDesireItems(desejosB2);
-  const proibidos = parseDesireItems(desejosB3);
+  const externos = parseDesireItems(desejosB2);
+  const internos = parseDesireItems(desejosB3);
+  const proibidos = parseDesireItems(desejosB4);
 
-  // Fallback: if no section IDs, parse all desire-items and classify
+  // Fallback with B1
   if (!externos.length && !internos.length && !proibidos.length) {
+    const desejosB1 = doc.querySelector("#desejos-b1, [id*='desejos-b1']");
+    const allSections = [desejosB1, desejosB2, desejosB3, desejosB4];
     const allDesires = doc.querySelectorAll(".desire-item");
     allDesires.forEach(el => {
       const rank = extractText(el.querySelector(".desire-rank"));
@@ -63,38 +123,15 @@ function parseAvatarHTML(html: string): any {
   if (internos.length) result.desejos_internos = internos;
   if (proibidos.length) result.desejos_proibidos = proibidos;
 
-  // ── Score Table (problemas com 7 scores) ──
-  const scoreRows = doc.querySelectorAll(".score-table tbody tr");
-  if (scoreRows.length) {
-    result.problemas = Array.from(scoreRows).map((row, i) => {
-      const cells = row.querySelectorAll("td");
-      const headers = doc.querySelectorAll(".score-table thead th");
-      const scoreKeys = Array.from(headers).slice(2, -1).map(h => extractText(h).toLowerCase().replace(/\s+/g, "_"));
-      const scores: any = {};
-      scoreKeys.forEach((key, idx) => {
-        scores[key] = parseInt(extractText(cells[idx + 2])) || 0;
-      });
-      return {
-        rank: parseInt(extractText(cells[0])) || i + 1,
-        nome: extractText(cells[1]),
-        total: parseInt(extractText(cells[cells.length - 1])) || 0,
-        scores,
-      };
-    });
-  } else {
-    // Fallback: .prob-table
-    const probRows = doc.querySelectorAll(".prob-table tbody tr");
-    if (probRows.length) {
-      result.problemas = Array.from(probRows).map((row, i) => {
-        const cells = row.querySelectorAll("td");
-        return {
-          rank: i + 1,
-          nome: extractText(cells[1]),
-          total: parseInt(extractText(cells[2])) || 0,
-          cena_voyerismo: extractText(cells[3]),
-          scores: {},
-        };
-      });
+  // ── Blocos B5-B7: Vontades, Obsessões, Gostos ──
+  for (const [id, key] of [["desejos-b5", "vontades"], ["desejos-b6", "obsessoes"], ["desejos-b7", "gostos"]] as const) {
+    const section = doc.querySelector(`#${id}, [id*='${id}']`);
+    if (section) {
+      const items = Array.from(section.querySelectorAll(".desire-item, .card")).map(el => ({
+        nome: extractText(el.querySelector(".desire-name, .card-title, .av-name")) || extractText(el),
+        score: parseInt(extractText(el.querySelector(".desire-score")) || "0") || 0,
+      })).filter(i => i.nome);
+      if (items.length) result[key] = items;
     }
   }
 
@@ -118,21 +155,25 @@ function parseAvatarHTML(html: string): any {
       const data: any = { nome, intensidade };
       fields.forEach(f => {
         const key = extractText(f.querySelector(".scene-key")).toLowerCase();
-        const val = extractText(f.querySelector(".scene-val"));
+        const val = extractText(f.querySelector(".scene-val, .scene-quote, p"));
         if (key.includes("situação") || key.includes("situacao")) data.situacao = val;
         if (key.includes("sintoma")) data.sintoma_fisico = val;
-        if (key.includes("pensamento")) data.pensamento = val;
-        if (key.includes("comportamento")) data.comportamento = val;
+        if (key.includes("pensamento") || key.includes("diz")) data.pensamento = val;
+        if (key.includes("comportamento") || key.includes("faz")) data.comportamento = val;
       });
       const quote = extractText(scene.querySelector(".scene-quote"));
       if (quote) data.pensamento = data.pensamento || quote;
+      const forbidden = extractText(scene.querySelector(".scene-forbidden"));
+      if (forbidden) data.proibido = forbidden;
       return data;
     });
   }
 
-  // ── Camadas da Psique (C1-C4) ──
-  const cards = doc.querySelectorAll(".card");
+  // ── Camadas da Psique (C1-C4) — from .card or .acc-card ──
   const camadas: any = {};
+
+  // Try .card elements first
+  const cards = doc.querySelectorAll("#mod-avatar .card, .card");
   cards.forEach(card => {
     const label = extractText(card.querySelector(".card-label"));
     const content = extractText(card.querySelector(".card-content, .card-body, p"));
@@ -140,6 +181,21 @@ function parseAvatarHTML(html: string): any {
     else if (label.includes("C2")) camadas.c2_emocional = content;
     else if (label.includes("C3")) camadas.c3_identidade = content;
     else if (label.includes("C4")) camadas.c4_existencial = content;
+  });
+
+  // Also try .acc-card for C1-C4 (accordion format)
+  const accCards = doc.querySelectorAll(".acc-card");
+  accCards.forEach(card => {
+    const id = card.getAttribute("id") || "";
+    const num = extractText(card.querySelector(".acc-num"));
+    const title = extractText(card.querySelector(".acc-title"));
+    const bodyItems = Array.from(card.querySelectorAll(".acc-body .dl li, .acc-body li")).map(li => extractText(li));
+    const bodyText = bodyItems.length ? bodyItems.join(" • ") : extractText(card.querySelector(".acc-body"));
+
+    if (num === "C1" || id.includes("-c1")) camadas.c1_superficie = bodyText || camadas.c1_superficie;
+    else if (num === "C2" || id.includes("-c2")) camadas.c2_emocional = bodyText || camadas.c2_emocional;
+    else if (num === "C3" || id.includes("-c3")) camadas.c3_identidade = bodyText || camadas.c3_identidade;
+    else if (num === "C4" || id.includes("-c4")) camadas.c4_existencial = bodyText || camadas.c4_existencial;
   });
   if (Object.keys(camadas).length) result.camadas_psique = camadas;
 
@@ -157,9 +213,19 @@ function parseAvatarHTML(html: string): any {
   const cycleItems = doc.querySelectorAll(".cycle-item");
   if (cycleItems.length) {
     result.ciclo_sabotagem = Array.from(cycleItems).map(item => ({
-      etapa: extractText(item.querySelector(".cycle-step, .cycle-num, strong")),
-      descricao: extractText(item.querySelector(".cycle-text, .cycle-desc, p")),
+      etapa: extractText(item.querySelector(".cycle-step, .cycle-num, .cycle-label, strong")),
+      descricao: extractText(item.querySelector(".cycle-text, .cycle-desc, .cycle-content, p")),
     }));
+  }
+
+  // ── Emotion Flow (.em-step) ──
+  const emSteps = doc.querySelectorAll(".em-step");
+  if (emSteps.length) {
+    result.emocoes_sequencia = Array.from(emSteps).map(step => ({
+      numero: extractText(step.querySelector(".em-num")),
+      nome: extractText(step.querySelector(".em-name")),
+      descricao: extractText(step.querySelector(".em-desc")),
+    })).filter(e => e.nome);
   }
 
   // ── Movimentos ──
@@ -167,7 +233,7 @@ function parseAvatarHTML(html: string): any {
   if (movements.length) {
     result.movimentos = Array.from(movements).map(m => ({
       nome: extractText(m.querySelector(".mov-title, .movement-title, h4, strong")),
-      descricao: extractText(m.querySelector(".mov-desc, .movement-desc, p")),
+      descricao: extractText(m.querySelector(".mov-desc, .mov-body, .movement-desc, p")),
     }));
   }
 
@@ -179,7 +245,6 @@ function parseAvatarHTML(html: string): any {
       texto: extractText(item.querySelector(".hi-text")),
     }));
   } else {
-    // Fallback: .handoff-item
     const handoffItems = doc.querySelectorAll(".handoff-item");
     handoffItems.forEach(item => {
       const key = extractText(item.querySelector(".handoff-key")).toLowerCase();
@@ -192,7 +257,138 @@ function parseAvatarHTML(html: string): any {
     });
   }
 
-  // ── Word clouds (.word with .dor/.des/.sol/.val) ──
+  // ── Headlines (.hl-card) — Copy Arsenal ──
+  const hlCards = doc.querySelectorAll(".hl-card");
+  if (hlCards.length) {
+    result.headlines = Array.from(hlCards).map(card => ({
+      categoria: extractText(card.querySelector(".hl-cat")),
+      texto: extractText(card.querySelector(".hl-text")),
+    }));
+  }
+
+  // ── Anúncios (.ad-card) — Copy Arsenal ──
+  const adCards = doc.querySelectorAll(".ad-card");
+  if (adCards.length) {
+    result.anuncios = Array.from(adCards).map(card => {
+      const angulo = extractText(card.querySelector(".ad-angle"));
+      const avatar = extractText(card.querySelector(".ad-avatar"));
+      const sections = card.querySelectorAll(".ad-section");
+      const data: any = { angulo, avatar_alvo: avatar };
+      sections.forEach(s => {
+        const key = extractText(s.querySelector(".ad-key")).toLowerCase();
+        const text = extractText(s.querySelector(".ad-text, .ad-hook"));
+        if (key.includes("hook")) data.hook = text;
+        else if (key.includes("corpo") || key.includes("body")) data.corpo = text;
+        else if (key.includes("cta")) data.cta = text;
+        else data[key.replace(/\s+/g, "_")] = text;
+      });
+      const cta = extractText(card.querySelector(".ad-cta"));
+      if (cta && !data.cta) data.cta = cta;
+      return data;
+    });
+  }
+
+  // ── VSL Timeline (.vsl-block) ──
+  const vslBlocks = doc.querySelectorAll(".vsl-block");
+  if (vslBlocks.length) {
+    result.vsl_timeline = Array.from(vslBlocks).map(block => ({
+      tempo: extractText(block.querySelector(".vsl-time")),
+      titulo: extractText(block.querySelector(".vsl-title")),
+      corpo: extractText(block.querySelector(".vsl-body")),
+    }));
+  }
+
+  // ── Página de Vendas (.copy-block) ──
+  const copyBlocks = doc.querySelectorAll(".copy-block");
+  if (copyBlocks.length) {
+    result.pagina_vendas = Array.from(copyBlocks).map(block => ({
+      label: extractText(block.querySelector(".cb-label")),
+      titulo: extractText(block.querySelector(".cb-title")),
+      corpo: extractText(block.querySelector(".cb-body")),
+      nota: extractText(block.querySelector(".cb-note")),
+    }));
+  }
+
+  // ── Objeções (.obj-card) ──
+  const objCards = doc.querySelectorAll(".obj-card");
+  if (objCards.length) {
+    result.objecoes = Array.from(objCards).map(card => {
+      const pergunta = extractText(card.querySelector(".obj-q"));
+      const rows = card.querySelectorAll(".obj-row");
+      const respostas: any[] = Array.from(rows).map(row => ({
+        tipo: extractText(row.querySelector(".obj-key")),
+        texto: extractText(row.querySelector(".obj-val")),
+      }));
+      return { pergunta, respostas };
+    });
+  }
+
+  // ── Value Stack (.vs-item) ──
+  const vsItems = doc.querySelectorAll(".vs-item");
+  if (vsItems.length) {
+    result.value_stack = Array.from(vsItems).map(item => ({
+      numero: extractText(item.querySelector(".vs-num")),
+      titulo: extractText(item.querySelector(".vs-title")),
+      valor: extractText(item.querySelector(".vs-value")),
+      principal: item.classList.contains("main"),
+    }));
+  }
+
+  // ── Upsell Steps (.upsell-step) ──
+  const upsellSteps = doc.querySelectorAll(".upsell-step");
+  if (upsellSteps.length) {
+    result.upsell_steps = Array.from(upsellSteps).map(step => ({
+      label: extractText(step.querySelector(".us-label")),
+      texto: extractText(step.querySelector(".us-text")),
+    }));
+  }
+
+  // ── Gatilhos Detalhados (.gat-card) — Desejos module ──
+  const gatCards = doc.querySelectorAll(".gat-card");
+  if (gatCards.length) {
+    result.gatilhos_detalhados = Array.from(gatCards).map(card => {
+      const titulo = extractText(card.querySelector(".gat-title, .gat-header"));
+      const fields = card.querySelectorAll(".gat-field");
+      const data: any = { titulo };
+      fields.forEach(f => {
+        const label = extractText(f.querySelector(".gf-label")).toLowerCase().replace(/\s+/g, "_");
+        const text = extractText(f.querySelector(".gf-text, .gf-quote"));
+        if (label && text) data[label] = text;
+      });
+      return data;
+    });
+  }
+
+  // ── Fases de Ativação (.atv-phase) ──
+  const phases = doc.querySelectorAll(".atv-phase");
+  if (phases.length) {
+    result.fases_ativacao = Array.from(phases).map(phase => ({
+      numero: extractText(phase.querySelector(".atv-num")),
+      fase: extractText(phase.querySelector(".atv-fase")),
+      tecnica: extractText(phase.querySelector(".atv-tec")),
+      corpo: extractText(phase.querySelector(".atv-body")),
+      copy: extractText(phase.querySelector(".atv-copy")),
+      porque: extractText(phase.querySelector(".atv-why")),
+    }));
+  }
+
+  // ── Content Plan (.content-week) ──
+  const contentWeeks = doc.querySelectorAll(".content-week");
+  if (contentWeeks.length) {
+    result.plano_conteudo = Array.from(contentWeeks).map(week => {
+      const weekNum = extractText(week.querySelector(".cw-week"));
+      const weekTitle = extractText(week.querySelector(".cw-title"));
+      const pieces = Array.from(week.querySelectorAll(".cw-piece")).map(piece => ({
+        numero: extractText(piece.querySelector(".cw-n")),
+        titulo: extractText(piece.querySelector(".cw-piece-title")),
+        hook: extractText(piece.querySelector(".cw-piece-hook")),
+        formato: extractText(piece.querySelector(".cw-piece-format")),
+      }));
+      return { semana: weekNum, titulo: weekTitle, pecas: pieces };
+    });
+  }
+
+  // ── Word clouds (.word-list .word + .wpill) ──
   const wordItems = doc.querySelectorAll(".word-list .word, .word-cloud .word");
   if (wordItems.length) {
     const palavras_dor: string[] = [];
@@ -210,16 +406,20 @@ function parseAvatarHTML(html: string): any {
     if (palavras_desejo.length) result.palavras_desejo = palavras_desejo;
     if (palavras_solucao.length) result.palavras_solucao = palavras_solucao;
     if (palavras_valor.length) result.palavras_valor = palavras_valor;
-  } else {
-    // Fallback: .wpill
+  }
+
+  // Fallback: .wpill
+  if (!result.palavras_dor && !result.palavras_desejo) {
     const wordClouds = doc.querySelectorAll(".word-cloud");
     wordClouds.forEach(cloud => {
       const pills = Array.from(cloud.querySelectorAll(".wpill")).map(p => extractText(p));
+      if (!pills.length) return;
       const prev = cloud.previousElementSibling;
       const label = extractText(prev).toLowerCase();
       if (label.includes("dor")) result.palavras_dor = pills;
       else if (label.includes("desejo")) result.palavras_desejo = pills;
       else if (label.includes("solução") || label.includes("solucao")) result.palavras_solucao = pills;
+      else if (label.includes("validação") || label.includes("validacao")) result.palavras_valor = pills;
     });
   }
 
@@ -240,33 +440,32 @@ function parseAvatarHTML(html: string): any {
     if (frases_decisao.length) result.frases_gatilho_decisao = frases_decisao;
   }
 
-  // ── Fases de Ativação ──
-  const phases = doc.querySelectorAll(".atv-phase");
-  if (phases.length) {
-    result.fases_ativacao = Array.from(phases).map(phase => ({
-      nome: extractText(phase.querySelector(".atv-title, .phase-title, h4, strong")),
-      descricao: extractText(phase.querySelector(".atv-desc, .phase-desc, p")),
-    }));
-  }
-
   // ── Síntese Final ──
   const sintCards = doc.querySelectorAll(".sint-card");
   if (sintCards.length) {
     result.sintese = Array.from(sintCards).map(card => ({
-      titulo: extractText(card.querySelector(".sint-title, h4, strong")),
-      conteudo: extractText(card.querySelector(".sint-content, .sint-body, p")),
+      titulo: extractText(card.querySelector(".sint-title, .sint-label, h4, strong")),
+      conteudo: extractText(card.querySelector(".sint-body, .sint-content, p")),
     }));
   }
 
+  // ── Guarantee ──
+  const guarantee = doc.querySelector(".guarantee-box");
+  if (guarantee) {
+    result.garantia = {
+      titulo: extractText(guarantee.querySelector(".gb-title")),
+      corpo: extractText(guarantee.querySelector(".gb-body")),
+    };
+  }
+
   // ── Sub-avatares completos ──
-  const accCards = doc.querySelectorAll(".avatar-card, .acc-card");
+  const avatarCards = doc.querySelectorAll(".avatar-card");
   const subAvatares: any[] = [];
-  accCards.forEach(card => {
-    const nome = extractText(card.querySelector(".av-name, .acc-title"));
+  avatarCards.forEach(card => {
+    const nome = extractText(card.querySelector(".av-name"));
     if (!nome) return;
     const sub: any = { nome };
 
-    // Extract all key-value rows
     const rows = card.querySelectorAll(".av-row");
     rows.forEach(row => {
       const key = extractText(row.querySelector(".av-key")).toLowerCase();
@@ -279,12 +478,26 @@ function parseAvatarHTML(html: string): any {
       else if (key.includes("score")) sub.score = parseInt(val) || 0;
       else if (key.includes("dor")) sub.dor_principal = val;
       else if (key.includes("desejo")) sub.desejo_principal = val;
+      else if (key.includes("asset") || key.includes("ativo")) sub.asset_primario = val;
+      else if (key.includes("objeção") || key.includes("objecao")) sub.objecao = val;
+      else if (key.includes("dado") || key.includes("tempo")) sub[key.replace(/\s+/g, "_")] = val;
     });
 
-    // Fallback for situation text
     if (!sub.descricao) {
       sub.descricao = extractText(card.querySelector(".av-situation")) || "";
     }
+
+    // Extract beliefs from av-belief
+    const beliefs = card.querySelectorAll(".av-belief");
+    beliefs.forEach(b => {
+      if (b.classList.contains("needed")) sub.crenca_necessaria = extractText(b);
+      else sub.crenca_bloqueadora = extractText(b);
+    });
+
+    // Extract hook
+    const hookEl = card.querySelector(".av-hook");
+    if (hookEl && !sub.hook) sub.hook = extractText(hookEl);
+
     if (!sub.urgencia) sub.urgencia = 3;
     if (!sub.dinheiro) sub.dinheiro = 3;
 
@@ -297,33 +510,65 @@ function parseAvatarHTML(html: string): any {
 
 function getImportSummary(data: any): { label: string; count: number; emoji: string }[] {
   const items: { label: string; count: number; emoji: string }[] = [];
+  if (data.filtro_demanda?.length) items.push({ label: "Filtro de Demanda", count: data.filtro_demanda.length, emoji: "📊" });
   if (data.desejos_externos?.length) items.push({ label: "Desejos Externos", count: data.desejos_externos.length, emoji: "💎" });
   if (data.desejos_internos?.length) items.push({ label: "Desejos Internos", count: data.desejos_internos.length, emoji: "🔮" });
   if (data.desejos_proibidos?.length) items.push({ label: "Desejos Proibidos", count: data.desejos_proibidos.length, emoji: "🚫" });
+  if (data.vontades?.length) items.push({ label: "Vontades (B5)", count: data.vontades.length, emoji: "🔥" });
+  if (data.obsessoes?.length) items.push({ label: "Obsessões (B6)", count: data.obsessoes.length, emoji: "💭" });
+  if (data.gostos?.length) items.push({ label: "Gostos (B7)", count: data.gostos.length, emoji: "❤️" });
   if (data.problemas?.length) items.push({ label: "Problemas Rankeados", count: data.problemas.length, emoji: "🎯" });
   if (data.categorias_problemas?.length) items.push({ label: "Categorias de Problemas", count: data.categorias_problemas.length, emoji: "📂" });
   if (data.voyerismos?.length) items.push({ label: "Cenas de Voyerismo", count: data.voyerismos.length, emoji: "👁️" });
   if (data.sub_avatares?.length) items.push({ label: "Sub-Avatares", count: data.sub_avatares.length, emoji: "🧠" });
   if (data.camadas_psique) items.push({ label: "Camadas da Psique", count: Object.keys(data.camadas_psique).length, emoji: "🧬" });
+  if (data.emocoes_sequencia?.length) items.push({ label: "Sequência de Emoções", count: data.emocoes_sequencia.length, emoji: "🌊" });
   if (data.ciclo_sabotagem?.length) items.push({ label: "Ciclo de Sabotagem", count: data.ciclo_sabotagem.length, emoji: "🔄" });
   if (data.movimentos?.length) items.push({ label: "Movimentos", count: data.movimentos.length, emoji: "🏃" });
   if (data.handoff?.length) items.push({ label: "Handoff Items", count: data.handoff.length, emoji: "📋" });
-  if (data.fases_ativacao?.length) items.push({ label: "Fases de Ativação", count: data.fases_ativacao.length, emoji: "⚡" });
+  if (data.headlines?.length) items.push({ label: "Headlines (Copy)", count: data.headlines.length, emoji: "📝" });
+  if (data.anuncios?.length) items.push({ label: "Anúncios (Copy)", count: data.anuncios.length, emoji: "📢" });
+  if (data.vsl_timeline?.length) items.push({ label: "VSL Timeline", count: data.vsl_timeline.length, emoji: "🎬" });
+  if (data.pagina_vendas?.length) items.push({ label: "Página de Vendas", count: data.pagina_vendas.length, emoji: "🛒" });
+  if (data.objecoes?.length) items.push({ label: "Objeções", count: data.objecoes.length, emoji: "🛡️" });
+  if (data.value_stack?.length) items.push({ label: "Value Stack", count: data.value_stack.length, emoji: "💰" });
+  if (data.upsell_steps?.length) items.push({ label: "Upsell Steps", count: data.upsell_steps.length, emoji: "⬆️" });
+  if (data.gatilhos_detalhados?.length) items.push({ label: "Gatilhos Detalhados", count: data.gatilhos_detalhados.length, emoji: "⚡" });
+  if (data.fases_ativacao?.length) items.push({ label: "Fases de Ativação", count: data.fases_ativacao.length, emoji: "🚀" });
+  if (data.plano_conteudo?.length) items.push({ label: "Plano de Conteúdo", count: data.plano_conteudo.length, emoji: "📅" });
   if (data.sintese?.length) items.push({ label: "Síntese Final", count: data.sintese.length, emoji: "✨" });
+  if (data.garantia) items.push({ label: "Garantia", count: 1, emoji: "✅" });
   if (data.palavras_dor?.length) items.push({ label: "Palavras de Dor", count: data.palavras_dor.length, emoji: "🩸" });
   if (data.palavras_desejo?.length) items.push({ label: "Palavras de Desejo", count: data.palavras_desejo.length, emoji: "💫" });
+  if (data.palavras_solucao?.length) items.push({ label: "Palavras de Solução", count: data.palavras_solucao.length, emoji: "🔑" });
+  if (data.palavras_valor?.length) items.push({ label: "Palavras de Valor", count: data.palavras_valor.length, emoji: "⭐" });
   if (data.frases_gatilho_dor?.length) items.push({ label: "Frases-Gatilho Dor", count: data.frases_gatilho_dor.length, emoji: "🗣️" });
   if (data.frases_gatilho_desejo?.length) items.push({ label: "Frases-Gatilho Desejo", count: data.frases_gatilho_desejo.length, emoji: "🗣️" });
+  if (data.frases_gatilho_decisao?.length) items.push({ label: "Frases-Gatilho Decisão", count: data.frases_gatilho_decisao.length, emoji: "🗣️" });
   const singles = ["crenca_bloqueadora", "crenca_necessaria", "epifania_central", "gatilho_nuclear", "the_high", "the_hell"];
   const foundSingles = singles.filter(k => data[k]);
   if (foundSingles.length) items.push({ label: "Crenças & Gatilhos", count: foundSingles.length, emoji: "💡" });
   return items;
 }
 
-export function AvatarImporter({ open, onClose, onImport }: Props) {
+async function saveAsDoc(projectId: string, title: string, content: string) {
+  try {
+    await supabase.from("imphq_docs").insert({
+      id: crypto.randomUUID(),
+      project_id: projectId,
+      title,
+      content,
+    } as any);
+  } catch (e) {
+    // Silent fail — doc saving is optional
+  }
+}
+
+export function AvatarImporter({ open, onClose, onImport, projectId }: Props) {
   const [html, setHtml] = useState("");
   const [preview, setPreview] = useState<any>(null);
   const [dragging, setDragging] = useState(false);
+  const [fileName, setFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const doParse = useCallback((content: string) => {
@@ -350,6 +595,7 @@ export function AvatarImporter({ open, onClose, onImport }: Props) {
     reader.onload = (e) => {
       const content = e.target?.result as string;
       setHtml(content);
+      setFileName(file.name);
       doParse(content);
       toast.success(`Arquivo "${file.name}" carregado`);
     };
@@ -373,13 +619,21 @@ export function AvatarImporter({ open, onClose, onImport }: Props) {
     }
   }, [handleFileRead]);
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!preview) return;
     const dataWithHtml = { ...preview, html_original: html };
     onImport(dataWithHtml);
+
+    // Save as doc if projectId available
+    if (projectId && html) {
+      const docTitle = fileName ? `Avatar HTML — ${fileName}` : "Avatar HTML Importado";
+      await saveAsDoc(projectId, docTitle, html);
+    }
+
     toast.success("Dados importados com sucesso!");
     setHtml("");
     setPreview(null);
+    setFileName("");
     onClose();
   };
 

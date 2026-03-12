@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FileUp, Upload, Trash2, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ParsedCompetitor {
   name: string;
@@ -36,6 +37,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onImport: (competitors: Partial<ParsedCompetitor>[]) => void;
+  projectId?: string;
 }
 
 function extractSection(text: string, heading: string): string {
@@ -80,18 +82,14 @@ function extractBulletPoints(section: string): string[] {
 function parseDossie(content: string): Partial<ParsedCompetitor> {
   const result: Partial<ParsedCompetitor> = {};
 
-  // Name from title
   const titleMatch = content.match(/# DOSSIÊ COMPETITIVO\s*[-—]\s*(.+)/i) || content.match(/^#\s+(.+)/m);
   if (titleMatch) {
     result.name = titleMatch[1].replace(/[\/|].+$/, "").trim();
   }
 
-  // URL
   const urlMatch = content.match(/(?:Site(?:\s*principal)?|URL|site):\s*(https?:\/\/\S+|[\w.-]+\.\w{2,}[\S]*)/i);
   if (urlMatch) result.url = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
 
-  // Product info
-  const produto = extractTableValue(content, "Produto|Formato|Preço");
   result.oferta_principal = extractTableValue(content, "Produto") || extractTableValue(content, "Formato") || "";
   
   const preco = extractTableValue(content, "Preço");
@@ -104,7 +102,6 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
   result.garantia = extractTableValue(content, "Garantia");
   result.bonus = extractTableValue(content, "Bonus|Bônus");
 
-  // Strengths & weaknesses
   const pontosFortes = extractSection(content, "Pontos fortes");
   const pontosFracos = extractSection(content, "Pontos fracos");
   const gap = extractSection(content, "GAP");
@@ -112,7 +109,6 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
   if (pontosFortes) result.ponto_forte = extractBulletPoints(pontosFortes).join(" • ");
   if (pontosFracos) result.fraqueza = extractBulletPoints(pontosFracos).join(" • ");
 
-  // Copy intelligence
   const copySection = extractSection(content, "INTELIGÊNCIA DE COPY|COPY");
   if (copySection) {
     const bullets = extractBulletPoints(copySection);
@@ -120,7 +116,6 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
     result.hook = bullets.slice(0, 3).join(" | ");
   }
 
-  // Insights
   const insights: string[] = [];
   if (gap) insights.push(`GAP: ${extractBulletPoints(gap).join("; ") || gap.substring(0, 200)}`);
   
@@ -129,7 +124,6 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
   
   result.insights = insights.join("\n\n");
 
-  // Funil
   const funilSection = extractSection(content, "FUNIL");
   if (funilSection) {
     result.paginas_funil = funilSection
@@ -138,14 +132,12 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
       .filter(l => l.length > 3 && !l.startsWith("```") && !l.startsWith("**"));
   }
 
-  // Score
   const scoreMatch = content.match(/Score[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+)/i);
   if (scoreMatch) {
     result.score_escala = parseFloat(scoreMatch[1]);
     result.score_max = parseFloat(scoreMatch[2]);
   }
 
-  // Technical data
   const dadosTec = extractSection(content, "DADOS TÉCNICOS");
   if (dadosTec) {
     const techBullets = extractBulletPoints(dadosTec);
@@ -154,12 +146,10 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
       return colonIdx > 0 ? b.substring(0, colonIdx).trim() : b;
     });
 
-    // Ads
     const adsLine = techBullets.find(b => /pixel|ads|anunci/i.test(b));
     if (adsLine && /ativ|sim|true|provável/i.test(adsLine)) result.ads_ativos = true;
   }
 
-  // Keywords from identity section
   const identidade = extractSection(content, "IDENTIDADE");
   if (identidade) {
     const igMatch = identidade.match(/@[\w.]+/);
@@ -174,18 +164,15 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
     }
   }
 
-  // Segmento
   const segMatch = content.match(/(?:Segmento|Nicho|Foco)[:\s]+(.+)/i);
   if (segMatch) result.nicho = segMatch[1].trim();
 
   const posMatch = content.match(/Posicionamento[:\s]+(.+)/i);
   if (posMatch) result.mecanismo_unico = posMatch[1].replace(/^["']|["']$/g, "").trim();
 
-  // Trafego
   const seguidoresMatch = content.match(/(\d[\d.,]*[KMkm]?\+?)\s*(?:seguidores|seg)/i);
   if (seguidoresMatch) result.trafego_est = `${seguidoresMatch[1]} seguidores`;
 
-  // Alunos
   const alunosMatch = content.match(/([\d.]+\+?)\s*(?:alunos|alunas|treinadas|formados)/i);
   if (alunosMatch) {
     result.publico_alvo = `${alunosMatch[1]} alunos formados`;
@@ -206,7 +193,10 @@ function parseOfertasReport(content: string): Partial<ParsedCompetitor>[] {
     if (!nameMatch) continue;
 
     const name = nameMatch[1].replace(/[\/|].+$/, "").trim();
-    if (name.includes("JP Freitas") || name.includes("referência")) continue; // Skip self
+    
+    // Skip self-reference entries (produto atual / referência)
+    if (/refer[eê]ncia\s*(para\s*compara|comparação)/i.test(section.substring(0, 300))) continue;
+    if (/\(produto atual/i.test(section.substring(0, 300))) continue;
 
     const comp: Partial<ParsedCompetitor> = { name };
     
@@ -222,16 +212,31 @@ function parseOfertasReport(content: string): Partial<ParsedCompetitor>[] {
     const foco = extractTableValue(section, "Foco");
     if (foco) comp.nicho = foco;
 
+    // Plataforma
+    const plat = extractTableValue(section, "Plataforma(?:\\s+de\\s+venda)?");
+    if (plat) comp.stack_tecnologico = [plat];
+
+    // Turma / Alunos
+    const turma = extractTableValue(section, "Turma");
+    const alunos = extractTableValue(section, "Alunos");
+    if (alunos) comp.trafego_est = alunos;
+    else if (turma) comp.trafego_est = turma;
+
+    // Seguidores
+    const seg = extractTableValue(section, "Seguidores");
+    if (seg && !comp.trafego_est) comp.trafego_est = seg;
+
     // Insight
     const insightMatch = section.match(/\*\*Insight[^*]*\*\*[:\s]*(.*?)(?=\n\n|---|\n###|$)/s);
     if (insightMatch) comp.insights = insightMatch[1].trim();
 
     // Why is scaled
-    const whyMatch = section.match(/\*\*Por que é escalado[^*]*\*\*[:\s]*(.*?)(?=\n\n\*\*|---|\n###|$)/s);
+    const whyMatch = section.match(/\*\*Por que (?:é escalado|é relevante)[^*]*\*\*[:\s]*(.*?)(?=\n\n\*\*|---|\n###|$)/s);
     if (whyMatch) comp.ponto_forte = extractBulletPoints(whyMatch[1]).join(" • ");
 
-    const plat = extractTableValue(section, "Plataforma");
-    if (plat) comp.stack_tecnologico = [plat];
+    // Ponto fraco
+    const weakMatch = section.match(/\*\*Ponto fraco[^*]*\*\*[:\s]*(.*?)(?=\n\n|---|\n###|$)/s);
+    if (weakMatch) comp.fraqueza = weakMatch[1].trim();
 
     competitors.push(comp);
   }
@@ -242,7 +247,6 @@ function parseOfertasReport(content: string): Partial<ParsedCompetitor>[] {
 function parseRelatorioFinal(content: string): Partial<ParsedCompetitor>[] {
   const competitors: Partial<ParsedCompetitor>[] = [];
   
-  // Parse tier tables
   const tierRegex = /\*\*Tier \d+[^*]*\*\*\s*\n\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*\n\|[-|\s]+\|\s*\n((?:\|[^\n]+\n)+)/g;
   let match;
   
@@ -261,7 +265,6 @@ function parseRelatorioFinal(content: string): Partial<ParsedCompetitor>[] {
     }
   }
 
-  // Ranking table
   const rankingSection = extractSection(content, "RANKING FINAL");
   if (rankingSection) {
     const rows = rankingSection.split("\n").filter(l => l.startsWith("|") && !l.includes("---") && !l.includes("Concorrente"));
@@ -287,7 +290,13 @@ function detectAndParse(content: string): { competitors: Partial<ParsedCompetito
     return { competitors: [parseDossie(content)], type: "dossiê" };
   }
 
-  if (lower.includes("análise de ofertas") || lower.includes("analise de ofertas") || lower.includes("ofertas validadas")) {
+  // Improved ofertas detection — more flexible patterns
+  if (
+    lower.includes("análise de ofertas") || lower.includes("analise de ofertas") ||
+    lower.includes("ofertas validadas") || lower.includes("ofertas escaladas") ||
+    lower.includes("ofertas rankeadas") ||
+    (lower.includes("score de validação") && lower.includes("### #1"))
+  ) {
     return { competitors: parseOfertasReport(content), type: "ofertas" };
   }
 
@@ -304,7 +313,20 @@ function detectAndParse(content: string): { competitors: Partial<ParsedCompetito
   return { competitors: [], type: "desconhecido" };
 }
 
-export function CompetitorImporter({ open, onClose, onImport }: Props) {
+async function saveFileAsDoc(projectId: string, fileName: string, content: string) {
+  try {
+    await supabase.from("imphq_docs").insert({
+      id: crypto.randomUUID(),
+      project_id: projectId,
+      title: `Concorrentes — ${fileName}`,
+      content,
+    } as any);
+  } catch (e) {
+    // Silent fail
+  }
+}
+
+export function CompetitorImporter({ open, onClose, onImport, projectId }: Props) {
   const [files, setFiles] = useState<{ name: string; content: string }[]>([]);
   const [manualText, setManualText] = useState("");
   const [parsed, setParsed] = useState<Partial<ParsedCompetitor>[]>([]);
@@ -379,9 +401,19 @@ export function CompetitorImporter({ open, onClose, onImport }: Props) {
     else setParsed([]);
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (parsed.length === 0) return;
     onImport(parsed);
+
+    // Save files as docs
+    if (projectId) {
+      for (const f of files) {
+        if (f.name !== "manual") {
+          await saveFileAsDoc(projectId, f.name, f.content);
+        }
+      }
+    }
+
     setFiles([]);
     setManualText("");
     setParsed([]);

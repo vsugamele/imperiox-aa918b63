@@ -1,10 +1,13 @@
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Trash2 } from "lucide-react";
 import { Competitor } from "./types";
 
 interface Props {
   competitors: Competitor[];
   updateField: (id: string, field: string, value: any) => void;
+  removeCompetitor: (id: string) => void;
 }
 
 const FIELDS: { key: keyof Competitor; label: string }[] = [
@@ -18,7 +21,7 @@ const FIELDS: { key: keyof Competitor; label: string }[] = [
   { key: "mecanismo_unico", label: "Mecanismo Único" },
 ];
 
-export function VisaoGeralTab({ competitors, updateField }: Props) {
+export function VisaoGeralTab({ competitors, updateField, removeCompetitor }: Props) {
   if (!competitors.length) return <p className="text-muted-foreground text-sm p-4">Nenhum concorrente adicionado.</p>;
 
   return (
@@ -30,12 +33,20 @@ export function VisaoGeralTab({ competitors, updateField }: Props) {
             {competitors.map(c => (
               <TableHead key={c.id} className="min-w-[180px]">
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ background: c.color }} />
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: c.color }} />
                   <Input
                     value={c.name}
                     onChange={e => updateField(c.id, "name", e.target.value)}
                     className="h-7 text-xs font-semibold bg-secondary border-none"
                   />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => removeCompetitor(c.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               </TableHead>
             ))}
