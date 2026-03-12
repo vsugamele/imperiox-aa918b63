@@ -16,11 +16,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Read project_id from query string (priority)
+    const url = new URL(req.url);
+    const queryProjectId = url.searchParams.get("project");
+
     const body = await req.json();
-    const userAgent = req.headers.get("user-agent") || "";
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    // Detect platform
     let plataforma = "desconhecido";
     let evento = "desconhecido";
     let email = "";
@@ -28,10 +30,9 @@ Deno.serve(async (req) => {
     let phone = "";
     let valor = 0;
     let produto = "";
-    let projectId: string | null = null;
+    let projectId: string | null = queryProjectId;
 
     if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
-      // Hotmart
       plataforma = "Hotmart";
       const ev = body.event || "";
       if (ev.includes("APPROVED") || ev.includes("COMPLETE")) evento = "compra_aprovada";
@@ -46,7 +47,6 @@ Deno.serve(async (req) => {
       valor = body.data?.purchase?.price?.value || 0;
       produto = body.data?.product?.name || "";
     } else if (body?.webhook_event_type || body?.order_status) {
-      // Kiwify
       plataforma = "Kiwify";
       const status = body.order_status || body.webhook_event_type || "";
       if (status === "paid" || status === "approved") evento = "compra_aprovada";
@@ -61,7 +61,6 @@ Deno.serve(async (req) => {
       valor = parseFloat(body.sale_amount || body.order_value || "0");
       produto = body.product_name || body.Product?.name || "";
     } else if (body?.tipo_evento || body?.dados) {
-      // Ticto
       plataforma = "Ticto";
       evento = body.tipo_evento === "venda_aprovada" ? "compra_aprovada" : body.tipo_evento || "desconhecido";
       const dados = body.dados || {};
@@ -71,7 +70,6 @@ Deno.serve(async (req) => {
       valor = parseFloat(dados.valor || "0");
       produto = dados.nome_produto || "";
     } else {
-      // Eduzz or generic
       plataforma = body.plataforma || "Outro";
       evento = body.evento || body.event_type || "desconhecido";
       email = body.email || body.customer?.email || "";
@@ -81,8 +79,8 @@ Deno.serve(async (req) => {
       produto = body.produto || body.product || "";
     }
 
-    // Try to find project by product name match
-    if (produto) {
+    // Try to find project by product name match (only if no query param)
+    if (!projectId && produto) {
       const { data: proj } = await supabase
         .from("imphq_projects")
         .select("id")
@@ -105,7 +103,6 @@ Deno.serve(async (req) => {
       if (lead) {
         leadId = lead.id;
       } else {
-        // Create lead automatically
         const newId = crypto.randomUUID();
         await supabase.from("imphq_leads").insert({
           id: newId,
@@ -142,7 +139,6 @@ Deno.serve(async (req) => {
         status: "aprovado",
       });
 
-      // Update lead status
       await supabase
         .from("imphq_leads")
         .update({ status: "cliente" })
@@ -163,15 +159,13 @@ Deno.serve(async (req) => {
         .eq("trigger_tipo", triggerTipo)
         .eq("ativo", true);
 
-      // For now, log automations that would fire
-      // Future: integrate with Resend, WhatsApp API, Telegram
       if (automacoes && automacoes.length > 0) {
         console.log(`[webhook-pagamento] ${automacoes.length} automações encontradas para ${triggerTipo}`);
       }
     }
 
     return new Response(
-      JSON.stringify({ ok: true, plataforma, evento, lead_id: leadId }),
+      JSON.stringify({ ok: true, plataforma, evento, lead_id: leadId, project_id: projectId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

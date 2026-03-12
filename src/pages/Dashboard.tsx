@@ -52,10 +52,10 @@ export default function Dashboard() {
   }, []);
 
   const statCards = [
-    { label: "Projetos", value: stats.projects, icon: FolderKanban, color: "text-primary" },
-    { label: "Tarefas Pendentes", value: stats.tasks, icon: ListTodo, color: "text-warning" },
-    { label: "Leads", value: stats.leads, icon: Users, color: "text-success" },
-    { label: "Custo Mensal", value: `R$ ${stats.monthlyCost.toFixed(2)}`, icon: DollarSign, color: "text-destructive" },
+    { label: "Projetos", value: stats.projects, icon: FolderKanban, gradient: "from-primary/15 to-primary/5", iconBg: "bg-primary/15 text-primary", textColor: "text-primary" },
+    { label: "Tarefas Pendentes", value: stats.tasks, icon: ListTodo, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" },
+    { label: "Leads", value: stats.leads, icon: Users, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
+    { label: "Custo Mensal", value: `R$ ${stats.monthlyCost.toFixed(2)}`, icon: DollarSign, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400" },
   ];
 
   const isOverdue = (date: string | null) => {
@@ -64,7 +64,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="font-display text-3xl font-bold text-primary">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
@@ -72,15 +72,15 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((s) => (
-          <Card key={s.label} className="bg-card border-border hover:border-primary/30 transition-colors">
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className={`p-2 rounded-lg bg-secondary ${s.color}`}>
+        {statCards.map((s, i) => (
+          <Card key={s.label} className={`bg-gradient-to-br ${s.gradient} border-border hover:scale-[1.03] transition-all duration-200 cursor-default animate-fade-in`} style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}>
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`p-3 rounded-xl ${s.iconBg}`}>
                 <s.icon className="h-5 w-5" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-2xl font-mono font-bold">{s.value}</p>
+                <p className={`text-2xl font-mono font-bold ${s.textColor}`}>{s.value}</p>
               </div>
             </CardContent>
           </Card>
@@ -89,7 +89,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Projects */}
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "350ms", animationFillMode: "both" }}>
           <CardHeader className="pb-3">
             <CardTitle className="font-display text-lg flex items-center gap-2">
               <FolderKanban className="h-4 w-4 text-primary" />
@@ -102,7 +102,7 @@ export default function Dashboard() {
               <div
                 key={p.id}
                 onClick={() => navigate(`/projetos/${p.id}`)}
-                className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors"
+                className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary hover:scale-[1.01] cursor-pointer transition-all duration-200"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-lg">{p.icon || "📁"}</span>
@@ -112,7 +112,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <span
-                  className="h-2 w-2 rounded-full"
+                  className="h-2.5 w-2.5 rounded-full ring-2 ring-background"
                   style={{ backgroundColor: p.color || "hsl(var(--primary))" }}
                 />
               </div>
@@ -121,30 +121,30 @@ export default function Dashboard() {
         </Card>
 
         {/* Urgent Tasks */}
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "420ms", animationFillMode: "both" }}>
           <CardHeader className="pb-3">
             <CardTitle className="font-display text-lg flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
               Tarefas Urgentes
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {urgentTasks.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma tarefa urgente</p>}
             {urgentTasks.map((t) => (
-              <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+              <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
                 <div>
                   <p className="text-sm font-medium">{t.title}</p>
                   <p className="text-xs text-muted-foreground">{t.project_id || "Sem projeto"}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {t.due_date && (
-                    <span className={`text-xs font-mono ${isOverdue(t.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
+                    <span className={`text-xs font-mono ${isOverdue(t.due_date) ? "text-red-400" : "text-muted-foreground"}`}>
                       {new Date(t.due_date).toLocaleDateString("pt-BR")}
                     </span>
                   )}
                   <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold
-                    ${t.priority === "urgent" ? "bg-destructive/20 text-destructive" :
-                      t.priority === "high" ? "bg-warning/20 text-warning" :
+                    ${t.priority === "urgent" ? "bg-red-500/20 text-red-400" :
+                      t.priority === "high" ? "bg-amber-500/20 text-amber-400" :
                       "bg-muted text-muted-foreground"}`}>
                     {t.priority || "normal"}
                   </span>
@@ -157,22 +157,22 @@ export default function Dashboard() {
 
       {/* Market Intel */}
       {opportunities.length > 0 && (
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "500ms", animationFillMode: "both" }}>
           <CardHeader className="pb-3">
             <CardTitle className="font-display text-lg flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-success" />
+              <TrendingUp className="h-4 w-4 text-emerald-400" />
               Top Oportunidades
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {opportunities.map((o) => (
-                <div key={o.id} className="p-3 rounded-lg bg-secondary/50 border border-border">
+              {opportunities.map((o, i) => (
+                <div key={o.id} className="p-3 rounded-lg bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/15 hover:scale-[1.02] transition-transform duration-200 animate-fade-in" style={{ animationDelay: `${550 + i * 60}ms`, animationFillMode: "both" }}>
                   <p className="text-sm font-medium">{o.produto}</p>
                   <p className="text-xs text-muted-foreground">{o.nicho} → {o.sub_nicho}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-lg font-mono font-bold text-primary">{o.score}</span>
-                    {o.ticket && <span className="text-xs font-mono text-success">R$ {o.ticket}</span>}
+                    <span className="text-lg font-mono font-bold text-emerald-400">{o.score}</span>
+                    {o.ticket && <span className="text-xs font-mono text-primary">R$ {o.ticket}</span>}
                   </div>
                 </div>
               ))}
