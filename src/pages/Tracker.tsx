@@ -549,10 +549,12 @@ export default function Tracker() {
                 <p><span className="text-primary">imptrack.getUtms()</span> → retorna objeto com UTMs capturados</p>
                 <p><span className="text-primary">imptrack.getVisitorId()</span> → retorna ID persistente do visitante</p>
                 <p><span className="text-primary">imptrack.getSessionId()</span> → retorna ID da sessão atual</p>
-                <p><span className="text-primary">imptrack.trackLead({"{"} nome, email, phone {"}"})</span> → registra lead no CRM</p>
+                <p><span className="text-primary">imptrack.trackLead({"{"} nome, email, phone {"}"})</span> → registra lead + CAPI Lead</p>
                 <p><span className="text-primary">imptrack.trackEvent("NomeEvento", {"{"} dados {"}"})</span> → registra evento customizado</p>
+                <p><span className="text-primary">imptrack.trackViewContent({"{"} content_name {"}"})</span> → ViewContent + fbq</p>
+                <p><span className="text-primary">imptrack.trackAddToCart({"{"} value, currency {"}"})</span> → AddToCart + fbq</p>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">⚡ PageView é registrado automaticamente. Visitor ID persiste entre sessões.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">⚡ PageView é registrado automaticamente. Pixel do Facebook carrega se <code>&lt;meta name="imp-pixel-id" content="SEU_PIXEL_ID"&gt;</code> estiver na página.</p>
               <p className="text-xs text-muted-foreground mt-2">
                 <span className="font-medium">Exemplo de uso no formulário:</span>
               </p>
