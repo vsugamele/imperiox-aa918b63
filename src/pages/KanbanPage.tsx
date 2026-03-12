@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, DragEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Trash2, ChevronLeft, ChevronRight, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users } from "lucide-react";
+import { Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
@@ -22,6 +22,13 @@ const COL_CONFIG: Record<string, { icon: React.ReactNode; bg: string; border: st
   travado: { icon: <AlertTriangle className="h-3.5 w-3.5 text-destructive" />, bg: "bg-destructive/5", border: "border-l-destructive/50", headerBg: "bg-destructive/10" },
   "revisão": { icon: <Eye className="h-3.5 w-3.5 text-primary" />, bg: "bg-primary/5", border: "border-l-primary/50", headerBg: "bg-primary/10" },
   feito: { icon: <CheckCircle2 className="h-3.5 w-3.5 text-success" />, bg: "bg-success/5", border: "border-l-success/50", headerBg: "bg-success/10" },
+};
+
+const PRIORITY_BORDER: Record<string, string> = {
+  urgent: "border-l-destructive",
+  high: "border-l-warning",
+  medium: "border-l-success",
+  low: "border-l-muted-foreground/40",
 };
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -57,6 +64,7 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMember, setFilterMember] = useState("all");
+  const [dragCardId, setDragCardId] = useState<string | null>(null);
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -176,17 +184,42 @@ export default function KanbanPage() {
     loadAllData();
   };
 
-  const moveCard = async (card: KanbanCard, direction: number) => {
-    const boardCols = allColumns.filter(c => c.board === card.board).sort((a, b) => a.position - b.position);
-    const colIndex = boardCols.findIndex(c => c.id === card.column_id);
-    const newColIndex = colIndex + direction;
-    if (newColIndex < 0 || newColIndex >= boardCols.length) return;
-    const newCol = boardCols[newColIndex];
-    await supabase.from("imphq_kanban_cards").update({ column_id: newCol.id }).eq("id", card.id);
-    loadAllData();
+  const isOverdue = (d?: string) => d ? new Date(d) < new Date() : false;
+
+  // Drag and drop handlers
+  const handleDragStart = (e: DragEvent, cardId: string) => {
+    setDragCardId(cardId);
+    e.dataTransfer.effectAllowed = "move";
   };
 
-  const isOverdue = (d?: string) => d ? new Date(d) < new Date() : false;
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: DragEvent, targetColId: string) => {
+    e.preventDefault();
+    if (!dragCardId) return;
+    const card = allCards.find(c => c.id === dragCardId);
+    if (!card) return;
+
+    if (activeBoard === "geral") {
+      // In geral view, find the matching column in the card's own board
+      const targetCol = allColumns.find(c => c.id === targetColId);
+      const targetColTitle = targetCol?.title.toLowerCase() || "";
+      const boardCol = allColumns.find(c => c.board === card.board && c.title.toLowerCase() === targetColTitle);
+      if (boardCol && boardCol.id !== card.column_id) {
+        await supabase.from("imphq_kanban_cards").update({ column_id: boardCol.id }).eq("id", card.id);
+        loadAllData();
+      }
+    } else {
+      if (targetColId !== card.column_id) {
+        await supabase.from("imphq_kanban_cards").update({ column_id: targetColId }).eq("id", card.id);
+        loadAllData();
+      }
+    }
+    setDragCardId(null);
+  };
 
   return (
     <div className="space-y-5">
@@ -244,91 +277,88 @@ export default function KanbanPage() {
           ))}
         </TabsList>
 
-        {BOARDS.map((board) => (
-          <TabsContent key={board} value={board} className="mt-4">
-            {loading && activeBoard === board ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
-            ) : (
-              <div className="grid grid-cols-5 gap-3 min-h-[60vh]">
-                {columns.map((col) => {
-                  const colTitle = col.title.toLowerCase();
-                  const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
-                  const colCards = filteredCards(col.id);
-                  return (
-                    <div key={col.id} className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3`}>
-                      <div className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}>
-                        <div className="flex items-center gap-2">
-                          {config.icon}
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">
-                            {col.title}
-                          </h3>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-[10px] h-5 min-w-[20px] justify-center">{colCards.length}</Badge>
-                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setShowNewCard(col.id); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); }}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
+        {/* Render only the active board content */}
+        <div className="mt-4">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Carregando...</p>
+          ) : (
+            <div className="grid grid-cols-5 gap-3 min-h-[60vh]">
+              {columns.map((col) => {
+                const colTitle = col.title.toLowerCase();
+                const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
+                const colCards = filteredCards(col.id);
+                return (
+                  <div
+                    key={col.id}
+                    className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors`}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, col.id)}
+                  >
+                    <div className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}>
+                      <div className="flex items-center gap-2">
+                        {config.icon}
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">
+                          {col.title}
+                        </h3>
                       </div>
-                      <div className="space-y-2">
-                        {colCards.length === 0 && (
-                          <p className="text-xs text-muted-foreground/50 text-center py-6 italic">Nenhuma tarefa</p>
-                        )}
-                        {colCards.map((card) => {
-                          const cardBoardCols = allColumns.filter(c => c.board === card.board).sort((a, b) => a.position - b.position);
-                          const cardColIdx = cardBoardCols.findIndex(c => c.id === card.column_id);
-                          const member = getMember(card.member_id);
-                          return (
-                            <Card key={card.id} className="bg-card border-border hover:border-primary/20 transition-colors group cursor-pointer" onClick={() => setEditCard({ ...card })}>
-                              <CardContent className="p-3">
-                                <div className="flex items-start justify-between gap-1">
-                                  <p className="text-sm font-medium flex-1">{card.title}</p>
-                                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                                    {cardColIdx > 0 && (
-                                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => moveCard(card, -1)}>
-                                        <ChevronLeft className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                    {cardColIdx < cardBoardCols.length - 1 && (
-                                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => moveCard(card, 1)}>
-                                        <ChevronRight className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between mt-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
-                                    {activeBoard === "geral" && (
-                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    {card.due_date && (
-                                      <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
-                                        {new Date(card.due_date).toLocaleDateString("pt-BR")}
-                                      </p>
-                                    )}
-                                    {member && (
-                                      <Avatar className="h-5 w-5" title={member.name}>
-                                        {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
-                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{(member.name || "?")[0]}</AvatarFallback>
-                                      </Avatar>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[10px] h-5 min-w-[20px] justify-center">{colCards.length}</Badge>
+                        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setShowNewCard(col.id); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); }}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-        ))}
+                    <div className="space-y-2">
+                      {colCards.length === 0 && (
+                        <p className="text-xs text-muted-foreground/50 text-center py-6 italic">Nenhuma tarefa</p>
+                      )}
+                      {colCards.map((card) => {
+                        const member = getMember(card.member_id);
+                        const priorityBorder = PRIORITY_BORDER[card.priority] || PRIORITY_BORDER.medium;
+                        return (
+                          <Card
+                            key={card.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e as unknown as DragEvent, card.id)}
+                            className={`bg-card border-l-[3px] ${priorityBorder} hover:border-primary/20 transition-colors group cursor-grab active:cursor-grabbing ${dragCardId === card.id ? "opacity-50" : ""}`}
+                            onClick={() => setEditCard({ ...card })}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-start justify-between gap-1">
+                                <p className="text-sm font-medium flex-1">{card.title}</p>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
+                                  {activeBoard === "geral" && (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {card.due_date && (
+                                    <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
+                                      {new Date(card.due_date).toLocaleDateString("pt-BR")}
+                                    </p>
+                                  )}
+                                  {member && (
+                                    <Avatar className="h-5 w-5" title={member.name}>
+                                      {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
+                                      <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{(member.name || "?")[0]}</AvatarFallback>
+                                    </Avatar>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </Tabs>
 
       {/* New Card Dialog */}
