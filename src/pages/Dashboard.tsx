@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 
 interface Stats {
