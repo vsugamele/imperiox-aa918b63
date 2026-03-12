@@ -1,38 +1,251 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2 } from "lucide-react";
+import { toast } from "sonner";
+
+interface ContaEmpresa {
+  id: string;
+  nome: string;
+  tipo: string;
+  valor?: string;
+  extra?: {
+    senha?: string;
+    telefone?: string;
+    status_aquecimento?: string;
+    data_compra?: string;
+    perfil_instagram?: string;
+    seguidores?: string;
+    bio?: string;
+  };
+}
+
+const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
 
 export default function Empresa() {
-  const [contas, setContas] = useState<any[]>([]);
-  useEffect(() => {
-    supabase.from("imphq_empresa").select("*").order("tipo").then(({ data }) => setContas(data || []));
-  }, []);
+  const [contas, setContas] = useState<ContaEmpresa[]>([]);
+  const [showNew, setShowNew] = useState(false);
+  const [activeTab, setActiveTab] = useState("email");
+
+  const load = async () => {
+    const { data } = await supabase.from("imphq_empresa").select("*").order("created_at", { ascending: false });
+    setContas((data || []) as ContaEmpresa[]);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const filterByType = (tipo: string) => contas.filter(c => c.tipo === tipo);
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-3xl font-bold text-primary">Empresa</h1>
-      <p className="text-sm text-muted-foreground">Contas da operação</p>
-      <div className="rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Valor</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {contas.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-medium">{c.nome}</TableCell>
-                <TableCell><Badge variant="outline" className="text-[10px]">{c.tipo}</Badge></TableCell>
-                <TableCell className="text-xs text-muted-foreground">{c.valor || "—"}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Building2 className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="font-display text-2xl font-bold">Controle da Empresa</h1>
+            <p className="text-xs text-muted-foreground">Gerencie emails, contas de redes sociais e ativos digitais da operação</p>
+          </div>
+        </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="email"><Mail className="h-3.5 w-3.5 mr-1" /> Emails</TabsTrigger>
+          <TabsTrigger value="instagram"><Instagram className="h-3.5 w-3.5 mr-1" /> Instagram</TabsTrigger>
+          <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="email">
+          <AccountTable
+            contas={filterByType("email")}
+            tipo="email"
+            columns={["Gmail", "Senha", "Em Uso", "Telefone", "Aquecido", "Data Compra", "Perfil Instagram"]}
+            onRefresh={load}
+          />
+        </TabsContent>
+
+        <TabsContent value="instagram">
+          <AccountTable
+            contas={filterByType("instagram")}
+            tipo="instagram"
+            columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
+            onRefresh={load}
+          />
+        </TabsContent>
+
+        <TabsContent value="tiktok">
+          <AccountTable
+            contas={filterByType("tiktok")}
+            tipo="tiktok"
+            columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
+            onRefresh={load}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function AccountTable({ contas, tipo, columns, onRefresh }: {
+  contas: ContaEmpresa[];
+  tipo: string;
+  columns: string[];
+  onRefresh: () => void;
+}) {
+  const [showNew, setShowNew] = useState(false);
+  const [form, setForm] = useState({
+    nome: "", valor: "", senha: "", telefone: "",
+    status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
+    seguidores: "", bio: "",
+  });
+
+  const create = async () => {
+    if (!form.nome.trim()) { toast.error("Nome/Gmail obrigatório"); return; }
+    const { error } = await supabase.from("imphq_empresa").insert({
+      nome: form.nome,
+      tipo,
+      valor: form.valor || null,
+      extra: {
+        senha: form.senha || null,
+        telefone: form.telefone || null,
+        status_aquecimento: form.status_aquecimento,
+        data_compra: form.data_compra || null,
+        perfil_instagram: form.perfil_instagram || null,
+        seguidores: form.seguidores || null,
+        bio: form.bio || null,
+      },
+    } as any);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    toast.success("Conta adicionada!");
+    setShowNew(false);
+    setForm({ nome: "", valor: "", senha: "", telefone: "", status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "", seguidores: "", bio: "" });
+    onRefresh();
+  };
+
+  const remove = async (id: string) => {
+    await supabase.from("imphq_empresa").delete().eq("id", id);
+    toast.success("Conta removida");
+    onRefresh();
+  };
+
+  const labelByTipo = tipo === "email" ? "Email" : tipo === "instagram" ? "Instagram" : "TikTok";
+  const iconByTipo = tipo === "email" ? "📧" : tipo === "instagram" ? "📸" : "🎵";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setShowNew(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Adicionar {labelByTipo}
+        </Button>
+      </div>
+
+      {contas.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-3xl mb-2">{iconByTipo}</p>
+          <p className="text-sm">Nenhum {labelByTipo.toLowerCase()} cadastrado ainda</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map(c => <TableHead key={c} className="text-[10px] uppercase">{c}</TableHead>)}
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contas.map((c) => (
+                <TableRow key={c.id}>
+                  {tipo === "email" ? (
+                    <>
+                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{"•".repeat(8)}</TableCell>
+                      <TableCell className="text-xs">{c.valor || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{c.extra?.telefone || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[9px]">
+                          {c.extra?.status_aquecimento || "Inativo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{c.extra?.data_compra || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{c.extra?.perfil_instagram || "—"}</TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell className="font-medium text-sm">@{c.nome}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{"•".repeat(8)}</TableCell>
+                      <TableCell className="text-xs">{c.extra?.seguidores || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{c.extra?.bio || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[9px]">
+                          {c.extra?.status_aquecimento || "Inativo"}
+                        </Badge>
+                      </TableCell>
+                    </>
+                  )}
+                  <TableCell>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => remove(c.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Add Dialog */}
+      <Dialog open={showNew} onOpenChange={setShowNew}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar {iconByTipo} {labelByTipo}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {tipo === "email" ? (
+              <>
+                <div><Label>Gmail *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="nome@gmail.com" /></div>
+                <div><Label>Senha</Label><Input type="password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="Senha da conta" /></div>
+                <div><Label>Telefone</Label><Input value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} placeholder="+55 11 9xxxx-xxxx" /></div>
+                <div>
+                  <Label>Status de Aquecimento</Label>
+                  <Select value={form.status_aquecimento} onValueChange={v => setForm({ ...form, status_aquecimento: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{AQUECIMENTO_STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Data de Compra</Label><Input type="date" value={form.data_compra} onChange={e => setForm({ ...form, data_compra: e.target.value })} /></div>
+                <div><Label>Perfil Instagram Vinculado</Label><Input value={form.perfil_instagram} onChange={e => setForm({ ...form, perfil_instagram: e.target.value })} placeholder="@nomedoperfil" /></div>
+              </>
+            ) : (
+              <>
+                <div><Label>Perfil *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="@nomedoperfil" /></div>
+                <div><Label>Senha</Label><Input type="password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /></div>
+                <div><Label>Seguidores</Label><Input value={form.seguidores} onChange={e => setForm({ ...form, seguidores: e.target.value })} placeholder="1.2k" /></div>
+                <div><Label>Bio</Label><Input value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} placeholder="Descrição do perfil" /></div>
+                <div>
+                  <Label>Status</Label>
+                  <Select value={form.status_aquecimento} onValueChange={v => setForm({ ...form, status_aquecimento: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{AQUECIMENTO_STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNew(false)}>Cancelar</Button>
+            <Button onClick={create}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
