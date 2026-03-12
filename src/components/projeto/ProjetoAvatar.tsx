@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Upload, Eye, CheckCircle } from "lucide-react";
 import { PerfilTab } from "./avatar/PerfilTab";
 import { DesejosTab } from "./avatar/DesejosTab";
 import { DoresTab } from "./avatar/DoresTab";
@@ -19,21 +21,36 @@ interface Props {
 
 export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) {
   const [showImporter, setShowImporter] = useState(false);
+  const [showHtmlViewer, setShowHtmlViewer] = useState(false);
   const avatar = project.avatar || {};
 
+  const hasHtmlOriginal = !!avatar.html_original;
+
   const handleImport = (imported: any) => {
-    // Merge imported data with existing avatar
     const merged = { ...avatar, ...imported };
     onUpdateAvatar(merged);
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Sistema completo de inteligência de avatar — perfil, desejos, dores, problemas e arsenal de copy.</p>
-        <Button variant="outline" size="sm" onClick={() => setShowImporter(true)}>
-          <Upload className="h-3 w-3 mr-1" /> Importar HTML
-        </Button>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">Sistema completo de inteligência de avatar — perfil, desejos, dores, problemas e arsenal de copy.</p>
+          <Badge variant="secondary" className="gap-1 text-xs shrink-0">
+            <CheckCircle className="h-3 w-3 text-green-500" />
+            Auto-save
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasHtmlOriginal && (
+            <Button variant="outline" size="sm" onClick={() => setShowHtmlViewer(true)}>
+              <Eye className="h-3 w-3 mr-1" /> Ver HTML Original
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setShowImporter(true)}>
+            <Upload className="h-3 w-3 mr-1" /> Importar HTML
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="perfil">
@@ -71,6 +88,23 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
       </Tabs>
 
       <AvatarImporter open={showImporter} onClose={() => setShowImporter(false)} onImport={handleImport} />
+
+      {/* HTML Original Viewer */}
+      <Dialog open={showHtmlViewer} onOpenChange={setShowHtmlViewer}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>HTML Original do Avatar</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden rounded border border-border">
+            <iframe
+              srcDoc={avatar.html_original || ""}
+              className="w-full h-[70vh] bg-white"
+              title="HTML Original do Avatar"
+              sandbox="allow-same-origin"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
