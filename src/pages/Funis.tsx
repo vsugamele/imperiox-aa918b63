@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,27 +8,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, ChevronUp, ChevronDown, Save, ExternalLink, Image } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, MoveUp, MoveDown, MoveLeft, MoveRight, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 
-interface Etapa { nome: string; visitantes: number; conversoes: number; url?: string; image_url?: string; }
+interface Etapa {
+  nome: string; tipo?: string; visitantes: number; conversoes: number;
+  url?: string; image_url?: string; pos_x?: number; pos_y?: number;
+}
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
   project_id?: string; data: { etapas?: Etapa[] }; criado_em?: string;
 }
 
 const DEFAULT_ETAPAS: Etapa[] = [
-  { nome: "Anúncio", visitantes: 0, conversoes: 0 },
-  { nome: "Opt-in", visitantes: 0, conversoes: 0 },
-  { nome: "VSL/Webinar", visitantes: 0, conversoes: 0 },
-  { nome: "Checkout", visitantes: 0, conversoes: 0 },
-  { nome: "Upsell", visitantes: 0, conversoes: 0 },
+  { nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 0, pos_y: 0 },
+  { nome: "Opt-in", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 1, pos_y: 0 },
+  { nome: "VSL/Webinar", tipo: "vsl", visitantes: 0, conversoes: 0, pos_x: 2, pos_y: 0 },
+  { nome: "Checkout", tipo: "checkout", visitantes: 0, conversoes: 0, pos_x: 3, pos_y: 0 },
+  { nome: "Upsell", tipo: "upsell", visitantes: 0, conversoes: 0, pos_x: 4, pos_y: 0 },
 ];
 
+const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
+  criativo: { bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-400", label: "Criativo" },
+  pagina: { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "Página" },
+  vsl: { bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-400", label: "VSL" },
+  checkout: { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400", label: "Checkout" },
+  upsell: { bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", label: "Upsell" },
+  outro: { bg: "bg-gray-500/10", border: "border-gray-500/40", text: "text-gray-400", label: "Outro" },
+};
+const TIPOS = Object.keys(TIPO_STYLES);
+
 function getConversionColor(taxa: number) {
-  if (taxa >= 30) return { bg: "bg-emerald-500/15", border: "border-emerald-500/40", text: "text-emerald-400", dot: "bg-emerald-400" };
-  if (taxa >= 10) return { bg: "bg-amber-500/15", border: "border-amber-500/40", text: "text-amber-400", dot: "bg-amber-400" };
-  return { bg: "bg-red-500/15", border: "border-red-500/40", text: "text-red-400", dot: "bg-red-400" };
+  if (taxa >= 30) return { text: "text-emerald-400", dot: "bg-emerald-400" };
+  if (taxa >= 10) return { text: "text-amber-400", dot: "bg-amber-400" };
+  return { text: "text-red-400", dot: "bg-red-400" };
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -37,6 +50,11 @@ const STATUS_STYLES: Record<string, string> = {
   Pausado: "border-l-muted-foreground from-muted/10 to-transparent",
 };
 
+const CARD_W = 240;
+const CARD_H = 320;
+const GAP_X = 60;
+const GAP_Y = 40;
+
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -44,6 +62,8 @@ export default function Funis() {
   const [showNew, setShowNew] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
+  const [zoom, setZoom] = useState(1);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
     const [fRes, pRes] = await Promise.all([
@@ -83,19 +103,20 @@ export default function Funis() {
 
   const addEtapa = () => {
     if (!selectedFunil) return;
-    const etapas = [...(selectedFunil.data.etapas || []), { nome: "Nova Etapa", visitantes: 0, conversoes: 0 }];
-    updateEtapa(selectedFunil.id, etapas);
+    const etapas = selectedFunil.data.etapas || [];
+    const maxX = etapas.reduce((m, e) => Math.max(m, e.pos_x ?? 0), -1);
+    const newEtapa: Etapa = { nome: "Nova Etapa", tipo: "outro", visitantes: 0, conversoes: 0, pos_x: maxX + 1, pos_y: 0 };
+    updateEtapa(selectedFunil.id, [...etapas, newEtapa]);
   };
   const removeEtapa = (idx: number) => {
     if (!selectedFunil) return;
     updateEtapa(selectedFunil.id, (selectedFunil.data.etapas || []).filter((_, i) => i !== idx));
   };
-  const moveEtapa = (idx: number, dir: -1 | 1) => {
+  const moveEtapa = (idx: number, dx: number, dy: number) => {
     if (!selectedFunil) return;
     const etapas = [...(selectedFunil.data.etapas || [])];
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= etapas.length) return;
-    [etapas[idx], etapas[newIdx]] = [etapas[newIdx], etapas[idx]];
+    const e = etapas[idx];
+    etapas[idx] = { ...e, pos_x: Math.max(0, (e.pos_x ?? 0) + dx), pos_y: Math.max(0, (e.pos_y ?? 0) + dy) };
     updateEtapa(selectedFunil.id, etapas);
   };
   const setEtapaField = (idx: number, field: string, value: any) => {
@@ -115,9 +136,20 @@ export default function Funis() {
   // Canvas detail view
   if (selectedFunil) {
     const etapas = selectedFunil.data.etapas || [];
+    const maxX = etapas.reduce((m, e) => Math.max(m, e.pos_x ?? 0), 0);
+    const maxY = etapas.reduce((m, e) => Math.max(m, e.pos_y ?? 0), 0);
+    const canvasW = (maxX + 1) * (CARD_W + GAP_X) + 100;
+    const canvasH = (maxY + 1) * (CARD_H + GAP_Y) + 100;
+
+    // Build connector pairs: connect sequential etapas by index
+    const connectors: { from: Etapa; to: Etapa }[] = [];
+    for (let i = 0; i < etapas.length - 1; i++) {
+      connectors.push({ from: etapas[i], to: etapas[i + 1] });
+    }
+
     return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center gap-3">
+      <div className="space-y-4 animate-fade-in">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button variant="ghost" size="sm" onClick={() => { setSelectedFunil(null); load(); }}>
             <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
@@ -125,108 +157,164 @@ export default function Funis() {
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
           {selectedFunil.project_id && <Badge variant="outline" className="text-[10px]">{projectName(selectedFunil.project_id)}</Badge>}
+          <div className="ml-auto flex items-center gap-1">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.4, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
+            <span className="text-xs text-muted-foreground font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.min(1.5, z + 0.1))}><ZoomIn className="h-3.5 w-3.5" /></Button>
+          </div>
         </div>
 
-        {/* Canvas Area */}
-        <div className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] p-8 overflow-x-auto">
-          <div className="flex items-start gap-2 min-w-max">
+        {/* 2D Canvas */}
+        <div
+          ref={canvasRef}
+          className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-auto"
+          style={{ maxHeight: "70vh" }}
+        >
+          <div style={{ width: canvasW * zoom, height: canvasH * zoom, transform: `scale(${zoom})`, transformOrigin: "top left", position: "relative" }}>
+            {/* SVG Connectors */}
+            <svg className="absolute inset-0 pointer-events-none" width={canvasW} height={canvasH}>
+              {connectors.map((c, i) => {
+                const fromX = (c.from.pos_x ?? 0) * (CARD_W + GAP_X) + 50 + CARD_W;
+                const fromY = (c.from.pos_y ?? 0) * (CARD_H + GAP_Y) + 50 + CARD_H / 2;
+                const toX = (c.to.pos_x ?? 0) * (CARD_W + GAP_X) + 50;
+                const toY = (c.to.pos_y ?? 0) * (CARD_H + GAP_Y) + 50 + CARD_H / 2;
+                const midX = (fromX + toX) / 2;
+                return (
+                  <g key={i}>
+                    <defs>
+                      <marker id={`arrow-canvas-${i}`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                        <path d="M0,0 L8,4 L0,8" fill="hsl(var(--primary))" opacity="0.5" />
+                      </marker>
+                    </defs>
+                    <path
+                      d={`M${fromX},${fromY} C${midX},${fromY} ${midX},${toY} ${toX},${toY}`}
+                      stroke="hsl(var(--primary))"
+                      strokeWidth="2"
+                      fill="none"
+                      opacity="0.3"
+                      markerEnd={`url(#arrow-canvas-${i})`}
+                      strokeDasharray="6 4"
+                    >
+                      <animate attributeName="stroke-dashoffset" from="20" to="0" dur="2s" repeatCount="indefinite" />
+                    </path>
+                  </g>
+                );
+              })}
+            </svg>
+
+            {/* Cards */}
             {etapas.map((etapa, i) => {
               const taxa = etapa.visitantes > 0 ? (etapa.conversoes / etapa.visitantes) * 100 : 0;
-              const colors = getConversionColor(taxa);
+              const convColors = getConversionColor(taxa);
+              const tipoStyle = TIPO_STYLES[etapa.tipo || "outro"] || TIPO_STYLES.outro;
+              const x = (etapa.pos_x ?? i) * (CARD_W + GAP_X) + 50;
+              const y = (etapa.pos_y ?? 0) * (CARD_H + GAP_Y) + 50;
+
               return (
-                <div key={i} className="flex items-center animate-fade-in" style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}>
-                  <div className={`rounded-xl border-2 ${colors.border} ${colors.bg} backdrop-blur-sm w-[220px] p-4 space-y-3 relative hover:scale-[1.02] transition-transform`}>
-                    {/* Move buttons */}
-                    <div className="absolute -top-2 right-2 flex gap-0.5">
-                      <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, -1)} disabled={i === 0}>
-                        <ChevronUp className="h-2.5 w-2.5" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, 1)} disabled={i === etapas.length - 1}>
-                        <ChevronDown className="h-2.5 w-2.5" />
-                      </Button>
+                <div
+                  key={i}
+                  className={`absolute rounded-xl border-2 ${tipoStyle.border} ${tipoStyle.bg} backdrop-blur-sm p-3 space-y-2 hover:shadow-lg transition-all animate-fade-in`}
+                  style={{
+                    left: x, top: y, width: CARD_W,
+                    animationDelay: `${i * 60}ms`, animationFillMode: "both",
+                  }}
+                >
+                  {/* Move buttons */}
+                  <div className="absolute -top-2 -right-2 flex gap-0.5 z-10">
+                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, 0, -1)}>
+                      <MoveUp className="h-2.5 w-2.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, 0, 1)}>
+                      <MoveDown className="h-2.5 w-2.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, -1, 0)}>
+                      <MoveLeft className="h-2.5 w-2.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, 1, 0)}>
+                      <MoveRight className="h-2.5 w-2.5" />
+                    </Button>
+                  </div>
+
+                  {/* Tipo badge */}
+                  <Badge variant="outline" className={`text-[9px] ${tipoStyle.text} ${tipoStyle.border}`}>
+                    {tipoStyle.label}
+                  </Badge>
+
+                  {/* Thumbnail */}
+                  {etapa.image_url ? (
+                    <div className="h-28 rounded-lg overflow-hidden bg-card/50 border border-border">
+                      <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover" />
                     </div>
-
-                    {/* Thumbnail */}
-                    {etapa.image_url ? (
-                      <div className="h-24 rounded-lg overflow-hidden bg-card/50 border border-border">
-                        <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className={`h-16 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center`}>
-                        <Image className="h-5 w-5 text-muted-foreground/30" />
-                      </div>
-                    )}
-
-                    {/* Status dot + Name */}
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${colors.dot} ring-2 ring-background`} />
-                      <Input
-                        value={etapa.nome}
-                        onChange={e => setEtapaField(i, "nome", e.target.value)}
-                        className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
-                      />
+                  ) : (
+                    <div className={`h-20 rounded-lg ${tipoStyle.bg} border ${tipoStyle.border} flex items-center justify-center`}>
+                      <Image className="h-6 w-6 text-muted-foreground/20" />
                     </div>
+                  )}
 
-                    {/* URL */}
-                    <div className="flex items-center gap-1">
-                      <Input
-                        value={etapa.url || ""}
-                        onChange={e => setEtapaField(i, "url", e.target.value)}
-                        className="h-6 text-[10px] bg-card/50 border-border p-1"
-                        placeholder="URL da etapa..."
-                      />
-                      {etapa.url && (
-                        <a href={etapa.url} target="_blank" rel="noopener" className="shrink-0">
-                          <ExternalLink className="h-3 w-3 text-primary" />
-                        </a>
-                      )}
-                    </div>
+                  {/* Name */}
+                  <Input
+                    value={etapa.nome}
+                    onChange={e => setEtapaField(i, "nome", e.target.value)}
+                    className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
+                  />
 
-                    {/* Upload */}
-                    <FileUpload
-                      bucket="project-media"
-                      path={`funis/${selectedFunil.id}`}
-                      onUpload={url => setEtapaField(i, "image_url", url)}
-                      label="Img"
-                      className="[&_button]:h-6 [&_button]:text-[10px]"
+                  {/* Tipo selector */}
+                  <Select value={etapa.tipo || "outro"} onValueChange={v => setEtapaField(i, "tipo", v)}>
+                    <SelectTrigger className="h-6 text-[10px] bg-card/50 border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS.map(t => <SelectItem key={t} value={t} className="text-xs">{TIPO_STYLES[t].label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+
+                  {/* URL */}
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={etapa.url || ""}
+                      onChange={e => setEtapaField(i, "url", e.target.value)}
+                      className="h-6 text-[10px] bg-card/50 border-border p-1"
+                      placeholder="URL..."
                     />
+                    {etapa.url && (
+                      <a href={etapa.url} target="_blank" rel="noopener" className="shrink-0">
+                        <ExternalLink className="h-3 w-3 text-primary" />
+                      </a>
+                    )}
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Visitas</p>
-                        <Input type="number" value={etapa.visitantes} onChange={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-7 text-xs font-mono bg-card/50 border-border p-1" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1"><ShoppingCart className="h-2.5 w-2.5" /> Conv.</p>
-                        <Input type="number" value={etapa.conversoes} onChange={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-7 text-xs font-mono bg-card/50 border-border p-1" />
-                      </div>
+                  {/* Upload */}
+                  <FileUpload
+                    bucket="project-media"
+                    path={`funis/${selectedFunil.id}`}
+                    onUpload={url => setEtapaField(i, "image_url", url)}
+                    label="Img"
+                    className="[&_button]:h-6 [&_button]:text-[10px]"
+                  />
+
+                  {/* Metrics */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Visitas</p>
+                      <Input type="number" value={etapa.visitantes} onChange={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-mono font-bold ${colors.text}`}>{taxa.toFixed(1)}%</span>
-                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
-                        <Trash2 className="h-2.5 w-2.5 text-destructive" />
-                      </Button>
-                    </div>
-
-                    <div className="w-full h-1.5 bg-card/30 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${colors.dot}`} style={{ width: `${Math.min(taxa, 100)}%` }} />
+                    <div>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1"><ShoppingCart className="h-2.5 w-2.5" /> Conv.</p>
+                      <Input type="number" value={etapa.conversoes} onChange={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
                     </div>
                   </div>
 
-                  {/* SVG connector with animated dash */}
-                  {i < etapas.length - 1 && (
-                    <svg width="40" height="40" className="shrink-0 mx-1">
-                      <defs>
-                        <marker id={`arrow-${i}`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                          <path d="M0,0 L6,3 L0,6" fill="hsl(var(--primary))" opacity="0.6" />
-                        </marker>
-                      </defs>
-                      <path d="M0,20 C15,20 25,20 38,20" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" opacity="0.4" markerEnd={`url(#arrow-${i})`} strokeDasharray="4 3">
-                        <animate attributeName="stroke-dashoffset" from="14" to="0" dur="1.5s" repeatCount="indefinite" />
-                      </path>
-                    </svg>
-                  )}
+                  {/* Footer */}
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-mono font-bold ${convColors.text}`}>{taxa.toFixed(1)}%</span>
+                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
+                      <Trash2 className="h-2.5 w-2.5 text-destructive" />
+                    </Button>
+                  </div>
+
+                  <div className="w-full h-1.5 bg-card/30 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${convColors.dot}`} style={{ width: `${Math.min(taxa, 100)}%` }} />
+                  </div>
                 </div>
               );
             })}
@@ -284,9 +372,10 @@ export default function Funis() {
                     {etapas.slice(0, 5).map((e, i) => {
                       const taxa = e.visitantes > 0 ? (e.conversoes / e.visitantes) * 100 : 0;
                       const c = getConversionColor(taxa);
+                      const ts = TIPO_STYLES[e.tipo || "outro"] || TIPO_STYLES.outro;
                       return (
                         <div key={i} className="flex items-center">
-                          <div className={`px-1.5 py-0.5 rounded text-[8px] font-medium ${c.bg} ${c.text} border ${c.border}`}>{e.nome}</div>
+                          <div className={`px-1.5 py-0.5 rounded text-[8px] font-medium ${ts.bg} ${ts.text} border ${ts.border}`}>{e.nome}</div>
                           {i < Math.min(etapas.length, 5) - 1 && <ArrowRight className="h-2 w-2 text-muted-foreground/50 mx-0.5 shrink-0" />}
                         </div>
                       );
