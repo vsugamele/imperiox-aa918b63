@@ -63,7 +63,7 @@ export default function KanbanPage() {
     const [colRes, cardRes, memberRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
-      supabase.from("imphq_team_members").select("id, nome, avatar_url, cargo"),
+      supabase.from("imphq_team_members").select("id, name, avatar_url, role"),
     ]);
 
     let cols = (colRes.data || []) as KanbanColumn[];
