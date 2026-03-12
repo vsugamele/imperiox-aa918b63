@@ -197,6 +197,20 @@ export default function Tracker() {
   var SB_URL = "${supabaseUrl}";
   var SB_KEY = "${supabaseKey}";
   
+  // Persistent visitor ID
+  var visitorId = localStorage.getItem("imp_visitor_id");
+  if(!visitorId){ visitorId = crypto.randomUUID(); localStorage.setItem("imp_visitor_id", visitorId); }
+  
+  // Session ID (resets after 30min inactivity)
+  var sessionId = sessionStorage.getItem("imp_session_id");
+  var lastActivity = parseInt(sessionStorage.getItem("imp_last_activity") || "0");
+  var now = Date.now();
+  if(!sessionId || (now - lastActivity) > 1800000){
+    sessionId = crypto.randomUUID();
+    sessionStorage.setItem("imp_session_id", sessionId);
+  }
+  sessionStorage.setItem("imp_last_activity", String(now));
+  
   // Capture UTM params
   var params = new URLSearchParams(window.location.search);
   var utms = {};
@@ -209,9 +223,9 @@ export default function Tracker() {
   // Store landing page
   if(!localStorage.getItem("imp_landing")) localStorage.setItem("imp_landing", window.location.href);
   
-  // Register click
-  if(Object.keys(utms).length > 0){
-    fetch(SB_URL + "/rest/v1/imphq_clicks", {
+  // Helper: post to Supabase
+  function sbPost(table, data){
+    return fetch(SB_URL + "/rest/v1/" + table, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -219,38 +233,60 @@ export default function Tracker() {
         "Authorization": "Bearer " + SB_KEY,
         "Prefer": "return=minimal"
       },
-      body: JSON.stringify({
-        id: crypto.randomUUID(),
-        utm_source: utms.utm_source || null,
-        utm_medium: utms.utm_medium || null,
-        utm_campaign: utms.utm_campaign || null,
-        utm_content: utms.utm_content || null,
-        utm_term: utms.utm_term || null,
-        referrer: document.referrer || null,
-        page_url: window.location.href,
-        user_agent: navigator.userAgent
-      })
+      body: JSON.stringify(data)
     }).catch(function(){});
   }
   
-  // Expose helper for form submissions
+  // Register click (if UTMs present)
+  if(Object.keys(utms).length > 0){
+    sbPost("imphq_clicks", {
+      id: crypto.randomUUID(),
+      utm_source: utms.utm_source || null,
+      utm_medium: utms.utm_medium || null,
+      utm_campaign: utms.utm_campaign || null,
+      utm_content: utms.utm_content || null,
+      utm_term: utms.utm_term || null,
+      referrer: document.referrer || null,
+      page_url: window.location.href,
+      user_agent: navigator.userAgent
+    });
+  }
+  
+  // Track event function
+  function trackEvent(eventName, eventData){
+    return sbPost("imphq_events", {
+      id: crypto.randomUUID(),
+      visitor_id: visitorId,
+      session_id: sessionId,
+      event_name: eventName,
+      event_data: eventData || {},
+      page_url: window.location.href,
+      referrer: document.referrer || null,
+      utm_source: utms.utm_source || null,
+      utm_medium: utms.utm_medium || null,
+      utm_campaign: utms.utm_campaign || null,
+      utm_content: utms.utm_content || null,
+      utm_term: utms.utm_term || null,
+      user_agent: navigator.userAgent
+    });
+  }
+  
+  // Auto-track PageView
+  trackEvent("PageView", { title: document.title });
+  
+  // Expose helpers
   window.imptrack = {
     getUtms: function(){ return utms; },
+    getVisitorId: function(){ return visitorId; },
+    getSessionId: function(){ return sessionId; },
+    trackEvent: trackEvent,
     trackLead: function(data){
-      return fetch(SB_URL + "/rest/v1/imphq_leads", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SB_KEY,
-          "Authorization": "Bearer " + SB_KEY,
-          "Prefer": "return=minimal"
-        },
-        body: JSON.stringify(Object.assign({
-          id: crypto.randomUUID(),
-          plataforma: utms.utm_source || null,
-          data: { utms: utms, landing: localStorage.getItem("imp_landing") }
-        }, data))
-      });
+      trackEvent("LeadCapture", { email: data.email, nome: data.nome });
+      return sbPost("imphq_leads", Object.assign({
+        id: crypto.randomUUID(),
+        plataforma: utms.utm_source || null,
+        data: { utms: utms, landing: localStorage.getItem("imp_landing"), visitor_id: visitorId }
+      }, data));
     }
   };
 })();
