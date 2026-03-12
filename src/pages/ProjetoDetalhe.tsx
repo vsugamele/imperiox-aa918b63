@@ -16,6 +16,8 @@ import { ProjetoPipeline } from "@/components/projeto/ProjetoPipeline";
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
+import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
+import { ProjetoConteudo } from "@/components/projeto/ProjetoConteudo";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil } from "lucide-react";
 
