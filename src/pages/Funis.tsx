@@ -40,10 +40,11 @@ export default function Funis() {
   const createFunil = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const id = crypto.randomUUID();
-    const { error } = await supabase.from("imphq_funis").insert({
+    const etapasData = DEFAULT_ETAPAS.map(e => ({ nome: e.nome, visitantes: e.visitantes, conversoes: e.conversoes }));
+    const { error } = await supabase.from("imphq_funis").insert([{
       id, nome: form.nome, tipo: form.tipo, status: form.status,
-      data: { etapas: DEFAULT_ETAPAS },
-    });
+      data: { etapas: etapasData } as unknown as Record<string, unknown>,
+    }]);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Funil criado!"); setShowNew(false); setForm({ nome: "", tipo: "Perpétuo", status: "Rascunho" });
     load();
