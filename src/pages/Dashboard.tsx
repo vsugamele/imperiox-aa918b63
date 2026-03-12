@@ -51,6 +51,7 @@ export default function Dashboard() {
       setRecentProjects(recentRes.data || []);
       setUrgentTasks(urgentRes.data || []);
       setOpportunities(oppRes.data || []);
+      setUpcomingEvents(oppRes.data ? (await Promise.resolve(arguments[0])).data || [] : []);
     }
     load();
   }, []);
