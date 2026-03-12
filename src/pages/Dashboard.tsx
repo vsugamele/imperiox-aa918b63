@@ -23,7 +23,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [projRes, taskRes, leadRes, costRes, recentRes, urgentRes, oppRes] = await Promise.all([
+      const [projRes, taskRes, leadRes, costRes, recentRes, urgentRes, oppRes, eventsRes] = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
@@ -51,7 +51,7 @@ export default function Dashboard() {
       setRecentProjects(recentRes.data || []);
       setUrgentTasks(urgentRes.data || []);
       setOpportunities(oppRes.data || []);
-      setUpcomingEvents(oppRes.data ? (await Promise.resolve(arguments[0])).data || [] : []);
+      setUpcomingEvents(eventsRes.data || []);
     }
     load();
   }, []);
