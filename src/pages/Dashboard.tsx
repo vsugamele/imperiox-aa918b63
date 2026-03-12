@@ -31,6 +31,7 @@ export default function Dashboard() {
         supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),
         supabase.from("imphq_tasks").select("*").neq("status", "done").order("due_date", { ascending: true }).limit(5),
         supabase.from("imphq_mi_opportunities").select("*").eq("ativo", true).order("score", { ascending: false }).limit(4),
+        supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
       ]);
 
       let totalCost = 0;
