@@ -12,6 +12,7 @@ import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
 import { ProjetoPipeline } from "@/components/projeto/ProjetoPipeline";
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
+import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 
 const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
@@ -75,6 +76,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="pipeline">⚡ Pipeline</TabsTrigger>
           <TabsTrigger value="midia">🖼️ Mídia</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
+          <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="briefing" className="mt-4">
@@ -100,6 +102,9 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="docs" className="mt-4">
           <ProjetoDocs projectId={id!} />
+        </TabsContent>
+        <TabsContent value="concorrentes" className="mt-4">
+          <ConcorrentesTab projectId={id!} />
         </TabsContent>
       </Tabs>
     </div>
