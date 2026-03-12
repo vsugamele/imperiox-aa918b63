@@ -45,9 +45,9 @@ function extractSection(text: string, heading: string): string {
 }
 
 function extractTableValue(text: string, key: string): string {
-  const regex = new RegExp(`\\|\\s*${key}\\s*\\|\\s*([^|]+)\\|`, "i");
+  const regex = new RegExp(`\\|\\s*(?:${key})\\s*\\|\\s*([^|]+)\\|`, "i");
   const match = text.match(regex);
-  return match ? match[1].trim() : "";
+  return match?.[1]?.trim() || "";
 }
 
 function extractBetween(text: string, startPattern: string, endPattern?: string): string {
