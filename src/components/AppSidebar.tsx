@@ -11,36 +11,36 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projetos", url: "/projetos", icon: FolderKanban },
-  { title: "Kanban", url: "/kanban", icon: Kanban },
-  { title: "Tarefas", url: "/tarefas", icon: ListTodo },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, color: "text-primary" },
+  { title: "Projetos", url: "/projetos", icon: FolderKanban, color: "text-primary" },
+  { title: "Kanban", url: "/kanban", icon: Kanban, color: "text-primary" },
+  { title: "Tarefas", url: "/tarefas", icon: ListTodo, color: "text-primary" },
 ];
 
 const crmItems = [
-  { title: "Leads", url: "/leads", icon: Users },
-  { title: "Finanças", url: "/financas", icon: DollarSign },
-  { title: "Market Intel", url: "/market-intel", icon: Search },
-  { title: "Funis", url: "/funis", icon: Target },
+  { title: "Leads", url: "/leads", icon: Users, color: "text-emerald-400" },
+  { title: "Finanças", url: "/financas", icon: DollarSign, color: "text-emerald-400" },
+  { title: "Market Intel", url: "/market-intel", icon: Search, color: "text-emerald-400" },
+  { title: "Funis", url: "/funis", icon: Target, color: "text-emerald-400" },
 ];
 
 const aiItems = [
-  { title: "Mentes IA", url: "/mentes", icon: Brain },
-  { title: "OpenFlow", url: "/openflow", icon: Workflow },
+  { title: "Mentes IA", url: "/mentes", icon: Brain, color: "text-violet-400" },
+  { title: "OpenFlow", url: "/openflow", icon: Workflow, color: "text-violet-400" },
 ];
 
 const toolsItems = [
-  { title: "Docs / KB", url: "/docs", icon: FileText },
-  { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare },
-  { title: "Tracker UTM", url: "/tracker", icon: Link2 },
-  { title: "Referências", url: "/referencias", icon: Image },
-  { title: "Skills", url: "/skills", icon: Zap },
+  { title: "Docs / KB", url: "/docs", icon: FileText, color: "text-cyan-400" },
+  { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, color: "text-cyan-400" },
+  { title: "Tracker UTM", url: "/tracker", icon: Link2, color: "text-cyan-400" },
+  { title: "Referências", url: "/referencias", icon: Image, color: "text-cyan-400" },
+  { title: "Skills", url: "/skills", icon: Zap, color: "text-cyan-400" },
 ];
 
 const orgItems = [
-  { title: "Equipe", url: "/equipe", icon: UsersRound },
-  { title: "Empresa", url: "/empresa", icon: Building2 },
-  { title: "Config", url: "/configuracoes", icon: Settings },
+  { title: "Equipe", url: "/equipe", icon: UsersRound, color: "text-amber-400" },
+  { title: "Empresa", url: "/empresa", icon: Building2, color: "text-amber-400" },
+  { title: "Config", url: "/configuracoes", icon: Settings, color: "text-amber-400" },
 ];
 
 function NavGroup({ label, items }: { label: string; items: typeof mainItems }) {
@@ -60,7 +60,7 @@ function NavGroup({ label, items }: { label: string; items: typeof mainItems }) 
                   className="text-sidebar-foreground/70 hover:text-foreground hover:bg-sidebar-accent transition-colors"
                   activeClassName="bg-primary/10 text-primary font-medium border-r-2 border-primary"
                 >
-                  <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                  <item.icon className={`mr-2 h-4 w-4 shrink-0 ${item.color}`} />
                   {!collapsed && <span className="text-sm">{item.title}</span>}
                 </NavLink>
               </SidebarMenuButton>

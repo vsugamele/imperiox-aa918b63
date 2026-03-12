@@ -10,11 +10,19 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Pencil } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
 const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok", "YouTube", "Instagram", "Email", "Outro"];
+
+const TIPO_STYLES: Record<string, { border: string; badge: string }> = {
+  criativo: { border: "border-l-rose-500", badge: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
+  landing_page: { border: "border-l-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+  email: { border: "border-l-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  video: { border: "border-l-violet-500", badge: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
+  copy: { border: "border-l-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+};
 
 interface Ref {
   id: string; project_id?: string; tipo?: string; titulo: string;
@@ -87,20 +95,12 @@ export default function Referencias() {
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
 
-  const tipoColor: Record<string, string> = {
-    criativo: "bg-primary/20 text-primary",
-    landing_page: "bg-emerald-500/20 text-emerald-400",
-    email: "bg-amber-500/20 text-amber-400",
-    video: "bg-violet-500/20 text-violet-400",
-    copy: "bg-pink-500/20 text-pink-400",
-  };
-
   const ScoreStars = ({ score, onChange }: { score: number; onChange?: (s: number) => void }) => (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map(s => (
         <Star
           key={s}
-          className={`h-3.5 w-3.5 ${s <= score ? "text-amber-400 fill-amber-400" : "text-muted-foreground"} ${onChange ? "cursor-pointer" : ""}`}
+          className={`h-3.5 w-3.5 transition-colors ${s <= score ? "text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.4)]" : "text-muted-foreground/30"} ${onChange ? "cursor-pointer hover:text-amber-300" : ""}`}
           onClick={() => onChange?.(s)}
         />
       ))}
@@ -154,7 +154,7 @@ export default function Referencias() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">🗂️ Referências</h1>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Referência</Button>
@@ -190,39 +190,47 @@ export default function Referencias() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map(r => (
-          <Card key={r.id} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors group overflow-hidden" onClick={() => setEditing({ ...r })}>
-            {r.image_url && (
-              <div className="h-36 bg-secondary overflow-hidden">
-                <img src={r.image_url} alt={r.titulo} className="w-full h-full object-cover" />
-              </div>
-            )}
-            {!r.image_url && (
-              <div className="h-24 bg-secondary/50 flex items-center justify-center">
-                <Image className="h-8 w-8 text-muted-foreground/30" />
-              </div>
-            )}
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-medium text-sm truncate">{r.titulo}</h3>
-                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {r.tipo && <Badge className={`text-[9px] ${tipoColor[r.tipo] || "bg-secondary text-foreground"}`}>{r.tipo.replace("_", " ")}</Badge>}
-                {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
-              </div>
-              {r.score && r.score > 0 && <ScoreStars score={r.score} />}
-              {r.project_id && <p className="text-[10px] text-muted-foreground">{projectName(r.project_id)}</p>}
-              {r.url && (
-                <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <ExternalLink className="h-2.5 w-2.5" /> Abrir link
-                </a>
+        {filtered.map((r, i) => {
+          const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
+          return (
+            <Card
+              key={r.id}
+              className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.02] cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in`}
+              style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
+              onClick={() => setEditing({ ...r })}
+            >
+              {r.image_url && (
+                <div className="h-36 bg-secondary overflow-hidden">
+                  <img src={r.image_url} alt={r.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                </div>
               )}
-            </CardContent>
-          </Card>
-        ))}
+              {!r.image_url && (
+                <div className="h-24 bg-gradient-to-br from-secondary/80 to-secondary/30 flex items-center justify-center">
+                  <Image className="h-8 w-8 text-muted-foreground/20" />
+                </div>
+              )}
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-medium text-sm truncate">{r.titulo}</h3>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {r.tipo && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
+                  {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
+                </div>
+                {r.score && r.score > 0 && <ScoreStars score={r.score} />}
+                {r.project_id && <p className="text-[10px] text-muted-foreground">{projectName(r.project_id)}</p>}
+                {r.url && (
+                  <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    <ExternalLink className="h-2.5 w-2.5" /> Abrir link
+                  </a>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
         {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma referência cadastrada.</p>}
       </div>
 

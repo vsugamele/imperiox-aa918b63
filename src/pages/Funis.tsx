@@ -31,6 +31,12 @@ function getConversionColor(taxa: number) {
   return { bg: "bg-red-500/15", border: "border-red-500/40", text: "text-red-400", dot: "bg-red-400" };
 }
 
+const STATUS_STYLES: Record<string, string> = {
+  Ativo: "border-l-emerald-500 from-emerald-500/8 to-transparent",
+  Rascunho: "border-l-amber-500 from-amber-500/8 to-transparent",
+  Pausado: "border-l-muted-foreground from-muted/10 to-transparent",
+};
+
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -110,7 +116,7 @@ export default function Funis() {
   if (selectedFunil) {
     const etapas = selectedFunil.data.etapas || [];
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => { setSelectedFunil(null); load(); }}>
             <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
@@ -128,8 +134,8 @@ export default function Funis() {
               const taxa = etapa.visitantes > 0 ? (etapa.conversoes / etapa.visitantes) * 100 : 0;
               const colors = getConversionColor(taxa);
               return (
-                <div key={i} className="flex items-center">
-                  <div className={`rounded-xl border-2 ${colors.border} ${colors.bg} backdrop-blur-sm w-[220px] p-4 space-y-3 relative`}>
+                <div key={i} className="flex items-center animate-fade-in" style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}>
+                  <div className={`rounded-xl border-2 ${colors.border} ${colors.bg} backdrop-blur-sm w-[220px] p-4 space-y-3 relative hover:scale-[1.02] transition-transform`}>
                     {/* Move buttons */}
                     <div className="absolute -top-2 right-2 flex gap-0.5">
                       <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, -1)} disabled={i === 0}>
@@ -142,18 +148,18 @@ export default function Funis() {
 
                     {/* Thumbnail */}
                     {etapa.image_url ? (
-                      <div className="h-20 rounded-lg overflow-hidden bg-card/50 border border-border">
+                      <div className="h-24 rounded-lg overflow-hidden bg-card/50 border border-border">
                         <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover" />
                       </div>
                     ) : (
-                      <div className="h-16 rounded-lg bg-card/30 border border-border flex items-center justify-center">
+                      <div className={`h-16 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center`}>
                         <Image className="h-5 w-5 text-muted-foreground/30" />
                       </div>
                     )}
 
                     {/* Status dot + Name */}
                     <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${colors.dot}`} />
+                      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${colors.dot} ring-2 ring-background`} />
                       <Input
                         value={etapa.nome}
                         onChange={e => setEtapaField(i, "nome", e.target.value)}
@@ -208,7 +214,7 @@ export default function Funis() {
                     </div>
                   </div>
 
-                  {/* SVG connector */}
+                  {/* SVG connector with animated dash */}
                   {i < etapas.length - 1 && (
                     <svg width="40" height="40" className="shrink-0 mx-1">
                       <defs>
@@ -216,7 +222,9 @@ export default function Funis() {
                           <path d="M0,0 L6,3 L0,6" fill="hsl(var(--primary))" opacity="0.6" />
                         </marker>
                       </defs>
-                      <path d="M0,20 C15,20 25,20 38,20" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" opacity="0.4" markerEnd={`url(#arrow-${i})`} />
+                      <path d="M0,20 C15,20 25,20 38,20" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" opacity="0.4" markerEnd={`url(#arrow-${i})`} strokeDasharray="4 3">
+                        <animate attributeName="stroke-dashoffset" from="14" to="0" dur="1.5s" repeatCount="indefinite" />
+                      </path>
                     </svg>
                   )}
                 </div>
@@ -236,7 +244,7 @@ export default function Funis() {
 
   // List view
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">🔗 Funis</h1>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
@@ -254,14 +262,20 @@ export default function Funis() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(f => {
+        {filtered.map((f, idx) => {
           const etapas = f.data?.etapas || [];
+          const statusStyle = STATUS_STYLES[f.status || "Rascunho"] || STATUS_STYLES.Rascunho;
           return (
-            <Card key={f.id} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={() => setSelectedFunil(f)}>
+            <Card
+              key={f.id}
+              className={`bg-gradient-to-br ${statusStyle} border-border border-l-4 hover:scale-[1.02] cursor-pointer transition-all duration-200 animate-fade-in`}
+              style={{ animationDelay: `${idx * 60}ms`, animationFillMode: "both" }}
+              onClick={() => setSelectedFunil(f)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-medium text-sm">{f.nome}</h3>
-                  <Badge variant="outline" className="text-[10px]">{f.status || "Rascunho"}</Badge>
+                  <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
                 {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}

@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Clock, Save, Play, Pause } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 const TRIGGERS = [
-  { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒" },
-  { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅" },
-  { value: "lead_novo", label: "Novo Lead", icon: "👤" },
-  { value: "reembolso", label: "Reembolso", icon: "↩️" },
+  { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500" },
+  { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅", color: "border-l-emerald-500" },
+  { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500" },
+  { value: "reembolso", label: "Reembolso", icon: "↩️", color: "border-l-red-500" },
 ];
 
 const ACAO_TIPOS = [
@@ -39,6 +39,7 @@ export default function OpenFlow() {
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
   const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "" });
+  const [webhookProject, setWebhookProject] = useState("none");
 
   const load = async () => {
     const [aRes, wRes, pRes] = await Promise.all([
@@ -103,32 +104,52 @@ export default function OpenFlow() {
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
   const triggerLabel = (t: string) => TRIGGERS.find(tr => tr.value === t)?.label || t;
   const triggerIcon = (t: string) => TRIGGERS.find(tr => tr.value === t)?.icon || "⚡";
+  const triggerColor = (t: string) => TRIGGERS.find(tr => tr.value === t)?.color || "border-l-primary";
 
-  const webhookUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento`;
+  const baseWebhookUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento`;
+  const webhookUrl = webhookProject !== "none"
+    ? `${baseWebhookUrl}?project=${webhookProject}`
+    : baseWebhookUrl;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">⚡ Automações</h1>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Automação</Button>
       </div>
 
       {/* Webhook URL info */}
-      <Card className="bg-card border-border">
-        <CardContent className="p-4">
+      <Card className="bg-gradient-to-br from-violet-500/10 to-violet-500/5 border-violet-500/20">
+        <CardContent className="p-4 space-y-3">
           <p className="text-xs text-muted-foreground mb-1">🔗 URL do Webhook (cole nas plataformas de pagamento):</p>
           <div className="flex items-center gap-2">
-            <code className="text-xs bg-secondary px-3 py-1.5 rounded flex-1 truncate font-mono">{webhookUrl}</code>
-            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Copiado!"); }}>Copiar</Button>
+            <Select value={webhookProject} onValueChange={setWebhookProject}>
+              <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">URL genérica</SelectItem>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2">Compatível com: Hotmart, Kiwify, Ticto, Eduzz e outros</p>
+          <div className="flex items-center gap-2">
+            <code className="text-xs bg-secondary px-3 py-1.5 rounded flex-1 truncate font-mono">{webhookUrl}</code>
+            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Copiado!"); }}>
+              <Copy className="h-3 w-3 mr-1" /> Copiar
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Compatível com: Hotmart, Kiwify, Ticto, Eduzz e outros</p>
         </CardContent>
       </Card>
 
       {/* Automações list */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {automacoes.map(a => (
-          <Card key={a.id} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={() => setEditing({ ...a })}>
+        {automacoes.map((a, i) => (
+          <Card
+            key={a.id}
+            className={`bg-card border-border border-l-4 ${triggerColor(a.trigger_tipo)} hover:border-primary/20 cursor-pointer transition-all hover:scale-[1.01] animate-fade-in`}
+            style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
+            onClick={() => setEditing({ ...a })}
+          >
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -165,7 +186,7 @@ export default function OpenFlow() {
 
       {/* Recent Webhooks */}
       {webhooks.length > 0 && (
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "300ms", animationFillMode: "both" }}>
           <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📡 Webhooks Recentes</CardTitle></CardHeader>
           <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
             {webhooks.slice(0, 20).map(w => (

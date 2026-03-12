@@ -57,41 +57,29 @@ export default function MarketIntel() {
     o.produto?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Stats
   const avgScore = NICHE_OFFERS.length > 0 ? (NICHE_OFFERS.reduce((s, o) => s + o.score, 0) / NICHE_OFFERS.length).toFixed(1) : "0";
   const topNicho = UNIQUE_NICHOS[0] || "—";
   const semRostoCount = NICHE_OFFERS.filter(o => o.semAparecer.includes("100")).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <h1 className="font-display text-3xl font-bold text-primary">🧠 Market Intel</h1>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">
-          <CardContent className="p-4">
-            <p className="text-xs text-emerald-400 mb-1">Total Ofertas</p>
-            <p className="text-2xl font-bold font-mono text-emerald-400">{NICHE_OFFERS.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-violet-500/10 to-violet-500/5 border-violet-500/20">
-          <CardContent className="p-4">
-            <p className="text-xs text-violet-400 mb-1">Média Score</p>
-            <p className="text-2xl font-bold font-mono text-violet-400">{avgScore}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-pink-500/10 to-pink-500/5 border-pink-500/20">
-          <CardContent className="p-4">
-            <p className="text-xs text-pink-400 mb-1">Top Nicho</p>
-            <p className="text-lg font-bold text-pink-400 truncate">{topNicho}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20">
-          <CardContent className="p-4">
-            <p className="text-xs text-amber-400 mb-1">100% Sem Rosto</p>
-            <p className="text-2xl font-bold font-mono text-amber-400">{semRostoCount}</p>
-          </CardContent>
-        </Card>
+        {[
+          { label: "Total Ofertas", value: NICHE_OFFERS.length, gradient: "from-emerald-500/10 to-emerald-500/5", border: "border-emerald-500/20", text: "text-emerald-400" },
+          { label: "Média Score", value: avgScore, gradient: "from-violet-500/10 to-violet-500/5", border: "border-violet-500/20", text: "text-violet-400" },
+          { label: "Top Nicho", value: topNicho, gradient: "from-pink-500/10 to-pink-500/5", border: "border-pink-500/20", text: "text-pink-400", isText: true },
+          { label: "100% Sem Rosto", value: semRostoCount, gradient: "from-amber-500/10 to-amber-500/5", border: "border-amber-500/20", text: "text-amber-400" },
+        ].map((s, i) => (
+          <Card key={s.label} className={`bg-gradient-to-br ${s.gradient} ${s.border} hover:scale-[1.03] transition-all duration-200 animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
+            <CardContent className="p-4">
+              <p className={`text-xs ${s.text} mb-1`}>{s.label}</p>
+              <p className={`${s.isText ? "text-lg" : "text-2xl"} font-bold font-mono ${s.text} truncate`}>{s.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <Tabs defaultValue="nichos" className="space-y-4">
@@ -139,7 +127,7 @@ export default function MarketIntel() {
                   const ns = getnichoStyle(o.nicho);
                   const NichoIcon = ns.icon;
                   return (
-                    <TableRow key={i} className="hover:bg-muted/30">
+                    <TableRow key={i} className="hover:bg-muted/30 transition-colors">
                       <TableCell>
                         <Badge variant="outline" className={`text-[10px] ${ns.bg} ${ns.text} ${ns.border}`}>
                           <NichoIcon className="h-2.5 w-2.5 mr-1" />{o.nicho}
@@ -181,7 +169,7 @@ export default function MarketIntel() {
           <p className="text-sm text-muted-foreground">Baseado em: PAS, BAB, AIDA, Star-Story, Cialdini, Gary Halbert, Eugene Schwartz</p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {MARKETING_ANGLES.map((a, i) => (
-              <Card key={i} className={`bg-gradient-to-br ${ANGLE_COLORS[i % ANGLE_COLORS.length]} border-border hover:border-primary/30 transition-all hover:scale-[1.01]`}>
+              <Card key={i} className={`bg-gradient-to-br ${ANGLE_COLORS[i % ANGLE_COLORS.length]} border-border hover:border-primary/30 hover:scale-[1.01] transition-all duration-200 animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-sm">{a.angulo}</h3>
@@ -220,7 +208,7 @@ export default function MarketIntel() {
             {OFFER_FACTORY.map((o, i) => {
               const tempoColors = o.tempoCriacao.includes("3") ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : o.tempoCriacao.includes("5") ? "bg-amber-500/15 text-amber-400 border-amber-500/30" : "bg-red-500/15 text-red-400 border-red-500/30";
               return (
-                <Card key={i} className="bg-card border-border hover:border-primary/20 transition-colors">
+                <Card key={i} className="bg-card border-border hover:border-primary/20 hover:scale-[1.01] transition-all duration-200 animate-fade-in" style={{ animationDelay: `${i * 50}ms`, animationFillMode: "both" }}>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-medium text-sm">{o.oferta}</h3>
@@ -252,10 +240,10 @@ export default function MarketIntel() {
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filtrar por nicho..." className="pl-9 bg-secondary" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredOpps.map((o) => {
+            {filteredOpps.map((o, i) => {
               const ns = getnichoStyle(o.nicho || "");
               return (
-                <Card key={o.id} className={`border-border hover:border-primary/30 transition-colors bg-gradient-to-br ${ns.bg.replace('bg-', 'from-')} to-transparent`}>
+                <Card key={o.id} className={`border-border hover:border-primary/30 hover:scale-[1.02] transition-all duration-200 bg-gradient-to-br ${ns.bg.replace('bg-', 'from-')} to-transparent animate-fade-in`} style={{ animationDelay: `${i * 50}ms`, animationFillMode: "both" }}>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
