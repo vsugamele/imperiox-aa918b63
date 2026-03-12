@@ -165,6 +165,35 @@ export default function ProjetoDetalhe() {
         <TabsContent value="concorrentes" className="mt-4">
           <ConcorrentesTab projectId={id!} />
         </TabsContent>
+        <TabsContent value="analytics" className="mt-4">
+          <Card className="bg-card border-border">
+            <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📈 Analytics & Tracking</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Microsoft Clarity ID</Label>
+                <Input
+                  value={project.clarity_id || ""}
+                  onChange={e => setProject((p: any) => ({ ...p, clarity_id: e.target.value }))}
+                  onBlur={() => updateField("clarity_id", project.clarity_id)}
+                  className="bg-secondary"
+                  placeholder="Ex: abc123xyz"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Cole o ID do projeto Clarity para heatmaps e session replay</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Google Analytics ID</Label>
+                <Input
+                  value={project.ga_id || ""}
+                  onChange={e => setProject((p: any) => ({ ...p, ga_id: e.target.value }))}
+                  onBlur={() => updateField("ga_id", project.ga_id)}
+                  className="bg-secondary"
+                  placeholder="Ex: G-XXXXXXXXXX"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">ID de medição do Google Analytics 4</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
