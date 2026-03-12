@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Plus, FileText, Trash2, Save, Search, ArrowLeft, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,7 +60,7 @@ export default function Docs() {
   const saveDoc = async () => {
     if (!editing) return;
     const { error } = await supabase.from("imphq_docs")
-      .update({ title: editing.title, content: editing.content, cat: editing.cat })
+      .update({ title: editing.title, content: editing.content, cat: editing.cat, project_id: editing.project_id })
       .eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
@@ -83,10 +84,23 @@ export default function Docs() {
           <Badge variant="outline" className="text-[10px]">{editing.source === "kb" ? "KB" : "DOC"}</Badge>
         </div>
         <Card className="bg-card border-border">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
             <Input value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} className="bg-secondary text-lg font-medium max-w-md" />
-            <div className="flex gap-2 shrink-0">
-              <Input value={editing.cat || ""} onChange={e => setEditing({ ...editing, cat: e.target.value })} className="bg-secondary w-32 text-xs" placeholder="Categoria" />
+            <div className="flex gap-2 shrink-0 flex-wrap items-end">
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Categoria</Label>
+                <Input value={editing.cat || ""} onChange={e => setEditing({ ...editing, cat: e.target.value })} className="bg-secondary w-32 text-xs h-8" placeholder="Categoria" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Projeto</Label>
+                <Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? null : v })}>
+                  <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button size="sm" onClick={saveDoc}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
             </div>
           </CardHeader>
@@ -142,11 +156,11 @@ export default function Docs() {
                   {d.source === "kb" ? <BookOpen className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" /> : <FileText className="h-4 w-4 text-primary mt-0.5 shrink-0" />}
                   <div className="min-w-0">
                     <h3 className="font-medium text-sm truncate">{d.title}</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant="secondary" className="text-[9px]">{d.source === "kb" ? "KB" : "Doc"}</Badge>
                       {(d.cat || d.section_key) && <Badge variant="outline" className="text-[9px]">{d.cat || d.section_key}</Badge>}
+                      {d.project_id && <Badge className="text-[9px] bg-primary/20 text-primary">{projectName(d.project_id)}</Badge>}
                     </div>
-                    {d.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(d.project_id)}</p>}
                     {(d.content || d.body) && (
                       <p className="text-[10px] text-muted-foreground mt-2 line-clamp-2">{(d.content || d.body).substring(0, 120)}...</p>
                     )}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, ChevronUp, ChevronDown, Save } from "lucide-react";
+import { FileUpload } from "@/components/FileUpload";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, ChevronUp, ChevronDown, Save, ExternalLink, Image } from "lucide-react";
 import { toast } from "sonner";
 
-interface Etapa { nome: string; visitantes: number; conversoes: number; }
+interface Etapa { nome: string; visitantes: number; conversoes: number; url?: string; image_url?: string; }
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
   project_id?: string; data: { etapas?: Etapa[] }; criado_em?: string;
@@ -91,7 +92,7 @@ export default function Funis() {
     [etapas[idx], etapas[newIdx]] = [etapas[newIdx], etapas[idx]];
     updateEtapa(selectedFunil.id, etapas);
   };
-  const setEtapaField = (idx: number, field: keyof Etapa, value: string | number) => {
+  const setEtapaField = (idx: number, field: string, value: any) => {
     if (!selectedFunil) return;
     const etapas = [...(selectedFunil.data.etapas || [])];
     etapas[idx] = { ...etapas[idx], [field]: value };
@@ -122,13 +123,13 @@ export default function Funis() {
 
         {/* Canvas Area */}
         <div className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] p-8 overflow-x-auto">
-          <div className="flex items-center gap-2 min-w-max">
+          <div className="flex items-start gap-2 min-w-max">
             {etapas.map((etapa, i) => {
               const taxa = etapa.visitantes > 0 ? (etapa.conversoes / etapa.visitantes) * 100 : 0;
               const colors = getConversionColor(taxa);
               return (
                 <div key={i} className="flex items-center">
-                  <div className={`rounded-xl border-2 ${colors.border} ${colors.bg} backdrop-blur-sm min-w-[180px] p-4 space-y-3 relative`}>
+                  <div className={`rounded-xl border-2 ${colors.border} ${colors.bg} backdrop-blur-sm w-[220px] p-4 space-y-3 relative`}>
                     {/* Move buttons */}
                     <div className="absolute -top-2 right-2 flex gap-0.5">
                       <Button size="icon" variant="ghost" className="h-5 w-5 bg-card border border-border" onClick={() => moveEtapa(i, -1)} disabled={i === 0}>
@@ -139,15 +140,50 @@ export default function Funis() {
                       </Button>
                     </div>
 
-                    {/* Status dot */}
+                    {/* Thumbnail */}
+                    {etapa.image_url ? (
+                      <div className="h-20 rounded-lg overflow-hidden bg-card/50 border border-border">
+                        <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="h-16 rounded-lg bg-card/30 border border-border flex items-center justify-center">
+                        <Image className="h-5 w-5 text-muted-foreground/30" />
+                      </div>
+                    )}
+
+                    {/* Status dot + Name */}
                     <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${colors.dot}`} />
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${colors.dot}`} />
                       <Input
                         value={etapa.nome}
                         onChange={e => setEtapaField(i, "nome", e.target.value)}
                         className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
                       />
                     </div>
+
+                    {/* URL */}
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={etapa.url || ""}
+                        onChange={e => setEtapaField(i, "url", e.target.value)}
+                        className="h-6 text-[10px] bg-card/50 border-border p-1"
+                        placeholder="URL da etapa..."
+                      />
+                      {etapa.url && (
+                        <a href={etapa.url} target="_blank" rel="noopener" className="shrink-0">
+                          <ExternalLink className="h-3 w-3 text-primary" />
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Upload */}
+                    <FileUpload
+                      bucket="project-media"
+                      path={`funis/${selectedFunil.id}`}
+                      onUpload={url => setEtapaField(i, "image_url", url)}
+                      label="Img"
+                      className="[&_button]:h-6 [&_button]:text-[10px]"
+                    />
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -167,7 +203,6 @@ export default function Funis() {
                       </Button>
                     </div>
 
-                    {/* Conversion bar */}
                     <div className="w-full h-1.5 bg-card/30 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full ${colors.dot}`} style={{ width: `${Math.min(taxa, 100)}%` }} />
                     </div>
