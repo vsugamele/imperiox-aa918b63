@@ -135,7 +135,7 @@ export default function Tracker() {
     });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Link criado!"); setShowNew(false);
-    setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
+    setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
     load();
   };
 
