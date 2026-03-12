@@ -3,6 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EditableTagList } from "./EditableTagList";
+import { FileUpload } from "@/components/FileUpload";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Props {
   project: any;
@@ -22,13 +24,26 @@ export function ProjetoExpert({ project, onUpdateData }: Props) {
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">👤 Dados Pessoais</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2 flex items-center gap-4">
+            <Avatar className="h-20 w-20">
+              <AvatarImage src={expert.foto || ""} />
+              <AvatarFallback className="text-2xl">{(expert.nome || "E")[0]}</AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Foto do Expert</Label>
+              <div className="flex gap-2 items-center">
+                <Input value={expert.foto || ""} onChange={(e) => update("foto", e.target.value)} className="bg-secondary max-w-xs" placeholder="URL da foto..." />
+                <FileUpload
+                  bucket="project-media"
+                  path={`${project.id}/expert`}
+                  onUpload={(url) => update("foto", url)}
+                />
+              </div>
+            </div>
+          </div>
           <div>
             <Label className="text-xs text-muted-foreground">Nome Completo</Label>
             <Input value={expert.nome || ""} onChange={(e) => update("nome", e.target.value)} className="bg-secondary" />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">URL Foto</Label>
-            <Input value={expert.foto || ""} onChange={(e) => update("foto", e.target.value)} className="bg-secondary" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Área de Atuação</Label>
