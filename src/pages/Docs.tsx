@@ -1,180 +1,173 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Plus, FileText, Trash2, Save, Search, ArrowLeft, BookOpen } from "lucide-react";
+import { KB_SECTIONS, KBSection } from "@/data/kbTemplates";
+import { Save, RotateCcw, Copy, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 
+interface KBEntry {
+  id?: string;
+  section_key: string;
+  title: string;
+  body?: string;
+  content?: string;
+  order_idx: number;
+}
+
 export default function Docs() {
-  const [docs, setDocs] = useState<any[]>([]);
-  const [kb, setKb] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterProject, setFilterProject] = useState("all");
-  const [filterCat, setFilterCat] = useState("all");
-  const [editing, setEditing] = useState<any>(null);
+  const [entries, setEntries] = useState<Record<string, KBEntry>>({});
+  const [activeKey, setActiveKey] = useState(KB_SECTIONS[0].key);
+  const [content, setContent] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    const [docRes, kbRes, pRes] = await Promise.all([
-      supabase.from("imphq_docs").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_kb").select("*").order("order_idx"),
-      supabase.from("imphq_projects").select("id, name").order("name"),
-    ]);
-    setDocs(docRes.data || []);
-    setKb(kbRes.data || []);
-    setProjects(pRes.data || []);
+    const { data } = await supabase.from("imphq_kb").select("*").order("order_idx");
+    const map: Record<string, KBEntry> = {};
+    (data || []).forEach((d: any) => { map[d.section_key] = d; });
+    setEntries(map);
   };
 
   useEffect(() => { load(); }, []);
 
-  const allItems = [
-    ...docs.map(d => ({ ...d, source: "doc" })),
-    ...kb.map(k => ({ ...k, source: "kb" })),
-  ];
+  // When active section changes, load its content
+  useEffect(() => {
+    const entry = entries[activeKey];
+    const section = KB_SECTIONS.find(s => s.key === activeKey);
+    if (entry) {
+      setContent(entry.body || entry.content || "");
+    } else if (section) {
+      setContent(section.defaultContent);
+    }
+    setDirty(false);
+  }, [activeKey, entries]);
 
-  const categories = [...new Set(allItems.map(i => i.cat || i.section_key).filter(Boolean))];
+  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const charCount = content.length;
 
-  const filtered = allItems.filter(i => {
-    const matchSearch = !search || i.title?.toLowerCase().includes(search.toLowerCase()) || i.content?.toLowerCase().includes(search.toLowerCase());
-    const matchProject = filterProject === "all" || i.project_id === filterProject;
-    const matchCat = filterCat === "all" || i.cat === filterCat || i.section_key === filterCat;
-    return matchSearch && matchProject && matchCat;
-  });
+  const handleSave = async () => {
+    setSaving(true);
+    const existing = entries[activeKey];
+    const section = KB_SECTIONS.find(s => s.key === activeKey)!;
 
-  const createDoc = async () => {
-    const id = crypto.randomUUID();
-    const { data, error } = await supabase.from("imphq_docs").insert({
-      id, title: "Novo Documento", content: "",
-      project_id: filterProject !== "all" ? filterProject : null,
-    } as any).select().single();
-    if (error) { toast.error("Erro: " + error.message); return; }
-    setEditing(data);
-    toast.success("Doc criado!");
-  };
+    if (existing?.id) {
+      const { error } = await supabase.from("imphq_kb")
+        .update({ body: content, title: section.title } as any)
+        .eq("id", existing.id);
+      if (error) { toast.error("Erro ao salvar"); setSaving(false); return; }
+    } else {
+      const { error } = await supabase.from("imphq_kb")
+        .insert({
+          id: crypto.randomUUID(),
+          section_key: activeKey,
+          title: section.title,
+          body: content,
+          order_idx: KB_SECTIONS.findIndex(s => s.key === activeKey),
+        } as any);
+      if (error) { toast.error("Erro ao salvar"); setSaving(false); return; }
+    }
 
-  const saveDoc = async () => {
-    if (!editing) return;
-    const { error } = await supabase.from("imphq_docs")
-      .update({ title: editing.title, content: editing.content, cat: editing.cat, project_id: editing.project_id })
-      .eq("id", editing.id);
-    if (error) { toast.error("Erro ao salvar"); return; }
-    toast.success("Salvo!"); setEditing(null); load();
-  };
-
-  const deleteDoc = async (id: string) => {
-    await supabase.from("imphq_docs").delete().eq("id", id);
-    toast.success("Doc removido");
-    if (editing?.id === id) setEditing(null);
+    toast.success("Salvo!");
+    setDirty(false);
+    setSaving(false);
     load();
   };
 
-  const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
+  const handleReset = () => {
+    const section = KB_SECTIONS.find(s => s.key === activeKey);
+    if (section) {
+      setContent(section.defaultContent);
+      setDirty(true);
+    }
+  };
 
-  // Editor view
-  if (editing) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => { setEditing(null); load(); }}><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Button>
-          <Badge variant="outline" className="text-[10px]">{editing.source === "kb" ? "KB" : "DOC"}</Badge>
-        </div>
-        <Card className="bg-card border-border">
-          <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
-            <Input value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} className="bg-secondary text-lg font-medium max-w-md" />
-            <div className="flex gap-2 shrink-0 flex-wrap items-end">
-              <div>
-                <Label className="text-[10px] text-muted-foreground">Categoria</Label>
-                <Input value={editing.cat || ""} onChange={e => setEditing({ ...editing, cat: e.target.value })} className="bg-secondary w-32 text-xs h-8" placeholder="Categoria" />
-              </div>
-              <div>
-                <Label className="text-[10px] text-muted-foreground">Projeto</Label>
-                <Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? null : v })}>
-                  <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button size="sm" onClick={saveDoc}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={editing.content || editing.body || ""}
-              onChange={e => setEditing({ ...editing, content: e.target.value })}
-              className="bg-secondary min-h-[500px] font-mono text-sm"
-              placeholder="Escreva o conteúdo..."
-            />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const handleExportContext = async () => {
+    // Build full KB context
+    let output = "# KNOWLEDGE BASE — IMPÉRIO DIGITAL\n\n";
+    for (const section of KB_SECTIONS) {
+      const entry = entries[section.key];
+      const body = entry?.body || entry?.content || section.defaultContent;
+      output += `${"=".repeat(60)}\n\n## ${section.icon} ${section.title.toUpperCase()}\n\n${"=".repeat(60)}\n\n${body}\n\n`;
+    }
+    await navigator.clipboard.writeText(output);
+    toast.success("Knowledge Base completa copiada!");
+  };
 
-  // List view
+  const activeSection = KB_SECTIONS.find(s => s.key === activeKey)!;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">📄 Docs & Knowledge Base</h1>
-        <Button size="sm" onClick={createDoc}><Plus className="h-4 w-4 mr-1" /> Novo Doc</Button>
-      </div>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
+    <div className="flex gap-0 h-[calc(100vh-7rem)] animate-fade-in">
+      {/* Sidebar */}
+      <div className="w-64 shrink-0 border-r border-border bg-card/50 overflow-y-auto">
+        <div className="p-4 border-b border-border">
+          <h2 className="font-display text-lg font-bold text-primary flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Knowledge Base
+          </h2>
+          <p className="text-[10px] text-muted-foreground mt-1">{KB_SECTIONS.length} seções</p>
         </div>
-        <Select value={filterProject} onValueChange={setFilterProject}>
-          <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos Projetos</SelectItem>
-            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filterCat} onValueChange={setFilterCat}>
-          <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Badge variant="outline" className="text-xs">{filtered.length} docs</Badge>
+        <div className="p-2 space-y-0.5">
+          {KB_SECTIONS.map((section) => {
+            const hasContent = !!entries[section.key];
+            return (
+              <button
+                key={section.key}
+                onClick={() => setActiveKey(section.key)}
+                className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors flex items-center gap-2 ${
+                  activeKey === section.key
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="text-base shrink-0">{section.icon}</span>
+                <span className="truncate text-xs">{section.title}</span>
+                {hasContent && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="p-3 border-t border-border">
+          <Button size="sm" variant="outline" className="w-full text-xs" onClick={handleExportContext}>
+            <Copy className="h-3 w-3 mr-1" /> Exportar Tudo
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(d => (
-          <Card key={d.id} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors group" onClick={() => setEditing(d)}>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2 min-w-0">
-                  {d.source === "kb" ? <BookOpen className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" /> : <FileText className="h-4 w-4 text-primary mt-0.5 shrink-0" />}
-                  <div className="min-w-0">
-                    <h3 className="font-medium text-sm truncate">{d.title}</h3>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Badge variant="secondary" className="text-[9px]">{d.source === "kb" ? "KB" : "Doc"}</Badge>
-                      {(d.cat || d.section_key) && <Badge variant="outline" className="text-[9px]">{d.cat || d.section_key}</Badge>}
-                      {d.project_id && <Badge className="text-[9px] bg-primary/20 text-primary">{projectName(d.project_id)}</Badge>}
-                    </div>
-                    {(d.content || d.body) && (
-                      <p className="text-[10px] text-muted-foreground mt-2 line-clamp-2">{(d.content || d.body).substring(0, 120)}...</p>
-                    )}
-                  </div>
-                </div>
-                {d.source === "doc" && (
-                  <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0" onClick={(e) => { e.stopPropagation(); deleteDoc(d.id); }}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Editor */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-2xl">{activeSection.icon}</span>
+            <div className="min-w-0">
+              <h2 className="font-display text-lg font-bold truncate">{activeSection.title}</h2>
+              <p className="text-xs text-muted-foreground">{activeSection.description}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant="outline" className="text-[10px]">
+              {wordCount} palavras · {charCount} chars
+            </Badge>
+            {dirty && <Badge className="text-[10px] bg-amber-500/20 text-amber-400">Não salvo</Badge>}
+            <Button size="sm" variant="outline" onClick={handleReset}>
+              <RotateCcw className="h-3 w-3 mr-1" /> Resetar Padrão
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={saving || !dirty}>
+              <Save className="h-3 w-3 mr-1" /> {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Textarea */}
+        <div className="flex-1 p-4 overflow-hidden">
+          <Textarea
+            value={content}
+            onChange={(e) => { setContent(e.target.value); setDirty(true); }}
+            className="h-full bg-secondary/50 font-mono text-sm resize-none border-border"
+            placeholder="Escreva o conteúdo desta seção..."
+          />
+        </div>
       </div>
     </div>
   );
