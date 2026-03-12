@@ -224,9 +224,9 @@ export default function KanbanPage() {
                 <div className="flex items-center gap-2">
                   <Avatar className="h-4 w-4">
                     {m.avatar_url ? <AvatarImage src={m.avatar_url} /> : null}
-                    <AvatarFallback className="text-[8px] bg-secondary">{(m.nome || "?")[0]}</AvatarFallback>
+                    <AvatarFallback className="text-[8px] bg-secondary">{(m.name || "?")[0]}</AvatarFallback>
                   </Avatar>
-                  {m.nome}
+                  {m.name}
                 </div>
               </SelectItem>
             ))}
@@ -310,9 +310,9 @@ export default function KanbanPage() {
                                       </p>
                                     )}
                                     {member && (
-                                      <Avatar className="h-5 w-5" title={member.nome}>
+                                      <Avatar className="h-5 w-5" title={member.name}>
                                         {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
-                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{(member.nome || "?")[0]}</AvatarFallback>
+                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{(member.name || "?")[0]}</AvatarFallback>
                                       </Avatar>
                                     )}
                                   </div>
@@ -364,9 +364,9 @@ export default function KanbanPage() {
                       <div className="flex items-center gap-2">
                         <Avatar className="h-4 w-4">
                           {m.avatar_url ? <AvatarImage src={m.avatar_url} /> : null}
-                          <AvatarFallback className="text-[8px] bg-secondary">{(m.nome || "?")[0]}</AvatarFallback>
+                          <AvatarFallback className="text-[8px] bg-secondary">{(m.name || "?")[0]}</AvatarFallback>
                         </Avatar>
-                        {m.nome}
+                        {m.name}
                       </div>
                     </SelectItem>
                   ))}
@@ -423,9 +423,9 @@ export default function KanbanPage() {
                         <div className="flex items-center gap-2">
                           <Avatar className="h-4 w-4">
                             {m.avatar_url ? <AvatarImage src={m.avatar_url} /> : null}
-                            <AvatarFallback className="text-[8px] bg-secondary">{(m.nome || "?")[0]}</AvatarFallback>
+                            <AvatarFallback className="text-[8px] bg-secondary">{(m.name || "?")[0]}</AvatarFallback>
                           </Avatar>
-                          {m.nome}
+                          {m.name}
                         </div>
                       </SelectItem>
                     ))}
