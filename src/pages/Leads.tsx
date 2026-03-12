@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
-import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -27,6 +27,7 @@ interface Lead {
   id: string; nome?: string; phone?: string; email?: string; project_id?: string;
   funil_id?: string; plataforma?: string; status?: string; score?: number;
   tags?: string[]; total_gasto?: number; data?: any; criado_em?: string;
+  _isNew?: boolean;
 }
 
 export default function Leads() {
@@ -39,6 +40,9 @@ export default function Leads() {
   const [showNew, setShowNew] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", phone: "", plataforma: "", status: "lead", tags: [] as string[] });
+  const [realtimeActive, setRealtimeActive] = useState(false);
+  const projectFilterRef = useRef(projectFilter);
+  projectFilterRef.current = projectFilter;
 
   const load = async () => {
     const [leadsRes, projRes] = await Promise.all([
@@ -50,6 +54,42 @@ export default function Leads() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("leads-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "imphq_leads" },
+        (payload) => {
+          const newLead = payload.new as Lead;
+          // Add with _isNew flag for animation
+          setLeads((prev) => [{ ...newLead, _isNew: true }, ...prev]);
+          
+          // Show toast if matches current project filter
+          const pf = projectFilterRef.current;
+          const matchesFilter = pf === "all" || newLead.project_id === pf || (!newLead.project_id && pf === "none");
+          if (matchesFilter) {
+            toast.success(`Novo lead: ${newLead.nome || newLead.email || "Desconhecido"}`, {
+              description: newLead.plataforma ? `Via ${newLead.plataforma}` : undefined,
+            });
+          }
+
+          // Remove _isNew flag after animation
+          setTimeout(() => {
+            setLeads((prev) => prev.map((l) => l.id === newLead.id ? { ...l, _isNew: false } : l));
+          }, 3000);
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeActive(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const filtered = leads.filter((l) => {
     const matchSearch = !search || l.nome?.toLowerCase().includes(search.toLowerCase()) || l.email?.toLowerCase().includes(search.toLowerCase());
@@ -103,7 +143,14 @@ export default function Leads() {
     <div className="flex gap-6">
       {/* Project Sidebar */}
       <div className="w-48 shrink-0 hidden lg:block">
-        <h2 className="font-display text-sm font-bold text-primary mb-2">Leads</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="font-display text-sm font-bold text-primary">Leads</h2>
+          {realtimeActive && (
+            <div className="flex items-center gap-1" title="Realtime ativo">
+              <Radio className="h-3 w-3 text-emerald-400 animate-pulse" />
+            </div>
+          )}
+        </div>
         <p className="text-[10px] text-muted-foreground mb-3">{leads.length} total</p>
         <div className="space-y-0.5">
           <button
@@ -226,7 +273,11 @@ export default function Leads() {
             </TableHeader>
             <TableBody>
               {filtered.map((l) => (
-                <TableRow key={l.id} className="cursor-pointer hover:bg-secondary/50" onClick={() => setEditLead({ ...l })}>
+                <TableRow
+                  key={l.id}
+                  className={`cursor-pointer hover:bg-secondary/50 transition-all ${l._isNew ? "animate-pulse bg-emerald-500/10 ring-1 ring-emerald-500/30" : ""}`}
+                  onClick={() => setEditLead({ ...l })}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8 bg-secondary">
@@ -235,7 +286,10 @@ export default function Leads() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-sm">{l.nome}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-sm">{l.nome}</p>
+                          {l._isNew && <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">NOVO</span>}
+                        </div>
                         <p className="text-[10px] text-muted-foreground">{l.email || "—"}</p>
                       </div>
                     </div>

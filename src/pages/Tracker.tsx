@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter, Zap, Code } from "lucide-react";
 import { toast } from "sonner";
 
 interface TrackingLink {
@@ -40,6 +41,30 @@ const PLATAFORMA_COLORS: Record<string, string> = {
   "Outro": "bg-gray-500/15 text-gray-400 border-gray-500/30",
 };
 
+const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; utm_campaign: string; utm_content: string; utm_term: string }> = {
+  "Meta Ads": {
+    utm_source: "{{site_source_name}}",
+    utm_medium: "{{placement}}",
+    utm_campaign: "{{campaign.name}}",
+    utm_content: "{{adset.name}}",
+    utm_term: "{{ad.name}}",
+  },
+  "Google Ads": {
+    utm_source: "google",
+    utm_medium: "cpc",
+    utm_campaign: "{campaignid}",
+    utm_content: "{adgroupid}",
+    utm_term: "{keyword}",
+  },
+  "TikTok Ads": {
+    utm_source: "tiktok",
+    utm_medium: "__PLACEMENT__",
+    utm_campaign: "__CAMPAIGN_NAME__",
+    utm_content: "__AID_NAME__",
+    utm_term: "__CID_NAME__",
+  },
+};
+
 export default function Tracker() {
   const [links, setLinks] = useState<TrackingLink[]>([]);
   const [clicks, setClicks] = useState<any[]>([]);
@@ -47,6 +72,7 @@ export default function Tracker() {
   const [projects, setProjects] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [showTargets, setShowTargets] = useState(false);
+  const [showScript, setShowScript] = useState(false);
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [filterPlataforma, setFilterPlataforma] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
@@ -76,6 +102,13 @@ export default function Tracker() {
   const saveTargets = () => {
     localStorage.setItem("imphq_kpi_targets", JSON.stringify(targets));
     toast.success("Metas salvas!"); setShowTargets(false);
+  };
+
+  const applyTemplate = (platform: string) => {
+    const tpl = UTM_TEMPLATES[platform];
+    if (!tpl) return;
+    setForm(prev => ({ ...prev, ...tpl }));
+    toast.success(`Template ${platform} aplicado!`);
   };
 
   const buildUrl = (l: Partial<TrackingLink>) => {
@@ -156,11 +189,79 @@ export default function Tracker() {
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "—";
 
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+
+  const trackingScript = `<script>
+(function(){
+  var SB_URL = "${supabaseUrl}";
+  var SB_KEY = "${supabaseKey}";
+  
+  // Capture UTM params
+  var params = new URLSearchParams(window.location.search);
+  var utms = {};
+  ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){
+    var v = params.get(k);
+    if(v){ utms[k] = v; localStorage.setItem("imp_"+k, v); }
+    else { var s = localStorage.getItem("imp_"+k); if(s) utms[k] = s; }
+  });
+  
+  // Store landing page
+  if(!localStorage.getItem("imp_landing")) localStorage.setItem("imp_landing", window.location.href);
+  
+  // Register click
+  if(Object.keys(utms).length > 0){
+    fetch(SB_URL + "/rest/v1/imphq_clicks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SB_KEY,
+        "Authorization": "Bearer " + SB_KEY,
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify({
+        id: crypto.randomUUID(),
+        utm_source: utms.utm_source || null,
+        utm_medium: utms.utm_medium || null,
+        utm_campaign: utms.utm_campaign || null,
+        utm_content: utms.utm_content || null,
+        utm_term: utms.utm_term || null,
+        referrer: document.referrer || null,
+        page_url: window.location.href,
+        user_agent: navigator.userAgent
+      })
+    }).catch(function(){});
+  }
+  
+  // Expose helper for form submissions
+  window.imptrack = {
+    getUtms: function(){ return utms; },
+    trackLead: function(data){
+      return fetch(SB_URL + "/rest/v1/imphq_leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SB_KEY,
+          "Authorization": "Bearer " + SB_KEY,
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify(Object.assign({
+          id: crypto.randomUUID(),
+          plataforma: utms.utm_source || null,
+          data: { utms: utms, landing: localStorage.getItem("imp_landing") }
+        }, data))
+      });
+    }
+  };
+})();
+</script>`;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">⚡ Tracker / Meta</h1>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowScript(true)}><Code className="h-4 w-4 mr-1" /> Script</Button>
           <Button size="sm" variant="outline" onClick={() => setShowTargets(true)}><Target className="h-4 w-4 mr-1" /> Metas</Button>
           <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Link</Button>
         </div>
@@ -298,6 +399,21 @@ export default function Tracker() {
                 </Select>
               </div>
             </div>
+
+            {/* UTM Template Buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground">Templates:</span>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20" onClick={() => applyTemplate("Meta Ads")}>
+                <Zap className="h-3 w-3 mr-1" /> Meta Ads
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20" onClick={() => applyTemplate("Google Ads")}>
+                <Zap className="h-3 w-3 mr-1" /> Google Ads
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs bg-pink-500/10 text-pink-400 border-pink-500/30 hover:bg-pink-500/20" onClick={() => applyTemplate("TikTok Ads")}>
+                <Zap className="h-3 w-3 mr-1" /> TikTok Ads
+              </Button>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div><Label>utm_source</Label><Input value={form.utm_source} onChange={e => setForm({ ...form, utm_source: e.target.value })} placeholder="meta" /></div>
               <div><Label>utm_medium</Label><Input value={form.utm_medium} onChange={e => setForm({ ...form, utm_medium: e.target.value })} placeholder="cpc" /></div>
@@ -333,6 +449,45 @@ export default function Tracker() {
             <div><Label>Thumbstop Target (%)</Label><Input type="number" step="0.1" value={targets.thumbstop_target} onChange={e => setTargets({ ...targets, thumbstop_target: parseFloat(e.target.value) || 0 })} /></div>
           </div>
           <DialogFooter><Button onClick={saveTargets}>Salvar Metas</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Script Dialog */}
+      <Dialog open={showScript} onOpenChange={setShowScript}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>📦 Script de Tracking (imptrack)</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Cole este script no <code className="text-primary">&lt;head&gt;</code> da sua landing page para capturar UTMs e registrar clicks automaticamente.
+            </p>
+            <div className="relative">
+              <Textarea
+                readOnly
+                value={trackingScript}
+                className="font-mono text-xs bg-secondary h-64 resize-none"
+              />
+              <Button
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => { navigator.clipboard.writeText(trackingScript); toast.success("Script copiado!"); }}
+              >
+                <Copy className="h-3 w-3 mr-1" /> Copiar
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-primary">Funções disponíveis:</p>
+              <div className="bg-secondary rounded p-3 space-y-2 text-xs font-mono text-muted-foreground">
+                <p><span className="text-primary">imptrack.getUtms()</span> → retorna objeto com UTMs capturados</p>
+                <p><span className="text-primary">imptrack.trackLead({"{"} nome, email, phone {"}"})</span> → registra lead no CRM</p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                <span className="font-medium">Exemplo de uso no formulário:</span>
+              </p>
+              <div className="bg-secondary rounded p-3 text-xs font-mono text-muted-foreground">
+                {`document.querySelector("form").addEventListener("submit", function(e) {\n  e.preventDefault();\n  imptrack.trackLead({\n    nome: document.getElementById("nome").value,\n    email: document.getElementById("email").value\n  }).then(function() { window.location = "/obrigado"; });\n});`}
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
