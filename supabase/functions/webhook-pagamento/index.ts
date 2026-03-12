@@ -1,0 +1,184 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const body = await req.json();
+    const userAgent = req.headers.get("user-agent") || "";
+    const hotmartToken = req.headers.get("x-hotmart-hottok");
+
+    // Detect platform
+    let plataforma = "desconhecido";
+    let evento = "desconhecido";
+    let email = "";
+    let nome = "";
+    let phone = "";
+    let valor = 0;
+    let produto = "";
+    let projectId: string | null = null;
+
+    if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
+      // Hotmart
+      plataforma = "Hotmart";
+      const ev = body.event || "";
+      if (ev.includes("APPROVED") || ev.includes("COMPLETE")) evento = "compra_aprovada";
+      else if (ev.includes("REFUND")) evento = "reembolso";
+      else if (ev.includes("ABANDONED") || ev.includes("CHECKOUT")) evento = "carrinho_abandonado";
+      else evento = ev.toLowerCase();
+
+      const buyer = body.data?.buyer || {};
+      email = buyer.email || "";
+      nome = buyer.name || "";
+      phone = buyer.checkout_phone || "";
+      valor = body.data?.purchase?.price?.value || 0;
+      produto = body.data?.product?.name || "";
+    } else if (body?.webhook_event_type || body?.order_status) {
+      // Kiwify
+      plataforma = "Kiwify";
+      const status = body.order_status || body.webhook_event_type || "";
+      if (status === "paid" || status === "approved") evento = "compra_aprovada";
+      else if (status === "refunded") evento = "reembolso";
+      else if (status === "waiting_payment") evento = "carrinho_abandonado";
+      else evento = status;
+
+      const customer = body.Customer || body.customer || {};
+      email = customer.email || body.customer_email || "";
+      nome = customer.full_name || customer.name || "";
+      phone = customer.mobile || "";
+      valor = parseFloat(body.sale_amount || body.order_value || "0");
+      produto = body.product_name || body.Product?.name || "";
+    } else if (body?.tipo_evento || body?.dados) {
+      // Ticto
+      plataforma = "Ticto";
+      evento = body.tipo_evento === "venda_aprovada" ? "compra_aprovada" : body.tipo_evento || "desconhecido";
+      const dados = body.dados || {};
+      email = dados.email_comprador || "";
+      nome = dados.nome_comprador || "";
+      phone = dados.telefone_comprador || "";
+      valor = parseFloat(dados.valor || "0");
+      produto = dados.nome_produto || "";
+    } else {
+      // Eduzz or generic
+      plataforma = body.plataforma || "Outro";
+      evento = body.evento || body.event_type || "desconhecido";
+      email = body.email || body.customer?.email || "";
+      nome = body.nome || body.customer?.name || "";
+      phone = body.phone || body.customer?.phone || "";
+      valor = parseFloat(body.valor || body.amount || "0");
+      produto = body.produto || body.product || "";
+    }
+
+    // Try to find project by product name match
+    if (produto) {
+      const { data: proj } = await supabase
+        .from("imphq_projects")
+        .select("id")
+        .ilike("name", `%${produto.substring(0, 20)}%`)
+        .limit(1)
+        .maybeSingle();
+      if (proj) projectId = proj.id;
+    }
+
+    // Try to match lead by email
+    let leadId: string | null = null;
+    if (email) {
+      const { data: lead } = await supabase
+        .from("imphq_leads")
+        .select("id")
+        .eq("email", email.toLowerCase())
+        .limit(1)
+        .maybeSingle();
+
+      if (lead) {
+        leadId = lead.id;
+      } else {
+        // Create lead automatically
+        const newId = crypto.randomUUID();
+        await supabase.from("imphq_leads").insert({
+          id: newId,
+          nome: nome || email,
+          email: email.toLowerCase(),
+          phone: phone || null,
+          plataforma,
+          status: evento === "compra_aprovada" ? "cliente" : "lead",
+          project_id: projectId,
+        });
+        leadId = newId;
+      }
+    }
+
+    // Save webhook
+    await supabase.from("imphq_webhooks").insert({
+      project_id: projectId,
+      plataforma,
+      evento,
+      payload: body,
+      lead_id: leadId,
+      processado: false,
+    });
+
+    // If purchase approved, create sale and update lead
+    if (evento === "compra_aprovada" && leadId && valor > 0) {
+      await supabase.from("imphq_vendas").insert({
+        id: crypto.randomUUID(),
+        lead_id: leadId,
+        project_id: projectId,
+        produto,
+        valor,
+        plataforma,
+        status: "aprovado",
+      });
+
+      // Update lead status
+      await supabase
+        .from("imphq_leads")
+        .update({ status: "cliente" })
+        .eq("id", leadId);
+    }
+
+    // Check automations
+    const triggerMap: Record<string, string> = {
+      compra_aprovada: "compra_aprovada",
+      carrinho_abandonado: "carrinho_abandonado",
+      reembolso: "reembolso",
+    };
+    const triggerTipo = triggerMap[evento];
+    if (triggerTipo) {
+      const { data: automacoes } = await supabase
+        .from("imphq_automacoes")
+        .select("*")
+        .eq("trigger_tipo", triggerTipo)
+        .eq("ativo", true);
+
+      // For now, log automations that would fire
+      // Future: integrate with Resend, WhatsApp API, Telegram
+      if (automacoes && automacoes.length > 0) {
+        console.log(`[webhook-pagamento] ${automacoes.length} automações encontradas para ${triggerTipo}`);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ ok: true, plataforma, evento, lead_id: leadId }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    console.error("[webhook-pagamento] Erro:", err);
+    return new Response(
+      JSON.stringify({ error: String(err) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
