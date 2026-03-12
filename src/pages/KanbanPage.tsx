@@ -31,7 +31,7 @@ const PRIORITY_DOT: Record<string, string> = {
   low: "bg-muted-foreground/40",
 };
 
-interface TeamMember { id: string; nome: string; avatar_url?: string; cargo?: string; }
+interface TeamMember { id: string; name: string; avatar_url?: string; role?: string; }
 interface KanbanColumn { id: string; title: string; color: string; position: number; board: string; }
 interface KanbanCard {
   id: string; column_id: string; title: string; description?: string;
