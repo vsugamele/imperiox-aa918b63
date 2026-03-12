@@ -44,16 +44,16 @@ export function ConcorrentesTab({ projectId }: Props) {
         </TabsList>
 
         <TabsContent value="visao" className="mt-4">
-          <VisaoGeralTab competitors={competitors} updateField={updateField} />
+          <VisaoGeralTab competitors={competitors} updateField={updateField} removeCompetitor={removeCompetitor} />
         </TabsContent>
         <TabsContent value="mercado" className="mt-4">
-          <MercadoTab competitors={competitors} updateField={updateField} />
+          <MercadoTab competitors={competitors} updateField={updateField} removeCompetitor={removeCompetitor} />
         </TabsContent>
         <TabsContent value="copy" className="mt-4">
-          <CopywritingTab competitors={competitors} updateField={updateField} />
+          <CopywritingTab competitors={competitors} updateField={updateField} removeCompetitor={removeCompetitor} />
         </TabsContent>
         <TabsContent value="oferta" className="mt-4">
-          <OfertaTab competitors={competitors} updateField={updateField} />
+          <OfertaTab competitors={competitors} updateField={updateField} removeCompetitor={removeCompetitor} />
         </TabsContent>
         <TabsContent value="dossie" className="mt-4">
           <DossieTab competitors={competitors} updateField={updateField} uploadScreenshot={uploadScreenshot} removeCompetitor={removeCompetitor} />
@@ -64,6 +64,7 @@ export function ConcorrentesTab({ projectId }: Props) {
         open={showImporter}
         onClose={() => setShowImporter(false)}
         onImport={importCompetitors}
+        projectId={projectId}
       />
     </div>
   );

@@ -87,7 +87,7 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
         </TabsContent>
       </Tabs>
 
-      <AvatarImporter open={showImporter} onClose={() => setShowImporter(false)} onImport={handleImport} />
+      <AvatarImporter open={showImporter} onClose={() => setShowImporter(false)} onImport={handleImport} projectId={project?.id} />
 
       {/* HTML Original Viewer */}
       <Dialog open={showHtmlViewer} onOpenChange={setShowHtmlViewer}>

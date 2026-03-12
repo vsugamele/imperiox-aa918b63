@@ -74,46 +74,88 @@ export function useConcorrentes(projectId: string) {
     if (!user) { toast.error("Faça login primeiro"); return; }
 
     let imported = 0;
-    for (const comp of parsed) {
-      const color = COMPETITOR_COLORS[(competitors.length + imported) % COMPETITOR_COLORS.length];
-      const row: Record<string, any> = {
-        project_id: projectId,
-        user_id: user.id,
-        name: comp.name || "Concorrente importado",
-        color,
-      };
+    let updated = 0;
 
-      // Map parsed fields
+    for (const comp of parsed) {
+      const compName = comp.name || "Concorrente importado";
+
+      // Check if competitor with same name already exists (case-insensitive)
+      const existing = competitors.find(
+        c => c.name.toLowerCase().trim() === compName.toLowerCase().trim()
+      );
+
       const fields = [
         "url", "ponto_forte", "fraqueza", "nicho", "sub_nicho", "publico_alvo",
         "mecanismo_unico", "score_escala", "score_max", "headline", "hook", "cta",
         "oferta_principal", "preco", "garantia", "bonus", "trafego_est", "ads_ativos",
         "insights", "canais_keywords", "stack_tecnologico", "paginas_funil"
       ];
-      for (const f of fields) {
-        if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
-          row[f] = comp[f];
+
+      if (existing) {
+        // MERGE: update only non-empty fields
+        const updates: Record<string, any> = {};
+        for (const f of fields) {
+          if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
+            // Don't overwrite if existing has data and new is empty
+            const existingVal = (existing as any)[f];
+            if (!existingVal || existingVal === "" || (Array.isArray(existingVal) && existingVal.length === 0)) {
+              updates[f] = comp[f];
+            } else if (typeof comp[f] === "string" && comp[f].length > (existingVal?.length || 0)) {
+              // Prefer longer text values
+              updates[f] = comp[f];
+            }
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          const { error } = await supabase
+            .from("imphq_competitors")
+            .update(updates as any)
+            .eq("id", existing.id);
+          if (!error) {
+            setCompetitors(prev => prev.map(c => c.id === existing.id ? { ...c, ...updates } : c));
+            updated++;
+          }
+        }
+      } else {
+        // INSERT new competitor
+        const color = COMPETITOR_COLORS[(competitors.length + imported) % COMPETITOR_COLORS.length];
+        const row: Record<string, any> = {
+          project_id: projectId,
+          user_id: user.id,
+          name: compName,
+          color,
+        };
+
+        for (const f of fields) {
+          if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
+            row[f] = comp[f];
+          }
+        }
+
+        const { data, error } = await supabase
+          .from("imphq_competitors")
+          .insert(row as any)
+          .select()
+          .single();
+
+        if (!error && data) {
+          setCompetitors(prev => [...prev, data as any]);
+          imported++;
         }
       }
-
-      const { data, error } = await supabase
-        .from("imphq_competitors")
-        .insert(row as any)
-        .select()
-        .single();
-
-      if (!error && data) {
-        setCompetitors(prev => [...prev, data as any]);
-        imported++;
-      }
     }
 
-    if (imported > 0) {
-      toast.success(`${imported} concorrente(s) importado(s)`);
+    const messages: string[] = [];
+    if (imported > 0) messages.push(`${imported} novo(s)`);
+    if (updated > 0) messages.push(`${updated} atualizado(s)`);
+
+    if (messages.length > 0) {
+      toast.success(`Concorrentes: ${messages.join(", ")}`);
     } else {
-      toast.error("Erro ao importar concorrentes");
+      toast.error("Nenhuma alteração realizada");
     }
-  }, [projectId, competitors.length]);
+  }, [projectId, competitors]);
 
   return { competitors, loading, addCompetitor, removeCompetitor, updateField, uploadScreenshot, importCompetitors };
 }

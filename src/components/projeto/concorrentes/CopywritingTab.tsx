@@ -1,13 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
 import { Competitor } from "./types";
 
 interface Props {
   competitors: Competitor[];
   updateField: (id: string, field: string, value: any) => void;
+  removeCompetitor: (id: string) => void;
 }
 
-export function CopywritingTab({ competitors, updateField }: Props) {
+export function CopywritingTab({ competitors, updateField, removeCompetitor }: Props) {
   if (!competitors.length) return <p className="text-muted-foreground text-sm p-4">Nenhum concorrente adicionado.</p>;
 
   return (
@@ -17,7 +20,15 @@ export function CopywritingTab({ competitors, updateField }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <span className="w-3 h-3 rounded-full" style={{ background: c.color }} />
-              {c.name}
+              <span className="flex-1">{c.name}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+                onClick={() => removeCompetitor(c.id)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
