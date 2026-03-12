@@ -59,6 +59,12 @@ export function ConcorrentesTab({ projectId }: Props) {
           <DossieTab competitors={competitors} updateField={updateField} uploadScreenshot={uploadScreenshot} removeCompetitor={removeCompetitor} />
         </TabsContent>
       </Tabs>
+
+      <CompetitorImporter
+        open={showImporter}
+        onClose={() => setShowImporter(false)}
+        onImport={importCompetitors}
+      />
     </div>
   );
 }
