@@ -1,330 +1,479 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
-import { Brain, Send, Copy, Settings2, ChevronDown, ChevronUp, Wrench } from "lucide-react";
-import { KB_SECTIONS } from "@/data/kbTemplates";
+import { MENTES_DATA, MenteDNA } from "@/data/mentesData";
+import {
+  Brain, Send, X, ChevronRight, Zap, Target, BarChart3,
+  MessageSquare, Dna, Lightbulb, BookOpen, ArrowLeft
+} from "lucide-react";
 import { toast } from "sonner";
 
-interface Message {
-  role: "user" | "assistant" | "system";
+interface ChatMessage {
+  role: "user" | "assistant";
   content: string;
 }
 
-interface SkillItem {
-  id: string;
-  nome: string;
-  descricao: string;
-  categoria: string;
-  status: string;
+// ────── Sub-component: Skill Bar ──────
+function SkillBar({ nome, valor }: { nome: string; valor: number }) {
+  return (
+    <div className="flex items-center gap-3 mb-2">
+      <span className="text-xs text-muted-foreground w-40 truncate">{nome}</span>
+      <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{
+            width: `${valor * 10}%`,
+            background: "linear-gradient(90deg, #00ffc8, #00a88a)"
+          }}
+        />
+      </div>
+      <span className="text-xs text-muted-foreground w-4 text-right">{valor}</span>
+    </div>
+  );
 }
 
-const DEFAULT_SKILLS: SkillItem[] = [
-  { id: "coding-agent", nome: "Coding Agent", descricao: "Agente de codificação autônomo", categoria: "Código", status: "Ativo" },
-  { id: "gemini-flash", nome: "Gemini Flash", descricao: "Modelo de linguagem rápido do Google", categoria: "IA", status: "Ativo" },
-  { id: "image-vision", nome: "Image Vision", descricao: "Análise de imagens com IA", categoria: "IA", status: "Ativo" },
-  { id: "whisper-api", nome: "Whisper API", descricao: "Transcrição de áudio", categoria: "IA", status: "Ativo" },
-  { id: "copy-engine", nome: "Copy Engine", descricao: "Geração de copies persuasivas", categoria: "IA", status: "Beta" },
-  { id: "google-sheets", nome: "Google Sheets", descricao: "Leitura e escrita em planilhas", categoria: "Dados", status: "Ativo" },
-  { id: "meta-ads-api", nome: "Meta Ads API", descricao: "Métricas de campanhas Meta", categoria: "Dados", status: "Beta" },
-  { id: "hotmart-api", nome: "Hotmart API", descricao: "Dados de vendas Hotmart", categoria: "Dados", status: "Ativo" },
-  { id: "telegram-bot", nome: "Telegram Bot", descricao: "Automações no Telegram", categoria: "Automação", status: "Ativo" },
-  { id: "youtube", nome: "YouTube", descricao: "Busca e análise no YouTube", categoria: "Pesquisa", status: "Ativo" },
-];
+// ────── Sub-component: Mind Card ──────
+function MindCard({ mente, onClick }: { mente: MenteDNA; onClick: () => void }) {
+  const top3 = mente.proficiencias.slice(0, 3);
+  return (
+    <div
+      onClick={onClick}
+      className="group relative cursor-pointer rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5"
+    >
+      {/* Tier badge */}
+      <div className="absolute top-3 right-3">
+        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
+          style={{ background: "rgba(0,255,200,.08)", borderColor: "rgba(0,255,200,.2)", color: "#00ffc8" }}>
+          Tier {mente.tier}
+        </span>
+      </div>
 
-export default function Mentes() {
-  const [chats, setChats] = useState<any[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-11 h-11 rounded-xl bg-secondary border border-border flex items-center justify-center text-2xl">
+          {mente.icon}
+        </div>
+        <div>
+          <div className="text-sm font-bold">{mente.nome}</div>
+          <div className="text-[10px] font-semibold" style={{ color: "#d4a843" }}>{mente.spec}</div>
+        </div>
+      </div>
+
+      {/* Model badge */}
+      <div className="mb-3">
+        <span className="text-[9px] font-semibold px-2 py-0.5 rounded border bg-secondary/50"
+          style={{ color: mente.modeloCor, borderColor: `${mente.modeloCor}33` }}>
+          {mente.modelo}
+        </span>
+      </div>
+
+      {/* Top 3 proficiencies */}
+      <div className="mb-3">
+        {top3.map(p => <SkillBar key={p.nome} nome={p.nome} valor={p.valor} />)}
+      </div>
+
+      {/* Description */}
+      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+        {mente.sobre}
+      </p>
+
+      {/* CTA */}
+      <div className="mt-3 flex items-center gap-1 text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+        <span>Consultar esta mente</span>
+        <ChevronRight className="h-3 w-3" />
+      </div>
+    </div>
+  );
+}
+
+// ────── Sub-component: Raio-X Modal Tab ──────
+type RayXTab = "perfil" | "dna" | "chat";
+
+function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void }) {
+  const [tab, setTab] = useState<RayXTab>("perfil");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState("none");
-  const [kbEntries, setKbEntries] = useState<Record<string, any>>({});
-  const [selectedKBSections, setSelectedKBSections] = useState<string[]>([]);
-  const [showContextPanel, setShowContextPanel] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [skills, setSkills] = useState<SkillItem[]>(DEFAULT_SKILLS);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
-    Promise.all([
-      supabase.from("imphq_ai_chats").select("*").order("updated_at", { ascending: false }).limit(20),
-      supabase.from("imphq_projects").select("*").order("name"),
-      supabase.from("imphq_kb").select("*").order("order_idx"),
-      supabase.from("imphq_skills").select("*").order("created_at"),
-    ]).then(([chatRes, projRes, kbRes, skillsRes]) => {
-      setChats(chatRes.data || []);
-      setProjects(projRes.data || []);
-      const map: Record<string, any> = {};
-      (kbRes.data || []).forEach((k: any) => { map[k.section_key] = k; });
-      setKbEntries(map);
-      const custom = (skillsRes.data || []).map((s: any) => ({
-        id: s.id, nome: s.nome, descricao: s.descricao || "",
-        categoria: s.categoria || "Outro", status: s.status || "Ativo",
-      }));
-      setSkills([...DEFAULT_SKILLS, ...custom]);
-    });
-  }, [user]);
+    supabase.from("imphq_projects").select("id,name,produto,categoria,objetivo,avatar,contexto")
+      .order("name").then(({ data }) => setProjects(data || []));
+  }, []);
 
-  const buildContext = () => {
-    let ctx = "[CONTEXTO DO SISTEMA — IMPÉRIO DIGITAL]\n\n";
-    ctx += "PAPEL DO AGENTE: Você é um agente operacional generalista do Império Digital.\n\n";
-    ctx += "REGRAS:\n- Responda sempre em Português do Brasil\n- Use o tom de voz e branding do projeto\n- Consulte o avatar antes de criar copy\n- Documente outputs importantes\n\n";
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
+  const buildSystemPrompt = () => {
+    let sys = mente.prompt + "\n\n";
     if (selectedProject !== "none") {
       const proj = projects.find(p => p.id === selectedProject);
       if (proj) {
-        ctx += `${"═".repeat(60)}\n\n## BRIEFING DO PROJETO\n\n${"═".repeat(60)}\n\n`;
-        ctx += `Nome: ${proj.name}\nProduto: ${proj.produto || "—"}\nPreço: ${proj.preco || "A definir"}\n`;
-        ctx += `Categoria: ${proj.categoria || "—"}\nStatus: ${proj.status || "—"}\n`;
-        ctx += `Objetivo: ${proj.objetivo || "—"}\nContexto: ${proj.contexto || "—"}\n\n`;
-
+        sys += `\n\n═══════════════════════════════\nCONTEXTO DO PROJETO\n═══════════════════════════════\n`;
+        sys += `Projeto: ${proj.name}\nProduto: ${proj.produto || "—"}\nCategoria: ${proj.categoria || "—"}\n`;
+        sys += `Objetivo: ${proj.objetivo || "—"}\nContexto: ${proj.contexto || "—"}\n`;
         const av = proj.avatar as any;
-        if (av && typeof av === "object") {
-          ctx += `${"═".repeat(60)}\n\n## AVATAR DO PROJETO\n\n${"═".repeat(60)}\n\n`;
-          if (av.desejo_externo) ctx += `Desejo Externo: ${av.desejo_externo}\n`;
-          if (av.desejo_interno) ctx += `Desejo Interno: ${av.desejo_interno}\n`;
-          if (av.dores_superficiais?.length) ctx += `\nDores Superficiais:\n${av.dores_superficiais.map((d: string) => `- ${d}`).join("\n")}\n`;
-          if (av.dores_profundas?.length) ctx += `\nDores Profundas:\n${av.dores_profundas.map((d: string) => `- ${d}`).join("\n")}\n`;
-          if (av.medos?.length) ctx += `\nMedos:\n${av.medos.map((m: string) => `- ${m}`).join("\n")}\n`;
-          if (av.objecoes?.length) ctx += `\nObjeções:\n${av.objecoes.map((o: string) => `- ${o}`).join("\n")}\n`;
-          if (av.inimigo) ctx += `\nInimigo Externo: ${av.inimigo}\n`;
-          if (av.resultado_sonhado) ctx += `Resultado Sonhado: ${av.resultado_sonhado}\n`;
-          if (av.trigger_event) ctx += `Trigger Event: ${av.trigger_event}\n`;
-          if (av.fase_consciencia) ctx += `Fase de Consciência: ${av.fase_consciencia}\n`;
-          if (av.sub_avatares?.length) {
-            ctx += `\nSub-Avatares:\n`;
-            av.sub_avatares.forEach((s: any) => {
-              ctx += `- ${s.nome || "—"}: ${s.descricao || "—"}\n`;
-            });
-          }
-          if (av.storyboard) ctx += `\nStoryboard:\n${av.storyboard}\n`;
-          ctx += "\n";
+        if (av?.desejo_externo) sys += `\nDesejo do Avatar: ${av.desejo_externo}`;
+        if (av?.dores_superficiais?.length) {
+          sys += `\nDores: ${(av.dores_superficiais as string[]).slice(0, 3).join(", ")}`;
         }
       }
     }
-
-    // Skills
-    if (selectedSkills.length > 0) {
-      ctx += `${"═".repeat(60)}\n\n## SKILLS DISPONÍVEIS PARA ESTE AGENTE\n\n${"═".repeat(60)}\n\n`;
-      for (const id of selectedSkills) {
-        const skill = skills.find(s => s.id === id);
-        if (skill) {
-          ctx += `- **${skill.nome}** [${skill.categoria}] (${skill.status}): ${skill.descricao}\n`;
-        }
-      }
-      ctx += "\nO agente pode usar as skills acima quando necessário para executar tarefas.\n\n";
-    }
-
-    // KB Sections
-    if (selectedKBSections.length > 0) {
-      ctx += `${"═".repeat(60)}\n\n## KNOWLEDGE BASE (SELECIONADO)\n\n${"═".repeat(60)}\n\n`;
-      for (const key of selectedKBSections) {
-        const section = KB_SECTIONS.find(s => s.key === key);
-        const entry = kbEntries[key];
-        const body = entry?.body || entry?.content || section?.defaultContent || "";
-        ctx += `${body}\n\n`;
-      }
-    }
-
-    ctx += `${"═".repeat(60)}\n\n[FIM DO CONTEXTO — Aguardando instrução]\n`;
-    return ctx;
+    sys += `\n\nResponda sempre em Português do Brasil com o exato tom e metodologia de ${mente.nome}.`;
+    return sys;
   };
 
-  const loadContext = () => {
-    const ctx = buildContext();
-    setSystemPrompt(ctx);
-    toast.success("Contexto carregado! Será enviado como system prompt.");
-  };
-
-  const copyContext = async () => {
-    const ctx = buildContext();
-    await navigator.clipboard.writeText(ctx);
-    toast.success("Contexto copiado para a área de transferência!");
-  };
-
-  const toggleKBSection = (key: string) => {
-    setSelectedKBSections(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
-  };
-
-  const toggleSkill = (id: string) => {
-    setSelectedSkills(prev =>
-      prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]
-    );
-  };
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const newMessages: Message[] = [...messages];
-
-    if (systemPrompt && !messages.some(m => m.role === "system")) {
-      newMessages.push({ role: "system", content: systemPrompt });
-    }
-
-    newMessages.push(
-      { role: "user", content: input },
-      { role: "assistant", content: "⏳ Integração IA pendente — conecte uma edge function para respostas reais." }
-    );
-    setMessages(newMessages);
+  const handleSend = async () => {
+    if (!input.trim() || sending) return;
+    const userMsg = input.trim();
     setInput("");
+    setSending(true);
+
+    const newMessages: ChatMessage[] = [...messages, { role: "user", content: userMsg }];
+    setMessages(newMessages);
+
+    try {
+      const systemPrompt = buildSystemPrompt();
+      const payload = {
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...newMessages.map(m => ({ role: m.role, content: m.content }))
+        ],
+        model: "openai/gpt-4o-mini",
+      };
+
+      const { data, error } = await supabase.functions.invoke("chat-with-ai", { body: payload });
+
+      if (error) throw error;
+      const reply = data?.choices?.[0]?.message?.content || data?.content || "Sem resposta.";
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+
+      // Save to chat history
+      if (user) {
+        await supabase.from("imphq_ai_chats").insert({
+          user_id: user.id,
+          title: `${mente.nome} — ${userMsg.slice(0, 60)}`,
+          model: mente.modelo,
+          messages: [...newMessages, { role: "assistant", content: reply }],
+        });
+      }
+    } catch (err: any) {
+      toast.error("Erro ao chamar a IA: " + (err.message || "verifique a edge function."));
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: "⚠️ Não foi possível conectar à IA. Verifique se a edge function `chat-with-ai` está ativa."
+      }]);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">🧠 Mentes IA</h1>
-        <Button size="sm" variant="outline" onClick={() => setShowContextPanel(!showContextPanel)}>
-          <Settings2 className="h-4 w-4 mr-1" />
-          Contexto {showContextPanel ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
-        </Button>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-stretch bg-background/95 backdrop-blur-sm animate-fade-in">
+      <div className="flex flex-col w-full max-w-5xl mx-auto border-x border-border">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-border bg-card shrink-0">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-xl">
+            {mente.icon}
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-bold">{mente.nome}</div>
+            <div className="text-[10px]" style={{ color: "#d4a843" }}>{mente.role}</div>
+          </div>
+          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
+            style={{ background: "rgba(0,255,200,.08)", borderColor: "rgba(0,255,200,.2)", color: "#00ffc8" }}>
+            Tier {mente.tier}
+          </span>
+          <span className="text-[9px] font-semibold px-2 py-0.5 rounded border ml-1"
+            style={{ color: mente.modeloCor, borderColor: `${mente.modeloCor}33` }}>
+            {mente.modelo}
+          </span>
+          <button onClick={onClose} className="ml-2 text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-      {showContextPanel && (
-        <Card className="bg-card border-border animate-fade-in">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">
-              Gerador de Contexto IA
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label className="text-xs font-medium">Projeto</Label>
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Selecione um projeto" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum projeto</SelectItem>
-                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground mt-1">Inclui briefing + avatar completo</p>
-              </div>
-
-              <div>
-                <Label className="text-xs font-medium">Seções da KB</Label>
-                <div className="mt-1 max-h-40 overflow-y-auto space-y-1 border border-border rounded-md p-2">
-                  {KB_SECTIONS.map(section => (
-                    <label key={section.key} className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 px-1 py-0.5 rounded text-xs">
-                      <Checkbox
-                        checked={selectedKBSections.includes(section.key)}
-                        onCheckedChange={() => toggleKBSection(section.key)}
-                      />
-                      <span>{section.icon} {section.title}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs font-medium flex items-center gap-1">
-                  <Wrench className="h-3 w-3" /> Skills do Agente
-                </Label>
-                <div className="mt-1 max-h-40 overflow-y-auto space-y-1 border border-border rounded-md p-2">
-                  {skills.filter(s => s.status !== "Planejado").map(skill => (
-                    <label key={skill.id} className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 px-1 py-0.5 rounded text-xs">
-                      <Checkbox
-                        checked={selectedSkills.includes(skill.id)}
-                        onCheckedChange={() => toggleSkill(skill.id)}
-                      />
-                      <span className="truncate">{skill.nome}</span>
-                      <Badge variant="outline" className="text-[8px] ml-auto shrink-0">{skill.categoria}</Badge>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">{selectedSkills.length} skills selecionadas</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button size="sm" onClick={loadContext}>
-                <Brain className="h-3 w-3 mr-1" /> Carregar Contexto
-              </Button>
-              <Button size="sm" variant="outline" onClick={copyContext}>
-                <Copy className="h-3 w-3 mr-1" /> Copiar Contexto
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => {
-                setSelectedKBSections(KB_SECTIONS.map(s => s.key));
-                setSelectedSkills(skills.filter(s => s.status === "Ativo").map(s => s.id));
-              }}>
-                Selecionar Tudo
-              </Button>
-              {systemPrompt && (
-                <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400">
-                  ✓ Contexto ativo ({systemPrompt.length} chars)
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Conversas Recentes</h3>
-          {chats.map((c) => (
-            <Card key={c.id} className="bg-card border-border hover:border-primary/20 cursor-pointer">
-              <CardContent className="p-3">
-                <p className="text-sm truncate">{c.title || "Sem título"}</p>
-                <p className="text-[10px] text-muted-foreground">{c.model || "—"}</p>
-              </CardContent>
-            </Card>
+        {/* Tabs */}
+        <div className="flex border-b border-border bg-card shrink-0">
+          {([
+            { id: "perfil", icon: BarChart3, label: "Raio-X Cognitivo" },
+            { id: "dna", icon: Dna, label: "DNA & Heurísticas" },
+            { id: "chat", icon: MessageSquare, label: "Consultar" },
+          ] as { id: RayXTab; icon: any; label: string }[]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-semibold border-b-2 transition-colors ${
+                tab === t.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <t.icon className="h-3.5 w-3.5" />
+              {t.label}
+            </button>
           ))}
         </div>
 
-        <div className="lg:col-span-3 flex flex-col">
-          <Card className="bg-card border-border flex-1 flex flex-col">
-            <CardHeader className="pb-2">
-              <CardTitle className="font-display text-lg flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary" /> Chat
-                {systemPrompt && <Badge variant="outline" className="text-[9px] ml-2">Com Contexto</Badge>}
-                {selectedSkills.length > 0 && <Badge variant="outline" className="text-[9px] ml-1">{selectedSkills.length} Skills</Badge>}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
-              <div className="flex-1 overflow-auto space-y-3 mb-4 min-h-[300px]">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {/* ── PERFIL TAB ── */}
+          {tab === "perfil" && (
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* About */}
+              <div className="md:col-span-2">
+                <p className="text-sm leading-relaxed text-foreground/80">{mente.sobre}</p>
+              </div>
+
+              {/* Proficiências */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" /> Proficiências
+                </h3>
+                {mente.proficiencias.map(p => <SkillBar key={p.nome} nome={p.nome} valor={p.valor} />)}
+              </div>
+
+              {/* Valores */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" /> Valores Centrais
+                </h3>
+                {mente.valores.map(v => <SkillBar key={v.nome} nome={v.nome} valor={v.valor} />)}
+              </div>
+
+              {/* Ton Tags */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Tom de Comunicação</h3>
+                <p className="text-sm mb-2">{mente.tom}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {mente.tonTags.map(tag => (
+                    <Badge key={tag} variant="outline" className="text-[9px]">#{tag}</Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Padrões */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5" /> Padrões de Copy
+                </h3>
+                <ul className="space-y-1">
+                  {mente.padroes.split("\n").filter(Boolean).map((p, i) => (
+                    <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                      <span className="text-primary shrink-0 mt-0.5">▸</span>
+                      {p.replace(/^-\s*/, "")}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* ── DNA TAB ── */}
+          {tab === "dna" && (
+            <div className="p-6 space-y-6">
+              {/* DNA */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Dna className="h-3.5 w-3.5" /> DNA Operacional
+                </h3>
+                <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                  <p className="text-sm leading-relaxed">{mente.dna}</p>
+                </div>
+              </div>
+
+              {/* Heuristics */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5" /> Heurísticas de Decisão
+                </h3>
+                <div className="space-y-2">
+                  {mente.heuristics.split("\n").filter(Boolean).map((h, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-lg border border-border/50 bg-secondary/20 px-4 py-3">
+                      <span className="text-primary font-bold text-xs shrink-0 mt-0.5">{i + 1}</span>
+                      <p className="text-xs leading-relaxed">{h.replace(/^\d+\.\s*/, "")}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* System Prompt */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Brain className="h-3.5 w-3.5" /> System Prompt
+                </h3>
+                <pre className="text-[11px] leading-relaxed bg-secondary/30 border border-border rounded-lg p-4 whitespace-pre-wrap font-mono overflow-x-auto">
+                  {mente.prompt}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* ── CHAT TAB ── */}
+          {tab === "chat" && (
+            <div className="flex flex-col h-full" style={{ height: "calc(100vh - 140px)" }}>
+              {/* Project selector */}
+              <div className="px-4 py-2 border-b border-border bg-secondary/20 shrink-0">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Projeto:</span>
+                  <select
+                    value={selectedProject}
+                    onChange={e => setSelectedProject(e.target.value)}
+                    className="text-xs bg-secondary border border-border rounded px-2 py-1 text-foreground flex-1 max-w-xs"
+                  >
+                    <option value="none">Nenhum (apenas {mente.nome})</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  {selectedProject !== "none" && (
+                    <Badge variant="outline" className="text-[9px] text-green-400 border-green-400/30">
+                      Contexto ativo
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center mt-8">
-                    {systemPrompt
-                      ? "Contexto carregado. Inicie uma conversa!"
-                      : "Configure o contexto acima e inicie uma conversa com a IA"}
-                  </p>
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-3">{mente.icon}</div>
+                    <p className="text-sm text-muted-foreground">
+                      Pronto para consultar <strong>{mente.nome}</strong>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{mente.spec}</p>
+                  </div>
                 )}
-                {messages.filter(m => m.role !== "system").map((m, i) => (
+                {messages.map((m, i) => (
                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] rounded-lg px-4 py-2 text-sm ${
-                      m.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary"
+                    {m.role === "assistant" && (
+                      <div className="w-7 h-7 rounded-lg bg-secondary shrink-0 flex items-center justify-center text-base mr-2 mt-0.5">
+                        {mente.icon}
+                      </div>
+                    )}
+                    <div className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-secondary rounded-bl-sm"
                     }`}>
                       {m.content}
                     </div>
                   </div>
                 ))}
+                {sending && (
+                  <div className="flex justify-start">
+                    <div className="w-7 h-7 rounded-lg bg-secondary shrink-0 flex items-center justify-center text-base mr-2">
+                      {mente.icon}
+                    </div>
+                    <div className="bg-secondary rounded-xl rounded-bl-sm px-4 py-3">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
               </div>
-              <div className="flex gap-2">
-                <Textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Digite sua mensagem..."
-                  className="bg-secondary resize-none"
-                  rows={2}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                />
-                <Button onClick={handleSend} size="icon" className="shrink-0 self-end">
-                  <Send className="h-4 w-4" />
-                </Button>
+
+              {/* Input */}
+              <div className="p-4 border-t border-border bg-card shrink-0">
+                <div className="flex gap-2">
+                  <Textarea
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                    placeholder={`Pergunte para ${mente.nome}...`}
+                    className="resize-none bg-secondary min-h-[44px] max-h-[120px]"
+                    rows={1}
+                  />
+                  <Button onClick={handleSend} size="icon" disabled={sending || !input.trim()} className="shrink-0 self-end">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Enter para enviar · Shift+Enter para nova linha
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ────── Main Page ──────
+export default function Mentes() {
+  const [selectedMente, setSelectedMente] = useState<MenteDNA | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filtered = MENTES_DATA.filter(m =>
+    search === "" ||
+    m.nome.toLowerCase().includes(search.toLowerCase()) ||
+    m.spec.toLowerCase().includes(search.toLowerCase()) ||
+    m.role.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">
+            🧬 Mentes Sintéticas
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Copywriters e estrategistas de IA — consulte a mente certa para cada decisão
+          </p>
+        </div>
+        <Badge
+          variant="outline"
+          className="text-xs border-primary/30 text-primary"
+        >
+          {MENTES_DATA.length} mentes ativas
+        </Badge>
+      </div>
+
+      {/* Search */}
+      <input
+        type="text"
+        placeholder="Buscar mente por nome, especialidade..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        className="w-full max-w-sm bg-secondary border border-border rounded-lg px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+
+      {/* Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filtered.map(m => (
+          <MindCard key={m.id} mente={m} onClick={() => setSelectedMente(m)} />
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-16 text-muted-foreground">
+          <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p>Nenhuma mente encontrada para "{search}"</p>
+        </div>
+      )}
+
+      {/* Modal */}
+      {selectedMente && (
+        <RayXModal mente={selectedMente} onClose={() => setSelectedMente(null)} />
+      )}
     </div>
   );
 }
