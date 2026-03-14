@@ -256,6 +256,40 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Project Financial Health */}
+        {projectFinance.length > 0 && (
+          <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "520ms", animationFillMode: "both" }}>
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />
+                Saúde Financeira dos Projetos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {projectFinance.map((pf: any) => {
+                const isPositive = pf.profit >= 0;
+                const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+                return (
+                  <div key={pf.id} onClick={() => navigate(`/projetos/${pf.id}`)} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{pf.icon}</span>
+                      <div>
+                        <p className="text-sm font-medium">{pf.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Custo: {fmt(pf.cost)} · Receita: {fmt(pf.revenue)}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-sm font-mono font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                      {isPositive ? "+" : ""}{fmt(pf.profit)}
+                    </span>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
