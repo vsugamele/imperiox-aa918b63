@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2 } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface ContaEmpresa {
@@ -100,11 +100,21 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
   onRefresh: () => void;
 }) {
   const [showNew, setShowNew] = useState(false);
+  const [showFormPassword, setShowFormPassword] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  
   const [form, setForm] = useState({
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
     seguidores: "", bio: "",
   });
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   const create = async () => {
     if (!form.nome.trim()) { toast.error("Nome/Gmail obrigatório"); return; }
@@ -166,7 +176,19 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                   {tipo === "email" ? (
                     <>
                       <TableCell className="font-medium text-sm">{c.nome}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{"•".repeat(8)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
+                        {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
+                        {c.extra?.senha && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 ml-2 hover:bg-secondary/50" 
+                            onClick={() => togglePasswordVisibility(c.id)}
+                          >
+                            {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          </Button>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">{c.valor || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.extra?.telefone || "—"}</TableCell>
                       <TableCell>
@@ -180,7 +202,19 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                   ) : (
                     <>
                       <TableCell className="font-medium text-sm">@{c.nome}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{"•".repeat(8)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
+                        {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
+                        {c.extra?.senha && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 ml-2 hover:bg-secondary/50" 
+                            onClick={() => togglePasswordVisibility(c.id)}
+                          >
+                            {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          </Button>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">{c.extra?.seguidores || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{c.extra?.bio || "—"}</TableCell>
                       <TableCell>
@@ -212,7 +246,21 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
             {tipo === "email" ? (
               <>
                 <div><Label>Gmail *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="nome@gmail.com" /></div>
-                <div><Label>Senha</Label><Input type="password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="Senha da conta" /></div>
+                <div>
+                  <Label>Senha</Label>
+                  <div className="relative">
+                    <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="Senha da conta" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowFormPassword(!showFormPassword)}
+                    >
+                      {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
                 <div><Label>Telefone</Label><Input value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} placeholder="+55 11 9xxxx-xxxx" /></div>
                 <div>
                   <Label>Status de Aquecimento</Label>
@@ -227,7 +275,21 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
             ) : (
               <>
                 <div><Label>Perfil *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="@nomedoperfil" /></div>
-                <div><Label>Senha</Label><Input type="password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /></div>
+                <div>
+                  <Label>Senha</Label>
+                  <div className="relative">
+                    <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowFormPassword(!showFormPassword)}
+                    >
+                      {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
                 <div><Label>Seguidores</Label><Input value={form.seguidores} onChange={e => setForm({ ...form, seguidores: e.target.value })} placeholder="1.2k" /></div>
                 <div><Label>Bio</Label><Input value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} placeholder="Descrição do perfil" /></div>
                 <div>
