@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon, Wallet } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [urgentTasks, setUrgentTasks] = useState<any[]>([]);
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [projectFinance, setProjectFinance] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,6 +53,37 @@ export default function Dashboard() {
       setUrgentTasks(urgentRes.data || []);
       setOpportunities(oppRes.data || []);
       setUpcomingEvents(eventsRes.data || []);
+
+      // Load project financial data
+      const [costsRes, revsRes, projListRes] = await Promise.all([
+        supabase.from("imphq_project_costs").select("project_id, valor, moeda"),
+        supabase.from("imphq_project_revenue").select("project_id, valor"),
+        supabase.from("imphq_projects").select("id, name, icon, color"),
+      ]);
+      
+      const projMap = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+      const costByProj = new Map<string, number>();
+      const revByProj = new Map<string, number>();
+      
+      (costsRes.data || []).forEach((c: any) => {
+        const val = parseFloat(c.valor) || 0;
+        const brl = c.moeda === "USD" ? val * 5.2 : val;
+        costByProj.set(c.project_id, (costByProj.get(c.project_id) || 0) + brl);
+      });
+      (revsRes.data || []).forEach((r: any) => {
+        const val = parseFloat(r.valor) || 0;
+        revByProj.set(r.project_id, (revByProj.get(r.project_id) || 0) + val);
+      });
+      
+      const allProjIds = new Set([...costByProj.keys(), ...revByProj.keys()]);
+      const financeData = Array.from(allProjIds).map(pid => {
+        const cost = costByProj.get(pid) || 0;
+        const rev = revByProj.get(pid) || 0;
+        const proj = projMap.get(pid);
+        return { id: pid, name: proj?.name || pid, icon: proj?.icon || "📁", cost, revenue: rev, profit: rev - cost };
+      }).sort((a, b) => b.profit - a.profit).slice(0, 5);
+      
+      setProjectFinance(financeData);
     }
     load();
   }, []);
@@ -221,6 +253,40 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Project Financial Health */}
+        {projectFinance.length > 0 && (
+          <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "520ms", animationFillMode: "both" }}>
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />
+                Saúde Financeira dos Projetos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {projectFinance.map((pf: any) => {
+                const isPositive = pf.profit >= 0;
+                const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+                return (
+                  <div key={pf.id} onClick={() => navigate(`/projetos/${pf.id}`)} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{pf.icon}</span>
+                      <div>
+                        <p className="text-sm font-medium">{pf.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Custo: {fmt(pf.cost)} · Receita: {fmt(pf.revenue)}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-sm font-mono font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                      {isPositive ? "+" : ""}{fmt(pf.profit)}
+                    </span>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -17,10 +18,12 @@ import {
   Github, Terminal, Sparkles, Eye, AudioLines, PenTool,
   Sheet, CloudSun, BarChart3, ShoppingCart, Banana, ImagePlus,
   Film, FrameIcon, Send, Youtube, Globe, HeartPulse, Plus,
-  Pencil, Trash2, type LucideIcon, Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield
+  Pencil, Trash2, type LucideIcon, Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield,
+  ArrowRight, Info
 } from "lucide-react";
 import { toast } from "sonner";
 import { SKILLS_DATA, SkillData } from "@/data/skillsData";
+import ReactMarkdown from "react-markdown";
 
 type Status = "Ativo" | "Beta" | "Planejado";
 type Categoria = "Código" | "IA" | "Dados" | "Criativo" | "Automação" | "Pesquisa" | "Infra" | "Outro" | "Pesquisa & Avatar" | "Copy & Persuasão" | "Inteligência Competitiva" | "Estratégia & Posicionamento" | "Vendas High-Ticket";
@@ -45,33 +48,36 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Sheet, CloudSun, BarChart3, ShoppingCart, Banana, ImagePlus,
   Film, FrameIcon, Send, Youtube, Globe, HeartPulse, Plus, Pencil,
   Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield,
-  "🧠": Brain,
-  "💣": Bomb,
-  "🕵️": Search,
-  "⚗️": Sparkles,
-  "🎯": Target,
-  "♟️": Target,
-  "🪤": MousePointer2,
-  "📄": FileText,
-  "⚔️": Swords,
-  "🔍": Search,
-  "🎭": Eye,
-  "✍️": PenTool
+  "🧠": Brain, "💣": Bomb, "🕵️": Search, "⚗️": Sparkles,
+  "🎯": Target, "♟️": Target, "🪤": MousePointer2, "📄": FileText,
+  "⚔️": Swords, "🔍": Search, "🎭": Eye, "✍️": PenTool
+};
+
+const MARKETING_CATS = ["Pesquisa & Avatar", "Copy & Persuasão", "Inteligência Competitiva", "Estratégia & Posicionamento", "Vendas High-Ticket"];
+const TECH_CATS = ["Código", "IA", "Dados", "Criativo", "Automação", "Pesquisa", "Infra", "Outro"];
+
+const SKILL_FILE_MAP: Record<string, string> = {
+  "avatar-architect": "avatar-architect-v2.md",
+  "devastador": "devastador-v4.md",
+  "funnel-hacker": "funnel-hacker-v2.md",
+  "mecanismo-unico": "mecanismo-unico-v2.md",
+  "reposicionamento-estrategico": "reposicionamento-v2.md",
+  "alquimia-escada-valor": "alquimia-escada-valor.md",
+  "tripwire-matador": "tripwire-matador-v2.md",
+  "lp-persuasiva": "lp-persuasiva-v2.md",
+  "sales-architect": "sales-architect.md",
+  "sales-closer": "sales-closer.md",
+  "mapeamento-desejos": "mapeamento-desejos-v2.md",
+  "dossie-problemas": "dossie-problemas-v2.md",
+  "anams-copywriter": "anams-copywriter.md",
 };
 
 const DEFAULT_SKILLS: Skill[] = [
   ...SKILLS_DATA.map(sd => ({
-    id: sd.id,
-    nome: sd.nome,
-    descricao: sd.descricao,
-    categoria: sd.categoria as Categoria,
-    status: sd.status as Status,
-    icone: sd.icone,
-    is_default: true,
-    system_prompt: sd.system_prompt,
-    versao: sd.versao,
-    gatilho: sd.gatilho,
-    cor: sd.cor
+    id: sd.id, nome: sd.nome, descricao: sd.descricao,
+    categoria: sd.categoria as Categoria, status: sd.status as Status,
+    icone: sd.icone, is_default: true, system_prompt: sd.system_prompt,
+    versao: sd.versao, gatilho: sd.gatilho, cor: sd.cor
   })),
   { id: "coding-agent", nome: "Coding Agent", descricao: "Agente de codificação autônomo para tarefas de desenvolvimento", categoria: "Código", status: "Ativo", icone: "Code2", is_default: true },
   { id: "github-issues", nome: "GitHub Issues", descricao: "Criação e gestão de issues no GitHub automaticamente", categoria: "Código", status: "Ativo", icone: "Github", is_default: true },
@@ -104,8 +110,8 @@ const STATUS_STYLES: Record<Status, string> = {
   Planejado: "bg-muted text-muted-foreground border-border",
 };
 
-const CATEGORIAS: Categoria[] = ["Pesquisa & Avatar", "Copy & Persuasão", "Inteligência Competitiva", "Estratégia & Posicionamento", "Vendas High-Ticket", "Código", "IA", "Dados", "Criativo", "Automação", "Pesquisa", "Infra", "Outro"];
-const ICON_NAMES = Object.keys(ICON_MAP).filter(k => !k.includes(' '));
+const ALL_CATS: Categoria[] = [...MARKETING_CATS, ...TECH_CATS] as Categoria[];
+const ICON_NAMES = Object.keys(ICON_MAP).filter(k => !k.includes(' ') && !k.match(/[^\w]/));
 
 export default function Skills() {
   const { user } = useAuth();
@@ -117,6 +123,7 @@ export default function Skills() {
   const [showDetail, setShowDetail] = useState<Skill | null>(null);
   const [editing, setEditing] = useState<Skill | null>(null);
   const [form, setForm] = useState({ nome: "", descricao: "", categoria: "Outro" as Categoria, status: "Ativo" as Status, icone: "Zap" });
+  const [activeTab, setActiveTab] = useState("marketing");
 
   useEffect(() => {
     if (!user) return;
@@ -131,14 +138,19 @@ export default function Skills() {
 
   const allSkills = useMemo(() => [...DEFAULT_SKILLS, ...customSkills], [customSkills]);
 
+  const tabSkills = useMemo(() => {
+    const cats = activeTab === "marketing" ? MARKETING_CATS : TECH_CATS;
+    return allSkills.filter(s => cats.includes(s.categoria));
+  }, [allSkills, activeTab]);
+
   const filtered = useMemo(() => {
-    return allSkills.filter((s) => {
+    return tabSkills.filter((s) => {
       if (busca && !s.nome.toLowerCase().includes(busca.toLowerCase()) && !s.descricao.toLowerCase().includes(busca.toLowerCase())) return false;
       if (catFiltro !== "all" && s.categoria !== catFiltro) return false;
       if (statusFiltro !== "all" && s.status !== statusFiltro) return false;
       return true;
     });
-  }, [busca, catFiltro, statusFiltro, allSkills]);
+  }, [busca, catFiltro, statusFiltro, tabSkills]);
 
   const grouped = useMemo(() => {
     const map = new Map<Categoria, Skill[]>();
@@ -146,10 +158,9 @@ export default function Skills() {
       if (!map.has(s.categoria)) map.set(s.categoria, []);
       map.get(s.categoria)!.push(s);
     }
-    return CATEGORIAS.filter((c) => map.has(c)).map((c) => ({ categoria: c, skills: map.get(c)! }));
-  }, [filtered]);
-
-  const ativos = allSkills.filter((s) => s.status === "Ativo").length;
+    const cats = activeTab === "marketing" ? MARKETING_CATS : TECH_CATS;
+    return (cats as Categoria[]).filter((c) => map.has(c)).map((c) => ({ categoria: c, skills: map.get(c)! }));
+  }, [filtered, activeTab]);
 
   const openNew = () => {
     setEditing(null);
@@ -194,161 +205,110 @@ export default function Skills() {
     toast.success("Skill removida!");
   };
 
+  const getSkillTags = (skill: Skill): string[] => {
+    const tags: string[] = [skill.categoria];
+    if (skill.versao) tags.push(skill.versao);
+    if (skill.status === "Beta") tags.push("Beta");
+    return tags;
+  };
+
+  const currentFilterCats = activeTab === "marketing" ? MARKETING_CATS : TECH_CATS;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-primary">Skills & Engines</h1>
-          <p className="text-sm text-muted-foreground mt-1">{ativos} ativas · {allSkills.length} no arsenal</p>
+          <p className="text-sm text-muted-foreground mt-1">{allSkills.filter(s => s.status === "Ativo").length} ativas · {allSkills.length} no arsenal</p>
         </div>
         <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova Skill</Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Input placeholder="Buscar skill..." value={busca} onChange={(e) => setBusca(e.target.value)} className="sm:max-w-xs bg-secondary/20" />
-        <Select value={catFiltro} onValueChange={setCatFiltro}>
-          <SelectTrigger className="sm:w-44 bg-secondary/20"><SelectValue placeholder="Categoria" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas categorias</SelectItem>
-            {CATEGORIAS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={statusFiltro} onValueChange={setStatusFiltro}>
-          <SelectTrigger className="sm:w-36 bg-secondary/20"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos status</SelectItem>
-            <SelectItem value="Ativo">Ativo</SelectItem>
-            <SelectItem value="Beta">Beta</SelectItem>
-            <SelectItem value="Planejado">Planejado</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Tabs Marketing vs Técnicas */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <TabsList className="bg-secondary">
+            <TabsTrigger value="marketing">🎯 Skills Marketing</TabsTrigger>
+            <TabsTrigger value="tecnicas">⚙️ Skills Técnicas</TabsTrigger>
+          </TabsList>
+          <span className="text-xs font-mono text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
+            {filtered.length} {activeTab === "marketing" ? "metodologias" : "ferramentas"}
+          </span>
+        </div>
 
-      {grouped.length === 0 && (
-        <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma skill encontrada.</p>
-      )}
+        {/* Banner informativo */}
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/15 mt-4">
+          <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {activeTab === "marketing"
+              ? "Skills de Marketing são metodologias e engines de copy, pesquisa de avatar, inteligência competitiva e estratégia de posicionamento. Cada skill contém um System Prompt completo."
+              : "Skills Técnicas são ferramentas de código, IA, dados, automação e infraestrutura que alimentam os fluxos operacionais do sistema."}
+          </p>
+        </div>
 
-      {grouped.map(({ categoria, skills }) => {
-        const CatIcon = CATEGORIA_ICONS[categoria] || Zap;
-        return (
-          <div key={categoria} className="space-y-3 pt-2">
-            <div className="flex items-center gap-2 border-b border-border/50 pb-2">
-              <CatIcon className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{categoria}</h2>
-              <span className="text-xs text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">{skills.length}</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {skills.map((skill) => {
-                const Icon = ICON_MAP[skill.icone] || Zap;
-                const skillColor = skill.cor || "#3b82f6";
-                return (
-                  <Card 
-                    key={skill.id} 
-                    className="group cursor-pointer hover:border-primary/50 hover:bg-secondary/10 transition-all duration-300 relative overflow-hidden h-full flex flex-col"
-                    onClick={() => setShowDetail(skill)}
-                  >
-                    {skill.cor && (
-                      <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: skillColor }} />
-                    )}
-                    <CardContent className="p-4 sm:p-5 flex flex-col flex-1 gap-3 relative z-10">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div 
-                            className="rounded-lg p-2 flex items-center justify-center shrink-0" 
-                            style={{ backgroundColor: `${skillColor}20`, color: skillColor }}
-                          >
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <span className="font-semibold text-[15px] text-foreground block">{skill.nome}</span>
-                            {skill.versao && (
-                              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                                {skill.versao}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className={`${STATUS_STYLES[skill.status]} text-[10px] px-1.5 py-0`}>{skill.status}</Badge>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 flex-1">{skill.descricao}</p>
-                      
-                      {!skill.is_default && (
-                        <div className="absolute right-4 top-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md shadow-sm border p-0.5">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => openEdit(e, skill)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive hover:bg-destructive/10" onClick={(e) => deleteSkill(e, skill.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+        <div className="flex flex-col sm:flex-row gap-3 mt-4">
+          <Input placeholder="Buscar skill..." value={busca} onChange={(e) => setBusca(e.target.value)} className="sm:max-w-xs bg-secondary/20" />
+          <Select value={catFiltro} onValueChange={setCatFiltro}>
+            <SelectTrigger className="sm:w-44 bg-secondary/20"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas categorias</SelectItem>
+              {currentFilterCats.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusFiltro} onValueChange={setStatusFiltro}>
+            <SelectTrigger className="sm:w-36 bg-secondary/20"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos status</SelectItem>
+              <SelectItem value="Ativo">Ativo</SelectItem>
+              <SelectItem value="Beta">Beta</SelectItem>
+              <SelectItem value="Planejado">Planejado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <TabsContent value="marketing" className="mt-0">
+          <SkillGrid grouped={grouped} onDetail={setShowDetail} onEdit={openEdit} onDelete={deleteSkill} />
+        </TabsContent>
+        <TabsContent value="tecnicas" className="mt-0">
+          <SkillGrid grouped={grouped} onDetail={setShowDetail} onEdit={openEdit} onDelete={deleteSkill} />
+        </TabsContent>
+      </Tabs>
 
       {/* DETALHE DA SKILL (RAIO-X) */}
       <Dialog open={!!showDetail} onOpenChange={(open) => !open && setShowDetail(null)}>
-        <DialogContent className="max-w-2xl bg-background/95 backdrop-blur-xl border-white/10 p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="max-w-3xl bg-background/95 backdrop-blur-xl border-white/10 p-0 overflow-hidden shadow-2xl">
           {showDetail && (
             <>
-              <div 
-                className="h-2 w-full absolute top-0 left-0" 
-                style={{ backgroundColor: showDetail.cor || "#3b82f6" }} 
-              />
+              <div className="h-2 w-full absolute top-0 left-0" style={{ backgroundColor: showDetail.cor || "#3b82f6" }} />
               <DialogHeader className="p-6 pb-0">
                 <div className="flex items-start gap-4">
-                  <div 
+                  <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner"
                     style={{ backgroundColor: `${showDetail.cor || "#3b82f6"}20`, color: showDetail.cor || "#3b82f6" }}
                   >
-                    {(() => {
-                      const Icon = ICON_MAP[showDetail.icone] || Zap;
-                      return <Icon className="w-6 h-6" />;
-                    })()}
+                    {(() => { const Icon = ICON_MAP[showDetail.icone] || Zap; return <Icon className="w-6 h-6" />; })()}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <DialogTitle className="text-2xl font-display font-bold tracking-tight">
-                        {showDetail.nome}
-                      </DialogTitle>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <DialogTitle className="text-2xl font-display font-bold tracking-tight">{showDetail.nome}</DialogTitle>
                       {showDetail.versao && (
-                        <Badge variant="outline" className="font-mono text-xs text-muted-foreground bg-secondary/50 border-white/5">
-                          {showDetail.versao}
-                        </Badge>
+                        <Badge variant="outline" className="font-mono text-xs text-muted-foreground bg-secondary/50 border-white/5">{showDetail.versao}</Badge>
+                      )}
+                      <Badge variant="outline" className={STATUS_STYLES[showDetail.status]}>{showDetail.status}</Badge>
+                    </div>
+                    <p className="text-sm text-foreground/70 leading-relaxed max-w-lg">{showDetail.descricao}</p>
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      <Badge variant="secondary" className="text-[10px]">{showDetail.categoria}</Badge>
+                      {SKILL_FILE_MAP[showDetail.id] && (
+                        <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">{SKILL_FILE_MAP[showDetail.id]}</Badge>
                       )}
                     </div>
-                    <p className="text-sm text-foreground/70 leading-relaxed max-w-lg">
-                      {showDetail.descricao}
-                    </p>
                   </div>
                 </div>
               </DialogHeader>
 
               <div className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5 bg-secondary/20 p-3 rounded-lg border border-white/5">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Categoria</span>
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      {(() => {
-                        const CatIcon = CATEGORIA_ICONS[showDetail.categoria] || Zap;
-                        return <CatIcon className="w-4 h-4 text-primary" />;
-                      })()}
-                      {showDetail.categoria}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 bg-secondary/20 p-3 rounded-lg border border-white/5">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Status</span>
-                    <Badge variant="outline" className={STATUS_STYLES[showDetail.status]}>{showDetail.status}</Badge>
-                  </div>
-                </div>
-
                 {showDetail.gatilho && (
                   <div className="space-y-2">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block flex items-center gap-2">
@@ -365,13 +325,17 @@ export default function Skills() {
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block flex items-center gap-2">
                       <Bot className="w-3.5 h-3.5" /> System Prompt (Engine DNA)
                     </span>
-                    <ScrollArea className="h-64 w-full rounded-md border border-white/10 bg-black/40 p-4 shadow-inner">
-                      <pre className="text-xs font-mono text-green-400/90 whitespace-pre-wrap leading-relaxed">
-                        {showDetail.system_prompt}
-                      </pre>
+                    <ScrollArea className="h-[400px] w-full rounded-md border border-white/10 bg-black/30 p-5 shadow-inner">
+                      <div className="prose prose-invert prose-sm max-w-none prose-headings:text-primary prose-headings:font-display prose-strong:text-foreground prose-code:text-emerald-400 prose-code:bg-secondary/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-table:border-collapse prose-th:bg-secondary/30 prose-th:border prose-th:border-white/10 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-white/10 prose-td:px-3 prose-td:py-1.5 prose-li:marker:text-primary/60">
+                        <ReactMarkdown>{showDetail.system_prompt}</ReactMarkdown>
+                      </div>
                     </ScrollArea>
                   </div>
                 )}
+
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => setShowDetail(null)}>Fechar</Button>
+                </div>
               </div>
             </>
           )}
@@ -390,7 +354,7 @@ export default function Skills() {
                 <Label>Categoria</Label>
                 <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v as Categoria })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{ALL_CATS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
@@ -421,6 +385,91 @@ export default function Skills() {
           <DialogFooter><Button onClick={saveSkill}>{editing ? "Salvar" : "Criar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* ── Skill Grid Sub-component ── */
+function SkillGrid({ grouped, onDetail, onEdit, onDelete }: {
+  grouped: { categoria: Categoria; skills: Skill[] }[];
+  onDetail: (s: Skill) => void;
+  onEdit: (e: React.MouseEvent, s: Skill) => void;
+  onDelete: (e: React.MouseEvent, id: string) => void;
+}) {
+  if (grouped.length === 0) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma skill encontrada.</p>;
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      {grouped.map(({ categoria, skills }) => {
+        const CatIcon = CATEGORIA_ICONS[categoria] || Zap;
+        return (
+          <div key={categoria} className="space-y-3">
+            <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+              <CatIcon className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{categoria}</h2>
+              <span className="text-xs text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">{skills.length}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {skills.map((skill) => {
+                const Icon = ICON_MAP[skill.icone] || Zap;
+                const skillColor = skill.cor || "#3b82f6";
+                const fileName = SKILL_FILE_MAP[skill.id];
+                return (
+                  <Card
+                    key={skill.id}
+                    className="group cursor-pointer hover:border-primary/50 hover:bg-secondary/10 transition-all duration-300 relative overflow-hidden h-full flex flex-col"
+                    onClick={() => onDetail(skill)}
+                  >
+                    {skill.cor && <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: skillColor }} />}
+                    <CardContent className="p-4 sm:p-5 flex flex-col flex-1 gap-3 relative z-10">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg p-2 flex items-center justify-center shrink-0" style={{ backgroundColor: `${skillColor}20`, color: skillColor }}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <span className="font-semibold text-[15px] text-foreground block">{skill.nome}</span>
+                            {fileName && <span className="text-[10px] font-mono text-muted-foreground/60 block">{fileName}</span>}
+                            {skill.versao && !fileName && <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{skill.versao}</span>}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={`${STATUS_STYLES[skill.status]} text-[10px] px-1.5 py-0`}>{skill.status}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 flex-1">{skill.descricao}</p>
+
+                      {/* Tags + Ler button */}
+                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/30">
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">{skill.categoria}</Badge>
+                          {skill.versao && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-mono">{skill.versao}</Badge>}
+                        </div>
+                        {skill.system_prompt && (
+                          <span className="text-[10px] text-primary font-medium flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Ler <ArrowRight className="h-3 w-3" />
+                          </span>
+                        )}
+                      </div>
+
+                      {!skill.is_default && (
+                        <div className="absolute right-4 top-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md shadow-sm border p-0.5">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => onEdit(e, skill)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive hover:bg-destructive/10" onClick={(e) => onDelete(e, skill.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
