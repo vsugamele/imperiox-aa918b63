@@ -18,6 +18,7 @@ import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 import { ProjetoConteudo } from "@/components/projeto/ProjetoConteudo";
+import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil } from "lucide-react";
 
