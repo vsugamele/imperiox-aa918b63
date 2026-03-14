@@ -107,6 +107,14 @@ export function useConcorrentes(projectId: string) {
           }
         }
 
+        // Also populate canais_principais for merge
+        if (comp.canais_keywords?.length && !updates.canais_principais) {
+          const existing_cp = (existing as any).canais_principais;
+          if (!existing_cp) {
+            updates.canais_principais = (comp.canais_keywords as string[]).join(", ");
+          }
+        }
+
         if (Object.keys(updates).length > 0) {
           const { error } = await supabase
             .from("imphq_competitors")
@@ -131,6 +139,11 @@ export function useConcorrentes(projectId: string) {
           if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
             row[f] = comp[f];
           }
+        }
+
+        // Populate canais_principais from canais_keywords
+        if (comp.canais_keywords?.length) {
+          row.canais_principais = (comp.canais_keywords as string[]).join(", ");
         }
 
         const { data, error } = await supabase

@@ -40,25 +40,25 @@ interface Props {
   projectId?: string;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Extract a markdown ## section body */
 function extractSection(text: string, heading: string): string {
   const regex = new RegExp(`##?#?\\s*${heading}[^\\n]*\\n([\\s\\S]*?)(?=\\n##|$)`, "i");
-  const match = text.match(regex);
-  return match?.[1]?.trim() || "";
+  return text.match(regex)?.[1]?.trim() || "";
 }
 
+/** Extract value from markdown table: | Key | Value | */
 function extractTableValue(text: string, key: string): string {
-  const regex = new RegExp(`\\|\\s*(?:${key})\\s*\\|\\s*([^|]+)\\|`, "i");
-  const match = text.match(regex);
-  return match?.[1]?.trim() || "";
+  const regex = new RegExp(`\\|\\s*(?:${key})\\s*\\|\\s*([^|\\n]+)\\|`, "i");
+  return text.match(regex)?.[1]?.trim().replace(/\*+/g, "") || "";
 }
 
-function extractBetween(text: string, startPattern: string, endPattern?: string): string {
-  const startIdx = text.indexOf(startPattern);
-  if (startIdx === -1) return "";
-  const afterStart = text.substring(startIdx + startPattern.length);
-  if (!endPattern) return afterStart.trim();
-  const endIdx = afterStart.indexOf(endPattern);
-  return endIdx === -1 ? afterStart.trim() : afterStart.substring(0, endIdx).trim();
+/** Extract value from bold list item: - **Key:** value */
+function extractListValue(text: string, key: string): string {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`-\\s*\\*{0,2}\\s*${escaped}[^:\\n]*:\\*{0,2}\\s*(.+)`, "i");
+  return text.match(regex)?.[1]?.trim().replace(/\*+/g, "") || "";
 }
 
 function parseScore(text: string): { score: number; max: number } {
@@ -66,214 +66,242 @@ function parseScore(text: string): { score: number; max: number } {
   return match ? { score: parseFloat(match[1]), max: parseFloat(match[2]) } : { score: 0, max: 10 };
 }
 
-function extractPrice(text: string): string {
-  const match = text.match(/R\$[\d.,]+(?:\s*(?:\/(?:mês|ano|aula))?)?/i);
-  return match ? match[0] : "";
-}
-
 function extractBulletPoints(section: string): string[] {
   return section
     .split("\n")
-    .filter(l => l.trim().startsWith("-") || l.trim().startsWith("*"))
-    .map(l => l.replace(/^[\s\-*]+/, "").trim())
+    .filter(l => /^\s*[-*]/.test(l))
+    .map(l => l.replace(/^\s*[-*]+\s*/, "").replace(/\*+/g, "").trim())
     .filter(Boolean);
 }
 
-function extractListValue(text: string, key: string): string {
-  // Matches: - **Key:** value  OR  - **Key / Variant:** value  OR  - Key: value
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(`-\\s*\\*{0,2}\\s*${escaped}[^:\\n]*:\\*{0,2}\\s*(.+)`, "i");
-  const match = text.match(regex);
-  return match?.[1]?.trim().replace(/\*+/g, "") || "";
+/** Extract first price pattern: R$X,XXX */
+function extractFirstPrice(text: string): string {
+  return text.match(/R\$\s*[\d.,]+(?:\s*\/(?:mês|ano|aula))?/i)?.[0] || "";
 }
 
+/** Extract Instagram handle from a string like "@rodrigovizu (~400K seguidores)" */
+function extractIgHandle(raw: string): string {
+  return raw.match(/(@[\w.]+)/)?.[1] || "";
+}
+
+/** Extract follower count from a string */
+function extractFollowers(raw: string): string {
+  const m = raw.match(/(\d[\d.,]*[KMkm]?\+?)\s*(?:seguidores|seg\.|alunos|alun)/i);
+  return m ? m[0].trim() : "";
+}
+
+/** Build a URL string from raw text (picks first URL if multiple) */
+function buildUrl(raw: string): string {
+  const first = raw.split(/\s*[|,]\s*/)[0].trim();
+  if (!first || first.toLowerCase() === "n/d" || first.length < 4) return "";
+  return first.startsWith("http") ? first : `https://${first}`;
+}
+
+/** Extract all price values from text for mapping purposes */
+function extractAllPrices(text: string): string[] {
+  return (text.match(/R\$\s*[\d.,]+/gi) || []).map(p => p.trim());
+}
+
+// ── Parser: DOSSIÊ COMPETITIVO format ────────────────────────────────────────
 function parseDossie(content: string): Partial<ParsedCompetitor> {
   const result: Partial<ParsedCompetitor> = {};
 
+  // Name — keep full "Name / Alias" to preserve context
   const titleMatch = content.match(/# DOSSIÊ COMPETITIVO\s*[-—]\s*(.+)/i) || content.match(/^#\s+(.+)/m);
-  if (titleMatch) {
-    result.name = titleMatch[1].replace(/[\/|].+$/, "").trim();
+  if (titleMatch) result.name = titleMatch[1].trim().replace(/\s*\/\s*/g, " / ");
+
+  // ── IDENTIDADE ────────────────────────────────────────────────────────────
+  const identidade = extractSection(content, "IDENTIDADE");
+  const idScope = identidade || content;
+
+  // Instagram: "- **Instagram:** @rodrigovizu (~400K seguidores)"
+  const igRaw = extractListValue(idScope, "Instagram");
+  const igHandle = igRaw.match(/(@[\w.]+)/)?.[1] || "";
+  if (igHandle) {
+    result.canais_keywords = [igHandle];
+    // Extract followers from same line
+    const igFollowers = igRaw.match(/(\d[\d.,]*[KMkm]?\+?)\s*seguidores/i);
+    if (igFollowers) result.trafego_est = igFollowers[0].trim();
   }
 
-  const urlMatch = content.match(/(?:Site(?:\s*principal)?|URL|site):\s*(https?:\/\/\S+|[\w.-]+\.\w{2,}[\S]*)/i);
-  if (urlMatch) result.url = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
+  // Site: "- **Site principal:** rodrigovizu.com | metodorv.com"
+  const siteRaw = extractListValue(idScope, "Site principal") ||
+                  extractListValue(idScope, "Site produto") ||
+                  extractListValue(idScope, "Site") ||
+                  extractListValue(idScope, "URL");
+  if (siteRaw) {
+    const firstSite = siteRaw.split(/\s*[|,]\s*/)[0].trim();
+    if (firstSite.length > 3 && firstSite !== "N/D") {
+      result.url = firstSite.startsWith("http") ? firstSite : `https://${firstSite}`;
+    }
+  }
 
-  result.oferta_principal = extractTableValue(content, "Produto") ||
+  // Posicionamento → mecanismo_unico
+  const posicionamento = extractListValue(idScope, "Posicionamento");
+  if (posicionamento) result.mecanismo_unico = posicionamento.replace(/^[""']|[""']$/g, "").trim();
+
+  // Hotmart → stack_tecnologico + oferta_principal
+  const hotmartLine = extractListValue(idScope, "Hotmart");
+  if (hotmartLine) {
+    const code = hotmartLine.split(/[\s—\-]/)[0].trim();
+    result.stack_tecnologico = [`Hotmart: ${code}`];
+    const productName = hotmartLine.replace(/^[\w\d]+\s*[-—]\s*/, "").trim();
+    if (productName && productName !== code) result.oferta_principal = productName;
+  }
+
+  // ── Produto / oferta ──────────────────────────────────────────────────────
+  result.oferta_principal = result.oferta_principal ||
+    extractTableValue(content, "Produto") ||
     extractTableValue(content, "Formato") ||
-    extractListValue(content, "Tipo") ||
     extractListValue(content, "Produto digital") ||
-    extractListValue(content, "Formato") || "";
+    extractListValue(content, "Tipo") || "";
 
-  const preco = extractTableValue(content, "Preço") || extractListValue(content, "Preço");
-  if (preco) result.preco = preco;
-  else {
-    const p = extractPrice(content);
-    if (p) result.preco = p;
+  // Preço
+  const precoVal = extractTableValue(content, "Preço") || extractListValue(content, "Preço");
+  result.preco = precoVal || extractFirstPrice(content);
+
+  // Garantia
+  result.garantia = extractTableValue(content, "Garantia") || "";
+  result.bonus = extractTableValue(content, "Bonus") || extractTableValue(content, "Bônus") || "";
+
+  // Alunos / Seguidores
+  if (!result.trafego_est) {
+    const alunosVal = extractTableValue(content, "Alunos") || extractListValue(content, "Alunos");
+    const segVal = extractTableValue(content, "Seguidores") || extractListValue(content, "Seguidores");
+    result.trafego_est = alunosVal || segVal || "";
+    if (!result.trafego_est) {
+      const m = content.match(/(\d[\d.]*[KMkm]?\+?\s*(?:alunos?\s*formados?|alunas?\s*treinadas?|cabeleireiras?\s*treinadas?|seguidores?))/i);
+      if (m) result.trafego_est = m[0].trim();
+    }
   }
 
-  result.garantia = extractTableValue(content, "Garantia");
-  result.bonus = extractTableValue(content, "Bonus|Bônus");
+  // Anunciante
+  const anuncianteVal = extractTableValue(content, "Anunciante") || extractListValue(content, "Status anunciante");
+  if (anuncianteVal) result.ads_ativos = /ATIVO|SIM|confirmado/i.test(anuncianteVal);
 
-  const pontosFortes = extractSection(content, "Pontos fortes");
-  const pontosFracos = extractSection(content, "Pontos fracos");
-  const gap = extractSection(content, "GAP");
+  // Foco → nicho
+  const focoVal = extractTableValue(content, "Foco") || extractListValue(content, "Foco") || extractListValue(content, "Segmento");
+  if (focoVal) result.nicho = focoVal;
 
-  if (pontosFortes) result.ponto_forte = extractBulletPoints(pontosFortes).join(" • ");
-  if (pontosFracos) result.fraqueza = extractBulletPoints(pontosFracos).join(" • ");
+  // ── Análise Competitiva ───────────────────────────────────────────────────
+  const pontosFortes = extractSection(content, "Pontos fortes vs JP|Pontos fortes");
+  const pontosFracos = extractSection(content, "Pontos fracos vs JP|Pontos fracos");
+  const gap = extractSection(content, "GAP que JP pode explorar|GAP");
+  const relevancia = extractSection(content, "Relevância estratégica|SINAL DE MERCADO");
 
-  const copySection = extractSection(content, "INTELIGÊNCIA DE COPY|COPY");
+  if (pontosFortes) result.ponto_forte = extractBulletPoints(pontosFortes).slice(0, 4).join(" • ");
+  if (pontosFracos) result.fraqueza = extractBulletPoints(pontosFracos).slice(0, 3).join(" • ");
+
+  const insightParts: string[] = [];
+  if (gap) {
+    const gapBullets = extractBulletPoints(gap);
+    insightParts.push(`GAP: ${gapBullets.join("; ") || gap.substring(0, 250)}`);
+  }
+  if (relevancia) insightParts.push(relevancia.substring(0, 300));
+  if (insightParts.length) result.insights = insightParts.join("\n\n");
+
+  // ── Inteligência de Copy ──────────────────────────────────────────────────
+  const copySection = extractSection(content, "INTELIGÊNCIA DE COPY|Copy");
   if (copySection) {
     const bullets = extractBulletPoints(copySection);
-    result.headline = bullets[0] || "";
-    result.hook = bullets.slice(0, 3).join(" | ");
+    if (bullets.length) {
+      result.headline = bullets[0];
+      result.hook = bullets.slice(0, 4).join(" | ");
+    }
   }
 
-  const insights: string[] = [];
-  if (gap) insights.push(`GAP: ${extractBulletPoints(gap).join("; ") || gap.substring(0, 200)}`);
-  
-  const sinal = extractSection(content, "SINAL DE MERCADO|RELEVÂNCIA");
-  if (sinal) insights.push(sinal.substring(0, 300));
-  
-  result.insights = insights.join("\n\n");
-
+  // ── Funil ─────────────────────────────────────────────────────────────────
   const funilSection = extractSection(content, "FUNIL");
   if (funilSection) {
     result.paginas_funil = funilSection
       .split("\n")
-      .map(l => l.replace(/^[\s→>*\-]+/, "").trim())
-      .filter(l => l.length > 3 && !l.startsWith("```") && !l.startsWith("**"));
+      .map(l => l.replace(/^[\s→>*\-`]+/, "").trim())
+      .filter(l => l.length > 4 && !l.startsWith("```") && !/^\*\*/.test(l));
   }
 
-  const scoreMatch = content.match(/Score[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+)/i);
-  if (scoreMatch) {
-    result.score_escala = parseFloat(scoreMatch[1]);
-    result.score_max = parseFloat(scoreMatch[2]);
-  }
-
+  // ── Dados Técnicos ────────────────────────────────────────────────────────
   const dadosTec = extractSection(content, "DADOS TÉCNICOS");
   if (dadosTec) {
     const techBullets = extractBulletPoints(dadosTec);
-    result.stack_tecnologico = techBullets.map(b => {
-      const colonIdx = b.indexOf(":");
-      return colonIdx > 0 ? b.substring(0, colonIdx).trim() : b;
+    const stack = result.stack_tecnologico ? [...result.stack_tecnologico] : [];
+    techBullets.forEach(b => {
+      if (/plataforma|checkout|hotmart|kiwify|eduzz/i.test(b)) stack.push(b);
+      if (/pixel|ads|anunci/i.test(b) && /ativ|sim|true|provável/i.test(b)) result.ads_ativos = true;
     });
-
-    const adsLine = techBullets.find(b => /pixel|ads|anunci/i.test(b));
-    if (adsLine && /ativ|sim|true|provável/i.test(adsLine)) result.ads_ativos = true;
+    if (stack.length) result.stack_tecnologico = stack;
   }
 
-  const identidade = extractSection(content, "IDENTIDADE");
-  if (identidade) {
-    const igMatch = identidade.match(/@[\w.]+/);
-    if (igMatch) {
-      result.canais_keywords = result.canais_keywords || [];
-      result.canais_keywords.push(`Instagram: ${igMatch[0]}`);
-    }
-    const hotmartMatch = identidade.match(/Hotmart[:\s]+(\S+)/i);
-    if (hotmartMatch) {
-      result.stack_tecnologico = result.stack_tecnologico || [];
-      result.stack_tecnologico.push(`Hotmart: ${hotmartMatch[1]}`);
-    }
-  }
+  // ── Score ─────────────────────────────────────────────────────────────────
+  const scoreMatch = content.match(/Score[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+)/i);
+  if (scoreMatch) { result.score_escala = parseFloat(scoreMatch[1]); result.score_max = parseFloat(scoreMatch[2]); }
 
-  const segMatch = content.match(/(?:Segmento|Nicho|Foco)[:\s]+(.+)/i);
-  if (segMatch) result.nicho = segMatch[1].trim();
-
-  const posMatch = content.match(/Posicionamento[:\s]+(.+)/i);
-  if (posMatch) result.mecanismo_unico = posMatch[1].replace(/^["']|["']$/g, "").trim();
-
-  const seguidoresMatch = content.match(/(\d[\d.,]*[KMkm]?\+?)\s*(?:seguidores|seg)/i);
-  if (seguidoresMatch) result.trafego_est = `${seguidoresMatch[1]} seguidores`;
-
-  const alunosMatch = content.match(/([\d.]+\+?)\s*(?:alunos|alunas|treinadas|formados)/i);
-  if (alunosMatch) {
-    result.publico_alvo = `${alunosMatch[1]} alunos formados`;
-  }
-
-  // Ameaça ao JP
-  const ameacaRaw = extractListValue(content, "Ameaça ao JP");
-  if (ameacaRaw) {
-    const nivel = ameacaRaw.split(/[—\-]/)[0].trim().toUpperCase();
-    result.insights = result.insights
-      ? `AMEAÇA: ${nivel}\n\n${result.insights}`
-      : `AMEAÇA: ${nivel}`;
-  }
-
-  // Instagram / canais
+  // ── Fallback Instagram ────────────────────────────────────────────────────
   if (!result.canais_keywords?.length) {
-    const igMatch = content.match(/@[\w.]+/);
-    if (igMatch) result.canais_keywords = [`Instagram: ${igMatch[0]}`];
-  }
-
-  // Seguidores como trafego_est fallback
-  if (!result.trafego_est) {
-    const seg = extractListValue(content, "Seguidores");
-    if (seg) result.trafego_est = seg;
-    else {
-      const m = content.match(/(\d[\d.]*[KMkm]?\+?)\s*(?:seguidores|seg\.)/i);
-      if (m) result.trafego_est = m[1] + " seguidores";
-    }
+    const igFallback = content.match(/@[\w.]+/);
+    if (igFallback) result.canais_keywords = [igFallback[0]];
   }
 
   return result;
 }
 
+// ── Parser: _ofertas.md (Análise de Ofertas Escaladas) ───────────────────────
 function parseOfertasReport(content: string): Partial<ParsedCompetitor>[] {
   const competitors: Partial<ParsedCompetitor>[] = [];
-  
-  // Split by ### #N — Name pattern
   const sections = content.split(/###\s*#\d+\s*[-—]\s*/);
-  
+
   for (let i = 1; i < sections.length; i++) {
     const section = sections[i];
     const nameMatch = section.match(/^(.+?)(?:\n|$)/);
     if (!nameMatch) continue;
 
-    const name = nameMatch[1].replace(/[\/|].+$/, "").trim();
-    
-    // Skip self-reference entries (produto atual / referência)
-    if (/refer[eê]ncia\s*(para\s*compara|comparação)/i.test(section.substring(0, 300))) continue;
-    if (/\(produto atual/i.test(section.substring(0, 300))) continue;
+    const rawName = nameMatch[1].trim();
 
-    const comp: Partial<ParsedCompetitor> = { name };
-    
+    // Skip self-reference (JP Freitas próprio)
+    if (/refer[eê]ncia\s*para\s*compara/i.test(section.substring(0, 300))) continue;
+    if (/\(produto atual/i.test(section.substring(0, 300))) continue;
+    if (/\*produto atual\*/i.test(section.substring(0, 300))) continue;
+
+    const comp: Partial<ParsedCompetitor> = { name: rawName.replace(/\s*\/\s*/g, " / ") };
+
     const { score, max } = parseScore(section);
-    comp.score_escala = score;
-    comp.score_max = max;
-    
+    if (score > 0) { comp.score_escala = score; comp.score_max = max; }
+
+    // Table data
     comp.preco = extractTableValue(section, "Preço");
     comp.oferta_principal = extractTableValue(section, "Formato") || extractTableValue(section, "Produto");
-    comp.trafego_est = extractTableValue(section, "Seguidores") || extractTableValue(section, "Alunos");
-    comp.ads_ativos = /anunciante.*ativ|ads.*ativ/i.test(section);
-    
+    const plat = extractTableValue(section, "Plataforma de venda") || extractTableValue(section, "Plataforma");
+    if (plat) comp.stack_tecnologico = [plat];
+
+    // Alunos / Seguidores / Turma
+    const alunos = extractTableValue(section, "Alunos");
+    const seg = extractTableValue(section, "Seguidores");
+    const turma = extractTableValue(section, "Turma");
+    comp.trafego_est = alunos || seg || turma || "";
+
+    // Anunciante
+    const adsVal = extractTableValue(section, "Anunciante");
+    if (adsVal) comp.ads_ativos = /ATIVO|SIM/i.test(adsVal);
+    else comp.ads_ativos = /anunciante.*ATIVO/i.test(section);
+
+    // Foco
     const foco = extractTableValue(section, "Foco");
     if (foco) comp.nicho = foco;
 
-    // Plataforma
-    const plat = extractTableValue(section, "Plataforma(?:\\s+de\\s+venda)?");
-    if (plat) comp.stack_tecnologico = [plat];
+    // Instagram
+    const igHandle = section.match(/@[\w.]+/)?.[0];
+    if (igHandle) comp.canais_keywords = [igHandle];
 
-    // Turma / Alunos
-    const turma = extractTableValue(section, "Turma");
-    const alunos = extractTableValue(section, "Alunos");
-    if (alunos) comp.trafego_est = alunos;
-    else if (turma) comp.trafego_est = turma;
-
-    // Seguidores
-    const seg = extractTableValue(section, "Seguidores");
-    if (seg && !comp.trafego_est) comp.trafego_est = seg;
-
-    // Insight
-    const insightMatch = section.match(/\*\*Insight[^*]*\*\*[:\s]*(.*?)(?=\n\n|---|\n###|$)/s);
-    if (insightMatch) comp.insights = insightMatch[1].trim();
-
-    // Why is scaled
+    // Por que é escalado → ponto_forte
     const whyMatch = section.match(/\*\*Por que (?:é escalado|é relevante)[^*]*\*\*[:\s]*(.*?)(?=\n\n\*\*|---|\n###|$)/s);
-    if (whyMatch) comp.ponto_forte = extractBulletPoints(whyMatch[1]).join(" • ");
+    if (whyMatch) comp.ponto_forte = extractBulletPoints(whyMatch[1]).slice(0, 4).join(" • ");
 
     // Ponto fraco
     const weakMatch = section.match(/\*\*Ponto fraco[^*]*\*\*[:\s]*(.*?)(?=\n\n|---|\n###|$)/s);
-    if (weakMatch) comp.fraqueza = weakMatch[1].trim();
+    if (weakMatch) comp.fraqueza = weakMatch[1].trim().substring(0, 300);
+
+    // Insight para JP
+    const insightMatch = section.match(/\*\*Insight para[^*]*\*\*[:\s]*(.*?)(?=\n\n|---|\n###|$)/s);
+    if (insightMatch) comp.insights = insightMatch[1].trim().substring(0, 400);
 
     competitors.push(comp);
   }
@@ -281,45 +309,52 @@ function parseOfertasReport(content: string): Partial<ParsedCompetitor>[] {
   return competitors;
 }
 
+// ── Parser: relatorio-final.md ────────────────────────────────────────────────
 function parseRelatorioFinal(content: string): Partial<ParsedCompetitor>[] {
   const competitors: Partial<ParsedCompetitor>[] = [];
-  
-  const tierRegex = /\*\*Tier \d+[^*]*\*\*\s*\n\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*\n\|[-|\s]+\|\s*\n((?:\|[^\n]+\n)+)/g;
-  let match;
-  
-  while ((match = tierRegex.exec(content)) !== null) {
-    const rows = match[1].trim().split("\n");
+
+  // Parse tier tables: "**Tier N — ...**\n| table |"
+  const tierBlocks = content.split(/\*\*Tier\s+\d+[^*]*\*\*/i);
+  for (let i = 1; i < tierBlocks.length; i++) {
+    const block = tierBlocks[i];
+    const rows = block.split("\n").filter(l => l.startsWith("|") && !l.includes("---") && !l.includes("Concorrente") && !l.includes("Escala") && !l.includes("Foco"));
     for (const row of rows) {
       const cols = row.split("|").map(c => c.trim()).filter(Boolean);
-      if (cols.length >= 4) {
+      if (cols.length >= 3 && cols[0].length > 1) {
         competitors.push({
-          name: cols[0],
-          trafego_est: cols[1],
-          preco: cols[2],
-          nicho: cols[3],
+          name: cols[0].replace(/\s*\/\s*/g, " / "),
+          trafego_est: cols[1] || "",
+          preco: cols[2] || "",
+          nicho: cols[3] || "",
         });
       }
     }
   }
 
-  const rankingSection = extractSection(content, "RANKING FINAL");
+  // Enrich from RANKING FINAL de AMEAÇA table
+  const rankingSection = extractSection(content, "RANKING FINAL DE AMEAÇA|RANKING FINAL");
   if (rankingSection) {
-    const rows = rankingSection.split("\n").filter(l => l.startsWith("|") && !l.includes("---") && !l.includes("Concorrente"));
+    const rows = rankingSection.split("\n").filter(l => l.startsWith("|") && !l.includes("---") && !l.includes("Concorrente") && !l.includes("#"));
     for (const row of rows) {
       const cols = row.split("|").map(c => c.trim()).filter(Boolean);
-      if (cols.length >= 4) {
-        const name = cols[1];
-        const existing = competitors.find(c => c.name === name);
+      if (cols.length >= 3) {
+        const name = cols[1] || cols[0];
+        const ameaca = cols[2] || "";
+        const motivo = cols[3] || "";
+        const existing = competitors.find(c => c.name?.toLowerCase().includes(name.toLowerCase()));
         if (existing) {
-          existing.insights = `Ameaça: ${cols[2]} — ${cols[3]}`;
+          existing.insights = `AMEAÇA: ${ameaca}${motivo ? ` — ${motivo}` : ""}`;
+        } else if (name.length > 2) {
+          competitors.push({ name, insights: `AMEAÇA: ${ameaca}${motivo ? ` — ${motivo}` : ""}` });
         }
       }
     }
   }
 
-  return competitors;
+  return competitors.filter(c => c.name && c.name.length > 1);
 }
 
+// ── Parser: _concorrentes.md (Tier-based mapa) ───────────────────────────────
 function parseMapaConcorrentes(content: string): Partial<ParsedCompetitor>[] {
   const competitors: Partial<ParsedCompetitor>[] = [];
   let currentTier = 1;
@@ -330,53 +365,70 @@ function parseMapaConcorrentes(content: string): Partial<ParsedCompetitor>[] {
     if (!currentComp) return;
     const block = compLines.join("\n");
 
+    // Instagram: "- **Instagram:** @hemersondoscachos" — exact field first
+    const igRaw = extractListValue(block, "Instagram");
+    const igHandle = igRaw.match(/(@[\w.]+)/)?.[1] || block.match(/@[\w.]+/)?.[0] || "";
+    if (igHandle) {
+      currentComp.canais_keywords = [igHandle];
+      // Try to get followers from Instagram line
+      const igFollowers = igRaw.match(/(\d[\d.,]*[KMkm]?\+?)\s*seguidores/i);
+      if (igFollowers && !currentComp.trafego_est) currentComp.trafego_est = igFollowers[0].trim();
+    }
+
+    // Seguidores field
     const seguidores = extractListValue(block, "Seguidores");
+    if (seguidores && !currentComp.trafego_est) currentComp.trafego_est = seguidores;
+
+    // Alunos
+    const alunos = extractListValue(block, "Alunos") || extractListValue(block, "Escala");
+    if (alunos && !currentComp.trafego_est) currentComp.trafego_est = alunos;
+
+    // Produto
     const produto = extractListValue(block, "Produto digital") || extractListValue(block, "Produto");
-    const foco = extractListValue(block, "Foco") || extractListValue(block, "Nicho");
-    const modelo = extractListValue(block, "Modelo") || extractListValue(block, "Tipo de produto");
-    const diferencial = extractListValue(block, "Diferencial") || extractListValue(block, "Posicionamento");
-    const statusAds = extractListValue(block, "Status anunciante") || extractListValue(block, "Anunciante");
-    const ameacaRaw = extractListValue(block, "Ameaça ao JP");
-    const hotmartMatch = block.match(/Hotmart[:\s]+(\w+)/i);
-    const publico = extractListValue(block, "Público") || extractListValue(block, "Avatar");
-    const alunos = extractListValue(block, "Alunos");
-    const garantia = extractListValue(block, "Garantia");
-    const fraqueza = extractListValue(block, "Fraqueza") || extractListValue(block, "Ponto fraco");
-    const hook = extractListValue(block, "Hook") || extractListValue(block, "Headline");
-
-    if (seguidores) currentComp.trafego_est = seguidores;
-    else if (alunos) currentComp.trafego_est = alunos;
     if (produto) currentComp.oferta_principal = produto;
-    if (foco) currentComp.nicho = foco;
-    if (modelo) currentComp.mecanismo_unico = modelo;
-    if (diferencial) currentComp.ponto_forte = diferencial;
-    if (statusAds) currentComp.ads_ativos = /ATIVO|SIM|YES/i.test(statusAds);
-    if (publico) currentComp.publico_alvo = publico;
-    if (garantia) currentComp.garantia = garantia;
-    if (fraqueza) currentComp.fraqueza = fraqueza;
-    if (hook) currentComp.hook = hook;
 
-    // Price: try list value first, then regex (supports "R$ 197" with space)
-    const precoVal = extractListValue(block, "Preço") || extractListValue(block, "Preco") || extractListValue(block, "Ticket");
-    const priceMatch = block.match(/R\$\s*[\d.,]+(?:\s*(?:\/(?:mês|ano|aula))?)?/i);
+    // Foco → nicho
+    const foco = extractListValue(block, "Foco") || extractListValue(block, "Nicho");
+    if (foco) currentComp.nicho = foco;
+
+    // Modelo → mecanismo_unico
+    const modelo = extractListValue(block, "Modelo") || extractListValue(block, "Tipo de produto");
+    if (modelo) currentComp.mecanismo_unico = modelo;
+
+    // Diferencial → ponto_forte
+    const diferencial = extractListValue(block, "Diferencial") || extractListValue(block, "Posicionamento");
+    if (diferencial) currentComp.ponto_forte = diferencial;
+
+    // Ads
+    const statusAds = extractListValue(block, "Status anunciante") || extractListValue(block, "Anunciante");
+    if (statusAds) currentComp.ads_ativos = /ATIVO|SIM|YES/i.test(statusAds);
+
+    // Preço
+    const precoVal = extractListValue(block, "Preço") || extractListValue(block, "Ticket");
+    const priceMatch = block.match(/R\$\s*[\d.,]+/i);
     if (precoVal) currentComp.preco = precoVal;
     else if (priceMatch) currentComp.preco = priceMatch[0];
 
-    // URL extraction
-    const siteVal = extractListValue(block, "Site") || extractListValue(block, "URL") || extractListValue(block, "Link");
+    // Site / URL
+    const siteVal = extractListValue(block, "Site") || extractListValue(block, "URL");
     if (siteVal) {
-      currentComp.url = siteVal.startsWith("http") ? siteVal : `https://${siteVal}`;
+      const first = siteVal.split(/\s*[|,]\s*/)[0].trim();
+      if (first.length > 3) currentComp.url = first.startsWith("http") ? first : `https://${first}`;
     }
 
-    const igMatch = block.match(/@[\w.]+/);
-    if (igMatch) currentComp.canais_keywords = [igMatch[0]];
-
+    // Hotmart + plataforma → stack_tecnologico
     const stack: string[] = [];
-    if (hotmartMatch) stack.push(`Hotmart: ${hotmartMatch[1]}`);
+    const hotmartLine = extractListValue(block, "Hotmart");
+    if (hotmartLine) {
+      const code = hotmartLine.split(/[\s—\-]/)[0].trim();
+      stack.push(`Hotmart: ${code}`);
+    }
     const plataforma = extractListValue(block, "Plataforma");
     if (plataforma) stack.push(plataforma);
     if (stack.length) currentComp.stack_tecnologico = stack;
 
+    // Ameaça → insights prefix
+    const ameacaRaw = extractListValue(block, "Ameaça ao JP");
     if (ameacaRaw) {
       const nivel = ameacaRaw.split(/[—\-]/)[0].trim().toUpperCase();
       currentComp.insights = `AMEAÇA: ${nivel}`;
@@ -389,20 +441,15 @@ function parseMapaConcorrentes(content: string): Partial<ParsedCompetitor>[] {
 
   for (const line of content.split("\n")) {
     const tierMatch = line.match(/^##\s*TIER\s*(\d+)/i);
-    if (tierMatch) {
-      flush();
-      currentTier = parseInt(tierMatch[1]);
-      continue;
-    }
+    if (tierMatch) { flush(); currentTier = parseInt(tierMatch[1]); continue; }
 
     const compMatch = line.match(/^###\s*\d+\.\s*(.+)/);
     if (compMatch) {
       flush();
       const rawName = compMatch[1].trim();
-      const defaultScore = currentTier === 1 ? 8.5 : currentTier === 2 ? 6 : 4;
       currentComp = {
-        name: rawName.split(/[\/|]/)[0].trim(),
-        score_escala: defaultScore,
+        name: rawName.replace(/\s*\/\s*/g, " / "),
+        score_escala: currentTier === 1 ? 8.5 : currentTier === 2 ? 6 : 4,
         score_max: 10,
       };
       compLines = [];

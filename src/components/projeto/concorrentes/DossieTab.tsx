@@ -45,6 +45,11 @@ function DossieCard({ c, updateField, uploadScreenshot, removeCompetitor }: {
           <Badge variant="secondary" className="text-xs font-mono">
             {c.score_escala}/{c.score_max}
           </Badge>
+          {c.insights?.startsWith("AMEA\u00C7A:") && (() => {
+            const nivel = c.insights.split("\n")[0].replace("AMEA\u00C7A:", "").trim();
+            const color = nivel.includes("ALTA") ? "destructive" : nivel.includes("MEDIA") ? "outline" : "secondary";
+            return <Badge variant={color as "destructive" | "outline" | "secondary"} className="text-[9px]">{nivel}</Badge>;
+          })()}
         </CardTitle>
         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeCompetitor(c.id)}>
           <Trash2 className="h-4 w-4" />
@@ -66,6 +71,42 @@ function DossieCard({ c, updateField, uploadScreenshot, removeCompetitor }: {
             </div>
           </div>
         </div>
+
+        {c.oferta_principal && (
+          <div>
+            <label className="text-xs uppercase tracking-wider text-primary/80">Oferta Principal</label>
+            <Input value={c.oferta_principal || ""} onChange={e => updateField(c.id, "oferta_principal", e.target.value)}
+              className="h-7 text-xs bg-secondary border-none mt-1" />
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs uppercase tracking-wider text-primary/80">Preco</label>
+            <Input value={c.preco || ""} onChange={e => updateField(c.id, "preco", e.target.value)}
+              className="h-7 text-xs bg-secondary border-none mt-1" placeholder="R$ ..." />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wider text-primary/80">Nicho / Foco</label>
+            <Input value={c.nicho || ""} onChange={e => updateField(c.id, "nicho", e.target.value)}
+              className="h-7 text-xs bg-secondary border-none mt-1" placeholder="Ex: Cabeleireiras" />
+          </div>
+        </div>
+        {(c.ponto_forte || c.mecanismo_unico) && (
+          <div className="space-y-2">
+            {c.ponto_forte && (
+              <div>
+                <label className="text-xs uppercase tracking-wider text-emerald-500/80">Diferencial</label>
+                <p className="text-xs text-muted-foreground mt-1 bg-secondary/50 rounded px-2 py-1">{c.ponto_forte}</p>
+              </div>
+            )}
+            {c.mecanismo_unico && (
+              <div>
+                <label className="text-xs uppercase tracking-wider text-blue-400/80">Modelo / Mecanismo</label>
+                <p className="text-xs text-muted-foreground mt-1 bg-secondary/50 rounded px-2 py-1">{c.mecanismo_unico}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="text-xs uppercase tracking-wider text-primary/80">Stack Tecnológico</label>

@@ -68,8 +68,44 @@ export function DoresTab({ avatar, onUpdate }: Props) {
                 <Trash2 className="h-3 w-3" />
               </Button>
               <Input value={sub.nome || ""} onChange={e => updateSub(i, "nome", e.target.value)} className="bg-secondary font-medium" placeholder="Nome do sub-avatar" />
-              <Textarea value={sub.descricao || ""} onChange={e => updateSub(i, "descricao", e.target.value)} className="bg-secondary text-sm min-h-[50px]" placeholder="Descrição..." />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <Textarea value={sub.descricao || ""} onChange={e => updateSub(i, "descricao", e.target.value)} className="bg-secondary text-sm min-h-[50px]" placeholder="Descrição / situação..." />
+              {sub.dor_principal && (
+                <div className="text-xs border-l-2 border-destructive/50 pl-2">
+                  <span className="text-destructive/70 font-mono uppercase tracking-wide text-[10px]">Dor</span>
+                  <p className="text-foreground/80">{sub.dor_principal}</p>
+                </div>
+              )}
+              {sub.hook && (
+                <div className="text-xs border-l-2 border-primary/50 pl-2">
+                  <span className="text-primary/70 font-mono uppercase tracking-wide text-[10px]">Hook</span>
+                  <p className="text-foreground/80 italic">{sub.hook}</p>
+                </div>
+              )}
+              {sub.crenca_bloqueadora && (
+                <div className="text-xs border-l-2 border-amber-500/50 pl-2">
+                  <span className="text-amber-500/70 font-mono uppercase tracking-wide text-[10px]">Crença Bloqueadora</span>
+                  <p className="text-foreground/80 italic">"{sub.crenca_bloqueadora}"</p>
+                </div>
+              )}
+              {sub.crenca_necessaria && (
+                <div className="text-xs border-l-2 border-emerald-500/50 pl-2">
+                  <span className="text-emerald-500/70 font-mono uppercase tracking-wide text-[10px]">Crença Necessária</span>
+                  <p className="text-foreground/80 italic">"{sub.crenca_necessaria}"</p>
+                </div>
+              )}
+              {sub.objecao && (
+                <div className="text-xs bg-secondary/50 rounded px-2 py-1">
+                  <span className="text-muted-foreground font-mono uppercase tracking-wide text-[10px]">Objeção: </span>
+                  <span className="text-foreground/80 italic">"{sub.objecao}"</span>
+                </div>
+              )}
+              {sub.asset_primario && (
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-mono uppercase tracking-wide text-[10px]">Asset: </span>
+                  <span>{sub.asset_primario}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs text-muted-foreground pt-1">
                 <div className="space-y-1"><span>Urgência</span><ScoreDots value={sub.urgencia || 0} /></div>
                 <div className="space-y-1"><span>Dinheiro</span><ScoreDots value={sub.dinheiro || 0} /></div>
               </div>
