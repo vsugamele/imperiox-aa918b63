@@ -79,6 +79,14 @@ function extractBulletPoints(section: string): string[] {
     .filter(Boolean);
 }
 
+function extractListValue(text: string, key: string): string {
+  // Matches: - **Key:** value  OR  - **Key / Variant:** value  OR  - Key: value
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`-\\s*\\*{0,2}\\s*${escaped}[^:\\n]*:\\*{0,2}\\s*(.+)`, "i");
+  const match = text.match(regex);
+  return match?.[1]?.trim().replace(/\*+/g, "") || "";
+}
+
 function parseDossie(content: string): Partial<ParsedCompetitor> {
   const result: Partial<ParsedCompetitor> = {};
 
@@ -90,9 +98,13 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
   const urlMatch = content.match(/(?:Site(?:\s*principal)?|URL|site):\s*(https?:\/\/\S+|[\w.-]+\.\w{2,}[\S]*)/i);
   if (urlMatch) result.url = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
 
-  result.oferta_principal = extractTableValue(content, "Produto") || extractTableValue(content, "Formato") || "";
-  
-  const preco = extractTableValue(content, "Preço");
+  result.oferta_principal = extractTableValue(content, "Produto") ||
+    extractTableValue(content, "Formato") ||
+    extractListValue(content, "Tipo") ||
+    extractListValue(content, "Produto digital") ||
+    extractListValue(content, "Formato") || "";
+
+  const preco = extractTableValue(content, "Preço") || extractListValue(content, "Preço");
   if (preco) result.preco = preco;
   else {
     const p = extractPrice(content);
@@ -176,6 +188,31 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
   const alunosMatch = content.match(/([\d.]+\+?)\s*(?:alunos|alunas|treinadas|formados)/i);
   if (alunosMatch) {
     result.publico_alvo = `${alunosMatch[1]} alunos formados`;
+  }
+
+  // Ameaça ao JP
+  const ameacaRaw = extractListValue(content, "Ameaça ao JP");
+  if (ameacaRaw) {
+    const nivel = ameacaRaw.split(/[—\-]/)[0].trim().toUpperCase();
+    result.insights = result.insights
+      ? `AMEAÇA: ${nivel}\n\n${result.insights}`
+      : `AMEAÇA: ${nivel}`;
+  }
+
+  // Instagram / canais
+  if (!result.canais_keywords?.length) {
+    const igMatch = content.match(/@[\w.]+/);
+    if (igMatch) result.canais_keywords = [`Instagram: ${igMatch[0]}`];
+  }
+
+  // Seguidores como trafego_est fallback
+  if (!result.trafego_est) {
+    const seg = extractListValue(content, "Seguidores");
+    if (seg) result.trafego_est = seg;
+    else {
+      const m = content.match(/(\d[\d.]*[KMkm]?\+?)\s*(?:seguidores|seg\.)/i);
+      if (m) result.trafego_est = m[1] + " seguidores";
+    }
   }
 
   return result;
@@ -283,8 +320,113 @@ function parseRelatorioFinal(content: string): Partial<ParsedCompetitor>[] {
   return competitors;
 }
 
+function parseMapaConcorrentes(content: string): Partial<ParsedCompetitor>[] {
+  const competitors: Partial<ParsedCompetitor>[] = [];
+  let currentTier = 1;
+  let currentComp: Partial<ParsedCompetitor> | null = null;
+  let compLines: string[] = [];
+
+  const flush = () => {
+    if (!currentComp) return;
+    const block = compLines.join("\n");
+
+    const seguidores = extractListValue(block, "Seguidores");
+    const produto = extractListValue(block, "Produto digital") || extractListValue(block, "Produto");
+    const foco = extractListValue(block, "Foco") || extractListValue(block, "Nicho");
+    const modelo = extractListValue(block, "Modelo") || extractListValue(block, "Tipo de produto");
+    const diferencial = extractListValue(block, "Diferencial") || extractListValue(block, "Posicionamento");
+    const statusAds = extractListValue(block, "Status anunciante") || extractListValue(block, "Anunciante");
+    const ameacaRaw = extractListValue(block, "Ameaça ao JP");
+    const hotmartMatch = block.match(/Hotmart[:\s]+(\w+)/i);
+    const publico = extractListValue(block, "Público") || extractListValue(block, "Avatar");
+    const alunos = extractListValue(block, "Alunos");
+    const garantia = extractListValue(block, "Garantia");
+    const fraqueza = extractListValue(block, "Fraqueza") || extractListValue(block, "Ponto fraco");
+    const hook = extractListValue(block, "Hook") || extractListValue(block, "Headline");
+
+    if (seguidores) currentComp.trafego_est = seguidores;
+    else if (alunos) currentComp.trafego_est = alunos;
+    if (produto) currentComp.oferta_principal = produto;
+    if (foco) currentComp.nicho = foco;
+    if (modelo) currentComp.mecanismo_unico = modelo;
+    if (diferencial) currentComp.ponto_forte = diferencial;
+    if (statusAds) currentComp.ads_ativos = /ATIVO|SIM|YES/i.test(statusAds);
+    if (publico) currentComp.publico_alvo = publico;
+    if (garantia) currentComp.garantia = garantia;
+    if (fraqueza) currentComp.fraqueza = fraqueza;
+    if (hook) currentComp.hook = hook;
+
+    // Price: try list value first, then regex (supports "R$ 197" with space)
+    const precoVal = extractListValue(block, "Preço") || extractListValue(block, "Preco") || extractListValue(block, "Ticket");
+    const priceMatch = block.match(/R\$\s*[\d.,]+(?:\s*(?:\/(?:mês|ano|aula))?)?/i);
+    if (precoVal) currentComp.preco = precoVal;
+    else if (priceMatch) currentComp.preco = priceMatch[0];
+
+    // URL extraction
+    const siteVal = extractListValue(block, "Site") || extractListValue(block, "URL") || extractListValue(block, "Link");
+    if (siteVal) {
+      currentComp.url = siteVal.startsWith("http") ? siteVal : `https://${siteVal}`;
+    }
+
+    const igMatch = block.match(/@[\w.]+/);
+    if (igMatch) currentComp.canais_keywords = [igMatch[0]];
+
+    const stack: string[] = [];
+    if (hotmartMatch) stack.push(`Hotmart: ${hotmartMatch[1]}`);
+    const plataforma = extractListValue(block, "Plataforma");
+    if (plataforma) stack.push(plataforma);
+    if (stack.length) currentComp.stack_tecnologico = stack;
+
+    if (ameacaRaw) {
+      const nivel = ameacaRaw.split(/[—\-]/)[0].trim().toUpperCase();
+      currentComp.insights = `AMEAÇA: ${nivel}`;
+    }
+
+    competitors.push(currentComp);
+    currentComp = null;
+    compLines = [];
+  };
+
+  for (const line of content.split("\n")) {
+    const tierMatch = line.match(/^##\s*TIER\s*(\d+)/i);
+    if (tierMatch) {
+      flush();
+      currentTier = parseInt(tierMatch[1]);
+      continue;
+    }
+
+    const compMatch = line.match(/^###\s*\d+\.\s*(.+)/);
+    if (compMatch) {
+      flush();
+      const rawName = compMatch[1].trim();
+      const defaultScore = currentTier === 1 ? 8.5 : currentTier === 2 ? 6 : 4;
+      currentComp = {
+        name: rawName.split(/[\/|]/)[0].trim(),
+        score_escala: defaultScore,
+        score_max: 10,
+      };
+      compLines = [];
+      continue;
+    }
+
+    if (currentComp) compLines.push(line);
+  }
+  flush();
+
+  return competitors;
+}
+
 function detectAndParse(content: string): { competitors: Partial<ParsedCompetitor>[]; type: string } {
   const lower = content.toLowerCase();
+
+  // Mapa completo de concorrentes (_concorrentes.md format)
+  if (
+    lower.includes("mapa completo de concorrentes") ||
+    lower.includes("mapa competitivo completo") ||
+    (lower.includes("## tier 1") && lower.includes("ameaça ao jp"))
+  ) {
+    return { competitors: parseMapaConcorrentes(content), type: "mapa" };
+  }
 
   if (lower.includes("dossiê competitivo") || lower.includes("dossie competitivo")) {
     return { competitors: [parseDossie(content)], type: "dossiê" };

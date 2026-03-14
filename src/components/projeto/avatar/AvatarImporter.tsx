@@ -19,6 +19,22 @@ function extractText(el: Element | null): string {
 
 function parseDesireItems(container: Element | null): any[] {
   if (!container) return [];
+
+  // Primary: .desejo-card format (JP Freitas HTML)
+  const desejoCards = container.querySelectorAll(".desejo-card");
+  if (desejoCards.length) {
+    return Array.from(desejoCards).map((el, i) => {
+      const rank = extractText(el.querySelector(".dc-rank")) || String(i + 1);
+      const nome = extractText(el.querySelector(".dc-name"));
+      const scoreText = extractText(el.querySelector(".dc-score-pill"));
+      const score = parseFloat(scoreText) || 0;
+      const tags = Array.from(el.querySelectorAll(".dc-tag.hi, .dc-tag")).map(t => extractText(t));
+      const justificativa = tags.filter(Boolean).join(" · ");
+      return { rank, nome, score, justificativa };
+    }).filter(item => item.nome);
+  }
+
+  // Fallback: .desire-item format
   return Array.from(container.querySelectorAll(".desire-item")).map(el => {
     const rank = extractText(el.querySelector(".desire-rank"));
     const nome = extractText(el.querySelector(".desire-name"));
@@ -44,24 +60,41 @@ function parseAvatarHTML(html: string): any {
     }));
   }
 
-  // ── Score Table (filtro + problemas com scores) ──
-  const scoreRows = doc.querySelectorAll(".score-table tbody tr");
-  if (scoreRows.length) {
-    result.problemas = Array.from(scoreRows).map((row, i) => {
-      const cells = row.querySelectorAll("td");
-      const headers = doc.querySelectorAll(".score-table thead th");
-      const scoreKeys = Array.from(headers).slice(2, -1).map(h => extractText(h).toLowerCase().replace(/\s+/g, "_"));
-      const scores: any = {};
-      scoreKeys.forEach((key, idx) => {
-        scores[key] = parseInt(extractText(cells[idx + 2])) || 0;
-      });
-      return {
-        rank: parseInt(extractText(cells[0])) || i + 1,
-        nome: extractText(cells[1]),
-        total: parseInt(extractText(cells[cells.length - 1])) || 0,
-        scores,
-      };
+  // ── Score Table (Module 03 - #problemas-tabela .score-table) ──
+  const scoreTable = doc.querySelector("#problemas-tabela .score-table, .score-table");
+  if (scoreTable) {
+    const headers = Array.from(scoreTable.querySelectorAll("thead th")).map(h => extractText(h));
+    // Headers: Problema, Dor, Desejo, Piora, Veloc., Pagar, Comun., Freq., TOTAL
+    const scoreKeys = headers.slice(1, -1); // [Dor, Desejo, Piora, Veloc., Pagar, Comun., Freq.]
+
+    const rows = Array.from(scoreTable.querySelectorAll("tbody tr")).filter(row => {
+      // Skip divider rows (td with colspan attribute)
+      const firstTd = row.querySelector("td");
+      return firstTd && !firstTd.getAttribute("colspan") && firstTd.textContent?.trim();
     });
+
+    result.problemas = rows.map((row, i) => {
+      const cells = row.querySelectorAll("td");
+      // cells[0] = Problema cell with embedded <span class="rank-badge">#N</span>
+      const rankBadge = cells[0]?.querySelector(".rank-badge");
+      const rankText = rankBadge ? extractText(rankBadge).replace("#", "") : String(i + 1);
+      const rank = parseInt(rankText) || i + 1;
+
+      // Nome: clone cells[0] and remove rank badge to get clean text
+      const nomeEl = cells[0]?.cloneNode(true) as Element;
+      nomeEl?.querySelector(".rank-badge")?.remove();
+      const nome = nomeEl?.textContent?.trim() || "";
+
+      const scores: Record<string, number> = {};
+      scoreKeys.forEach((key, idx) => {
+        // scores are in cells[1] through cells[scoreKeys.length]
+        const scVal = cells[idx + 1]?.querySelector(".sc-val");
+        scores[key.toLowerCase().replace(/[\s.]+/g, "_")] = parseInt(scVal ? extractText(scVal) : extractText(cells[idx + 1])) || 0;
+      });
+
+      const total = parseInt(extractText(cells[cells.length - 1])) || 0;
+      return { rank, nome, total, scores };
+    }).filter(p => p.nome);
   } else {
     // Fallback: .prob-table (used in multiple sections)
     const probTables = doc.querySelectorAll(".prob-table");
@@ -177,10 +210,10 @@ function parseAvatarHTML(html: string): any {
   cards.forEach(card => {
     const label = extractText(card.querySelector(".card-label"));
     const content = extractText(card.querySelector(".card-content, .card-body, p"));
-    if (label.includes("C1")) camadas.c1_superficie = content;
-    else if (label.includes("C2")) camadas.c2_emocional = content;
-    else if (label.includes("C3")) camadas.c3_identidade = content;
-    else if (label.includes("C4")) camadas.c4_existencial = content;
+    if (label.includes("C1")) camadas.c1_observaveis = content;
+    else if (label.includes("C2")) camadas.c2_conscientes = content;
+    else if (label.includes("C3")) camadas.c3_subconscientes = content;
+    else if (label.includes("C4")) camadas.c4_trauma = content;
   });
 
   // Also try .acc-card for C1-C4 (accordion format)
@@ -192,12 +225,57 @@ function parseAvatarHTML(html: string): any {
     const bodyItems = Array.from(card.querySelectorAll(".acc-body .dl li, .acc-body li")).map(li => extractText(li));
     const bodyText = bodyItems.length ? bodyItems.join(" • ") : extractText(card.querySelector(".acc-body"));
 
-    if (num === "C1" || id.includes("-c1")) camadas.c1_superficie = bodyText || camadas.c1_superficie;
-    else if (num === "C2" || id.includes("-c2")) camadas.c2_emocional = bodyText || camadas.c2_emocional;
-    else if (num === "C3" || id.includes("-c3")) camadas.c3_identidade = bodyText || camadas.c3_identidade;
-    else if (num === "C4" || id.includes("-c4")) camadas.c4_existencial = bodyText || camadas.c4_existencial;
+    if (num === "C1" || id.includes("-c1")) camadas.c1_observaveis = bodyText || camadas.c1_observaveis;
+    else if (num === "C2" || id.includes("-c2")) camadas.c2_conscientes = bodyText || camadas.c2_conscientes;
+    else if (num === "C3" || id.includes("-c3")) camadas.c3_subconscientes = bodyText || camadas.c3_subconscientes;
+    else if (num === "C4" || id.includes("-c4")) camadas.c4_trauma = bodyText || camadas.c4_trauma;
   });
   if (Object.keys(camadas).length) result.camadas_psique = camadas;
+
+  // ── Dores de C2 (Frustrações verbalizadas) ──
+  const c2El = doc.querySelector("#avatar-c2, [id='avatar-c2']");
+  if (c2El && !result.dores_superficiais?.length) {
+    const allDls = c2El.querySelectorAll(".dl");
+    allDls.forEach(dl => {
+      const prevLabel = extractText(dl.previousElementSibling).toLowerCase();
+      if (prevLabel.includes("frustr")) {
+        const items = Array.from(dl.querySelectorAll("li")).map(li => extractText(li)).filter(Boolean);
+        if (items.length) result.dores_superficiais = items;
+      }
+    });
+  }
+
+  // ── Dores profundas de C3 (Contradições + Rituais) ──
+  const c3El = doc.querySelector("#avatar-c3, [id='avatar-c3']");
+  if (c3El && !result.dores_profundas?.length) {
+    const redDls = c3El.querySelectorAll(".dl.red");
+    if (redDls.length) {
+      const items: string[] = [];
+      redDls.forEach(dl => {
+        Array.from(dl.querySelectorAll("li")).forEach(li => {
+          const text = extractText(li);
+          if (text) items.push(text);
+        });
+      });
+      if (items.length) result.dores_profundas = items.slice(0, 8);
+    }
+  }
+
+  // ── Medos de C4 (Vergonhas silenciosas) ──
+  const c4El = doc.querySelector("#avatar-c4, [id='avatar-c4']");
+  if (c4El && !result.medos?.length) {
+    const redDls = c4El.querySelectorAll(".dl.red");
+    if (redDls.length) {
+      const items: string[] = [];
+      redDls.forEach(dl => {
+        Array.from(dl.querySelectorAll("li")).forEach(li => {
+          const text = extractText(li);
+          if (text) items.push(text);
+        });
+      });
+      if (items.length) result.medos = items.slice(0, 5);
+    }
+  }
 
   // ── Beliefs ──
   const beliefBoxes = doc.querySelectorAll(".belief-box");
@@ -235,6 +313,29 @@ function parseAvatarHTML(html: string): any {
       nome: extractText(m.querySelector(".mov-title, .movement-title, h4, strong")),
       descricao: extractText(m.querySelector(".mov-desc, .mov-body, .movement-desc, p")),
     }));
+  }
+
+  // ── Perfil Psicológico (#desejos-b1 .perfil-box) ──
+  const desejoB1 = doc.querySelector("#desejos-b1");
+  if (desejoB1) {
+    const perfilBox = desejoB1.querySelector(".perfil-box");
+    if (perfilBox) {
+      const perfil: Record<string, string> = {};
+      // Retrato: one or two .perfil-text paragraphs
+      const perfilTexts = Array.from(perfilBox.querySelectorAll(".perfil-text"))
+        .map(p => extractText(p)).filter(Boolean);
+      if (perfilTexts.length) perfil.retrato = perfilTexts.join("\n\n");
+      // pg-item: Arquétipo, Ferida Central, Padrão Comportamental, Contradição Central
+      perfilBox.querySelectorAll(".pg-item").forEach(item => {
+        const label = extractText(item.querySelector(".pg-label")).toLowerCase();
+        const val = extractText(item.querySelector(".pg-val"));
+        if (label.includes("arqué") || label.includes("arque")) perfil.arquetipo = val;
+        else if (label.includes("ferida")) perfil.ferida_central = val;
+        else if (label.includes("padrão") || label.includes("padrao")) perfil.padrao = val;
+        else if (label.includes("contradição") || label.includes("contradicao")) perfil.contradicao = val;
+      });
+      if (Object.keys(perfil).length) result.perfil_psicologico = perfil;
+    }
   }
 
   // ── Handoff (.hi) ──
@@ -312,15 +413,9 @@ function parseAvatarHTML(html: string): any {
   // ── Objeções (.obj-card) ──
   const objCards = doc.querySelectorAll(".obj-card");
   if (objCards.length) {
-    result.objecoes = Array.from(objCards).map(card => {
-      const pergunta = extractText(card.querySelector(".obj-q"));
-      const rows = card.querySelectorAll(".obj-row");
-      const respostas: any[] = Array.from(rows).map(row => ({
-        tipo: extractText(row.querySelector(".obj-key")),
-        texto: extractText(row.querySelector(".obj-val")),
-      }));
-      return { pergunta, respostas };
-    });
+    result.objecoes = Array.from(objCards)
+      .map(card => extractText(card.querySelector(".obj-q")))
+      .filter(Boolean);
   }
 
   // ── Value Stack (.vs-item) ──
@@ -389,18 +484,20 @@ function parseAvatarHTML(html: string): any {
   }
 
   // ── Word clouds (.word-list .word + .wpill) ──
-  const wordItems = doc.querySelectorAll(".word-list .word, .word-cloud .word");
-  if (wordItems.length) {
+  // Primary: .wpill elements (classes: .dor, .desejo, .solucao, .validacao)
+  const wpillItems = doc.querySelectorAll(".wpill");
+  if (wpillItems.length) {
     const palavras_dor: string[] = [];
     const palavras_desejo: string[] = [];
     const palavras_solucao: string[] = [];
     const palavras_valor: string[] = [];
-    wordItems.forEach(w => {
+    wpillItems.forEach(w => {
       const text = extractText(w);
+      if (!text) return;
       if (w.classList.contains("dor")) palavras_dor.push(text);
-      else if (w.classList.contains("des")) palavras_desejo.push(text);
-      else if (w.classList.contains("sol")) palavras_solucao.push(text);
-      else if (w.classList.contains("val")) palavras_valor.push(text);
+      else if (w.classList.contains("desejo")) palavras_desejo.push(text);
+      else if (w.classList.contains("solucao")) palavras_solucao.push(text);
+      else if (w.classList.contains("validacao")) palavras_valor.push(text);
     });
     if (palavras_dor.length) result.palavras_dor = palavras_dor;
     if (palavras_desejo.length) result.palavras_desejo = palavras_desejo;
@@ -408,19 +505,26 @@ function parseAvatarHTML(html: string): any {
     if (palavras_valor.length) result.palavras_valor = palavras_valor;
   }
 
-  // Fallback: .wpill
+  // Fallback: .word-list .word or .word-cloud .word
   if (!result.palavras_dor && !result.palavras_desejo) {
-    const wordClouds = doc.querySelectorAll(".word-cloud");
-    wordClouds.forEach(cloud => {
-      const pills = Array.from(cloud.querySelectorAll(".wpill")).map(p => extractText(p));
-      if (!pills.length) return;
-      const prev = cloud.previousElementSibling;
-      const label = extractText(prev).toLowerCase();
-      if (label.includes("dor")) result.palavras_dor = pills;
-      else if (label.includes("desejo")) result.palavras_desejo = pills;
-      else if (label.includes("solução") || label.includes("solucao")) result.palavras_solucao = pills;
-      else if (label.includes("validação") || label.includes("validacao")) result.palavras_valor = pills;
-    });
+    const wordItems = doc.querySelectorAll(".word-list .word, .word-cloud .word");
+    if (wordItems.length) {
+      const palavras_dor: string[] = [];
+      const palavras_desejo: string[] = [];
+      const palavras_solucao: string[] = [];
+      const palavras_valor: string[] = [];
+      wordItems.forEach(w => {
+        const text = extractText(w);
+        if (w.classList.contains("dor")) palavras_dor.push(text);
+        else if (w.classList.contains("desejo") || w.classList.contains("des")) palavras_desejo.push(text);
+        else if (w.classList.contains("solucao") || w.classList.contains("sol")) palavras_solucao.push(text);
+        else if (w.classList.contains("validacao") || w.classList.contains("val")) palavras_valor.push(text);
+      });
+      if (palavras_dor.length) result.palavras_dor = palavras_dor;
+      if (palavras_desejo.length) result.palavras_desejo = palavras_desejo;
+      if (palavras_solucao.length) result.palavras_solucao = palavras_solucao;
+      if (palavras_valor.length) result.palavras_valor = palavras_valor;
+    }
   }
 
   // ── Frases-gatilho ──
@@ -505,6 +609,42 @@ function parseAvatarHTML(html: string): any {
   });
   if (subAvatares.length) result.sub_avatares = subAvatares;
 
+  if (subAvatares.length && !result.objecoes?.length) {
+    const objs = subAvatares.map((s: any) => s.objecao).filter(Boolean);
+    if (objs.length) result.objecoes = objs;
+  }
+
+  // Derive desejo_externo and desejo_interno from first items of arrays
+  if (!result.desejo_externo && result.desejos_externos?.[0]) {
+    result.desejo_externo = result.desejos_externos[0].nome;
+  }
+  if (!result.desejo_interno && result.desejos_internos?.[0]) {
+    result.desejo_interno = result.desejos_internos[0].nome;
+  }
+
+  // Map gatilhos_detalhados → gatilhos (compatible structure)
+  if (result.gatilhos_detalhados?.length && !result.gatilhos?.length) {
+    result.gatilhos = result.gatilhos_detalhados.map((g: any) => ({
+      nome: g.titulo || "",
+      categoria: g.categoria || g.tipo || "",
+      intensidade: g.intensidade || g.intensidade_emocional || "",
+      situacao: g.situacao || g.contexto || g.fase_atual || "",
+      copy_sugerido: g.copy || g.frase_gatilho || g.texto || "",
+    }));
+  }
+
+  // Try to extract gatilho_nuclear / the_high / the_hell from handoff items
+  if (result.handoff?.length) {
+    result.handoff.forEach((item: any) => {
+      const txt = String(item.texto || item.descricao || "").toLowerCase();
+      const full = String(item.texto || item.descricao || "");
+      if (!result.gatilho_nuclear && (txt.includes("nuclear") || txt.includes("gatilho"))) result.gatilho_nuclear = full;
+      if (!result.the_high && (txt.includes("high") || txt.includes("melhor momento") || txt.includes("sonho"))) result.the_high = full;
+      if (!result.the_hell && (txt.includes("hell") || txt.includes("pior cenário") || txt.includes("pesadelo"))) result.the_hell = full;
+      if (!result.segredo_final && (txt.includes("segredo") || txt.includes("compra"))) result.segredo_final = full;
+    });
+  }
+
   return result;
 }
 
@@ -522,6 +662,7 @@ function getImportSummary(data: any): { label: string; count: number; emoji: str
   if (data.voyerismos?.length) items.push({ label: "Cenas de Voyerismo", count: data.voyerismos.length, emoji: "👁️" });
   if (data.sub_avatares?.length) items.push({ label: "Sub-Avatares", count: data.sub_avatares.length, emoji: "🧠" });
   if (data.camadas_psique) items.push({ label: "Camadas da Psique", count: Object.keys(data.camadas_psique).length, emoji: "🧬" });
+  if (data.perfil_psicologico) items.push({ label: "Perfil Psicológico", count: Object.keys(data.perfil_psicologico).length, emoji: "🪞" });
   if (data.emocoes_sequencia?.length) items.push({ label: "Sequência de Emoções", count: data.emocoes_sequencia.length, emoji: "🌊" });
   if (data.ciclo_sabotagem?.length) items.push({ label: "Ciclo de Sabotagem", count: data.ciclo_sabotagem.length, emoji: "🔄" });
   if (data.movimentos?.length) items.push({ label: "Movimentos", count: data.movimentos.length, emoji: "🏃" });
@@ -530,7 +671,6 @@ function getImportSummary(data: any): { label: string; count: number; emoji: str
   if (data.anuncios?.length) items.push({ label: "Anúncios (Copy)", count: data.anuncios.length, emoji: "📢" });
   if (data.vsl_timeline?.length) items.push({ label: "VSL Timeline", count: data.vsl_timeline.length, emoji: "🎬" });
   if (data.pagina_vendas?.length) items.push({ label: "Página de Vendas", count: data.pagina_vendas.length, emoji: "🛒" });
-  if (data.objecoes?.length) items.push({ label: "Objeções", count: data.objecoes.length, emoji: "🛡️" });
   if (data.value_stack?.length) items.push({ label: "Value Stack", count: data.value_stack.length, emoji: "💰" });
   if (data.upsell_steps?.length) items.push({ label: "Upsell Steps", count: data.upsell_steps.length, emoji: "⬆️" });
   if (data.gatilhos_detalhados?.length) items.push({ label: "Gatilhos Detalhados", count: data.gatilhos_detalhados.length, emoji: "⚡" });
@@ -542,6 +682,10 @@ function getImportSummary(data: any): { label: string; count: number; emoji: str
   if (data.palavras_desejo?.length) items.push({ label: "Palavras de Desejo", count: data.palavras_desejo.length, emoji: "💫" });
   if (data.palavras_solucao?.length) items.push({ label: "Palavras de Solução", count: data.palavras_solucao.length, emoji: "🔑" });
   if (data.palavras_valor?.length) items.push({ label: "Palavras de Valor", count: data.palavras_valor.length, emoji: "⭐" });
+  if (data.dores_superficiais?.length) items.push({ label: "Dores Superficiais", count: data.dores_superficiais.length, emoji: "🩸" });
+  if (data.dores_profundas?.length) items.push({ label: "Dores Profundas", count: data.dores_profundas.length, emoji: "🔴" });
+  if (data.medos?.length) items.push({ label: "Medos", count: data.medos.length, emoji: "😰" });
+  if (data.objecoes?.length) items.push({ label: "Objeções", count: data.objecoes.length, emoji: "🛡️" });
   if (data.frases_gatilho_dor?.length) items.push({ label: "Frases-Gatilho Dor", count: data.frases_gatilho_dor.length, emoji: "🗣️" });
   if (data.frases_gatilho_desejo?.length) items.push({ label: "Frases-Gatilho Desejo", count: data.frases_gatilho_desejo.length, emoji: "🗣️" });
   if (data.frases_gatilho_decisao?.length) items.push({ label: "Frases-Gatilho Decisão", count: data.frases_gatilho_decisao.length, emoji: "🗣️" });

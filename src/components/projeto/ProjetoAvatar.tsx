@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,7 +22,19 @@ interface Props {
 export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) {
   const [showImporter, setShowImporter] = useState(false);
   const [showHtmlViewer, setShowHtmlViewer] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const avatar = project.avatar || {};
+
+  useEffect(() => {
+    if (showHtmlViewer && avatar.html_original) {
+      const blob = new Blob([avatar.html_original], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      setBlobUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setBlobUrl(null);
+    }
+  }, [showHtmlViewer, avatar.html_original]);
 
   const hasHtmlOriginal = !!avatar.html_original;
 
@@ -97,10 +109,10 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
           </DialogHeader>
           <div className="flex-1 overflow-hidden rounded border border-border">
             <iframe
-              srcDoc={avatar.html_original || ""}
+              src={blobUrl || ""}
               className="w-full h-[70vh] bg-white"
               title="HTML Original do Avatar"
-              sandbox="allow-same-origin"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
             />
           </div>
         </DialogContent>

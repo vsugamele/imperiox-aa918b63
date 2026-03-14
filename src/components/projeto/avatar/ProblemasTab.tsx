@@ -1,25 +1,62 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
 }
 
+// Meta para chaves conhecidas (HTML importado + legado manual)
+const SCORE_META: Record<string, { label: string; color: string }> = {
+  dor:        { label: "Dor",     color: "text-red-400" },
+  desejo:     { label: "Desejo",  color: "text-blue-400" },
+  piora:      { label: "Piora",   color: "text-orange-400" },
+  veloc_:     { label: "Veloc.",  color: "text-purple-400" },
+  pagar:      { label: "Pagar",   color: "text-emerald-400" },
+  comun_:     { label: "Comun.",  color: "text-yellow-400" },
+  freq_:      { label: "Freq.",   color: "text-pink-400" },
+  // legado manual
+  frequencia: { label: "Freq.",   color: "text-pink-400" },
+  comunicar:  { label: "Comun.",  color: "text-yellow-400" },
+  resolver:   { label: "Resolve", color: "text-blue-400" },
+  urgencia:   { label: "Urgênc.", color: "text-purple-400" },
+  dinheiro:   { label: "Dinheiro",color: "text-emerald-400" },
+  social:     { label: "Social",  color: "text-orange-400" },
+};
+const FALLBACK_SCORE_KEYS = ["dor","desejo","piora","veloc_","pagar","comun_","freq_"];
+
 export function ProblemasTab({ avatar, onUpdate }: Props) {
+  const [expanded, setExpanded] = useState<number | null>(null);
   const problemas = avatar.problemas || [];
 
-  const add = () => onUpdate({
-    ...avatar,
-    problemas: [...problemas, { rank: problemas.length + 1, nome: "", total: 0, cena_voyerismo: "", scores: { dor: 0, frequencia: 0, comunicar: 0, resolver: 0, urgencia: 0, dinheiro: 0, social: 0 } }],
-  });
+  // Determine active score keys from first problem that has scores, or fallback
+  const activeScoreKeys = (() => {
+    const first = problemas.find((p: any) => p.scores && Object.keys(p.scores).length > 0);
+    if (first) return Object.keys(first.scores);
+    return FALLBACK_SCORE_KEYS;
+  })();
 
-  const remove = (i: number) => onUpdate({ ...avatar, problemas: problemas.filter((_: any, j: number) => j !== i) });
+  const add = () => {
+    const emptyScores = Object.fromEntries(activeScoreKeys.map(k => [k, 0]));
+    onUpdate({
+      ...avatar,
+      problemas: [...problemas, {
+        rank: problemas.length + 1, nome: "", total: 0, cena_voyerismo: "",
+        scores: emptyScores,
+      }],
+    });
+  };
+
+  const remove = (i: number) => {
+    if (expanded === i) setExpanded(null);
+    onUpdate({ ...avatar, problemas: problemas.filter((_: any, j: number) => j !== i) });
+  };
 
   const edit = (i: number, field: string, val: any) => {
     const updated = [...problemas];
@@ -35,72 +72,92 @@ export function ProblemasTab({ avatar, onUpdate }: Props) {
     onUpdate({ ...avatar, problemas: updated });
   };
 
+  const sorted = [...problemas].sort((a: any, b: any) => (b.total || 0) - (a.total || 0));
+
+  const getScoreColor = (score: number) => {
+    if (score >= 28) return "text-red-400 border-red-500/30 bg-red-500/10";
+    if (score >= 21) return "text-orange-400 border-orange-500/30 bg-orange-500/10";
+    if (score >= 14) return "text-yellow-400 border-yellow-500/30 bg-yellow-500/10";
+    return "text-muted-foreground border-border bg-secondary/50";
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card className="bg-card border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🎯 Ranking de Problemas</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div>
+            <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">Ranking de Problemas</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Top 5 = base de hooks, VSL e headlines</p>
+          </div>
           <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Problema</Button>
         </CardHeader>
-        <CardContent>
-          <p className="text-xs text-muted-foreground mb-4">Problemas rankeados por score multidimensional. Top 5 = base de hooks e abertura de VSL.</p>
-          {problemas.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">#</TableHead>
-                    <TableHead>Problema</TableHead>
-                    <TableHead className="w-16 text-center">Score</TableHead>
-                    <TableHead className="w-8"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {problemas.sort((a: any, b: any) => (b.total || 0) - (a.total || 0)).map((p: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell>
-                        <Input value={p.nome || ""} onChange={e => edit(i, "nome", e.target.value)} className="bg-transparent border-none p-0 h-auto text-sm" placeholder="Nome do problema..." />
-                      </TableCell>
-                      <TableCell className="text-center font-mono font-bold text-primary">{p.total || 0}/35</TableCell>
-                      <TableCell>
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => remove(i)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nenhum problema cadastrado.</p>
-          )}
+        <CardContent className="space-y-1.5">
+          {sorted.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Nenhum problema cadastrado.</p>}
+          {sorted.map((p: any, i: number) => {
+            const origIdx = problemas.indexOf(p);
+            const isOpen = expanded === origIdx;
+            return (
+              <div key={i} className="rounded-md border border-border overflow-hidden">
+                <div
+                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-secondary/50 transition-colors"
+                  onClick={() => setExpanded(isOpen ? null : origIdx)}
+                >
+                  <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">#{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      value={p.nome || ""}
+                      onChange={e => { e.stopPropagation(); edit(origIdx, "nome", e.target.value); }}
+                      onClick={e => e.stopPropagation()}
+                      className="bg-transparent border-none p-0 h-auto text-sm font-medium focus-visible:ring-0"
+                      placeholder="Nome do problema..."
+                    />
+                  </div>
+                  <Badge variant="outline" className={`text-xs font-mono shrink-0 border ${getScoreColor(p.total || 0)}`}>
+                    {p.total || 0}/35
+                  </Badge>
+                  <Button
+                    size="icon" variant="ghost"
+                    className="h-6 w-6 text-destructive shrink-0"
+                    onClick={e => { e.stopPropagation(); remove(origIdx); }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                  {isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                </div>
+                {isOpen && (
+                  <div className="border-t border-border px-3 py-3 bg-secondary/30 space-y-3">
+                    <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                      {activeScoreKeys.map(sk => {
+                        const meta = SCORE_META[sk] || { label: sk, color: "text-muted-foreground" };
+                        return (
+                          <div key={sk} className="text-center">
+                            <Label className={`text-[10px] font-mono uppercase ${meta.color}`}>{meta.label}</Label>
+                            <Input
+                              type="number" min={0} max={5}
+                              value={p.scores?.[sk] || 0}
+                              onChange={e => editScore(origIdx, sk, Number(e.target.value))}
+                              className="bg-secondary h-8 text-sm text-center mt-1 px-1"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Cena de Voyerismo Associada</Label>
+                      <Textarea
+                        value={p.cena_voyerismo || ""}
+                        onChange={e => edit(origIdx, "cena_voyerismo", e.target.value)}
+                        className="bg-secondary text-sm min-h-[40px] mt-1"
+                        placeholder="Ex: Mao treme ao pegar a tesoura..."
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
-
-      {/* Detail cards for each problem */}
-      {problemas.map((p: any, i: number) => (
-        <Card key={i} className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-sm font-sans">#{i + 1} — {p.nome || "Sem nome"}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {["dor", "frequencia", "comunicar", "resolver", "urgencia", "dinheiro", "social"].map(key => (
-                <div key={key}>
-                  <Label className="text-[10px] text-muted-foreground uppercase">{key}</Label>
-                  <Input type="number" min={0} max={5} value={p.scores?.[key] || 0} onChange={e => editScore(i, key, Number(e.target.value))} className="bg-secondary h-8 text-sm" />
-                </div>
-              ))}
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Cena de Voyerismo Associada</Label>
-              <Textarea value={p.cena_voyerismo || ""} onChange={e => edit(i, "cena_voyerismo", e.target.value)} className="bg-secondary text-sm min-h-[40px]" placeholder="Ex: Mão treme ao pegar tesoura..." />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
     </div>
   );
 }
