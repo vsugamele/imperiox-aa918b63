@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [urgentTasks, setUrgentTasks] = useState<any[]>([]);
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [projectFinance, setProjectFinance] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
