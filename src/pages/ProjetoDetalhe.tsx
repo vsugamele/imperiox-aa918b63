@@ -177,6 +177,9 @@ export default function ProjetoDetalhe() {
         <TabsContent value="conteudo" className="mt-4">
           <ProjetoConteudo projectId={id!} />
         </TabsContent>
+        <TabsContent value="financas" className="mt-4">
+          <ProjetoFinancas projectId={id!} />
+        </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📈 Analytics & Tracking</CardTitle></CardHeader>
