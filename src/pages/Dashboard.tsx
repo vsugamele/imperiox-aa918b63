@@ -53,6 +53,37 @@ export default function Dashboard() {
       setUrgentTasks(urgentRes.data || []);
       setOpportunities(oppRes.data || []);
       setUpcomingEvents(eventsRes.data || []);
+
+      // Load project financial data
+      const [costsRes, revsRes, projListRes] = await Promise.all([
+        supabase.from("imphq_project_costs").select("project_id, valor, moeda"),
+        supabase.from("imphq_project_revenue").select("project_id, valor"),
+        supabase.from("imphq_projects").select("id, name, icon, color"),
+      ]);
+      
+      const projMap = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+      const costByProj = new Map<string, number>();
+      const revByProj = new Map<string, number>();
+      
+      (costsRes.data || []).forEach((c: any) => {
+        const val = parseFloat(c.valor) || 0;
+        const brl = c.moeda === "USD" ? val * 5.2 : val;
+        costByProj.set(c.project_id, (costByProj.get(c.project_id) || 0) + brl);
+      });
+      (revsRes.data || []).forEach((r: any) => {
+        const val = parseFloat(r.valor) || 0;
+        revByProj.set(r.project_id, (revByProj.get(r.project_id) || 0) + val);
+      });
+      
+      const allProjIds = new Set([...costByProj.keys(), ...revByProj.keys()]);
+      const financeData = Array.from(allProjIds).map(pid => {
+        const cost = costByProj.get(pid) || 0;
+        const rev = revByProj.get(pid) || 0;
+        const proj = projMap.get(pid);
+        return { id: pid, name: proj?.name || pid, icon: proj?.icon || "📁", cost, revenue: rev, profit: rev - cost };
+      }).sort((a, b) => b.profit - a.profit).slice(0, 5);
+      
+      setProjectFinance(financeData);
     }
     load();
   }, []);
