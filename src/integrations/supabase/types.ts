@@ -9774,6 +9774,75 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_project_costs: {
+        Row: {
+          categoria: string | null
+          created_at: string | null
+          id: string
+          moeda: string | null
+          nome: string
+          project_id: string
+          recorrente: boolean | null
+          user_id: string
+          valor: number | null
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string | null
+          id?: string
+          moeda?: string | null
+          nome: string
+          project_id: string
+          recorrente?: boolean | null
+          user_id: string
+          valor?: number | null
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string | null
+          id?: string
+          moeda?: string | null
+          nome?: string
+          project_id?: string
+          recorrente?: boolean | null
+          user_id?: string
+          valor?: number | null
+        }
+        Relationships: []
+      }
+      imphq_project_revenue: {
+        Row: {
+          created_at: string | null
+          data_ref: string | null
+          descricao: string
+          fonte: string | null
+          id: string
+          project_id: string
+          user_id: string
+          valor: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_ref?: string | null
+          descricao: string
+          fonte?: string | null
+          id?: string
+          project_id: string
+          user_id: string
+          valor?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data_ref?: string | null
+          descricao?: string
+          fonte?: string | null
+          id?: string
+          project_id?: string
+          user_id?: string
+          valor?: number | null
+        }
+        Relationships: []
+      }
       imphq_projects: {
         Row: {
           avatar: Json | null
