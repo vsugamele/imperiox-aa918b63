@@ -214,9 +214,11 @@ export default function Leads() {
 
   const saveEdit = async () => {
     if (!editLead) return;
+    const existingData = editLead.data || {};
     const { error } = await supabase.from("imphq_leads").update({
       nome: editLead.nome, email: editLead.email, phone: editLead.phone,
       plataforma: editLead.plataforma, status: editLead.status, tags: editLead.tags,
+      data: existingData,
     }).eq("id", editLead.id);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Lead atualizado!"); setEditLead(null); load();
