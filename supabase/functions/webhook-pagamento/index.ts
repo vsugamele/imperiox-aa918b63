@@ -70,7 +70,47 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   let valor = 0;
   let produto = "";
 
-  if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
+  // ── Ticto v2 detection (version field or token in body) ──
+  if (body?.version === "2.0" || (body?.token && body?.item && body?.customer)) {
+    plataforma = "Ticto";
+    const status = body.status || "";
+    const statusMap: Record<string, string> = {
+      authorized: "compra_aprovada",
+      abandoned_cart: "carrinho_abandonado",
+      refunded: "reembolso",
+      waiting_payment: "aguardando_pagamento",
+      chargeback: "chargeback",
+      blocked: "bloqueado",
+      started: "inicio_checkout",
+    };
+    evento = statusMap[status] || status || "desconhecido";
+
+    const customer = body.customer || {};
+    email = customer.email || "";
+    nome = customer.name || "";
+    const ph = customer.phone || {};
+    phone = ph.ddd && ph.number ? `${ph.ddd}${ph.number}` : "";
+
+    // paid_amount comes in cents in v2
+    const order = body.order || {};
+    valor = (order.paid_amount || 0) / 100;
+
+    const item = body.item || {};
+    produto = item.product_name || "";
+  }
+  // ── Ticto v1 (legacy) ──
+  else if (body?.tipo_evento || body?.dados) {
+    plataforma = "Ticto";
+    evento = body.tipo_evento === "venda_aprovada" ? "compra_aprovada" : body.tipo_evento || "desconhecido";
+    const dados = body.dados || {};
+    email = dados.email_comprador || "";
+    nome = dados.nome_comprador || "";
+    phone = dados.telefone_comprador || "";
+    valor = parseFloat(dados.valor || "0");
+    produto = dados.nome_produto || "";
+  }
+  // ── Hotmart ──
+  else if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
     plataforma = "Hotmart";
     const ev = body.event || "";
     if (ev.includes("APPROVED") || ev.includes("COMPLETE")) evento = "compra_aprovada";
@@ -84,7 +124,9 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = buyer.checkout_phone || "";
     valor = body.data?.purchase?.price?.value || 0;
     produto = body.data?.product?.name || "";
-  } else if (body?.webhook_event_type || body?.order_status) {
+  }
+  // ── Kiwify ──
+  else if (body?.webhook_event_type || body?.order_status) {
     plataforma = "Kiwify";
     const status = body.order_status || body.webhook_event_type || "";
     if (status === "paid" || status === "approved") evento = "compra_aprovada";
@@ -98,16 +140,9 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = customer.mobile || "";
     valor = parseFloat(body.sale_amount || body.order_value || "0");
     produto = body.product_name || body.Product?.name || "";
-  } else if (body?.tipo_evento || body?.dados) {
-    plataforma = "Ticto";
-    evento = body.tipo_evento === "venda_aprovada" ? "compra_aprovada" : body.tipo_evento || "desconhecido";
-    const dados = body.dados || {};
-    email = dados.email_comprador || "";
-    nome = dados.nome_comprador || "";
-    phone = dados.telefone_comprador || "";
-    valor = parseFloat(dados.valor || "0");
-    produto = dados.nome_produto || "";
-  } else {
+  }
+  // ── Generic fallback ──
+  else {
     plataforma = body.plataforma || "Outro";
     evento = body.evento || body.event_type || "desconhecido";
     email = body.email || body.customer?.email || "";
