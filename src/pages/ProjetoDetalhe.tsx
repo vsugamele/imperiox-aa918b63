@@ -20,7 +20,8 @@ import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
-import { Pencil } from "lucide-react";
+import { Pencil, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 
 const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
 
