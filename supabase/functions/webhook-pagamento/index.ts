@@ -263,6 +263,17 @@ Deno.serve(async (req) => {
           );
         }
       }
+
+      // Validate Ticto token against project config
+      if (plataforma === "Ticto" && body?.token && proj?.data?.ticto_token) {
+        if (body.token !== proj.data.ticto_token) {
+          console.warn("[webhook-pagamento] Ticto token mismatch for project", projectId);
+          return new Response(
+            JSON.stringify({ error: "Invalid ticto token" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
     // Handle purchase
