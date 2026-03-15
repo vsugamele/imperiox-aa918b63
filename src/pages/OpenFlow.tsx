@@ -89,19 +89,30 @@ export default function OpenFlow() {
     toast.success("Removida"); setEditing(null); load();
   };
 
-  const addAcao = () => {
+  const generateWithAI = async () => {
     if (!editing) return;
-    setEditing({ ...editing, acoes: [...editing.acoes, { tipo: "email", template: "", delay_min: 0 }] });
-  };
-  const removeAcao = (idx: number) => {
-    if (!editing) return;
-    setEditing({ ...editing, acoes: editing.acoes.filter((_, i) => i !== idx) });
-  };
-  const updateAcao = (idx: number, field: string, value: any) => {
-    if (!editing) return;
-    const acoes = [...editing.acoes];
-    acoes[idx] = { ...acoes[idx], [field]: value };
-    setEditing({ ...editing, acoes });
+    setIsGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          project_id: editing.project_id || null,
+          trigger_tipo: editing.trigger_tipo,
+          num_etapas: 5,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.acoes?.length) {
+        setEditing({ ...editing, acoes: data.acoes });
+        toast.success(`${data.acoes.length} ações geradas pela IA!`);
+      } else {
+        toast.error("IA não retornou ações");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao gerar: " + (e?.message || "erro desconhecido"));
+    } finally {
+      setIsGeneratingAI(false);
+    }
   };
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
@@ -252,62 +263,37 @@ export default function OpenFlow() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
+      {/* Edit Dialog — Flow Editor */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar Automação</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-4">
-              <div><Label>Nome</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} /></div>
-              <div>
-                <Label>Trigger</Label>
-                <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Nome</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} /></div>
+                <div>
+                  <Label>Trigger</Label>
+                  <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <Label>Ativo</Label>
                 <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
               </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Ações</Label>
-                  <Button size="sm" variant="outline" onClick={addAcao}><Plus className="h-3 w-3 mr-1" /> Ação</Button>
-                </div>
-                {editing.acoes.map((ac, i) => (
-                  <div key={i} className="p-3 rounded-md bg-secondary/50 border border-border space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="text-[10px]">Ação {i + 1}</Badge>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAcao(i)}>
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-[10px]">Canal</Label>
-                        <Select value={ac.tipo} onValueChange={v => updateAcao(i, "tipo", v)}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {ACAO_TIPOS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-[10px]">Delay (min)</Label>
-                        <Input type="number" value={ac.delay_min} onChange={e => updateAcao(i, "delay_min", parseInt(e.target.value) || 0)} className="h-8 text-xs" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">Template / Mensagem</Label>
-                      <Textarea value={ac.template} onChange={e => updateAcao(i, "template", e.target.value)} className="text-xs min-h-[60px]" placeholder="Olá {{nome}}, notamos que você..." />
-                    </div>
-                  </div>
-                ))}
-                {editing.acoes.length === 0 && <p className="text-xs text-muted-foreground">Adicione ações para esta automação</p>}
-              </div>
+
+              {/* Visual Flow Editor */}
+              <FlowEditor
+                triggerTipo={editing.trigger_tipo}
+                acoes={editing.acoes}
+                onChange={acoes => setEditing({ ...editing, acoes })}
+                onGenerateAI={generateWithAI}
+                isGenerating={isGeneratingAI}
+              />
             </div>
           )}
           <DialogFooter className="flex justify-between">
