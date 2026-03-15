@@ -42,6 +42,7 @@ export default function OpenFlow() {
   const [editing, setEditing] = useState<Automacao | null>(null);
   const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "" });
   const [webhookProject, setWebhookProject] = useState("none");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   const load = async () => {
     const [aRes, wRes, pRes] = await Promise.all([
