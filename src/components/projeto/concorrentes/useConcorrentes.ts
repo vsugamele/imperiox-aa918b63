@@ -136,8 +136,13 @@ export function useConcorrentes(projectId: string) {
         };
 
         for (const f of fields) {
-          if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
-            row[f] = comp[f];
+      if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
+            // Round integer fields to prevent float rejection
+            if ((f === "score_escala" || f === "score_max") && typeof comp[f] === "number") {
+              row[f] = Math.round(comp[f]);
+            } else {
+              row[f] = comp[f];
+            }
           }
         }
 
