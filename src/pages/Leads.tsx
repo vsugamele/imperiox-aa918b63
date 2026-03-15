@@ -441,20 +441,16 @@ export default function Leads() {
                     ) : <span className="text-xs text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>
+                    {(() => {
+                      const stage = getLeadStage(l);
+                      const cfg = STAGE_LABELS[stage] || STAGE_LABELS.lead_capturado;
+                      return <Badge className={`text-[10px] ${cfg.color}`}>{cfg.label}</Badge>;
+                    })()}
+                  </TableCell>
+                  <TableCell>
                     <Badge className={`text-[10px] ${STATUS_COLORS[l.status || "lead"]}`}>
                       {l.status || "lead"}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-12 h-1.5 rounded-full bg-secondary overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${Math.min(100, (l.score || 0))}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground">{l.score ?? "—"}</span>
-                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm text-primary">
                     {l.total_gasto ? `R$ ${parseFloat(String(l.total_gasto)).toFixed(0)}` : "—"}
