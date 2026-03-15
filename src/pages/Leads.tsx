@@ -346,10 +346,6 @@ export default function Leads() {
             </div>
           </div>
         )}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Main Content */}
