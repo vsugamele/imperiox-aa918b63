@@ -473,8 +473,9 @@ export default function Leads() {
             {editLead && (
               <Tabs defaultValue="dados" className="space-y-3">
                 <TabsList className="w-full">
-                  <TabsTrigger value="dados" className="flex-1">📝 Dados</TabsTrigger>
-                  <TabsTrigger value="jornada" className="flex-1">🗺️ Jornada ({timeline.length})</TabsTrigger>
+                  <TabsTrigger value="dados" className="flex-1 text-xs">📝 Dados</TabsTrigger>
+                  <TabsTrigger value="qualificacao" className="flex-1 text-xs">🎯 Qualificação</TabsTrigger>
+                  <TabsTrigger value="jornada" className="flex-1 text-xs">🗺️ Jornada ({timeline.length})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="dados" className="space-y-3">
