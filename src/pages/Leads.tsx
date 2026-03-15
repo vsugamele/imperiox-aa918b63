@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
-import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
@@ -24,6 +25,21 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const STATUSES = ["lead", "cliente", "vip", "inativo"];
 const PLATFORMS = ["Meta", "Google", "TikTok", "Hotmart", "Kiwify", "Ticto", "Orgânico", "Indicação"];
+
+const STAGE_LABELS: Record<string, { label: string; color: string }> = {
+  lead_capturado: { label: "Lead", color: "bg-blue-500/20 text-blue-400" },
+  carrinho_abandonado: { label: "Carrinho", color: "bg-amber-500/20 text-amber-400" },
+  pix_gerado: { label: "Pix Gerado", color: "bg-yellow-500/20 text-yellow-400" },
+  aguardando_pagamento: { label: "Aguardando", color: "bg-orange-500/20 text-orange-400" },
+  compra_aprovada: { label: "Compra ✓", color: "bg-emerald-500/20 text-emerald-400" },
+  reembolso: { label: "Reembolso", color: "bg-destructive/20 text-destructive" },
+};
+const STAGES = Object.keys(STAGE_LABELS);
+
+function getLeadStage(lead: Lead): string {
+  if (lead.status === "cliente") return "compra_aprovada";
+  return (lead.data as any)?.ultimo_evento || "lead_capturado";
+}
 
 interface Lead {
   id: string; nome?: string; phone?: string; email?: string; project_id?: string;
@@ -64,6 +80,8 @@ export default function Leads() {
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const [stageFilter, setStageFilter] = useState("all");
+  const [showImport, setShowImport] = useState(false);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -190,7 +208,8 @@ export default function Leads() {
     const matchStatus = statusFilter === "all" || l.status === statusFilter;
     const matchPlatform = platformFilter === "all" || l.plataforma === platformFilter;
     const matchProject = projectFilter === "all" || l.project_id === projectFilter || (!l.project_id && projectFilter === "none");
-    return matchSearch && matchStatus && matchPlatform && matchProject;
+    const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
+    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage;
   });
 
   const totalLeads = leads.length;
@@ -299,8 +318,16 @@ export default function Leads() {
               {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={stageFilter} onValueChange={setStageFilter}>
+            <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Estágio</SelectItem>
+              {STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Button size="icon" variant="ghost" className="h-9 w-9" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar CSV</Button>
             <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>
           </div>
         </div>
@@ -314,7 +341,7 @@ export default function Leads() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <Card className="bg-card border-border">
             <CardContent className="p-3 flex items-center gap-3">
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -335,6 +362,24 @@ export default function Leads() {
           </Card>
           <Card className="bg-card border-border">
             <CardContent className="p-3 flex items-center gap-3">
+              <ShoppingCart className="h-4 w-4 text-amber-400" />
+              <div>
+                <p className="text-xl font-bold">{leads.filter(l => getLeadStage(l) === "carrinho_abandonado").length}</p>
+                <p className="text-[10px] text-muted-foreground">Carrinho</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 flex items-center gap-3">
+              <AlertCircle className="h-4 w-4 text-orange-400" />
+              <div>
+                <p className="text-xl font-bold">{leads.filter(l => getLeadStage(l) === "aguardando_pagamento" || getLeadStage(l) === "pix_gerado").length}</p>
+                <p className="text-[10px] text-muted-foreground">Pix Pendente</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 flex items-center gap-3">
               <Crown className="h-4 w-4 text-accent" />
               <div>
                 <p className="text-xl font-bold">{vips}</p>
@@ -347,7 +392,7 @@ export default function Leads() {
               <DollarSign className="h-4 w-4 text-primary" />
               <div>
                 <p className="text-xl font-bold font-mono text-primary">R$ {totalReceita.toFixed(0)}</p>
-                <p className="text-[10px] text-muted-foreground">Receita Total</p>
+                <p className="text-[10px] text-muted-foreground">Receita</p>
               </div>
             </CardContent>
           </Card>
@@ -360,8 +405,8 @@ export default function Leads() {
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Plataforma</TableHead>
+                <TableHead>Estágio</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Score</TableHead>
                 <TableHead>Receita</TableHead>
                 <TableHead>Desde</TableHead>
                 <TableHead></TableHead>
@@ -396,20 +441,16 @@ export default function Leads() {
                     ) : <span className="text-xs text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>
+                    {(() => {
+                      const stage = getLeadStage(l);
+                      const cfg = STAGE_LABELS[stage] || STAGE_LABELS.lead_capturado;
+                      return <Badge className={`text-[10px] ${cfg.color}`}>{cfg.label}</Badge>;
+                    })()}
+                  </TableCell>
+                  <TableCell>
                     <Badge className={`text-[10px] ${STATUS_COLORS[l.status || "lead"]}`}>
                       {l.status || "lead"}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-12 h-1.5 rounded-full bg-secondary overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${Math.min(100, (l.score || 0))}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground">{l.score ?? "—"}</span>
-                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm text-primary">
                     {l.total_gasto ? `R$ ${parseFloat(String(l.total_gasto)).toFixed(0)}` : "—"}
@@ -649,6 +690,14 @@ export default function Leads() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Import Dialog */}
+        <LeadImportDialog
+          open={showImport}
+          onOpenChange={setShowImport}
+          projects={projects}
+          defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined}
+          onComplete={load}
+        />
       </div>
     </div>
   );
