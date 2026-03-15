@@ -57,6 +57,22 @@ function APIsTab() {
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
+  const [keys, setKeys] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem("imphq_api_keys");
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [visible, setVisible] = useState<Record<string, boolean>>({});
+
+  const API_SERVICES = [
+    { key: "openrouter", label: "OpenRouter", desc: "Acessa Claude, GPT-4 e outros em um único lugar", icon: "🔀", prefix: "sk-or-v1-" },
+    { key: "openai", label: "OpenAI", desc: "GPT-4o, GPT-4 Turbo", icon: "🟢", prefix: "sk-" },
+    { key: "anthropic", label: "Anthropic", desc: "Claude 3.5 Sonnet / Haiku", icon: "🟠", prefix: "sk-ant-" },
+    { key: "google_gemini", label: "Google Gemini", desc: "Gemini 2.0 Flash (fallback padrão)", icon: "🔵", prefix: "" },
+    { key: "meta_ads", label: "Meta Ads", desc: "Token de acesso para anúncios", icon: "🟦", prefix: "EAAG" },
+    { key: "hotmart", label: "Hotmart", desc: "Token de integração", icon: "🟧", prefix: "Bearer" },
+    { key: "ticto", label: "Ticto", desc: "API Key", icon: "🟩", prefix: "tc_" },
+    { key: "pushinpay", label: "PushinPay", desc: "Gateway de pagamento", icon: "✅", prefix: "push_" },
+  ];
 
   const checkPin = () => {
     if (pin === API_PIN) {
@@ -65,6 +81,11 @@ function APIsTab() {
     } else {
       setPinError(true);
     }
+  };
+
+  const save = () => {
+    localStorage.setItem("imphq_api_keys", JSON.stringify(keys));
+    toast.success("Chaves salvas!");
   };
 
   if (!unlocked) {
@@ -92,27 +113,6 @@ function APIsTab() {
       </div>
     );
   }
-  const API_SERVICES = [
-    { key: "openrouter", label: "OpenRouter", desc: "Acessa Claude, GPT-4 e outros em um único lugar", icon: "🔀", prefix: "sk-or-v1-" },
-    { key: "openai", label: "OpenAI", desc: "GPT-4o, GPT-4 Turbo", icon: "🟢", prefix: "sk-" },
-    { key: "anthropic", label: "Anthropic", desc: "Claude 3.5 Sonnet / Haiku", icon: "🟠", prefix: "sk-ant-" },
-    { key: "google_gemini", label: "Google Gemini", desc: "Gemini 2.0 Flash (fallback padrão)", icon: "🔵", prefix: "" },
-    { key: "meta_ads", label: "Meta Ads", desc: "Token de acesso para anúncios", icon: "🟦", prefix: "EAAG" },
-    { key: "hotmart", label: "Hotmart", desc: "Token de integração", icon: "🟧", prefix: "Bearer" },
-    { key: "ticto", label: "Ticto", desc: "API Key", icon: "🟩", prefix: "tc_" },
-    { key: "pushinpay", label: "PushinPay", desc: "Gateway de pagamento", icon: "✅", prefix: "push_" },
-  ];
-
-  const [keys, setKeys] = useState<Record<string, string>>(() => {
-    const saved = localStorage.getItem("imphq_api_keys");
-    return saved ? JSON.parse(saved) : {};
-  });
-  const [visible, setVisible] = useState<Record<string, boolean>>({});
-
-  const save = () => {
-    localStorage.setItem("imphq_api_keys", JSON.stringify(keys));
-    toast.success("Chaves salvas!");
-  };
 
   return (
     <div className="space-y-4">
