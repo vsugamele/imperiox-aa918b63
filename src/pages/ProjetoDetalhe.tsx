@@ -226,10 +226,6 @@ export default function ProjetoDetalhe() {
                   className="bg-secondary"
                   placeholder="Ex: 123456789012345"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">ID do pixel do Facebook Ads</p>
-                {project.data?.facebook_pixel_id && (
-                  <a href={`https://business.facebook.com/events_manager2/list/pixel/${project.data.facebook_pixel_id}/overview`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">↗ Abrir Events Manager</a>
-                )}
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Access Token (CAPI)</Label>
@@ -244,7 +240,6 @@ export default function ProjetoDetalhe() {
                   className="bg-secondary"
                   placeholder="EAAxxxxxxx..."
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">Token de acesso para Conversions API — usado pelo webhook de pagamento</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Test Event Code</Label>
@@ -258,32 +253,33 @@ export default function ProjetoDetalhe() {
                   className="bg-secondary"
                   placeholder="TEST12345"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">Código de teste (opcional, para debug)</p>
               </div>
             </CardContent>
           </Card>
+
+          {/* Webhooks de Pagamento — por projeto */}
+          <WebhooksPagamentoCard project={project} setProject={setProject} updateField={updateField} />
+
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔗 Integrações Ativas</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="p-3 rounded bg-secondary/50 border border-border">
-                  <span className="text-xs font-mono text-muted-foreground">Webhook Pagamento</span>
-                  <p className={`text-xs mt-1 ${project.data?.facebook_access_token ? "text-emerald-400" : "text-muted-foreground"}`}>
-                    {project.data?.facebook_access_token ? "✓ CAPI ativo — compras enviadas ao Facebook" : "○ Configure o Access Token para ativar CAPI"}
-                  </p>
-                </div>
-                <div className="p-3 rounded bg-secondary/50 border border-border">
-                  <span className="text-xs font-mono text-muted-foreground">Tracker Script</span>
-                  <p className={`text-xs mt-1 ${project.data?.facebook_pixel_id ? "text-emerald-400" : "text-muted-foreground"}`}>
-                    {project.data?.facebook_pixel_id ? "✓ Pixel carregado no imptrack.js" : "○ Configure o Pixel ID para tracking automático"}
-                  </p>
-                </div>
-                <div className="p-3 rounded bg-secondary/50 border border-border">
-                  <span className="text-xs font-mono text-muted-foreground">Heatmaps</span>
-                  <p className={`text-xs mt-1 ${project.clarity_id ? "text-emerald-400" : "text-muted-foreground"}`}>
-                    {project.clarity_id ? "✓ Clarity conectado" : "○ Configure o Clarity ID"}
-                  </p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                {[
+                  { label: "Facebook CAPI", ok: !!project.data?.facebook_access_token, icon: "📘" },
+                  { label: "Pixel", ok: !!project.data?.facebook_pixel_id, icon: "🎯" },
+                  { label: "Clarity", ok: !!project.clarity_id, icon: "🔍" },
+                  { label: "Hotmart", ok: !!project.data?.hotmart_token, icon: "🟧" },
+                  { label: "Kiwify", ok: !!project.data?.kiwify_token, icon: "🟪" },
+                  { label: "Ticto", ok: !!project.data?.ticto_token, icon: "🟩" },
+                ].map(i => (
+                  <div key={i.label} className="p-3 rounded bg-secondary/50 border border-border text-center">
+                    <span className="text-lg">{i.icon}</span>
+                    <p className="text-[10px] font-medium mt-1">{i.label}</p>
+                    <p className={`text-[10px] mt-0.5 ${i.ok ? "text-emerald-400" : "text-muted-foreground"}`}>
+                      {i.ok ? "✓ Ativo" : "○ Inativo"}
+                    </p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
