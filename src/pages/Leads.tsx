@@ -314,7 +314,38 @@ export default function Leads() {
                 className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate ${projectFilter === p.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setProjectFilter(p.id)}
               >
-                {p.icon || "📁"} {p.name}
+                {p.icon || "📁"} {p.name} <span className="text-muted-foreground">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Product Filter */}
+        {products.length > 0 && (
+          <div className="mt-4">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+              <Package className="h-3 w-3" /> Produtos
+            </p>
+            <div className="space-y-0.5">
+              <button
+                className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors ${productFilter === "all" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setProductFilter("all")}
+              >
+                📦 Todos
+              </button>
+              {products.map(prod => (
+                <button
+                  key={prod}
+                  className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate ${productFilter === prod ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setProductFilter(prod)}
+                  title={prod}
+                >
+                  🏷️ {prod}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
               </button>
             );
           })}
