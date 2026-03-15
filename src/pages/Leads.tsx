@@ -318,8 +318,16 @@ export default function Leads() {
               {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={stageFilter} onValueChange={setStageFilter}>
+            <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Estágio</SelectItem>
+              {STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Button size="icon" variant="ghost" className="h-9 w-9" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar CSV</Button>
             <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>
           </div>
         </div>
