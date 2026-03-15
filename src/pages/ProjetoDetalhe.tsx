@@ -20,7 +20,8 @@ import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
-import { Pencil } from "lucide-react";
+import { Pencil, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 
 const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
 
@@ -225,10 +226,6 @@ export default function ProjetoDetalhe() {
                   className="bg-secondary"
                   placeholder="Ex: 123456789012345"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">ID do pixel do Facebook Ads</p>
-                {project.data?.facebook_pixel_id && (
-                  <a href={`https://business.facebook.com/events_manager2/list/pixel/${project.data.facebook_pixel_id}/overview`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">↗ Abrir Events Manager</a>
-                )}
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Access Token (CAPI)</Label>
@@ -243,7 +240,6 @@ export default function ProjetoDetalhe() {
                   className="bg-secondary"
                   placeholder="EAAxxxxxxx..."
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">Token de acesso para Conversions API — usado pelo webhook de pagamento</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Test Event Code</Label>
@@ -257,37 +253,124 @@ export default function ProjetoDetalhe() {
                   className="bg-secondary"
                   placeholder="TEST12345"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">Código de teste (opcional, para debug)</p>
               </div>
             </CardContent>
           </Card>
+
+          {/* Webhooks de Pagamento — por projeto */}
+          <WebhooksPagamentoCard project={project} setProject={setProject} updateField={updateField} />
+
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔗 Integrações Ativas</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="p-3 rounded bg-secondary/50 border border-border">
-                  <span className="text-xs font-mono text-muted-foreground">Webhook Pagamento</span>
-                  <p className={`text-xs mt-1 ${project.data?.facebook_access_token ? "text-emerald-400" : "text-muted-foreground"}`}>
-                    {project.data?.facebook_access_token ? "✓ CAPI ativo — compras enviadas ao Facebook" : "○ Configure o Access Token para ativar CAPI"}
-                  </p>
-                </div>
-                <div className="p-3 rounded bg-secondary/50 border border-border">
-                  <span className="text-xs font-mono text-muted-foreground">Tracker Script</span>
-                  <p className={`text-xs mt-1 ${project.data?.facebook_pixel_id ? "text-emerald-400" : "text-muted-foreground"}`}>
-                    {project.data?.facebook_pixel_id ? "✓ Pixel carregado no imptrack.js" : "○ Configure o Pixel ID para tracking automático"}
-                  </p>
-                </div>
-                <div className="p-3 rounded bg-secondary/50 border border-border">
-                  <span className="text-xs font-mono text-muted-foreground">Heatmaps</span>
-                  <p className={`text-xs mt-1 ${project.clarity_id ? "text-emerald-400" : "text-muted-foreground"}`}>
-                    {project.clarity_id ? "✓ Clarity conectado" : "○ Configure o Clarity ID"}
-                  </p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                {[
+                  { label: "Facebook CAPI", ok: !!project.data?.facebook_access_token, icon: "📘" },
+                  { label: "Pixel", ok: !!project.data?.facebook_pixel_id, icon: "🎯" },
+                  { label: "Clarity", ok: !!project.clarity_id, icon: "🔍" },
+                  { label: "Hotmart", ok: !!project.data?.hotmart_token, icon: "🟧" },
+                  { label: "Kiwify", ok: !!project.data?.kiwify_token, icon: "🟪" },
+                  { label: "Ticto", ok: !!project.data?.ticto_token, icon: "🟩" },
+                ].map(i => (
+                  <div key={i.label} className="p-3 rounded bg-secondary/50 border border-border text-center">
+                    <span className="text-lg">{i.icon}</span>
+                    <p className="text-[10px] font-medium mt-1">{i.label}</p>
+                    <p className={`text-[10px] mt-0.5 ${i.ok ? "text-emerald-400" : "text-muted-foreground"}`}>
+                      {i.ok ? "✓ Ativo" : "○ Inativo"}
+                    </p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// ── Webhooks de Pagamento Card ──────────────────────────────────
+function WebhooksPagamentoCard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const baseUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}`;
+
+  const copyUrl = (url: string, label: string) => {
+    navigator.clipboard.writeText(url);
+    setCopied(label);
+    toast.success("URL copiada!");
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const updateDataField = (key: string, value: string) => {
+    const newData = { ...(project.data || {}), [key]: value };
+    setProject((p: any) => ({ ...p, data: newData }));
+    updateField("data", newData);
+  };
+
+  const WEBHOOK_URLS = [
+    { label: "Principal (compras)", url: baseUrl, desc: "Recebe todos os eventos" },
+    { label: "Lead", url: `${baseUrl}&event=Lead`, desc: "Captura de leads" },
+    { label: "Checkout", url: `${baseUrl}&event=InitiateCheckout`, desc: "Início de checkout" },
+    { label: "ViewContent", url: `${baseUrl}&event=ViewContent`, desc: "Visualização de conteúdo" },
+  ];
+
+  const PLATFORMS = [
+    { key: "hotmart_token", label: "Hotmart", icon: "🟧", placeholder: "Hottok de validação", help: "Cole em Ferramentas > Webhooks na Hotmart. Use o header x-hotmart-hottok." },
+    { key: "kiwify_token", label: "Kiwify", icon: "🟪", placeholder: "Secret de validação", help: "Configurações > Webhooks > Secret na Kiwify." },
+    { key: "ticto_token", label: "Ticto", icon: "🟩", placeholder: "Token de validação", help: "Integrações > Webhooks > Token na Ticto." },
+  ];
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔔 Webhooks de Pagamento</CardTitle>
+        <p className="text-[10px] text-muted-foreground">URLs exclusivas deste projeto para receber eventos de Hotmart, Kiwify e Ticto</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Webhook URLs */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">URLs de Webhook</Label>
+          {WEBHOOK_URLS.map(w => (
+            <div key={w.label} className="flex items-center gap-2 p-2 rounded bg-secondary/50 border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-medium">{w.label} <span className="text-muted-foreground">— {w.desc}</span></p>
+                <code className="text-[9px] text-muted-foreground break-all block mt-0.5">{w.url}</code>
+              </div>
+              <button
+                onClick={() => copyUrl(w.url, w.label)}
+                className="shrink-0 p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {copied === w.label ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Platform Tokens */}
+        <div className="space-y-3">
+          <Label className="text-xs font-medium">Tokens de Validação por Plataforma</Label>
+          {PLATFORMS.map(p => (
+            <div key={p.key} className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">{p.icon}</span>
+                <Label className="text-xs text-muted-foreground">{p.label}</Label>
+              </div>
+              <Input
+                type="password"
+                value={project.data?.[p.key] || ""}
+                onChange={e => {
+                  const newData = { ...(project.data || {}), [p.key]: e.target.value };
+                  setProject((prev: any) => ({ ...prev, data: newData }));
+                }}
+                onBlur={() => updateDataField(p.key, project.data?.[p.key] || "")}
+                className="bg-secondary"
+                placeholder={p.placeholder}
+              />
+              <p className="text-[9px] text-muted-foreground">{p.help}</p>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
