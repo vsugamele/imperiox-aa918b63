@@ -512,6 +512,85 @@ export default function Leads() {
                   <div><Label>Tags</Label><EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} /></div>
                 </TabsContent>
 
+                <TabsContent value="qualificacao" className="space-y-3">
+                  <div>
+                    <Label>Dor Principal</Label>
+                    <Textarea
+                      value={editLead.data?.qualificacao?.dor_principal || ""}
+                      onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), dor_principal: e.target.value } } })}
+                      placeholder="Qual a maior dor/frustração deste lead?"
+                      className="bg-secondary min-h-[60px]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Nível de Consciência</Label>
+                      <Select
+                        value={editLead.data?.qualificacao?.nivel_consciencia || ""}
+                        onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), nivel_consciencia: v } } })}
+                      >
+                        <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="inconsciente">Inconsciente</SelectItem>
+                          <SelectItem value="problema">Consciente do Problema</SelectItem>
+                          <SelectItem value="solucao">Consciente da Solução</SelectItem>
+                          <SelectItem value="produto">Consciente do Produto</SelectItem>
+                          <SelectItem value="totalmente">Totalmente Consciente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Renda Estimada</Label>
+                      <Select
+                        value={editLead.data?.qualificacao?.renda || ""}
+                        onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), renda: v } } })}
+                      >
+                        <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ate3k">Até R$3k</SelectItem>
+                          <SelectItem value="3k-8k">R$3k — R$8k</SelectItem>
+                          <SelectItem value="8k-15k">R$8k — R$15k</SelectItem>
+                          <SelectItem value="15k-30k">R$15k — R$30k</SelectItem>
+                          <SelectItem value="30k+">R$30k+</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Canal Principal</Label>
+                    <Select
+                      value={editLead.data?.qualificacao?.canal || ""}
+                      onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), canal: v } } })}
+                    >
+                      <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="instagram">Instagram</SelectItem>
+                        <SelectItem value="youtube">YouTube</SelectItem>
+                        <SelectItem value="tiktok">TikTok</SelectItem>
+                        <SelectItem value="google">Google</SelectItem>
+                        <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                        <SelectItem value="indicacao">Indicação</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Objeções</Label>
+                    <EditableTagList
+                      tags={editLead.data?.qualificacao?.objecoes || []}
+                      onChange={tags => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), objecoes: tags } } })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Notas do Vendedor</Label>
+                    <Textarea
+                      value={editLead.data?.qualificacao?.notas_vendedor || ""}
+                      onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), notas_vendedor: e.target.value } } })}
+                      placeholder="Observações internas sobre este lead..."
+                      className="bg-secondary min-h-[60px]"
+                    />
+                  </div>
+                </TabsContent>
+
                 <TabsContent value="jornada">
                   {timelineLoading ? (
                     <p className="text-sm text-muted-foreground text-center py-8">Carregando jornada...</p>

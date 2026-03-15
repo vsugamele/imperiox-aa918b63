@@ -292,6 +292,9 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      {/* Growth Dashboard */}
+      <GrowthDashboard />
     </div>
   );
 }

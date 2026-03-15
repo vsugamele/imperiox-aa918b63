@@ -367,3 +367,140 @@ function SegurancaTab({ user }: { user: any }) {
     </div>
   );
 }
+
+// ── API & Webhooks Tab ───────────────────────────────────────────
+function WebhooksTab() {
+  const { user } = useAuth();
+  const [keys, setKeys] = useState<any[]>([]);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const projectId = "tkbivipqiewkfnhktmqq";
+
+  const loadKeys = async () => {
+    const { data } = await supabase.from("imphq_api_keys").select("*").order("created_at", { ascending: false });
+    setKeys(data || []);
+  };
+
+  useEffect(() => { loadKeys(); }, []);
+
+  const generateKey = async () => {
+    if (!newKeyName.trim() || !user) return;
+    const rawKey = `imphq_${crypto.randomUUID().replace(/-/g, "")}`;
+    const keyHash = btoa(rawKey);
+    const keyPreview = rawKey.slice(-8);
+
+    const { error } = await supabase.from("imphq_api_keys").insert({
+      user_id: user.id,
+      name: newKeyName.trim(),
+      key_hash: keyHash,
+      key_preview: keyPreview,
+      permissions: ["read", "write"],
+    });
+
+    if (error) { toast.error(error.message); return; }
+    setGeneratedKey(rawKey);
+    setNewKeyName("");
+    loadKeys();
+    toast.success("Chave gerada!");
+  };
+
+  const revokeKey = async (id: string) => {
+    await supabase.from("imphq_api_keys").delete().eq("id", id);
+    toast.success("Chave revogada");
+    loadKeys();
+  };
+
+  const copyKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    toast.success("Copiado!");
+  };
+
+  const baseUrl = `https://${projectId}.supabase.co/functions/v1/imperio-api`;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-bold">API & Webhooks</h2>
+        <p className="text-xs text-muted-foreground">Gerencie chaves de API para integrações com IAs e automações externas</p>
+      </div>
+
+      {/* Generate Key */}
+      <Card className="bg-card border-border">
+        <CardContent className="p-4 space-y-3">
+          <h3 className="text-sm font-medium">Gerar Nova Chave</h3>
+          <div className="flex gap-2">
+            <Input
+              value={newKeyName}
+              onChange={e => setNewKeyName(e.target.value)}
+              placeholder="Nome da chave (ex: MeuBot, Make, n8n)"
+              className="bg-secondary"
+            />
+            <Button onClick={generateKey} disabled={!newKeyName.trim()}>
+              <Plus className="h-4 w-4 mr-1" /> Gerar
+            </Button>
+          </div>
+          {generatedKey && (
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+              <p className="text-xs font-bold text-emerald-400">⚠️ Copie agora — esta chave não será exibida novamente!</p>
+              <div className="flex items-center gap-2">
+                <code className="text-xs bg-secondary px-2 py-1 rounded flex-1 break-all">{generatedKey}</code>
+                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyKey(generatedKey)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Existing Keys */}
+      <Card className="bg-card border-border">
+        <CardContent className="p-4 space-y-2">
+          <h3 className="text-sm font-medium">Chaves Ativas ({keys.length})</h3>
+          {keys.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma chave gerada</p>}
+          {keys.map(k => (
+            <div key={k.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+              <div>
+                <p className="text-sm font-medium">{k.name}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">
+                  ••••••••{k.key_preview}
+                  {k.last_used_at && ` · Usado: ${new Date(k.last_used_at).toLocaleDateString("pt-BR")}`}
+                </p>
+              </div>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => revokeKey(k.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Documentation */}
+      <Card className="bg-card border-border">
+        <CardContent className="p-4 space-y-3">
+          <h3 className="text-sm font-medium">📖 Documentação da API</h3>
+          <p className="text-xs text-muted-foreground">Use o header <code className="bg-secondary px-1 rounded">x-api-key</code> em todas as requisições.</p>
+          
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-secondary/50 space-y-1">
+              <p className="text-xs font-bold text-emerald-400">POST — Criar Tarefa</p>
+              <code className="text-[10px] text-muted-foreground block break-all">{baseUrl}?action=create_task</code>
+              <pre className="text-[10px] text-muted-foreground bg-secondary rounded p-2 mt-1">{`{ "title": "Minha tarefa", "board": "agentes", "priority": "high" }`}</pre>
+            </div>
+
+            <div className="p-3 rounded-lg bg-secondary/50 space-y-1">
+              <p className="text-xs font-bold text-blue-400">POST — Criar Lead</p>
+              <code className="text-[10px] text-muted-foreground block break-all">{baseUrl}?action=create_lead</code>
+              <pre className="text-[10px] text-muted-foreground bg-secondary rounded p-2 mt-1">{`{ "nome": "João", "email": "joao@email.com", "project_id": "meu-projeto" }`}</pre>
+            </div>
+
+            <div className="p-3 rounded-lg bg-secondary/50 space-y-1">
+              <p className="text-xs font-bold text-amber-400">GET — Status do Projeto</p>
+              <code className="text-[10px] text-muted-foreground block break-all">{baseUrl}?action=project_status&project_id=meu-projeto</code>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
