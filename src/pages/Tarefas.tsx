@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
-  Flame, ListTodo, ChevronRight
+  Flame, ListTodo, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,7 +30,11 @@ interface Column {
   id: string;
   title: string;
   board: string;
+  position?: number;
 }
+
+const DONE_TITLES = ["feito", "done", "concluído", "concluido"];
+const FIRST_COL_TITLES = ["backlog", "a fazer", "to do", "todo"];
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "text-destructive border-destructive",
@@ -46,6 +50,9 @@ const PRIORITY_DOT: Record<string, string> = {
   low: "bg-muted-foreground/40",
 };
 
+const isDoneColumn = (col: Column) => DONE_TITLES.includes(col.title.toLowerCase().trim());
+const isFirstColumn = (col: Column) => FIRST_COL_TITLES.includes(col.title.toLowerCase().trim());
+
 export default function Tarefas() {
   const { user } = useAuth();
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -53,6 +60,7 @@ export default function Tarefas() {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState("");
+  const [newPriority, setNewPriority] = useState("medium");
   const [filterProject, setFilterProject] = useState("all");
 
   const today = new Date();
@@ -61,7 +69,7 @@ export default function Tarefas() {
 
   const fetchData = useCallback(async () => {
     const [colRes, cardRes, projRes] = await Promise.all([
-      supabase.from("imphq_kanban_columns").select("id, title, board"),
+      supabase.from("imphq_kanban_columns").select("id, title, board, position").order("position", { ascending: true }),
       supabase.from("imphq_kanban_cards").select("*").order("due_date", { ascending: true }),
       supabase.from("imphq_projects").select("id, name"),
     ]);
@@ -73,8 +81,7 @@ export default function Tarefas() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const doneColumnIds = columns.filter(c => c.title.toLowerCase() === "feito").map(c => c.id);
-
+  const doneColumnIds = columns.filter(isDoneColumn).map(c => c.id);
   const isDone = (card: KanbanCard) => doneColumnIds.includes(card.column_id);
 
   const filtered = cards.filter(c => {
@@ -93,18 +100,26 @@ export default function Tarefas() {
   const noDueDate = filtered.filter(c => !isDone(c) && !c.due_date);
   const doneRecent = filtered.filter(c => isDone(c)).slice(0, 10);
 
+  const findFirstColumn = (board: string) => {
+    return columns.find(c => c.board === board && isFirstColumn(c))
+      || columns.filter(c => c.board === board && !isDoneColumn(c)).sort((a, b) => (a.position || 0) - (b.position || 0))[0];
+  };
+
+  const findDoneColumn = (board: string) => {
+    return columns.find(c => c.board === board && isDoneColumn(c));
+  };
+
   const toggleDone = async (card: KanbanCard) => {
     const done = isDone(card);
     if (done) {
-      // Move back to backlog
-      const backlogCol = columns.find(c => c.title.toLowerCase() === "backlog" && c.board === card.board);
-      if (!backlogCol) return;
-      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: backlogCol.id } as any).eq("id", card.id);
+      const firstCol = findFirstColumn(card.board);
+      if (!firstCol) { toast.error("Coluna inicial não encontrada"); return; }
+      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: firstCol.id } as any).eq("id", card.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
-      setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: backlogCol.id } : c));
+      setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: firstCol.id } : c));
     } else {
-      const doneCol = columns.find(c => c.title.toLowerCase() === "feito" && c.board === card.board);
-      if (!doneCol) { toast.error("Coluna 'feito' não encontrada"); return; }
+      const doneCol = findDoneColumn(card.board);
+      if (!doneCol) { toast.error("Coluna 'Concluído' não encontrada neste board"); return; }
       const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: doneCol.id } as any).eq("id", card.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: doneCol.id } : c));
@@ -112,17 +127,31 @@ export default function Tarefas() {
     }
   };
 
+  const deleteTask = async (cardId: string) => {
+    const { error } = await supabase.from("imphq_kanban_cards").delete().eq("id", cardId);
+    if (error) { toast.error("Erro ao excluir"); return; }
+    setCards(prev => prev.filter(c => c.id !== cardId));
+    toast.success("Tarefa excluída");
+  };
+
   const addQuickTask = async () => {
     if (!newTask.trim()) return;
-    const backlogCol = columns.find(c => c.title.toLowerCase() === "backlog" && c.board === "geral");
-    if (!backlogCol) { toast.error("Coluna 'backlog' não encontrada"); return; }
+    // Find the first available board's first column
+    const boards = [...new Set(columns.map(c => c.board))];
+    let targetCol: Column | undefined;
+    let targetBoard = "agentes";
+    for (const board of boards) {
+      const col = findFirstColumn(board);
+      if (col) { targetCol = col; targetBoard = board; break; }
+    }
+    if (!targetCol) { toast.error("Nenhuma coluna disponível"); return; }
     const { data, error } = await supabase
       .from("imphq_kanban_cards")
       .insert({
         title: newTask.trim(),
-        column_id: backlogCol.id,
-        board: "geral",
-        priority: "medium",
+        column_id: targetCol.id,
+        board: targetBoard,
+        priority: newPriority,
         due_date: todayStr,
         tags: [],
       } as any)
@@ -131,7 +160,7 @@ export default function Tarefas() {
     if (error) { toast.error("Erro ao criar tarefa"); return; }
     setCards(prev => [...prev, data as any]);
     setNewTask("");
-    toast.success("Tarefa adicionada ao Kanban ✅");
+    toast.success("Tarefa adicionada ✅");
   };
 
   const getProjectName = (id?: string) => {
@@ -148,7 +177,7 @@ export default function Tarefas() {
     const projName = getProjectName(card.project_id);
     const colName = getColumnName(card.column_id);
     return (
-      <div className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 ${done ? "opacity-60" : ""}`}>
+      <div className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 group ${done ? "opacity-60" : ""}`}>
         <Checkbox
           checked={done}
           onCheckedChange={() => toggleDone(card)}
@@ -176,6 +205,12 @@ export default function Tarefas() {
             )}
           </div>
         </div>
+        <button
+          onClick={() => deleteTask(card.id)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
     );
   };
@@ -201,8 +236,6 @@ export default function Tarefas() {
     </Card>
   );
 
-  // Stats
-  const totalActive = filtered.filter(c => !isDone(c)).length;
   const totalDone = filtered.filter(c => isDone(c)).length;
 
   if (loading) return <div className="flex items-center justify-center p-12 text-muted-foreground">Carregando...</div>;
@@ -281,6 +314,17 @@ export default function Tarefas() {
           className="bg-secondary"
           onKeyDown={e => e.key === "Enter" && addQuickTask()}
         />
+        <Select value={newPriority} onValueChange={setNewPriority}>
+          <SelectTrigger className="w-28 bg-secondary">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="urgent">🔴 Urgente</SelectItem>
+            <SelectItem value="high">🟡 Alta</SelectItem>
+            <SelectItem value="medium">🟢 Média</SelectItem>
+            <SelectItem value="low">⚪ Baixa</SelectItem>
+          </SelectContent>
+        </Select>
         <Button onClick={addQuickTask} size="sm" className="shrink-0">
           <Plus className="h-4 w-4 mr-1" /> Adicionar
         </Button>

@@ -51,7 +51,18 @@ export default function Configuracoes() {
 }
 
 // ── APIs & Keys Tab ──────────────────────────────────────────────
+const API_PIN = "464321";
+
 function APIsTab() {
+  const [unlocked, setUnlocked] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [keys, setKeys] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem("imphq_api_keys");
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [visible, setVisible] = useState<Record<string, boolean>>({});
+
   const API_SERVICES = [
     { key: "openrouter", label: "OpenRouter", desc: "Acessa Claude, GPT-4 e outros em um único lugar", icon: "🔀", prefix: "sk-or-v1-" },
     { key: "openai", label: "OpenAI", desc: "GPT-4o, GPT-4 Turbo", icon: "🟢", prefix: "sk-" },
@@ -63,16 +74,45 @@ function APIsTab() {
     { key: "pushinpay", label: "PushinPay", desc: "Gateway de pagamento", icon: "✅", prefix: "push_" },
   ];
 
-  const [keys, setKeys] = useState<Record<string, string>>(() => {
-    const saved = localStorage.getItem("imphq_api_keys");
-    return saved ? JSON.parse(saved) : {};
-  });
-  const [visible, setVisible] = useState<Record<string, boolean>>({});
+  const checkPin = () => {
+    if (pin === API_PIN) {
+      setUnlocked(true);
+      setPinError(false);
+    } else {
+      setPinError(true);
+    }
+  };
 
   const save = () => {
     localStorage.setItem("imphq_api_keys", JSON.stringify(keys));
     toast.success("Chaves salvas!");
   };
+
+  if (!unlocked) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Card className="w-full max-w-sm border-border">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Shield className="h-10 w-10 text-primary mx-auto" />
+            <div>
+              <h3 className="font-bold text-lg">Área Protegida</h3>
+              <p className="text-xs text-muted-foreground mt-1">Digite a senha para acessar as chaves de API</p>
+            </div>
+            <Input
+              type="password"
+              placeholder="Senha de acesso"
+              value={pin}
+              onChange={e => { setPin(e.target.value); setPinError(false); }}
+              onKeyDown={e => e.key === "Enter" && checkPin()}
+              className={`bg-secondary text-center text-lg tracking-widest ${pinError ? "border-destructive" : ""}`}
+            />
+            {pinError && <p className="text-xs text-destructive">Senha incorreta</p>}
+            <Button onClick={checkPin} className="w-full">Desbloquear</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
