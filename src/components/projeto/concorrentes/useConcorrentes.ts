@@ -99,9 +99,8 @@ export function useConcorrentes(projectId: string) {
             // Don't overwrite if existing has data and new is empty
             const existingVal = (existing as any)[f];
             if (!existingVal || existingVal === "" || (Array.isArray(existingVal) && existingVal.length === 0)) {
-              updates[f] = comp[f];
+              updates[f] = (f === "score_escala" || f === "score_max") && typeof comp[f] === "number" ? Math.round(comp[f]) : comp[f];
             } else if (typeof comp[f] === "string" && comp[f].length > (existingVal?.length || 0)) {
-              // Prefer longer text values
               updates[f] = comp[f];
             }
           }
