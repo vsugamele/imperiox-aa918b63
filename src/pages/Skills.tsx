@@ -320,18 +320,101 @@ export default function Skills() {
                   </div>
                 )}
 
-                {showDetail.system_prompt && (
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block flex items-center gap-2">
-                      <Bot className="w-3.5 h-3.5" /> System Prompt (Engine DNA)
-                    </span>
-                    <ScrollArea className="h-[400px] w-full rounded-md border border-white/10 bg-black/30 p-5 shadow-inner">
-                      <div className="prose prose-invert prose-sm max-w-none prose-headings:text-primary prose-headings:font-display prose-strong:text-foreground prose-code:text-emerald-400 prose-code:bg-secondary/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-table:border-collapse prose-th:bg-secondary/30 prose-th:border prose-th:border-white/10 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-white/10 prose-td:px-3 prose-td:py-1.5 prose-li:marker:text-primary/60">
-                        <ReactMarkdown>{showDetail.system_prompt}</ReactMarkdown>
+              {showDetail.system_prompt && (() => {
+                  // Parse sections from the system prompt
+                  const sections = parsePromptSections(showDetail.system_prompt);
+                  const sectionIcons: Record<string, any> = {
+                    "IDENTIDADE": Brain, "IDENTITY": Brain, "QUEM": Brain, "PERSONA": Brain,
+                    "INSTRUÇÕES": FileText, "INSTRUCTIONS": FileText, "REGRAS": FileText, "RULES": FileText, "COMO": FileText,
+                    "OUTPUT": Terminal, "SAÍDA": Terminal, "FORMATO": Terminal, "FORMAT": Terminal, "ENTREGA": Terminal,
+                    "OBJETIVO": Target, "GOAL": Target, "MISSÃO": Target,
+                    "CONTEXTO": Info, "CONTEXT": Info, "BACKGROUND": Info,
+                  };
+                  const getSectionIcon = (title: string) => {
+                    const upper = title.toUpperCase().replace(/[#\s*→\-]/g, " ").trim();
+                    for (const [key, icon] of Object.entries(sectionIcons)) {
+                      if (upper.includes(key)) return icon;
+                    }
+                    return Bot;
+                  };
+                  const getSectionColor = (title: string) => {
+                    const upper = title.toUpperCase();
+                    if (upper.includes("IDENTIDADE") || upper.includes("IDENTITY") || upper.includes("PERSONA")) return "hsl(270 70% 60%)";
+                    if (upper.includes("INSTRUÇÃO") || upper.includes("INSTRUCTION") || upper.includes("REGRA")) return "hsl(200 70% 55%)";
+                    if (upper.includes("OUTPUT") || upper.includes("SAÍDA") || upper.includes("FORMATO")) return "hsl(150 60% 45%)";
+                    if (upper.includes("OBJETIVO") || upper.includes("MISSÃO")) return "hsl(35 80% 55%)";
+                    return showDetail.cor || "#3b82f6";
+                  };
+
+                  return (
+                    <div className="space-y-3">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block flex items-center gap-2">
+                        <Bot className="w-3.5 h-3.5" /> System Prompt — {sections.length} seções
+                      </span>
+
+                      {/* Info Cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { label: "Seções", value: String(sections.length), icon: FileText },
+                          { label: "Versão", value: showDetail.versao || "—", icon: Info },
+                          { label: "Categoria", value: showDetail.categoria, icon: CATEGORIA_ICONS[showDetail.categoria] || Zap },
+                          { label: "Gatilho", value: showDetail.gatilho ? "✓" : "—", icon: Terminal },
+                        ].map((card, i) => (
+                          <div key={i} className="p-2.5 rounded-lg bg-secondary/40 border border-border/50 text-center">
+                            <card.icon className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{card.label}</p>
+                            <p className="text-sm font-semibold truncate">{card.value}</p>
+                          </div>
+                        ))}
                       </div>
-                    </ScrollArea>
-                  </div>
-                )}
+
+                      {/* Section Index */}
+                      <div className="flex flex-wrap gap-1 py-2 border-y border-border/30">
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider mr-2 self-center">Índice:</span>
+                        {sections.map((sec, i) => (
+                          <Badge
+                            key={i}
+                            variant="outline"
+                            className="text-[10px] cursor-pointer hover:bg-primary/10 transition-colors"
+                            onClick={() => document.getElementById(`skill-section-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                          >
+                            {sec.title.replace(/^#+\s*/, "").slice(0, 25)}
+                          </Badge>
+                        ))}
+                      </div>
+
+                      {/* Collapsible Sections */}
+                      <ScrollArea className="h-[400px] w-full rounded-md border border-white/10 bg-black/20 shadow-inner">
+                        <div className="p-4 space-y-2">
+                          {sections.map((sec, i) => {
+                            const SectionIcon = getSectionIcon(sec.title);
+                            const sectionColor = getSectionColor(sec.title);
+                            const cleanTitle = sec.title.replace(/^#+\s*/, "");
+                            return (
+                              <details key={i} id={`skill-section-${i}`} open={i === 0} className="group/section rounded-lg border border-white/5 bg-black/20 overflow-hidden">
+                                <summary
+                                  className="flex items-center gap-2.5 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors select-none list-none [&::-webkit-details-marker]:hidden"
+                                >
+                                  <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: `${sectionColor}20`, color: sectionColor }}>
+                                    <SectionIcon className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span className="text-sm font-semibold flex-1">{cleanTitle}</span>
+                                  <span className="text-[10px] text-muted-foreground font-mono">{sec.content.split("\n").length} linhas</span>
+                                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-open/section:rotate-90" />
+                                </summary>
+                                <div className="px-4 pb-4 border-t border-white/5">
+                                  <div className="prose prose-invert prose-sm max-w-none mt-3 prose-headings:text-primary prose-headings:font-display prose-strong:text-foreground prose-code:text-emerald-400 prose-code:bg-secondary/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-table:border-collapse prose-th:bg-secondary/30 prose-th:border prose-th:border-white/10 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-white/10 prose-td:px-3 prose-td:py-1.5 prose-li:marker:text-primary/60">
+                                    <ReactMarkdown>{sec.content}</ReactMarkdown>
+                                  </div>
+                                </div>
+                              </details>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex justify-end">
                   <Button variant="outline" onClick={() => setShowDetail(null)}>Fechar</Button>
