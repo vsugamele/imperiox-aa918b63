@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.capture-lead]
 verify_jwt = false
+
+[functions.openflow-ai]
+verify_jwt = false
