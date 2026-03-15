@@ -166,9 +166,16 @@ export default function MarketIntel() {
 
         {/* TAB 2: Ângulos de Copy */}
         <TabsContent value="angulos" className="space-y-4">
-          <p className="text-sm text-muted-foreground">Baseado em: PAS, BAB, AIDA, Star-Story, Cialdini, Gary Halbert, Eugene Schwartz</p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <p className="text-sm text-muted-foreground">Baseado em: PAS, BAB, AIDA, Star-Story, Cialdini, Gary Halbert, Eugene Schwartz</p>
+            <Badge variant="outline" className="text-xs">{filteredAngles.length} de {MARKETING_ANGLES.length} ângulos</Badge>
+          </div>
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={angleSearch} onChange={(e) => setAngleSearch(e.target.value)} placeholder="Buscar ângulo, gatilho ou nicho..." className="pl-9 bg-secondary" />
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {MARKETING_ANGLES.map((a, i) => (
+            {filteredAngles.map((a, i) => (
               <Card key={i} className={`bg-gradient-to-br ${ANGLE_COLORS[i % ANGLE_COLORS.length]} border-border hover:border-primary/30 hover:scale-[1.01] transition-all duration-200 animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center justify-between">
