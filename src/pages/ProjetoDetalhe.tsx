@@ -141,7 +141,6 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
-          <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="briefing" className="mt-4">

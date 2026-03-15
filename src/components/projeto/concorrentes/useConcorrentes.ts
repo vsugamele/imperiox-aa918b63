@@ -157,7 +157,9 @@ export function useConcorrentes(projectId: string) {
           .select()
           .single();
 
-        if (!error && data) {
+        if (error) {
+          console.error("Erro ao importar concorrente:", compName, error);
+        } else if (data) {
           setCompetitors(prev => [...prev, data as any]);
           imported++;
         }
