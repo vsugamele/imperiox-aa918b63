@@ -17,7 +17,7 @@ import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
-import { ProjetoConteudo } from "@/components/projeto/ProjetoConteudo";
+
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil } from "lucide-react";
@@ -135,12 +135,12 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="branding">🎨 Branding</TabsTrigger>
           <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
           <TabsTrigger value="pipeline">⚡ Pipeline</TabsTrigger>
-          <TabsTrigger value="midia">🖼️ Mídia</TabsTrigger>
+          <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
-          <TabsTrigger value="conteudo">📦 Conteúdo</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
+          <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
@@ -173,9 +173,6 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="calendario" className="mt-4">
           <ProjetoCalendario projectId={id!} />
-        </TabsContent>
-        <TabsContent value="conteudo" className="mt-4">
-          <ProjetoConteudo projectId={id!} />
         </TabsContent>
         <TabsContent value="financas" className="mt-4">
           <ProjetoFinancas projectId={id!} />

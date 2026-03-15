@@ -8971,12 +8971,14 @@ export type Database = {
       }
       imphq_content_library: {
         Row: {
+          content_category: string | null
           created_at: string | null
           description: string | null
           file_type: string | null
           file_url: string
           id: string
           project_id: string | null
+          publish_date: string | null
           size_bytes: number | null
           tags: string[] | null
           thumbnail_url: string | null
@@ -8984,12 +8986,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          content_category?: string | null
           created_at?: string | null
           description?: string | null
           file_type?: string | null
           file_url: string
           id?: string
           project_id?: string | null
+          publish_date?: string | null
           size_bytes?: number | null
           tags?: string[] | null
           thumbnail_url?: string | null
@@ -8997,12 +9001,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          content_category?: string | null
           created_at?: string | null
           description?: string | null
           file_type?: string | null
           file_url?: string
           id?: string
           project_id?: string | null
+          publish_date?: string | null
           size_bytes?: number | null
           tags?: string[] | null
           thumbnail_url?: string | null
