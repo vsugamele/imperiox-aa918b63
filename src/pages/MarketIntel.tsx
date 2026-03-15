@@ -39,6 +39,7 @@ export default function MarketIntel() {
   const [opps, setOpps] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [nichoFilter, setNichoFilter] = useState("all");
+  const [angleSearch, setAngleSearch] = useState("");
 
   useEffect(() => {
     supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data }) => setOpps(data || []));
