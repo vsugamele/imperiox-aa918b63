@@ -174,9 +174,6 @@ export default function ProjetoDetalhe() {
         <TabsContent value="calendario" className="mt-4">
           <ProjetoCalendario projectId={id!} />
         </TabsContent>
-        <TabsContent value="conteudo" className="mt-4">
-          <ProjetoConteudo projectId={id!} />
-        </TabsContent>
         <TabsContent value="financas" className="mt-4">
           <ProjetoFinancas projectId={id!} />
         </TabsContent>
