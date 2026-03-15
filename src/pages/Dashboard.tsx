@@ -5,6 +5,7 @@ import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, C
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import GrowthDashboard from "@/components/dashboard/GrowthDashboard";
 
 interface Stats {
   projects: number;
