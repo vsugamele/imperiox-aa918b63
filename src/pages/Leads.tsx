@@ -83,6 +83,10 @@ export default function Leads() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [stageFilter, setStageFilter] = useState("all");
   const [showImport, setShowImport] = useState(false);
+  const [productFilter, setProductFilter] = useState("all");
+  const [products, setProducts] = useState<string[]>([]);
+  const [productLeadIds, setProductLeadIds] = useState<Set<string> | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
