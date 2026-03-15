@@ -69,8 +69,6 @@ function APIsTab() {
     { key: "anthropic", label: "Anthropic", desc: "Claude 3.5 Sonnet / Haiku", icon: "🟠", prefix: "sk-ant-" },
     { key: "google_gemini", label: "Google Gemini", desc: "Gemini 2.0 Flash (fallback padrão)", icon: "🔵", prefix: "" },
     { key: "meta_ads", label: "Meta Ads", desc: "Token de acesso para anúncios", icon: "🟦", prefix: "EAAG" },
-    { key: "hotmart", label: "Hotmart", desc: "Token de integração", icon: "🟧", prefix: "Bearer" },
-    { key: "ticto", label: "Ticto", desc: "API Key", icon: "🟩", prefix: "tc_" },
     { key: "pushinpay", label: "PushinPay", desc: "Gateway de pagamento", icon: "✅", prefix: "push_" },
   ];
 
