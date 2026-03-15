@@ -99,9 +99,8 @@ export function useConcorrentes(projectId: string) {
             // Don't overwrite if existing has data and new is empty
             const existingVal = (existing as any)[f];
             if (!existingVal || existingVal === "" || (Array.isArray(existingVal) && existingVal.length === 0)) {
-              updates[f] = comp[f];
+              updates[f] = (f === "score_escala" || f === "score_max") && typeof comp[f] === "number" ? Math.round(comp[f]) : comp[f];
             } else if (typeof comp[f] === "string" && comp[f].length > (existingVal?.length || 0)) {
-              // Prefer longer text values
               updates[f] = comp[f];
             }
           }
@@ -136,8 +135,13 @@ export function useConcorrentes(projectId: string) {
         };
 
         for (const f of fields) {
-          if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
-            row[f] = comp[f];
+      if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
+            // Round integer fields to prevent float rejection
+            if ((f === "score_escala" || f === "score_max") && typeof comp[f] === "number") {
+              row[f] = Math.round(comp[f]);
+            } else {
+              row[f] = comp[f];
+            }
           }
         }
 
@@ -152,7 +156,9 @@ export function useConcorrentes(projectId: string) {
           .select()
           .single();
 
-        if (!error && data) {
+        if (error) {
+          console.error("Erro ao importar concorrente:", compName, error);
+        } else if (data) {
           setCompetitors(prev => [...prev, data as any]);
           imported++;
         }
