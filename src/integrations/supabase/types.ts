@@ -10356,6 +10356,41 @@ export type Database = {
           },
         ]
       }
+      imphq_team_docs: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          member_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          member_id: string
+          title?: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          member_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_team_docs_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_team_members: {
         Row: {
           avatar_url: string | null
