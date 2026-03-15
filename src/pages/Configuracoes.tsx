@@ -121,6 +121,11 @@ function APIsTab() {
         </div>
         <Button onClick={save} className="bg-primary">Salvar todas</Button>
       </div>
+      <Card className="bg-amber-500/5 border-amber-500/20">
+        <CardContent className="p-3">
+          <p className="text-[11px] text-muted-foreground">💡 Tokens de <strong>Hotmart</strong>, <strong>Kiwify</strong> e <strong>Ticto</strong> agora são configurados <strong>por projeto</strong>, na aba <strong>Analytics → Webhooks de Pagamento</strong> de cada projeto.</p>
+        </CardContent>
+      </Card>
       <div className="space-y-3">
         {API_SERVICES.map((svc) => (
           <Card key={svc.key} className="bg-card border-border">

@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
       processado: false,
     });
 
-    // Get project CAPI config (needed for multiple event types)
+    // Get project config (CAPI + platform token validation)
     let fbToken: string | undefined;
     let fbPixelId: string | undefined;
     let fbTestCode: string | undefined;
@@ -217,6 +217,17 @@ Deno.serve(async (req) => {
       fbToken = proj?.data?.facebook_access_token;
       fbPixelId = proj?.data?.facebook_pixel_id;
       fbTestCode = proj?.data?.facebook_test_event_code;
+
+      // Validate Hotmart hottok against project config
+      if (hotmartToken && proj?.data?.hotmart_token) {
+        if (hotmartToken !== proj.data.hotmart_token) {
+          console.warn("[webhook-pagamento] Hotmart token mismatch for project", projectId);
+          return new Response(
+            JSON.stringify({ error: "Invalid hotmart token" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
     // Handle purchase

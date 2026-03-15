@@ -288,3 +288,89 @@ export default function ProjetoDetalhe() {
     </div>
   );
 }
+
+// ── Webhooks de Pagamento Card ──────────────────────────────────
+function WebhooksPagamentoCard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const baseUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}`;
+
+  const copyUrl = (url: string, label: string) => {
+    navigator.clipboard.writeText(url);
+    setCopied(label);
+    toast.success("URL copiada!");
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const updateDataField = (key: string, value: string) => {
+    const newData = { ...(project.data || {}), [key]: value };
+    setProject((p: any) => ({ ...p, data: newData }));
+    updateField("data", newData);
+  };
+
+  const WEBHOOK_URLS = [
+    { label: "Principal (compras)", url: baseUrl, desc: "Recebe todos os eventos" },
+    { label: "Lead", url: `${baseUrl}&event=Lead`, desc: "Captura de leads" },
+    { label: "Checkout", url: `${baseUrl}&event=InitiateCheckout`, desc: "Início de checkout" },
+    { label: "ViewContent", url: `${baseUrl}&event=ViewContent`, desc: "Visualização de conteúdo" },
+  ];
+
+  const PLATFORMS = [
+    { key: "hotmart_token", label: "Hotmart", icon: "🟧", placeholder: "Hottok de validação", help: "Cole em Ferramentas > Webhooks na Hotmart. Use o header x-hotmart-hottok." },
+    { key: "kiwify_token", label: "Kiwify", icon: "🟪", placeholder: "Secret de validação", help: "Configurações > Webhooks > Secret na Kiwify." },
+    { key: "ticto_token", label: "Ticto", icon: "🟩", placeholder: "Token de validação", help: "Integrações > Webhooks > Token na Ticto." },
+  ];
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔔 Webhooks de Pagamento</CardTitle>
+        <p className="text-[10px] text-muted-foreground">URLs exclusivas deste projeto para receber eventos de Hotmart, Kiwify e Ticto</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Webhook URLs */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">URLs de Webhook</Label>
+          {WEBHOOK_URLS.map(w => (
+            <div key={w.label} className="flex items-center gap-2 p-2 rounded bg-secondary/50 border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-medium">{w.label} <span className="text-muted-foreground">— {w.desc}</span></p>
+                <code className="text-[9px] text-muted-foreground break-all block mt-0.5">{w.url}</code>
+              </div>
+              <button
+                onClick={() => copyUrl(w.url, w.label)}
+                className="shrink-0 p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {copied === w.label ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Platform Tokens */}
+        <div className="space-y-3">
+          <Label className="text-xs font-medium">Tokens de Validação por Plataforma</Label>
+          {PLATFORMS.map(p => (
+            <div key={p.key} className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">{p.icon}</span>
+                <Label className="text-xs text-muted-foreground">{p.label}</Label>
+              </div>
+              <Input
+                type="password"
+                value={project.data?.[p.key] || ""}
+                onChange={e => {
+                  const newData = { ...(project.data || {}), [p.key]: e.target.value };
+                  setProject((prev: any) => ({ ...prev, data: newData }));
+                }}
+                onBlur={() => updateDataField(p.key, project.data?.[p.key] || "")}
+                className="bg-secondary"
+                placeholder={p.placeholder}
+              />
+              <p className="text-[9px] text-muted-foreground">{p.help}</p>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
