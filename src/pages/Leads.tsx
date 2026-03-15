@@ -80,6 +80,9 @@ export default function Leads() {
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const [stageFilter, setStageFilter] = useState("all");
+  const [showImport, setShowImport] = useState(false);
+  const projectFilterRef = useRef(projectFilter);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
