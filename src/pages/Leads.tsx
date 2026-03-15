@@ -341,7 +341,7 @@ export default function Leads() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <Card className="bg-card border-border">
             <CardContent className="p-3 flex items-center gap-3">
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -362,6 +362,24 @@ export default function Leads() {
           </Card>
           <Card className="bg-card border-border">
             <CardContent className="p-3 flex items-center gap-3">
+              <ShoppingCart className="h-4 w-4 text-amber-400" />
+              <div>
+                <p className="text-xl font-bold">{leads.filter(l => getLeadStage(l) === "carrinho_abandonado").length}</p>
+                <p className="text-[10px] text-muted-foreground">Carrinho</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 flex items-center gap-3">
+              <AlertCircle className="h-4 w-4 text-orange-400" />
+              <div>
+                <p className="text-xl font-bold">{leads.filter(l => getLeadStage(l) === "aguardando_pagamento" || getLeadStage(l) === "pix_gerado").length}</p>
+                <p className="text-[10px] text-muted-foreground">Pix Pendente</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 flex items-center gap-3">
               <Crown className="h-4 w-4 text-accent" />
               <div>
                 <p className="text-xl font-bold">{vips}</p>
@@ -374,7 +392,7 @@ export default function Leads() {
               <DollarSign className="h-4 w-4 text-primary" />
               <div>
                 <p className="text-xl font-bold font-mono text-primary">R$ {totalReceita.toFixed(0)}</p>
-                <p className="text-[10px] text-muted-foreground">Receita Total</p>
+                <p className="text-[10px] text-muted-foreground">Receita</p>
               </div>
             </CardContent>
           </Card>
