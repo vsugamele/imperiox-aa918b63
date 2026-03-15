@@ -83,7 +83,6 @@ export default function Leads() {
   const [stageFilter, setStageFilter] = useState("all");
   const [showImport, setShowImport] = useState(false);
   const projectFilterRef = useRef(projectFilter);
-  const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
   const load = async () => {
