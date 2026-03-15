@@ -285,7 +285,7 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
         created++;
       }
 
-      // Create sale record for purchases AND all other events with value
+      // Create sale record
       if (r.valor > 0 || r.status_evento === "compra_aprovada") {
         const vendaData: Record<string, any> = {
           metodo_pagamento: r.metodo_pagamento || undefined,
@@ -298,7 +298,6 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
           oferta: r.oferta || undefined,
           comissao_produtor: r.comissao_produtor || undefined,
         };
-        // Remove undefined entries
         Object.keys(vendaData).forEach(k => vendaData[k] === undefined && delete vendaData[k]);
 
         await supabase.from("imphq_vendas").insert({
@@ -316,6 +315,28 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
         });
         sales++;
       }
+
+      // Register CSVImport event in imphq_events for journey tracking
+      await supabase.from("imphq_events").insert({
+        id: crypto.randomUUID(),
+        event_name: "CSVImport",
+        utm_source: emailLc, // used to link event to lead by email
+        utm_medium: platformLabel,
+        utm_campaign: r.produto || null,
+        page_url: null,
+        visitor_id: null,
+        session_id: null,
+        event_data: {
+          plataforma: platformLabel,
+          produto: r.produto || null,
+          status_evento: r.status_evento,
+          metodo_pagamento: r.metodo_pagamento || null,
+          valor: r.valor || null,
+          data_pedido: r.data_pedido || null,
+          bump: r.bump,
+          parcelas: r.parcelas,
+        } as any,
+      });
 
       setProgress(Math.round(((i + 1) / rows.length) * 100));
     }

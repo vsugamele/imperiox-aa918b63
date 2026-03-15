@@ -12,8 +12,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
-import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
@@ -51,7 +52,7 @@ interface Lead {
 
 interface TimelineEvent {
   id: string;
-  type: "PageView" | "LeadCapture" | "ViewContent" | "AddToCart" | "Purchase" | "click" | string;
+  type: "PageView" | "LeadCapture" | "ViewContent" | "AddToCart" | "Purchase" | "click" | "CSVImport" | string;
   timestamp: string;
   title: string;
   subtitle?: string;
@@ -66,6 +67,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
   Purchase: { icon: <DollarSign className="h-3 w-3" />, color: "bg-primary", label: "Compra" },
   click: { icon: <MousePointerClick className="h-3 w-3" />, color: "bg-cyan-500", label: "Click UTM" },
   ButtonClick: { icon: <Zap className="h-3 w-3" />, color: "bg-orange-500", label: "Click" },
+  CSVImport: { icon: <FileUp className="h-3 w-3" />, color: "bg-indigo-500", label: "Importado CSV" },
 };
 
 export default function Leads() {
@@ -87,6 +89,8 @@ export default function Leads() {
   const [products, setProducts] = useState<string[]>([]);
   const [productLeadIds, setProductLeadIds] = useState<Set<string> | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -99,18 +103,17 @@ export default function Leads() {
     setLeads((leadsRes.data || []) as Lead[]);
     setProjects(projRes.data || []);
     
-    // Extract unique products
     const vendas = vendasRes.data || [];
     const uniqueProducts = [...new Set(vendas.map((v: any) => v.produto).filter(Boolean))] as string[];
     setProducts(uniqueProducts);
     
-    // Build product→leadIds map if filter active
     if (productFilter !== "all") {
       const ids = new Set(vendas.filter((v: any) => v.produto === productFilter).map((v: any) => v.lead_id));
       setProductLeadIds(ids);
     } else {
       setProductLeadIds(null);
     }
+    setSelectedIds(new Set());
   };
 
   useEffect(() => { load(); }, [productFilter]);
@@ -171,6 +174,31 @@ export default function Leads() {
       );
     }
 
+    // Also fetch CSVImport events by email
+    if (lead.email) {
+      promises.push(
+        Promise.resolve(supabase.from("imphq_events").select("*").eq("event_name", "CSVImport").eq("utm_source", lead.email.toLowerCase()).order("created_at", { ascending: false }).limit(50))
+          .then(({ data }) => {
+            (data || []).forEach((e: any) => {
+              const evData = e.event_data || {};
+              events.push({
+                id: e.id,
+                type: "CSVImport",
+                timestamp: e.created_at,
+                title: `Importado via ${evData.plataforma || "CSV"}`,
+                subtitle: evData.produto ? `Produto: ${evData.produto}` : undefined,
+                details: {
+                  status: evData.status_evento,
+                  pagamento: evData.metodo_pagamento,
+                  valor: evData.valor ? `R$ ${evData.valor}` : undefined,
+                  data_pedido: evData.data_pedido,
+                },
+              });
+            });
+          })
+      );
+    }
+
     // Sales from imphq_vendas
     promises.push(
       Promise.resolve(supabase.from("imphq_vendas").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }))
@@ -188,7 +216,7 @@ export default function Leads() {
         })
     );
 
-    // Clicks from imphq_clicks (by email match in lead data utms)
+    // Clicks from imphq_clicks
     if (lead.email) {
       promises.push(
         Promise.resolve(supabase.from("imphq_clicks").select("*").order("created_at", { ascending: false }).limit(50))
@@ -211,8 +239,6 @@ export default function Leads() {
     }
 
     await Promise.all(promises);
-
-    // Sort by timestamp desc
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setTimeline(events);
     setTimelineLoading(false);
@@ -236,6 +262,41 @@ export default function Leads() {
   const clientes = leads.filter(l => l.status === "cliente").length;
   const vips = leads.filter(l => l.status === "vip").length;
   const totalReceita = leads.reduce((s, l) => s + (parseFloat(String(l.total_gasto)) || 0), 0);
+
+  // Bulk selection
+  const allFilteredSelected = filtered.length > 0 && filtered.every(l => selectedIds.has(l.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(l => l.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const deleteSelected = async () => {
+    const ids = Array.from(selectedIds);
+    // Batch delete in chunks of 50
+    for (let i = 0; i < ids.length; i += 50) {
+      const chunk = ids.slice(i, i + 50);
+      await supabase.from("imphq_vendas").delete().in("lead_id", chunk);
+      await supabase.from("imphq_leads").delete().in("id", chunk);
+    }
+    toast.success(`${ids.length} leads removidos`);
+    setBulkDeleteConfirm(false);
+    setSelectedIds(new Set());
+    load();
+  };
 
   const createLead = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
@@ -264,7 +325,6 @@ export default function Leads() {
   };
 
   const deleteLead = async (id: string) => {
-    // First delete associated sales (FK constraint)
     await supabase.from("imphq_vendas").delete().eq("lead_id", id);
     await supabase.from("imphq_leads").delete().eq("id", id);
     toast.success("Lead e vendas associadas removidos");
@@ -377,12 +437,43 @@ export default function Leads() {
               {STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
+          {/* Mobile-only project/product filters */}
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-[140px] h-9 lg:hidden"><SelectValue placeholder="Projeto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Projetos</SelectItem>
+              <SelectItem value="none">Sem projeto</SelectItem>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {products.length > 0 && (
+            <Select value={productFilter} onValueChange={setProductFilter}>
+              <SelectTrigger className="w-[140px] h-9 lg:hidden"><SelectValue placeholder="Produto" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Produtos</SelectItem>
+                {products.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <Button size="icon" variant="ghost" className="h-9 w-9" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
           <div className="ml-auto flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar CSV</Button>
             <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>
           </div>
         </div>
+
+        {/* Floating bulk action bar */}
+        {someSelected && (
+          <div className="flex items-center gap-3 bg-secondary border border-border rounded-lg px-4 py-2 animate-in slide-in-from-bottom-2">
+            <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</span>
+            <Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}>
+              <Trash2 className="h-3 w-3 mr-1" /> Excluir
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+              <X className="h-3 w-3 mr-1" /> Limpar
+            </Button>
+          </div>
+        )}
 
         {/* Header info */}
         <div className="flex items-center gap-2">
@@ -455,6 +546,13 @@ export default function Leads() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allFilteredSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Selecionar todos"
+                  />
+                </TableHead>
                 <TableHead>Lead</TableHead>
                 <TableHead>Plataforma</TableHead>
                 <TableHead>Estágio</TableHead>
@@ -468,9 +566,16 @@ export default function Leads() {
               {filtered.map((l) => (
                 <TableRow
                   key={l.id}
-                  className={`cursor-pointer hover:bg-secondary/50 transition-all ${l._isNew ? "animate-pulse bg-emerald-500/10 ring-1 ring-emerald-500/30" : ""}`}
+                  className={`cursor-pointer hover:bg-secondary/50 transition-all ${l._isNew ? "animate-pulse bg-emerald-500/10 ring-1 ring-emerald-500/30" : ""} ${selectedIds.has(l.id) ? "bg-primary/5" : ""}`}
                   onClick={() => setEditLead({ ...l })}
                 >
+                  <TableCell onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(l.id)}
+                      onCheckedChange={() => toggleSelect(l.id)}
+                      aria-label={`Selecionar ${l.nome}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8 bg-secondary">
@@ -695,7 +800,6 @@ export default function Leads() {
                     </div>
                   ) : (
                     <div className="relative max-h-[400px] overflow-y-auto pr-2">
-                      {/* Timeline line */}
                       <div className="absolute left-[15px] top-0 bottom-0 w-px bg-border" />
                       <div className="space-y-3">
                         {timeline.map((ev) => {
@@ -743,7 +847,7 @@ export default function Leads() {
           </DialogContent>
         </Dialog>
 
-        {/* Delete Confirmation */}
+        {/* Delete Confirmation (single) */}
         <AlertDialog open={!!deleteConfirm} onOpenChange={(v) => !v && setDeleteConfirm(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -763,6 +867,28 @@ export default function Leads() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Bulk Delete Confirmation */}
+        <AlertDialog open={bulkDeleteConfirm} onOpenChange={setBulkDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir {selectedIds.size} leads?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Isso irá remover {selectedIds.size} lead{selectedIds.size > 1 ? "s" : ""} e todas as vendas associadas permanentemente. Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={deleteSelected}
+              >
+                Excluir {selectedIds.size} leads
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Import Dialog */}
         <LeadImportDialog
           open={showImport}
