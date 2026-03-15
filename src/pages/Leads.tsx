@@ -735,12 +735,11 @@ export default function Leads() {
               </Tabs>
             )}
             <DialogFooter className="flex justify-between">
-              <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(editLead.id)}>
+              <Button variant="destructive" size="sm" onClick={() => editLead && setDeleteConfirm(editLead.id)}>
                 <Trash2 className="h-3 w-3 mr-1" /> Excluir
               </Button>
               <Button onClick={saveEdit}>Salvar</Button>
             </DialogFooter>
-            )}
           </DialogContent>
         </Dialog>
 
