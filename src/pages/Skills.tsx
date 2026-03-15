@@ -472,6 +472,35 @@ export default function Skills() {
   );
 }
 
+/* ── Parse prompt into collapsible sections ── */
+function parsePromptSections(prompt: string): { title: string; content: string }[] {
+  const lines = prompt.split("\n");
+  const sections: { title: string; content: string }[] = [];
+  let currentTitle = "Introdução";
+  let currentLines: string[] = [];
+
+  for (const line of lines) {
+    if (/^#{1,3}\s+/.test(line) || /^---+$/.test(line)) {
+      if (currentLines.length > 0 || sections.length > 0) {
+        sections.push({ title: currentTitle, content: currentLines.join("\n").trim() });
+        currentLines = [];
+      }
+      if (/^---+$/.test(line)) {
+        currentTitle = "───";
+      } else {
+        currentTitle = line;
+      }
+    } else {
+      currentLines.push(line);
+    }
+  }
+  if (currentLines.length > 0) {
+    sections.push({ title: currentTitle, content: currentLines.join("\n").trim() });
+  }
+  // Filter empty sections
+  return sections.filter(s => s.content.length > 0);
+}
+
 /* ── Skill Grid Sub-component ── */
 function SkillGrid({ grouped, onDetail, onEdit, onDelete }: {
   grouped: { categoria: Categoria; skills: Skill[] }[];
