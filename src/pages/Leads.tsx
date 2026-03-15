@@ -91,15 +91,29 @@ export default function Leads() {
   projectFilterRef.current = projectFilter;
 
   const load = async () => {
-    const [leadsRes, projRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
+      supabase.from("imphq_vendas").select("lead_id, produto").not("produto", "is", null),
     ]);
     setLeads((leadsRes.data || []) as Lead[]);
     setProjects(projRes.data || []);
+    
+    // Extract unique products
+    const vendas = vendasRes.data || [];
+    const uniqueProducts = [...new Set(vendas.map((v: any) => v.produto).filter(Boolean))] as string[];
+    setProducts(uniqueProducts);
+    
+    // Build product→leadIds map if filter active
+    if (productFilter !== "all") {
+      const ids = new Set(vendas.filter((v: any) => v.produto === productFilter).map((v: any) => v.lead_id));
+      setProductLeadIds(ids);
+    } else {
+      setProductLeadIds(null);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [productFilter]);
 
   // Realtime subscription
   useEffect(() => {
