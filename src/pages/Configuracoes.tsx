@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw } from "lucide-react";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Configuracoes() {
