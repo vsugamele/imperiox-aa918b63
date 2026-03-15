@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
-  Flame, ListTodo, Trash2
+  Flame, ListTodo, Trash2, User
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +32,13 @@ interface Column {
   title: string;
   board: string;
   position?: number;
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  avatar_url?: string | null;
+  role?: string | null;
 }
 
 const DONE_TITLES = ["feito", "done", "concluído", "concluido"];
@@ -58,24 +66,30 @@ export default function Tarefas() {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState("");
   const [newPriority, setNewPriority] = useState("medium");
+  const [newProjectId, setNewProjectId] = useState("none");
+  const [newMemberId, setNewMemberId] = useState("none");
   const [filterProject, setFilterProject] = useState("all");
+  const [filterMember, setFilterMember] = useState("all");
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
 
   const fetchData = useCallback(async () => {
-    const [colRes, cardRes, projRes] = await Promise.all([
+    const [colRes, cardRes, projRes, memberRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("id, title, board, position").order("position", { ascending: true }),
       supabase.from("imphq_kanban_cards").select("*").order("due_date", { ascending: true }),
       supabase.from("imphq_projects").select("id, name"),
+      supabase.from("imphq_team_members").select("id, name, avatar_url, role").eq("is_active", true),
     ]);
     setColumns((colRes.data as any[]) || []);
     setCards((cardRes.data as any[]) || []);
     setProjects((projRes.data as any[]) || []);
+    setMembers((memberRes.data as any[]) || []);
     setLoading(false);
   }, []);
 
@@ -86,6 +100,7 @@ export default function Tarefas() {
 
   const filtered = cards.filter(c => {
     if (filterProject !== "all" && c.project_id !== filterProject) return false;
+    if (filterMember !== "all" && c.member_id !== filterMember) return false;
     return true;
   });
 
@@ -136,7 +151,6 @@ export default function Tarefas() {
 
   const addQuickTask = async () => {
     if (!newTask.trim()) return;
-    // Find the first available board's first column
     const boards = [...new Set(columns.map(c => c.board))];
     let targetCol: Column | undefined;
     let targetBoard = "agentes";
@@ -154,6 +168,8 @@ export default function Tarefas() {
         priority: newPriority,
         due_date: todayStr,
         tags: [],
+        project_id: newProjectId !== "none" ? newProjectId : null,
+        member_id: newMemberId !== "none" ? newMemberId : null,
       } as any)
       .select()
       .single();
@@ -168,6 +184,11 @@ export default function Tarefas() {
     return projects.find(p => p.id === id)?.name;
   };
 
+  const getMember = (id?: string) => {
+    if (!id) return null;
+    return members.find(m => m.id === id);
+  };
+
   const getColumnName = (colId: string) => {
     return columns.find(c => c.id === colId)?.title || "—";
   };
@@ -175,6 +196,7 @@ export default function Tarefas() {
   const TaskItem = ({ card }: { card: KanbanCard }) => {
     const done = isDone(card);
     const projName = getProjectName(card.project_id);
+    const member = getMember(card.member_id);
     const colName = getColumnName(card.column_id);
     return (
       <div className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 group ${done ? "opacity-60" : ""}`}>
@@ -205,6 +227,12 @@ export default function Tarefas() {
             )}
           </div>
         </div>
+        {member && (
+          <Avatar className="h-6 w-6 shrink-0" title={member.name}>
+            <AvatarImage src={member.avatar_url || undefined} />
+            <AvatarFallback className="text-[10px] bg-secondary">{member.name[0]}</AvatarFallback>
+          </Avatar>
+        )}
         <button
           onClick={() => deleteTask(card.id)}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
@@ -252,17 +280,32 @@ export default function Tarefas() {
           </p>
         </div>
 
-        <Select value={filterProject} onValueChange={setFilterProject}>
-          <SelectTrigger className="w-44 bg-secondary">
-            <SelectValue placeholder="Projeto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Projetos</SelectItem>
-            {projects.map(p => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={filterProject} onValueChange={setFilterProject}>
+            <SelectTrigger className="w-40 bg-secondary h-9">
+              <SelectValue placeholder="Projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Projetos</SelectItem>
+              {projects.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterMember} onValueChange={setFilterMember}>
+            <SelectTrigger className="w-40 bg-secondary h-9">
+              <SelectValue placeholder="Responsável" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {members.map(m => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stats bar */}
@@ -306,12 +349,12 @@ export default function Tarefas() {
       </div>
 
       {/* Quick add */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Input
           value={newTask}
           onChange={e => setNewTask(e.target.value)}
           placeholder="Adicionar tarefa rápida..."
-          className="bg-secondary"
+          className="bg-secondary flex-1 min-w-[200px]"
           onKeyDown={e => e.key === "Enter" && addQuickTask()}
         />
         <Select value={newPriority} onValueChange={setNewPriority}>
@@ -323,6 +366,28 @@ export default function Tarefas() {
             <SelectItem value="high">🟡 Alta</SelectItem>
             <SelectItem value="medium">🟢 Média</SelectItem>
             <SelectItem value="low">⚪ Baixa</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={newProjectId} onValueChange={setNewProjectId}>
+          <SelectTrigger className="w-36 bg-secondary">
+            <SelectValue placeholder="Projeto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem projeto</SelectItem>
+            {projects.map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={newMemberId} onValueChange={setNewMemberId}>
+          <SelectTrigger className="w-36 bg-secondary">
+            <SelectValue placeholder="Responsável" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem responsável</SelectItem>
+            {members.map(m => (
+              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Button onClick={addQuickTask} size="sm" className="shrink-0">
