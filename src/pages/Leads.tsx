@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
-import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Pencil, Users, UserCheck, Crown, DollarSign, RefreshCw, Webhook, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
@@ -82,19 +83,37 @@ export default function Leads() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [stageFilter, setStageFilter] = useState("all");
   const [showImport, setShowImport] = useState(false);
+  const [productFilter, setProductFilter] = useState("all");
+  const [products, setProducts] = useState<string[]>([]);
+  const [productLeadIds, setProductLeadIds] = useState<Set<string> | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
   const load = async () => {
-    const [leadsRes, projRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
+      supabase.from("imphq_vendas").select("lead_id, produto").not("produto", "is", null),
     ]);
     setLeads((leadsRes.data || []) as Lead[]);
     setProjects(projRes.data || []);
+    
+    // Extract unique products
+    const vendas = vendasRes.data || [];
+    const uniqueProducts = [...new Set(vendas.map((v: any) => v.produto).filter(Boolean))] as string[];
+    setProducts(uniqueProducts);
+    
+    // Build product→leadIds map if filter active
+    if (productFilter !== "all") {
+      const ids = new Set(vendas.filter((v: any) => v.produto === productFilter).map((v: any) => v.lead_id));
+      setProductLeadIds(ids);
+    } else {
+      setProductLeadIds(null);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [productFilter]);
 
   // Realtime subscription
   useEffect(() => {
@@ -209,7 +228,8 @@ export default function Leads() {
     const matchPlatform = platformFilter === "all" || l.plataforma === platformFilter;
     const matchProject = projectFilter === "all" || l.project_id === projectFilter || (!l.project_id && projectFilter === "none");
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
-    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage;
+    const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
+    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage && matchProduct;
   });
 
   const totalLeads = leads.length;
@@ -244,8 +264,13 @@ export default function Leads() {
   };
 
   const deleteLead = async (id: string) => {
+    // First delete associated sales (FK constraint)
+    await supabase.from("imphq_vendas").delete().eq("lead_id", id);
     await supabase.from("imphq_leads").delete().eq("id", id);
-    toast.success("Lead removido"); setEditLead(null); load();
+    toast.success("Lead e vendas associadas removidos");
+    setEditLead(null);
+    setDeleteConfirm(null);
+    load();
   };
 
   const getProjectName = (pid?: string) => {
@@ -289,11 +314,38 @@ export default function Leads() {
                 className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate ${projectFilter === p.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setProjectFilter(p.id)}
               >
-                {p.icon || "📁"} {p.name}
+                {p.icon || "📁"} {p.name} <span className="text-muted-foreground">({count})</span>
               </button>
             );
           })}
         </div>
+
+        {/* Product Filter */}
+        {products.length > 0 && (
+          <div className="mt-4">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+              <Package className="h-3 w-3" /> Produtos
+            </p>
+            <div className="space-y-0.5">
+              <button
+                className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors ${productFilter === "all" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setProductFilter("all")}
+              >
+                📦 Todos
+              </button>
+              {products.map(prod => (
+                <button
+                  key={prod}
+                  className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate ${productFilter === prod ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setProductFilter(prod)}
+                  title={prod}
+                >
+                  🏷️ {prod}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
@@ -683,13 +735,34 @@ export default function Leads() {
               </Tabs>
             )}
             <DialogFooter className="flex justify-between">
-              <Button variant="destructive" size="sm" onClick={() => editLead && deleteLead(editLead.id)}>
+              <Button variant="destructive" size="sm" onClick={() => editLead && setDeleteConfirm(editLead.id)}>
                 <Trash2 className="h-3 w-3 mr-1" /> Excluir
               </Button>
               <Button onClick={saveEdit}>Salvar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={!!deleteConfirm} onOpenChange={(v) => !v && setDeleteConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir Lead?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Isso irá remover o lead e todas as vendas associadas permanentemente. Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => deleteConfirm && deleteLead(deleteConfirm)}
+              >
+                Excluir permanentemente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {/* Import Dialog */}
         <LeadImportDialog
           open={showImport}
