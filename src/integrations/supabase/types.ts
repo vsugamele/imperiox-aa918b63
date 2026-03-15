@@ -10572,6 +10572,7 @@ export type Database = {
           metadata: Json | null
           phone: string
           project_id: string
+          provider_id: string | null
           session: string
           status: string
           updated_at: string
@@ -10586,6 +10587,7 @@ export type Database = {
           metadata?: Json | null
           phone: string
           project_id: string
+          provider_id?: string | null
           session: string
           status?: string
           updated_at?: string
@@ -10600,11 +10602,20 @@ export type Database = {
           metadata?: Json | null
           phone?: string
           project_id?: string
+          provider_id?: string | null
           session?: string
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_conversations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_wa_messages: {
         Row: {
@@ -10612,7 +10623,10 @@ export type Database = {
           conversation_id: string
           created_at: string
           id: string
+          media_url: string | null
+          message_type: string | null
           model: string | null
+          provider_message_id: string | null
           role: string
           tokens_used: number | null
         }
@@ -10621,7 +10635,10 @@ export type Database = {
           conversation_id: string
           created_at?: string
           id?: string
+          media_url?: string | null
+          message_type?: string | null
           model?: string | null
+          provider_message_id?: string | null
           role: string
           tokens_used?: number | null
         }
@@ -10630,7 +10647,10 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           id?: string
+          media_url?: string | null
+          message_type?: string | null
           model?: string | null
+          provider_message_id?: string | null
           role?: string
           tokens_used?: number | null
         }
@@ -10643,6 +10663,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_wa_providers: {
+        Row: {
+          api_key: string | null
+          api_url: string | null
+          created_at: string | null
+          id: string
+          instance_name: string | null
+          is_active: boolean | null
+          project_id: string
+          provider: string
+          twilio_from: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name?: string | null
+          is_active?: boolean | null
+          project_id: string
+          provider: string
+          twilio_from?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name?: string | null
+          is_active?: boolean | null
+          project_id?: string
+          provider?: string
+          twilio_from?: string | null
+        }
+        Relationships: []
       }
       imphq_webhooks: {
         Row: {

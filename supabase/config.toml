@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.imperio-api]
 verify_jwt = false
+
+[functions.whatsapp-api]
+verify_jwt = false
