@@ -26,7 +26,6 @@ Deno.serve(async (req) => {
       body = await req.json();
     } else if (contentType.includes("form")) {
       const formData = await req.formData();
-      body: any = {};
       body = Object.fromEntries(formData.entries());
     } else {
       body = await req.json().catch(() => ({}));
