@@ -228,7 +228,8 @@ export default function Leads() {
     const matchPlatform = platformFilter === "all" || l.plataforma === platformFilter;
     const matchProject = projectFilter === "all" || l.project_id === projectFilter || (!l.project_id && projectFilter === "none");
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
-    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage;
+    const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
+    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage && matchProduct;
   });
 
   const totalLeads = leads.length;
