@@ -690,6 +690,14 @@ export default function Leads() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Import Dialog */}
+        <LeadImportDialog
+          open={showImport}
+          onOpenChange={setShowImport}
+          projects={projects}
+          defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined}
+          onComplete={load}
+        />
       </div>
     </div>
   );
