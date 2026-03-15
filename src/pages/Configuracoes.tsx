@@ -33,6 +33,9 @@ export default function Configuracoes() {
           <TabsTrigger value="seguranca" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Shield className="h-3.5 w-3.5 mr-2" /> Segurança
           </TabsTrigger>
+          <TabsTrigger value="webhooks" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Webhook className="h-3.5 w-3.5 mr-2" /> API & Webhooks
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 min-w-0">
@@ -40,6 +43,7 @@ export default function Configuracoes() {
           <TabsContent value="notificacoes"><NotificacoesTab /></TabsContent>
           <TabsContent value="cronjobs"><CronJobsTab /></TabsContent>
           <TabsContent value="seguranca"><SegurancaTab user={user} /></TabsContent>
+          <TabsContent value="webhooks"><WebhooksTab /></TabsContent>
         </div>
       </Tabs>
     </div>
