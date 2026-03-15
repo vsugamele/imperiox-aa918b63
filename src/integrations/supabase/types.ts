@@ -8659,6 +8659,39 @@ export type Database = {
           },
         ]
       }
+      imphq_api_keys: {
+        Row: {
+          created_at: string | null
+          id: string
+          key_hash: string
+          key_preview: string
+          last_used_at: string | null
+          name: string
+          permissions: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key_hash: string
+          key_preview: string
+          last_used_at?: string | null
+          name: string
+          permissions?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key_hash?: string
+          key_preview?: string
+          last_used_at?: string | null
+          name?: string
+          permissions?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_automacoes: {
         Row: {
           acoes: Json | null
@@ -9339,6 +9372,42 @@ export type Database = {
           },
         ]
       }
+      imphq_growth_metrics: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          meta: number | null
+          metric_name: string
+          project_id: string
+          user_id: string
+          valor: number | null
+          week_start: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          meta?: number | null
+          metric_name: string
+          project_id: string
+          user_id: string
+          valor?: number | null
+          week_start: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          meta?: number | null
+          metric_name?: string
+          project_id?: string
+          user_id?: string
+          valor?: number | null
+          week_start?: string
+        }
+        Relationships: []
+      }
       imphq_kanban: {
         Row: {
           assignee: string | null
@@ -9846,6 +9915,39 @@ export type Database = {
           project_id?: string
           user_id?: string
           valor?: number | null
+        }
+        Relationships: []
+      }
+      imphq_project_templates: {
+        Row: {
+          boards_json: Json
+          category: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          boards_json?: Json
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          boards_json?: Json
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          user_id?: string
         }
         Relationships: []
       }
