@@ -405,8 +405,8 @@ export default function Leads() {
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Plataforma</TableHead>
+                <TableHead>Estágio</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Score</TableHead>
                 <TableHead>Receita</TableHead>
                 <TableHead>Desde</TableHead>
                 <TableHead></TableHead>
