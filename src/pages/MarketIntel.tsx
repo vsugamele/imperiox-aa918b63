@@ -58,6 +58,12 @@ export default function MarketIntel() {
     o.produto?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredAngles = MARKETING_ANGLES.filter((a) => {
+    if (!angleSearch) return true;
+    const q = angleSearch.toLowerCase();
+    return a.angulo.toLowerCase().includes(q) || a.gatilho.toLowerCase().includes(q) || a.nichoConverte.toLowerCase().includes(q) || a.logica.toLowerCase().includes(q);
+  });
+
   const avgScore = NICHE_OFFERS.length > 0 ? (NICHE_OFFERS.reduce((s, o) => s + o.score, 0) / NICHE_OFFERS.length).toFixed(1) : "0";
   const topNicho = UNIQUE_NICHOS[0] || "—";
   const semRostoCount = NICHE_OFFERS.filter(o => o.semAparecer.includes("100")).length;
