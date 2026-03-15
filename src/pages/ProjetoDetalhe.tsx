@@ -135,12 +135,12 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="branding">🎨 Branding</TabsTrigger>
           <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
           <TabsTrigger value="pipeline">⚡ Pipeline</TabsTrigger>
-          <TabsTrigger value="midia">🖼️ Mídia</TabsTrigger>
+          <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
-          <TabsTrigger value="conteudo">📦 Conteúdo</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
+          <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
