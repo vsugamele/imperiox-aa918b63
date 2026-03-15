@@ -209,7 +209,8 @@ export default function Leads() {
     const matchStatus = statusFilter === "all" || l.status === statusFilter;
     const matchPlatform = platformFilter === "all" || l.plataforma === platformFilter;
     const matchProject = projectFilter === "all" || l.project_id === projectFilter || (!l.project_id && projectFilter === "none");
-    return matchSearch && matchStatus && matchPlatform && matchProject;
+    const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
+    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage;
   });
 
   const totalLeads = leads.length;
