@@ -264,8 +264,13 @@ export default function Leads() {
   };
 
   const deleteLead = async (id: string) => {
+    // First delete associated sales (FK constraint)
+    await supabase.from("imphq_vendas").delete().eq("lead_id", id);
     await supabase.from("imphq_leads").delete().eq("id", id);
-    toast.success("Lead removido"); setEditLead(null); load();
+    toast.success("Lead e vendas associadas removidos");
+    setEditLead(null);
+    setDeleteConfirm(null);
+    load();
   };
 
   const getProjectName = (pid?: string) => {
