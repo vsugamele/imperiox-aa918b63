@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { FlowEditor, type Acao } from "@/components/openflow/FlowEditor";
 
 const TRIGGERS = [
   { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500" },
@@ -24,9 +25,9 @@ const ACAO_TIPOS = [
   { value: "email", label: "Email (Resend)", icon: Mail },
   { value: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   { value: "telegram", label: "Telegram", icon: Send },
+  { value: "aguardar", label: "Aguardar", icon: Clock },
 ];
 
-interface Acao { tipo: string; template: string; delay_min: number; }
 interface Automacao {
   id: string; project_id?: string; nome: string;
   trigger_tipo: string; acoes: Acao[]; ativo: boolean;
