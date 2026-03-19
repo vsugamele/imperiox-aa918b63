@@ -192,10 +192,19 @@ export default function Funis() {
   if (selectedFunil) {
     const etapas = selectedFunil.data.etapas || [];
 
-    // Build connector pairs
-    const connectors: { from: Etapa; to: Etapa }[] = [];
-    for (let i = 0; i < etapas.length - 1; i++) {
-      connectors.push({ from: etapas[i], to: etapas[i + 1] });
+    // Build connector pairs based on connects_to or sequential
+    const connectors: { from: Etapa; to: Etapa; fromIdx: number; toIdx: number }[] = [];
+    for (let i = 0; i < etapas.length; i++) {
+      const targets = etapas[i].connects_to;
+      if (targets && targets.length > 0) {
+        for (const t of targets) {
+          if (t >= 0 && t < etapas.length && t !== i) {
+            connectors.push({ from: etapas[i], to: etapas[t], fromIdx: i, toIdx: t });
+          }
+        }
+      } else if (i < etapas.length - 1) {
+        connectors.push({ from: etapas[i], to: etapas[i + 1], fromIdx: i, toIdx: i + 1 });
+      }
     }
 
     return (
