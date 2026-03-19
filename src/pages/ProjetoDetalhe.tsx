@@ -16,6 +16,7 @@ import { ProjetoPipeline } from "@/components/projeto/ProjetoPipeline";
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
+import { ProjetoLinks } from "@/components/projeto/ProjetoLinks";
 import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
@@ -141,6 +142,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
+          <TabsTrigger value="links">🔗 Links</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
@@ -176,6 +178,9 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="financas" className="mt-4">
           <ProjetoFinancas projectId={id!} />
+        </TabsContent>
+        <TabsContent value="links" className="mt-4">
+          <ProjetoLinks project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">

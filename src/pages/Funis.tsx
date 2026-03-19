@@ -14,6 +14,7 @@ import { toast } from "sonner";
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
   url?: string; image_url?: string; pos_x?: number; pos_y?: number;
+  descricao?: string; connects_to?: number[];
 }
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
@@ -191,10 +192,19 @@ export default function Funis() {
   if (selectedFunil) {
     const etapas = selectedFunil.data.etapas || [];
 
-    // Build connector pairs
-    const connectors: { from: Etapa; to: Etapa }[] = [];
-    for (let i = 0; i < etapas.length - 1; i++) {
-      connectors.push({ from: etapas[i], to: etapas[i + 1] });
+    // Build connector pairs based on connects_to or sequential
+    const connectors: { from: Etapa; to: Etapa; fromIdx: number; toIdx: number }[] = [];
+    for (let i = 0; i < etapas.length; i++) {
+      const targets = etapas[i].connects_to;
+      if (targets && targets.length > 0) {
+        for (const t of targets) {
+          if (t >= 0 && t < etapas.length && t !== i) {
+            connectors.push({ from: etapas[i], to: etapas[t], fromIdx: i, toIdx: t });
+          }
+        }
+      } else if (i < etapas.length - 1) {
+        connectors.push({ from: etapas[i], to: etapas[i + 1], fromIdx: i, toIdx: i + 1 });
+      }
     }
 
     return (
@@ -299,11 +309,19 @@ export default function Funis() {
                     </div>
                   )}
 
-                  {/* Name */}
+                  {/* Name - onBlur to prevent focus loss */}
                   <Input
-                    value={etapa.nome}
-                    onChange={e => setEtapaField(i, "nome", e.target.value)}
+                    defaultValue={etapa.nome}
+                    onBlur={e => setEtapaField(i, "nome", e.target.value)}
                     className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
+                  />
+
+                  {/* Description */}
+                  <Input
+                    defaultValue={etapa.descricao || ""}
+                    onBlur={e => setEtapaField(i, "descricao", e.target.value)}
+                    className="h-6 text-[10px] bg-card/50 border-border p-1"
+                    placeholder="Descrição..."
                   />
 
                   {/* Tipo selector */}
@@ -316,11 +334,11 @@ export default function Funis() {
                     </SelectContent>
                   </Select>
 
-                  {/* URL */}
+                  {/* URL - onBlur */}
                   <div className="flex items-center gap-1">
                     <Input
-                      value={etapa.url || ""}
-                      onChange={e => setEtapaField(i, "url", e.target.value)}
+                      defaultValue={etapa.url || ""}
+                      onBlur={e => setEtapaField(i, "url", e.target.value)}
                       className="h-6 text-[10px] bg-card/50 border-border p-1"
                       placeholder="URL..."
                     />
@@ -329,6 +347,22 @@ export default function Funis() {
                         <ExternalLink className="h-3 w-3 text-primary" />
                       </a>
                     )}
+                  </div>
+
+                  {/* Connect to */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-muted-foreground shrink-0">→</span>
+                    <Input
+                      defaultValue={(etapa.connects_to || []).join(",")}
+                      onBlur={e => {
+                        const val = e.target.value.trim();
+                        const arr = val ? val.split(",").map(Number).filter(n => !isNaN(n)) : [];
+                        setEtapaField(i, "connects_to", arr.length > 0 ? arr : undefined);
+                      }}
+                      className="h-5 text-[9px] bg-card/50 border-border p-1 font-mono"
+                      placeholder="Conecta a: 1,2"
+                      title="Índices das etapas destino (0-based), separados por vírgula"
+                    />
                   </div>
 
                   {/* Upload */}

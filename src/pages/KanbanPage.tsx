@@ -282,7 +282,7 @@ export default function KanbanPage() {
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
           ) : (
-            <div className="grid grid-cols-5 gap-3 min-h-[60vh]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 min-h-[60vh]">
               {columns.map((col) => {
                 const colTitle = col.title.toLowerCase();
                 const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
