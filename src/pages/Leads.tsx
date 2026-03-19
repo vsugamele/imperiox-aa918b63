@@ -457,6 +457,21 @@ export default function Leads() {
           )}
           <Button size="icon" variant="ghost" className="h-9 w-9" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
           <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => {
+              const header = "Nome,Email,Telefone,Plataforma,Status,Score,Total Gasto,Criado Em";
+              const rows = filtered.map(l => [
+                l.nome || "", l.email || "", l.phone || "", l.plataforma || "",
+                l.status || "", l.score ?? "", l.total_gasto ?? "",
+                l.criado_em ? new Date(l.criado_em).toLocaleDateString("pt-BR") : ""
+              ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","));
+              const csv = [header, ...rows].join("\n");
+              const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click(); URL.revokeObjectURL(url);
+              toast.success(`${filtered.length} leads exportados`);
+            }}>📊 Exportar CSV</Button>
             <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar CSV</Button>
             <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>
           </div>

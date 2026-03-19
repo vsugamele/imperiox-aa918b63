@@ -334,11 +334,11 @@ export default function Funis() {
                     </SelectContent>
                   </Select>
 
-                  {/* URL */}
+                  {/* URL - onBlur */}
                   <div className="flex items-center gap-1">
                     <Input
-                      value={etapa.url || ""}
-                      onChange={e => setEtapaField(i, "url", e.target.value)}
+                      defaultValue={etapa.url || ""}
+                      onBlur={e => setEtapaField(i, "url", e.target.value)}
                       className="h-6 text-[10px] bg-card/50 border-border p-1"
                       placeholder="URL..."
                     />
@@ -347,6 +347,22 @@ export default function Funis() {
                         <ExternalLink className="h-3 w-3 text-primary" />
                       </a>
                     )}
+                  </div>
+
+                  {/* Connect to */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-muted-foreground shrink-0">→</span>
+                    <Input
+                      defaultValue={(etapa.connects_to || []).join(",")}
+                      onBlur={e => {
+                        const val = e.target.value.trim();
+                        const arr = val ? val.split(",").map(Number).filter(n => !isNaN(n)) : [];
+                        setEtapaField(i, "connects_to", arr.length > 0 ? arr : undefined);
+                      }}
+                      className="h-5 text-[9px] bg-card/50 border-border p-1 font-mono"
+                      placeholder="Conecta a: 1,2"
+                      title="Índices das etapas destino (0-based), separados por vírgula"
+                    />
                   </div>
 
                   {/* Upload */}

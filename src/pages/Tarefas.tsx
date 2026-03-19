@@ -280,6 +280,21 @@ export default function Tarefas() {
           </p>
         </div>
 
+        <Button size="sm" variant="outline" onClick={() => {
+          const printContent = [...overdue, ...todayCards].map(c => {
+            const projName = projects.find(p => p.id === c.project_id)?.name || "";
+            return `• [${c.priority}] ${c.title}${projName ? ` (${projName})` : ""}${c.due_date ? ` — ${new Date(c.due_date).toLocaleDateString("pt-BR")}` : ""}`;
+          }).join("\n");
+          const w = window.open("", "_blank");
+          if (w) {
+            w.document.write(`<html><head><title>Tarefas do Dia</title><style>body{font-family:sans-serif;padding:2rem}h1{font-size:1.5rem;margin-bottom:0.5rem}pre{white-space:pre-wrap;font-size:14px;line-height:1.8}</style></head><body><h1>📋 Tarefas — ${today.toLocaleDateString("pt-BR")}</h1><pre>${printContent || "Nenhuma tarefa para hoje 🎉"}</pre></body></html>`);
+            w.document.close();
+            w.print();
+          }
+        }}>
+          <FileDown className="h-3 w-3 mr-1" /> Exportar PDF
+        </Button>
+
         <div className="flex items-center gap-2">
           <Select value={filterProject} onValueChange={setFilterProject}>
             <SelectTrigger className="w-40 bg-secondary h-9">

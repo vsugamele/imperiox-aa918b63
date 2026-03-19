@@ -209,7 +209,17 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                   {(midia[c.key] || []).map((url: string, i: number) => (
                     <div key={i} className="relative group aspect-square rounded-md overflow-hidden border border-border bg-secondary">
                       <img src={url} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
-                      <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button size="icon" variant="ghost" className="h-8 w-8 bg-card/80" onClick={() => window.open(url, "_blank")}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 bg-card/80" onClick={() => {
+                          const a = document.createElement("a");
+                          a.href = url; a.download = `foto-${c.key}-${i}`; a.target = "_blank";
+                          a.click();
+                        }}>
+                          <Upload className="h-4 w-4 rotate-180" />
+                        </Button>
                         <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeImage(c.key, i)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
