@@ -142,6 +142,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
+          <TabsTrigger value="links">🔗 Links</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
