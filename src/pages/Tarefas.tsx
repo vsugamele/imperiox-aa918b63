@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
-  Flame, ListTodo, Trash2, User
+  Flame, ListTodo, Trash2, User, FileDown
 } from "lucide-react";
 import { toast } from "sonner";
 
