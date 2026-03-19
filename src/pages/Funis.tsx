@@ -309,11 +309,19 @@ export default function Funis() {
                     </div>
                   )}
 
-                  {/* Name */}
+                  {/* Name - onBlur to prevent focus loss */}
                   <Input
-                    value={etapa.nome}
-                    onChange={e => setEtapaField(i, "nome", e.target.value)}
+                    defaultValue={etapa.nome}
+                    onBlur={e => setEtapaField(i, "nome", e.target.value)}
                     className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
+                  />
+
+                  {/* Description */}
+                  <Input
+                    defaultValue={etapa.descricao || ""}
+                    onBlur={e => setEtapaField(i, "descricao", e.target.value)}
+                    className="h-6 text-[10px] bg-card/50 border-border p-1"
+                    placeholder="Descrição..."
                   />
 
                   {/* Tipo selector */}
