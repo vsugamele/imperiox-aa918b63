@@ -12,6 +12,7 @@ import { DollarSign, Plus, Trash2, Pencil, TrendingUp, TrendingDown, Percent, Ta
 import { toast } from "sonner";
 import { FinancasOverview } from "@/components/financas/FinancasOverview";
 import { FinancasAds } from "@/components/financas/FinancasAds";
+import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 
 const USD_BRL = 5.2;
 const TIPOS = ["SaaS", "API", "Infra", "Ads", "Freelancer", "Outro"];
@@ -20,7 +21,7 @@ interface Custo { id: string; nome: string; tipo?: string; valor: number; moeda?
 interface ProjectCost { id: string; project_id: string; nome: string; categoria: string; valor: number; moeda: string; }
 interface ProjectRevenue { id: string; project_id: string; descricao: string; valor: number; fonte: string; data_ref: string; }
 interface Venda { id: string; project_id: string; produto_nome: string; valor: number; plataforma: string; status: string; data_venda: string; }
-interface AdsSpend { id: string; project_id: string; plataforma: string; campanha: string | null; data_ref: string; valor: number; impressoes: number; cliques: number; leads: number; moeda: string; }
+interface AdsSpend { id: string; project_id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null; data_ref: string; valor: number; impressoes: number; alcance?: number; cliques: number; leads: number; compras?: number; custo_por_compra?: number; hook_rate?: number; hold_rate?: number; ctr?: number; frequencia?: number; moeda: string; }
 interface Project { id: string; name: string; icon?: string; }
 
 export default function Financas() {
@@ -48,7 +49,20 @@ export default function Financas() {
     setProjectCosts((r2.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectRevenues((r3.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setVendas((r4.data || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0 })));
-    setAds((r5.data || []).map((a: any) => ({ ...a, valor: parseFloat(a.valor) || 0, impressoes: a.impressoes || 0, cliques: a.cliques || 0, leads: a.leads || 0 })));
+    setAds((r5.data || []).map((a: any) => ({
+      ...a,
+      valor: parseFloat(a.valor) || 0,
+      impressoes: a.impressoes || 0,
+      cliques: a.cliques || 0,
+      leads: a.leads || 0,
+      alcance: a.alcance || 0,
+      compras: a.compras || 0,
+      custo_por_compra: parseFloat(a.custo_por_compra) || 0,
+      hook_rate: parseFloat(a.hook_rate) || 0,
+      hold_rate: parseFloat(a.hold_rate) || 0,
+      ctr: parseFloat(a.ctr) || 0,
+      frequencia: parseFloat(a.frequencia) || 0,
+    })));
     setProjects((r6.data || []) as Project[]);
   };
 
@@ -56,7 +70,7 @@ export default function Financas() {
 
   // Filtered data
   const fp = filterProject;
-  const fCustos = custos; // global, always shown
+  const fCustos = custos;
   const fProjectCosts = fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp);
   const fProjectRevenues = fp === "all" ? projectRevenues : projectRevenues.filter(r => r.project_id === fp);
   const fVendas = fp === "all" ? vendas : vendas.filter(v => v.project_id === fp);
@@ -76,7 +90,7 @@ export default function Financas() {
   const roi = totalCusto > 0 ? (lucro / totalCusto) * 100 : 0;
   const roas = adsTotal > 0 ? totalReceita / adsTotal : 0;
 
-  // Project summaries for overview
+  // Project summaries
   const projectSummaries = projects.map(p => {
     const pCosts = projectCosts.filter(c => c.project_id === p.id).reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
     const pAds = ads.filter(a => a.project_id === p.id).reduce((a, b) => a + b.valor, 0);
@@ -87,6 +101,25 @@ export default function Financas() {
     const lucro = receita - custo;
     return { id: p.id, name: p.name, receita, custo, lucro, roi: custo > 0 ? (lucro / custo) * 100 : 0 };
   }).filter(p => p.receita > 0 || p.custo > 0);
+
+  // Daily timeline data for overview (ads vs vendas)
+  const dailyMap = new Map<string, { ads: number; vendas: number }>();
+  fAds.forEach(a => {
+    const d = a.data_ref;
+    const cur = dailyMap.get(d) || { ads: 0, vendas: 0 };
+    cur.ads += a.valor;
+    dailyMap.set(d, cur);
+  });
+  fVendas.forEach(v => {
+    const d = v.data_venda?.slice(0, 10);
+    if (!d) return;
+    const cur = dailyMap.get(d) || { ads: 0, vendas: 0 };
+    cur.vendas += v.valor;
+    dailyMap.set(d, cur);
+  });
+  const dailyData = Array.from(dailyMap.entries())
+    .map(([date, data]) => ({ date, ...data }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // Custo CRUD
   const openNewCusto = () => { setEditingCusto(null); setCustoForm({ nome: "", tipo: "SaaS", valor: "", moeda: "BRL" }); setShowCustoDialog(true); };
@@ -150,10 +183,17 @@ export default function Financas() {
           <TabsTrigger value="custos">Custos</TabsTrigger>
           <TabsTrigger value="receitas">Receitas</TabsTrigger>
           <TabsTrigger value="ads">Ads</TabsTrigger>
+          <TabsTrigger value="produtos">Produtos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <FinancasOverview projectSummaries={projectSummaries} />
+          <FinancasOverview
+            projectSummaries={projectSummaries}
+            dailyData={dailyData}
+            totalAds={adsTotal}
+            totalVendas={receitaVendas}
+            totalVendasCount={fVendas.length}
+          />
         </TabsContent>
 
         <TabsContent value="custos">
@@ -296,6 +336,10 @@ export default function Financas() {
 
         <TabsContent value="ads">
           <FinancasAds ads={fAds} projects={projects} onRefresh={load} filterProjectId={filterProject === "all" ? "" : filterProject} />
+        </TabsContent>
+
+        <TabsContent value="produtos">
+          <FinancasProdutos vendas={fVendas} />
         </TabsContent>
       </Tabs>
 
