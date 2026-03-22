@@ -281,10 +281,6 @@ export default function Tarefas() {
         </div>
 
         <Button size="sm" variant="outline" onClick={() => {
-          const printContent = [...overdue, ...todayCards].map(c => {
-            const projName = projects.find(p => p.id === c.project_id)?.name || "";
-            return `• [${c.priority}] ${c.title}${projName ? ` (${projName})` : ""}${c.due_date ? ` — ${new Date(c.due_date).toLocaleDateString("pt-BR")}` : ""}`;
-          }).join("\n");
           const w = window.open("", "_blank");
           if (w) {
             w.document.write(`<html><head><title>Tarefas do Dia</title><style>
