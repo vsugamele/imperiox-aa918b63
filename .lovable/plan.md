@@ -1,124 +1,82 @@
 
 
-# Plano: Sistema Financeiro Completo com Visao Consolidada + Ads
+# Plano: Dashboard Financeiro Inteligente com Cruzamento Ads x Vendas por Produto
 
-## Situacao Atual
+## Contexto
 
-- **`/financas`** (`Financas.tsx`): Apenas custos de ferramentas globais (`imphq_custos`) — sem vinculo a projetos, sem receitas, sem ads.
-- **`ProjetoFinancas.tsx`**: Custos e receitas por projeto (`imphq_project_costs`, `imphq_project_revenue`) — funciona isoladamente dentro de cada projeto.
-- **`imphq_vendas`**: Vendas reais recebidas via webhook, com `project_id`, `valor`, UTMs, plataforma — dados ricos ja existem mas nao sao usados em Financas.
+Voce tem dois CSVs:
+- **Facebook Ads** (PT-BR): colunas como "Nome da campanha", "Valor usado (BRL)", "Impressões", "Compras", "Hook Rate", etc.
+- **Vendas Ticto** (425 linhas): multiplos produtos do JP ("Codigo dos Cortes Perfeitos", "Segredo do Corte", etc.) com UTMs do Facebook
 
-## O que vamos construir
-
-Transformar `/financas` em um **dashboard financeiro consolidado** que:
-
-1. Agrega custos de TODOS os projetos + custos globais (ferramentas)
-2. Agrega receitas/vendas de todos os projetos (de `imphq_vendas` + `imphq_project_revenue`)
-3. Permite importar/cadastrar gastos de Facebook Ads (via CSV upload ou manual)
-4. Mostra dados ricos: ROI por projeto, custo vs receita, breakdown por categoria
-5. Permite filtrar por projeto
+O importador de Ads atual nao mapeia as colunas em portugues do Facebook. E o dashboard nao cruza ads com vendas por produto.
 
 ## Alteracoes
 
-### 1. Nova tabela: `imphq_ads_spend`
+### 1. Expandir tabela `imphq_ads_spend` (migration)
 
-Para registrar gastos de ads (Facebook, Google, etc.) por projeto e por dia:
+Adicionar colunas ricas do Facebook Ads:
 
 ```sql
-CREATE TABLE imphq_ads_spend (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES imphq_projects(id) ON DELETE CASCADE,
-  plataforma TEXT NOT NULL DEFAULT 'Facebook',
-  campanha TEXT,
-  data_ref DATE NOT NULL,
-  valor NUMERIC(10,2) NOT NULL DEFAULT 0,
-  impressoes INT DEFAULT 0,
-  cliques INT DEFAULT 0,
-  leads INT DEFAULT 0,
-  moeda TEXT DEFAULT 'BRL',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-ALTER TABLE imphq_ads_spend ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "ads_spend_all" ON imphq_ads_spend FOR ALL TO authenticated USING (true) WITH CHECK (true);
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS alcance INT DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS resultados INT DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS custo_por_resultado NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS compras INT DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS custo_por_compra NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS conjunto_anuncios TEXT;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS anuncio TEXT;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS hook_rate NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS hold_rate NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS ctr NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS frequencia NUMERIC(5,2) DEFAULT 0;
 ```
 
-### 2. Reescrever `src/pages/Financas.tsx`
+### 2. Reescrever `AdsImportDialog.tsx`
 
-Novo layout com tabs e filtro por projeto:
+Mapear todas as colunas PT-BR do Facebook Ads:
+- "Nome da campanha" -> campanha
+- "Nome do conjunto de anuncios" -> conjunto_anuncios
+- "Valor usado (BRL)" -> valor (parse "R$1.234,56" -> 1234.56)
+- "Impressoes" -> impressoes
+- "Alcance" -> alcance
+- "Compras" -> compras
+- "Hook Rate" / "Hold Rate" / "CTR" -> campos numericos
+- "Inicio dos relatorios" / "Termino dos relatorios" -> data_ref
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│  💰 Finanças          [Filtro: Todos os Projetos ▼]     │
-├─────────────────────────────────────────────────────────┤
-│  KPIs: Receita Total | Custo Total | Lucro | ROI | CPA │
-├─────────────────────────────────────────────────────────┤
-│  [Visao Geral] [Custos] [Receitas] [Ads] [Por Projeto] │
-├─────────────────────────────────────────────────────────┤
-│  Tab Visao Geral:                                       │
-│    - Grafico barras: Receita vs Custo por projeto       │
-│    - Tabela resumo por projeto (custo, receita, lucro)  │
-│                                                         │
-│  Tab Custos:                                            │
-│    - Custos globais (imphq_custos) + por projeto        │
-│    - Agrupados por categoria                            │
-│                                                         │
-│  Tab Receitas:                                          │
-│    - Vendas de imphq_vendas + imphq_project_revenue     │
-│    - Por plataforma, por produto                        │
-│                                                         │
-│  Tab Ads:                                               │
-│    - CRUD de gastos de ads (imphq_ads_spend)            │
-│    - Upload CSV do Facebook Ads                         │
-│    - Metricas: CPC, CPL, ROAS                          │
-│                                                         │
-│  Tab Por Projeto:                                       │
-│    - Cards por projeto com mini P&L                     │
-└─────────────────────────────────────────────────────────┘
-```
+Preview com mais colunas e feedback de quantas linhas validas.
 
-**Dados agregados de:**
-- `imphq_custos` — custos globais de ferramentas
-- `imphq_project_costs` — custos por projeto
-- `imphq_vendas` — vendas reais (webhook)
-- `imphq_project_revenue` — receitas manuais por projeto
-- `imphq_ads_spend` — gastos de ads (novo)
-- `imphq_projects` — nomes/icones dos projetos
+### 3. Importar vendas Ticto via LeadImportDialog (ja existe)
 
-**KPIs calculados:**
-- Receita Total (vendas + receitas manuais)
-- Custo Total (ferramentas + custos projeto + ads)
-- Lucro (receita - custo)
-- ROI% ((lucro / custo) * 100)
-- CPA (custo ads / numero de vendas)
-- ROAS (receita / custo ads)
+O CSV de vendas ja e suportado pelo LeadImportDialog existente. Basta importar associando ao projeto JP. As vendas entram em `imphq_vendas` com `produto_nome` separado.
 
-### 3. Componente `src/components/financas/AdsImportDialog.tsx`
+### 4. Nova tab "Por Produto" no dashboard Financas
 
-Dialog para importar CSV do Facebook Ads:
-- Aceita CSV com colunas: `campanha, data, valor, impressoes, cliques`
-- Parseia e insere em `imphq_ads_spend`
-- Preview dos dados antes de importar
+Novo componente `FinancasProdutos.tsx`:
+- Agrupa vendas de `imphq_vendas` por `produto_nome`
+- Mostra por produto: qtd vendas, receita total, ticket medio
+- Tabela com ranking de produtos por faturamento
+- Grafico de pizza/barras com distribuicao de receita por produto
 
-### 4. Componente `src/components/financas/FinancasOverview.tsx`
+### 5. Melhorar `FinancasOverview.tsx` com cruzamento
 
-Tab de visao geral com:
-- Grafico de barras horizontal (Recharts) — Receita vs Custo por projeto
-- Tabela resumo consolidada por projeto
+- Adicionar secao "Ads vs Vendas" com timeline (Recharts AreaChart):
+  - Eixo X: datas
+  - Linha 1: gasto ads diario (de `imphq_ads_spend`)
+  - Linha 2: receita vendas diaria (de `imphq_vendas`)
+- Card de ROAS real: receita total vendas / gasto total ads
+- Card de CPA real: gasto ads / numero de vendas aprovadas
 
-### 5. Componente `src/components/financas/FinancasAds.tsx`
+### 6. Melhorar tab Ads com metricas ricas
 
-Tab de Ads com:
-- Tabela de gastos de ads
-- CRUD manual + import CSV
-- Metricas derivadas (CPC, CPL, ROAS)
+Mostrar as novas colunas na tabela: Alcance, Hook Rate, CTR, Compras, Custo/Compra. Adicionar KPIs de CTR medio e Hook Rate medio.
 
 ## Arquivos
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | **Nova tabela** `imphq_ads_spend` |
-| `src/pages/Financas.tsx` | Reescrever completo — dashboard consolidado com tabs |
-| `src/components/financas/AdsImportDialog.tsx` | **Novo** — Import CSV de ads |
-| `src/components/financas/FinancasOverview.tsx` | **Novo** — Visao geral com graficos |
-| `src/components/financas/FinancasAds.tsx` | **Novo** — Tab de gestao de ads |
+| Migration SQL | Expandir `imphq_ads_spend` com colunas ricas |
+| `src/components/financas/AdsImportDialog.tsx` | Reescrever mapeamento para colunas PT-BR do Facebook |
+| `src/components/financas/FinancasProdutos.tsx` | **Novo** - breakdown por produto |
+| `src/components/financas/FinancasOverview.tsx` | Adicionar timeline ads vs vendas e ROAS real |
+| `src/components/financas/FinancasAds.tsx` | Exibir colunas ricas (alcance, hook rate, CTR) |
+| `src/pages/Financas.tsx` | Adicionar tab "Produtos", passar vendas ao overview |
 
