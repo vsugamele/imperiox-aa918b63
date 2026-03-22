@@ -19,11 +19,55 @@ interface Props {
 
 interface AdsRow {
   campanha: string;
+  conjunto_anuncios: string;
+  anuncio: string;
   data_ref: string;
   valor: number;
   impressoes: number;
+  alcance: number;
   cliques: number;
   leads: number;
+  resultados: number;
+  custo_por_resultado: number;
+  compras: number;
+  custo_por_compra: number;
+  hook_rate: number;
+  hold_rate: number;
+  ctr: number;
+  frequencia: number;
+}
+
+/** Parse BRL currency strings like "1.234,56" or "R$ 1.234,56" to number */
+function parseBRL(val: string | undefined | null): number {
+  if (!val) return 0;
+  const cleaned = val
+    .replace(/R\$\s?/g, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")    // remove thousands separator
+    .replace(",", ".");     // decimal comma -> dot
+  return parseFloat(cleaned) || 0;
+}
+
+/** Parse percentage strings like "12,34%" to number */
+function parsePercent(val: string | undefined | null): number {
+  if (!val) return 0;
+  const cleaned = val.replace(/%/g, "").replace(",", ".").trim();
+  return parseFloat(cleaned) || 0;
+}
+
+/** Parse integer with thousands separator */
+function parseIntBR(val: string | undefined | null): number {
+  if (!val) return 0;
+  const cleaned = val.replace(/\./g, "").replace(",", ".").trim();
+  return parseInt(cleaned) || 0;
+}
+
+/** Get value from row with multiple possible keys */
+function get(row: any, ...keys: string[]): string {
+  for (const k of keys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== "") return String(row[k]);
+  }
+  return "";
 }
 
 export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Props) {
@@ -40,15 +84,27 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
       skipEmptyLines: true,
       complete: (result) => {
         const parsed: AdsRow[] = result.data.map((r: any) => ({
-          campanha: r.campanha || r.campaign_name || r["Campaign name"] || r.Campaign || "",
-          data_ref: r.data || r.date || r.data_ref || r.Day || "",
-          valor: parseFloat(r.valor || r.spend || r["Amount spent (BRL)"] || r.Spend || "0") || 0,
-          impressoes: parseInt(r.impressoes || r.impressions || r.Impressions || "0") || 0,
-          cliques: parseInt(r.cliques || r.clicks || r["Link clicks"] || r.Clicks || "0") || 0,
-          leads: parseInt(r.leads || r.Leads || r.results || r.Results || "0") || 0,
+          campanha: get(r, "Nome da campanha", "campanha", "campaign_name", "Campaign name", "Campaign"),
+          conjunto_anuncios: get(r, "Nome do conjunto de anúncios", "Nome do conjunto de anuncios", "conjunto_anuncios", "Ad set name"),
+          anuncio: get(r, "Anúncios", "Anuncios", "anuncio", "Ad name"),
+          data_ref: get(r, "Início dos relatórios", "Inicio dos relatorios", "Início", "Inicio", "data", "date", "data_ref", "Day"),
+          valor: parseBRL(get(r, "Valor usado (BRL)", "valor", "spend", "Amount spent (BRL)", "Spend")),
+          impressoes: parseIntBR(get(r, "Impressões", "Impressoes", "impressoes", "impressions", "Impressions")),
+          alcance: parseIntBR(get(r, "Alcance", "alcance", "Reach")),
+          cliques: parseIntBR(get(r, "Cliques no link", "cliques", "clicks", "Link clicks", "Clicks")),
+          leads: parseIntBR(get(r, "Resultados", "leads", "Leads", "results", "Results")),
+          resultados: parseIntBR(get(r, "Resultados", "resultados", "Results")),
+          custo_por_resultado: parseBRL(get(r, "Custo por resultado", "custo_por_resultado", "Cost per result")),
+          compras: parseIntBR(get(r, "Compras", "compras", "Purchases")),
+          custo_por_compra: parseBRL(get(r, "Custo por compra", "custo_por_compra", "Cost per purchase")),
+          hook_rate: parsePercent(get(r, "Hook Rate", "hook_rate")),
+          hold_rate: parsePercent(get(r, "Hold Rate", "hold_rate")),
+          ctr: parsePercent(get(r, "CTR único (taxa de cliques no link)", "CTR", "ctr")),
+          frequencia: parsePercent(get(r, "Frequência", "Frequencia", "frequencia", "Frequency")),
         }));
-        setRows(parsed.filter(r => r.data_ref && r.valor > 0));
-        toast.success(`${parsed.length} linhas carregadas`);
+        const valid = parsed.filter(r => r.data_ref && r.valor > 0);
+        setRows(valid);
+        toast.success(`${valid.length} linhas válidas de ${parsed.length} carregadas`);
       },
     });
   };
@@ -61,11 +117,22 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
       project_id: projectId,
       plataforma,
       campanha: r.campanha,
+      conjunto_anuncios: r.conjunto_anuncios,
+      anuncio: r.anuncio,
       data_ref: r.data_ref,
       valor: r.valor,
       impressoes: r.impressoes,
+      alcance: r.alcance,
       cliques: r.cliques,
       leads: r.leads,
+      resultados: r.resultados,
+      custo_por_resultado: r.custo_por_resultado,
+      compras: r.compras,
+      custo_por_compra: r.custo_por_compra,
+      hook_rate: r.hook_rate,
+      hold_rate: r.hold_rate,
+      ctr: r.ctr,
+      frequencia: r.frequencia,
     }));
     const { error } = await supabase.from("imphq_ads_spend").insert(payload as any);
     setImporting(false);
@@ -78,7 +145,7 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader><DialogTitle>📊 Importar Gastos de Ads (CSV)</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -105,7 +172,7 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
           <div>
             <Label>Arquivo CSV</Label>
             <Input type="file" accept=".csv" onChange={handleFile} />
-            <p className="text-xs text-muted-foreground mt-1">Colunas aceitas: campanha, data, valor, impressoes, cliques, leads</p>
+            <p className="text-xs text-muted-foreground mt-1">Aceita relatórios do Facebook Ads em PT-BR (colunas: Nome da campanha, Valor usado, Impressões, Alcance, CTR, Hook Rate, Compras...)</p>
           </div>
           {rows.length > 0 && (
             <div className="rounded-lg border border-border overflow-hidden max-h-60 overflow-y-auto">
@@ -116,19 +183,25 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
                     <TableHead>Data</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead>Impr.</TableHead>
+                    <TableHead>Alcance</TableHead>
                     <TableHead>Cliques</TableHead>
-                    <TableHead>Leads</TableHead>
+                    <TableHead>Compras</TableHead>
+                    <TableHead>CTR</TableHead>
+                    <TableHead>Hook</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.slice(0, 20).map((r, i) => (
                     <TableRow key={i}>
-                      <TableCell className="text-xs">{r.campanha || "—"}</TableCell>
+                      <TableCell className="text-xs max-w-[150px] truncate">{r.campanha || "—"}</TableCell>
                       <TableCell className="text-xs font-mono">{r.data_ref}</TableCell>
                       <TableCell className="text-xs font-mono">R$ {r.valor.toFixed(2)}</TableCell>
-                      <TableCell className="text-xs font-mono">{r.impressoes}</TableCell>
+                      <TableCell className="text-xs font-mono">{r.impressoes.toLocaleString()}</TableCell>
+                      <TableCell className="text-xs font-mono">{r.alcance.toLocaleString()}</TableCell>
                       <TableCell className="text-xs font-mono">{r.cliques}</TableCell>
-                      <TableCell className="text-xs font-mono">{r.leads}</TableCell>
+                      <TableCell className="text-xs font-mono">{r.compras}</TableCell>
+                      <TableCell className="text-xs font-mono">{r.ctr.toFixed(2)}%</TableCell>
+                      <TableCell className="text-xs font-mono">{r.hook_rate.toFixed(1)}%</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

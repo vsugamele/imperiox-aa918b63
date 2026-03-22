@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target } from "lucide-react";
+import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "./AdsImportDialog";
 
@@ -16,11 +16,19 @@ interface AdsSpend {
   project_id: string;
   plataforma: string;
   campanha: string | null;
+  conjunto_anuncios?: string | null;
   data_ref: string;
   valor: number;
   impressoes: number;
+  alcance?: number;
   cliques: number;
   leads: number;
+  compras?: number;
+  custo_por_compra?: number;
+  hook_rate?: number;
+  hold_rate?: number;
+  ctr?: number;
+  frequencia?: number;
   moeda: string;
 }
 
@@ -41,6 +49,9 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
   const totalCliques = ads.reduce((a, b) => a + b.cliques, 0);
   const totalLeads = ads.reduce((a, b) => a + b.leads, 0);
   const totalImpr = ads.reduce((a, b) => a + b.impressoes, 0);
+  const totalCompras = ads.reduce((a, b) => a + (b.compras || 0), 0);
+  const avgCTR = ads.length > 0 ? ads.reduce((a, b) => a + (b.ctr || 0), 0) / ads.length : 0;
+  const avgHookRate = ads.length > 0 ? ads.reduce((a, b) => a + (b.hook_rate || 0), 0) / ads.length : 0;
   const cpc = totalCliques > 0 ? totalGasto / totalCliques : 0;
   const cpl = totalLeads > 0 ? totalGasto / totalLeads : 0;
 
@@ -48,7 +59,11 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
     { label: "Total Investido", value: `R$ ${totalGasto.toFixed(2)}`, icon: Target, color: "text-red-400" },
     { label: "CPC", value: `R$ ${cpc.toFixed(2)}`, icon: MousePointerClick, color: "text-blue-400" },
     { label: "CPL", value: `R$ ${cpl.toFixed(2)}`, icon: Target, color: "text-amber-400" },
-    { label: "Impressões", value: totalImpr.toLocaleString(), icon: Eye, color: "text-emerald-400" },
+    { label: "Impressões", value: totalImpr.toLocaleString(), icon: Eye, color: "text-muted-foreground" },
+    { label: "Compras", value: totalCompras.toString(), icon: BarChart3, color: "text-emerald-400" },
+    { label: "CTR Médio", value: `${avgCTR.toFixed(2)}%`, icon: MousePointerClick, color: "text-blue-400" },
+    { label: "Hook Rate", value: `${avgHookRate.toFixed(1)}%`, icon: Eye, color: "text-amber-400" },
+    { label: "Cliques", value: totalCliques.toLocaleString(), icon: MousePointerClick, color: "text-muted-foreground" },
   ];
 
   const openNew = () => {
@@ -100,7 +115,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map(k => (
+        {kpis.slice(0, 8).map(k => (
           <Card key={k.label} className="border-border">
             <CardContent className="flex items-center gap-3 p-4">
               <k.icon className={`h-5 w-5 ${k.color}`} />
@@ -123,25 +138,31 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
           <TableHeader>
             <TableRow>
               <TableHead>Projeto</TableHead>
-              <TableHead>Plataforma</TableHead>
               <TableHead>Campanha</TableHead>
               <TableHead>Data</TableHead>
               <TableHead>Valor</TableHead>
+              <TableHead>Impr.</TableHead>
+              <TableHead>Alcance</TableHead>
               <TableHead>Cliques</TableHead>
-              <TableHead>Leads</TableHead>
+              <TableHead>Compras</TableHead>
+              <TableHead>CTR</TableHead>
+              <TableHead>Hook</TableHead>
               <TableHead className="w-[70px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ads.map(a => (
+            {ads.slice(0, 100).map(a => (
               <TableRow key={a.id} className="group hover:bg-muted/30">
                 <TableCell className="text-xs">{getProjectName(a.project_id)}</TableCell>
-                <TableCell className="text-xs">{a.plataforma}</TableCell>
-                <TableCell className="text-xs">{a.campanha || "—"}</TableCell>
+                <TableCell className="text-xs max-w-[120px] truncate">{a.campanha || "—"}</TableCell>
                 <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
-                <TableCell className="font-mono text-red-400">R$ {a.valor.toFixed(2)}</TableCell>
+                <TableCell className="font-mono text-red-400 text-xs">R$ {a.valor.toFixed(2)}</TableCell>
+                <TableCell className="font-mono text-xs">{a.impressoes.toLocaleString()}</TableCell>
+                <TableCell className="font-mono text-xs">{(a.alcance || 0).toLocaleString()}</TableCell>
                 <TableCell className="font-mono text-xs">{a.cliques}</TableCell>
-                <TableCell className="font-mono text-xs">{a.leads}</TableCell>
+                <TableCell className="font-mono text-xs">{a.compras || 0}</TableCell>
+                <TableCell className="font-mono text-xs">{(a.ctr || 0).toFixed(2)}%</TableCell>
+                <TableCell className="font-mono text-xs">{(a.hook_rate || 0).toFixed(1)}%</TableCell>
                 <TableCell>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(a)}><Pencil className="h-3 w-3" /></Button>
@@ -151,7 +172,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
               </TableRow>
             ))}
             {ads.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhum gasto de ads registrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nenhum gasto de ads registrado</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

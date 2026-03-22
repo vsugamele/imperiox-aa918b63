@@ -8585,42 +8585,75 @@ export type Database = {
       }
       imphq_ads_spend: {
         Row: {
+          alcance: number | null
+          anuncio: string | null
           campanha: string | null
           cliques: number | null
+          compras: number | null
+          conjunto_anuncios: string | null
           created_at: string | null
+          ctr: number | null
+          custo_por_compra: number | null
+          custo_por_resultado: number | null
           data_ref: string
+          frequencia: number | null
+          hold_rate: number | null
+          hook_rate: number | null
           id: string
           impressoes: number | null
           leads: number | null
           moeda: string | null
           plataforma: string
           project_id: string | null
+          resultados: number | null
           valor: number
         }
         Insert: {
+          alcance?: number | null
+          anuncio?: string | null
           campanha?: string | null
           cliques?: number | null
+          compras?: number | null
+          conjunto_anuncios?: string | null
           created_at?: string | null
+          ctr?: number | null
+          custo_por_compra?: number | null
+          custo_por_resultado?: number | null
           data_ref: string
+          frequencia?: number | null
+          hold_rate?: number | null
+          hook_rate?: number | null
           id?: string
           impressoes?: number | null
           leads?: number | null
           moeda?: string | null
           plataforma?: string
           project_id?: string | null
+          resultados?: number | null
           valor?: number
         }
         Update: {
+          alcance?: number | null
+          anuncio?: string | null
           campanha?: string | null
           cliques?: number | null
+          compras?: number | null
+          conjunto_anuncios?: string | null
           created_at?: string | null
+          ctr?: number | null
+          custo_por_compra?: number | null
+          custo_por_resultado?: number | null
           data_ref?: string
+          frequencia?: number | null
+          hold_rate?: number | null
+          hook_rate?: number | null
           id?: string
           impressoes?: number | null
           leads?: number | null
           moeda?: string | null
           plataforma?: string
           project_id?: string | null
+          resultados?: number | null
           valor?: number
         }
         Relationships: [
