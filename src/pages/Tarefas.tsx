@@ -287,7 +287,31 @@ export default function Tarefas() {
           }).join("\n");
           const w = window.open("", "_blank");
           if (w) {
-            w.document.write(`<html><head><title>Tarefas do Dia</title><style>body{font-family:sans-serif;padding:2rem}h1{font-size:1.5rem;margin-bottom:0.5rem}pre{white-space:pre-wrap;font-size:14px;line-height:1.8}</style></head><body><h1>📋 Tarefas — ${today.toLocaleDateString("pt-BR")}</h1><pre>${printContent || "Nenhuma tarefa para hoje 🎉"}</pre></body></html>`);
+            w.document.write(`<html><head><title>Tarefas do Dia</title><style>
+              @media print { @page { margin: 1.5cm; } }
+              body{font-family:system-ui,sans-serif;padding:2rem;color:#1a1a1a}
+              h1{font-size:1.4rem;margin-bottom:0.25rem;color:#333}
+              h2{font-size:0.9rem;color:#666;font-weight:normal;margin-bottom:1.5rem}
+              .task{padding:8px 0;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+              .priority{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase}
+              .urgent{background:#fee;color:#c00}.high{background:#fff3e0;color:#e65100}
+              .medium{background:#e8f5e9;color:#2e7d32}.low{background:#f5f5f5;color:#666}
+              .project{font-size:11px;color:#888;margin-left:auto}
+              .date{font-size:11px;color:#999;font-family:monospace}
+              .section{margin-top:1.5rem;font-size:0.85rem;font-weight:600;color:#444;border-bottom:2px solid #ddd;padding-bottom:4px}
+            </style></head><body>
+            <h1>📋 Tarefas do Dia</h1>
+            <h2>${today.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h2>
+            ${overdue.length > 0 ? `<div class="section">⚠️ Atrasadas (${overdue.length})</div>` + overdue.map(c => {
+              const projName = projects.find(p => p.id === c.project_id)?.name || "";
+              return `<div class="task"><span class="priority ${c.priority}">${c.priority}</span><span>${c.title}</span>${projName ? `<span class="project">${projName}</span>` : ""}${c.due_date ? `<span class="date">${new Date(c.due_date).toLocaleDateString("pt-BR")}</span>` : ""}</div>`;
+            }).join("") : ""}
+            <div class="section">📌 Hoje (${todayCards.length})</div>
+            ${todayCards.length > 0 ? todayCards.map(c => {
+              const projName = projects.find(p => p.id === c.project_id)?.name || "";
+              return `<div class="task"><span class="priority ${c.priority}">${c.priority}</span><span>${c.title}</span>${projName ? `<span class="project">${projName}</span>` : ""}</div>`;
+            }).join("") : "<p style='color:#999;font-size:14px;padding:12px 0'>Nenhuma tarefa para hoje 🎉</p>"}
+            </body></html>`);
             w.document.close();
             w.print();
           }

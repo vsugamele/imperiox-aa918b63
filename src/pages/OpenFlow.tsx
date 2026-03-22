@@ -265,7 +265,7 @@ export default function OpenFlow() {
 
       {/* Edit Dialog — Flow Editor */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar Automação</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-4">

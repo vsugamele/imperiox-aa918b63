@@ -290,7 +290,7 @@ export default function KanbanPage() {
                 return (
                   <div
                     key={col.id}
-                    className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors`}
+                    className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors min-w-[260px] md:min-w-0 snap-start`}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, col.id)}
                   >
