@@ -1,75 +1,124 @@
 
 
-# Analise: O que falta ajustar no projeto
+# Plano: Sistema Financeiro Completo com Visao Consolidada + Ads
 
-Depois de revisar todos os arquivos principais, identifiquei os seguintes problemas e melhorias pendentes:
+## Situacao Atual
 
----
+- **`/financas`** (`Financas.tsx`): Apenas custos de ferramentas globais (`imphq_custos`) — sem vinculo a projetos, sem receitas, sem ads.
+- **`ProjetoFinancas.tsx`**: Custos e receitas por projeto (`imphq_project_costs`, `imphq_project_revenue`) — funciona isoladamente dentro de cada projeto.
+- **`imphq_vendas`**: Vendas reais recebidas via webhook, com `project_id`, `valor`, UTMs, plataforma — dados ricos ja existem mas nao sao usados em Financas.
 
-## Bugs e Problemas
+## O que vamos construir
 
-### 1. Funis: Inputs de numero (Visitas/Conv) ainda usam `onChange` direto
-Os campos `nome`, `descricao` e `url` ja foram corrigidos com `onBlur`, mas os inputs numericos de `visitantes` e `conversoes` (linhas 381-386) ainda causam re-render a cada keystroke via `onChange` + `setEtapaField`. Devem usar `defaultValue` + `onBlur` tambem.
+Transformar `/financas` em um **dashboard financeiro consolidado** que:
 
-### 2. Funis: Conexao manual entre etapas e confusa
-O campo "Conecta a: 1,2" exige que o usuario saiba os indices (0-based) das etapas. Nao ha feedback visual de qual etapa e qual indice. Precisa mostrar o numero de cada etapa no card e idealmente permitir click-to-connect.
+1. Agrega custos de TODOS os projetos + custos globais (ferramentas)
+2. Agrega receitas/vendas de todos os projetos (de `imphq_vendas` + `imphq_project_revenue`)
+3. Permite importar/cadastrar gastos de Facebook Ads (via CSV upload ou manual)
+4. Mostra dados ricos: ROI por projeto, custo vs receita, breakdown por categoria
+5. Permite filtrar por projeto
 
-### 3. Kanban: Sem suporte touch/mobile real
-O drag-and-drop usa apenas HTML5 Drag API (`draggable`, `onDragStart`), que nao funciona em dispositivos touch. Cards ficam imoveis no mobile. A grid `grid-cols-2` no mobile tambem corta colunas.
+## Alteracoes
 
-### 4. Kanban: Board "geral" nao tem coluna propria
-Quando no board "geral", ao criar um card, o usuario precisa escolher o board destino, mas a UX e confusa - o card e criado em "agentes" por padrao sem indicacao clara.
+### 1. Nova tabela: `imphq_ads_spend`
 
-### 5. OpenFlow: Dialog de edicao pequeno demais para o FlowEditor
-O dialog `max-w-2xl` e limitante para editar fluxos longos. Deveria expandir para quase fullscreen ou usar uma pagina dedicada.
+Para registrar gastos de ads (Facebook, Google, etc.) por projeto e por dia:
 
-### 6. Tarefas: Exportar PDF usa apenas `window.print()` sem CSS de impressao
-O botao de exportar PDF provavelmente abre o print dialog do browser sem estilizacao especifica para impressao, resultando em output ruim.
+```sql
+CREATE TABLE imphq_ads_spend (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES imphq_projects(id) ON DELETE CASCADE,
+  plataforma TEXT NOT NULL DEFAULT 'Facebook',
+  campanha TEXT,
+  data_ref DATE NOT NULL,
+  valor NUMERIC(10,2) NOT NULL DEFAULT 0,
+  impressoes INT DEFAULT 0,
+  cliques INT DEFAULT 0,
+  leads INT DEFAULT 0,
+  moeda TEXT DEFAULT 'BRL',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE imphq_ads_spend ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "ads_spend_all" ON imphq_ads_spend FOR ALL TO authenticated USING (true) WITH CHECK (true);
+```
 
----
+### 2. Reescrever `src/pages/Financas.tsx`
 
-## Melhorias de UX
+Novo layout com tabs e filtro por projeto:
 
-### 7. Dashboard: Falta grafico de evolucao temporal
-O dashboard mostra numeros estaticos mas nao tem nenhum grafico de linha/barra mostrando evolucao de leads, vendas ou tarefas ao longo do tempo.
+```text
+┌─────────────────────────────────────────────────────────┐
+│  💰 Finanças          [Filtro: Todos os Projetos ▼]     │
+├─────────────────────────────────────────────────────────┤
+│  KPIs: Receita Total | Custo Total | Lucro | ROI | CPA │
+├─────────────────────────────────────────────────────────┤
+│  [Visao Geral] [Custos] [Receitas] [Ads] [Por Projeto] │
+├─────────────────────────────────────────────────────────┤
+│  Tab Visao Geral:                                       │
+│    - Grafico barras: Receita vs Custo por projeto       │
+│    - Tabela resumo por projeto (custo, receita, lucro)  │
+│                                                         │
+│  Tab Custos:                                            │
+│    - Custos globais (imphq_custos) + por projeto        │
+│    - Agrupados por categoria                            │
+│                                                         │
+│  Tab Receitas:                                          │
+│    - Vendas de imphq_vendas + imphq_project_revenue     │
+│    - Por plataforma, por produto                        │
+│                                                         │
+│  Tab Ads:                                               │
+│    - CRUD de gastos de ads (imphq_ads_spend)            │
+│    - Upload CSV do Facebook Ads                         │
+│    - Metricas: CPC, CPL, ROAS                          │
+│                                                         │
+│  Tab Por Projeto:                                       │
+│    - Cards por projeto com mini P&L                     │
+└─────────────────────────────────────────────────────────┘
+```
 
-### 8. Sidebar: Falta indicador de notificacoes/alertas
-Nenhum badge de contagem na sidebar para tarefas urgentes, leads novos, etc.
+**Dados agregados de:**
+- `imphq_custos` — custos globais de ferramentas
+- `imphq_project_costs` — custos por projeto
+- `imphq_vendas` — vendas reais (webhook)
+- `imphq_project_revenue` — receitas manuais por projeto
+- `imphq_ads_spend` — gastos de ads (novo)
+- `imphq_projects` — nomes/icones dos projetos
 
-### 9. ProjetoDetalhe: Tab Analytics tem muitos campos soltos
-Os campos de Pixel, Clarity, GA estao todos como inputs simples sem validacao. Nao ha teste de conexao ou feedback se os IDs sao validos.
+**KPIs calculados:**
+- Receita Total (vendas + receitas manuais)
+- Custo Total (ferramentas + custos projeto + ads)
+- Lucro (receita - custo)
+- ROI% ((lucro / custo) * 100)
+- CPA (custo ads / numero de vendas)
+- ROAS (receita / custo ads)
 
-### 10. Busca global ausente
-Nao existe busca global para encontrar projetos, leads, tarefas ou docs de qualquer lugar.
+### 3. Componente `src/components/financas/AdsImportDialog.tsx`
 
----
+Dialog para importar CSV do Facebook Ads:
+- Aceita CSV com colunas: `campanha, data, valor, impressoes, cliques`
+- Parseia e insere em `imphq_ads_spend`
+- Preview dos dados antes de importar
 
-## Plano de Implementacao (Priorizado)
+### 4. Componente `src/components/financas/FinancasOverview.tsx`
 
-### Fase 1 - Fixes criticos
+Tab de visao geral com:
+- Grafico de barras horizontal (Recharts) — Receita vs Custo por projeto
+- Tabela resumo consolidada por projeto
+
+### 5. Componente `src/components/financas/FinancasAds.tsx`
+
+Tab de Ads com:
+- Tabela de gastos de ads
+- CRUD manual + import CSV
+- Metricas derivadas (CPC, CPL, ROAS)
+
+## Arquivos
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/Funis.tsx` | Corrigir inputs numericos para `defaultValue`+`onBlur`; mostrar indice da etapa no card |
-| `src/pages/Tarefas.tsx` | Adicionar CSS `@media print` para exportacao PDF limpa |
-| `src/pages/KanbanPage.tsx` | Adicionar touch events (`onTouchStart/Move/End`) para drag mobile; horizontal scroll no mobile em vez de grid quebrada |
-
-### Fase 2 - UX melhorias
-
-| Arquivo | Acao |
-|---|---|
-| `src/pages/OpenFlow.tsx` | Expandir dialog de edicao para `max-w-4xl` ou sheet fullscreen |
-| `src/pages/Dashboard.tsx` | Adicionar mini chart de leads/vendas dos ultimos 7 dias usando Recharts (ja disponivel via shadcn) |
-| `src/components/AppSidebar.tsx` | Badge com contagem de tarefas urgentes/overdue |
-
-### Fase 3 - Polimento
-
-| Arquivo | Acao |
-|---|---|
-| `src/components/AppLayout.tsx` | Adicionar busca global (Command+K) com `Command` dialog do shadcn |
-| `src/pages/Funis.tsx` | Click-to-connect: clicar no nó de saida e depois no nó destino para criar conexao visual |
-
----
-
-Total: 8 arquivos, 8 ajustes prioritarios organizados em 3 fases.
+| Migration SQL | **Nova tabela** `imphq_ads_spend` |
+| `src/pages/Financas.tsx` | Reescrever completo — dashboard consolidado com tabs |
+| `src/components/financas/AdsImportDialog.tsx` | **Novo** — Import CSV de ads |
+| `src/components/financas/FinancasOverview.tsx` | **Novo** — Visao geral com graficos |
+| `src/components/financas/FinancasAds.tsx` | **Novo** — Tab de gestao de ads |
 
