@@ -1,57 +1,75 @@
 
 
-# Plano: Correções e Melhorias Gerais (Referência)
+# Analise: O que falta ajustar no projeto
 
-## Problemas Identificados e Soluções
+Depois de revisar todos os arquivos principais, identifiquei os seguintes problemas e melhorias pendentes:
 
-### 1. Bug: Campo perde foco a cada letra digitada
-**Causa provável**: Componentes recriados a cada keystroke por state updates no parent. Afeta inputs em `Funis.tsx` (etapa nome/url) e possivelmente outros.
-- Em `Funis.tsx`, o `setEtapaField` causa re-render de todo o canvas. Solução: usar `useRef` para valores temporários ou debounce nos inputs das etapas, e aplicar `onBlur` em vez de `onChange` para campos de texto dentro dos cards do canvas.
+---
 
-### 2. Funis: Conexão manual entre etapas
-Atualmente, os connectors são sempre sequenciais (`etapas[i] → etapas[i+1]`). Melhorias:
-- Adicionar campo `connects_to: number[]` em cada `Etapa` (índices dos destinos)
-- Permitir clicar em um nó de saída e arrastar até outro nó para criar conexão
-- Renderizar connectors SVG baseados em `connects_to` em vez de sequenciais
-- Adicionar campo `descricao` nas etapas para clarificar "Captura de quê? Qual link?"
+## Bugs e Problemas
 
-### 3. Tarefas: Exportar PDF do dia
-- Adicionar botão "📄 Exportar PDF" no header de Tarefas
-- Gerar PDF client-side com as tarefas do dia (overdue + hoje) usando formatação simples via `window.print()` com CSS de impressão ou biblioteca leve
+### 1. Funis: Inputs de numero (Visitas/Conv) ainda usam `onChange` direto
+Os campos `nome`, `descricao` e `url` ja foram corrigidos com `onBlur`, mas os inputs numericos de `visitantes` e `conversoes` (linhas 381-386) ainda causam re-render a cada keystroke via `onChange` + `setEtapaField`. Devem usar `defaultValue` + `onBlur` tambem.
 
-### 4. Leads: Exportar Excel
-- Adicionar botão "📊 Exportar Excel" no header de Leads
-- Gerar arquivo `.xlsx` client-side com `xlsx` (SheetJS) ou CSV simples com os leads filtrados
+### 2. Funis: Conexao manual entre etapas e confusa
+O campo "Conecta a: 1,2" exige que o usuario saiba os indices (0-based) das etapas. Nao ha feedback visual de qual etapa e qual indice. Precisa mostrar o numero de cada etapa no card e idealmente permitir click-to-connect.
 
-### 5. Kanban: Melhorar drag-and-drop
-- O drag atual usa HTML5 drag API nativa, que é limitada em mobile. Melhorar com:
-  - Touch events para mobile (`onTouchStart/Move/End`)
-  - Visual feedback durante drag (placeholder na coluna destino)
-  - Mostrar todas as 5 colunas responsivamente (atualmente `grid-cols-5` não funciona em mobile)
-- Mostrar todos os boards no filtro, não apenas 3 no topo
+### 3. Kanban: Sem suporte touch/mobile real
+O drag-and-drop usa apenas HTML5 Drag API (`draggable`, `onDragStart`), que nao funciona em dispositivos touch. Cards ficam imoveis no mobile. A grid `grid-cols-2` no mobile tambem corta colunas.
 
-### 6. Projetos — Links
-- Adicionar seção "🔗 Links" no `ProjetoDetalhe` (nova tab ou dentro de Briefing)
-- Estrutura: array de `{ label, url }` salvos no campo `data.links` do projeto
-- Botão "+ Adicionar Link" com inputs de nome e URL
+### 4. Kanban: Board "geral" nao tem coluna propria
+Quando no board "geral", ao criar um card, o usuario precisa escolher o board destino, mas a UX e confusa - o card e criado em "agentes" por padrao sem indicacao clara.
 
-### 7. Mídia: Botões de visualizar e download
-- Na grid de fotos (tab Fotos), adicionar botões de overlay: 👁 Visualizar (abre dialog com imagem grande) e ⬇ Download
-- O preview dialog já existe para content library, estender para fotos simples
+### 5. OpenFlow: Dialog de edicao pequeno demais para o FlowEditor
+O dialog `max-w-2xl` e limitante para editar fluxos longos. Deveria expandir para quase fullscreen ou usar uma pagina dedicada.
 
-### 8. Docs: Importar e Download
-- Adicionar botão "📥 Importar" que aceita `.txt`, `.md`, `.doc` para criar doc automaticamente
-- Adicionar botão "⬇ Download" em cada doc para exportar como `.md` ou `.txt`
+### 6. Tarefas: Exportar PDF usa apenas `window.print()` sem CSS de impressao
+O botao de exportar PDF provavelmente abre o print dialog do browser sem estilizacao especifica para impressao, resultando em output ruim.
 
-## Arquivos Modificados
+---
 
-| Arquivo | Ação |
+## Melhorias de UX
+
+### 7. Dashboard: Falta grafico de evolucao temporal
+O dashboard mostra numeros estaticos mas nao tem nenhum grafico de linha/barra mostrando evolucao de leads, vendas ou tarefas ao longo do tempo.
+
+### 8. Sidebar: Falta indicador de notificacoes/alertas
+Nenhum badge de contagem na sidebar para tarefas urgentes, leads novos, etc.
+
+### 9. ProjetoDetalhe: Tab Analytics tem muitos campos soltos
+Os campos de Pixel, Clarity, GA estao todos como inputs simples sem validacao. Nao ha teste de conexao ou feedback se os IDs sao validos.
+
+### 10. Busca global ausente
+Nao existe busca global para encontrar projetos, leads, tarefas ou docs de qualquer lugar.
+
+---
+
+## Plano de Implementacao (Priorizado)
+
+### Fase 1 - Fixes criticos
+
+| Arquivo | Acao |
 |---|---|
-| `src/pages/Funis.tsx` | Fix foco dos inputs (onBlur), conexões manuais entre etapas, campo descrição |
-| `src/pages/Tarefas.tsx` | Botão exportar PDF das tarefas do dia |
-| `src/pages/Leads.tsx` | Botão exportar Excel/CSV |
-| `src/pages/KanbanPage.tsx` | Melhorar drag mobile, visual feedback, responsividade colunas |
-| `src/components/projeto/ProjetoMidia.tsx` | Botões visualizar/download nas fotos |
-| `src/components/projeto/ProjetoDocs.tsx` | Botões importar doc e download |
-| `src/pages/ProjetoDetalhe.tsx` | Nova seção/tab de Links do projeto |
+| `src/pages/Funis.tsx` | Corrigir inputs numericos para `defaultValue`+`onBlur`; mostrar indice da etapa no card |
+| `src/pages/Tarefas.tsx` | Adicionar CSS `@media print` para exportacao PDF limpa |
+| `src/pages/KanbanPage.tsx` | Adicionar touch events (`onTouchStart/Move/End`) para drag mobile; horizontal scroll no mobile em vez de grid quebrada |
+
+### Fase 2 - UX melhorias
+
+| Arquivo | Acao |
+|---|---|
+| `src/pages/OpenFlow.tsx` | Expandir dialog de edicao para `max-w-4xl` ou sheet fullscreen |
+| `src/pages/Dashboard.tsx` | Adicionar mini chart de leads/vendas dos ultimos 7 dias usando Recharts (ja disponivel via shadcn) |
+| `src/components/AppSidebar.tsx` | Badge com contagem de tarefas urgentes/overdue |
+
+### Fase 3 - Polimento
+
+| Arquivo | Acao |
+|---|---|
+| `src/components/AppLayout.tsx` | Adicionar busca global (Command+K) com `Command` dialog do shadcn |
+| `src/pages/Funis.tsx` | Click-to-connect: clicar no nó de saida e depois no nó destino para criar conexao visual |
+
+---
+
+Total: 8 arquivos, 8 ajustes prioritarios organizados em 3 fases.
 
