@@ -288,10 +288,13 @@ export default function Funis() {
                   style={{ left: x, top: y, width: CARD_W, zIndex: draggingIdx === i ? 50 : 1 }}
                   onMouseDown={(e) => handleCardMouseDown(e, i)}
                 >
-                  {/* Drag handle */}
+                  {/* Drag handle + index */}
                   <div className="flex items-center justify-between">
-                    <div className="cursor-grab active:cursor-grabbing p-0.5">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    <div className="flex items-center gap-1.5">
+                      <div className="cursor-grab active:cursor-grabbing p-0.5">
+                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground bg-secondary/80 rounded px-1.5 py-0.5">#{i}</span>
                     </div>
                     <Badge variant="outline" className={`text-[9px] ${tipoStyle.text} ${tipoStyle.border}`}>
                       {tipoStyle.label}
