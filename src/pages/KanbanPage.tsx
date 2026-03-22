@@ -282,7 +282,7 @@ export default function KanbanPage() {
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 min-h-[60vh]">
+            <div className="flex gap-3 min-h-[60vh] overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-5 md:overflow-x-visible">
               {columns.map((col) => {
                 const colTitle = col.title.toLowerCase();
                 const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
@@ -290,7 +290,7 @@ export default function KanbanPage() {
                 return (
                   <div
                     key={col.id}
-                    className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors`}
+                    className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors min-w-[260px] md:min-w-0 snap-start`}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, col.id)}
                   >

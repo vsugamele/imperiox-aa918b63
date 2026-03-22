@@ -288,10 +288,13 @@ export default function Funis() {
                   style={{ left: x, top: y, width: CARD_W, zIndex: draggingIdx === i ? 50 : 1 }}
                   onMouseDown={(e) => handleCardMouseDown(e, i)}
                 >
-                  {/* Drag handle */}
+                  {/* Drag handle + index */}
                   <div className="flex items-center justify-between">
-                    <div className="cursor-grab active:cursor-grabbing p-0.5">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    <div className="flex items-center gap-1.5">
+                      <div className="cursor-grab active:cursor-grabbing p-0.5">
+                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground bg-secondary/80 rounded px-1.5 py-0.5">#{i}</span>
                     </div>
                     <Badge variant="outline" className={`text-[9px] ${tipoStyle.text} ${tipoStyle.border}`}>
                       {tipoStyle.label}
@@ -378,11 +381,11 @@ export default function Funis() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Visitas</p>
-                      <Input type="number" value={etapa.visitantes} onChange={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                      <Input type="number" defaultValue={etapa.visitantes} onBlur={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
                     </div>
                     <div>
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1"><ShoppingCart className="h-2.5 w-2.5" /> Conv.</p>
-                      <Input type="number" value={etapa.conversoes} onChange={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                      <Input type="number" defaultValue={etapa.conversoes} onBlur={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
                     </div>
                   </div>
 
