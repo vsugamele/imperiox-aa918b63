@@ -8583,6 +8583,56 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ads_spend: {
+        Row: {
+          campanha: string | null
+          cliques: number | null
+          created_at: string | null
+          data_ref: string
+          id: string
+          impressoes: number | null
+          leads: number | null
+          moeda: string | null
+          plataforma: string
+          project_id: string | null
+          valor: number
+        }
+        Insert: {
+          campanha?: string | null
+          cliques?: number | null
+          created_at?: string | null
+          data_ref: string
+          id?: string
+          impressoes?: number | null
+          leads?: number | null
+          moeda?: string | null
+          plataforma?: string
+          project_id?: string | null
+          valor?: number
+        }
+        Update: {
+          campanha?: string | null
+          cliques?: number | null
+          created_at?: string | null
+          data_ref?: string
+          id?: string
+          impressoes?: number | null
+          leads?: number | null
+          moeda?: string | null
+          plataforma?: string
+          project_id?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ads_spend_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_ai_chats: {
         Row: {
           created_at: string | null
