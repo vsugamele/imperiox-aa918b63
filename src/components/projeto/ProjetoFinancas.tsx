@@ -10,12 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target, Pencil, Paperclip, ExternalLink, Package } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "@/components/financas/AdsImportDialog";
+import { FileUpload } from "@/components/FileUpload";
+import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 
 interface Cost {
-  id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
+  id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean; documento_url?: string | null;
 }
 interface Revenue {
   id: string; descricao: string; valor: number; fonte: string; data_ref: string;
@@ -42,7 +44,8 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
   const [showCostForm, setShowCostForm] = useState(false);
   const [showRevForm, setShowRevForm] = useState(false);
   const [showAdsImport, setShowAdsImport] = useState(false);
-  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true });
+  const [editingCost, setEditingCost] = useState<Cost | null>(null);
+  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "" });
   const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0] });
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
@@ -86,17 +89,49 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
   const cpc = totalCliques > 0 ? totalAds / totalCliques : 0;
   const cpl = ads.reduce((s, a) => s + a.leads, 0) > 0 ? totalAds / ads.reduce((s, a) => s + a.leads, 0) : 0;
 
-  const addCost = async () => {
+  const openCostFormForNew = () => {
+    setEditingCost(null);
+    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "" });
+    setShowCostForm(true);
+  };
+
+  const openCostFormForEdit = (cost: Cost) => {
+    setEditingCost(cost);
+    setCostForm({
+      nome: cost.nome,
+      categoria: cost.categoria,
+      valor: String(cost.valor),
+      moeda: cost.moeda,
+      recorrente: cost.recorrente,
+      documento_url: cost.documento_url || "",
+    });
+    setShowCostForm(true);
+  };
+
+  const saveCost = async () => {
     if (!costForm.nome.trim() || !costForm.valor) { toast.error("Preencha nome e valor"); return; }
-    const { error } = await supabase.from("imphq_project_costs").insert([{
-      project_id: projectId, user_id: user?.id, nome: costForm.nome,
-      categoria: costForm.categoria, valor: parseFloat(costForm.valor),
-      moeda: costForm.moeda, recorrente: costForm.recorrente,
-    }]);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Custo adicionado!");
+    const payload = {
+      nome: costForm.nome,
+      categoria: costForm.categoria,
+      valor: parseFloat(costForm.valor),
+      moeda: costForm.moeda,
+      recorrente: costForm.recorrente,
+      documento_url: costForm.documento_url || null,
+    };
+
+    if (editingCost) {
+      const { error } = await supabase.from("imphq_project_costs").update(payload).eq("id", editingCost.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Custo atualizado!");
+    } else {
+      const { error } = await supabase.from("imphq_project_costs").insert([{
+        ...payload, project_id: projectId, user_id: user?.id,
+      }]);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Custo adicionado!");
+    }
     setShowCostForm(false);
-    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true });
+    setEditingCost(null);
     loadData();
   };
 
@@ -147,7 +182,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {kpis.map((k, i) => (
+        {kpis.map((k) => (
           <Card key={k.label} className={`bg-gradient-to-br ${k.bg} border-border`}>
             <CardContent className="flex items-center gap-3 p-4">
               <div className={`p-2 rounded-xl bg-background/50 ${k.color}`}>
@@ -192,6 +227,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
           <TabsTrigger value="receitas" className="gap-1.5"><Wallet className="h-3.5 w-3.5" /> Receitas</TabsTrigger>
           <TabsTrigger value="ads" className="gap-1.5"><Megaphone className="h-3.5 w-3.5" /> Ads</TabsTrigger>
           <TabsTrigger value="vendas" className="gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Vendas</TabsTrigger>
+          <TabsTrigger value="produtos" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Produtos</TabsTrigger>
         </TabsList>
 
         {/* Custos Tab */}
@@ -201,7 +237,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               <CardTitle className="text-sm uppercase tracking-wider text-red-400 font-sans flex items-center gap-2">
                 <Receipt className="h-4 w-4" /> Custos do Projeto
               </CardTitle>
-              <Button size="sm" variant="outline" onClick={() => setShowCostForm(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Custo</Button>
+              <Button size="sm" variant="outline" onClick={openCostFormForNew}><Plus className="h-3.5 w-3.5 mr-1" /> Custo</Button>
             </CardHeader>
             <CardContent>
               {costs.length === 0 ? (
@@ -209,7 +245,13 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow><TableHead>Nome</TableHead><TableHead>Cat.</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-8"></TableHead></TableRow>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Cat.</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="w-8"></TableHead>
+                      <TableHead className="w-20"></TableHead>
+                    </TableRow>
                   </TableHeader>
                   <TableBody>
                     {costs.map(c => (
@@ -223,6 +265,16 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
                           {c.moeda === "USD" ? `$${c.valor.toFixed(2)}` : fmt(c.valor)}
                         </TableCell>
                         <TableCell>
+                          {c.documento_url && (
+                            <a href={c.documento_url} target="_blank" rel="noopener noreferrer" title="Ver documento">
+                              <Paperclip className="h-3.5 w-3.5 text-primary hover:text-primary/80" />
+                            </a>
+                          )}
+                        </TableCell>
+                        <TableCell className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-primary" onClick={() => openCostFormForEdit(c)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive" onClick={() => deleteCost(c.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -285,7 +337,6 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Ads KPIs */}
               {ads.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
@@ -408,12 +459,17 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Produtos Tab */}
+        <TabsContent value="produtos">
+          <FinancasProdutos vendas={vendas} />
+        </TabsContent>
       </Tabs>
 
-      {/* Cost Form Dialog */}
-      <Dialog open={showCostForm} onOpenChange={setShowCostForm}>
+      {/* Cost Form Dialog (Add / Edit) */}
+      <Dialog open={showCostForm} onOpenChange={(open) => { setShowCostForm(open); if (!open) setEditingCost(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Adicionar Custo</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingCost ? "Editar Custo" : "Adicionar Custo"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={costForm.nome} onChange={e => setCostForm({ ...costForm, nome: e.target.value })} placeholder="Ex: ClickFunnels" /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -440,8 +496,27 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               <input type="checkbox" checked={costForm.recorrente} onChange={e => setCostForm({ ...costForm, recorrente: e.target.checked })} className="rounded border-border" />
               Custo recorrente (mensal)
             </label>
+
+            {/* Document upload */}
+            <div className="space-y-2">
+              <Label>Documento (NF, comprovante)</Label>
+              <div className="flex items-center gap-2">
+                <FileUpload
+                  bucket="project-docs"
+                  path={`costs/${projectId}`}
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  label="Anexar"
+                  onUpload={(url) => setCostForm({ ...costForm, documento_url: url })}
+                />
+                {costForm.documento_url && (
+                  <a href={costForm.documento_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
+                    <ExternalLink className="h-3 w-3" /> Ver anexo
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
-          <DialogFooter><Button onClick={addCost}>Adicionar</Button></DialogFooter>
+          <DialogFooter><Button onClick={saveCost}>{editingCost ? "Salvar" : "Adicionar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

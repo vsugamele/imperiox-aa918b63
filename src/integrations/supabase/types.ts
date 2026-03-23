@@ -10003,6 +10003,7 @@ export type Database = {
         Row: {
           categoria: string | null
           created_at: string | null
+          documento_url: string | null
           id: string
           moeda: string | null
           nome: string
@@ -10014,6 +10015,7 @@ export type Database = {
         Insert: {
           categoria?: string | null
           created_at?: string | null
+          documento_url?: string | null
           id?: string
           moeda?: string | null
           nome: string
@@ -10025,6 +10027,7 @@ export type Database = {
         Update: {
           categoria?: string | null
           created_at?: string | null
+          documento_url?: string | null
           id?: string
           moeda?: string | null
           nome?: string
