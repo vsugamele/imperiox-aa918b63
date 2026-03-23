@@ -205,11 +205,13 @@ export default function Tarefas() {
         className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 group cursor-pointer ${done ? "opacity-60" : ""}`}
         onClick={() => setSelectedCard(card)}
       >
-        <Checkbox
-          checked={done}
-          onCheckedChange={() => toggleDone(card)}
-          className="mt-0.5"
-        />
+        <div onClick={e => e.stopPropagation()}>
+          <Checkbox
+            checked={done}
+            onCheckedChange={() => toggleDone(card)}
+            className="mt-0.5"
+          />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[card.priority || "low"]}`} />
