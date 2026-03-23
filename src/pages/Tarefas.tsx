@@ -9,10 +9,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
-  Flame, ListTodo, Trash2, User, FileDown
+  Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet
 } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
 interface KanbanCard {
@@ -287,40 +292,87 @@ export default function Tarefas() {
           </p>
         </div>
 
-        <Button size="sm" variant="outline" onClick={() => {
-          const w = window.open("", "_blank");
-          if (w) {
-            w.document.write(`<html><head><title>Tarefas do Dia</title><style>
-              @media print { @page { margin: 1.5cm; } }
-              body{font-family:system-ui,sans-serif;padding:2rem;color:#1a1a1a}
-              h1{font-size:1.4rem;margin-bottom:0.25rem;color:#333}
-              h2{font-size:0.9rem;color:#666;font-weight:normal;margin-bottom:1.5rem}
-              .task{padding:8px 0;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-              .priority{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase}
-              .urgent{background:#fee;color:#c00}.high{background:#fff3e0;color:#e65100}
-              .medium{background:#e8f5e9;color:#2e7d32}.low{background:#f5f5f5;color:#666}
-              .project{font-size:11px;color:#888;margin-left:auto}
-              .date{font-size:11px;color:#999;font-family:monospace}
-              .section{margin-top:1.5rem;font-size:0.85rem;font-weight:600;color:#444;border-bottom:2px solid #ddd;padding-bottom:4px}
-            </style></head><body>
-            <h1>📋 Tarefas do Dia</h1>
-            <h2>${today.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h2>
-            ${overdue.length > 0 ? `<div class="section">⚠️ Atrasadas (${overdue.length})</div>` + overdue.map(c => {
-              const projName = projects.find(p => p.id === c.project_id)?.name || "";
-              return `<div class="task"><span class="priority ${c.priority}">${c.priority}</span><span>${c.title}</span>${projName ? `<span class="project">${projName}</span>` : ""}${c.due_date ? `<span class="date">${new Date(c.due_date).toLocaleDateString("pt-BR")}</span>` : ""}</div>`;
-            }).join("") : ""}
-            <div class="section">📌 Hoje (${todayCards.length})</div>
-            ${todayCards.length > 0 ? todayCards.map(c => {
-              const projName = projects.find(p => p.id === c.project_id)?.name || "";
-              return `<div class="task"><span class="priority ${c.priority}">${c.priority}</span><span>${c.title}</span>${projName ? `<span class="project">${projName}</span>` : ""}</div>`;
-            }).join("") : "<p style='color:#999;font-size:14px;padding:12px 0'>Nenhuma tarefa para hoje 🎉</p>"}
-            </body></html>`);
-            w.document.close();
-            w.print();
-          }
-        }}>
-          <FileDown className="h-3 w-3 mr-1" /> Exportar PDF
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline">
+              <FileDown className="h-3 w-3 mr-1" /> Exportar
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => {
+              const doc = new jsPDF();
+              const dateStr = today.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+              doc.setFontSize(18);
+              doc.text("Tarefas — Imperio HQ", 14, 18);
+              doc.setFontSize(10);
+              doc.setTextColor(100);
+              doc.text(dateStr, 14, 25);
+              if (filterProject !== "all") {
+                const pName = projects.find(p => p.id === filterProject)?.name;
+                if (pName) doc.text(`Projeto: ${pName}`, 14, 30);
+              }
+              doc.setTextColor(0);
+
+              const buildRows = (list: KanbanCard[]) =>
+                list.map(c => [
+                  c.title,
+                  getProjectName(c.project_id) || "—",
+                  getMember(c.member_id)?.name || "—",
+                  c.priority || "—",
+                  c.due_date ? new Date(c.due_date).toLocaleDateString("pt-BR") : "—",
+                  getColumnName(c.column_id),
+                ]);
+
+              const head = [["Tarefa", "Projeto", "Responsável", "Prioridade", "Prazo", "Status"]];
+              let startY = 36;
+
+              const addSection = (title: string, rows: string[][]) => {
+                if (rows.length === 0) return;
+                doc.setFontSize(12);
+                doc.setTextColor(60);
+                doc.text(title, 14, startY);
+                startY += 2;
+                autoTable(doc, {
+                  head,
+                  body: rows,
+                  startY,
+                  theme: "grid",
+                  headStyles: { fillColor: [30, 30, 30], fontSize: 8 },
+                  bodyStyles: { fontSize: 8 },
+                  margin: { left: 14, right: 14 },
+                });
+                startY = (doc as any).lastAutoTable.finalY + 8;
+              };
+
+              addSection(`⚠️ Atrasadas (${overdue.length})`, buildRows(overdue));
+              addSection(`🔥 Hoje (${todayCards.length})`, buildRows(todayCards));
+              addSection(`⏳ Próximos 3 dias (${upcoming.length})`, buildRows(upcoming));
+              addSection(`📋 Sem prazo (${noDueDate.length})`, buildRows(noDueDate));
+
+              doc.setFontSize(8);
+              doc.setTextColor(130);
+              doc.text(`Total: ${filtered.filter(c => !isDone(c)).length} pendentes · ${totalDone} concluídas · Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, doc.internal.pageSize.height - 10);
+              doc.save(`tarefas_${todayStr}.pdf`);
+              toast.success("PDF exportado!");
+            }}>
+              <FileDown className="h-4 w-4 mr-2" /> Exportar PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              const rows = filtered.filter(c => !isDone(c)).map(c =>
+                [c.title, getProjectName(c.project_id) || "", getMember(c.member_id)?.name || "", c.priority || "", c.due_date || "", getColumnName(c.column_id), c.board].join(";")
+              );
+              const csv = ["Tarefa;Projeto;Responsável;Prioridade;Prazo;Status;Board", ...rows].join("\n");
+              const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `tarefas_${todayStr}.csv`; a.click();
+              URL.revokeObjectURL(url);
+              toast.success("CSV exportado!");
+            }}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar CSV
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="flex items-center gap-2">
           <Select value={filterProject} onValueChange={setFilterProject}>

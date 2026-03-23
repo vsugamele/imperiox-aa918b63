@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,6 +35,7 @@ const toolsItems = [
   { title: "Tracker UTM", url: "/tracker", icon: Link2, color: "text-cyan-400" },
   { title: "Referências", url: "/referencias", icon: Image, color: "text-cyan-400" },
   { title: "Skills", url: "/skills", icon: Zap, color: "text-cyan-400" },
+  { title: "Cofre", url: "/cofre", icon: KeyRound, color: "text-cyan-400" },
 ];
 
 const orgItems = [

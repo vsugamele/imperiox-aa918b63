@@ -27,6 +27,7 @@ import Skills from "./pages/Skills";
 import Equipe from "./pages/Equipe";
 import Empresa from "./pages/Empresa";
 import Configuracoes from "./pages/Configuracoes";
+import Cofre from "./pages/Cofre";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="equipe" element={<Equipe />} />
               <Route path="empresa" element={<Empresa />} />
               <Route path="configuracoes" element={<Configuracoes />} />
+              <Route path="cofre" element={<Cofre />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
