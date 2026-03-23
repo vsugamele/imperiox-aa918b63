@@ -304,11 +304,25 @@ export default function Referencias() {
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar Referência</DialogTitle></DialogHeader>
+          {editing && editing.image_url && (
+            <button onClick={() => setLightboxUrl(editing.image_url!)} className="w-full rounded-lg overflow-hidden border border-border hover:opacity-90 transition-opacity">
+              <img src={editing.image_url} alt={editing.titulo} className="w-full max-h-48 object-cover" />
+            </button>
+          )}
           {editing && <RefForm data={editing} setData={setEditing} />}
           <DialogFooter className="flex justify-between">
             <Button variant="destructive" size="sm" onClick={() => editing && deleteRef(editing.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
             <Button onClick={saveEdit}>Salvar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox */}
+      <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-2 bg-black/95 border-border">
+          {lightboxUrl && (
+            <img src={lightboxUrl} alt="Referência" className="w-full h-full object-contain max-h-[90vh] rounded" />
+          )}
         </DialogContent>
       </Dialog>
     </div>

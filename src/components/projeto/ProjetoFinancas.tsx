@@ -574,10 +574,10 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* Revenue Form Dialog */}
-      <Dialog open={showRevForm} onOpenChange={setShowRevForm}>
+      {/* Revenue Form Dialog (Add / Edit) */}
+      <Dialog open={showRevForm} onOpenChange={(open) => { setShowRevForm(open); if (!open) setEditingRevenue(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Adicionar Receita</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingRevenue ? "Editar Receita" : "Adicionar Receita"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Descrição</Label><Input value={revForm.descricao} onChange={e => setRevForm({ ...revForm, descricao: e.target.value })} placeholder="Ex: Venda curso X" /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -591,8 +591,30 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               <div><Label>Data Ref.</Label><Input type="date" value={revForm.data_ref} onChange={e => setRevForm({ ...revForm, data_ref: e.target.value })} /></div>
             </div>
             <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={revForm.valor} onChange={e => setRevForm({ ...revForm, valor: e.target.value })} placeholder="0.00" /></div>
+            <div>
+              <Label>Produto (opcional)</Label>
+              <Input value={revForm.produto_nome} onChange={e => setRevForm({ ...revForm, produto_nome: e.target.value })} placeholder="Nome do produto vinculado..." />
+            </div>
+            {/* Document upload */}
+            <div className="space-y-2">
+              <Label>Documento (NF, comprovante)</Label>
+              <div className="flex items-center gap-2">
+                <FileUpload
+                  bucket="project-docs"
+                  path={`revenue/${projectId}`}
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  label="Anexar"
+                  onUpload={(url) => setRevForm({ ...revForm, documento_url: url })}
+                />
+                {revForm.documento_url && (
+                  <a href={revForm.documento_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
+                    <ExternalLink className="h-3 w-3" /> Ver anexo
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
-          <DialogFooter><Button onClick={addRevenue}>Adicionar</Button></DialogFooter>
+          <DialogFooter><Button onClick={saveRevenue}>{editingRevenue ? "Salvar" : "Adicionar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
