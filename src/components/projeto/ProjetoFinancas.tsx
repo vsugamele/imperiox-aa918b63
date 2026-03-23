@@ -21,6 +21,7 @@ interface Cost {
 }
 interface Revenue {
   id: string; descricao: string; valor: number; fonte: string; data_ref: string;
+  produto_nome?: string | null; documento_url?: string | null;
 }
 interface AdsSpend {
   id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null;
