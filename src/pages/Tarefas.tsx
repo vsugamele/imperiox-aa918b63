@@ -13,6 +13,7 @@ import {
   Flame, ListTodo, Trash2, User, FileDown
 } from "lucide-react";
 import { toast } from "sonner";
+import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
 interface KanbanCard {
   id: string;
@@ -74,6 +75,7 @@ export default function Tarefas() {
   const [newMemberId, setNewMemberId] = useState("none");
   const [filterProject, setFilterProject] = useState("all");
   const [filterMember, setFilterMember] = useState("all");
+  const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -199,12 +201,17 @@ export default function Tarefas() {
     const member = getMember(card.member_id);
     const colName = getColumnName(card.column_id);
     return (
-      <div className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 group ${done ? "opacity-60" : ""}`}>
-        <Checkbox
-          checked={done}
-          onCheckedChange={() => toggleDone(card)}
-          className="mt-0.5"
-        />
+      <div
+        className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 group cursor-pointer ${done ? "opacity-60" : ""}`}
+        onClick={() => setSelectedCard(card)}
+      >
+        <div onClick={e => e.stopPropagation()}>
+          <Checkbox
+            checked={done}
+            onCheckedChange={() => toggleDone(card)}
+            className="mt-0.5"
+          />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[card.priority || "low"]}`} />
@@ -234,7 +241,7 @@ export default function Tarefas() {
           </Avatar>
         )}
         <button
-          onClick={() => deleteTask(card.id)}
+          onClick={(e) => { e.stopPropagation(); deleteTask(card.id); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -478,6 +485,15 @@ export default function Tarefas() {
           />
         )}
       </div>
+
+      <CardDetailPanel
+        card={selectedCard}
+        open={!!selectedCard}
+        onClose={() => setSelectedCard(null)}
+        onUpdate={fetchData}
+        columns={columns}
+        members={members}
+      />
     </div>
   );
 }

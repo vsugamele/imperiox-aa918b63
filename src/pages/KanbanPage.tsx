@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users } from "lucide-react";
 import { toast } from "sonner";
+import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
@@ -419,67 +420,15 @@ export default function KanbanPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Card Dialog */}
-      <Dialog open={!!editCard} onOpenChange={() => setEditCard(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Editar Card</DialogTitle></DialogHeader>
-          {editCard && (
-            <div className="space-y-3">
-              <div><Label>Título</Label><Input value={editCard.title} onChange={e => setEditCard({ ...editCard, title: e.target.value })} /></div>
-              <div><Label>Descrição</Label><Textarea value={editCard.description || ""} onChange={e => setEditCard({ ...editCard, description: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Prioridade</Label>
-                  <Select value={editCard.priority} onValueChange={v => setEditCard({ ...editCard, priority: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Baixa</SelectItem>
-                      <SelectItem value="medium">Média</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                      <SelectItem value="urgent">Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Data Limite</Label><Input type="date" value={editCard.due_date || ""} onChange={e => setEditCard({ ...editCard, due_date: e.target.value })} /></div>
-              </div>
-              <div>
-                <Label>Responsável</Label>
-                <Select value={editCard.member_id || "none"} onValueChange={v => setEditCard({ ...editCard, member_id: v === "none" ? undefined : v })}>
-                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {members.map(m => (
-                      <SelectItem key={m.id} value={m.id}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-4 w-4">
-                            {m.avatar_url ? <AvatarImage src={m.avatar_url} /> : null}
-                            <AvatarFallback className="text-[8px] bg-secondary">{(m.name || "?")[0]}</AvatarFallback>
-                          </Avatar>
-                          {m.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Mover para coluna</Label>
-                <Select value={editCard.column_id} onValueChange={v => setEditCard({ ...editCard, column_id: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {allColumns.filter(c => c.board === editCard.board).map(col => <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter className="flex justify-between">
-            <Button variant="destructive" size="sm" onClick={() => editCard && deleteCard(editCard.id)}>
-              <Trash2 className="h-3 w-3 mr-1" /> Excluir
-            </Button>
-            <Button onClick={updateCard}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Card Detail Panel */}
+      <CardDetailPanel
+        card={editCard}
+        open={!!editCard}
+        onClose={() => setEditCard(null)}
+        onUpdate={loadAllData}
+        columns={allColumns}
+        members={members}
+      />
     </div>
   );
 }
