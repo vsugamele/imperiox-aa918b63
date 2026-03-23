@@ -4,11 +4,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine } from "lucide-react";
 import { toast } from "sonner";
 
 interface Etapa {
@@ -29,15 +31,40 @@ const DEFAULT_ETAPAS: Etapa[] = [
   { nome: "Upsell", tipo: "upsell", visitantes: 0, conversoes: 0, pos_x: 1360, pos_y: 80 },
 ];
 
-const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
-  criativo: { bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-400", label: "Criativo" },
-  pagina: { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "Página" },
-  vsl: { bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-400", label: "VSL" },
-  checkout: { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400", label: "Checkout" },
-  upsell: { bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", label: "Upsell" },
-  outro: { bg: "bg-gray-500/10", border: "border-gray-500/40", text: "text-gray-400", label: "Outro" },
+const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string; icon: any; hasMetrics: boolean }> = {
+  // Páginas
+  criativo:  { bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-400", label: "Criativo", icon: Megaphone, hasMetrics: true },
+  pagina:    { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "Página", icon: FileText, hasMetrics: true },
+  vsl:       { bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-400", label: "VSL", icon: Video, hasMetrics: true },
+  checkout:  { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400", label: "Checkout", icon: ShoppingCart, hasMetrics: true },
+  upsell:    { bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", label: "Upsell", icon: ArrowRight, hasMetrics: true },
+  // Canais
+  face_ads:  { bg: "bg-indigo-500/10", border: "border-indigo-500/40", text: "text-indigo-400", label: "Facebook Ads", icon: Facebook, hasMetrics: true },
+  instagram: { bg: "bg-pink-500/10", border: "border-pink-500/40", text: "text-pink-400", label: "Instagram", icon: Instagram, hasMetrics: true },
+  tiktok:    { bg: "bg-cyan-500/10", border: "border-cyan-500/40", text: "text-cyan-400", label: "TikTok", icon: Music, hasMetrics: true },
+  linkedin:  { bg: "bg-sky-500/10", border: "border-sky-500/40", text: "text-sky-400", label: "LinkedIn", icon: Linkedin, hasMetrics: true },
+  blog:      { bg: "bg-teal-500/10", border: "border-teal-500/40", text: "text-teal-400", label: "Blog", icon: PenLine, hasMetrics: true },
+  // Mídia
+  video:     { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400", label: "Vídeo", icon: Video, hasMetrics: true },
+  imagem:    { bg: "bg-orange-500/10", border: "border-orange-500/40", text: "text-orange-400", label: "Imagem", icon: Image, hasMetrics: false },
+  // Comunicação
+  email:     { bg: "bg-sky-600/10", border: "border-sky-600/40", text: "text-sky-300", label: "Email", icon: Mail, hasMetrics: true },
+  whatsapp:  { bg: "bg-green-500/10", border: "border-green-500/40", text: "text-green-400", label: "WhatsApp", icon: MessageSquare, hasMetrics: true },
+  // Outros
+  caixa:     { bg: "bg-slate-500/10", border: "border-slate-500/40", text: "text-slate-400", label: "Caixa", icon: Box, hasMetrics: false },
+  texto:     { bg: "bg-neutral-500/10", border: "border-neutral-500/40", text: "text-neutral-400", label: "Texto", icon: Type, hasMetrics: false },
+  outro:     { bg: "bg-gray-500/10", border: "border-gray-500/40", text: "text-gray-400", label: "Outro", icon: Box, hasMetrics: true },
 };
-const TIPOS = Object.keys(TIPO_STYLES);
+
+const TIPO_GROUPS = [
+  { label: "Páginas", tipos: ["pagina", "vsl", "checkout", "upsell"] },
+  { label: "Canais", tipos: ["face_ads", "instagram", "tiktok", "linkedin", "blog"] },
+  { label: "Mídia", tipos: ["criativo", "video", "imagem"] },
+  { label: "Comunicação", tipos: ["email", "whatsapp"] },
+  { label: "Outros", tipos: ["caixa", "texto", "outro"] },
+];
+
+const ALL_TIPOS = Object.keys(TIPO_STYLES);
 
 function getConversionColor(taxa: number) {
   if (taxa >= 30) return { text: "text-emerald-400", dot: "bg-emerald-400" };
@@ -52,9 +79,12 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const CARD_W = 240;
-const CARD_H = 340;
+const CARD_H_METRICS = 340;
+const CARD_H_SIMPLE = 200;
 const CANVAS_W = 4000;
 const CANVAS_H = 3000;
+const MINIMAP_W = 160;
+const MINIMAP_H = 120;
 
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
@@ -70,6 +100,7 @@ export default function Funis() {
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+  const autoSaveTimer = useRef<NodeJS.Timeout>();
 
   const load = async () => {
     const [fRes, pRes] = await Promise.all([
@@ -107,14 +138,26 @@ export default function Funis() {
     setSelectedFunil(prev => prev ? { ...prev, data: { ...prev.data, etapas } } : null);
   };
 
-  const addEtapa = () => {
+  // Auto-save with debounce
+  const triggerAutoSave = useCallback(() => {
+    if (!selectedFunil) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      updateEtapa(selectedFunil.id, selectedFunil.data.etapas || []);
+    }, 1200);
+  }, [selectedFunil]);
+
+  const addEtapaOfType = (tipo: string) => {
     if (!selectedFunil) return;
     const etapas = selectedFunil.data.etapas || [];
-    // Place new card at center of current viewport
     const rect = canvasRef.current?.getBoundingClientRect();
     const cx = rect ? (-pan.x + rect.width / 2) / zoom : 400;
     const cy = rect ? (-pan.y + rect.height / 2) / zoom : 200;
-    const newEtapa: Etapa = { nome: "Nova Etapa", tipo: "outro", visitantes: 0, conversoes: 0, pos_x: Math.round(cx - CARD_W / 2), pos_y: Math.round(cy - CARD_H / 2) };
+    const style = TIPO_STYLES[tipo] || TIPO_STYLES.outro;
+    const newEtapa: Etapa = {
+      nome: style.label, tipo, visitantes: 0, conversoes: 0,
+      pos_x: Math.round(cx - CARD_W / 2), pos_y: Math.round(cy - (style.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE) / 2),
+    };
     const updated = [...etapas, newEtapa];
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
   };
@@ -142,7 +185,7 @@ export default function Funis() {
 
   // --- Drag handlers ---
   const handleCardMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
-    if ((e.target as HTMLElement).closest("input, select, button, [role='combobox']")) return;
+    if ((e.target as HTMLElement).closest("input, select, textarea, button, [role='combobox']")) return;
     e.stopPropagation();
     const etapas = selectedFunil?.data.etapas || [];
     const etapa = etapas[idx];
@@ -172,9 +215,12 @@ export default function Funis() {
   }, [draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart]);
 
   const handleMouseUp = useCallback(() => {
+    if (draggingIdx !== null) {
+      triggerAutoSave();
+    }
     setDraggingIdx(null);
     setIsPanning(false);
-  }, []);
+  }, [draggingIdx, triggerAutoSave]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".etapa-card")) return;
@@ -192,7 +238,7 @@ export default function Funis() {
   if (selectedFunil) {
     const etapas = selectedFunil.data.etapas || [];
 
-    // Build connector pairs based on connects_to or sequential
+    // Build connector pairs
     const connectors: { from: Etapa; to: Etapa; fromIdx: number; toIdx: number }[] = [];
     for (let i = 0; i < etapas.length; i++) {
       const targets = etapas[i].connects_to;
@@ -206,6 +252,16 @@ export default function Funis() {
         connectors.push({ from: etapas[i], to: etapas[i + 1], fromIdx: i, toIdx: i + 1 });
       }
     }
+
+    // Compute bounding box for minimap
+    const allX = etapas.map(e => e.pos_x ?? 0);
+    const allY = etapas.map(e => e.pos_y ?? 0);
+    const minX = Math.min(0, ...allX);
+    const maxX = Math.max(CANVAS_W, ...allX.map(x => x + CARD_W));
+    const minY = Math.min(0, ...allY);
+    const maxY = Math.max(CANVAS_H, ...allY.map(y => y + CARD_H_METRICS));
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
 
     return (
       <div className="space-y-4 animate-fade-in">
@@ -225,7 +281,7 @@ export default function Funis() {
           </div>
         </div>
 
-        {/* 2D Canvas with pan & zoom */}
+        {/* 2D Canvas */}
         <div
           ref={canvasRef}
           className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none"
@@ -245,11 +301,24 @@ export default function Funis() {
             {/* SVG Connectors */}
             <svg className="absolute inset-0 pointer-events-none" width={CANVAS_W} height={CANVAS_H}>
               {connectors.map((c, i) => {
+                const fromStyle = TIPO_STYLES[c.from.tipo || "outro"] || TIPO_STYLES.outro;
+                const fromH = fromStyle.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
+                const toStyle = TIPO_STYLES[c.to.tipo || "outro"] || TIPO_STYLES.outro;
+                const toH = toStyle.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
+
                 const fromX = (c.from.pos_x ?? 0) + CARD_W;
-                const fromY = (c.from.pos_y ?? 0) + CARD_H / 2;
+                const fromY = (c.from.pos_y ?? 0) + fromH / 2;
                 const toX = (c.to.pos_x ?? 0);
-                const toY = (c.to.pos_y ?? 0) + CARD_H / 2;
+                const toY = (c.to.pos_y ?? 0) + toH / 2;
                 const midX = (fromX + toX) / 2;
+                const labelX = (fromX + toX) / 2;
+                const labelY = (fromY + toY) / 2;
+
+                // Conversion rate between connected stages
+                const convRate = c.from.visitantes > 0 && c.to.visitantes > 0
+                  ? ((c.to.visitantes / c.from.visitantes) * 100).toFixed(1)
+                  : null;
+
                 return (
                   <g key={i}>
                     <defs>
@@ -268,6 +337,16 @@ export default function Funis() {
                     >
                       <animate attributeName="stroke-dashoffset" from="20" to="0" dur="2s" repeatCount="indefinite" />
                     </path>
+                    {convRate && (
+                      <>
+                        <rect x={labelX - 22} y={labelY - 10} width="44" height="20" rx="4"
+                          fill="hsl(var(--card))" stroke="hsl(var(--border))" strokeWidth="1" />
+                        <text x={labelX} y={labelY + 4} textAnchor="middle"
+                          fill="hsl(var(--primary))" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                          {convRate}%
+                        </text>
+                      </>
+                    )}
                   </g>
                 );
               })}
@@ -278,8 +357,11 @@ export default function Funis() {
               const taxa = etapa.visitantes > 0 ? (etapa.conversoes / etapa.visitantes) * 100 : 0;
               const convColors = getConversionColor(taxa);
               const tipoStyle = TIPO_STYLES[etapa.tipo || "outro"] || TIPO_STYLES.outro;
+              const isTextType = etapa.tipo === "texto";
+              const isSimple = !tipoStyle.hasMetrics;
               const x = etapa.pos_x ?? 80;
               const y = etapa.pos_y ?? 80;
+              const IconComp = tipoStyle.icon;
 
               return (
                 <div
@@ -288,7 +370,7 @@ export default function Funis() {
                   style={{ left: x, top: y, width: CARD_W, zIndex: draggingIdx === i ? 50 : 1 }}
                   onMouseDown={(e) => handleCardMouseDown(e, i)}
                 >
-                  {/* Drag handle + index */}
+                  {/* Header: drag handle + index + badge */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="cursor-grab active:cursor-grabbing p-0.5">
@@ -296,121 +378,216 @@ export default function Funis() {
                       </div>
                       <span className="text-[10px] font-mono font-bold text-muted-foreground bg-secondary/80 rounded px-1.5 py-0.5">#{i}</span>
                     </div>
-                    <Badge variant="outline" className={`text-[9px] ${tipoStyle.text} ${tipoStyle.border}`}>
+                    <Badge variant="outline" className={`text-[9px] ${tipoStyle.text} ${tipoStyle.border} flex items-center gap-1`}>
+                      <IconComp className="h-2.5 w-2.5" />
                       {tipoStyle.label}
                     </Badge>
                   </div>
 
-                  {/* Thumbnail */}
-                  {etapa.image_url ? (
-                    <div className="h-28 rounded-lg overflow-hidden bg-card/50 border border-border">
-                      <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover" />
-                    </div>
+                  {/* Text-type: large textarea, no thumbnail/metrics */}
+                  {isTextType ? (
+                    <>
+                      <Textarea
+                        defaultValue={etapa.descricao || ""}
+                        onBlur={e => setEtapaField(i, "descricao", e.target.value)}
+                        className="text-xs bg-card/50 border-border min-h-[80px] resize-none"
+                        placeholder="Anotação / texto livre..."
+                      />
+                      <div className="flex items-center justify-between">
+                        <Input
+                          defaultValue={etapa.nome}
+                          onBlur={e => setEtapaField(i, "nome", e.target.value)}
+                          className="h-6 text-[10px] bg-transparent border-none p-0 focus-visible:ring-0 w-2/3"
+                        />
+                        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
+                          <Trash2 className="h-2.5 w-2.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </>
                   ) : (
-                    <div className={`h-20 rounded-lg ${tipoStyle.bg} border ${tipoStyle.border} flex items-center justify-center`}>
-                      <Image className="h-6 w-6 text-muted-foreground/20" />
-                    </div>
+                    <>
+                      {/* Thumbnail */}
+                      {etapa.image_url ? (
+                        <div className="h-28 rounded-lg overflow-hidden bg-card/50 border border-border">
+                          <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className={`${isSimple ? 'h-14' : 'h-20'} rounded-lg ${tipoStyle.bg} border ${tipoStyle.border} flex items-center justify-center`}>
+                          <IconComp className="h-6 w-6 text-muted-foreground/20" />
+                        </div>
+                      )}
+
+                      {/* Name */}
+                      <Input
+                        defaultValue={etapa.nome}
+                        onBlur={e => setEtapaField(i, "nome", e.target.value)}
+                        className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
+                      />
+
+                      {/* Description */}
+                      <Input
+                        defaultValue={etapa.descricao || ""}
+                        onBlur={e => setEtapaField(i, "descricao", e.target.value)}
+                        className="h-6 text-[10px] bg-card/50 border-border p-1"
+                        placeholder="Descrição..."
+                      />
+
+                      {/* Tipo selector */}
+                      <Select value={etapa.tipo || "outro"} onValueChange={v => setEtapaField(i, "tipo", v)}>
+                        <SelectTrigger className="h-6 text-[10px] bg-card/50 border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ALL_TIPOS.map(t => {
+                            const s = TIPO_STYLES[t];
+                            const I = s.icon;
+                            return (
+                              <SelectItem key={t} value={t} className="text-xs">
+                                <span className="flex items-center gap-1.5"><I className="h-3 w-3" />{s.label}</span>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+
+                      {/* URL */}
+                      <div className="flex items-center gap-1">
+                        <Input
+                          defaultValue={etapa.url || ""}
+                          onBlur={e => setEtapaField(i, "url", e.target.value)}
+                          className="h-6 text-[10px] bg-card/50 border-border p-1"
+                          placeholder="URL..."
+                        />
+                        {etapa.url && (
+                          <a href={etapa.url} target="_blank" rel="noopener" className="shrink-0">
+                            <ExternalLink className="h-3 w-3 text-primary" />
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Connect to */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-muted-foreground shrink-0">→</span>
+                        <Input
+                          defaultValue={(etapa.connects_to || []).join(",")}
+                          onBlur={e => {
+                            const val = e.target.value.trim();
+                            const arr = val ? val.split(",").map(Number).filter(n => !isNaN(n)) : [];
+                            setEtapaField(i, "connects_to", arr.length > 0 ? arr : undefined);
+                          }}
+                          className="h-5 text-[9px] bg-card/50 border-border p-1 font-mono"
+                          placeholder="Conecta a: 1,2"
+                          title="Índices das etapas destino (0-based), separados por vírgula"
+                        />
+                      </div>
+
+                      {/* Upload */}
+                      <FileUpload
+                        bucket="project-media"
+                        path={`funis/${selectedFunil.id}`}
+                        onUpload={url => setEtapaField(i, "image_url", url)}
+                        label="Img"
+                        className="[&_button]:h-6 [&_button]:text-[10px]"
+                      />
+
+                      {/* Metrics - only for types with hasMetrics */}
+                      {tipoStyle.hasMetrics && (
+                        <>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Visitas</p>
+                              <Input type="number" defaultValue={etapa.visitantes} onBlur={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground flex items-center gap-1"><ShoppingCart className="h-2.5 w-2.5" /> Conv.</p>
+                              <Input type="number" defaultValue={etapa.conversoes} onBlur={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-mono font-bold ${convColors.text}`}>{taxa.toFixed(1)}%</span>
+                            <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
+                              <Trash2 className="h-2.5 w-2.5 text-destructive" />
+                            </Button>
+                          </div>
+                          <div className="w-full h-1.5 bg-card/30 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${convColors.dot}`} style={{ width: `${Math.min(taxa, 100)}%` }} />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Delete button for simple cards without metrics footer */}
+                      {!tipoStyle.hasMetrics && (
+                        <div className="flex justify-end">
+                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
+                            <Trash2 className="h-2.5 w-2.5 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
-
-                  {/* Name - onBlur to prevent focus loss */}
-                  <Input
-                    defaultValue={etapa.nome}
-                    onBlur={e => setEtapaField(i, "nome", e.target.value)}
-                    className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
-                  />
-
-                  {/* Description */}
-                  <Input
-                    defaultValue={etapa.descricao || ""}
-                    onBlur={e => setEtapaField(i, "descricao", e.target.value)}
-                    className="h-6 text-[10px] bg-card/50 border-border p-1"
-                    placeholder="Descrição..."
-                  />
-
-                  {/* Tipo selector */}
-                  <Select value={etapa.tipo || "outro"} onValueChange={v => setEtapaField(i, "tipo", v)}>
-                    <SelectTrigger className="h-6 text-[10px] bg-card/50 border-border">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIPOS.map(t => <SelectItem key={t} value={t} className="text-xs">{TIPO_STYLES[t].label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-
-                  {/* URL - onBlur */}
-                  <div className="flex items-center gap-1">
-                    <Input
-                      defaultValue={etapa.url || ""}
-                      onBlur={e => setEtapaField(i, "url", e.target.value)}
-                      className="h-6 text-[10px] bg-card/50 border-border p-1"
-                      placeholder="URL..."
-                    />
-                    {etapa.url && (
-                      <a href={etapa.url} target="_blank" rel="noopener" className="shrink-0">
-                        <ExternalLink className="h-3 w-3 text-primary" />
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Connect to */}
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-muted-foreground shrink-0">→</span>
-                    <Input
-                      defaultValue={(etapa.connects_to || []).join(",")}
-                      onBlur={e => {
-                        const val = e.target.value.trim();
-                        const arr = val ? val.split(",").map(Number).filter(n => !isNaN(n)) : [];
-                        setEtapaField(i, "connects_to", arr.length > 0 ? arr : undefined);
-                      }}
-                      className="h-5 text-[9px] bg-card/50 border-border p-1 font-mono"
-                      placeholder="Conecta a: 1,2"
-                      title="Índices das etapas destino (0-based), separados por vírgula"
-                    />
-                  </div>
-
-                  {/* Upload */}
-                  <FileUpload
-                    bucket="project-media"
-                    path={`funis/${selectedFunil.id}`}
-                    onUpload={url => setEtapaField(i, "image_url", url)}
-                    label="Img"
-                    className="[&_button]:h-6 [&_button]:text-[10px]"
-                  />
-
-                  {/* Metrics */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Visitas</p>
-                      <Input type="number" defaultValue={etapa.visitantes} onBlur={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1"><ShoppingCart className="h-2.5 w-2.5" /> Conv.</p>
-                      <Input type="number" defaultValue={etapa.conversoes} onBlur={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm font-mono font-bold ${convColors.text}`}>{taxa.toFixed(1)}%</span>
-                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
-                      <Trash2 className="h-2.5 w-2.5 text-destructive" />
-                    </Button>
-                  </div>
-
-                  <div className="w-full h-1.5 bg-card/30 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${convColors.dot}`} style={{ width: `${Math.min(taxa, 100)}%` }} />
-                  </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Minimap */}
+          <div className="absolute bottom-3 right-3 rounded-lg border border-border bg-card/90 backdrop-blur-sm p-1.5"
+            style={{ width: MINIMAP_W, height: MINIMAP_H }}>
+            <svg width="100%" height="100%" viewBox={`${minX} ${minY} ${rangeX} ${rangeY}`} className="opacity-60">
+              {etapas.map((e, i) => {
+                const ts = TIPO_STYLES[e.tipo || "outro"] || TIPO_STYLES.outro;
+                return (
+                  <rect key={i}
+                    x={e.pos_x ?? 0} y={e.pos_y ?? 0}
+                    width={CARD_W} height={ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE}
+                    rx="4"
+                    fill="hsl(var(--primary))" opacity="0.3"
+                    stroke="hsl(var(--primary))" strokeWidth="8"
+                  />
+                );
+              })}
+              {/* Viewport indicator */}
+              {canvasRef.current && (
+                <rect
+                  x={-pan.x / zoom} y={-pan.y / zoom}
+                  width={canvasRef.current.clientWidth / zoom}
+                  height={canvasRef.current.clientHeight / zoom}
+                  fill="none" stroke="hsl(var(--primary))" strokeWidth="12" opacity="0.6" rx="4"
+                />
+              )}
+            </svg>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={addEtapa}><Plus className="h-3 w-3 mr-1" /> Etapa</Button>
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline"><Plus className="h-3 w-3 mr-1" /> Adicionar Elemento</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              {TIPO_GROUPS.map((group, gi) => (
+                <div key={gi}>
+                  {gi > 0 && <DropdownMenuSeparator />}
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">{group.label}</DropdownMenuLabel>
+                  {group.tipos.map(t => {
+                    const s = TIPO_STYLES[t];
+                    const I = s.icon;
+                    return (
+                      <DropdownMenuItem key={t} onClick={() => addEtapaOfType(t)} className="text-xs gap-2">
+                        <I className={`h-3.5 w-3.5 ${s.text}`} />
+                        {s.label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-          <span className="text-[10px] text-muted-foreground ml-2">Arraste os cards para posicionar • Scroll para zoom • Arraste o fundo para mover</span>
+          <span className="text-[10px] text-muted-foreground ml-2">Arraste os cards • Scroll = zoom • Arraste fundo = mover • Auto-save ao arrastar</span>
         </div>
       </div>
     );
