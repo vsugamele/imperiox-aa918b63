@@ -10613,6 +10613,45 @@ export type Database = {
           },
         ]
       }
+      imphq_tools_vault: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          id: string
+          name: string
+          notes: string | null
+          password_encrypted: string | null
+          project_id: string | null
+          updated_at: string | null
+          url: string | null
+          username: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          password_encrypted?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          password_encrypted?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
       imphq_tracking_links: {
         Row: {
           ativo: boolean | null
