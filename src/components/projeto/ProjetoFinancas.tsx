@@ -46,8 +46,9 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
   const [showRevForm, setShowRevForm] = useState(false);
   const [showAdsImport, setShowAdsImport] = useState(false);
   const [editingCost, setEditingCost] = useState<Cost | null>(null);
+  const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
   const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "" });
-  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0] });
+  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "" });
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => { loadData(); }, [projectId]);
