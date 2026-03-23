@@ -1,39 +1,36 @@
 
 
-# Plano: Documentos nos Custos + Edição + Visão de Produtos
+# Plano: Edição de Receitas com Produto + Lightbox em Referências
 
-## O que será feito
+## 1. Migration: adicionar `produto_nome` e `documento_url` na tabela `imphq_project_revenue`
 
-### 1. Adicionar coluna `documento_url` na tabela `imphq_project_costs`
-Migration para adicionar `documento_url TEXT` — permitirá anexar um comprovante/NF a cada custo.
+Novos campos opcionais para vincular receita a um produto e anexar comprovante:
+```sql
+ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS produto_nome TEXT;
+ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS documento_url TEXT;
+```
 
-### 2. Editar custos existentes
-Atualmente só é possível adicionar e excluir. Vamos adicionar um botão de edição em cada linha da tabela de custos que abre o mesmo dialog preenchido, permitindo alterar nome, valor, categoria, moeda, recorrência e documento.
+## 2. Edição completa de Receitas (`ProjetoFinancas.tsx`)
 
-### 3. Upload de documento no formulário de custo
-No dialog de adicionar/editar custo, incluir o componente `FileUpload` já existente no projeto para anexar arquivos (PDF, imagem). O arquivo será salvo no bucket Supabase Storage (`project-docs`) e a URL gravada no campo `documento_url`. Na tabela, um ícone de clipe aparecerá nos custos que têm documento, clicável para abrir/baixar.
+Aplicar o mesmo padrão já usado nos custos:
+- Estado `editingRevenue` + dialog dual-purpose (add/edit)
+- Botão de editar (lápis) em cada linha da tabela de receitas
+- Campo opcional "Produto" (select com os produtos do briefing ou texto livre)
+- Upload de documento (comprovante) usando `FileUpload` no bucket `project-docs`
+- Ícone de clipe na tabela quando há documento anexado
+- Coluna "Produto" na tabela de receitas para visualização
 
-### 4. Nova aba "Produtos" no ProjetoFinancas
-Adicionar uma 5ª tab no componente de finanças do projeto que mostra os produtos cadastrados no briefing (`project.data.produtos`) cruzados com as vendas reais (`imphq_vendas`). Para cada produto:
-- Nome, tipo, preço cadastrado
-- Vendas reais (quantidade e receita do `imphq_vendas` filtrando por `produto_nome`)
-- Ticket médio real vs preço cadastrado
-- % da receita total
+## 3. Lightbox de imagem em Referências (`Referencias.tsx`)
 
-Isso dá visibilidade completa do desempenho de cada produto.
+- Ao clicar no card, se tem imagem, abrir um dialog/lightbox com a imagem em tamanho grande antes do painel de edição
+- Ou: adicionar botão "ver imagem" no dialog de edição que abre a imagem em nova aba/lightbox
+- Abordagem: dialog separado com `<img>` full-size + botão fechar
 
-## Arquivos
+## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| Migration SQL | `ALTER TABLE imphq_project_costs ADD COLUMN documento_url TEXT` |
-| Migration SQL | Criar bucket `project-docs` com RLS |
-| `src/components/projeto/ProjetoFinancas.tsx` | Adicionar edição de custos, upload de documento, nova aba Produtos |
-
-## Detalhes técnicos
-
-- O dialog de custo vira dual-purpose (add/edit) com estado `editingCost`
-- Upload usa o componente `FileUpload` existente apontando para bucket `project-docs`
-- A aba Produtos recebe `projectData` como prop para acessar os produtos do briefing e cruza com `vendas` já carregadas
-- Sem novas dependências
+| Migration SQL | `ALTER TABLE` para `produto_nome` e `documento_url` |
+| `src/components/projeto/ProjetoFinancas.tsx` | Dialog de receita dual-purpose, campo produto, upload doc |
+| `src/pages/Referencias.tsx` | Lightbox para visualizar imagens em tamanho grande |
 
