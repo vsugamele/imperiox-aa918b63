@@ -241,7 +241,7 @@ export default function Tarefas() {
           </Avatar>
         )}
         <button
-          onClick={() => deleteTask(card.id)}
+          onClick={(e) => { e.stopPropagation(); deleteTask(card.id); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" />
