@@ -339,15 +339,33 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow><TableHead>Descrição</TableHead><TableHead>Fonte</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-8"></TableHead></TableRow>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Fonte</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="w-8"></TableHead>
+                      <TableHead className="w-20"></TableHead>
+                    </TableRow>
                   </TableHeader>
                   <TableBody>
                     {revenues.map(r => (
                       <TableRow key={r.id}>
                         <TableCell className="text-sm">{r.descricao}</TableCell>
+                        <TableCell>{r.produto_nome && <Badge variant="outline" className="text-[10px]">{r.produto_nome}</Badge>}</TableCell>
                         <TableCell><Badge variant="secondary" className="text-[10px]">{r.fonte}</Badge></TableCell>
                         <TableCell className="text-right font-mono text-sm text-emerald-400">{fmt(r.valor)}</TableCell>
                         <TableCell>
+                          {r.documento_url && (
+                            <a href={r.documento_url} target="_blank" rel="noopener noreferrer" title="Ver documento">
+                              <Paperclip className="h-3.5 w-3.5 text-primary hover:text-primary/80" />
+                            </a>
+                          )}
+                        </TableCell>
+                        <TableCell className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-primary" onClick={() => openRevFormForEdit(r)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive" onClick={() => deleteRevenue(r.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
