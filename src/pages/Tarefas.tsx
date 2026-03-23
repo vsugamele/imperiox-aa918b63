@@ -9,10 +9,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
-  Flame, ListTodo, Trash2, User, FileDown
+  Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet
 } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
 interface KanbanCard {
