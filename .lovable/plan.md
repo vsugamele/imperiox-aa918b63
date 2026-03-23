@@ -1,57 +1,42 @@
 
 
-# Plano: Expandir tipos de elementos no Canvas de Funis
+# Plano: Edição na Empresa + Conexões Visuais no Funil + Busca de Projeto/Produtos
 
-## Situação atual
+## 1. Edição inline na Empresa (`src/pages/Empresa.tsx`)
 
-O canvas de funis tem apenas 6 tipos de elementos: `criativo`, `pagina`, `vsl`, `checkout`, `upsell`, `outro`. Todos compartilham o mesmo layout de card com campos de métricas (visitas/conversões). Falta variedade visual para representar canais, mídias e elementos de texto.
+Atualmente, contas só podem ser adicionadas e removidas. Falta editar.
 
-## O que será feito
+- Adicionar estado `editingConta` e abrir o dialog de criação no modo edição (pré-preenchido)
+- Botão de lápis (Pencil) em cada linha da tabela
+- Ao salvar, fazer `supabase.update()` em vez de `insert()`
+- Reutilizar o mesmo dialog já existente com lógica dual-purpose (add/edit)
 
-### 1. Expandir o catálogo de tipos de etapa
+## 2. Conexões visuais interativas no Funil (`src/pages/Funis.tsx`)
 
-Adicionar novos tipos com cores e ícones distintos:
+Atualmente as conexões são feitas digitando índices num input texto (`connects_to: "1,2"`). Melhorias:
 
-| Tipo | Label | Emoji | Cor |
-|---|---|---|---|
-| face_ads | Facebook Ads | 📢 | indigo |
-| instagram | Instagram | 📸 | pink |
-| tiktok | TikTok | 🎵 | cyan |
-| linkedin | LinkedIn | 💼 | blue |
-| blog | Blog/Artigo | 📝 | teal |
-| video | Vídeo | 🎬 | purple |
-| imagem | Imagem | 🖼️ | orange |
-| email | Email | ✉️ | sky |
-| whatsapp | WhatsApp | 💬 | emerald |
-| caixa | Caixa (genérica) | 📦 | slate |
-| texto | Caixa de Texto | 💭 | neutral |
+### 2a. Deletar conexões
+- Tornar as linhas SVG dos conectores clicáveis (aumentar `pointer-events` na path)
+- Ao clicar numa conexão, mostrar um botão de deletar (ou deletar direto com confirmação)
+- Remover o índice do array `connects_to` da etapa de origem
 
-### 2. Adaptar o card por tipo
+### 2b. Criar conexões visualmente
+- Adicionar um pequeno "dot" (ponto de conexão) no lado direito de cada card
+- Ao clicar e arrastar desse ponto até outro card, criar a conexão (`connects_to`)
+- Estado: `connectingFrom` (índice do card de origem) + detectar drop em outro card
+- Manter o input de texto como fallback para edição manual
 
-- Tipos de **canal/mídia** (face_ads, instagram, tiktok, linkedin, blog): mostram o card padrão com métricas
-- Tipo **texto**: card simplificado com área de texto maior (sem métricas de visitas/conversões), funciona como anotação/label no canvas
-- Tipo **caixa**: card genérico para agrupar ou marcar seções
+## 3. Busca de Projeto e Produtos no Funil
 
-### 3. Toolbar de inserção rápida
+Na view de lista e no canvas, permitir buscar/filtrar:
 
-Substituir o botão "Etapa" por uma barra ou dropdown com os tipos disponíveis agrupados:
-- **Páginas**: Página, VSL, Checkout, Upsell
-- **Canais**: Facebook Ads, Instagram, TikTok, LinkedIn, Blog
-- **Mídia**: Vídeo, Imagem, Criativo
-- **Comunicação**: Email, WhatsApp
-- **Outros**: Caixa, Texto
-
-Ao clicar num tipo, já cria o card com o tipo pré-selecionado no centro da viewport.
-
-### 4. Melhorias gerais no canvas
-
-- **Auto-save**: salvar automaticamente ao soltar card (drag end) em vez de só no botão "Salvar"
-- **Minimap**: indicador visual pequeno no canto mostrando posição no canvas
-- **Connector labels**: mostrar taxa de conversão entre etapas conectadas no meio do conector
+- Adicionar campo `Input` de busca textual na listagem de funis (filtra por nome do funil ou nome do projeto)
+- No canvas, adicionar busca/select de produtos do projeto vinculado para referência rápida (exibir produtos do briefing no header do canvas se houver `project_id`)
 
 ## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Funis.tsx` | Expandir `TIPO_STYLES`, toolbar de inserção, card adaptativo por tipo, auto-save no drag, melhorias visuais |
+| `src/pages/Empresa.tsx` | Dialog dual-purpose add/edit, botão editar na tabela |
+| `src/pages/Funis.tsx` | Conexões clicáveis/deletáveis, drag-to-connect, busca textual, exibir produtos do projeto |
 
