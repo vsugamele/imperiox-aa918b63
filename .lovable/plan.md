@@ -1,66 +1,45 @@
 
 
-# Plano: Sistema de Tarefas e Kanban Profissional
+# Plano: Exportar Tarefas em PDF + Cofre de Ferramentas
 
-## Diagnóstico
+## 1. Exportar tarefas em PDF profissional
 
-O sistema atual tem boa base (drag-and-drop, boards, prioridades, responsáveis), mas falta profundidade nos cards — não há como anotar, criar checklists, comentar ou ver histórico. O dialog de edição é básico demais para uso real de time.
+O botão "Exportar PDF" atual gera um HTML básico via `window.open` e `window.print`. Vamos substituir por um PDF real gerado com dados completos.
 
-## Alterações
+### O que muda:
+- Substituir o `window.open/print` por geração de PDF client-side usando a lib `jspdf` + `jspdf-autotable`
+- O PDF incluirá:
+  - Header com data, filtros aplicados (projeto, responsável)
+  - Tabela com colunas: **Tarefa**, **Projeto**, **Responsável**, **Prioridade**, **Prazo**, **Status** (coluna do kanban), **Board**
+  - Seções separadas: Atrasadas, Hoje, Próximos 3 dias, Sem prazo
+  - Rodapé com total de tarefas e data de geração
+- Dropdown no botão com opções: **PDF** e **CSV** (para quem prefere abrir no Excel)
 
-### 1. Novas tabelas (migration)
+## 2. Cofre de Ferramentas (Sites e Senhas)
 
-**`imphq_card_checklists`** — subtarefas dentro de cada card:
-- `id`, `card_id` (FK), `title`, `is_done`, `position`, `created_at`
+Nova página "Cofre" para salvar credenciais de ferramentas que o time usa.
 
-**`imphq_card_comments`** — notas/comentários no card:
-- `id`, `card_id` (FK), `author_name`, `content`, `created_at`
+### Database:
+Nova tabela `imphq_tools_vault`:
+- `id` (uuid), `name` (text - nome da ferramenta), `url` (text), `username` (text), `password_encrypted` (text), `category` (text - ex: "social", "email", "design"), `notes` (text), `project_id` (uuid, opcional), `created_at`, `updated_at`
+- RLS: apenas autenticados
 
-RLS: acesso autenticado para ambas.
-
-### 2. Substituir dialog de edição por painel detalhado (Sheet)
-
-Novo componente `CardDetailPanel.tsx` — abre como Sheet lateral ao clicar num card, com:
-
-- **Header**: título editável inline, badge de prioridade, botão fechar
-- **Seção Info**: responsável (select), data limite (datepicker), projeto, board, coluna (select para mover)
-- **Descrição**: textarea editável com auto-save
-- **Checklist**: lista de subtarefas com checkbox, adicionar nova, reordenar, barra de progresso (ex: "3/5 concluídas")
-- **Comentários**: timeline de notas com campo de texto para adicionar, mostra autor + data
-- **Ações**: botão excluir card
-
-Usado tanto no KanbanPage quanto no Tarefas (Meu Dia).
-
-### 3. Melhorar Kanban com filtro de projeto
-
-Adicionar Select de projeto no header do KanbanPage, filtrando cards por `project_id`. Também mostrar badge do projeto nos cards quando visível.
-
-### 4. Melhorar "Meu Dia" com edição inline
-
-Ao clicar numa tarefa no Meu Dia, abre o mesmo `CardDetailPanel`, permitindo anotar e gerenciar checklists sem sair da tela.
+### UI:
+- Nova página `/cofre` com cards por categoria
+- CRUD completo: adicionar, editar, excluir ferramentas
+- Campo de senha com toggle mostrar/ocultar
+- Botão copiar senha/URL com um clique
+- Filtro por categoria e busca por nome
+- Link na sidebar no grupo "Ferramentas"
 
 ## Arquivos
 
 | Arquivo | Ação |
 |---|---|
-| Migration SQL | Criar `imphq_card_checklists` e `imphq_card_comments` com RLS |
-| `src/components/kanban/CardDetailPanel.tsx` | **Novo** — painel detalhado do card |
-| `src/pages/KanbanPage.tsx` | Trocar dialog de edição por CardDetailPanel + filtro projeto |
-| `src/pages/Tarefas.tsx` | Integrar CardDetailPanel ao clicar numa tarefa |
-
-## Fluxo
-
-```text
-Card no Kanban / Meu Dia
-        │ click
-        ▼
-┌─ CardDetailPanel (Sheet) ──────────┐
-│  📝 Título editável                │
-│  👤 Responsável  📅 Prazo  📁 Proj │
-│  📋 Descrição                      │
-│  ☑️ Checklist (subtarefas)         │
-│  💬 Comentários / Anotações        │
-│  🗑️ Excluir                       │
-└────────────────────────────────────┘
-```
+| `package.json` | Adicionar `jspdf` e `jspdf-autotable` |
+| `src/pages/Tarefas.tsx` | Substituir export por PDF/CSV reais |
+| Migration SQL | Criar `imphq_tools_vault` com RLS |
+| `src/pages/Cofre.tsx` | **Novo** - página do cofre de ferramentas |
+| `src/components/AppSidebar.tsx` | Adicionar link "Cofre" no grupo Ferramentas |
+| `src/App.tsx` | Adicionar rota `/cofre` |
 
