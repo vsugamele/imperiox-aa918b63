@@ -39,6 +39,7 @@ export default function Referencias() {
   const [filterProject, setFilterProject] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
 
   const load = async () => {
