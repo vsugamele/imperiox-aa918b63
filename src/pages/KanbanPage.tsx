@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users } from "lucide-react";
 import { toast } from "sonner";
+import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
