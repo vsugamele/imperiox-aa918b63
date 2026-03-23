@@ -485,6 +485,15 @@ export default function Tarefas() {
           />
         )}
       </div>
+
+      <CardDetailPanel
+        card={selectedCard}
+        open={!!selectedCard}
+        onClose={() => setSelectedCard(null)}
+        onUpdate={fetchData}
+        columns={columns}
+        members={members}
+      />
     </div>
   );
 }
