@@ -13,6 +13,7 @@ import {
   Flame, ListTodo, Trash2, User, FileDown
 } from "lucide-react";
 import { toast } from "sonner";
+import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
 interface KanbanCard {
   id: string;
