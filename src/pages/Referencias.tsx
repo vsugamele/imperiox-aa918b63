@@ -10,18 +10,18 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
 const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok", "YouTube", "Instagram", "Email", "Outro"];
 
-const TIPO_STYLES: Record<string, { border: string; badge: string }> = {
-  criativo: { border: "border-l-rose-500", badge: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
-  landing_page: { border: "border-l-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  email: { border: "border-l-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  video: { border: "border-l-violet-500", badge: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
-  copy: { border: "border-l-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+const TIPO_STYLES: Record<string, { border: string; badge: string; icon: any; gradient: string }> = {
+  criativo: { border: "border-l-rose-500", badge: "bg-rose-500/15 text-rose-400 border-rose-500/30", icon: Palette, gradient: "from-rose-500/20 to-rose-500/5" },
+  landing_page: { border: "border-l-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: Layout, gradient: "from-blue-500/20 to-blue-500/5" },
+  email: { border: "border-l-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: Mail, gradient: "from-amber-500/20 to-amber-500/5" },
+  video: { border: "border-l-violet-500", badge: "bg-violet-500/15 text-violet-400 border-violet-500/30", icon: Video, gradient: "from-violet-500/20 to-violet-500/5" },
+  copy: { border: "border-l-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: FileText, gradient: "from-emerald-500/20 to-emerald-500/5" },
 };
 
 interface Ref {
@@ -59,6 +59,12 @@ export default function Referencias() {
     const mpr = filterProject === "all" || r.project_id === filterProject;
     return ms && mt && mp && mpr;
   });
+
+  // Type counts
+  const typeCounts = TIPOS.reduce((acc, t) => {
+    acc[t] = refs.filter(r => r.tipo === t).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
@@ -156,8 +162,35 @@ export default function Referencias() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">🗂️ Referências</h1>
+        <div>
+          <h1 className="font-display text-3xl font-bold text-primary">🗂️ Referências</h1>
+          <p className="text-sm text-muted-foreground mt-1">{refs.length} referências no swipe file</p>
+        </div>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Referência</Button>
+      </div>
+
+      {/* Type counters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {TIPOS.map(t => {
+          const style = TIPO_STYLES[t];
+          const Icon = style.icon;
+          const count = typeCounts[t] || 0;
+          return (
+            <button
+              key={t}
+              onClick={() => setFilterTipo(filterTipo === t ? "all" : t)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                filterTipo === t
+                  ? `${style.badge} border-current`
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              <span className="capitalize">{t.replace("_", " ")}</span>
+              <span className="text-[10px] opacity-70">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -165,13 +198,6 @@ export default function Referencias() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
         </div>
-        <Select value={filterTipo} onValueChange={setFilterTipo}>
-          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos Tipos</SelectItem>
-            {TIPOS.map(t => <SelectItem key={t} value={t} className="capitalize">{t.replace("_", " ")}</SelectItem>)}
-          </SelectContent>
-        </Select>
         <Select value={filterPlat} onValueChange={setFilterPlat}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
           <SelectContent>
@@ -192,6 +218,7 @@ export default function Referencias() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map((r, i) => {
           const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
+          const Icon = style.icon;
           return (
             <Card
               key={r.id}
@@ -199,19 +226,26 @@ export default function Referencias() {
               style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
               onClick={() => setEditing({ ...r })}
             >
-              {r.image_url && (
+              {r.image_url ? (
                 <div className="h-36 bg-secondary overflow-hidden">
-                  <img src={r.image_url} alt={r.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img
+                    src={r.image_url}
+                    alt={r.titulo}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gradient-to-br ${style.gradient}"><svg class="h-10 w-10 text-muted-foreground/20" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" /></svg></div>`;
+                    }}
+                  />
                 </div>
-              )}
-              {!r.image_url && (
-                <div className="h-24 bg-gradient-to-br from-secondary/80 to-secondary/30 flex items-center justify-center">
-                  <Image className="h-8 w-8 text-muted-foreground/20" />
+              ) : (
+                <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
+                  <Icon className="h-10 w-10 text-muted-foreground/20" />
                 </div>
               )}
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-medium text-sm truncate">{r.titulo}</h3>
+                  <h3 className="font-medium text-sm line-clamp-2">{r.titulo}</h3>
                   <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
                     <Trash2 className="h-3 w-3 text-destructive" />
                   </Button>
@@ -221,7 +255,16 @@ export default function Referencias() {
                   {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
                 </div>
                 {r.score && r.score > 0 && <ScoreStars score={r.score} />}
-                {r.project_id && <p className="text-[10px] text-muted-foreground">{projectName(r.project_id)}</p>}
+                {r.tags && r.tags.length > 0 && (
+                  <div className="flex gap-1 flex-wrap">
+                    {r.tags.slice(0, 3).map(t => (
+                      <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
+                    ))}
+                    {r.tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{r.tags.length - 3}</span>}
+                  </div>
+                )}
+                {r.project_id && <p className="text-[10px] text-muted-foreground">📁 {projectName(r.project_id)}</p>}
+                {r.notas && <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>}
                 {r.url && (
                   <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
                     <ExternalLink className="h-2.5 w-2.5" /> Abrir link
@@ -231,7 +274,13 @@ export default function Referencias() {
             </Card>
           );
         })}
-        {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma referência cadastrada.</p>}
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-12 space-y-2">
+            <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
+            <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+            <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+          </div>
+        )}
       </div>
 
       {/* New Dialog */}
