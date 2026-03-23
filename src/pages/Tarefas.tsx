@@ -201,7 +201,10 @@ export default function Tarefas() {
     const member = getMember(card.member_id);
     const colName = getColumnName(card.column_id);
     return (
-      <div className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 group ${done ? "opacity-60" : ""}`}>
+      <div
+        className={`flex items-start gap-3 p-3 rounded-lg border transition-all hover:bg-accent/5 group cursor-pointer ${done ? "opacity-60" : ""}`}
+        onClick={() => setSelectedCard(card)}
+      >
         <Checkbox
           checked={done}
           onCheckedChange={() => toggleDone(card)}
