@@ -8872,6 +8872,73 @@ export type Database = {
           },
         ]
       }
+      imphq_card_checklists: {
+        Row: {
+          card_id: string
+          created_at: string
+          id: string
+          is_done: boolean
+          position: number
+          title: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          id?: string
+          is_done?: boolean
+          position?: number
+          title: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          id?: string
+          is_done?: boolean
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_card_checklists_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_kanban_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_card_comments: {
+        Row: {
+          author_name: string
+          card_id: string
+          content: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_name?: string
+          card_id: string
+          content: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_name?: string
+          card_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_card_comments_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_kanban_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_clicks: {
         Row: {
           converted_at: string | null
