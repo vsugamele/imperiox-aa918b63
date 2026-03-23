@@ -1,36 +1,57 @@
 
 
-# Plano: Edição de Receitas com Produto + Lightbox em Referências
+# Plano: Expandir tipos de elementos no Canvas de Funis
 
-## 1. Migration: adicionar `produto_nome` e `documento_url` na tabela `imphq_project_revenue`
+## Situação atual
 
-Novos campos opcionais para vincular receita a um produto e anexar comprovante:
-```sql
-ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS produto_nome TEXT;
-ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS documento_url TEXT;
-```
+O canvas de funis tem apenas 6 tipos de elementos: `criativo`, `pagina`, `vsl`, `checkout`, `upsell`, `outro`. Todos compartilham o mesmo layout de card com campos de métricas (visitas/conversões). Falta variedade visual para representar canais, mídias e elementos de texto.
 
-## 2. Edição completa de Receitas (`ProjetoFinancas.tsx`)
+## O que será feito
 
-Aplicar o mesmo padrão já usado nos custos:
-- Estado `editingRevenue` + dialog dual-purpose (add/edit)
-- Botão de editar (lápis) em cada linha da tabela de receitas
-- Campo opcional "Produto" (select com os produtos do briefing ou texto livre)
-- Upload de documento (comprovante) usando `FileUpload` no bucket `project-docs`
-- Ícone de clipe na tabela quando há documento anexado
-- Coluna "Produto" na tabela de receitas para visualização
+### 1. Expandir o catálogo de tipos de etapa
 
-## 3. Lightbox de imagem em Referências (`Referencias.tsx`)
+Adicionar novos tipos com cores e ícones distintos:
 
-- Ao clicar no card, se tem imagem, abrir um dialog/lightbox com a imagem em tamanho grande antes do painel de edição
-- Ou: adicionar botão "ver imagem" no dialog de edição que abre a imagem em nova aba/lightbox
-- Abordagem: dialog separado com `<img>` full-size + botão fechar
+| Tipo | Label | Emoji | Cor |
+|---|---|---|---|
+| face_ads | Facebook Ads | 📢 | indigo |
+| instagram | Instagram | 📸 | pink |
+| tiktok | TikTok | 🎵 | cyan |
+| linkedin | LinkedIn | 💼 | blue |
+| blog | Blog/Artigo | 📝 | teal |
+| video | Vídeo | 🎬 | purple |
+| imagem | Imagem | 🖼️ | orange |
+| email | Email | ✉️ | sky |
+| whatsapp | WhatsApp | 💬 | emerald |
+| caixa | Caixa (genérica) | 📦 | slate |
+| texto | Caixa de Texto | 💭 | neutral |
+
+### 2. Adaptar o card por tipo
+
+- Tipos de **canal/mídia** (face_ads, instagram, tiktok, linkedin, blog): mostram o card padrão com métricas
+- Tipo **texto**: card simplificado com área de texto maior (sem métricas de visitas/conversões), funciona como anotação/label no canvas
+- Tipo **caixa**: card genérico para agrupar ou marcar seções
+
+### 3. Toolbar de inserção rápida
+
+Substituir o botão "Etapa" por uma barra ou dropdown com os tipos disponíveis agrupados:
+- **Páginas**: Página, VSL, Checkout, Upsell
+- **Canais**: Facebook Ads, Instagram, TikTok, LinkedIn, Blog
+- **Mídia**: Vídeo, Imagem, Criativo
+- **Comunicação**: Email, WhatsApp
+- **Outros**: Caixa, Texto
+
+Ao clicar num tipo, já cria o card com o tipo pré-selecionado no centro da viewport.
+
+### 4. Melhorias gerais no canvas
+
+- **Auto-save**: salvar automaticamente ao soltar card (drag end) em vez de só no botão "Salvar"
+- **Minimap**: indicador visual pequeno no canto mostrando posição no canvas
+- **Connector labels**: mostrar taxa de conversão entre etapas conectadas no meio do conector
 
 ## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| Migration SQL | `ALTER TABLE` para `produto_nome` e `documento_url` |
-| `src/components/projeto/ProjetoFinancas.tsx` | Dialog de receita dual-purpose, campo produto, upload doc |
-| `src/pages/Referencias.tsx` | Lightbox para visualizar imagens em tamanho grande |
+| `src/pages/Funis.tsx` | Expandir `TIPO_STYLES`, toolbar de inserção, card adaptativo por tipo, auto-save no drag, melhorias visuais |
 
