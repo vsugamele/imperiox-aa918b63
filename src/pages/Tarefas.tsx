@@ -75,6 +75,7 @@ export default function Tarefas() {
   const [newMemberId, setNewMemberId] = useState("none");
   const [filterProject, setFilterProject] = useState("all");
   const [filterMember, setFilterMember] = useState("all");
+  const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
