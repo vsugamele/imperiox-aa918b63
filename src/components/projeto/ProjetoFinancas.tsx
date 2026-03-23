@@ -8,25 +8,26 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target } from "lucide-react";
 import { toast } from "sonner";
+import { AdsImportDialog } from "@/components/financas/AdsImportDialog";
 
 interface Cost {
-  id: string;
-  nome: string;
-  categoria: string;
-  valor: number;
-  moeda: string;
-  recorrente: boolean;
+  id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
 }
-
 interface Revenue {
-  id: string;
-  descricao: string;
-  valor: number;
-  fonte: string;
-  data_ref: string;
+  id: string; descricao: string; valor: number; fonte: string; data_ref: string;
+}
+interface AdsSpend {
+  id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null;
+  anuncio?: string | null; data_ref: string; valor: number; impressoes: number; alcance?: number;
+  cliques: number; leads: number; compras?: number; custo_por_compra?: number;
+  hook_rate?: number; ctr?: number; frequencia?: number;
+}
+interface Venda {
+  id: string; produto_nome: string; valor: number; plataforma: string; status: string; data_venda: string;
 }
 
 const COST_CATS = ["Ferramentas", "Ads", "Freelancer", "Infra", "Outro"];
@@ -36,39 +37,61 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
   const { user } = useAuth();
   const [costs, setCosts] = useState<Cost[]>([]);
   const [revenues, setRevenues] = useState<Revenue[]>([]);
+  const [ads, setAds] = useState<AdsSpend[]>([]);
+  const [vendas, setVendas] = useState<Venda[]>([]);
   const [showCostForm, setShowCostForm] = useState(false);
   const [showRevForm, setShowRevForm] = useState(false);
+  const [showAdsImport, setShowAdsImport] = useState(false);
   const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true });
   const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0] });
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
+  useEffect(() => { loadData(); }, [projectId]);
 
   const loadData = async () => {
-    const [c, r] = await Promise.all([
+    const [c, r, a, v, p] = await Promise.all([
       supabase.from("imphq_project_costs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("imphq_project_revenue").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
+      supabase.from("imphq_ads_spend").select("*").eq("project_id", projectId).order("data_ref", { ascending: false }),
+      supabase.from("imphq_vendas").select("*").eq("project_id", projectId).eq("status", "aprovado").order("data_venda", { ascending: false }),
+      supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
     setCosts((c.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
     setRevenues((r.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
+    setAds((a.data || []).map((x: any) => ({
+      ...x, valor: parseFloat(x.valor) || 0, impressoes: x.impressoes || 0,
+      cliques: x.cliques || 0, leads: x.leads || 0, alcance: x.alcance || 0,
+      compras: x.compras || 0, custo_por_compra: parseFloat(x.custo_por_compra) || 0,
+      hook_rate: parseFloat(x.hook_rate) || 0, ctr: parseFloat(x.ctr) || 0,
+      frequencia: parseFloat(x.frequencia) || 0,
+    })));
+    setVendas((v.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
+    setProjects((p.data || []) as { id: string; name: string }[]);
   };
 
+  // KPIs
   const totalCost = costs.reduce((s, c) => s + (c.moeda === "USD" ? c.valor * 5.2 : c.valor), 0);
   const totalRev = revenues.reduce((s, r) => s + r.valor, 0);
-  const profit = totalRev - totalCost;
-  const roi = totalCost > 0 ? ((profit / totalCost) * 100) : 0;
+  const totalAds = ads.reduce((s, a) => s + a.valor, 0);
+  const totalVendas = vendas.reduce((s, v) => s + v.valor, 0);
+  const totalReceita = totalRev + totalVendas;
+  const totalCusto = totalCost + totalAds;
+  const profit = totalReceita - totalCusto;
+  const roi = totalCusto > 0 ? ((profit / totalCusto) * 100) : 0;
+  const roas = totalAds > 0 ? totalReceita / totalAds : 0;
+
+  // Ads KPIs
+  const totalCliques = ads.reduce((s, a) => s + a.cliques, 0);
+  const totalCompras = ads.reduce((s, a) => s + (a.compras || 0), 0);
+  const cpc = totalCliques > 0 ? totalAds / totalCliques : 0;
+  const cpl = ads.reduce((s, a) => s + a.leads, 0) > 0 ? totalAds / ads.reduce((s, a) => s + a.leads, 0) : 0;
 
   const addCost = async () => {
     if (!costForm.nome.trim() || !costForm.valor) { toast.error("Preencha nome e valor"); return; }
     const { error } = await supabase.from("imphq_project_costs").insert([{
-      project_id: projectId,
-      user_id: user?.id,
-      nome: costForm.nome,
-      categoria: costForm.categoria,
-      valor: parseFloat(costForm.valor),
-      moeda: costForm.moeda,
-      recorrente: costForm.recorrente,
+      project_id: projectId, user_id: user?.id, nome: costForm.nome,
+      categoria: costForm.categoria, valor: parseFloat(costForm.valor),
+      moeda: costForm.moeda, recorrente: costForm.recorrente,
     }]);
     if (error) { toast.error(error.message); return; }
     toast.success("Custo adicionado!");
@@ -80,12 +103,8 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
   const addRevenue = async () => {
     if (!revForm.descricao.trim() || !revForm.valor) { toast.error("Preencha descrição e valor"); return; }
     const { error } = await supabase.from("imphq_project_revenue").insert([{
-      project_id: projectId,
-      user_id: user?.id,
-      descricao: revForm.descricao,
-      valor: parseFloat(revForm.valor),
-      fonte: revForm.fonte,
-      data_ref: revForm.data_ref,
+      project_id: projectId, user_id: user?.id, descricao: revForm.descricao,
+      valor: parseFloat(revForm.valor), fonte: revForm.fonte, data_ref: revForm.data_ref,
     }]);
     if (error) { toast.error(error.message); return; }
     toast.success("Receita adicionada!");
@@ -106,31 +125,37 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
     toast.success("Removido");
   };
 
+  const deleteAd = async (id: string) => {
+    await supabase.from("imphq_ads_spend").delete().eq("id", id);
+    setAds(prev => prev.filter(a => a.id !== id));
+    toast.success("Removido");
+  };
+
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const kpis = [
-    { label: "Custo Total", value: fmt(totalCost), icon: Receipt, color: "text-red-400", bg: "from-red-500/15 to-red-500/5" },
-    { label: "Receita Total", value: fmt(totalRev), icon: Wallet, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
+    { label: "Receita Total", value: fmt(totalReceita), icon: TrendingUp, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
+    { label: "Custo Total", value: fmt(totalCusto), icon: TrendingDown, color: "text-red-400", bg: "from-red-500/15 to-red-500/5" },
     { label: "Lucro", value: fmt(profit), icon: profit >= 0 ? TrendingUp : TrendingDown, color: profit >= 0 ? "text-emerald-400" : "text-red-400", bg: profit >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5" },
     { label: "ROI", value: `${roi.toFixed(1)}%`, icon: Percent, color: roi >= 0 ? "text-primary" : "text-red-400", bg: "from-primary/15 to-primary/5" },
+    { label: "ROAS", value: `${roas.toFixed(2)}x`, icon: Target, color: "text-amber-400", bg: "from-amber-500/15 to-amber-500/5" },
   ];
 
-  // Visual bar
-  const maxBar = Math.max(totalCost, totalRev, 1);
+  const maxBar = Math.max(totalCusto, totalReceita, 1);
 
   return (
     <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {kpis.map((k, i) => (
           <Card key={k.label} className={`bg-gradient-to-br ${k.bg} border-border`}>
             <CardContent className="flex items-center gap-3 p-4">
-              <div className={`p-2.5 rounded-xl bg-background/50 ${k.color}`}>
-                <k.icon className="h-5 w-5" />
+              <div className={`p-2 rounded-xl bg-background/50 ${k.color}`}>
+                <k.icon className="h-4 w-4" />
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k.label}</p>
-                <p className={`text-xl font-mono font-bold ${k.color}`}>{k.value}</p>
+                <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
               </div>
             </CardContent>
           </Card>
@@ -145,97 +170,245 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground w-16">Custo</span>
               <div className="flex-1 bg-secondary/30 rounded-full h-5 overflow-hidden">
-                <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalCost / maxBar) * 100}%` }} />
+                <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalCusto / maxBar) * 100}%` }} />
               </div>
-              <span className="text-xs font-mono text-red-400 w-28 text-right">{fmt(totalCost)}</span>
+              <span className="text-xs font-mono text-red-400 w-28 text-right">{fmt(totalCusto)}</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground w-16">Receita</span>
               <div className="flex-1 bg-secondary/30 rounded-full h-5 overflow-hidden">
-                <div className="h-full bg-emerald-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalRev / maxBar) * 100}%` }} />
+                <div className="h-full bg-emerald-500/60 rounded-full transition-all duration-500" style={{ width: `${(totalReceita / maxBar) * 100}%` }} />
               </div>
-              <span className="text-xs font-mono text-emerald-400 w-28 text-right">{fmt(totalRev)}</span>
+              <span className="text-xs font-mono text-emerald-400 w-28 text-right">{fmt(totalReceita)}</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Custos */}
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm uppercase tracking-wider text-red-400 font-sans flex items-center gap-2">
-              <Receipt className="h-4 w-4" /> Custos do Projeto
-            </CardTitle>
-            <Button size="sm" variant="outline" onClick={() => setShowCostForm(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Custo</Button>
-          </CardHeader>
-          <CardContent>
-            {costs.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum custo registrado</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow><TableHead>Nome</TableHead><TableHead>Cat.</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-8"></TableHead></TableRow>
-                </TableHeader>
-                <TableBody>
-                  {costs.map(c => (
-                    <TableRow key={c.id}>
-                      <TableCell className="text-sm">
-                        {c.nome}
-                        {c.recorrente && <Badge variant="outline" className="ml-2 text-[9px] py-0">mensal</Badge>}
-                      </TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[10px]">{c.categoria}</Badge></TableCell>
-                      <TableCell className="text-right font-mono text-sm text-red-400">
-                        {c.moeda === "USD" ? `$${c.valor.toFixed(2)}` : fmt(c.valor)}
-                      </TableCell>
-                      <TableCell>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive" onClick={() => deleteCost(c.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+      {/* Tabs */}
+      <Tabs defaultValue="custos" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="custos" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Custos</TabsTrigger>
+          <TabsTrigger value="receitas" className="gap-1.5"><Wallet className="h-3.5 w-3.5" /> Receitas</TabsTrigger>
+          <TabsTrigger value="ads" className="gap-1.5"><Megaphone className="h-3.5 w-3.5" /> Ads</TabsTrigger>
+          <TabsTrigger value="vendas" className="gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Vendas</TabsTrigger>
+        </TabsList>
 
-        {/* Receitas */}
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm uppercase tracking-wider text-emerald-400 font-sans flex items-center gap-2">
-              <Wallet className="h-4 w-4" /> Receitas do Projeto
-            </CardTitle>
-            <Button size="sm" variant="outline" onClick={() => setShowRevForm(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Receita</Button>
-          </CardHeader>
-          <CardContent>
-            {revenues.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma receita registrada</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow><TableHead>Descrição</TableHead><TableHead>Fonte</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-8"></TableHead></TableRow>
-                </TableHeader>
-                <TableBody>
-                  {revenues.map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="text-sm">{r.descricao}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[10px]">{r.fonte}</Badge></TableCell>
-                      <TableCell className="text-right font-mono text-sm text-emerald-400">{fmt(r.valor)}</TableCell>
-                      <TableCell>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive" onClick={() => deleteRevenue(r.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+        {/* Custos Tab */}
+        <TabsContent value="custos">
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm uppercase tracking-wider text-red-400 font-sans flex items-center gap-2">
+                <Receipt className="h-4 w-4" /> Custos do Projeto
+              </CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setShowCostForm(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Custo</Button>
+            </CardHeader>
+            <CardContent>
+              {costs.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum custo registrado</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow><TableHead>Nome</TableHead><TableHead>Cat.</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-8"></TableHead></TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {costs.map(c => (
+                      <TableRow key={c.id}>
+                        <TableCell className="text-sm">
+                          {c.nome}
+                          {c.recorrente && <Badge variant="outline" className="ml-2 text-[9px] py-0">mensal</Badge>}
+                        </TableCell>
+                        <TableCell><Badge variant="secondary" className="text-[10px]">{c.categoria}</Badge></TableCell>
+                        <TableCell className="text-right font-mono text-sm text-red-400">
+                          {c.moeda === "USD" ? `$${c.valor.toFixed(2)}` : fmt(c.valor)}
+                        </TableCell>
+                        <TableCell>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive" onClick={() => deleteCost(c.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Receitas Tab */}
+        <TabsContent value="receitas">
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm uppercase tracking-wider text-emerald-400 font-sans flex items-center gap-2">
+                <Wallet className="h-4 w-4" /> Receitas Manuais
+              </CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setShowRevForm(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Receita</Button>
+            </CardHeader>
+            <CardContent>
+              {revenues.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma receita registrada</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow><TableHead>Descrição</TableHead><TableHead>Fonte</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-8"></TableHead></TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {revenues.map(r => (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-sm">{r.descricao}</TableCell>
+                        <TableCell><Badge variant="secondary" className="text-[10px]">{r.fonte}</Badge></TableCell>
+                        <TableCell className="text-right font-mono text-sm text-emerald-400">{fmt(r.valor)}</TableCell>
+                        <TableCell>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive" onClick={() => deleteRevenue(r.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Ads Tab */}
+        <TabsContent value="ads">
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm uppercase tracking-wider text-blue-400 font-sans flex items-center gap-2">
+                <Megaphone className="h-4 w-4" /> Investimento em Ads
+              </CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
+                <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Ads KPIs */}
+              {ads.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
+                    { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
+                    { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
+                    { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
+                  ].map(k => (
+                    <div key={k.label} className="rounded-lg border border-border p-3 bg-secondary/20">
+                      <p className="text-[10px] text-muted-foreground uppercase">{k.label}</p>
+                      <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              )}
+
+              {ads.length === 0 ? (
+                <div className="text-center py-8 space-y-2">
+                  <Megaphone className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                  <p className="text-sm text-muted-foreground">Nenhum dado de Ads importado</p>
+                  <p className="text-xs text-muted-foreground/70">Importe um relatório CSV do Facebook Ads para começar</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Campanha</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Impr.</TableHead>
+                        <TableHead>Cliques</TableHead>
+                        <TableHead>CTR</TableHead>
+                        <TableHead>Compras</TableHead>
+                        <TableHead className="w-8"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ads.slice(0, 50).map(a => (
+                        <TableRow key={a.id}>
+                          <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
+                          <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
+                          <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
+                          <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
+                          <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
+                          <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
+                          <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
+                          <TableCell>
+                            <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {ads.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {ads.length - 50} registros</p>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Vendas Tab */}
+        <TabsContent value="vendas">
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm uppercase tracking-wider text-emerald-400 font-sans flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" /> Vendas Reais ({vendas.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {vendas.length === 0 ? (
+                <div className="text-center py-8 space-y-2">
+                  <ShoppingCart className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                  <p className="text-sm text-muted-foreground">Nenhuma venda registrada</p>
+                  <p className="text-xs text-muted-foreground/70">Vendas aparecem automaticamente via webhook ou importação</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="rounded-lg border border-border p-3 bg-secondary/20">
+                      <p className="text-[10px] text-muted-foreground uppercase">Total Vendas</p>
+                      <p className="text-lg font-mono font-bold text-emerald-400">{fmt(totalVendas)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border p-3 bg-secondary/20">
+                      <p className="text-[10px] text-muted-foreground uppercase">Quantidade</p>
+                      <p className="text-lg font-mono font-bold text-foreground">{vendas.length}</p>
+                    </div>
+                    <div className="rounded-lg border border-border p-3 bg-secondary/20">
+                      <p className="text-[10px] text-muted-foreground uppercase">Ticket Médio</p>
+                      <p className="text-lg font-mono font-bold text-amber-400">{fmt(vendas.length > 0 ? totalVendas / vendas.length : 0)}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Produto</TableHead>
+                          <TableHead>Plataforma</TableHead>
+                          <TableHead>Valor</TableHead>
+                          <TableHead>Data</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {vendas.slice(0, 50).map(v => (
+                          <TableRow key={v.id}>
+                            <TableCell className="text-sm font-medium">{v.produto_nome}</TableCell>
+                            <TableCell><Badge variant="secondary" className="text-[10px]">{v.plataforma}</Badge></TableCell>
+                            <TableCell className="font-mono text-sm text-emerald-400">{fmt(v.valor)}</TableCell>
+                            <TableCell className="text-xs font-mono">{new Date(v.data_venda).toLocaleDateString("pt-BR")}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {vendas.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {vendas.length - 50} vendas</p>}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Cost Form Dialog */}
       <Dialog open={showCostForm} onOpenChange={setShowCostForm}>
@@ -293,6 +466,14 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
           <DialogFooter><Button onClick={addRevenue}>Adicionar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Ads Import Dialog */}
+      <AdsImportDialog
+        open={showAdsImport}
+        onOpenChange={setShowAdsImport}
+        projects={projects}
+        onImported={loadData}
+      />
     </div>
   );
 }
