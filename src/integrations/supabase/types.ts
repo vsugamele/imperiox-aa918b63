@@ -10043,8 +10043,10 @@ export type Database = {
           created_at: string | null
           data_ref: string | null
           descricao: string
+          documento_url: string | null
           fonte: string | null
           id: string
+          produto_nome: string | null
           project_id: string
           user_id: string
           valor: number | null
@@ -10053,8 +10055,10 @@ export type Database = {
           created_at?: string | null
           data_ref?: string | null
           descricao: string
+          documento_url?: string | null
           fonte?: string | null
           id?: string
+          produto_nome?: string | null
           project_id: string
           user_id: string
           valor?: number | null
@@ -10063,8 +10067,10 @@ export type Database = {
           created_at?: string | null
           data_ref?: string | null
           descricao?: string
+          documento_url?: string | null
           fonte?: string | null
           id?: string
+          produto_nome?: string | null
           project_id?: string
           user_id?: string
           valor?: number | null

@@ -39,6 +39,7 @@ export default function Referencias() {
   const [filterProject, setFilterProject] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
 
   const load = async () => {
@@ -227,7 +228,7 @@ export default function Referencias() {
               onClick={() => setEditing({ ...r })}
             >
               {r.image_url ? (
-                <div className="h-36 bg-secondary overflow-hidden">
+                <div className="h-36 bg-secondary overflow-hidden relative">
                   <img
                     src={r.image_url}
                     alt={r.titulo}
@@ -237,6 +238,13 @@ export default function Referencias() {
                       (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gradient-to-br ${style.gradient}"><svg class="h-10 w-10 text-muted-foreground/20" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" /></svg></div>`;
                     }}
                   />
+                  <button
+                    className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
+                    title="Ver imagem em tamanho grande"
+                  >
+                    <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+                  </button>
                 </div>
               ) : (
                 <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
@@ -296,11 +304,25 @@ export default function Referencias() {
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar Referência</DialogTitle></DialogHeader>
+          {editing && editing.image_url && (
+            <button onClick={() => setLightboxUrl(editing.image_url!)} className="w-full rounded-lg overflow-hidden border border-border hover:opacity-90 transition-opacity">
+              <img src={editing.image_url} alt={editing.titulo} className="w-full max-h-48 object-cover" />
+            </button>
+          )}
           {editing && <RefForm data={editing} setData={setEditing} />}
           <DialogFooter className="flex justify-between">
             <Button variant="destructive" size="sm" onClick={() => editing && deleteRef(editing.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
             <Button onClick={saveEdit}>Salvar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox */}
+      <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-2 bg-black/95 border-border">
+          {lightboxUrl && (
+            <img src={lightboxUrl} alt="Referência" className="w-full h-full object-contain max-h-[90vh] rounded" />
+          )}
         </DialogContent>
       </Dialog>
     </div>
