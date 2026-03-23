@@ -1,45 +1,39 @@
 
 
-# Plano: Exportar Tarefas em PDF + Cofre de Ferramentas
+# Plano: Documentos nos Custos + Edição + Visão de Produtos
 
-## 1. Exportar tarefas em PDF profissional
+## O que será feito
 
-O botão "Exportar PDF" atual gera um HTML básico via `window.open` e `window.print`. Vamos substituir por um PDF real gerado com dados completos.
+### 1. Adicionar coluna `documento_url` na tabela `imphq_project_costs`
+Migration para adicionar `documento_url TEXT` — permitirá anexar um comprovante/NF a cada custo.
 
-### O que muda:
-- Substituir o `window.open/print` por geração de PDF client-side usando a lib `jspdf` + `jspdf-autotable`
-- O PDF incluirá:
-  - Header com data, filtros aplicados (projeto, responsável)
-  - Tabela com colunas: **Tarefa**, **Projeto**, **Responsável**, **Prioridade**, **Prazo**, **Status** (coluna do kanban), **Board**
-  - Seções separadas: Atrasadas, Hoje, Próximos 3 dias, Sem prazo
-  - Rodapé com total de tarefas e data de geração
-- Dropdown no botão com opções: **PDF** e **CSV** (para quem prefere abrir no Excel)
+### 2. Editar custos existentes
+Atualmente só é possível adicionar e excluir. Vamos adicionar um botão de edição em cada linha da tabela de custos que abre o mesmo dialog preenchido, permitindo alterar nome, valor, categoria, moeda, recorrência e documento.
 
-## 2. Cofre de Ferramentas (Sites e Senhas)
+### 3. Upload de documento no formulário de custo
+No dialog de adicionar/editar custo, incluir o componente `FileUpload` já existente no projeto para anexar arquivos (PDF, imagem). O arquivo será salvo no bucket Supabase Storage (`project-docs`) e a URL gravada no campo `documento_url`. Na tabela, um ícone de clipe aparecerá nos custos que têm documento, clicável para abrir/baixar.
 
-Nova página "Cofre" para salvar credenciais de ferramentas que o time usa.
+### 4. Nova aba "Produtos" no ProjetoFinancas
+Adicionar uma 5ª tab no componente de finanças do projeto que mostra os produtos cadastrados no briefing (`project.data.produtos`) cruzados com as vendas reais (`imphq_vendas`). Para cada produto:
+- Nome, tipo, preço cadastrado
+- Vendas reais (quantidade e receita do `imphq_vendas` filtrando por `produto_nome`)
+- Ticket médio real vs preço cadastrado
+- % da receita total
 
-### Database:
-Nova tabela `imphq_tools_vault`:
-- `id` (uuid), `name` (text - nome da ferramenta), `url` (text), `username` (text), `password_encrypted` (text), `category` (text - ex: "social", "email", "design"), `notes` (text), `project_id` (uuid, opcional), `created_at`, `updated_at`
-- RLS: apenas autenticados
-
-### UI:
-- Nova página `/cofre` com cards por categoria
-- CRUD completo: adicionar, editar, excluir ferramentas
-- Campo de senha com toggle mostrar/ocultar
-- Botão copiar senha/URL com um clique
-- Filtro por categoria e busca por nome
-- Link na sidebar no grupo "Ferramentas"
+Isso dá visibilidade completa do desempenho de cada produto.
 
 ## Arquivos
 
 | Arquivo | Ação |
 |---|---|
-| `package.json` | Adicionar `jspdf` e `jspdf-autotable` |
-| `src/pages/Tarefas.tsx` | Substituir export por PDF/CSV reais |
-| Migration SQL | Criar `imphq_tools_vault` com RLS |
-| `src/pages/Cofre.tsx` | **Novo** - página do cofre de ferramentas |
-| `src/components/AppSidebar.tsx` | Adicionar link "Cofre" no grupo Ferramentas |
-| `src/App.tsx` | Adicionar rota `/cofre` |
+| Migration SQL | `ALTER TABLE imphq_project_costs ADD COLUMN documento_url TEXT` |
+| Migration SQL | Criar bucket `project-docs` com RLS |
+| `src/components/projeto/ProjetoFinancas.tsx` | Adicionar edição de custos, upload de documento, nova aba Produtos |
+
+## Detalhes técnicos
+
+- O dialog de custo vira dual-purpose (add/edit) com estado `editingCost`
+- Upload usa o componente `FileUpload` existente apontando para bucket `project-docs`
+- A aba Produtos recebe `projectData` como prop para acessar os produtos do briefing e cruza com `vendas` já carregadas
+- Sem novas dependências
 
