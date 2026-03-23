@@ -331,7 +331,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               <CardTitle className="text-sm uppercase tracking-wider text-emerald-400 font-sans flex items-center gap-2">
                 <Wallet className="h-4 w-4" /> Receitas Manuais
               </CardTitle>
-              <Button size="sm" variant="outline" onClick={() => setShowRevForm(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Receita</Button>
+              <Button size="sm" variant="outline" onClick={openRevFormForNew}><Plus className="h-3.5 w-3.5 mr-1" /> Receita</Button>
             </CardHeader>
             <CardContent>
               {revenues.length === 0 ? (
