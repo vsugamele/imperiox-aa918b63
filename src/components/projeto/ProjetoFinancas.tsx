@@ -137,16 +137,50 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
     loadData();
   };
 
-  const addRevenue = async () => {
+  const openRevFormForNew = () => {
+    setEditingRevenue(null);
+    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "" });
+    setShowRevForm(true);
+  };
+
+  const openRevFormForEdit = (rev: Revenue) => {
+    setEditingRevenue(rev);
+    setRevForm({
+      descricao: rev.descricao,
+      valor: String(rev.valor),
+      fonte: rev.fonte,
+      data_ref: rev.data_ref,
+      produto_nome: rev.produto_nome || "",
+      documento_url: rev.documento_url || "",
+    });
+    setShowRevForm(true);
+  };
+
+  const saveRevenue = async () => {
     if (!revForm.descricao.trim() || !revForm.valor) { toast.error("Preencha descrição e valor"); return; }
-    const { error } = await supabase.from("imphq_project_revenue").insert([{
-      project_id: projectId, user_id: user?.id, descricao: revForm.descricao,
-      valor: parseFloat(revForm.valor), fonte: revForm.fonte, data_ref: revForm.data_ref,
-    }]);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Receita adicionada!");
+    const payload = {
+      descricao: revForm.descricao,
+      valor: parseFloat(revForm.valor),
+      fonte: revForm.fonte,
+      data_ref: revForm.data_ref,
+      produto_nome: revForm.produto_nome || null,
+      documento_url: revForm.documento_url || null,
+    } as any;
+
+    if (editingRevenue) {
+      const { error } = await supabase.from("imphq_project_revenue").update(payload).eq("id", editingRevenue.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Receita atualizada!");
+    } else {
+      const { error } = await supabase.from("imphq_project_revenue").insert([{
+        ...payload, project_id: projectId, user_id: user?.id,
+      }]);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Receita adicionada!");
+    }
     setShowRevForm(false);
-    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0] });
+    setEditingRevenue(null);
+    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "" });
     loadData();
   };
 
