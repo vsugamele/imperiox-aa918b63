@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface Etapa {
@@ -32,25 +32,20 @@ const DEFAULT_ETAPAS: Etapa[] = [
 ];
 
 const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string; icon: any; hasMetrics: boolean }> = {
-  // Páginas
   criativo:  { bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-400", label: "Criativo", icon: Megaphone, hasMetrics: true },
   pagina:    { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "Página", icon: FileText, hasMetrics: true },
   vsl:       { bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-400", label: "VSL", icon: Video, hasMetrics: true },
   checkout:  { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400", label: "Checkout", icon: ShoppingCart, hasMetrics: true },
   upsell:    { bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", label: "Upsell", icon: ArrowRight, hasMetrics: true },
-  // Canais
   face_ads:  { bg: "bg-indigo-500/10", border: "border-indigo-500/40", text: "text-indigo-400", label: "Facebook Ads", icon: Facebook, hasMetrics: true },
   instagram: { bg: "bg-pink-500/10", border: "border-pink-500/40", text: "text-pink-400", label: "Instagram", icon: Instagram, hasMetrics: true },
   tiktok:    { bg: "bg-cyan-500/10", border: "border-cyan-500/40", text: "text-cyan-400", label: "TikTok", icon: Music, hasMetrics: true },
   linkedin:  { bg: "bg-sky-500/10", border: "border-sky-500/40", text: "text-sky-400", label: "LinkedIn", icon: Linkedin, hasMetrics: true },
   blog:      { bg: "bg-teal-500/10", border: "border-teal-500/40", text: "text-teal-400", label: "Blog", icon: PenLine, hasMetrics: true },
-  // Mídia
   video:     { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400", label: "Vídeo", icon: Video, hasMetrics: true },
   imagem:    { bg: "bg-orange-500/10", border: "border-orange-500/40", text: "text-orange-400", label: "Imagem", icon: Image, hasMetrics: false },
-  // Comunicação
   email:     { bg: "bg-sky-600/10", border: "border-sky-600/40", text: "text-sky-300", label: "Email", icon: Mail, hasMetrics: true },
   whatsapp:  { bg: "bg-green-500/10", border: "border-green-500/40", text: "text-green-400", label: "WhatsApp", icon: MessageSquare, hasMetrics: true },
-  // Outros
   caixa:     { bg: "bg-slate-500/10", border: "border-slate-500/40", text: "text-slate-400", label: "Caixa", icon: Box, hasMetrics: false },
   texto:     { bg: "bg-neutral-500/10", border: "border-neutral-500/40", text: "text-neutral-400", label: "Texto", icon: Type, hasMetrics: false },
   outro:     { bg: "bg-gray-500/10", border: "border-gray-500/40", text: "text-gray-400", label: "Outro", icon: Box, hasMetrics: true },
@@ -85,11 +80,13 @@ const CANVAS_W = 4000;
 const CANVAS_H = 3000;
 const MINIMAP_W = 160;
 const MINIMAP_H = 120;
+const CONNECT_DOT_SIZE = 12;
 
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [filterProject, setFilterProject] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
@@ -99,13 +96,16 @@ export default function Funis() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [connectingFrom, setConnectingFrom] = useState<number | null>(null);
+  const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
+  const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
 
   const load = async () => {
     const [fRes, pRes] = await Promise.all([
       supabase.from("imphq_funis").select("*").order("updated_at", { ascending: false }),
-      supabase.from("imphq_projects").select("id, name").order("name"),
+      supabase.from("imphq_projects").select("id, name, briefing").order("name"),
     ]);
     setFunis((fRes.data || []).map((f: any) => ({ ...f, data: f.data || {} })));
     setProjects(pRes.data || []);
@@ -113,7 +113,31 @@ export default function Funis() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = funis.filter(f => filterProject === "all" || f.project_id === filterProject);
+  // Load project products when a funnel with project_id is selected
+  useEffect(() => {
+    if (selectedFunil?.project_id) {
+      const proj = projects.find(p => p.id === selectedFunil.project_id);
+      if (proj?.briefing) {
+        const b = typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing;
+        const prods = b?.produtos || b?.products || [];
+        setProjectProducts(Array.isArray(prods) ? prods.map((p: any) => typeof p === "string" ? p : p.nome || p.name || "") : []);
+      } else {
+        setProjectProducts([]);
+      }
+    } else {
+      setProjectProducts([]);
+    }
+  }, [selectedFunil?.project_id, projects]);
+
+  const filtered = funis.filter(f => {
+    if (filterProject !== "all" && f.project_id !== filterProject) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const pName = projectName(f.project_id).toLowerCase();
+      return f.nome.toLowerCase().includes(q) || pName.includes(q);
+    }
+    return true;
+  });
 
   const createFunil = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
@@ -138,7 +162,6 @@ export default function Funis() {
     setSelectedFunil(prev => prev ? { ...prev, data: { ...prev.data, etapas } } : null);
   };
 
-  // Auto-save with debounce
   const triggerAutoSave = useCallback(() => {
     if (!selectedFunil) return;
     clearTimeout(autoSaveTimer.current);
@@ -164,8 +187,16 @@ export default function Funis() {
 
   const removeEtapa = (idx: number) => {
     if (!selectedFunil) return;
-    const updated = (selectedFunil.data.etapas || []).filter((_, i) => i !== idx);
-    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
+    const etapas = (selectedFunil.data.etapas || []).filter((_, i) => i !== idx);
+    // Re-map connects_to indices after removal
+    const remapped = etapas.map(e => {
+      if (!e.connects_to) return e;
+      const newConnects = e.connects_to
+        .filter(t => t !== idx)
+        .map(t => t > idx ? t - 1 : t);
+      return { ...e, connects_to: newConnects.length > 0 ? newConnects : undefined };
+    });
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: remapped } });
   };
 
   const setEtapaField = (idx: number, field: string, value: any) => {
@@ -183,9 +214,36 @@ export default function Funis() {
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
 
+  // --- Remove a specific connection ---
+  const removeConnection = (fromIdx: number, toIdx: number) => {
+    if (!selectedFunil) return;
+    const etapas = [...(selectedFunil.data.etapas || [])];
+    const e = etapas[fromIdx];
+    if (e.connects_to) {
+      const newConnects = e.connects_to.filter(t => t !== toIdx);
+      etapas[fromIdx] = { ...e, connects_to: newConnects.length > 0 ? newConnects : undefined };
+      setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+      triggerAutoSave();
+      toast.success("Conexão removida");
+    }
+  };
+
+  // --- Add a connection ---
+  const addConnection = (fromIdx: number, toIdx: number) => {
+    if (!selectedFunil || fromIdx === toIdx) return;
+    const etapas = [...(selectedFunil.data.etapas || [])];
+    const e = etapas[fromIdx];
+    const existing = e.connects_to || [];
+    if (existing.includes(toIdx)) return;
+    etapas[fromIdx] = { ...e, connects_to: [...existing, toIdx] };
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+    triggerAutoSave();
+    toast.success("Conexão criada");
+  };
+
   // --- Drag handlers ---
   const handleCardMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
-    if ((e.target as HTMLElement).closest("input, select, textarea, button, [role='combobox']")) return;
+    if ((e.target as HTMLElement).closest("input, select, textarea, button, [role='combobox'], .connect-dot")) return;
     e.stopPropagation();
     const etapas = selectedFunil?.data.etapas || [];
     const etapa = etapas[idx];
@@ -197,6 +255,16 @@ export default function Funis() {
   }, [selectedFunil, zoom]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Connection line preview
+    if (connectingFrom !== null && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      setConnectLine({
+        x: (e.clientX - rect.left - pan.x) / zoom,
+        y: (e.clientY - rect.top - pan.y) / zoom,
+      });
+      return;
+    }
+
     if (draggingIdx !== null && selectedFunil) {
       const etapas = [...(selectedFunil.data.etapas || [])];
       const newX = Math.max(0, Math.round(e.clientX / zoom - dragOffset.x));
@@ -212,15 +280,37 @@ export default function Funis() {
       });
       setPanStart({ x: e.clientX, y: e.clientY });
     }
-  }, [draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart]);
+  }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    // Finish connection: check if mouse is over a card
+    if (connectingFrom !== null && selectedFunil && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const mx = (e.clientX - rect.left - pan.x) / zoom;
+      const my = (e.clientY - rect.top - pan.y) / zoom;
+      const etapas = selectedFunil.data.etapas || [];
+      for (let i = 0; i < etapas.length; i++) {
+        if (i === connectingFrom) continue;
+        const ex = etapas[i].pos_x ?? 0;
+        const ey = etapas[i].pos_y ?? 0;
+        const ts = TIPO_STYLES[etapas[i].tipo || "outro"] || TIPO_STYLES.outro;
+        const eh = ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
+        if (mx >= ex && mx <= ex + CARD_W && my >= ey && my <= ey + eh) {
+          addConnection(connectingFrom, i);
+          break;
+        }
+      }
+      setConnectingFrom(null);
+      setConnectLine(null);
+      return;
+    }
+
     if (draggingIdx !== null) {
       triggerAutoSave();
     }
     setDraggingIdx(null);
     setIsPanning(false);
-  }, [draggingIdx, triggerAutoSave]);
+  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".etapa-card")) return;
@@ -238,18 +328,18 @@ export default function Funis() {
   if (selectedFunil) {
     const etapas = selectedFunil.data.etapas || [];
 
-    // Build connector pairs
-    const connectors: { from: Etapa; to: Etapa; fromIdx: number; toIdx: number }[] = [];
+    // Build connector pairs - only from explicit connects_to
+    const connectors: { from: Etapa; to: Etapa; fromIdx: number; toIdx: number; isExplicit: boolean }[] = [];
     for (let i = 0; i < etapas.length; i++) {
       const targets = etapas[i].connects_to;
       if (targets && targets.length > 0) {
         for (const t of targets) {
           if (t >= 0 && t < etapas.length && t !== i) {
-            connectors.push({ from: etapas[i], to: etapas[t], fromIdx: i, toIdx: t });
+            connectors.push({ from: etapas[i], to: etapas[t], fromIdx: i, toIdx: t, isExplicit: true });
           }
         }
       } else if (i < etapas.length - 1) {
-        connectors.push({ from: etapas[i], to: etapas[i + 1], fromIdx: i, toIdx: i + 1 });
+        connectors.push({ from: etapas[i], to: etapas[i + 1], fromIdx: i, toIdx: i + 1, isExplicit: false });
       }
     }
 
@@ -273,6 +363,17 @@ export default function Funis() {
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
           {selectedFunil.project_id && <Badge variant="outline" className="text-[10px]">{projectName(selectedFunil.project_id)}</Badge>}
+
+          {/* Project products reference */}
+          {projectProducts.length > 0 && (
+            <div className="flex items-center gap-1 ml-2">
+              <ShoppingCart className="h-3 w-3 text-muted-foreground" />
+              {projectProducts.map((p, i) => (
+                <Badge key={i} variant="secondary" className="text-[9px]">{p}</Badge>
+              ))}
+            </div>
+          )}
+
           <div className="ml-auto flex items-center gap-1">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
             <span className="text-xs text-muted-foreground font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
@@ -285,11 +386,11 @@ export default function Funis() {
         <div
           ref={canvasRef}
           className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none"
-          style={{ height: "75vh", cursor: isPanning ? "grabbing" : draggingIdx !== null ? "move" : "grab" }}
+          style={{ height: "75vh", cursor: connectingFrom !== null ? "crosshair" : isPanning ? "grabbing" : draggingIdx !== null ? "move" : "grab" }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onMouseLeave={() => { setConnectingFrom(null); setConnectLine(null); handleMouseUp({} as any); }}
           onWheel={handleWheel}
         >
           <div style={{
@@ -299,7 +400,7 @@ export default function Funis() {
             position: "relative",
           }}>
             {/* SVG Connectors */}
-            <svg className="absolute inset-0 pointer-events-none" width={CANVAS_W} height={CANVAS_H}>
+            <svg className="absolute inset-0" width={CANVAS_W} height={CANVAS_H} style={{ pointerEvents: "none" }}>
               {connectors.map((c, i) => {
                 const fromStyle = TIPO_STYLES[c.from.tipo || "outro"] || TIPO_STYLES.outro;
                 const fromH = fromStyle.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
@@ -314,7 +415,6 @@ export default function Funis() {
                 const labelX = (fromX + toX) / 2;
                 const labelY = (fromY + toY) / 2;
 
-                // Conversion rate between connected stages
                 const convRate = c.from.visitantes > 0 && c.to.visitantes > 0
                   ? ((c.to.visitantes / c.from.visitantes) * 100).toFixed(1)
                   : null;
@@ -326,16 +426,30 @@ export default function Funis() {
                         <path d="M0,0 L8,4 L0,8" fill="hsl(var(--primary))" opacity="0.5" />
                       </marker>
                     </defs>
+                    {/* Invisible wide path for click target */}
+                    {c.isExplicit && (
+                      <path
+                        d={`M${fromX},${fromY} C${midX},${fromY} ${midX},${toY} ${toX},${toY}`}
+                        stroke="transparent"
+                        strokeWidth="16"
+                        fill="none"
+                        style={{ pointerEvents: "stroke", cursor: "pointer" }}
+                        onClick={() => removeConnection(c.fromIdx, c.toIdx)}
+                      >
+                        <title>Clique para remover conexão #{c.fromIdx} → #{c.toIdx}</title>
+                      </path>
+                    )}
                     <path
                       d={`M${fromX},${fromY} C${midX},${fromY} ${midX},${toY} ${toX},${toY}`}
                       stroke="hsl(var(--primary))"
                       strokeWidth="2"
                       fill="none"
-                      opacity="0.3"
+                      opacity={c.isExplicit ? "0.5" : "0.2"}
                       markerEnd={`url(#arrow-canvas-${i})`}
-                      strokeDasharray="6 4"
+                      strokeDasharray={c.isExplicit ? "none" : "6 4"}
+                      style={{ pointerEvents: "none" }}
                     >
-                      <animate attributeName="stroke-dashoffset" from="20" to="0" dur="2s" repeatCount="indefinite" />
+                      {!c.isExplicit && <animate attributeName="stroke-dashoffset" from="20" to="0" dur="2s" repeatCount="indefinite" />}
                     </path>
                     {convRate && (
                       <>
@@ -350,6 +464,26 @@ export default function Funis() {
                   </g>
                 );
               })}
+
+              {/* Connection line preview */}
+              {connectingFrom !== null && connectLine && (() => {
+                const fromEtapa = etapas[connectingFrom];
+                const fromStyle = TIPO_STYLES[fromEtapa?.tipo || "outro"] || TIPO_STYLES.outro;
+                const fromH = fromStyle.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
+                const fromX = (fromEtapa?.pos_x ?? 0) + CARD_W;
+                const fromY = (fromEtapa?.pos_y ?? 0) + fromH / 2;
+                return (
+                  <path
+                    d={`M${fromX},${fromY} L${connectLine.x},${connectLine.y}`}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="2"
+                    fill="none"
+                    opacity="0.6"
+                    strokeDasharray="4 4"
+                    style={{ pointerEvents: "none" }}
+                  />
+                );
+              })()}
             </svg>
 
             {/* Cards */}
@@ -361,6 +495,7 @@ export default function Funis() {
               const isSimple = !tipoStyle.hasMetrics;
               const x = etapa.pos_x ?? 80;
               const y = etapa.pos_y ?? 80;
+              const cardH = isTextType ? CARD_H_SIMPLE : (isSimple ? CARD_H_SIMPLE : CARD_H_METRICS);
               const IconComp = tipoStyle.icon;
 
               return (
@@ -370,7 +505,20 @@ export default function Funis() {
                   style={{ left: x, top: y, width: CARD_W, zIndex: draggingIdx === i ? 50 : 1 }}
                   onMouseDown={(e) => handleCardMouseDown(e, i)}
                 >
-                  {/* Header: drag handle + index + badge */}
+                  {/* Connection dot - RIGHT side (output) */}
+                  <div
+                    className="connect-dot absolute rounded-full bg-primary/60 hover:bg-primary hover:scale-150 transition-all cursor-crosshair border-2 border-background z-10"
+                    style={{ right: -CONNECT_DOT_SIZE / 2, top: cardH / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                    title="Arraste para conectar a outro card"
+                    onMouseDown={(e) => { e.stopPropagation(); setConnectingFrom(i); }}
+                  />
+                  {/* Connection dot - LEFT side (input indicator) */}
+                  <div
+                    className="absolute rounded-full bg-muted-foreground/30 border-2 border-background"
+                    style={{ left: -CONNECT_DOT_SIZE / 2, top: cardH / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                  />
+
+                  {/* Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="cursor-grab active:cursor-grabbing p-0.5">
@@ -384,7 +532,6 @@ export default function Funis() {
                     </Badge>
                   </div>
 
-                  {/* Text-type: large textarea, no thumbnail/metrics */}
                   {isTextType ? (
                     <>
                       <Textarea
@@ -394,11 +541,8 @@ export default function Funis() {
                         placeholder="Anotação / texto livre..."
                       />
                       <div className="flex items-center justify-between">
-                        <Input
-                          defaultValue={etapa.nome}
-                          onBlur={e => setEtapaField(i, "nome", e.target.value)}
-                          className="h-6 text-[10px] bg-transparent border-none p-0 focus-visible:ring-0 w-2/3"
-                        />
+                        <Input defaultValue={etapa.nome} onBlur={e => setEtapaField(i, "nome", e.target.value)}
+                          className="h-6 text-[10px] bg-transparent border-none p-0 focus-visible:ring-0 w-2/3" />
                         <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
                           <Trash2 className="h-2.5 w-2.5 text-destructive" />
                         </Button>
@@ -406,7 +550,6 @@ export default function Funis() {
                     </>
                   ) : (
                     <>
-                      {/* Thumbnail */}
                       {etapa.image_url ? (
                         <div className="h-28 rounded-lg overflow-hidden bg-card/50 border border-border">
                           <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover" />
@@ -417,55 +560,29 @@ export default function Funis() {
                         </div>
                       )}
 
-                      {/* Name */}
-                      <Input
-                        defaultValue={etapa.nome}
-                        onBlur={e => setEtapaField(i, "nome", e.target.value)}
-                        className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
-                      />
+                      <Input defaultValue={etapa.nome} onBlur={e => setEtapaField(i, "nome", e.target.value)}
+                        className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0" />
 
-                      {/* Description */}
-                      <Input
-                        defaultValue={etapa.descricao || ""}
-                        onBlur={e => setEtapaField(i, "descricao", e.target.value)}
-                        className="h-6 text-[10px] bg-card/50 border-border p-1"
-                        placeholder="Descrição..."
-                      />
+                      <Input defaultValue={etapa.descricao || ""} onBlur={e => setEtapaField(i, "descricao", e.target.value)}
+                        className="h-6 text-[10px] bg-card/50 border-border p-1" placeholder="Descrição..." />
 
-                      {/* Tipo selector */}
                       <Select value={etapa.tipo || "outro"} onValueChange={v => setEtapaField(i, "tipo", v)}>
-                        <SelectTrigger className="h-6 text-[10px] bg-card/50 border-border">
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger className="h-6 text-[10px] bg-card/50 border-border"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {ALL_TIPOS.map(t => {
-                            const s = TIPO_STYLES[t];
-                            const I = s.icon;
-                            return (
-                              <SelectItem key={t} value={t} className="text-xs">
-                                <span className="flex items-center gap-1.5"><I className="h-3 w-3" />{s.label}</span>
-                              </SelectItem>
-                            );
+                            const s = TIPO_STYLES[t]; const I = s.icon;
+                            return <SelectItem key={t} value={t} className="text-xs"><span className="flex items-center gap-1.5"><I className="h-3 w-3" />{s.label}</span></SelectItem>;
                           })}
                         </SelectContent>
                       </Select>
 
-                      {/* URL */}
                       <div className="flex items-center gap-1">
-                        <Input
-                          defaultValue={etapa.url || ""}
-                          onBlur={e => setEtapaField(i, "url", e.target.value)}
-                          className="h-6 text-[10px] bg-card/50 border-border p-1"
-                          placeholder="URL..."
-                        />
-                        {etapa.url && (
-                          <a href={etapa.url} target="_blank" rel="noopener" className="shrink-0">
-                            <ExternalLink className="h-3 w-3 text-primary" />
-                          </a>
-                        )}
+                        <Input defaultValue={etapa.url || ""} onBlur={e => setEtapaField(i, "url", e.target.value)}
+                          className="h-6 text-[10px] bg-card/50 border-border p-1" placeholder="URL..." />
+                        {etapa.url && <a href={etapa.url} target="_blank" rel="noopener" className="shrink-0"><ExternalLink className="h-3 w-3 text-primary" /></a>}
                       </div>
 
-                      {/* Connect to */}
+                      {/* Connect to - text fallback */}
                       <div className="flex items-center gap-1">
                         <span className="text-[9px] text-muted-foreground shrink-0">→</span>
                         <Input
@@ -481,16 +598,10 @@ export default function Funis() {
                         />
                       </div>
 
-                      {/* Upload */}
-                      <FileUpload
-                        bucket="project-media"
-                        path={`funis/${selectedFunil.id}`}
-                        onUpload={url => setEtapaField(i, "image_url", url)}
-                        label="Img"
-                        className="[&_button]:h-6 [&_button]:text-[10px]"
-                      />
+                      <FileUpload bucket="project-media" path={`funis/${selectedFunil.id}`}
+                        onUpload={url => setEtapaField(i, "image_url", url)} label="Img"
+                        className="[&_button]:h-6 [&_button]:text-[10px]" />
 
-                      {/* Metrics - only for types with hasMetrics */}
                       {tipoStyle.hasMetrics && (
                         <>
                           <div className="grid grid-cols-2 gap-2">
@@ -515,7 +626,6 @@ export default function Funis() {
                         </>
                       )}
 
-                      {/* Delete button for simple cards without metrics footer */}
                       {!tipoStyle.hasMetrics && (
                         <div className="flex justify-end">
                           <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeEtapa(i)}>
@@ -536,27 +646,27 @@ export default function Funis() {
             <svg width="100%" height="100%" viewBox={`${minX} ${minY} ${rangeX} ${rangeY}`} className="opacity-60">
               {etapas.map((e, i) => {
                 const ts = TIPO_STYLES[e.tipo || "outro"] || TIPO_STYLES.outro;
-                return (
-                  <rect key={i}
-                    x={e.pos_x ?? 0} y={e.pos_y ?? 0}
-                    width={CARD_W} height={ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE}
-                    rx="4"
-                    fill="hsl(var(--primary))" opacity="0.3"
-                    stroke="hsl(var(--primary))" strokeWidth="8"
-                  />
-                );
+                return <rect key={i} x={e.pos_x ?? 0} y={e.pos_y ?? 0} width={CARD_W}
+                  height={ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE} rx="4"
+                  fill="hsl(var(--primary))" opacity="0.3" stroke="hsl(var(--primary))" strokeWidth="8" />;
               })}
-              {/* Viewport indicator */}
               {canvasRef.current && (
-                <rect
-                  x={-pan.x / zoom} y={-pan.y / zoom}
-                  width={canvasRef.current.clientWidth / zoom}
-                  height={canvasRef.current.clientHeight / zoom}
-                  fill="none" stroke="hsl(var(--primary))" strokeWidth="12" opacity="0.6" rx="4"
-                />
+                <rect x={-pan.x / zoom} y={-pan.y / zoom}
+                  width={canvasRef.current.clientWidth / zoom} height={canvasRef.current.clientHeight / zoom}
+                  fill="none" stroke="hsl(var(--primary))" strokeWidth="12" opacity="0.6" rx="4" />
               )}
             </svg>
           </div>
+
+          {/* Connection mode indicator */}
+          {connectingFrom !== null && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 shadow-lg animate-fade-in">
+              Conectando de #{connectingFrom} — solte sobre outro card
+              <Button size="icon" variant="ghost" className="h-5 w-5 text-primary-foreground/70 hover:text-primary-foreground" onClick={() => { setConnectingFrom(null); setConnectLine(null); }}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Toolbar */}
@@ -571,14 +681,8 @@ export default function Funis() {
                   {gi > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">{group.label}</DropdownMenuLabel>
                   {group.tipos.map(t => {
-                    const s = TIPO_STYLES[t];
-                    const I = s.icon;
-                    return (
-                      <DropdownMenuItem key={t} onClick={() => addEtapaOfType(t)} className="text-xs gap-2">
-                        <I className={`h-3.5 w-3.5 ${s.text}`} />
-                        {s.label}
-                      </DropdownMenuItem>
-                    );
+                    const s = TIPO_STYLES[t]; const I = s.icon;
+                    return <DropdownMenuItem key={t} onClick={() => addEtapaOfType(t)} className="text-xs gap-2"><I className={`h-3.5 w-3.5 ${s.text}`} />{s.label}</DropdownMenuItem>;
                   })}
                 </div>
               ))}
@@ -587,7 +691,7 @@ export default function Funis() {
 
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-          <span className="text-[10px] text-muted-foreground ml-2">Arraste os cards • Scroll = zoom • Arraste fundo = mover • Auto-save ao arrastar</span>
+          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
         </div>
       </div>
     );
@@ -601,7 +705,12 @@ export default function Funis() {
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Buscar funil ou projeto..." className="pl-8 h-8 text-xs w-[220px]" />
+        </div>
         <Select value={filterProject} onValueChange={setFilterProject}>
           <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
           <SelectContent>
@@ -617,12 +726,10 @@ export default function Funis() {
           const etapas = f.data?.etapas || [];
           const statusStyle = STATUS_STYLES[f.status || "Rascunho"] || STATUS_STYLES.Rascunho;
           return (
-            <Card
-              key={f.id}
+            <Card key={f.id}
               className={`bg-gradient-to-br ${statusStyle} border-border border-l-4 hover:scale-[1.02] cursor-pointer transition-all duration-200 animate-fade-in`}
               style={{ animationDelay: `${idx * 60}ms`, animationFillMode: "both" }}
-              onClick={() => setSelectedFunil(f)}
-            >
+              onClick={() => setSelectedFunil(f)}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-medium text-sm">{f.nome}</h3>
@@ -648,7 +755,7 @@ export default function Funis() {
             </Card>
           );
         })}
-        {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhum funil cadastrado</p>}
+        {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhum funil encontrado</p>}
       </div>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
