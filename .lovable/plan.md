@@ -1,55 +1,66 @@
 
 
-# Plano: Melhorar Referências + Mover Import de Ads para dentro do Projeto
+# Plano: Sistema de Tarefas e Kanban Profissional
 
-## Problema 1: Referências
-A tela de referências está funcional mas visualmente pode melhorar — imagens não carregando bem, cards pouco informativos, e a experiência geral pode ser mais rica.
+## Diagnóstico
 
-## Problema 2: Import de Ads no lugar errado
-O import de Ads está apenas no dashboard global de Finanças. Faz mais sentido importar dentro da aba "Finanças" de cada projeto (ProjetoFinancas), pois os dados são por projeto. Os dados importados lá automaticamente refletiriam no dashboard consolidado de /financas.
+O sistema atual tem boa base (drag-and-drop, boards, prioridades, responsáveis), mas falta profundidade nos cards — não há como anotar, criar checklists, comentar ou ver histórico. O dialog de edição é básico demais para uso real de time.
 
 ## Alterações
 
-### 1. Expandir `ProjetoFinancas.tsx` com aba de Ads
+### 1. Novas tabelas (migration)
 
-Adicionar dentro da aba Finanças do projeto:
-- Seção/tab "Ads" com tabela de gastos de ads filtrados pelo `project_id`
-- Botão "Importar CSV" que abre o `AdsImportDialog` já com o projeto pré-selecionado
-- Botão "Novo Gasto" para entrada manual
-- KPIs de ads do projeto: Total investido, CPC, CPL, Compras
-- Os dados inseridos aqui automaticamente aparecem no dashboard /financas
+**`imphq_card_checklists`** — subtarefas dentro de cada card:
+- `id`, `card_id` (FK), `title`, `is_done`, `position`, `created_at`
 
-### 2. Melhorar `ProjetoFinancas.tsx` com vendas reais
+**`imphq_card_comments`** — notas/comentários no card:
+- `id`, `card_id` (FK), `author_name`, `content`, `created_at`
 
-Além de custos e receitas manuais, mostrar vendas reais (`imphq_vendas`) do projeto:
-- Nova seção "Vendas (automáticas)" com tabela das vendas aprovadas
-- KPIs recalculados incluindo vendas reais + receitas manuais + gastos ads
+RLS: acesso autenticado para ambas.
 
-### 3. Melhorar Referências
+### 2. Substituir dialog de edição por painel detalhado (Sheet)
 
-- Melhorar o card quando não há imagem (placeholder mais visual)
-- Adicionar contagem de referências por tipo no header
-- Click no card abre o dialog de edição (já funciona)
-- Confirmar que o save no Supabase está funcionando corretamente (verificar RLS)
+Novo componente `CardDetailPanel.tsx` — abre como Sheet lateral ao clicar num card, com:
+
+- **Header**: título editável inline, badge de prioridade, botão fechar
+- **Seção Info**: responsável (select), data limite (datepicker), projeto, board, coluna (select para mover)
+- **Descrição**: textarea editável com auto-save
+- **Checklist**: lista de subtarefas com checkbox, adicionar nova, reordenar, barra de progresso (ex: "3/5 concluídas")
+- **Comentários**: timeline de notas com campo de texto para adicionar, mostra autor + data
+- **Ações**: botão excluir card
+
+Usado tanto no KanbanPage quanto no Tarefas (Meu Dia).
+
+### 3. Melhorar Kanban com filtro de projeto
+
+Adicionar Select de projeto no header do KanbanPage, filtrando cards por `project_id`. Também mostrar badge do projeto nos cards quando visível.
+
+### 4. Melhorar "Meu Dia" com edição inline
+
+Ao clicar numa tarefa no Meu Dia, abre o mesmo `CardDetailPanel`, permitindo anotar e gerenciar checklists sem sair da tela.
 
 ## Arquivos
 
 | Arquivo | Ação |
 |---|---|
-| `src/components/projeto/ProjetoFinancas.tsx` | Expandir com seção Ads (import CSV + CRUD + KPIs) + vendas reais |
-| `src/pages/Referencias.tsx` | Melhorias visuais nos cards e UX |
+| Migration SQL | Criar `imphq_card_checklists` e `imphq_card_comments` com RLS |
+| `src/components/kanban/CardDetailPanel.tsx` | **Novo** — painel detalhado do card |
+| `src/pages/KanbanPage.tsx` | Trocar dialog de edição por CardDetailPanel + filtro projeto |
+| `src/pages/Tarefas.tsx` | Integrar CardDetailPanel ao clicar numa tarefa |
 
-## Fluxo de dados
+## Fluxo
 
 ```text
-Projeto (aba Finanças)          Dashboard /financas
-┌──────────────────────┐        ┌──────────────────────┐
-│ Custos do projeto    │───┐    │ Agrega TODOS projetos│
-│ Receitas manuais     │   │    │                      │
-│ Vendas reais         │   ├───▶│ KPIs consolidados    │
-│ ★ Ads (import CSV)   │───┘    │ Gráficos cruzados    │
-└──────────────────────┘        └──────────────────────┘
+Card no Kanban / Meu Dia
+        │ click
+        ▼
+┌─ CardDetailPanel (Sheet) ──────────┐
+│  📝 Título editável                │
+│  👤 Responsável  📅 Prazo  📁 Proj │
+│  📋 Descrição                      │
+│  ☑️ Checklist (subtarefas)         │
+│  💬 Comentários / Anotações        │
+│  🗑️ Excluir                       │
+└────────────────────────────────────┘
 ```
-
-O import de Ads dentro do projeto grava em `imphq_ads_spend` com o `project_id`, e o dashboard /financas já lê essa tabela. Sem duplicação de dados.
 
