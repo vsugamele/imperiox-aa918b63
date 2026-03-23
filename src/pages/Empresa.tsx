@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface ContaEmpresa {
@@ -31,7 +31,6 @@ const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
 
 export default function Empresa() {
   const [contas, setContas] = useState<ContaEmpresa[]>([]);
-  const [showNew, setShowNew] = useState(false);
   const [activeTab, setActiveTab] = useState("email");
 
   const load = async () => {
@@ -63,30 +62,19 @@ export default function Empresa() {
         </TabsList>
 
         <TabsContent value="email">
-          <AccountTable
-            contas={filterByType("email")}
-            tipo="email"
+          <AccountTable contas={filterByType("email")} tipo="email"
             columns={["Gmail", "Senha", "Em Uso", "Telefone", "Aquecido", "Data Compra", "Perfil Instagram"]}
-            onRefresh={load}
-          />
+            onRefresh={load} />
         </TabsContent>
-
         <TabsContent value="instagram">
-          <AccountTable
-            contas={filterByType("instagram")}
-            tipo="instagram"
+          <AccountTable contas={filterByType("instagram")} tipo="instagram"
             columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
-            onRefresh={load}
-          />
+            onRefresh={load} />
         </TabsContent>
-
         <TabsContent value="tiktok">
-          <AccountTable
-            contas={filterByType("tiktok")}
-            tipo="tiktok"
+          <AccountTable contas={filterByType("tiktok")} tipo="tiktok"
             columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
-            onRefresh={load}
-          />
+            onRefresh={load} />
         </TabsContent>
       </Tabs>
     </div>
@@ -99,26 +87,49 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
   columns: string[];
   onRefresh: () => void;
 }) {
-  const [showNew, setShowNew] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingConta, setEditingConta] = useState<ContaEmpresa | null>(null);
   const [showFormPassword, setShowFormPassword] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
-  
-  const [form, setForm] = useState({
+
+  const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
     seguidores: "", bio: "",
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
 
-  const togglePasswordVisibility = (id: string) => {
-    setVisiblePasswords(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
+  const openAdd = () => {
+    setEditingConta(null);
+    setForm(emptyForm);
+    setShowFormPassword(false);
+    setShowDialog(true);
   };
 
-  const create = async () => {
+  const openEdit = (conta: ContaEmpresa) => {
+    setEditingConta(conta);
+    setForm({
+      nome: conta.nome || "",
+      valor: conta.valor || "",
+      senha: conta.extra?.senha || "",
+      telefone: conta.extra?.telefone || "",
+      status_aquecimento: conta.extra?.status_aquecimento || "Inativo",
+      data_compra: conta.extra?.data_compra || "",
+      perfil_instagram: conta.extra?.perfil_instagram || "",
+      seguidores: conta.extra?.seguidores || "",
+      bio: conta.extra?.bio || "",
+    });
+    setShowFormPassword(false);
+    setShowDialog(true);
+  };
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const save = async () => {
     if (!form.nome.trim()) { toast.error("Nome/Gmail obrigatório"); return; }
-    const { error } = await supabase.from("imphq_empresa").insert({
+    const payload = {
       nome: form.nome,
       tipo,
       valor: form.valor || null,
@@ -131,11 +142,20 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
         seguidores: form.seguidores || null,
         bio: form.bio || null,
       },
-    } as any);
-    if (error) { toast.error("Erro: " + error.message); return; }
-    toast.success("Conta adicionada!");
-    setShowNew(false);
-    setForm({ nome: "", valor: "", senha: "", telefone: "", status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "", seguidores: "", bio: "" });
+    } as any;
+
+    if (editingConta) {
+      const { error } = await supabase.from("imphq_empresa").update(payload).eq("id", editingConta.id);
+      if (error) { toast.error("Erro: " + error.message); return; }
+      toast.success("Conta atualizada!");
+    } else {
+      const { error } = await supabase.from("imphq_empresa").insert(payload);
+      if (error) { toast.error("Erro: " + error.message); return; }
+      toast.success("Conta adicionada!");
+    }
+    setShowDialog(false);
+    setForm(emptyForm);
+    setEditingConta(null);
     onRefresh();
   };
 
@@ -151,7 +171,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => setShowNew(true)}>
+        <Button size="sm" onClick={openAdd}>
           <Plus className="h-4 w-4 mr-1" /> Adicionar {labelByTipo}
         </Button>
       </div>
@@ -179,12 +199,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
                         {c.extra?.senha && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 ml-2 hover:bg-secondary/50" 
-                            onClick={() => togglePasswordVisibility(c.id)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 hover:bg-secondary/50" onClick={() => togglePasswordVisibility(c.id)}>
                             {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                           </Button>
                         )}
@@ -192,9 +207,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                       <TableCell className="text-xs">{c.valor || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.extra?.telefone || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[9px]">
-                          {c.extra?.status_aquecimento || "Inativo"}
-                        </Badge>
+                        <Badge variant="outline" className="text-[9px]">{c.extra?.status_aquecimento || "Inativo"}</Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.extra?.data_compra || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.extra?.perfil_instagram || "—"}</TableCell>
@@ -205,12 +218,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
                         {c.extra?.senha && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 ml-2 hover:bg-secondary/50" 
-                            onClick={() => togglePasswordVisibility(c.id)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 hover:bg-secondary/50" onClick={() => togglePasswordVisibility(c.id)}>
                             {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                           </Button>
                         )}
@@ -218,16 +226,19 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                       <TableCell className="text-xs">{c.extra?.seguidores || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{c.extra?.bio || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[9px]">
-                          {c.extra?.status_aquecimento || "Inativo"}
-                        </Badge>
+                        <Badge variant="outline" className="text-[9px]">{c.extra?.status_aquecimento || "Inativo"}</Badge>
                       </TableCell>
                     </>
                   )}
                   <TableCell>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => remove(c.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => openEdit(c)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => remove(c.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -236,11 +247,11 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
         </div>
       )}
 
-      {/* Add Dialog */}
-      <Dialog open={showNew} onOpenChange={setShowNew}>
+      {/* Add/Edit Dialog */}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Adicionar {iconByTipo} {labelByTipo}</DialogTitle>
+            <DialogTitle>{editingConta ? "Editar" : "Adicionar"} {iconByTipo} {labelByTipo}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {tipo === "email" ? (
@@ -250,13 +261,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                   <Label>Senha</Label>
                   <div className="relative">
                     <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="Senha da conta" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowFormPassword(!showFormPassword)}
-                    >
+                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowFormPassword(!showFormPassword)}>
                       {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -279,13 +284,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                   <Label>Senha</Label>
                   <div className="relative">
                     <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowFormPassword(!showFormPassword)}
-                    >
+                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowFormPassword(!showFormPassword)}>
                       {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -303,8 +302,8 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNew(false)}>Cancelar</Button>
-            <Button onClick={create}>Salvar</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
+            <Button onClick={save}>{editingConta ? "Atualizar" : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
