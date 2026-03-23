@@ -35,6 +35,7 @@ const toolsItems = [
   { title: "Tracker UTM", url: "/tracker", icon: Link2, color: "text-cyan-400" },
   { title: "Referências", url: "/referencias", icon: Image, color: "text-cyan-400" },
   { title: "Skills", url: "/skills", icon: Zap, color: "text-cyan-400" },
+  { title: "Cofre", url: "/cofre", icon: KeyRound, color: "text-cyan-400" },
 ];
 
 const orgItems = [
