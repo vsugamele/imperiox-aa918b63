@@ -69,9 +69,13 @@ interface MappedRow {
   raw: Record<string, string>;
 }
 
+function normalizeHeader(h: string): string {
+  return h.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
 function detectPlatform(headers: string[]): Platform {
-  const joined = headers.join(",").toLowerCase();
-  if (joined.includes("código do pedido") || joined.includes("nome da oferta") || joined.includes("código da oferta"))
+  const joined = headers.map(normalizeHeader).join(",");
+  if (joined.includes("codigo do pedido") || joined.includes("nome da oferta") || joined.includes("codigo da oferta"))
     return "ticto";
   if (joined.includes("transaction") && joined.includes("hottok"))
     return "hotmart";
