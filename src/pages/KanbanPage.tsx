@@ -10,12 +10,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users, Paperclip, CheckSquare, FolderOpen } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users,
+  Paperclip, CheckSquare, FolderOpen, MoreHorizontal, Pencil, LayoutGrid, List,
+  Filter, X, ChevronDown, ChevronRight, Check
+} from "lucide-react";
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
+
+// Synonym map for smart merging in "geral" view
+const SYNONYM_MAP: Record<string, string> = {
+  "a fazer": "backlog", "to do": "backlog", "todo": "backlog", "pendente": "backlog",
+  "em progresso": "fazendo", "doing": "fazendo", "em andamento": "fazendo", "working": "fazendo",
+  "bloqueado": "travado", "blocked": "travado", "stuck": "travado",
+  "review": "revisão", "revisao": "revisão", "em revisão": "revisão",
+  "concluído": "feito", "concluido": "feito", "done": "feito", "finalizado": "feito", "completo": "feito",
+};
+
+const normalizeColTitle = (title: string): string => {
+  const lower = title.toLowerCase().trim();
+  return SYNONYM_MAP[lower] || lower;
+};
 
 const COL_CONFIG: Record<string, { icon: React.ReactNode; bg: string; border: string; headerBg: string }> = {
   backlog: { icon: <Inbox className="h-3.5 w-3.5" />, bg: "bg-muted/20", border: "border-l-muted-foreground/40", headerBg: "bg-muted/30" },
@@ -26,17 +47,13 @@ const COL_CONFIG: Record<string, { icon: React.ReactNode; bg: string; border: st
 };
 
 const PRIORITY_BORDER: Record<string, string> = {
-  urgent: "border-l-destructive",
-  high: "border-l-warning",
-  medium: "border-l-success",
-  low: "border-l-muted-foreground/40",
+  urgent: "border-l-destructive", high: "border-l-warning", medium: "border-l-success", low: "border-l-muted-foreground/40",
 };
-
 const PRIORITY_DOT: Record<string, string> = {
-  urgent: "bg-destructive",
-  high: "bg-warning",
-  medium: "bg-success",
-  low: "bg-muted-foreground/40",
+  urgent: "bg-destructive", high: "bg-warning", medium: "bg-success", low: "bg-muted-foreground/40",
+};
+const PRIORITY_LABEL: Record<string, string> = {
+  urgent: "Urgente", high: "Alta", medium: "Média", low: "Baixa",
 };
 
 interface TeamMember { id: string; name: string; avatar_url?: string; role?: string; }
@@ -47,11 +64,15 @@ interface KanbanCard {
   member_id?: string; project_id?: string;
 }
 
+interface Filters {
+  priority: string;
+  project: string;
+  deadline: string; // all | overdue | today | none
+}
+
 export default function KanbanPage() {
-  const [columns, setColumns] = useState<KanbanColumn[]>([]);
-  const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
+  const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
@@ -68,7 +89,20 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMember, setFilterMember] = useState("all");
+  const [filters, setFilters] = useState<Filters>({ priority: "all", project: "all", deadline: "all" });
   const [dragCardId, setDragCardId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"board" | "list">("board");
+
+  // Column management
+  const [renameCol, setRenameCol] = useState<KanbanColumn | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteCol, setDeleteCol] = useState<KanbanColumn | null>(null);
+  const [moveToColId, setMoveToColId] = useState("");
+  const [newColTitle, setNewColTitle] = useState("");
+  const [showNewCol, setShowNewCol] = useState(false);
+
+  // List view collapsed groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -92,11 +126,9 @@ export default function KanbanPage() {
       }
     }
 
-    // Count attachments per card
     const attCounts: Record<string, number> = {};
     ((attRes.data as any[]) || []).forEach(a => { attCounts[a.card_id] = (attCounts[a.card_id] || 0) + 1; });
 
-    // Count checklist per card
     const checkCounts: Record<string, { done: number; total: number }> = {};
     ((checkRes.data as any[]) || []).forEach(c => {
       if (!checkCounts[c.card_id]) checkCounts[c.card_id] = { done: 0, total: 0 };
@@ -115,54 +147,82 @@ export default function KanbanPage() {
 
   useEffect(() => { loadAllData(); }, [loadAllData]);
 
-  useEffect(() => {
+  // Compute display columns based on active board
+  const displayColumns = (() => {
     if (activeBoard === "geral") {
+      // Smart merge: group columns by normalized title
       const mergedMap = new Map<string, KanbanColumn>();
       for (const col of allColumns) {
-        const key = col.title.toLowerCase();
-        if (!mergedMap.has(key)) mergedMap.set(key, col);
+        const key = normalizeColTitle(col.title);
+        if (!mergedMap.has(key)) mergedMap.set(key, { ...col, title: key });
       }
-      setColumns(Array.from(mergedMap.values()).sort((a, b) => a.position - b.position));
-      setCards(allCards);
-    } else {
-      const boardCols = allColumns.filter(c => c.board === activeBoard);
-      setColumns(boardCols);
-      setCards(allCards.filter(c => c.board === activeBoard));
+      // Ensure canonical order
+      const canonical = ["backlog", "fazendo", "travado", "revisão", "feito"];
+      const sorted = Array.from(mergedMap.values()).sort((a, b) => {
+        const ai = canonical.indexOf(a.title.toLowerCase());
+        const bi = canonical.indexOf(b.title.toLowerCase());
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+      return sorted;
     }
-  }, [activeBoard, allColumns, allCards]);
+    return allColumns.filter(c => c.board === activeBoard).sort((a, b) => a.position - b.position);
+  })();
 
-  const getColTitle = (card: KanbanCard) => {
+  // Get normalized column title for a card
+  const getCardNormalizedCol = (card: KanbanCard): string => {
     const col = allColumns.find(c => c.id === card.column_id);
-    return col?.title.toLowerCase() || "";
+    return col ? normalizeColTitle(col.title) : "backlog";
   };
-  const countByCol = (title: string) => allCards.filter(c => getColTitle(c) === title).length;
-  const stuckCount = countByCol("travado");
-  const doingCount = countByCol("fazendo");
-  const doneCount = countByCol("feito");
 
-  const filteredCards = (colId: string) => {
-    let filtered: KanbanCard[];
-    if (activeBoard === "geral") {
-      const col = allColumns.find(c => c.id === colId);
-      const colTitle = col?.title.toLowerCase() || "";
-      filtered = allCards.filter(c => getColTitle(c) === colTitle);
-      // Deduplicate by card id
-      const seen = new Set<string>();
-      filtered = filtered.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
-    } else {
-      filtered = cards.filter(c => c.column_id === colId);
-    }
-    if (searchTerm) {
-      filtered = filtered.filter(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    if (filterMember !== "all") {
-      filtered = filtered.filter(c => c.member_id === filterMember);
-    }
-    return filtered;
+  // All cards for active board
+  const boardCards = activeBoard === "geral" ? allCards : allCards.filter(c => c.board === activeBoard);
+
+  const isOverdue = (d?: string) => d ? new Date(d) < new Date() : false;
+  const isToday = (d?: string) => {
+    if (!d) return false;
+    const t = new Date(); const dd = new Date(d);
+    return t.toDateString() === dd.toDateString();
   };
+
+  // Apply all filters to a card list
+  const applyFilters = (cards: KanbanCard[]): KanbanCard[] => {
+    let result = cards;
+    if (searchTerm) result = result.filter(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (filterMember !== "all") result = result.filter(c => c.member_id === filterMember);
+    if (filters.priority !== "all") result = result.filter(c => c.priority === filters.priority);
+    if (filters.project !== "all") result = result.filter(c => c.project_id === filters.project);
+    if (filters.deadline === "overdue") result = result.filter(c => isOverdue(c.due_date));
+    else if (filters.deadline === "today") result = result.filter(c => isToday(c.due_date));
+    else if (filters.deadline === "none") result = result.filter(c => !c.due_date);
+    return result;
+  };
+
+  // Cards for a specific display column
+  const cardsForCol = (col: KanbanColumn): KanbanCard[] => {
+    let cards: KanbanCard[];
+    if (activeBoard === "geral") {
+      const normalizedTitle = col.title.toLowerCase();
+      cards = allCards.filter(c => getCardNormalizedCol(c) === normalizedTitle);
+      // Deduplicate
+      const seen = new Set<string>();
+      cards = cards.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
+    } else {
+      cards = allCards.filter(c => c.column_id === col.id);
+    }
+    return applyFilters(cards);
+  };
+
+  const activeFiltersCount = [
+    filters.priority !== "all", filters.project !== "all", filters.deadline !== "all", filterMember !== "all"
+  ].filter(Boolean).length;
 
   const getMember = (memberId?: string) => memberId ? members.find(m => m.id === memberId) : undefined;
   const getProjectName = (projectId?: string) => projectId ? projects.find(p => p.id === projectId)?.name : undefined;
+
+  // Stats
+  const stuckCount = allCards.filter(c => getCardNormalizedCol(c) === "travado").length;
+  const doingCount = allCards.filter(c => getCardNormalizedCol(c) === "fazendo").length;
+  const doneCount = allCards.filter(c => getCardNormalizedCol(c) === "feito").length;
 
   const createCard = async () => {
     if (!newTitle.trim() || !showNewCard) return;
@@ -170,8 +230,8 @@ export default function KanbanPage() {
     let targetColId = showNewCard;
     if (activeBoard === "geral") {
       const selectedCol = allColumns.find(c => c.id === showNewCard);
-      const colTitle = selectedCol?.title.toLowerCase() || "";
-      const boardCol = allColumns.find(c => c.board === board && c.title.toLowerCase() === colTitle);
+      const colTitle = selectedCol ? normalizeColTitle(selectedCol.title) : "";
+      const boardCol = allColumns.find(c => c.board === board && normalizeColTitle(c.title) === colTitle);
       if (boardCol) targetColId = boardCol.id;
     }
     const { error } = await supabase.from("imphq_kanban_cards").insert({
@@ -186,18 +246,9 @@ export default function KanbanPage() {
     loadAllData();
   };
 
-  const isOverdue = (d?: string) => d ? new Date(d) < new Date() : false;
-
-  const handleDragStart = (e: DragEvent, cardId: string) => {
-    setDragCardId(cardId);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
+  // Drag and drop
+  const handleDragStart = (e: DragEvent, cardId: string) => { setDragCardId(cardId); e.dataTransfer.effectAllowed = "move"; };
+  const handleDragOver = (e: DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
   const handleDrop = async (e: DragEvent, targetColId: string) => {
     e.preventDefault();
     if (!dragCardId) return;
@@ -205,9 +256,9 @@ export default function KanbanPage() {
     if (!card) return;
 
     if (activeBoard === "geral") {
-      const targetCol = allColumns.find(c => c.id === targetColId);
-      const targetColTitle = targetCol?.title.toLowerCase() || "";
-      const boardCol = allColumns.find(c => c.board === card.board && c.title.toLowerCase() === targetColTitle);
+      const targetCol = displayColumns.find(c => c.id === targetColId);
+      const targetNormalized = targetCol?.title.toLowerCase() || "";
+      const boardCol = allColumns.find(c => c.board === card.board && normalizeColTitle(c.title) === targetNormalized);
       if (boardCol && boardCol.id !== card.column_id) {
         await supabase.from("imphq_kanban_cards").update({ column_id: boardCol.id }).eq("id", card.id);
         loadAllData();
@@ -219,6 +270,145 @@ export default function KanbanPage() {
       }
     }
     setDragCardId(null);
+  };
+
+  // Column management actions
+  const handleRenameCol = async () => {
+    if (!renameCol || !renameValue.trim()) return;
+    await supabase.from("imphq_kanban_columns").update({ title: renameValue.trim() }).eq("id", renameCol.id);
+    toast.success("Coluna renomeada");
+    setRenameCol(null);
+    loadAllData();
+  };
+
+  const handleDeleteCol = async () => {
+    if (!deleteCol) return;
+    const colCards = allCards.filter(c => c.column_id === deleteCol.id);
+    if (colCards.length > 0 && moveToColId) {
+      for (const c of colCards) {
+        await supabase.from("imphq_kanban_cards").update({ column_id: moveToColId }).eq("id", c.id);
+      }
+    }
+    await supabase.from("imphq_kanban_columns").delete().eq("id", deleteCol.id);
+    toast.success("Coluna excluída");
+    setDeleteCol(null); setMoveToColId("");
+    loadAllData();
+  };
+
+  const handleAddCol = async () => {
+    if (!newColTitle.trim() || activeBoard === "geral") return;
+    const maxPos = allColumns.filter(c => c.board === activeBoard).reduce((m, c) => Math.max(m, c.position), -1);
+    await supabase.from("imphq_kanban_columns").insert({ title: newColTitle.trim(), color: "#8b5cf6", position: maxPos + 1, board: activeBoard });
+    toast.success("Coluna criada");
+    setNewColTitle(""); setShowNewCol(false);
+    loadAllData();
+  };
+
+  // Quick actions
+  const quickDelete = async (cardId: string) => {
+    if (!confirm("Excluir este card?")) return;
+    await supabase.from("imphq_kanban_cards").delete().eq("id", cardId);
+    toast.success("Card excluído");
+    loadAllData();
+  };
+
+  const quickMarkDone = async (card: KanbanCard) => {
+    const doneCol = allColumns.find(c => c.board === card.board && normalizeColTitle(c.title) === "feito");
+    if (doneCol) {
+      await supabase.from("imphq_kanban_cards").update({ column_id: doneCol.id }).eq("id", card.id);
+      toast.success("Movido para Feito");
+      loadAllData();
+    }
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm(""); setFilterMember("all");
+    setFilters({ priority: "all", project: "all", deadline: "all" });
+  };
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  // Render a card mini (used in board view)
+  const renderCard = (card: KanbanCard) => {
+    const member = getMember(card.member_id);
+    const projName = getProjectName(card.project_id);
+    const priorityBorder = PRIORITY_BORDER[card.priority] || PRIORITY_BORDER.medium;
+    const attCount = cardAttachmentCounts[card.id] || 0;
+    const checkInfo = cardChecklistCounts[card.id];
+    return (
+      <Card
+        key={card.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e as unknown as DragEvent, card.id)}
+        className={`bg-card border-l-[3px] ${priorityBorder} hover:border-primary/20 transition-colors group/card cursor-grab active:cursor-grabbing ${dragCardId === card.id ? "opacity-50" : ""}`}
+        onClick={() => setEditCard({ ...card })}
+      >
+        <CardContent className="p-3">
+          <div className="flex items-start justify-between gap-1">
+            <p className="text-sm font-medium flex-1 leading-tight">{card.title}</p>
+            {/* Quick actions on hover */}
+            <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0">
+              <button
+                onClick={(e) => { e.stopPropagation(); quickMarkDone(card); }}
+                className="h-5 w-5 flex items-center justify-center rounded hover:bg-success/20 text-success"
+                title="Marcar como feito"
+              >
+                <Check className="h-3 w-3" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); quickDelete(card.id); }}
+                className="h-5 w-5 flex items-center justify-center rounded hover:bg-destructive/20 text-destructive"
+                title="Excluir"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
+              {activeBoard === "geral" && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
+              )}
+              {projName && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-primary/5 text-primary border-primary/20">
+                  <FolderOpen className="h-2 w-2" /> {projName}
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {checkInfo && checkInfo.total > 0 && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <CheckSquare className="h-2.5 w-2.5" /> {checkInfo.done}/{checkInfo.total}
+                </span>
+              )}
+              {attCount > 0 && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <Paperclip className="h-2.5 w-2.5" /> {attCount}
+                </span>
+              )}
+              {card.due_date && (
+                <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
+                  {new Date(card.due_date).toLocaleDateString("pt-BR")}
+                </p>
+              )}
+              {member && (
+                <Avatar className="h-5 w-5" title={member.name}>
+                  {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
+                  <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{(member.name || "?")[0]}</AvatarFallback>
+                </Avatar>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -239,14 +429,15 @@ export default function KanbanPage() {
         </div>
       </div>
 
-      {/* Search + Member Filter */}
+      {/* Search + Filters + View Toggle */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar cards..." className="pl-9 bg-secondary" />
         </div>
+
         <Select value={filterMember} onValueChange={setFilterMember}>
-          <SelectTrigger className="w-[180px] h-9">
+          <SelectTrigger className="w-[160px] h-9">
             <Users className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder="Responsável" />
           </SelectTrigger>
@@ -265,31 +456,103 @@ export default function KanbanPage() {
             ))}
           </SelectContent>
         </Select>
-        {filterMember !== "all" && (
-          <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => setFilterMember("all")}>Limpar</Button>
+
+        {/* Advanced Filters */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5">
+              <Filter className="h-3.5 w-3.5" /> Filtros
+              {activeFiltersCount > 0 && (
+                <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[9px] bg-primary text-primary-foreground">{activeFiltersCount}</Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 space-y-3" align="start">
+            <div>
+              <Label className="text-xs text-muted-foreground">Prioridade</Label>
+              <Select value={filters.priority} onValueChange={v => setFilters(f => ({ ...f, priority: v }))}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="urgent">Urgente</SelectItem>
+                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="medium">Média</SelectItem>
+                  <SelectItem value="low">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Projeto</Label>
+              <Select value={filters.project} onValueChange={v => setFilters(f => ({ ...f, project: v }))}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Prazo</Label>
+              <Select value={filters.deadline} onValueChange={v => setFilters(f => ({ ...f, deadline: v }))}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="overdue">Atrasados</SelectItem>
+                  <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="none">Sem prazo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {activeFiltersCount > 0 && (
+              <Button size="sm" variant="ghost" className="w-full text-xs" onClick={clearAllFilters}>
+                <X className="h-3 w-3 mr-1" /> Limpar filtros
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
+
+        {activeFiltersCount > 0 && (
+          <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={clearAllFilters}>Limpar</Button>
         )}
+
+        {/* View toggle */}
+        <div className="flex items-center border border-border rounded-md ml-auto">
+          <Button
+            variant={viewMode === "board" ? "secondary" : "ghost"}
+            size="sm" className="h-8 px-2 rounded-r-none"
+            onClick={() => setViewMode("board")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="sm" className="h-8 px-2 rounded-l-none"
+            onClick={() => setViewMode("list")}
+          >
+            <List className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeBoard} onValueChange={setActiveBoard}>
         <TabsList className="bg-secondary">
-          {BOARDS.map((b) => (
-            <TabsTrigger key={b} value={b} className="capitalize">{b}</TabsTrigger>
-          ))}
+          {BOARDS.map(b => <TabsTrigger key={b} value={b} className="capitalize">{b}</TabsTrigger>)}
         </TabsList>
 
         <div className="mt-4">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
-          ) : (
-            <div className="flex gap-3 min-h-[60vh] overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-5 md:overflow-x-visible">
-              {columns.map((col) => {
-                const colTitle = col.title.toLowerCase();
+          ) : viewMode === "board" ? (
+            /* ====== BOARD VIEW ====== */
+            <div className="flex gap-3 min-h-[60vh] overflow-x-auto pb-2 snap-x snap-mandatory">
+              {displayColumns.map((col) => {
+                const colTitle = normalizeColTitle(col.title);
                 const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
-                const colCards = filteredCards(col.id);
+                const colCards = cardsForCol(col);
                 return (
                   <div
                     key={col.id}
-                    className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors min-w-[260px] md:min-w-0 snap-start`}
+                    className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors min-w-[260px] flex-1 snap-start`}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, col.id)}
                   >
@@ -303,72 +566,140 @@ export default function KanbanPage() {
                         <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setShowNewCard(col.id); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); }}>
                           <Plus className="h-3 w-3" />
                         </Button>
+                        {activeBoard !== "geral" && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-5 w-5">
+                                <MoreHorizontal className="h-3 w-3" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-40 p-1" align="end">
+                              <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+                                onClick={() => { setRenameCol(col); setRenameValue(col.title); }}>
+                                <Pencil className="h-3 w-3" /> Renomear
+                              </button>
+                              <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive flex items-center gap-2"
+                                onClick={() => { setDeleteCol(col); setMoveToColId(""); }}>
+                                <Trash2 className="h-3 w-3" /> Excluir
+                              </button>
+                            </PopoverContent>
+                          </Popover>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
                       {colCards.length === 0 && (
                         <p className="text-xs text-muted-foreground/50 text-center py-6 italic">Nenhuma tarefa</p>
                       )}
-                      {colCards.map((card) => {
-                        const member = getMember(card.member_id);
-                        const projName = getProjectName(card.project_id);
-                        const priorityBorder = PRIORITY_BORDER[card.priority] || PRIORITY_BORDER.medium;
-                        const attCount = cardAttachmentCounts[card.id] || 0;
-                        const checkInfo = cardChecklistCounts[card.id];
-                        return (
-                          <Card
-                            key={card.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e as unknown as DragEvent, card.id)}
-                            className={`bg-card border-l-[3px] ${priorityBorder} hover:border-primary/20 transition-colors group cursor-grab active:cursor-grabbing ${dragCardId === card.id ? "opacity-50" : ""}`}
-                            onClick={() => setEditCard({ ...card })}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-start justify-between gap-1">
-                                <p className="text-sm font-medium flex-1">{card.title}</p>
-                              </div>
-                              <div className="flex items-center justify-between mt-2">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
-                                  {activeBoard === "geral" && (
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
-                                  )}
-                                  {projName && (
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-primary/5 text-primary border-primary/20">
-                                      <FolderOpen className="h-2 w-2" /> {projName}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  {checkInfo && checkInfo.total > 0 && (
-                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                      <CheckSquare className="h-2.5 w-2.5" /> {checkInfo.done}/{checkInfo.total}
-                                    </span>
-                                  )}
-                                  {attCount > 0 && (
-                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                      <Paperclip className="h-2.5 w-2.5" /> {attCount}
-                                    </span>
-                                  )}
-                                  {card.due_date && (
-                                    <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
-                                      {new Date(card.due_date).toLocaleDateString("pt-BR")}
-                                    </p>
-                                  )}
-                                  {member && (
-                                    <Avatar className="h-5 w-5" title={member.name}>
-                                      {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
-                                      <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{(member.name || "?")[0]}</AvatarFallback>
-                                    </Avatar>
-                                  )}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                      {colCards.map(renderCard)}
                     </div>
                   </div>
+                );
+              })}
+              {/* Add column button */}
+              {activeBoard !== "geral" && (
+                <div className="min-w-[200px] flex items-start pt-2">
+                  {showNewCol ? (
+                    <div className="space-y-2 w-full">
+                      <Input value={newColTitle} onChange={e => setNewColTitle(e.target.value)} placeholder="Nome da coluna" className="h-8 text-sm" autoFocus />
+                      <div className="flex gap-1">
+                        <Button size="sm" className="h-7 text-xs" onClick={handleAddCol}>Criar</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowNewCol(false); setNewColTitle(""); }}>Cancelar</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5" onClick={() => setShowNewCol(true)}>
+                      <Plus className="h-3 w-3" /> Coluna
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ====== LIST VIEW ====== */
+            <div className="space-y-2">
+              {displayColumns.map(col => {
+                const colTitle = normalizeColTitle(col.title);
+                const config = COL_CONFIG[colTitle] || COL_CONFIG.backlog;
+                const colCards = cardsForCol(col);
+                const isCollapsed = collapsedGroups.has(col.id);
+                return (
+                  <Collapsible key={col.id} open={!isCollapsed} onOpenChange={() => toggleGroup(col.id)}>
+                    <CollapsibleTrigger asChild>
+                      <div className={`rounded-md ${config.headerBg} px-4 py-2.5 flex items-center gap-2 cursor-pointer hover:opacity-80`}>
+                        {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        {config.icon}
+                        <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">{col.title}</span>
+                        <Badge variant="outline" className="text-[10px] h-5 ml-1">{colCards.length}</Badge>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      {colCards.length === 0 ? (
+                        <p className="text-xs text-muted-foreground/50 text-center py-3 italic">Nenhuma tarefa</p>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="text-[10px] h-7">Tarefa</TableHead>
+                              <TableHead className="text-[10px] h-7 w-[80px]">Prioridade</TableHead>
+                              <TableHead className="text-[10px] h-7 w-[100px]">Responsável</TableHead>
+                              <TableHead className="text-[10px] h-7 w-[100px]">Projeto</TableHead>
+                              <TableHead className="text-[10px] h-7 w-[80px]">Prazo</TableHead>
+                              {activeBoard === "geral" && <TableHead className="text-[10px] h-7 w-[70px]">Board</TableHead>}
+                              <TableHead className="text-[10px] h-7 w-[50px]" />
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {colCards.map(card => {
+                              const member = getMember(card.member_id);
+                              const projName = getProjectName(card.project_id);
+                              return (
+                                <TableRow key={card.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditCard({ ...card })}>
+                                  <TableCell className="text-sm py-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
+                                      {card.title}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs py-2">{PRIORITY_LABEL[card.priority] || "Média"}</TableCell>
+                                  <TableCell className="py-2">
+                                    {member ? (
+                                      <div className="flex items-center gap-1 text-xs">
+                                        <Avatar className="h-4 w-4">
+                                          {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
+                                          <AvatarFallback className="text-[7px] bg-secondary">{member.name[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="truncate max-w-[60px]">{member.name}</span>
+                                      </div>
+                                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                                  </TableCell>
+                                  <TableCell className="text-xs py-2 text-muted-foreground">{projName || "—"}</TableCell>
+                                  <TableCell className="py-2">
+                                    {card.due_date ? (
+                                      <span className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
+                                        {new Date(card.due_date).toLocaleDateString("pt-BR")}
+                                      </span>
+                                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                                  </TableCell>
+                                  {activeBoard === "geral" && (
+                                    <TableCell className="py-2">
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
+                                    </TableCell>
+                                  )}
+                                  <TableCell className="py-2">
+                                    <div className="flex items-center gap-0.5">
+                                      <button onClick={(e) => { e.stopPropagation(); quickMarkDone(card); }} className="h-5 w-5 flex items-center justify-center rounded hover:bg-success/20 text-success"><Check className="h-3 w-3" /></button>
+                                      <button onClick={(e) => { e.stopPropagation(); quickDelete(card.id); }} className="h-5 w-5 flex items-center justify-center rounded hover:bg-destructive/20 text-destructive"><Trash2 className="h-3 w-3" /></button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
                 );
               })}
             </div>
@@ -431,6 +762,41 @@ export default function KanbanPage() {
             )}
           </div>
           <DialogFooter><Button onClick={createCard}>Criar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Column Dialog */}
+      <Dialog open={!!renameCol} onOpenChange={() => setRenameCol(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Renomear Coluna</DialogTitle></DialogHeader>
+          <Input value={renameValue} onChange={e => setRenameValue(e.target.value)} placeholder="Novo nome" />
+          <DialogFooter><Button onClick={handleRenameCol}>Salvar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Column Dialog */}
+      <Dialog open={!!deleteCol} onOpenChange={() => setDeleteCol(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Excluir Coluna</DialogTitle></DialogHeader>
+          {deleteCol && allCards.filter(c => c.column_id === deleteCol.id).length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Esta coluna tem cards. Mover para:</p>
+              <Select value={moveToColId} onValueChange={setMoveToColId}>
+                <SelectTrigger><SelectValue placeholder="Selecionar coluna" /></SelectTrigger>
+                <SelectContent>
+                  {allColumns.filter(c => c.board === deleteCol.board && c.id !== deleteCol.id).map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DialogFooter><Button variant="destructive" onClick={handleDeleteCol} disabled={!moveToColId}>Excluir e mover</Button></DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Excluir esta coluna vazia?</p>
+              <DialogFooter><Button variant="destructive" onClick={handleDeleteCol}>Excluir</Button></DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
