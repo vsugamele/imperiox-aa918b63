@@ -13,6 +13,7 @@ import Projetos from "./pages/Projetos";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import KanbanPage from "./pages/KanbanPage";
 import Tarefas from "./pages/Tarefas";
+import Chat from "./pages/Chat";
 import Leads from "./pages/Leads";
 import Financas from "./pages/Financas";
 import MarketIntel from "./pages/MarketIntel";
