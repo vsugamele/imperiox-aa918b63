@@ -494,6 +494,10 @@ export default function Tracker() {
               <div><Label>utm_content</Label><Input value={form.utm_content} onChange={e => setForm({ ...form, utm_content: e.target.value })} /></div>
               <div><Label>utm_term</Label><Input value={form.utm_term} onChange={e => setForm({ ...form, utm_term: e.target.value })} /></div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Data Início</Label><Input type="datetime-local" value={form.data_inicio} onChange={e => setForm({ ...form, data_inicio: e.target.value })} /></div>
+              <div><Label>Data Fim</Label><Input type="datetime-local" value={form.data_fim} onChange={e => setForm({ ...form, data_fim: e.target.value })} /></div>
+            </div>
             {form.destino && (
               <div className="p-2 bg-secondary rounded text-xs text-muted-foreground break-all">
                 <span className="text-primary font-medium">Preview: </span>{buildUrl(form as any)}
