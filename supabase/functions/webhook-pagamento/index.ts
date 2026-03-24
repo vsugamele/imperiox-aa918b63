@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
         id: crypto.randomUUID(),
         lead_id: leadId,
         project_id: projectId,
-        produto,
+        produto_nome: produto,
         valor,
         plataforma,
         status: "aprovado",
