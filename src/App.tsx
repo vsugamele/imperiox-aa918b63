@@ -13,6 +13,7 @@ import Projetos from "./pages/Projetos";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import KanbanPage from "./pages/KanbanPage";
 import Tarefas from "./pages/Tarefas";
+import Chat from "./pages/Chat";
 import Leads from "./pages/Leads";
 import Financas from "./pages/Financas";
 import MarketIntel from "./pages/MarketIntel";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="projetos/:id" element={<ProjetoDetalhe />} />
               <Route path="kanban" element={<KanbanPage />} />
               <Route path="tarefas" element={<Tarefas />} />
+              <Route path="chat" element={<Chat />} />
               <Route path="leads" element={<Leads />} />
               <Route path="financas" element={<Financas />} />
               <Route path="market-intel" element={<MarketIntel />} />

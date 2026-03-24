@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, MessageCircle
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ const mainItems = [
   { title: "Projetos", url: "/projetos", icon: FolderKanban, color: "text-primary" },
   { title: "Kanban", url: "/kanban", icon: Kanban, color: "text-primary" },
   { title: "Tarefas", url: "/tarefas", icon: ListTodo, color: "text-primary" },
+  { title: "Chat", url: "/chat", icon: MessageCircle, color: "text-primary" },
 ];
 
 const crmItems = [
