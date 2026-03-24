@@ -2747,6 +2747,7 @@ export type Database = {
           created_at: string | null
           date: string | null
           description: string | null
+          end_date: string | null
           id: string
           link: string | null
           location: string | null
@@ -2760,6 +2761,7 @@ export type Database = {
           created_at?: string | null
           date?: string | null
           description?: string | null
+          end_date?: string | null
           id?: string
           link?: string | null
           location?: string | null
@@ -2773,6 +2775,7 @@ export type Database = {
           created_at?: string | null
           date?: string | null
           description?: string | null
+          end_date?: string | null
           id?: string
           link?: string | null
           location?: string | null
