@@ -12,7 +12,7 @@ import { ProjetoExpert } from "@/components/projeto/ProjetoExpert";
 import { ProjetoAvatar } from "@/components/projeto/ProjetoAvatar";
 import { ProjetoBranding } from "@/components/projeto/ProjetoBranding";
 import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
-import { ProjetoPipeline } from "@/components/projeto/ProjetoPipeline";
+import { ProjetoPesquisa } from "@/components/projeto/ProjetoPesquisa";
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
@@ -136,7 +136,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="avatar">🎭 Avatar</TabsTrigger>
           <TabsTrigger value="branding">🎨 Branding</TabsTrigger>
           <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
-          <TabsTrigger value="pipeline">⚡ Pipeline</TabsTrigger>
+          <TabsTrigger value="pesquisa">🔬 Pesquisa</TabsTrigger>
           <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
@@ -161,8 +161,8 @@ export default function ProjetoDetalhe() {
         <TabsContent value="kpis" className="mt-4">
           <ProjetoKPIs project={project} onUpdateData={onUpdateData} />
         </TabsContent>
-        <TabsContent value="pipeline" className="mt-4">
-          <ProjetoPipeline project={project} onUpdatePipeline={onUpdatePipeline} onUpdateData={onUpdateData} />
+        <TabsContent value="pesquisa" className="mt-4">
+          <ProjetoPesquisa project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="midia" className="mt-4">
           <ProjetoMidia project={project} onUpdateData={onUpdateData} />

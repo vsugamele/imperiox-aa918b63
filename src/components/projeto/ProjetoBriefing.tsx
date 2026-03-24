@@ -5,10 +5,34 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, X } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Plus, Trash2, X, ChevronDown, ExternalLink } from "lucide-react";
+import { useState } from "react";
 
-const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
+const PIPELINE_KEYS = [
+  { key: "avatar", label: "Avatar", emoji: "👤" },
+  { key: "funil", label: "Funil", emoji: "🔻" },
+  { key: "copy", label: "Copy", emoji: "✍️" },
+  { key: "prompts", label: "Prompts", emoji: "🤖" },
+  { key: "design", label: "Design", emoji: "🎨" },
+  { key: "trafego", label: "Tráfego", emoji: "📡" },
+];
+
 const STATUS_OPTIONS = ["planejamento", "em andamento", "pausado", "concluído"];
+
+const OFFER_TYPES = ["principal", "tripwire", "order_bump", "upsell", "downsell"];
+
+const INTEGRATION_ITEMS = [
+  { key: "clarity", label: "Microsoft Clarity", icon: "🔍", desc: "Heatmaps e session replay" },
+  { key: "google_analytics", label: "Google Analytics", icon: "📊", desc: "GA4 tracking" },
+  { key: "webhook_pagamento", label: "Webhook Pagamento", icon: "🔔", desc: "Hotmart / Kiwify / Ticto" },
+  { key: "facebook_pixel", label: "Facebook Pixel / CAPI", icon: "📘", desc: "Conversions API" },
+  { key: "resend", label: "Resend (Email)", icon: "📧", desc: "Email transacional" },
+  { key: "utms", label: "UTMs no Site", icon: "🔗", desc: "Parâmetros de rastreamento" },
+];
 
 interface Props {
   project: any;
@@ -21,6 +45,8 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   const pipeline = project.pipeline || {};
   const links = data.links || {};
   const produtos = data.produtos || [];
+  const pipelineNotes = data.pipeline_notes || {};
+  const checklist = data.integrations_checklist || {};
 
   const updateField = (key: string, val: any) => onUpdateData({ ...data, [key]: val });
   const updateLink = (key: string, val: string) => onUpdateData({ ...data, links: { ...links, [key]: val } });
@@ -32,7 +58,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   };
 
   const addProduto = () => {
-    onUpdateData({ ...data, produtos: [...produtos, { nome: "", tipo: "", preco: "", status: "ativo", links: [] }] });
+    onUpdateData({ ...data, produtos: [...produtos, { nome: "", tipo: "", preco: "", status: "ativo", links: [], ofertas: [] }] });
   };
 
   const removeProduto = (i: number) => {
@@ -69,6 +95,52 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     updateProductLinks(prodIndex, updated);
   };
 
+  // Offer helpers
+  const getOffers = (p: any) => p.ofertas || [];
+
+  const addOffer = (prodIndex: number) => {
+    const updated = [...produtos];
+    const ofertas = [...getOffers(updated[prodIndex]), { nome: "", preco_de: "", preco_por: "", tipo_oferta: "principal", link_checkout: "", ativo: true }];
+    updated[prodIndex] = { ...updated[prodIndex], ofertas };
+    onUpdateData({ ...data, produtos: updated });
+  };
+
+  const updateOffer = (prodIndex: number, offerIndex: number, field: string, val: any) => {
+    const updated = [...produtos];
+    const ofertas = [...getOffers(updated[prodIndex])];
+    ofertas[offerIndex] = { ...ofertas[offerIndex], [field]: val };
+    updated[prodIndex] = { ...updated[prodIndex], ofertas };
+    onUpdateData({ ...data, produtos: updated });
+  };
+
+  const removeOffer = (prodIndex: number, offerIndex: number) => {
+    const updated = [...produtos];
+    const ofertas = getOffers(updated[prodIndex]).filter((_: any, i: number) => i !== offerIndex);
+    updated[prodIndex] = { ...updated[prodIndex], ofertas };
+    onUpdateData({ ...data, produtos: updated });
+  };
+
+  // Pipeline helpers
+  const updatePipelineVal = (key: string, val: number) => {
+    onUpdatePipeline({ ...pipeline, [key]: val });
+  };
+
+  const updatePipelineNote = (key: string, val: string) => {
+    onUpdateData({ ...data, pipeline_notes: { ...pipelineNotes, [key]: val } });
+  };
+
+  // Checklist helpers
+  const updateChecklist = (key: string, field: string, val: any) => {
+    const item = checklist[key] || { status: "pendente", nota: "" };
+    onUpdateData({ ...data, integrations_checklist: { ...checklist, [key]: { ...item, [field]: val } } });
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === "verificado") return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+    if (status === "configurado") return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+    return "bg-destructive/20 text-destructive border-destructive/30";
+  };
+
   return (
     <div className="space-y-6">
       {/* Dados do Projeto */}
@@ -99,20 +171,38 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         </CardContent>
       </Card>
 
-      {/* Pipeline Rápido */}
+      {/* Pipeline Rápido com notas inline */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚡ Pipeline Rápido</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {PIPELINE_KEYS.map((key) => {
-            const val = pipeline[key] ?? 0;
+        <CardContent className="space-y-3">
+          {PIPELINE_KEYS.map((p) => {
+            const val = pipeline[p.key] ?? 0;
             return (
-              <div key={key}>
-                <div className="flex justify-between mb-1">
-                  <span className="text-xs capitalize text-muted-foreground">{key}</span>
-                  <span className="text-xs font-mono text-primary">{val}%</span>
+              <Collapsible key={p.key}>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{p.emoji}</span>
+                  <div className="flex-1">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">{p.label}</span>
+                      <span className="text-xs font-mono text-primary">{val}%</span>
+                    </div>
+                    <Slider value={[val]} onValueChange={([v]) => updatePipelineVal(p.key, v)} max={100} step={5} />
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </CollapsibleTrigger>
                 </div>
-                <Progress value={val} className="h-2" />
-              </div>
+                <CollapsibleContent className="pl-9 pt-2">
+                  <Textarea
+                    value={pipelineNotes[p.key] || ""}
+                    onChange={(e) => updatePipelineNote(p.key, e.target.value)}
+                    className="bg-secondary text-sm min-h-[40px]"
+                    placeholder="Notas desta etapa..."
+                  />
+                </CollapsibleContent>
+              </Collapsible>
             );
           })}
         </CardContent>
@@ -137,49 +227,46 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📦 Produtos do Projeto</CardTitle>
           <Button size="sm" variant="outline" onClick={addProduto}><Plus className="h-3 w-3 mr-1" /> Produto</Button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {produtos.map((p: any, i: number) => {
             const prodLinks = getProductLinks(p);
+            const ofertas = getOffers(p);
             return (
-              <div key={i} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-md bg-secondary/50 border border-border relative">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Nome</Label>
-                  <Input value={p.nome || ""} onChange={(e) => updateProduto(i, "nome", e.target.value)} className="bg-secondary h-8 text-sm" />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Tipo</Label>
-                  <Input value={p.tipo || ""} onChange={(e) => updateProduto(i, "tipo", e.target.value)} className="bg-secondary h-8 text-sm" />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Preço</Label>
-                  <Input value={p.preco || ""} onChange={(e) => updateProduto(i, "preco", e.target.value)} className="bg-secondary h-8 text-sm" />
-                </div>
-                <div className="flex items-end gap-1">
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeProduto(i)}><Trash2 className="h-3 w-3" /></Button>
+              <div key={i} className="p-4 rounded-lg bg-secondary/50 border border-border space-y-4">
+                {/* Product basic fields */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Nome</Label>
+                    <Input value={p.nome || ""} onChange={(e) => updateProduto(i, "nome", e.target.value)} className="bg-secondary h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Tipo</Label>
+                    <Input value={p.tipo || ""} onChange={(e) => updateProduto(i, "tipo", e.target.value)} className="bg-secondary h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Preço</Label>
+                    <Input value={p.preco || ""} onChange={(e) => updateProduto(i, "preco", e.target.value)} className="bg-secondary h-8 text-sm" />
+                  </div>
+                  <div className="flex items-end gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeProduto(i)}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
                 </div>
 
-                {/* Multiple links */}
-                <div className="col-span-2 md:col-span-4 space-y-2">
+                {/* Product links */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">Links do Produto</Label>
                     <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => addProductLink(i)}>
                       <Plus className="h-3 w-3 mr-1" /> Link
                     </Button>
                   </div>
-                  {prodLinks.length === 0 && (
-                    <p className="text-xs text-muted-foreground/60">Nenhum link adicionado</p>
-                  )}
+                  {prodLinks.length === 0 && <p className="text-xs text-muted-foreground/60">Nenhum link adicionado</p>}
                   {prodLinks.map((link: string, li: number) => (
                     <div key={li} className="flex items-center gap-2">
-                      <Input
-                        value={link}
-                        onChange={(e) => updateProductLink(i, li, e.target.value)}
-                        className="bg-secondary h-8 text-sm flex-1"
-                        placeholder="https://..."
-                      />
+                      <Input value={link} onChange={(e) => updateProductLink(i, li, e.target.value)} className="bg-secondary h-8 text-sm flex-1" placeholder="https://..." />
                       {link && (
                         <a href={link} target="_blank" rel="noopener noreferrer" className="h-8 w-8 flex items-center justify-center text-primary hover:text-primary/80 shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                          <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       )}
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeProductLink(i, li)}>
@@ -189,18 +276,112 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   ))}
                 </div>
 
-                <div className="col-span-2">
-                  <Label className="text-xs text-muted-foreground">Mecanismo Único</Label>
-                  <Textarea value={p.mecanismo || ""} onChange={(e) => updateProduto(i, "mecanismo", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+                {/* Ofertas */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground font-medium">🏷️ Ofertas</Label>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => addOffer(i)}>
+                      <Plus className="h-3 w-3 mr-1" /> Oferta
+                    </Button>
+                  </div>
+                  {ofertas.length === 0 && <p className="text-xs text-muted-foreground/60">Nenhuma oferta cadastrada</p>}
+                  {ofertas.map((of: any, oi: number) => (
+                    <div key={oi} className="grid grid-cols-2 md:grid-cols-6 gap-2 p-3 rounded-md bg-background/50 border border-border/50 items-end">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Nome</Label>
+                        <Input value={of.nome || ""} onChange={(e) => updateOffer(i, oi, "nome", e.target.value)} className="bg-secondary h-7 text-xs" />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">De R$</Label>
+                        <Input value={of.preco_de || ""} onChange={(e) => updateOffer(i, oi, "preco_de", e.target.value)} className="bg-secondary h-7 text-xs" />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Por R$</Label>
+                        <Input value={of.preco_por || ""} onChange={(e) => updateOffer(i, oi, "preco_por", e.target.value)} className="bg-secondary h-7 text-xs" />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Tipo</Label>
+                        <Select value={of.tipo_oferta || "principal"} onValueChange={(v) => updateOffer(i, oi, "tipo_oferta", v)}>
+                          <SelectTrigger className="bg-secondary h-7 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {OFFER_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs capitalize">{t.replace("_", " ")}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Link Checkout</Label>
+                        <Input value={of.link_checkout || ""} onChange={(e) => updateOffer(i, oi, "link_checkout", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="https://..." />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={of.ativo !== false ? "default" : "secondary"} className="text-[10px] cursor-pointer" onClick={() => updateOffer(i, oi, "ativo", !of.ativo)}>
+                          {of.ativo !== false ? "Ativo" : "Inativo"}
+                        </Badge>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeOffer(i, oi)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="col-span-2">
-                  <Label className="text-xs text-muted-foreground">Contexto / Objetivo</Label>
-                  <Textarea value={p.contexto || ""} onChange={(e) => updateProduto(i, "contexto", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+
+                {/* Mecanismo + Contexto */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Mecanismo Único</Label>
+                    <Textarea value={p.mecanismo || ""} onChange={(e) => updateProduto(i, "mecanismo", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Contexto / Objetivo</Label>
+                    <Textarea value={p.contexto || ""} onChange={(e) => updateProduto(i, "contexto", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+                  </div>
                 </div>
               </div>
             );
           })}
           {produtos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum produto cadastrado.</p>}
+        </CardContent>
+      </Card>
+
+      {/* Checklist de Integração */}
+      <Card className="bg-card border-border">
+        <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🛠️ Setup de Integração</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {INTEGRATION_ITEMS.map((item) => {
+              const itemData = checklist[item.key] || { status: "pendente", nota: "" };
+              return (
+                <div key={item.key} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{item.icon}</span>
+                      <div>
+                        <p className="text-xs font-medium">{item.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                      </div>
+                    </div>
+                    <Select value={itemData.status || "pendente"} onValueChange={(v) => updateChecklist(item.key, "status", v)}>
+                      <SelectTrigger className="w-auto h-6 text-[10px] px-2 gap-1 border-0">
+                        <Badge variant="outline" className={`text-[10px] ${getStatusColor(itemData.status || "pendente")}`}>
+                          {itemData.status === "verificado" ? "✓ Verificado" : itemData.status === "configurado" ? "◐ Configurado" : "○ Pendente"}
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pendente" className="text-xs">○ Pendente</SelectItem>
+                        <SelectItem value="configurado" className="text-xs">◐ Configurado</SelectItem>
+                        <SelectItem value="verificado" className="text-xs">✓ Verificado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    value={itemData.nota || ""}
+                    onChange={(e) => updateChecklist(item.key, "nota", e.target.value)}
+                    className="bg-secondary h-7 text-xs"
+                    placeholder="Observação..."
+                  />
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
     </div>
