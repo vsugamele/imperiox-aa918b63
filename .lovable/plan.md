@@ -1,40 +1,68 @@
 
 
-# Plano: Knowledge Base Dinamica + Fix Drag-and-Drop na Lista
+# Plano: Corrigir Importacao de Leads Ticto + Melhorar Importacao de Ads
 
-## 2 frentes
+## Problemas identificados
 
-### 1. Knowledge Base — secoes dinamicas, subsecoes e documentos vinculados
+### 1. Leads Ticto - dados nao chegam
+O CSV da Ticto usa encoding **Latin-1** (caracteres como `�` no preview). O Papa.parse usa UTF-8 por default, entao colunas com acentos ("Método de Pagamento", "Código do Pedido", "Nome do Produto") nao sao encontradas pelo `findCol`, resultando em campos vazios.
 
-As colunas `parent_key`, `is_custom`, `doc_ids` ja existem na tabela `imphq_kb` (migration anterior).
+Alem disso, a insercao em `imphq_vendas` usa `produto` mas a coluna real e `produto_nome`. Dados de UTM (utm_source, utm_campaign, utm_content, utm_term) existem no CSV mas podem nao estar sendo mapeados corretamente por causa do encoding.
 
-**Mudancas no `Docs.tsx`**:
+### 2. Ads Import - campos faltando do documento tecnico
+O documento tecnico lista campos essenciais que o importador atual nao captura:
+- **Nivel de veiculacao** (campaign/adset/ad) para filtrar agregacao
+- **Finalizacoes de compra iniciadas** (checkouts) para calcular CPCk e LP->Checkout
+- **Stop Rate** (calculado: Alcance/Impressoes)
+- **CPM** (calculado: Investimento/Impressoes*1000)
+- Hook/Hold Rate como decimais (multiplicar por 100)
 
-- Carregar secoes do banco (`imphq_kb` com `is_custom = true`) e mesclar com `KB_SECTIONS` como fallback
-- Sidebar hierarquica: secoes template + secoes customizadas; subsecoes (entries com `parent_key`) indentadas abaixo do pai
-- Botao "Nova Secao" no sidebar com dialog (titulo, emoji/icone, descricao)
-- Menu "..." em cada secao com opcoes: "Criar Subsecao", "Renomear" (so custom), "Excluir" (so custom)
-- Secoes template sao imutaveis mas aceitam subsecoes
-- No editor, secao "Documentos Vinculados" abaixo do textarea: lista docs linkados (do `doc_ids`), botao para adicionar/remover (busca na `imphq_docs`)
-- Contadores atualizados no sidebar (total de secoes template + custom)
+## O que sera feito
 
-**Manter `kbTemplates.ts` intacto** como fonte de templates padrao.
+### 1. Fix encoding no LeadImportDialog
 
-### 2. Fix drag-and-drop na view de lista do Kanban
+- Tentar parse com `encoding: "latin-1"` como fallback quando UTF-8 produz headers com `�`
+- Adicionar candidates sem acento no `findCol` para todas as colunas Ticto (ex: "Metodo de Pagamento", "Codigo do Pedido", "Numero do Pedido")
+- Isso garante que produto, metodo pagamento, bandeira, parcelas, UTMs, valor liquidado etc. sejam capturados
 
-O problema atual: o `onDragOver` e `onDrop` estao no `CollapsibleTrigger` div (header do grupo), mas quando o usuario arrasta sobre as linhas da tabela dentro do grupo, o drop nao funciona porque a area da tabela nao tem handlers.
+### 2. Mapear campos faltantes da Ticto no lead import
 
-**Fix no `KanbanPage.tsx`**:
+- **Valor Liquidado**: mapear e salvar no `data` da venda (receita liquida pos-taxas)
+- **Id do Produto** (`produto_id_ext`): salvar na venda
+- **Plataforma de Anuncio**: mapear como dado extra de UTM
+- **Conjunto de Anuncios** e **Anuncio**: salvar no data da venda para cruzamento com Meta
+- Corrigir insert: `produto` -> `produto_nome`
+- Salvar UTMs completos incluindo `utm_content` e `utm_term` (ja existem colunas no `imphq_vendas`)
+- Detectar se lead e organico ou ads: se `utm_source` contiver "FB"/"ig" = Meta Ads, se vazio/organic = organico
 
-- Adicionar `onDragOver` e `onDrop` no wrapper do `CollapsibleContent` (nao so no header), para que arrastar sobre qualquer parte do grupo funcione
-- Adicionar visual feedback: highlight no grupo quando um card esta sendo arrastado sobre ele (ex: borda azul ou bg highlight)
-- Garantir que o `DragEvent` type casting esta correto (`React.DragEvent<HTMLDivElement>` em vez de `DragEvent`)
-- Adicionar `onDragEnd` para limpar o `dragCardId` caso o drop nao ocorra
+### 3. Mostrar dados completos na preview da importacao
+
+Na tabela de preview, adicionar colunas: Produto, Pagamento (Pix/Cartao+bandeira), Parcelas, UTM Source, para o usuario validar antes de importar.
+
+### 4. Melhorar AdsImportDialog com campos do documento tecnico
+
+- Adicionar campos: `nivel_veiculacao`, `checkouts_iniciados`, `cpm` (calculado), `stop_rate` (calculado)
+- Mapear "Nivel de veiculacao" / "Level" do CSV
+- Mapear "Finalizacoes de compra iniciadas" / "Checkouts" / "Purchases initiated"
+- Calcular metricas derivadas pos-parse: stop_rate, cpm, lp_checkout, cpck
+- Exibir na preview com badges de benchmark (do documento: Hook Rate < 15% = ruim, etc.)
+
+### 5. Migration: novos campos em imphq_ads_spend
+
+```sql
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS nivel_veiculacao TEXT;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS checkouts_iniciados INT;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS cpm NUMERIC;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS stop_rate NUMERIC;
+ALTER TABLE imphq_ads_spend ADD COLUMN IF NOT EXISTS cpck NUMERIC;
+```
 
 ## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/Docs.tsx` | Reescrever: sidebar hierarquica, CRUD de secoes/subsecoes, vincular docs |
-| `src/pages/KanbanPage.tsx` | Fix drag-and-drop: handlers no CollapsibleContent, visual feedback, type fixes |
+| Migration SQL | Novos campos em `imphq_ads_spend` |
+| `src/components/leads/LeadImportDialog.tsx` | Fix encoding Latin-1, mapear todos os campos Ticto, corrigir `produto` -> `produto_nome`, preview completo |
+| `src/components/financas/AdsImportDialog.tsx` | Novos campos (nivel, checkouts, metricas calculadas), badges de benchmark |
+| `src/integrations/supabase/types.ts` | Atualizar tipos |
 
