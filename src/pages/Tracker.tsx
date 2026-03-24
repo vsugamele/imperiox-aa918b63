@@ -20,6 +20,7 @@ interface TrackingLink {
   utm_source?: string; utm_medium?: string; utm_campaign?: string;
   utm_content?: string; utm_term?: string; ativo: boolean;
   created_at: string; clickCount?: number;
+  data_inicio?: string; data_fim?: string;
 }
 
 interface KPITargets {
