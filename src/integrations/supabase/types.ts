@@ -8974,6 +8974,45 @@ export type Database = {
           },
         ]
       }
+      imphq_card_relations: {
+        Row: {
+          card_id: string
+          created_at: string | null
+          id: string
+          related_card_id: string
+          relation_type: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string | null
+          id?: string
+          related_card_id: string
+          relation_type?: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string | null
+          id?: string
+          related_card_id?: string
+          relation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_card_relations_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_kanban_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_card_relations_related_card_id_fkey"
+            columns: ["related_card_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_kanban_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_clicks: {
         Row: {
           converted_at: string | null
