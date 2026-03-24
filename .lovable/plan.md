@@ -1,48 +1,98 @@
 
 
-# Plano: Reorganizar Kanban e Tarefas (inspirado no ClickUp)
+# Plano: Task Detail estilo ClickUp com Custom Fields, Tarefas Relacionadas e Layout 2-colunas
 
-## Problema principal
+## Situacao atual
 
-A aba "Geral" agrupa colunas por titulo, mas como cada board cria colunas com nomes ligeiramente diferentes (ex: "A Fazer" vs "Backlog", "Em Progresso" vs "Fazendo"), aparecem dezenas de colunas vazias repetidas. Falta tambem gestao de colunas (renomear, excluir) e uma view de lista como o ClickUp.
+O CardDetailPanel e um Sheet lateral simples com campos fixos (responsavel, prazo, prioridade, coluna, projeto), descricao, anexos, checklist e comentarios. Falta:
+- Custom Fields (campos personalizados tipo texto, numero, select)
+- Tarefas relacionadas/correlacionadas
+- Layout mais organizado tipo ClickUp (metadados em grid compacto, activity/comments na lateral)
+- Tags editaveis
+- Estimativa de tempo
+- Data de inicio (alem do prazo)
 
 ## O que sera feito
 
-### 1. Gestao de colunas (renomear, excluir, reordenar)
+### 1. Migration: tabela `imphq_card_relations`
 
-- Botao de "..." em cada header de coluna com opcoes: Renomear, Excluir (move cards para backlog), Alterar cor
-- Dialog simples para renomear coluna inline
-- Ao excluir coluna vazia, deletar direto; se tiver cards, perguntar para mover para outra coluna
-- Botao "+ Coluna" no final para adicionar novas colunas ao board ativo
+Para vincular tarefas correlacionadas:
+```sql
+CREATE TABLE imphq_card_relations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  card_id UUID REFERENCES imphq_kanban_cards(id) ON DELETE CASCADE,
+  related_card_id UUID REFERENCES imphq_kanban_cards(id) ON DELETE CASCADE,
+  relation_type TEXT DEFAULT 'related', -- related, blocks, blocked_by
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(card_id, related_card_id)
+);
+```
 
-### 2. Corrigir "Geral" - normalizar merge de colunas
+### 2. Custom Fields via JSONB `metadata`
 
-- Criar mapa de sinonimos para merge inteligente: `{"a fazer": "backlog", "to do": "backlog", "em progresso": "fazendo", "doing": "fazendo", "concluído": "feito", "concluido": "feito", "done": "feito"}`
-- Na aba "Geral", usar esse mapa para agrupar colunas com nomes equivalentes numa unica coluna visual
-- Reduzir drasticamente o numero de colunas exibidas
+O campo `metadata` (JSONB) ja existe na tabela `imphq_kanban_cards`. Usar para armazenar campos personalizados:
+```json
+{
+  "custom_fields": {
+    "contato": "Joao Silva",
+    "valor_deal": "5000",
+    "email": "joao@email.com"
+  },
+  "start_date": "2026-03-20",
+  "time_estimate": "4h"
+}
+```
 
-### 3. Toggle Board/Lista no Kanban
+Sem necessidade de migration extra -- o campo ja existe.
 
-Adicionar botao de alternancia entre:
-- **Board** (view atual de colunas)
-- **Lista** (inspirado no ClickUp): tabela agrupada por status/coluna, mostrando Nome, Prioridade, Responsavel, Projeto, Prazo, Board em colunas. Cada grupo e colapsavel com contador
+### 3. Redesign do CardDetailPanel
 
-### 4. Painel de filtros avancados
+Inspirado no ClickUp (imagens 53-54), reorganizar o painel:
 
-Inspirado no ClickUp (imagem 50):
-- Botao "Filtros" que abre um popover/dropdown
-- Filtros combinaveis: Status (coluna), Prioridade, Responsavel, Projeto, Prazo (atrasado/hoje/sem prazo)
-- Badge mostrando quantidade de filtros ativos
-- Botao "Limpar filtros"
+**Header**: Titulo editavel grande + badge de status/board
 
-### 5. Melhorias nos cards do Kanban
+**Secao de Metadados** (grid compacto estilo ClickUp):
+- Status (coluna) | Responsavel
+- Datas: Inicio → Prazo
+- Prioridade | Projeto
+- Estimativa de tempo | Tags editaveis
 
-- Ao passar o mouse, mostrar botoes rapidos: editar, mover para feito (check), excluir
-- Tags visiveis no card (se houver)
+**Secao "Fields" (Custom Fields)**:
+- Lista de campos chave-valor editaveis inline
+- Botao "+" para adicionar novo field (nome + tipo: texto, numero, select)
+- Campos salvos no `metadata.custom_fields`
+- Cada campo tem botao de excluir ao hover
+
+**Descricao** (textarea expandivel)
+
+**Tarefas Relacionadas**:
+- Lista de cards vinculados com badge de tipo (relacionado, bloqueia, bloqueado por)
+- Botao "+" que abre um select/search dos cards existentes
+- Click no card relacionado abre o detalhe dele
+
+**Anexos** (galeria com lightbox -- ja existe)
+
+**Checklist** (ja existe)
+
+**Anotacoes/Activity** (ja existe)
+
+### 4. Tags editaveis
+
+Atualmente `tags` e um array de strings no card mas nao ha UI para editar. Adicionar:
+- Exibir tags como badges editaveis
+- Input para adicionar nova tag
+- Click no X da tag para remover
+- Auto-save no array `tags`
+
+### 5. Melhorias no card mini (KanbanPage)
+
+Mostrar tags nos cards do board quando existirem (badges pequenos coloridos).
 
 ## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/KanbanPage.tsx` | Gestao de colunas, merge inteligente no Geral, toggle board/lista, filtros avancados, acoes rapidas nos cards |
+| Migration SQL | Criar `imphq_card_relations` |
+| `src/components/kanban/CardDetailPanel.tsx` | Redesign completo: layout ClickUp, custom fields, tags, relacoes, datas inicio/prazo, estimativa |
+| `src/pages/KanbanPage.tsx` | Mostrar tags nos cards mini |
 
