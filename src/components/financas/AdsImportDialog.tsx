@@ -153,6 +153,11 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
       hold_rate: r.hold_rate,
       ctr: r.ctr,
       frequencia: r.frequencia,
+      nivel_veiculacao: r.nivel_veiculacao,
+      checkouts_iniciados: r.checkouts_iniciados,
+      cpm: r.cpm,
+      stop_rate: r.stop_rate,
+      cpck: r.cpck,
     }));
     const { error } = await supabase.from("imphq_ads_spend").insert(payload as any);
     setImporting(false);

@@ -216,7 +216,7 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
     if (!file) return;
     setResult(null);
 
-    const processResults = (results: Papa.ParseResult<Record<string, string>>) => {
+    const processResults = (results: any) => {
       const headers = results.meta.fields || [];
       setRawHeaders(headers);
       const detected = detectPlatform(headers);
