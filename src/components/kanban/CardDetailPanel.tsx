@@ -16,7 +16,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { FileUpload } from "@/components/FileUpload";
 import {
   Trash2, Plus, Send, CheckSquare, MessageSquare,
-  Calendar, User, Columns, Paperclip, Image, X, FolderOpen
+  Calendar, User, Columns, Paperclip, X, FolderOpen,
+  Clock, Tag, Link2, ArrowRight, Search
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +33,7 @@ interface KanbanCard {
   position?: number;
   member_id?: string;
   project_id?: string;
+  metadata?: any;
 }
 
 interface Column {
@@ -74,6 +76,15 @@ interface Attachment {
   created_at: string;
 }
 
+interface CardRelation {
+  id: string;
+  card_id: string;
+  related_card_id: string;
+  relation_type: string;
+  created_at: string;
+  related_card?: { id: string; title: string; priority: string; board: string };
+}
+
 interface CardDetailPanelProps {
   card: KanbanCard | null;
   open: boolean;
@@ -91,6 +102,18 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: strin
   low: { label: "Baixa", color: "bg-muted text-muted-foreground border-muted-foreground/30", dot: "bg-muted-foreground/40" },
 };
 
+const RELATION_TYPES = [
+  { value: "related", label: "Relacionado" },
+  { value: "blocks", label: "Bloqueia" },
+  { value: "blocked_by", label: "Bloqueado por" },
+];
+
+const RELATION_COLORS: Record<string, string> = {
+  related: "bg-primary/10 text-primary border-primary/20",
+  blocks: "bg-destructive/10 text-destructive border-destructive/20",
+  blocked_by: "bg-warning/10 text-warning border-warning/20",
+};
+
 export default function CardDetailPanel({ card, open, onClose, onUpdate, columns, members, projects = [] }: CardDetailPanelProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -99,6 +122,15 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const [columnId, setColumnId] = useState("");
   const [memberId, setMemberId] = useState("none");
   const [projectId, setProjectId] = useState("none");
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+
+  // Metadata fields
+  const [startDate, setStartDate] = useState("");
+  const [timeEstimate, setTimeEstimate] = useState("");
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldValue, setNewFieldValue] = useState("");
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState("");
@@ -106,6 +138,13 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const [newComment, setNewComment] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // Relations
+  const [relations, setRelations] = useState<CardRelation[]>([]);
+  const [allCards, setAllCards] = useState<{ id: string; title: string; priority: string; board: string }[]>([]);
+  const [relationSearch, setRelationSearch] = useState("");
+  const [showRelationSearch, setShowRelationSearch] = useState(false);
+  const [newRelationType, setNewRelationType] = useState("related");
 
   const saveTimer = useRef<NodeJS.Timeout>();
 
@@ -118,9 +157,18 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     setColumnId(card.column_id);
     setMemberId(card.member_id || "none");
     setProjectId(card.project_id || "none");
+    setTags(card.tags || []);
+
+    const meta = card.metadata || {};
+    setStartDate(meta.start_date || "");
+    setTimeEstimate(meta.time_estimate || "");
+    setCustomFields(meta.custom_fields || {});
+
     loadChecklist(card.id);
     loadComments(card.id);
     loadAttachments(card.id);
+    loadRelations(card.id);
+    loadAllCards();
   }, [card]);
 
   const loadChecklist = async (cardId: string) => {
@@ -138,11 +186,48 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     setAttachments((data as any[]) || []);
   };
 
+  const loadRelations = async (cardId: string) => {
+    const { data } = await supabase.from("imphq_card_relations").select("*").or(`card_id.eq.${cardId},related_card_id.eq.${cardId}`);
+    if (!data) { setRelations([]); return; }
+
+    // Load related card titles
+    const relatedIds = (data as any[]).map(r => r.card_id === cardId ? r.related_card_id : r.card_id);
+    const { data: relatedCards } = await supabase.from("imphq_kanban_cards").select("id, title, priority, board").in("id", relatedIds);
+
+    const enriched = (data as any[]).map(r => {
+      const isSource = r.card_id === cardId;
+      const relId = isSource ? r.related_card_id : r.card_id;
+      const relCard = (relatedCards || []).find((c: any) => c.id === relId);
+      return {
+        ...r,
+        relation_type: isSource ? r.relation_type : (r.relation_type === "blocks" ? "blocked_by" : r.relation_type === "blocked_by" ? "blocks" : r.relation_type),
+        related_card: relCard || { id: relId, title: "Card não encontrado", priority: "medium", board: "" },
+      };
+    });
+    setRelations(enriched);
+  };
+
+  const loadAllCards = async () => {
+    const { data } = await supabase.from("imphq_kanban_cards").select("id, title, priority, board").limit(500);
+    setAllCards((data as any[]) || []);
+  };
+
   const autoSave = useCallback((field: string, value: any) => {
     if (!card) return;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       await supabase.from("imphq_kanban_cards").update({ [field]: value } as any).eq("id", card.id);
+      onUpdate();
+    }, 600);
+  }, [card, onUpdate]);
+
+  const saveMetadata = useCallback((updates: Record<string, any>) => {
+    if (!card) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      const currentMeta = card.metadata || {};
+      const newMeta = { ...currentMeta, ...updates };
+      await supabase.from("imphq_kanban_cards").update({ metadata: newMeta } as any).eq("id", card.id);
       onUpdate();
     }, 600);
   }, [card, onUpdate]);
@@ -153,6 +238,9 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const handleDueDateChange = (v: string) => { setDueDate(v); autoSave("due_date", v || null); };
   const handleMemberChange = (v: string) => { setMemberId(v); autoSave("member_id", v === "none" ? null : v); };
   const handleProjectChange = (v: string) => { setProjectId(v); autoSave("project_id", v === "none" ? null : v); };
+  const handleStartDateChange = (v: string) => { setStartDate(v); saveMetadata({ start_date: v || null }); };
+  const handleTimeEstimateChange = (v: string) => { setTimeEstimate(v); saveMetadata({ time_estimate: v || null }); };
+
   const handleColumnChange = async (v: string) => {
     if (!card) return;
     setColumnId(v);
@@ -160,32 +248,66 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     onUpdate();
   };
 
+  // Tags
+  const addTag = () => {
+    if (!newTag.trim() || !card) return;
+    const updated = [...tags, newTag.trim()];
+    setTags(updated);
+    setNewTag("");
+    autoSave("tags", updated);
+  };
+  const removeTag = (idx: number) => {
+    const updated = tags.filter((_, i) => i !== idx);
+    setTags(updated);
+    autoSave("tags", updated);
+  };
+
+  // Custom fields
+  const addCustomField = () => {
+    if (!newFieldName.trim()) return;
+    const updated = { ...customFields, [newFieldName.trim()]: newFieldValue };
+    setCustomFields(updated);
+    setNewFieldName("");
+    setNewFieldValue("");
+    saveMetadata({ custom_fields: updated });
+  };
+  const updateCustomField = (key: string, value: string) => {
+    const updated = { ...customFields, [key]: value };
+    setCustomFields(updated);
+    saveMetadata({ custom_fields: updated });
+  };
+  const removeCustomField = (key: string) => {
+    const updated = { ...customFields };
+    delete updated[key];
+    setCustomFields(updated);
+    saveMetadata({ custom_fields: updated });
+  };
+
+  // Checklist
   const addCheckItem = async () => {
     if (!card || !newCheckItem.trim()) return;
-    const { error } = await supabase.from("imphq_card_checklists").insert({ card_id: card.id, title: newCheckItem.trim(), position: checklist.length } as any);
-    if (error) { toast.error("Erro ao adicionar item"); return; }
+    await supabase.from("imphq_card_checklists").insert({ card_id: card.id, title: newCheckItem.trim(), position: checklist.length } as any);
     setNewCheckItem("");
     loadChecklist(card.id);
   };
-
   const toggleCheckItem = async (item: ChecklistItem) => {
     await supabase.from("imphq_card_checklists").update({ is_done: !item.is_done } as any).eq("id", item.id);
     setChecklist(prev => prev.map(c => c.id === item.id ? { ...c, is_done: !c.is_done } : c));
   };
-
   const deleteCheckItem = async (id: string) => {
     await supabase.from("imphq_card_checklists").delete().eq("id", id);
     setChecklist(prev => prev.filter(c => c.id !== id));
   };
 
+  // Comments
   const addComment = async () => {
     if (!card || !newComment.trim()) return;
-    const { error } = await supabase.from("imphq_card_comments").insert({ card_id: card.id, author_name: "Time", content: newComment.trim() } as any);
-    if (error) { toast.error("Erro ao adicionar comentário"); return; }
+    await supabase.from("imphq_card_comments").insert({ card_id: card.id, author_name: "Time", content: newComment.trim() } as any);
     setNewComment("");
     loadComments(card.id);
   };
 
+  // Attachments
   const handleAttachmentUpload = async (url: string) => {
     if (!card) return;
     const fileName = url.split("/").pop() || "arquivo";
@@ -195,17 +317,32 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     let fileType = "application/octet-stream";
     if (imageExts.includes(ext)) fileType = `image/${ext === "jpg" ? "jpeg" : ext}`;
     else if (videoExts.includes(ext)) fileType = `video/${ext}`;
-
-    const { error } = await supabase.from("imphq_card_attachments").insert({ card_id: card.id, file_url: url, file_name: fileName, file_type: fileType } as any);
-    if (error) { toast.error("Erro ao salvar anexo"); return; }
+    await supabase.from("imphq_card_attachments").insert({ card_id: card.id, file_url: url, file_name: fileName, file_type: fileType } as any);
     loadAttachments(card.id);
     onUpdate();
   };
-
   const deleteAttachment = async (id: string) => {
     await supabase.from("imphq_card_attachments").delete().eq("id", id);
     setAttachments(prev => prev.filter(a => a.id !== id));
     onUpdate();
+  };
+
+  // Relations
+  const addRelation = async (relatedCardId: string) => {
+    if (!card) return;
+    const { error } = await supabase.from("imphq_card_relations").insert({
+      card_id: card.id,
+      related_card_id: relatedCardId,
+      relation_type: newRelationType,
+    } as any);
+    if (error) { toast.error("Erro ao vincular tarefa"); return; }
+    setShowRelationSearch(false);
+    setRelationSearch("");
+    loadRelations(card.id);
+  };
+  const deleteRelation = async (id: string) => {
+    await supabase.from("imphq_card_relations").delete().eq("id", id);
+    if (card) loadRelations(card.id);
   };
 
   const deleteCard = async () => {
@@ -229,10 +366,16 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const isImage = (type?: string) => type?.startsWith("image/");
   const isVideo = (type?: string) => type?.startsWith("video/");
 
+  const filteredSearchCards = allCards
+    .filter(c => c.id !== card.id && c.title.toLowerCase().includes(relationSearch.toLowerCase()))
+    .slice(0, 8);
+
+  const TAG_COLORS = ["bg-primary/15 text-primary", "bg-warning/15 text-warning", "bg-success/15 text-success", "bg-destructive/15 text-destructive", "bg-accent text-accent-foreground"];
+
   return (
     <>
       <Sheet open={open} onOpenChange={() => onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-xl p-0 flex flex-col">
           {/* Header */}
           <div className="p-5 pb-3 border-b border-border space-y-3">
             <div className="flex items-start gap-2">
@@ -265,8 +408,8 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
           </div>
 
           <ScrollArea className="flex-1">
-            <div className="p-5 space-y-5">
-              {/* Metadata */}
+            <div className="p-5 space-y-4">
+              {/* Metadata Grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
@@ -291,12 +434,6 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
-                    <Calendar className="h-3 w-3" /> Prazo
-                  </Label>
-                  <Input type="date" value={dueDate} onChange={e => handleDueDateChange(e.target.value)} className="h-8 text-xs" />
-                </div>
-                <div>
                   <Label className="text-[11px] text-muted-foreground mb-1">Prioridade</Label>
                   <Select value={priority} onValueChange={handlePriorityChange}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -310,6 +447,18 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                 </div>
                 <div>
                   <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                    <Calendar className="h-3 w-3" /> Início
+                  </Label>
+                  <Input type="date" value={startDate} onChange={e => handleStartDateChange(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                    <Calendar className="h-3 w-3" /> Prazo
+                  </Label>
+                  <Input type="date" value={dueDate} onChange={e => handleDueDateChange(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
                     <Columns className="h-3 w-3" /> Coluna
                   </Label>
                   <Select value={columnId} onValueChange={handleColumnChange}>
@@ -320,6 +469,12 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                    <Clock className="h-3 w-3" /> Estimativa
+                  </Label>
+                  <Input value={timeEstimate} onChange={e => handleTimeEstimateChange(e.target.value)} placeholder="ex: 4h, 2d" className="h-8 text-xs" />
                 </div>
               </div>
 
@@ -341,6 +496,52 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                 </div>
               )}
 
+              {/* Tags */}
+              <div>
+                <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1.5">
+                  <Tag className="h-3 w-3" /> Tags
+                </Label>
+                <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                  {tags.map((tag, i) => (
+                    <Badge key={i} className={`text-[10px] gap-1 ${TAG_COLORS[i % TAG_COLORS.length]}`}>
+                      {tag}
+                      <button onClick={() => removeTag(i)} className="hover:opacity-70"><X className="h-2.5 w-2.5" /></button>
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-1.5">
+                  <Input value={newTag} onChange={e => setNewTag(e.target.value)} placeholder="Nova tag..." className="h-7 text-xs" onKeyDown={e => e.key === "Enter" && addTag()} />
+                  <Button size="sm" variant="outline" className="h-7 px-2 shrink-0" onClick={addTag}><Plus className="h-3 w-3" /></Button>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Custom Fields */}
+              <div>
+                <Label className="text-[11px] text-muted-foreground mb-1.5 block">Campos personalizados</Label>
+                <div className="space-y-1.5">
+                  {Object.entries(customFields).map(([key, val]) => (
+                    <div key={key} className="flex items-center gap-2 group">
+                      <span className="text-[11px] text-muted-foreground w-24 truncate shrink-0">{key}</span>
+                      <Input
+                        value={val}
+                        onChange={e => updateCustomField(key, e.target.value)}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <button onClick={() => removeCustomField(key)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-1.5 mt-2">
+                  <Input value={newFieldName} onChange={e => setNewFieldName(e.target.value)} placeholder="Nome do campo" className="h-7 text-xs w-28" />
+                  <Input value={newFieldValue} onChange={e => setNewFieldValue(e.target.value)} placeholder="Valor" className="h-7 text-xs flex-1" onKeyDown={e => e.key === "Enter" && addCustomField()} />
+                  <Button size="sm" variant="outline" className="h-7 px-2 shrink-0" onClick={addCustomField}><Plus className="h-3 w-3" /></Button>
+                </div>
+              </div>
+
               <Separator />
 
               {/* Description */}
@@ -352,6 +553,71 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                   placeholder="Adicione uma descrição..."
                   className="min-h-[80px] text-sm resize-none"
                 />
+              </div>
+
+              <Separator />
+
+              {/* Related Tasks */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Link2 className="h-3 w-3" /> Tarefas relacionadas ({relations.length})
+                  </Label>
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => setShowRelationSearch(!showRelationSearch)}>
+                    <Plus className="h-2.5 w-2.5 mr-1" /> Vincular
+                  </Button>
+                </div>
+                {showRelationSearch && (
+                  <div className="mb-3 space-y-2 bg-muted/20 rounded-md p-2 border border-border">
+                    <div className="flex gap-2">
+                      <Select value={newRelationType} onValueChange={setNewRelationType}>
+                        <SelectTrigger className="h-7 text-[10px] w-32"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {RELATION_TYPES.map(r => (
+                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex-1 relative">
+                        <Search className="h-3 w-3 absolute left-2 top-2 text-muted-foreground" />
+                        <Input value={relationSearch} onChange={e => setRelationSearch(e.target.value)} placeholder="Buscar tarefa..." className="h-7 text-xs pl-7" />
+                      </div>
+                    </div>
+                    {relationSearch && (
+                      <div className="max-h-32 overflow-y-auto space-y-0.5">
+                        {filteredSearchCards.map(c => (
+                          <button
+                            key={c.id}
+                            onClick={() => addRelation(c.id)}
+                            className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-muted/50 flex items-center gap-2"
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${PRIORITY_CONFIG[c.priority]?.dot || "bg-muted-foreground"}`} />
+                            <span className="truncate flex-1">{c.title}</span>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0">{c.board}</Badge>
+                          </button>
+                        ))}
+                        {filteredSearchCards.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-2">Nenhuma tarefa encontrada</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  {relations.map(rel => (
+                    <div key={rel.id} className="flex items-center gap-2 group py-1">
+                      <Badge className={`text-[9px] shrink-0 ${RELATION_COLORS[rel.relation_type] || "bg-muted"}`}>
+                        {RELATION_TYPES.find(r => r.value === rel.relation_type)?.label || rel.relation_type}
+                      </Badge>
+                      <ArrowRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs truncate flex-1">{rel.related_card?.title}</span>
+                      <button onClick={() => deleteRelation(rel.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {relations.length === 0 && !showRelationSearch && (
+                    <p className="text-xs text-muted-foreground text-center py-2 italic">Nenhuma tarefa vinculada</p>
+                  )}
+                </div>
               </div>
 
               <Separator />
@@ -375,12 +641,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                     {attachments.map(att => (
                       <div key={att.id} className="relative group rounded-md border border-border overflow-hidden bg-muted/20">
                         {isImage(att.file_type) ? (
-                          <img
-                            src={att.file_url}
-                            alt={att.file_name}
-                            className="w-full h-20 object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setLightboxUrl(att.file_url)}
-                          />
+                          <img src={att.file_url} alt={att.file_name} className="w-full h-20 object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setLightboxUrl(att.file_url)} />
                         ) : isVideo(att.file_type) ? (
                           <video src={att.file_url} className="w-full h-20 object-cover cursor-pointer" onClick={() => setLightboxUrl(att.file_url)} />
                         ) : (
@@ -389,19 +650,14 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                           </a>
                         )}
                         <p className="text-[9px] text-muted-foreground truncate px-1.5 py-1">{att.file_name}</p>
-                        <button
-                          onClick={() => deleteAttachment(att.id)}
-                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-destructive/80 text-destructive-foreground rounded-full p-0.5 transition-opacity"
-                        >
+                        <button onClick={() => deleteAttachment(att.id)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-destructive/80 text-destructive-foreground rounded-full p-0.5 transition-opacity">
                           <X className="h-3 w-3" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
-                {attachments.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-3 italic">Nenhum anexo</p>
-                )}
+                {attachments.length === 0 && <p className="text-xs text-muted-foreground text-center py-3 italic">Nenhum anexo</p>}
               </div>
 
               <Separator />
