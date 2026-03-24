@@ -10007,6 +10007,7 @@ export type Database = {
           id: string
           moeda: string | null
           nome: string
+          produto_nome: string | null
           project_id: string
           recorrente: boolean | null
           user_id: string
@@ -10019,6 +10020,7 @@ export type Database = {
           id?: string
           moeda?: string | null
           nome: string
+          produto_nome?: string | null
           project_id: string
           recorrente?: boolean | null
           user_id: string
@@ -10031,6 +10033,7 @@ export type Database = {
           id?: string
           moeda?: string | null
           nome?: string
+          produto_nome?: string | null
           project_id?: string
           recorrente?: boolean | null
           user_id?: string
@@ -10041,11 +10044,14 @@ export type Database = {
       imphq_project_revenue: {
         Row: {
           created_at: string | null
+          data_pagamento: string | null
           data_ref: string | null
           descricao: string
           documento_url: string | null
           fonte: string | null
           id: string
+          pix_info: string | null
+          plataforma: string | null
           produto_nome: string | null
           project_id: string
           user_id: string
@@ -10053,11 +10059,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          data_pagamento?: string | null
           data_ref?: string | null
           descricao: string
           documento_url?: string | null
           fonte?: string | null
           id?: string
+          pix_info?: string | null
+          plataforma?: string | null
           produto_nome?: string | null
           project_id: string
           user_id: string
@@ -10065,11 +10074,14 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          data_pagamento?: string | null
           data_ref?: string | null
           descricao?: string
           documento_url?: string | null
           fonte?: string | null
           id?: string
+          pix_info?: string | null
+          plataforma?: string | null
           produto_nome?: string | null
           project_id?: string
           user_id?: string
