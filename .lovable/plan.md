@@ -1,55 +1,65 @@
 
 
-# Plano: Produtos do Briefing nos Custos/Receitas + Campos extras na Receita + Links nos Produtos
+# Plano: Anexos nas Tarefas + Correção de Duplicatas + Projeto nos Cards
 
-## Resumo
+## Problemas identificados
 
-Três melhorias para cruzar melhor os dados financeiros com os produtos do projeto:
+1. **Duplicatas no Kanban "Geral"**: A view "geral" mostra todos os cards agrupados por titulo de coluna. Se existem cards duplicados no banco ou se o merge de colunas cria repetição visual, precisamos deduplicar por `card.id`.
 
-1. **Selecionar produto do briefing** nos formulários de custo e receita (em vez de digitar texto livre)
-2. **Campos extras na receita**: PIX (chave/número), data de pagamento, plataforma de origem (Ticto, Hotmart, etc.)
-3. **Múltiplos links por produto** no briefing
+2. **Sem anexos visuais**: O CardDetailPanel tem checklist e comentários mas não permite subir imagens/videos de referência.
 
-## 1. Migration: novos campos em `imphq_project_revenue`
+3. **Sem indicação de projeto**: Os cards não mostram de qual projeto são, dificultando a visão geral.
 
+## O que será feito
+
+### 1. Migration: tabela `imphq_card_attachments`
+
+Nova tabela para armazenar anexos (imagens, videos, PDFs) vinculados a cards:
 ```sql
-ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS pix_info TEXT;
-ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS data_pagamento DATE;
-ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS plataforma TEXT;
+CREATE TABLE imphq_card_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  card_id UUID REFERENCES imphq_kanban_cards(id) ON DELETE CASCADE,
+  file_url TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_type TEXT, -- image/png, video/mp4, etc.
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 ```
+Usa o bucket `project-docs` existente para uploads.
 
-- `pix_info`: chave PIX, número do comprovante, etc.
-- `data_pagamento`: data efetiva do pagamento (diferente de `data_ref` que é referência contábil)
-- `plataforma`: Hotmart, Kiwify, Ticto, Stripe, PIX, etc.
+### 2. Seção "Anexos" no CardDetailPanel
 
-## 2. Formulário de Receita — melhorias (`ProjetoFinancas.tsx`)
+Adicionar entre a descrição e o checklist:
+- Galeria de thumbnails das imagens/videos anexados
+- Botão de upload (usando o componente FileUpload existente)
+- Click para abrir lightbox (imagem grande) ou player (video)
+- Botão de excluir em cada anexo
+- Inspirado no ClickUp: seção "Attachments" com preview visual
 
-- **Produto**: trocar `Input` por `Select` que lista os produtos do briefing (`project.data.produtos`). O componente precisa receber o `project` como prop (ou carregar o projeto pelo `projectId`)
-- Adicionar campos: PIX Info, Data de Pagamento, Plataforma (select com opções: Hotmart, Kiwify, Ticto, Stripe, PIX, Manual, Outro)
-- Tabela de receitas: mostrar colunas Plataforma e Data Pagamento
+### 3. Mostrar projeto nos cards
 
-## 3. Formulário de Custo — selecionar produto
+- Carregar projetos (`imphq_projects`) no KanbanPage e Tarefas
+- Exibir o nome do projeto como Badge no card (similar ao badge do board)
+- No CardDetailPanel, adicionar campo "Projeto" (Select) para vincular/alterar
+- Na Tarefas, já mostra o projeto -- manter e reforçar visualmente
 
-- Adicionar campo opcional "Produto" no custo também (mesmo select do briefing), para poder filtrar custos por produto
-- Requer `ALTER TABLE imphq_project_costs ADD COLUMN IF NOT EXISTS produto_nome TEXT`
+### 4. Corrigir duplicatas no Kanban "Geral"
 
-## 4. Múltiplos links por produto (`ProjetoBriefing.tsx`)
+- Na função `filteredCards`, adicionar deduplicação por `card.id` usando `Map` ou `Set`
+- Garantir que cada card aparece apenas uma vez mesmo quando múltiplas colunas têm o mesmo título
 
-Atualmente cada produto tem um campo `link` (string). Mudar para `links` (array de strings):
-- Renderizar lista de inputs com botão "+" para adicionar mais
-- Botão "x" em cada link para remover
-- Manter compatibilidade: se `link` existe e `links` não, migrar automaticamente no render
+### 5. Melhorias inspiradas no ClickUp
 
-## 5. Aba Produtos — mostrar dados do briefing + vendas cruzadas
-
-Passar os produtos do briefing para `FinancasProdutos` para exibir todos os produtos (mesmo sem vendas) e cruzar com receitas manuais que têm `produto_nome`.
+- **Campo Projeto no detail panel**: Select com projetos disponíveis (como os custom fields do ClickUp)
+- **Ícone de anexo no card mini**: Mostrar ícone de clipe quando o card tem anexos
+- **Contador de subtarefas no card mini**: Mostrar "2/5" quando tem checklist
 
 ## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| Migration SQL | Adicionar `pix_info`, `data_pagamento`, `plataforma` em revenue + `produto_nome` em costs |
-| `src/components/projeto/ProjetoFinancas.tsx` | Carregar projeto, select de produtos, campos extras no form de receita e custo |
-| `src/components/projeto/ProjetoBriefing.tsx` | Suporte a múltiplos links por produto |
-| `src/components/financas/FinancasProdutos.tsx` | Receber produtos do briefing como prop, cruzar com receitas |
+| Migration SQL | Criar `imphq_card_attachments` + RLS |
+| `src/components/kanban/CardDetailPanel.tsx` | Seção de anexos com upload/lightbox, campo Projeto |
+| `src/pages/KanbanPage.tsx` | Carregar projetos, mostrar projeto no card, fix duplicatas, ícones de anexo/checklist |
+| `src/pages/Tarefas.tsx` | Carregar projetos para exibir nos cards |
 
