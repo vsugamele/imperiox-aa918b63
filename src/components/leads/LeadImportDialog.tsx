@@ -310,6 +310,9 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
           data_pedido: r.data_pedido || undefined,
           oferta: r.oferta || undefined,
           comissao_produtor: r.comissao_produtor || undefined,
+          valor_liquidado: r.valor_liquidado || undefined,
+          conjunto_anuncios: r.utms.utm_term || undefined,
+          anuncio: r.utms.utm_content || undefined,
         };
         Object.keys(vendaData).forEach(k => vendaData[k] === undefined && delete vendaData[k]);
 
@@ -317,13 +320,16 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
           id: crypto.randomUUID(),
           lead_id: leadId,
           project_id: pid,
-          produto: r.produto,
+          produto_nome: r.produto,
+          produto_id_ext: r.produto_id_ext || null,
           valor: r.valor,
           plataforma: platformLabel,
           status: r.status_evento === "compra_aprovada" ? "aprovado" : r.status_evento,
           utm_source: r.utms.utm_source || r.utms.src || null,
           utm_medium: r.utms.utm_medium || null,
           utm_campaign: r.utms.utm_campaign || null,
+          utm_content: r.utms.utm_content || null,
+          utm_term: r.utms.utm_term || null,
           data: vendaData as any,
         });
         sales++;
