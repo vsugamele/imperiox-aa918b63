@@ -408,36 +408,57 @@ export default function Tracker() {
                   <TableHead>Plataforma</TableHead>
                   <TableHead>Projeto</TableHead>
                   <TableHead>Source</TableHead>
-                  <TableHead>Medium</TableHead>
                   <TableHead>Campaign</TableHead>
+                  <TableHead>Duração</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Clicks</TableHead>
                   <TableHead>Ativo</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLinks.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell className="font-medium">{l.nome}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-[10px] ${PLATAFORMA_COLORS[l.plataforma || "Outro"] || PLATAFORMA_COLORS["Outro"]}`}>
-                        {l.plataforma || "—"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{projectName(l.project_id)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.utm_source || "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.utm_medium || "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.utm_campaign || "—"}</TableCell>
-                    <TableCell className="font-mono text-primary">{l.clickCount ?? 0}</TableCell>
-                    <TableCell><Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} /></TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => deleteLink(l.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredLinks.map((l) => {
+                  const now = new Date();
+                  const start = l.data_inicio ? new Date(l.data_inicio) : null;
+                  const end = l.data_fim ? new Date(l.data_fim) : null;
+                  let campaignStatus = "—";
+                  let statusClass = "text-muted-foreground";
+                  if (start && end) {
+                    if (now < start) { campaignStatus = "Agendado"; statusClass = "text-blue-400"; }
+                    else if (now > end) { campaignStatus = "Encerrado"; statusClass = "text-muted-foreground"; }
+                    else { campaignStatus = "Ativo"; statusClass = "text-emerald-400"; }
+                  }
+                  let duration = "—";
+                  if (start && end) {
+                    const diffMs = end.getTime() - start.getTime();
+                    const days = Math.floor(diffMs / 86400000);
+                    const hours = Math.floor((diffMs % 86400000) / 3600000);
+                    duration = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+                  }
+                  return (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-medium">{l.nome}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[10px] ${PLATAFORMA_COLORS[l.plataforma || "Outro"] || PLATAFORMA_COLORS["Outro"]}`}>
+                          {l.plataforma || "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{projectName(l.project_id)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{l.utm_source || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{l.utm_campaign || "—"}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{duration}</TableCell>
+                      <TableCell><span className={`text-xs font-medium ${statusClass}`}>{campaignStatus}</span></TableCell>
+                      <TableCell className="font-mono text-primary">{l.clickCount ?? 0}</TableCell>
+                      <TableCell><Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} /></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => deleteLink(l.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
