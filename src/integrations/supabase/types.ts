@@ -9324,6 +9324,95 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_daily_routines: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          member_id: string | null
+          position: number | null
+          project_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          member_id?: string | null
+          position?: number | null
+          project_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          member_id?: string | null
+          position?: number | null
+          project_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_daily_routines_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_daily_routines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_daily_routines_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_daily_routines_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_daily_routines_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_daily_routines_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_daily_routines_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_docs: {
         Row: {
           body: string | null
@@ -10429,6 +10518,73 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_routine_checks: {
+        Row: {
+          check_date: string
+          checked_at: string | null
+          checked_by: string | null
+          id: string
+          routine_id: string
+        }
+        Insert: {
+          check_date?: string
+          checked_at?: string | null
+          checked_by?: string | null
+          id?: string
+          routine_id: string
+        }
+        Update: {
+          check_date?: string
+          checked_at?: string | null
+          checked_by?: string | null
+          id?: string
+          routine_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_routine_checks_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_routine_checks_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_routine_checks_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_routine_checks_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_routine_checks_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_routine_checks_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_daily_routines"
             referencedColumns: ["id"]
           },
         ]

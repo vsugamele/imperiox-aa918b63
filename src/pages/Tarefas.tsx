@@ -8,17 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
-  Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet
+  Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
+  RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface KanbanCard {
   id: string;
@@ -47,6 +52,27 @@ interface TeamMember {
   role?: string | null;
 }
 
+interface Routine {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  member_id?: string | null;
+  project_id?: string | null;
+  icon: string;
+  position: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface RoutineCheck {
+  id: string;
+  routine_id: string;
+  check_date: string;
+  checked_by?: string;
+  checked_at: string;
+}
+
 const DONE_TITLES = ["feito", "done", "concluído", "concluido"];
 const FIRST_COL_TITLES = ["backlog", "a fazer", "to do", "todo"];
 
@@ -63,6 +89,8 @@ const PRIORITY_DOT: Record<string, string> = {
   medium: "bg-success",
   low: "bg-muted-foreground/40",
 };
+
+const EMOJI_OPTIONS = ["✅", "📋", "📊", "📱", "💬", "📢", "🎯", "🚀", "💡", "📝", "🔍", "📦", "🎨", "💰", "📣", "🤝", "⚡", "🔔", "📌", "🏷️"];
 
 const isDoneColumn = (col: Column) => DONE_TITLES.includes(col.title.toLowerCase().trim());
 const isFirstColumn = (col: Column) => FIRST_COL_TITLES.includes(col.title.toLowerCase().trim());
@@ -82,26 +110,136 @@ export default function Tarefas() {
   const [filterMember, setFilterMember] = useState("all");
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
 
+  // Routines state
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [checks, setChecks] = useState<RoutineCheck[]>([]);
+  const [showRoutineDialog, setShowRoutineDialog] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
+  const [routineForm, setRoutineForm] = useState({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
 
   const fetchData = useCallback(async () => {
-    const [colRes, cardRes, projRes, memberRes] = await Promise.all([
+    const [colRes, cardRes, projRes, memberRes, routineRes, checksRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("id, title, board, position").order("position", { ascending: true }),
       supabase.from("imphq_kanban_cards").select("*").order("due_date", { ascending: true }),
       supabase.from("imphq_projects").select("id, name"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role").eq("is_active", true),
+      supabase.from("imphq_daily_routines").select("*").eq("is_active", true).order("position", { ascending: true }),
+      supabase.from("imphq_routine_checks").select("*").eq("check_date", todayStr),
     ]);
     setColumns((colRes.data as any[]) || []);
     setCards((cardRes.data as any[]) || []);
     setProjects((projRes.data as any[]) || []);
     setMembers((memberRes.data as any[]) || []);
+    setRoutines((routineRes.data as any[]) || []);
+    setChecks((checksRes.data as any[]) || []);
     setLoading(false);
-  }, []);
+  }, [todayStr]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // === ROUTINES LOGIC ===
+  const teamRoutines = routines.filter(r => r.category === "team");
+  const personalRoutines = routines.filter(r => r.category === "personal");
+  const totalRoutines = routines.length;
+  const checkedRoutineIds = new Set(checks.map(c => c.routine_id));
+  const completedCount = routines.filter(r => checkedRoutineIds.has(r.id)).length;
+  const progressPercent = totalRoutines > 0 ? Math.round((completedCount / totalRoutines) * 100) : 0;
+
+  const toggleRoutineCheck = async (routineId: string) => {
+    if (!user) return;
+    const isChecked = checkedRoutineIds.has(routineId);
+    if (isChecked) {
+      const check = checks.find(c => c.routine_id === routineId);
+      if (check) {
+        await supabase.from("imphq_routine_checks").delete().eq("id", check.id);
+        setChecks(prev => prev.filter(c => c.id !== check.id));
+      }
+    } else {
+      const { data, error } = await supabase.from("imphq_routine_checks").insert({
+        routine_id: routineId,
+        check_date: todayStr,
+        checked_by: user.id,
+      } as any).select().single();
+      if (!error && data) {
+        setChecks(prev => [...prev, data as any]);
+      }
+    }
+  };
+
+  const saveRoutine = async () => {
+    if (!user || !routineForm.title.trim()) return;
+    if (editingRoutine) {
+      const { error } = await supabase.from("imphq_daily_routines").update({
+        title: routineForm.title.trim(),
+        icon: routineForm.icon,
+        category: routineForm.category,
+        member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
+        project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+      } as any).eq("id", editingRoutine.id);
+      if (!error) {
+        setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? {
+          ...r, title: routineForm.title.trim(), icon: routineForm.icon, category: routineForm.category,
+          member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
+          project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+        } : r));
+        toast.success("Rotina atualizada");
+      }
+    } else {
+      const { data, error } = await supabase.from("imphq_daily_routines").insert({
+        user_id: user.id,
+        title: routineForm.title.trim(),
+        icon: routineForm.icon,
+        category: routineForm.category,
+        member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
+        project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+        position: routines.length,
+      } as any).select().single();
+      if (!error && data) {
+        setRoutines(prev => [...prev, data as any]);
+        toast.success("Rotina criada! ✅");
+      }
+    }
+    setShowRoutineDialog(false);
+    setEditingRoutine(null);
+    setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+  };
+
+  const deleteRoutine = async (id: string) => {
+    await supabase.from("imphq_daily_routines").delete().eq("id", id);
+    setRoutines(prev => prev.filter(r => r.id !== id));
+    toast.success("Rotina excluída");
+  };
+
+  const toggleCategory = async (routine: Routine) => {
+    const newCat = routine.category === "team" ? "personal" : "team";
+    await supabase.from("imphq_daily_routines").update({ category: newCat } as any).eq("id", routine.id);
+    setRoutines(prev => prev.map(r => r.id === routine.id ? { ...r, category: newCat } : r));
+    toast.success(`Movida para ${newCat === "team" ? "Time" : "Pessoal"}`);
+  };
+
+  const openEditRoutine = (routine: Routine) => {
+    setEditingRoutine(routine);
+    setRoutineForm({
+      title: routine.title,
+      icon: routine.icon,
+      category: routine.category,
+      member_id: routine.member_id || "none",
+      project_id: routine.project_id || "none",
+    });
+    setShowRoutineDialog(true);
+  };
+
+  const openNewRoutine = (category: string = "team") => {
+    setEditingRoutine(null);
+    setRoutineForm({ title: "", icon: "✅", category, member_id: "none", project_id: "none" });
+    setShowRoutineDialog(true);
+  };
+
+  // === TASKS LOGIC (existing) ===
   const doneColumnIds = columns.filter(isDoneColumn).map(c => c.id);
   const isDone = (card: KanbanCard) => doneColumnIds.includes(card.column_id);
 
@@ -186,12 +324,12 @@ export default function Tarefas() {
     toast.success("Tarefa adicionada ✅");
   };
 
-  const getProjectName = (id?: string) => {
+  const getProjectName = (id?: string | null) => {
     if (!id) return null;
     return projects.find(p => p.id === id)?.name;
   };
 
-  const getMember = (id?: string) => {
+  const getMember = (id?: string | null) => {
     if (!id) return null;
     return members.find(m => m.id === id);
   };
@@ -200,6 +338,79 @@ export default function Tarefas() {
     return columns.find(c => c.id === colId)?.title || "—";
   };
 
+  const totalDone = filtered.filter(c => isDone(c)).length;
+
+  // === ROUTINE CARD COMPONENT ===
+  const RoutineCard = ({ routine }: { routine: Routine }) => {
+    const isChecked = checkedRoutineIds.has(routine.id);
+    const member = getMember(routine.member_id);
+    const projName = getProjectName(routine.project_id);
+    const isTeam = routine.category === "team";
+
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all group cursor-pointer ${
+          isChecked
+            ? "border-success/30 bg-success/5 opacity-70"
+            : isTeam
+              ? "border-primary/20 bg-primary/5 hover:border-primary/40"
+              : "border-accent/30 bg-accent/5 hover:border-accent/50"
+        }`}
+      >
+        <span className="text-2xl shrink-0">{routine.icon}</span>
+        <div className="flex-1 min-w-0">
+          <span className={`text-sm font-medium block ${isChecked ? "line-through text-muted-foreground" : ""}`}>
+            {routine.title}
+          </span>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {projName && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{projName}</Badge>}
+            {member && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                <User className="h-2.5 w-2.5" /> {member.name}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {member && (
+            <Avatar className="h-6 w-6 shrink-0" title={member.name}>
+              <AvatarImage src={member.avatar_url || undefined} />
+              <AvatarFallback className="text-[10px] bg-secondary">{member.name[0]}</AvatarFallback>
+            </Avatar>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-secondary">
+                <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openEditRoutine(routine)}>
+                <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleCategory(routine)}>
+                <ArrowRightLeft className="h-3.5 w-3.5 mr-2" /> Mover para {isTeam ? "Pessoal" : "Time"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => deleteRoutine(routine.id)} className="text-destructive">
+                <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Checkbox
+            checked={isChecked}
+            onCheckedChange={() => toggleRoutineCheck(routine.id)}
+            className="h-5 w-5"
+          />
+        </div>
+      </motion.div>
+    );
+  };
+
+  // === TASK ITEM COMPONENT ===
   const TaskItem = ({ card }: { card: KanbanCard }) => {
     const done = isDone(card);
     const projName = getProjectName(card.project_id);
@@ -211,11 +422,7 @@ export default function Tarefas() {
         onClick={() => setSelectedCard(card)}
       >
         <div onClick={e => e.stopPropagation()}>
-          <Checkbox
-            checked={done}
-            onCheckedChange={() => toggleDone(card)}
-            className="mt-0.5"
-          />
+          <Checkbox checked={done} onCheckedChange={() => toggleDone(card)} className="mt-0.5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -223,15 +430,11 @@ export default function Tarefas() {
             <span className={`text-sm font-medium ${done ? "line-through text-muted-foreground" : ""}`}>{card.title}</span>
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {projName && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">{projName}</Badge>
-            )}
+            {projName && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{projName}</Badge>}
             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${PRIORITY_COLORS[card.priority || "low"]}`}>
               {card.priority || "normal"}
             </Badge>
-            {!done && (
-              <span className="text-[10px] text-muted-foreground">📋 {colName}</span>
-            )}
+            {!done && <span className="text-[10px] text-muted-foreground">📋 {colName}</span>}
             {card.due_date && (
               <span className="text-[10px] font-mono text-muted-foreground">
                 {new Date(card.due_date).toLocaleDateString("pt-BR")}
@@ -255,7 +458,7 @@ export default function Tarefas() {
     );
   };
 
-  const Section = ({ title, icon, cards, color, emptyMsg }: {
+  const Section = ({ title, icon, cards: sectionCards, color, emptyMsg }: {
     title: string; icon: React.ReactNode; cards: KanbanCard[]; color: string; emptyMsg: string;
   }) => (
     <Card className="border-border">
@@ -263,25 +466,24 @@ export default function Tarefas() {
         <CardTitle className="text-base flex items-center gap-2">
           {icon}
           <span className={color}>{title}</span>
-          <Badge variant="secondary" className="ml-auto text-xs">{cards.length}</Badge>
+          <Badge variant="secondary" className="ml-auto text-xs">{sectionCards.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
-        {cards.length === 0 ? (
+        {sectionCards.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">{emptyMsg}</p>
         ) : (
-          cards.map(c => <TaskItem key={c.id} card={c} />)
+          sectionCards.map(c => <TaskItem key={c.id} card={c} />)
         )}
       </CardContent>
     </Card>
   );
 
-  const totalDone = filtered.filter(c => isDone(c)).length;
-
   if (loading) return <div className="flex items-center justify-center p-12 text-muted-foreground">Carregando...</div>;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">
@@ -307,51 +509,21 @@ export default function Tarefas() {
               doc.setFontSize(10);
               doc.setTextColor(100);
               doc.text(dateStr, 14, 25);
-              if (filterProject !== "all") {
-                const pName = projects.find(p => p.id === filterProject)?.name;
-                if (pName) doc.text(`Projeto: ${pName}`, 14, 30);
-              }
               doc.setTextColor(0);
-
               const buildRows = (list: KanbanCard[]) =>
-                list.map(c => [
-                  c.title,
-                  getProjectName(c.project_id) || "—",
-                  getMember(c.member_id)?.name || "—",
-                  c.priority || "—",
-                  c.due_date ? new Date(c.due_date).toLocaleDateString("pt-BR") : "—",
-                  getColumnName(c.column_id),
-                ]);
-
+                list.map(c => [c.title, getProjectName(c.project_id) || "—", getMember(c.member_id)?.name || "—", c.priority || "—", c.due_date ? new Date(c.due_date).toLocaleDateString("pt-BR") : "—", getColumnName(c.column_id)]);
               const head = [["Tarefa", "Projeto", "Responsável", "Prioridade", "Prazo", "Status"]];
-              let startY = 36;
-
+              let startY = 32;
               const addSection = (title: string, rows: string[][]) => {
                 if (rows.length === 0) return;
-                doc.setFontSize(12);
-                doc.setTextColor(60);
-                doc.text(title, 14, startY);
-                startY += 2;
-                autoTable(doc, {
-                  head,
-                  body: rows,
-                  startY,
-                  theme: "grid",
-                  headStyles: { fillColor: [30, 30, 30], fontSize: 8 },
-                  bodyStyles: { fontSize: 8 },
-                  margin: { left: 14, right: 14 },
-                });
+                doc.setFontSize(12); doc.setTextColor(60); doc.text(title, 14, startY); startY += 2;
+                autoTable(doc, { head, body: rows, startY, theme: "grid", headStyles: { fillColor: [30, 30, 30], fontSize: 8 }, bodyStyles: { fontSize: 8 }, margin: { left: 14, right: 14 } });
                 startY = (doc as any).lastAutoTable.finalY + 8;
               };
-
               addSection(`⚠️ Atrasadas (${overdue.length})`, buildRows(overdue));
               addSection(`🔥 Hoje (${todayCards.length})`, buildRows(todayCards));
               addSection(`⏳ Próximos 3 dias (${upcoming.length})`, buildRows(upcoming));
               addSection(`📋 Sem prazo (${noDueDate.length})`, buildRows(noDueDate));
-
-              doc.setFontSize(8);
-              doc.setTextColor(130);
-              doc.text(`Total: ${filtered.filter(c => !isDone(c)).length} pendentes · ${totalDone} concluídas · Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, doc.internal.pageSize.height - 10);
               doc.save(`tarefas_${todayStr}.pdf`);
               toast.success("PDF exportado!");
             }}>
@@ -364,8 +536,7 @@ export default function Tarefas() {
               const csv = ["Tarefa;Projeto;Responsável;Prioridade;Prazo;Status;Board", ...rows].join("\n");
               const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
               const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url; a.download = `tarefas_${todayStr}.csv`; a.click();
+              const a = document.createElement("a"); a.href = url; a.download = `tarefas_${todayStr}.csv`; a.click();
               URL.revokeObjectURL(url);
               toast.success("CSV exportado!");
             }}>
@@ -373,170 +544,239 @@ export default function Tarefas() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <div className="flex items-center gap-2">
-          <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-40 bg-secondary h-9">
-              <SelectValue placeholder="Projeto" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Projetos</SelectItem>
-              {projects.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filterMember} onValueChange={setFilterMember}>
-            <SelectTrigger className="w-40 bg-secondary h-9">
-              <SelectValue placeholder="Responsável" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {members.map(m => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </div>
 
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="border-destructive/30">
-          <CardContent className="p-3 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <div>
-              <div className="text-lg font-bold text-destructive">{overdue.length}</div>
-              <div className="text-[10px] text-muted-foreground">Atrasadas</div>
+      {/* Tabs */}
+      <Tabs defaultValue="routines" className="w-full">
+        <TabsList className="w-full justify-start bg-secondary/50">
+          <TabsTrigger value="routines" className="gap-1.5">
+            <RotateCcw className="h-3.5 w-3.5" /> Rotinas do Dia
+            <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{completedCount}/{totalRoutines}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="gap-1.5">
+            <ListTodo className="h-3.5 w-3.5" /> Tarefas
+            <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{filtered.filter(c => !isDone(c)).length}</Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ====== ROUTINES TAB ====== */}
+        <TabsContent value="routines" className="space-y-6 mt-4">
+          {/* Progress header */}
+          <Card className="border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-sm">Progresso do Dia</span>
+                </div>
+                <span className="text-2xl font-bold text-primary">{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-3" />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {completedCount} de {totalRoutines} rotinas concluídas hoje
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Team routines */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Users className="h-4 w-4" /> Rotinas do Time
+                <Badge variant="outline" className="text-[10px]">{teamRoutines.length}</Badge>
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => openNewRoutine("team")} className="h-7 text-xs">
+                <Plus className="h-3 w-3 mr-1" /> Nova Rotina
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-primary/30">
-          <CardContent className="p-3 flex items-center gap-2">
-            <Flame className="h-4 w-4 text-primary" />
-            <div>
-              <div className="text-lg font-bold text-primary">{todayCards.length}</div>
-              <div className="text-[10px] text-muted-foreground">Hoje</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <AnimatePresence>
+                {teamRoutines.map(r => <RoutineCard key={r.id} routine={r} />)}
+              </AnimatePresence>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-warning/30">
-          <CardContent className="p-3 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-warning" />
-            <div>
-              <div className="text-lg font-bold text-warning">{upcoming.length}</div>
-              <div className="text-[10px] text-muted-foreground">Próximos 3 dias</div>
+            {teamRoutines.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Nenhuma rotina de time criada. Clique em "Nova Rotina" para começar!
+              </p>
+            )}
+          </div>
+
+          {/* Personal routines */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-accent-foreground">
+                <UserCircle className="h-4 w-4" /> Minhas Rotinas
+                <Badge variant="outline" className="text-[10px]">{personalRoutines.length}</Badge>
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => openNewRoutine("personal")} className="h-7 text-xs">
+                <Plus className="h-3 w-3 mr-1" /> Nova Rotina
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-success/30">
-          <CardContent className="p-3 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-success" />
-            <div>
-              <div className="text-lg font-bold text-success">{totalDone}</div>
-              <div className="text-[10px] text-muted-foreground">Concluídas</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <AnimatePresence>
+                {personalRoutines.map(r => <RoutineCard key={r.id} routine={r} />)}
+              </AnimatePresence>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            {personalRoutines.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Nenhuma rotina pessoal. Adicione atividades que só você precisa fazer!
+              </p>
+            )}
+          </div>
+        </TabsContent>
 
-      {/* Quick add */}
-      <div className="flex gap-2 flex-wrap">
-        <Input
-          value={newTask}
-          onChange={e => setNewTask(e.target.value)}
-          placeholder="Adicionar tarefa rápida..."
-          className="bg-secondary flex-1 min-w-[200px]"
-          onKeyDown={e => e.key === "Enter" && addQuickTask()}
-        />
-        <Select value={newPriority} onValueChange={setNewPriority}>
-          <SelectTrigger className="w-28 bg-secondary">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="urgent">🔴 Urgente</SelectItem>
-            <SelectItem value="high">🟡 Alta</SelectItem>
-            <SelectItem value="medium">🟢 Média</SelectItem>
-            <SelectItem value="low">⚪ Baixa</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={newProjectId} onValueChange={setNewProjectId}>
-          <SelectTrigger className="w-36 bg-secondary">
-            <SelectValue placeholder="Projeto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sem projeto</SelectItem>
-            {projects.map(p => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={newMemberId} onValueChange={setNewMemberId}>
-          <SelectTrigger className="w-36 bg-secondary">
-            <SelectValue placeholder="Responsável" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sem responsável</SelectItem>
-            {members.map(m => (
-              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button onClick={addQuickTask} size="sm" className="shrink-0">
-          <Plus className="h-4 w-4 mr-1" /> Adicionar
-        </Button>
-      </div>
+        {/* ====== TASKS TAB ====== */}
+        <TabsContent value="tasks" className="space-y-4 mt-4">
+          {/* Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={filterProject} onValueChange={setFilterProject}>
+              <SelectTrigger className="w-40 bg-secondary h-9"><SelectValue placeholder="Projeto" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Projetos</SelectItem>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterMember} onValueChange={setFilterMember}>
+              <SelectTrigger className="w-40 bg-secondary h-9"><SelectValue placeholder="Responsável" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Sections */}
-      <div className="space-y-4">
-        {overdue.length > 0 && (
-          <Section
-            title="Atrasadas"
-            icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-            cards={overdue}
-            color="text-destructive"
-            emptyMsg=""
-          />
-        )}
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card className="border-destructive/30">
+              <CardContent className="p-3 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <div><div className="text-lg font-bold text-destructive">{overdue.length}</div><div className="text-[10px] text-muted-foreground">Atrasadas</div></div>
+              </CardContent>
+            </Card>
+            <Card className="border-primary/30">
+              <CardContent className="p-3 flex items-center gap-2">
+                <Flame className="h-4 w-4 text-primary" />
+                <div><div className="text-lg font-bold text-primary">{todayCards.length}</div><div className="text-[10px] text-muted-foreground">Hoje</div></div>
+              </CardContent>
+            </Card>
+            <Card className="border-warning/30">
+              <CardContent className="p-3 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-warning" />
+                <div><div className="text-lg font-bold text-warning">{upcoming.length}</div><div className="text-[10px] text-muted-foreground">Próximos 3 dias</div></div>
+              </CardContent>
+            </Card>
+            <Card className="border-success/30">
+              <CardContent className="p-3 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                <div><div className="text-lg font-bold text-success">{totalDone}</div><div className="text-[10px] text-muted-foreground">Concluídas</div></div>
+              </CardContent>
+            </Card>
+          </div>
 
-        <Section
-          title="Hoje"
-          icon={<Flame className="h-4 w-4 text-primary" />}
-          cards={todayCards}
-          color="text-primary"
-          emptyMsg="Nenhuma tarefa para hoje 🎉"
-        />
+          {/* Quick add */}
+          <div className="flex gap-2 flex-wrap">
+            <Input value={newTask} onChange={e => setNewTask(e.target.value)} placeholder="Adicionar tarefa rápida..." className="bg-secondary flex-1 min-w-[200px]" onKeyDown={e => e.key === "Enter" && addQuickTask()} />
+            <Select value={newPriority} onValueChange={setNewPriority}>
+              <SelectTrigger className="w-28 bg-secondary"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="urgent">🔴 Urgente</SelectItem>
+                <SelectItem value="high">🟡 Alta</SelectItem>
+                <SelectItem value="medium">🟢 Média</SelectItem>
+                <SelectItem value="low">⚪ Baixa</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={newProjectId} onValueChange={setNewProjectId}>
+              <SelectTrigger className="w-36 bg-secondary"><SelectValue placeholder="Projeto" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem projeto</SelectItem>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={newMemberId} onValueChange={setNewMemberId}>
+              <SelectTrigger className="w-36 bg-secondary"><SelectValue placeholder="Responsável" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem responsável</SelectItem>
+                {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={addQuickTask} size="sm" className="shrink-0">
+              <Plus className="h-4 w-4 mr-1" /> Adicionar
+            </Button>
+          </div>
 
-        <Section
-          title="Próximos 3 dias"
-          icon={<Clock className="h-4 w-4 text-warning" />}
-          cards={upcoming}
-          color="text-warning"
-          emptyMsg="Sem tarefas nos próximos dias"
-        />
+          {/* Task sections */}
+          <div className="space-y-4">
+            {overdue.length > 0 && <Section title="Atrasadas" icon={<AlertTriangle className="h-4 w-4 text-destructive" />} cards={overdue} color="text-destructive" emptyMsg="" />}
+            <Section title="Hoje" icon={<Flame className="h-4 w-4 text-primary" />} cards={todayCards} color="text-primary" emptyMsg="Nenhuma tarefa para hoje 🎉" />
+            <Section title="Próximos 3 dias" icon={<Clock className="h-4 w-4 text-warning" />} cards={upcoming} color="text-warning" emptyMsg="Sem tarefas nos próximos dias" />
+            {noDueDate.length > 0 && <Section title="Sem prazo definido" icon={<ListTodo className="h-4 w-4 text-muted-foreground" />} cards={noDueDate} color="text-muted-foreground" emptyMsg="" />}
+            {doneRecent.length > 0 && <Section title="Concluídas recentes" icon={<CheckCircle2 className="h-4 w-4 text-success" />} cards={doneRecent} color="text-success" emptyMsg="" />}
+          </div>
+        </TabsContent>
+      </Tabs>
 
-        {noDueDate.length > 0 && (
-          <Section
-            title="Sem prazo definido"
-            icon={<ListTodo className="h-4 w-4 text-muted-foreground" />}
-            cards={noDueDate}
-            color="text-muted-foreground"
-            emptyMsg=""
-          />
-        )}
-
-        {doneRecent.length > 0 && (
-          <Section
-            title="Concluídas recentes"
-            icon={<CheckCircle2 className="h-4 w-4 text-success" />}
-            cards={doneRecent}
-            color="text-success"
-            emptyMsg=""
-          />
-        )}
-      </div>
+      {/* Routine Dialog */}
+      <Dialog open={showRoutineDialog} onOpenChange={setShowRoutineDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingRoutine ? "Editar Rotina" : "Nova Rotina"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Título</label>
+              <Input value={routineForm.title} onChange={e => setRoutineForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Verificar Comunidade do Clube" onKeyDown={e => e.key === "Enter" && saveRoutine()} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Ícone</label>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOJI_OPTIONS.map(emoji => (
+                  <button key={emoji} onClick={() => setRoutineForm(f => ({ ...f, icon: emoji }))} className={`text-xl p-1.5 rounded-md transition-all ${routineForm.icon === emoji ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-secondary"}`}>
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Categoria</label>
+              <Select value={routineForm.category} onValueChange={v => setRoutineForm(f => ({ ...f, category: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="team">👥 Time</SelectItem>
+                  <SelectItem value="personal">👤 Pessoal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Responsável</label>
+                <Select value={routineForm.member_id} onValueChange={v => setRoutineForm(f => ({ ...f, member_id: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Projeto</label>
+                <Select value={routineForm.project_id} onValueChange={v => setRoutineForm(f => ({ ...f, project_id: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRoutineDialog(false)}>Cancelar</Button>
+            <Button onClick={saveRoutine} disabled={!routineForm.title.trim()}>
+              {editingRoutine ? "Salvar" : "Criar Rotina"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CardDetailPanel
         card={selectedCard}
