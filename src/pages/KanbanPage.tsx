@@ -381,6 +381,12 @@ export default function KanbanPage() {
                   <FolderOpen className="h-2 w-2" /> {projName}
                 </Badge>
               )}
+              {card.tags && card.tags.length > 0 && card.tags.slice(0, 2).map((tag, i) => (
+                <Badge key={i} className="text-[8px] px-1 py-0 bg-accent text-accent-foreground">{tag}</Badge>
+              ))}
+              {card.tags && card.tags.length > 2 && (
+                <span className="text-[8px] text-muted-foreground">+{card.tags.length - 2}</span>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               {checkInfo && checkInfo.total > 0 && (
