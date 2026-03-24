@@ -1,98 +1,69 @@
 
 
-# Plano: Task Detail estilo ClickUp com Custom Fields, Tarefas Relacionadas e Layout 2-colunas
+# Plano: Melhorias no Kanban Lista, Tracker e Knowledge Base
 
-## Situacao atual
+## 4 frentes de trabalho
 
-O CardDetailPanel e um Sheet lateral simples com campos fixos (responsavel, prazo, prioridade, coluna, projeto), descricao, anexos, checklist e comentarios. Falta:
-- Custom Fields (campos personalizados tipo texto, numero, select)
-- Tarefas relacionadas/correlacionadas
-- Layout mais organizado tipo ClickUp (metadados em grid compacto, activity/comments na lateral)
-- Tags editaveis
-- Estimativa de tempo
-- Data de inicio (alem do prazo)
+---
 
-## O que sera feito
+### 1. Lista do Kanban — edição inline sem abrir o detalhe
 
-### 1. Migration: tabela `imphq_card_relations`
+Atualmente a view de lista abre o painel de detalhe ao clicar na linha. Melhorias:
 
-Para vincular tarefas correlacionadas:
+- Colunas Prioridade, Responsavel, Projeto e Prazo se tornam **clicaveis com Select/Popover inline** direto na tabela (sem abrir o CardDetailPanel)
+- Prioridade: clicar no badge abre um Select inline com as 4 opcoes
+- Responsavel: clicar abre Select com membros
+- Projeto: clicar abre Select com projetos
+- Prazo: clicar abre Input date inline
+- O titulo continua abrindo o detalhe completo
+- Cada mudanca faz `supabase.update()` imediato
+
+### 2. Lista do Kanban — drag-and-drop funcional + criar tarefa inline
+
+**Drag-and-drop**: As linhas da tabela precisam de `draggable` e os grupos (CollapsibleTrigger) precisam de `onDragOver`/`onDrop` para mover o card para aquela coluna. Implementar o mesmo pattern do board view.
+
+**Criar tarefa inline**: Adicionar um botao "+" no header de cada grupo colapsavel que mostra um Input inline (titulo + Enter) para criar card rapido naquela coluna, sem abrir dialog.
+
+### 3. Tracker — data/hora inicio e fim com calculo de duracao
+
+Adicionar no formulario de criacao de link e na tabela:
+- Campos `data_inicio` (datetime-local) e `data_fim` (datetime-local) no form
+- Coluna "Duracao" calculada automaticamente (`data_fim - data_inicio`) exibida em formato legivel (ex: "3d 4h", "2h 30m")
+- Persistir via migration: `ALTER TABLE imphq_tracking_links ADD COLUMN data_inicio TIMESTAMPTZ, ADD COLUMN data_fim TIMESTAMPTZ`
+- Badge visual mostrando se a campanha esta ativa (dentro do periodo), encerrada ou agendada
+
+### 4. Knowledge Base — secoes dinamicas, subsecoes e documentos vinculados
+
+Atualmente as secoes sao hardcoded em `kbTemplates.ts`. Mudar para:
+
+**Migration**: Adicionar colunas a `imphq_kb`:
 ```sql
-CREATE TABLE imphq_card_relations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  card_id UUID REFERENCES imphq_kanban_cards(id) ON DELETE CASCADE,
-  related_card_id UUID REFERENCES imphq_kanban_cards(id) ON DELETE CASCADE,
-  relation_type TEXT DEFAULT 'related', -- related, blocks, blocked_by
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(card_id, related_card_id)
-);
+ALTER TABLE imphq_kb ADD COLUMN IF NOT EXISTS parent_key TEXT;
+ALTER TABLE imphq_kb ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false;
+ALTER TABLE imphq_kb ADD COLUMN IF NOT EXISTS doc_ids TEXT[];
 ```
+- `parent_key`: para subsecoes (aponta para o `section_key` pai)
+- `is_custom`: true = criada pelo usuario (nao template)
+- `doc_ids`: array de IDs de documentos vinculados (da tabela `imphq_content_library` ou URLs)
 
-### 2. Custom Fields via JSONB `metadata`
+**UI no Docs.tsx**:
+- Botao "Nova Secao" no sidebar — dialog pedindo titulo, icone (emoji picker), descricao
+- Subsecoes: ao clicar no "..." de uma secao, opcao "Criar Subsecao" — aparece indentada na sidebar
+- Secoes customizadas podem ser renomeadas, reordenadas e excluidas
+- Secoes template (hardcoded) nao podem ser excluidas mas podem ter subsecoes
+- Secao "Documentos Vinculados" no editor: listar docs linkados com botao para adicionar/remover
 
-O campo `metadata` (JSONB) ja existe na tabela `imphq_kanban_cards`. Usar para armazenar campos personalizados:
-```json
-{
-  "custom_fields": {
-    "contato": "Joao Silva",
-    "valor_deal": "5000",
-    "email": "joao@email.com"
-  },
-  "start_date": "2026-03-20",
-  "time_estimate": "4h"
-}
-```
+**Sidebar hierarquica**: Secoes pai mostram subsecoes indentadas abaixo, colapsaveis.
 
-Sem necessidade de migration extra -- o campo ja existe.
-
-### 3. Redesign do CardDetailPanel
-
-Inspirado no ClickUp (imagens 53-54), reorganizar o painel:
-
-**Header**: Titulo editavel grande + badge de status/board
-
-**Secao de Metadados** (grid compacto estilo ClickUp):
-- Status (coluna) | Responsavel
-- Datas: Inicio → Prazo
-- Prioridade | Projeto
-- Estimativa de tempo | Tags editaveis
-
-**Secao "Fields" (Custom Fields)**:
-- Lista de campos chave-valor editaveis inline
-- Botao "+" para adicionar novo field (nome + tipo: texto, numero, select)
-- Campos salvos no `metadata.custom_fields`
-- Cada campo tem botao de excluir ao hover
-
-**Descricao** (textarea expandivel)
-
-**Tarefas Relacionadas**:
-- Lista de cards vinculados com badge de tipo (relacionado, bloqueia, bloqueado por)
-- Botao "+" que abre um select/search dos cards existentes
-- Click no card relacionado abre o detalhe dele
-
-**Anexos** (galeria com lightbox -- ja existe)
-
-**Checklist** (ja existe)
-
-**Anotacoes/Activity** (ja existe)
-
-### 4. Tags editaveis
-
-Atualmente `tags` e um array de strings no card mas nao ha UI para editar. Adicionar:
-- Exibir tags como badges editaveis
-- Input para adicionar nova tag
-- Click no X da tag para remover
-- Auto-save no array `tags`
-
-### 5. Melhorias no card mini (KanbanPage)
-
-Mostrar tags nos cards do board quando existirem (badges pequenos coloridos).
+---
 
 ## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | Criar `imphq_card_relations` |
-| `src/components/kanban/CardDetailPanel.tsx` | Redesign completo: layout ClickUp, custom fields, tags, relacoes, datas inicio/prazo, estimativa |
-| `src/pages/KanbanPage.tsx` | Mostrar tags nos cards mini |
+| Migration SQL | Colunas no tracker (`data_inicio`, `data_fim`) + colunas no KB (`parent_key`, `is_custom`, `doc_ids`) |
+| `src/pages/KanbanPage.tsx` | Edicao inline na lista (Select/Popover por coluna), drag-and-drop na lista, criar tarefa inline no grupo |
+| `src/pages/Tracker.tsx` | Campos data/hora inicio/fim, calculo de duracao, badge de status temporal |
+| `src/pages/Docs.tsx` | Secoes dinamicas, subsecoes, sidebar hierarquica, vincular documentos, CRUD de secoes |
+| `src/data/kbTemplates.ts` | Manter como fallback/templates padrao, mas Docs.tsx passa a ler do banco primeiro |
 
