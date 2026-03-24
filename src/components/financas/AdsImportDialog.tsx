@@ -35,6 +35,11 @@ interface AdsRow {
   hold_rate: number;
   ctr: number;
   frequencia: number;
+  nivel_veiculacao: string;
+  checkouts_iniciados: number;
+  cpm: number;
+  stop_rate: number;
+  cpck: number;
 }
 
 /** Parse BRL currency strings like "1.234,56" or "R$ 1.234,56" to number */
@@ -83,25 +88,40 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
-        const parsed: AdsRow[] = result.data.map((r: any) => ({
-          campanha: get(r, "Nome da campanha", "campanha", "campaign_name", "Campaign name", "Campaign"),
-          conjunto_anuncios: get(r, "Nome do conjunto de anúncios", "Nome do conjunto de anuncios", "conjunto_anuncios", "Ad set name"),
-          anuncio: get(r, "Anúncios", "Anuncios", "anuncio", "Ad name"),
-          data_ref: get(r, "Início dos relatórios", "Inicio dos relatorios", "Início", "Inicio", "data", "date", "data_ref", "Day"),
-          valor: parseBRL(get(r, "Valor usado (BRL)", "valor", "spend", "Amount spent (BRL)", "Spend")),
-          impressoes: parseIntBR(get(r, "Impressões", "Impressoes", "impressoes", "impressions", "Impressions")),
-          alcance: parseIntBR(get(r, "Alcance", "alcance", "Reach")),
-          cliques: parseIntBR(get(r, "Cliques no link", "cliques", "clicks", "Link clicks", "Clicks")),
-          leads: parseIntBR(get(r, "Resultados", "leads", "Leads", "results", "Results")),
-          resultados: parseIntBR(get(r, "Resultados", "resultados", "Results")),
-          custo_por_resultado: parseBRL(get(r, "Custo por resultado", "custo_por_resultado", "Cost per result")),
-          compras: parseIntBR(get(r, "Compras", "compras", "Purchases")),
-          custo_por_compra: parseBRL(get(r, "Custo por compra", "custo_por_compra", "Cost per purchase")),
-          hook_rate: parsePercent(get(r, "Hook Rate", "hook_rate")),
-          hold_rate: parsePercent(get(r, "Hold Rate", "hold_rate")),
-          ctr: parsePercent(get(r, "CTR único (taxa de cliques no link)", "CTR", "ctr")),
-          frequencia: parsePercent(get(r, "Frequência", "Frequencia", "frequencia", "Frequency")),
-        }));
+        const parsed: AdsRow[] = result.data.map((r: any) => {
+          const impressoes = parseIntBR(get(r, "Impressões", "Impressoes", "impressoes", "impressions", "Impressions"));
+          const alcance = parseIntBR(get(r, "Alcance", "alcance", "Reach"));
+          const valor = parseBRL(get(r, "Valor usado (BRL)", "valor", "spend", "Amount spent (BRL)", "Spend"));
+          const checkouts = parseIntBR(get(r, "Finalizações de compra iniciadas", "Finalizacoes de compra iniciadas", "Checkouts", "Purchases initiated", "checkouts_iniciados"));
+          const calculatedCpm = impressoes > 0 ? (valor / impressoes) * 1000 : 0;
+          const calculatedStopRate = impressoes > 0 ? (alcance / impressoes) * 100 : 0;
+          const calculatedCpck = checkouts > 0 ? valor / checkouts : 0;
+
+          return {
+            campanha: get(r, "Nome da campanha", "campanha", "campaign_name", "Campaign name", "Campaign"),
+            conjunto_anuncios: get(r, "Nome do conjunto de anúncios", "Nome do conjunto de anuncios", "conjunto_anuncios", "Ad set name"),
+            anuncio: get(r, "Anúncios", "Anuncios", "anuncio", "Ad name"),
+            data_ref: get(r, "Início dos relatórios", "Inicio dos relatorios", "Início", "Inicio", "data", "date", "data_ref", "Day"),
+            valor,
+            impressoes,
+            alcance,
+            cliques: parseIntBR(get(r, "Cliques no link", "cliques", "clicks", "Link clicks", "Clicks")),
+            leads: parseIntBR(get(r, "Resultados", "leads", "Leads", "results", "Results")),
+            resultados: parseIntBR(get(r, "Resultados", "resultados", "Results")),
+            custo_por_resultado: parseBRL(get(r, "Custo por resultado", "custo_por_resultado", "Cost per result")),
+            compras: parseIntBR(get(r, "Compras", "compras", "Purchases")),
+            custo_por_compra: parseBRL(get(r, "Custo por compra", "custo_por_compra", "Cost per purchase")),
+            hook_rate: parsePercent(get(r, "Hook Rate", "hook_rate")),
+            hold_rate: parsePercent(get(r, "Hold Rate", "hold_rate")),
+            ctr: parsePercent(get(r, "CTR único (taxa de cliques no link)", "CTR", "ctr")),
+            frequencia: parsePercent(get(r, "Frequência", "Frequencia", "frequencia", "Frequency")),
+            nivel_veiculacao: get(r, "Nível de veiculação", "Nivel de veiculacao", "Level", "nivel_veiculacao") || "ad",
+            checkouts_iniciados: checkouts,
+            cpm: calculatedCpm,
+            stop_rate: calculatedStopRate,
+            cpck: calculatedCpck,
+          };
+        });
         const valid = parsed.filter(r => r.data_ref && r.valor > 0);
         setRows(valid);
         toast.success(`${valid.length} linhas válidas de ${parsed.length} carregadas`);
@@ -133,6 +153,11 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
       hold_rate: r.hold_rate,
       ctr: r.ctr,
       frequencia: r.frequencia,
+      nivel_veiculacao: r.nivel_veiculacao,
+      checkouts_iniciados: r.checkouts_iniciados,
+      cpm: r.cpm,
+      stop_rate: r.stop_rate,
+      cpck: r.cpck,
     }));
     const { error } = await supabase.from("imphq_ads_spend").insert(payload as any);
     setImporting(false);

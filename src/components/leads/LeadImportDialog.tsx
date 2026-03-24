@@ -53,7 +53,9 @@ interface MappedRow {
   phone: string;
   status_evento: string;
   valor: number;
+  valor_liquidado: number;
   produto: string;
+  produto_id_ext: string;
   metodo_pagamento: string;
   bandeira_cartao: string;
   parcelas: number;
@@ -69,9 +71,13 @@ interface MappedRow {
   raw: Record<string, string>;
 }
 
+function normalizeHeader(h: string): string {
+  return h.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
 function detectPlatform(headers: string[]): Platform {
-  const joined = headers.join(",").toLowerCase();
-  if (joined.includes("código do pedido") || joined.includes("nome da oferta") || joined.includes("código da oferta"))
+  const joined = headers.map(normalizeHeader).join(",");
+  if (joined.includes("codigo do pedido") || joined.includes("nome da oferta") || joined.includes("codigo da oferta"))
     return "ticto";
   if (joined.includes("transaction") && joined.includes("hottok"))
     return "hotmart";
@@ -83,8 +89,9 @@ function detectPlatform(headers: string[]): Platform {
 }
 
 function findCol(row: Record<string, string>, ...candidates: string[]): string {
-  for (const c of candidates) {
-    const key = Object.keys(row).find(k => k.toLowerCase().trim() === c.toLowerCase().trim());
+  const normCandidates = candidates.map(normalizeHeader);
+  for (let i = 0; i < normCandidates.length; i++) {
+    const key = Object.keys(row).find(k => normalizeHeader(k) === normCandidates[i]);
     if (key && row[key]) return row[key].trim();
   }
   return "";
@@ -100,21 +107,23 @@ function mapRow(row: Record<string, string>, platform: Platform): MappedRow {
     const bumpRaw = findCol(row, "Bump");
     return {
       nome: findCol(row, "Nome do Cliente"),
-      email: findCol(row, "E-mail do Cliente"),
+      email: findCol(row, "E-mail do Cliente", "E-mail do cliente"),
       phone: findCol(row, "Telefone Completo do Cliente", "Telefone Completo"),
       status_evento: STATUS_MAP_TICTO[statusRaw] || statusRaw.toLowerCase(),
       valor: parseNum(findCol(row, "Valor Pago")),
+      valor_liquidado: parseNum(findCol(row, "Valor Liquidado")),
       produto: findCol(row, "Nome do Produto"),
-      metodo_pagamento: findCol(row, "Método de Pagamento"),
-      bandeira_cartao: findCol(row, "Bandeira do Cartão"),
+      produto_id_ext: findCol(row, "Id do Produto", "ID do Produto"),
+      metodo_pagamento: findCol(row, "Método de Pagamento", "Metodo de Pagamento"),
+      bandeira_cartao: findCol(row, "Bandeira do Cartão", "Bandeira do Cartao"),
       parcelas: parseInt(findCol(row, "Quantidade de Parcelas") || "1") || 1,
       bump: bumpRaw.toLowerCase() === "sim" || bumpRaw.toLowerCase() === "yes",
-      codigo_pedido: findCol(row, "Código do Pedido"),
-      codigo_transacao: findCol(row, "Código da Transação"),
+      codigo_pedido: findCol(row, "Código do Pedido", "Codigo do Pedido"),
+      codigo_transacao: findCol(row, "Código da Transação", "Codigo da Transacao"),
       data_pedido: findCol(row, "Data"),
       documento: findCol(row, "CPF/CNPJ do Cliente", "CPF do Cliente"),
       oferta: findCol(row, "Nome da Oferta"),
-      comissao_produtor: parseNum(findCol(row, "Comissão Produtor", "Comissão do Produtor")),
+      comissao_produtor: parseNum(findCol(row, "Comissão Produtor", "Comissão do Produtor", "Comissao Produtor")),
       utms: {
         utm_source: findCol(row, "utm_source", "Fonte de Tráfego", "Fonte de Trafego"),
         utm_campaign: findCol(row, "utm_campaign", "Campanha"),
@@ -127,7 +136,7 @@ function mapRow(row: Record<string, string>, platform: Platform): MappedRow {
       geo: {
         city: findCol(row, "tracking_city", "Cidade"),
         state: findCol(row, "tracking_state", "Estado"),
-        country: findCol(row, "tracking_country", "País"),
+        country: findCol(row, "tracking_country", "País", "Pais"),
       },
       raw: row,
     };
@@ -140,7 +149,9 @@ function mapRow(row: Record<string, string>, platform: Platform): MappedRow {
       phone: findCol(row, "buyer_phone", "Telefone"),
       status_evento: STATUS_MAP_HOTMART[statusRaw] || statusRaw.toLowerCase(),
       valor: parseNum(findCol(row, "price", "Valor")),
+      valor_liquidado: 0,
       produto: findCol(row, "product_name", "Produto"),
+      produto_id_ext: "",
       metodo_pagamento: findCol(row, "payment_type", "Método de Pagamento"),
       bandeira_cartao: "",
       parcelas: parseInt(findCol(row, "installments") || "1") || 1,
@@ -168,7 +179,9 @@ function mapRow(row: Record<string, string>, platform: Platform): MappedRow {
     phone: findCol(row, "customer_mobile", "Telefone"),
     status_evento: STATUS_MAP_KIWIFY[statusRaw] || statusRaw.toLowerCase(),
     valor: parseNum(findCol(row, "sale_amount", "Valor")),
+    valor_liquidado: 0,
     produto: findCol(row, "product_name", "Produto"),
+    produto_id_ext: "",
     metodo_pagamento: findCol(row, "payment_method", "Método"),
     bandeira_cartao: "",
     parcelas: parseInt(findCol(row, "installments") || "1") || 1,
@@ -203,22 +216,35 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
     if (!file) return;
     setResult(null);
 
+    const processResults = (results: any) => {
+      const headers = results.meta.fields || [];
+      setRawHeaders(headers);
+      const detected = detectPlatform(headers);
+      setDetectedPlatform(detected);
+      const usePlatform = platform === "auto" ? detected : platform;
+      const mapped = (results.data as Record<string, string>[])
+        .map(r => mapRow(r, usePlatform))
+        .filter(r => r.email);
+      setRows(mapped);
+    };
+
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
       complete: (results) => {
         const headers = results.meta.fields || [];
-        setRawHeaders(headers);
-        const detected = detectPlatform(headers);
-        setDetectedPlatform(detected);
-        const usePlatform = platform === "auto" ? detected : platform;
-
-        const mapped = (results.data as Record<string, string>[])
-          .map(r => mapRow(r, usePlatform))
-          .filter(r => r.email);
-
-        setRows(mapped);
+        const hasGarbled = headers.some(h => /[\ufffd]/.test(h) || /Ã[¡-¼]/.test(h));
+        if (hasGarbled) {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            encoding: "latin1",
+            complete: (r2) => processResults(r2),
+          });
+          return;
+        }
+        processResults(results);
       },
     });
   }, [platform]);
@@ -297,6 +323,9 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
           data_pedido: r.data_pedido || undefined,
           oferta: r.oferta || undefined,
           comissao_produtor: r.comissao_produtor || undefined,
+          valor_liquidado: r.valor_liquidado || undefined,
+          conjunto_anuncios: r.utms.utm_term || undefined,
+          anuncio: r.utms.utm_content || undefined,
         };
         Object.keys(vendaData).forEach(k => vendaData[k] === undefined && delete vendaData[k]);
 
@@ -304,13 +333,16 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
           id: crypto.randomUUID(),
           lead_id: leadId,
           project_id: pid,
-          produto: r.produto,
+          produto_nome: r.produto,
+          produto_id_ext: r.produto_id_ext || null,
           valor: r.valor,
           plataforma: platformLabel,
           status: r.status_evento === "compra_aprovada" ? "aprovado" : r.status_evento,
           utm_source: r.utms.utm_source || r.utms.src || null,
           utm_medium: r.utms.utm_medium || null,
           utm_campaign: r.utms.utm_campaign || null,
+          utm_content: r.utms.utm_content || null,
+          utm_term: r.utms.utm_term || null,
           data: vendaData as any,
         });
         sales++;

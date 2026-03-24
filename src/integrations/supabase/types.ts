@@ -8588,9 +8588,12 @@ export type Database = {
           alcance: number | null
           anuncio: string | null
           campanha: string | null
+          checkouts_iniciados: number | null
           cliques: number | null
           compras: number | null
           conjunto_anuncios: string | null
+          cpck: number | null
+          cpm: number | null
           created_at: string | null
           ctr: number | null
           custo_por_compra: number | null
@@ -8603,18 +8606,23 @@ export type Database = {
           impressoes: number | null
           leads: number | null
           moeda: string | null
+          nivel_veiculacao: string | null
           plataforma: string
           project_id: string | null
           resultados: number | null
+          stop_rate: number | null
           valor: number
         }
         Insert: {
           alcance?: number | null
           anuncio?: string | null
           campanha?: string | null
+          checkouts_iniciados?: number | null
           cliques?: number | null
           compras?: number | null
           conjunto_anuncios?: string | null
+          cpck?: number | null
+          cpm?: number | null
           created_at?: string | null
           ctr?: number | null
           custo_por_compra?: number | null
@@ -8627,18 +8635,23 @@ export type Database = {
           impressoes?: number | null
           leads?: number | null
           moeda?: string | null
+          nivel_veiculacao?: string | null
           plataforma?: string
           project_id?: string | null
           resultados?: number | null
+          stop_rate?: number | null
           valor?: number
         }
         Update: {
           alcance?: number | null
           anuncio?: string | null
           campanha?: string | null
+          checkouts_iniciados?: number | null
           cliques?: number | null
           compras?: number | null
           conjunto_anuncios?: string | null
+          cpck?: number | null
+          cpm?: number | null
           created_at?: string | null
           ctr?: number | null
           custo_por_compra?: number | null
@@ -8651,9 +8664,11 @@ export type Database = {
           impressoes?: number | null
           leads?: number | null
           moeda?: string | null
+          nivel_veiculacao?: string | null
           plataforma?: string
           project_id?: string | null
           resultados?: number | null
+          stop_rate?: number | null
           valor?: number
         }
         Relationships: [
