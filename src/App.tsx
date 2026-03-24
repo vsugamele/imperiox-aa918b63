@@ -49,6 +49,7 @@ const App = () => (
               <Route path="projetos/:id" element={<ProjetoDetalhe />} />
               <Route path="kanban" element={<KanbanPage />} />
               <Route path="tarefas" element={<Tarefas />} />
+              <Route path="chat" element={<Chat />} />
               <Route path="leads" element={<Leads />} />
               <Route path="financas" element={<Financas />} />
               <Route path="market-intel" element={<MarketIntel />} />

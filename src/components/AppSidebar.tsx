@@ -15,6 +15,7 @@ const mainItems = [
   { title: "Projetos", url: "/projetos", icon: FolderKanban, color: "text-primary" },
   { title: "Kanban", url: "/kanban", icon: Kanban, color: "text-primary" },
   { title: "Tarefas", url: "/tarefas", icon: ListTodo, color: "text-primary" },
+  { title: "Chat", url: "/chat", icon: MessageCircle, color: "text-primary" },
 ];
 
 const crmItems = [

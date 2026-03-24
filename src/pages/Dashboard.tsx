@@ -294,6 +294,9 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Activity Feed */}
+      <ActivityFeed />
+
       {/* Growth Dashboard */}
       <GrowthDashboard />
     </div>
