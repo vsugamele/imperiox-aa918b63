@@ -8872,6 +8872,41 @@ export type Database = {
           },
         ]
       }
+      imphq_card_attachments: {
+        Row: {
+          card_id: string
+          created_at: string | null
+          file_name: string
+          file_type: string | null
+          file_url: string
+          id: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string | null
+          file_name: string
+          file_type?: string | null
+          file_url: string
+          id?: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_type?: string | null
+          file_url?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_card_attachments_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_kanban_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_card_checklists: {
         Row: {
           card_id: string

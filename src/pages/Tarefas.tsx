@@ -545,6 +545,7 @@ export default function Tarefas() {
         onUpdate={fetchData}
         columns={columns}
         members={members}
+        projects={projects}
       />
     </div>
   );
