@@ -12,7 +12,7 @@ import { ProjetoExpert } from "@/components/projeto/ProjetoExpert";
 import { ProjetoAvatar } from "@/components/projeto/ProjetoAvatar";
 import { ProjetoBranding } from "@/components/projeto/ProjetoBranding";
 import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
-import { ProjetoPipeline } from "@/components/projeto/ProjetoPipeline";
+import { ProjetoPesquisa } from "@/components/projeto/ProjetoPesquisa";
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
