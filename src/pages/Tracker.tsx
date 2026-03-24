@@ -133,10 +133,11 @@ export default function Tracker() {
       utm_source: form.utm_source || null, utm_medium: form.utm_medium || null,
       utm_campaign: form.utm_campaign || null, utm_content: form.utm_content || null,
       utm_term: form.utm_term || null, ativo: true,
-    });
+      data_inicio: form.data_inicio || null, data_fim: form.data_fim || null,
+    } as any);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Link criado!"); setShowNew(false);
-    setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
+    setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
     load();
   };
 
