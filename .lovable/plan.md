@@ -1,42 +1,55 @@
 
 
-# Plano: Edição na Empresa + Conexões Visuais no Funil + Busca de Projeto/Produtos
+# Plano: Produtos do Briefing nos Custos/Receitas + Campos extras na Receita + Links nos Produtos
 
-## 1. Edição inline na Empresa (`src/pages/Empresa.tsx`)
+## Resumo
 
-Atualmente, contas só podem ser adicionadas e removidas. Falta editar.
+Três melhorias para cruzar melhor os dados financeiros com os produtos do projeto:
 
-- Adicionar estado `editingConta` e abrir o dialog de criação no modo edição (pré-preenchido)
-- Botão de lápis (Pencil) em cada linha da tabela
-- Ao salvar, fazer `supabase.update()` em vez de `insert()`
-- Reutilizar o mesmo dialog já existente com lógica dual-purpose (add/edit)
+1. **Selecionar produto do briefing** nos formulários de custo e receita (em vez de digitar texto livre)
+2. **Campos extras na receita**: PIX (chave/número), data de pagamento, plataforma de origem (Ticto, Hotmart, etc.)
+3. **Múltiplos links por produto** no briefing
 
-## 2. Conexões visuais interativas no Funil (`src/pages/Funis.tsx`)
+## 1. Migration: novos campos em `imphq_project_revenue`
 
-Atualmente as conexões são feitas digitando índices num input texto (`connects_to: "1,2"`). Melhorias:
+```sql
+ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS pix_info TEXT;
+ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS data_pagamento DATE;
+ALTER TABLE imphq_project_revenue ADD COLUMN IF NOT EXISTS plataforma TEXT;
+```
 
-### 2a. Deletar conexões
-- Tornar as linhas SVG dos conectores clicáveis (aumentar `pointer-events` na path)
-- Ao clicar numa conexão, mostrar um botão de deletar (ou deletar direto com confirmação)
-- Remover o índice do array `connects_to` da etapa de origem
+- `pix_info`: chave PIX, número do comprovante, etc.
+- `data_pagamento`: data efetiva do pagamento (diferente de `data_ref` que é referência contábil)
+- `plataforma`: Hotmart, Kiwify, Ticto, Stripe, PIX, etc.
 
-### 2b. Criar conexões visualmente
-- Adicionar um pequeno "dot" (ponto de conexão) no lado direito de cada card
-- Ao clicar e arrastar desse ponto até outro card, criar a conexão (`connects_to`)
-- Estado: `connectingFrom` (índice do card de origem) + detectar drop em outro card
-- Manter o input de texto como fallback para edição manual
+## 2. Formulário de Receita — melhorias (`ProjetoFinancas.tsx`)
 
-## 3. Busca de Projeto e Produtos no Funil
+- **Produto**: trocar `Input` por `Select` que lista os produtos do briefing (`project.data.produtos`). O componente precisa receber o `project` como prop (ou carregar o projeto pelo `projectId`)
+- Adicionar campos: PIX Info, Data de Pagamento, Plataforma (select com opções: Hotmart, Kiwify, Ticto, Stripe, PIX, Manual, Outro)
+- Tabela de receitas: mostrar colunas Plataforma e Data Pagamento
 
-Na view de lista e no canvas, permitir buscar/filtrar:
+## 3. Formulário de Custo — selecionar produto
 
-- Adicionar campo `Input` de busca textual na listagem de funis (filtra por nome do funil ou nome do projeto)
-- No canvas, adicionar busca/select de produtos do projeto vinculado para referência rápida (exibir produtos do briefing no header do canvas se houver `project_id`)
+- Adicionar campo opcional "Produto" no custo também (mesmo select do briefing), para poder filtrar custos por produto
+- Requer `ALTER TABLE imphq_project_costs ADD COLUMN IF NOT EXISTS produto_nome TEXT`
+
+## 4. Múltiplos links por produto (`ProjetoBriefing.tsx`)
+
+Atualmente cada produto tem um campo `link` (string). Mudar para `links` (array de strings):
+- Renderizar lista de inputs com botão "+" para adicionar mais
+- Botão "x" em cada link para remover
+- Manter compatibilidade: se `link` existe e `links` não, migrar automaticamente no render
+
+## 5. Aba Produtos — mostrar dados do briefing + vendas cruzadas
+
+Passar os produtos do briefing para `FinancasProdutos` para exibir todos os produtos (mesmo sem vendas) e cruzar com receitas manuais que têm `produto_nome`.
 
 ## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Empresa.tsx` | Dialog dual-purpose add/edit, botão editar na tabela |
-| `src/pages/Funis.tsx` | Conexões clicáveis/deletáveis, drag-to-connect, busca textual, exibir produtos do projeto |
+| Migration SQL | Adicionar `pix_info`, `data_pagamento`, `plataforma` em revenue + `produto_nome` em costs |
+| `src/components/projeto/ProjetoFinancas.tsx` | Carregar projeto, select de produtos, campos extras no form de receita e custo |
+| `src/components/projeto/ProjetoBriefing.tsx` | Suporte a múltiplos links por produto |
+| `src/components/financas/FinancasProdutos.tsx` | Receber produtos do briefing como prop, cruzar com receitas |
 
