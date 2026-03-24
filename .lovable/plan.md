@@ -1,69 +1,40 @@
 
 
-# Plano: Melhorias no Kanban Lista, Tracker e Knowledge Base
+# Plano: Knowledge Base Dinamica + Fix Drag-and-Drop na Lista
 
-## 4 frentes de trabalho
+## 2 frentes
 
----
+### 1. Knowledge Base — secoes dinamicas, subsecoes e documentos vinculados
 
-### 1. Lista do Kanban — edição inline sem abrir o detalhe
+As colunas `parent_key`, `is_custom`, `doc_ids` ja existem na tabela `imphq_kb` (migration anterior).
 
-Atualmente a view de lista abre o painel de detalhe ao clicar na linha. Melhorias:
+**Mudancas no `Docs.tsx`**:
 
-- Colunas Prioridade, Responsavel, Projeto e Prazo se tornam **clicaveis com Select/Popover inline** direto na tabela (sem abrir o CardDetailPanel)
-- Prioridade: clicar no badge abre um Select inline com as 4 opcoes
-- Responsavel: clicar abre Select com membros
-- Projeto: clicar abre Select com projetos
-- Prazo: clicar abre Input date inline
-- O titulo continua abrindo o detalhe completo
-- Cada mudanca faz `supabase.update()` imediato
+- Carregar secoes do banco (`imphq_kb` com `is_custom = true`) e mesclar com `KB_SECTIONS` como fallback
+- Sidebar hierarquica: secoes template + secoes customizadas; subsecoes (entries com `parent_key`) indentadas abaixo do pai
+- Botao "Nova Secao" no sidebar com dialog (titulo, emoji/icone, descricao)
+- Menu "..." em cada secao com opcoes: "Criar Subsecao", "Renomear" (so custom), "Excluir" (so custom)
+- Secoes template sao imutaveis mas aceitam subsecoes
+- No editor, secao "Documentos Vinculados" abaixo do textarea: lista docs linkados (do `doc_ids`), botao para adicionar/remover (busca na `imphq_docs`)
+- Contadores atualizados no sidebar (total de secoes template + custom)
 
-### 2. Lista do Kanban — drag-and-drop funcional + criar tarefa inline
+**Manter `kbTemplates.ts` intacto** como fonte de templates padrao.
 
-**Drag-and-drop**: As linhas da tabela precisam de `draggable` e os grupos (CollapsibleTrigger) precisam de `onDragOver`/`onDrop` para mover o card para aquela coluna. Implementar o mesmo pattern do board view.
+### 2. Fix drag-and-drop na view de lista do Kanban
 
-**Criar tarefa inline**: Adicionar um botao "+" no header de cada grupo colapsavel que mostra um Input inline (titulo + Enter) para criar card rapido naquela coluna, sem abrir dialog.
+O problema atual: o `onDragOver` e `onDrop` estao no `CollapsibleTrigger` div (header do grupo), mas quando o usuario arrasta sobre as linhas da tabela dentro do grupo, o drop nao funciona porque a area da tabela nao tem handlers.
 
-### 3. Tracker — data/hora inicio e fim com calculo de duracao
+**Fix no `KanbanPage.tsx`**:
 
-Adicionar no formulario de criacao de link e na tabela:
-- Campos `data_inicio` (datetime-local) e `data_fim` (datetime-local) no form
-- Coluna "Duracao" calculada automaticamente (`data_fim - data_inicio`) exibida em formato legivel (ex: "3d 4h", "2h 30m")
-- Persistir via migration: `ALTER TABLE imphq_tracking_links ADD COLUMN data_inicio TIMESTAMPTZ, ADD COLUMN data_fim TIMESTAMPTZ`
-- Badge visual mostrando se a campanha esta ativa (dentro do periodo), encerrada ou agendada
-
-### 4. Knowledge Base — secoes dinamicas, subsecoes e documentos vinculados
-
-Atualmente as secoes sao hardcoded em `kbTemplates.ts`. Mudar para:
-
-**Migration**: Adicionar colunas a `imphq_kb`:
-```sql
-ALTER TABLE imphq_kb ADD COLUMN IF NOT EXISTS parent_key TEXT;
-ALTER TABLE imphq_kb ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false;
-ALTER TABLE imphq_kb ADD COLUMN IF NOT EXISTS doc_ids TEXT[];
-```
-- `parent_key`: para subsecoes (aponta para o `section_key` pai)
-- `is_custom`: true = criada pelo usuario (nao template)
-- `doc_ids`: array de IDs de documentos vinculados (da tabela `imphq_content_library` ou URLs)
-
-**UI no Docs.tsx**:
-- Botao "Nova Secao" no sidebar — dialog pedindo titulo, icone (emoji picker), descricao
-- Subsecoes: ao clicar no "..." de uma secao, opcao "Criar Subsecao" — aparece indentada na sidebar
-- Secoes customizadas podem ser renomeadas, reordenadas e excluidas
-- Secoes template (hardcoded) nao podem ser excluidas mas podem ter subsecoes
-- Secao "Documentos Vinculados" no editor: listar docs linkados com botao para adicionar/remover
-
-**Sidebar hierarquica**: Secoes pai mostram subsecoes indentadas abaixo, colapsaveis.
-
----
+- Adicionar `onDragOver` e `onDrop` no wrapper do `CollapsibleContent` (nao so no header), para que arrastar sobre qualquer parte do grupo funcione
+- Adicionar visual feedback: highlight no grupo quando um card esta sendo arrastado sobre ele (ex: borda azul ou bg highlight)
+- Garantir que o `DragEvent` type casting esta correto (`React.DragEvent<HTMLDivElement>` em vez de `DragEvent`)
+- Adicionar `onDragEnd` para limpar o `dragCardId` caso o drop nao ocorra
 
 ## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | Colunas no tracker (`data_inicio`, `data_fim`) + colunas no KB (`parent_key`, `is_custom`, `doc_ids`) |
-| `src/pages/KanbanPage.tsx` | Edicao inline na lista (Select/Popover por coluna), drag-and-drop na lista, criar tarefa inline no grupo |
-| `src/pages/Tracker.tsx` | Campos data/hora inicio/fim, calculo de duracao, badge de status temporal |
-| `src/pages/Docs.tsx` | Secoes dinamicas, subsecoes, sidebar hierarquica, vincular documentos, CRUD de secoes |
-| `src/data/kbTemplates.ts` | Manter como fallback/templates padrao, mas Docs.tsx passa a ler do banco primeiro |
+| `src/pages/Docs.tsx` | Reescrever: sidebar hierarquica, CRUD de secoes/subsecoes, vincular docs |
+| `src/pages/KanbanPage.tsx` | Fix drag-and-drop: handlers no CollapsibleContent, visual feedback, type fixes |
 
