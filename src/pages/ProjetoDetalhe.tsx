@@ -136,7 +136,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="avatar">🎭 Avatar</TabsTrigger>
           <TabsTrigger value="branding">🎨 Branding</TabsTrigger>
           <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
-          <TabsTrigger value="pipeline">⚡ Pipeline</TabsTrigger>
+          <TabsTrigger value="pesquisa">🔬 Pesquisa</TabsTrigger>
           <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
