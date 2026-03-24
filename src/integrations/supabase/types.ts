@@ -9834,8 +9834,11 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string | null
+          doc_ids: string[] | null
           id: string
+          is_custom: boolean | null
           order_idx: number | null
+          parent_key: string | null
           section_key: string
           title: string
           updated_at: string | null
@@ -9843,8 +9846,11 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string | null
+          doc_ids?: string[] | null
           id: string
+          is_custom?: boolean | null
           order_idx?: number | null
+          parent_key?: string | null
           section_key: string
           title: string
           updated_at?: string | null
@@ -9852,8 +9858,11 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string | null
+          doc_ids?: string[] | null
           id?: string
+          is_custom?: boolean | null
           order_idx?: number | null
+          parent_key?: string | null
           section_key?: string
           title?: string
           updated_at?: string | null
@@ -10751,6 +10760,8 @@ export type Database = {
         Row: {
           ativo: boolean | null
           created_at: string | null
+          data_fim: string | null
+          data_inicio: string | null
           destino: string
           id: string
           nome: string | null
@@ -10766,6 +10777,8 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
           destino: string
           id: string
           nome?: string | null
@@ -10781,6 +10794,8 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
           destino?: string
           id?: string
           nome?: string | null
