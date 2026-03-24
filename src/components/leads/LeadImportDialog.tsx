@@ -107,21 +107,23 @@ function mapRow(row: Record<string, string>, platform: Platform): MappedRow {
     const bumpRaw = findCol(row, "Bump");
     return {
       nome: findCol(row, "Nome do Cliente"),
-      email: findCol(row, "E-mail do Cliente"),
+      email: findCol(row, "E-mail do Cliente", "E-mail do cliente"),
       phone: findCol(row, "Telefone Completo do Cliente", "Telefone Completo"),
       status_evento: STATUS_MAP_TICTO[statusRaw] || statusRaw.toLowerCase(),
       valor: parseNum(findCol(row, "Valor Pago")),
+      valor_liquidado: parseNum(findCol(row, "Valor Liquidado")),
       produto: findCol(row, "Nome do Produto"),
-      metodo_pagamento: findCol(row, "Método de Pagamento"),
-      bandeira_cartao: findCol(row, "Bandeira do Cartão"),
+      produto_id_ext: findCol(row, "Id do Produto", "ID do Produto"),
+      metodo_pagamento: findCol(row, "Método de Pagamento", "Metodo de Pagamento"),
+      bandeira_cartao: findCol(row, "Bandeira do Cartão", "Bandeira do Cartao"),
       parcelas: parseInt(findCol(row, "Quantidade de Parcelas") || "1") || 1,
       bump: bumpRaw.toLowerCase() === "sim" || bumpRaw.toLowerCase() === "yes",
-      codigo_pedido: findCol(row, "Código do Pedido"),
-      codigo_transacao: findCol(row, "Código da Transação"),
+      codigo_pedido: findCol(row, "Código do Pedido", "Codigo do Pedido"),
+      codigo_transacao: findCol(row, "Código da Transação", "Codigo da Transacao"),
       data_pedido: findCol(row, "Data"),
       documento: findCol(row, "CPF/CNPJ do Cliente", "CPF do Cliente"),
       oferta: findCol(row, "Nome da Oferta"),
-      comissao_produtor: parseNum(findCol(row, "Comissão Produtor", "Comissão do Produtor")),
+      comissao_produtor: parseNum(findCol(row, "Comissão Produtor", "Comissão do Produtor", "Comissao Produtor")),
       utms: {
         utm_source: findCol(row, "utm_source", "Fonte de Tráfego", "Fonte de Trafego"),
         utm_campaign: findCol(row, "utm_campaign", "Campanha"),
@@ -134,7 +136,7 @@ function mapRow(row: Record<string, string>, platform: Platform): MappedRow {
       geo: {
         city: findCol(row, "tracking_city", "Cidade"),
         state: findCol(row, "tracking_state", "Estado"),
-        country: findCol(row, "tracking_country", "País"),
+        country: findCol(row, "tracking_country", "País", "Pais"),
       },
       raw: row,
     };
