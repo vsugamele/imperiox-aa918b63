@@ -20,6 +20,7 @@ interface TrackingLink {
   utm_source?: string; utm_medium?: string; utm_campaign?: string;
   utm_content?: string; utm_term?: string; ativo: boolean;
   created_at: string; clickCount?: number;
+  data_inicio?: string; data_fim?: string;
 }
 
 interface KPITargets {
@@ -76,7 +77,7 @@ export default function Tracker() {
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [filterPlataforma, setFilterPlataforma] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
-  const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
+  const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
 
   const load = async () => {
     const [lRes, cRes, vRes, pRes] = await Promise.all([
@@ -132,10 +133,11 @@ export default function Tracker() {
       utm_source: form.utm_source || null, utm_medium: form.utm_medium || null,
       utm_campaign: form.utm_campaign || null, utm_content: form.utm_content || null,
       utm_term: form.utm_term || null, ativo: true,
-    });
+      data_inicio: form.data_inicio || null, data_fim: form.data_fim || null,
+    } as any);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Link criado!"); setShowNew(false);
-    setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "" });
+    setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
     load();
   };
 
@@ -406,36 +408,57 @@ export default function Tracker() {
                   <TableHead>Plataforma</TableHead>
                   <TableHead>Projeto</TableHead>
                   <TableHead>Source</TableHead>
-                  <TableHead>Medium</TableHead>
                   <TableHead>Campaign</TableHead>
+                  <TableHead>Duração</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Clicks</TableHead>
                   <TableHead>Ativo</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLinks.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell className="font-medium">{l.nome}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-[10px] ${PLATAFORMA_COLORS[l.plataforma || "Outro"] || PLATAFORMA_COLORS["Outro"]}`}>
-                        {l.plataforma || "—"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{projectName(l.project_id)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.utm_source || "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.utm_medium || "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{l.utm_campaign || "—"}</TableCell>
-                    <TableCell className="font-mono text-primary">{l.clickCount ?? 0}</TableCell>
-                    <TableCell><Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} /></TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => deleteLink(l.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredLinks.map((l) => {
+                  const now = new Date();
+                  const start = l.data_inicio ? new Date(l.data_inicio) : null;
+                  const end = l.data_fim ? new Date(l.data_fim) : null;
+                  let campaignStatus = "—";
+                  let statusClass = "text-muted-foreground";
+                  if (start && end) {
+                    if (now < start) { campaignStatus = "Agendado"; statusClass = "text-blue-400"; }
+                    else if (now > end) { campaignStatus = "Encerrado"; statusClass = "text-muted-foreground"; }
+                    else { campaignStatus = "Ativo"; statusClass = "text-emerald-400"; }
+                  }
+                  let duration = "—";
+                  if (start && end) {
+                    const diffMs = end.getTime() - start.getTime();
+                    const days = Math.floor(diffMs / 86400000);
+                    const hours = Math.floor((diffMs % 86400000) / 3600000);
+                    duration = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+                  }
+                  return (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-medium">{l.nome}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[10px] ${PLATAFORMA_COLORS[l.plataforma || "Outro"] || PLATAFORMA_COLORS["Outro"]}`}>
+                          {l.plataforma || "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{projectName(l.project_id)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{l.utm_source || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{l.utm_campaign || "—"}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{duration}</TableCell>
+                      <TableCell><span className={`text-xs font-medium ${statusClass}`}>{campaignStatus}</span></TableCell>
+                      <TableCell className="font-mono text-primary">{l.clickCount ?? 0}</TableCell>
+                      <TableCell><Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} /></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => deleteLink(l.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -491,6 +514,10 @@ export default function Tracker() {
               <div><Label>utm_campaign</Label><Input value={form.utm_campaign} onChange={e => setForm({ ...form, utm_campaign: e.target.value })} /></div>
               <div><Label>utm_content</Label><Input value={form.utm_content} onChange={e => setForm({ ...form, utm_content: e.target.value })} /></div>
               <div><Label>utm_term</Label><Input value={form.utm_term} onChange={e => setForm({ ...form, utm_term: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Data Início</Label><Input type="datetime-local" value={form.data_inicio} onChange={e => setForm({ ...form, data_inicio: e.target.value })} /></div>
+              <div><Label>Data Fim</Label><Input type="datetime-local" value={form.data_fim} onChange={e => setForm({ ...form, data_fim: e.target.value })} /></div>
             </div>
             {form.destino && (
               <div className="p-2 bg-secondary rounded text-xs text-muted-foreground break-all">
