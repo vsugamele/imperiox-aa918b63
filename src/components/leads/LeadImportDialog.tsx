@@ -53,7 +53,9 @@ interface MappedRow {
   phone: string;
   status_evento: string;
   valor: number;
+  valor_liquidado: number;
   produto: string;
+  produto_id_ext: string;
   metodo_pagamento: string;
   bandeira_cartao: string;
   parcelas: number;
