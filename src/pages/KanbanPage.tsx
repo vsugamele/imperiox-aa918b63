@@ -822,6 +822,7 @@ export default function KanbanPage() {
                           </TableBody>
                         </Table>
                       ) : null}
+                      </div>
                     </CollapsibleContent>
                   </Collapsible>
                 );
