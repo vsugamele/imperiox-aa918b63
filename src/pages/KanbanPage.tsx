@@ -632,17 +632,75 @@ export default function KanbanPage() {
                 return (
                   <Collapsible key={col.id} open={!isCollapsed} onOpenChange={() => toggleGroup(col.id)}>
                     <CollapsibleTrigger asChild>
-                      <div className={`rounded-md ${config.headerBg} px-4 py-2.5 flex items-center gap-2 cursor-pointer hover:opacity-80`}>
+                      <div
+                        className={`rounded-md ${config.headerBg} px-4 py-2.5 flex items-center gap-2 cursor-pointer hover:opacity-80`}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, col.id)}
+                      >
                         {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                         {config.icon}
                         <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">{col.title}</span>
                         <Badge variant="outline" className="text-[10px] h-5 ml-1">{colCards.length}</Badge>
+                        <button
+                          className="ml-auto h-5 w-5 flex items-center justify-center rounded hover:bg-background/50"
+                          onClick={(e) => { e.stopPropagation(); setInlineCreateCol(inlineCreateCol === col.id ? null : col.id); setInlineCreateTitle(""); }}
+                          title="Criar tarefa"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
                       </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      {colCards.length === 0 ? (
+                      {/* Inline create */}
+                      {inlineCreateCol === col.id && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-muted/30">
+                          <Input
+                            value={inlineCreateTitle}
+                            onChange={e => setInlineCreateTitle(e.target.value)}
+                            placeholder="Título da tarefa..."
+                            className="h-7 text-sm flex-1"
+                            autoFocus
+                            onKeyDown={async (e) => {
+                              if (e.key === "Enter" && inlineCreateTitle.trim()) {
+                                const board = activeBoard === "geral" ? "agentes" : activeBoard;
+                                let targetColId = col.id;
+                                if (activeBoard === "geral") {
+                                  const boardCol = allColumns.find(c => c.board === board && normalizeColTitle(c.title) === colTitle);
+                                  if (boardCol) targetColId = boardCol.id;
+                                }
+                                await supabase.from("imphq_kanban_cards").insert({
+                                  column_id: targetColId, title: inlineCreateTitle.trim(), priority: "medium",
+                                  board, position: allCards.filter(c => c.column_id === targetColId).length, tags: [],
+                                });
+                                toast.success("Tarefa criada!");
+                                setInlineCreateCol(null); setInlineCreateTitle("");
+                                loadAllData();
+                              } else if (e.key === "Escape") {
+                                setInlineCreateCol(null); setInlineCreateTitle("");
+                              }
+                            }}
+                          />
+                          <Button size="sm" className="h-7 text-xs" onClick={async () => {
+                            if (!inlineCreateTitle.trim()) return;
+                            const board = activeBoard === "geral" ? "agentes" : activeBoard;
+                            let targetColId = col.id;
+                            if (activeBoard === "geral") {
+                              const boardCol = allColumns.find(c => c.board === board && normalizeColTitle(c.title) === colTitle);
+                              if (boardCol) targetColId = boardCol.id;
+                            }
+                            await supabase.from("imphq_kanban_cards").insert({
+                              column_id: targetColId, title: inlineCreateTitle.trim(), priority: "medium",
+                              board, position: allCards.filter(c => c.column_id === targetColId).length, tags: [],
+                            });
+                            toast.success("Tarefa criada!");
+                            setInlineCreateCol(null); setInlineCreateTitle("");
+                            loadAllData();
+                          }}>Criar</Button>
+                        </div>
+                      )}
+                      {colCards.length === 0 && !inlineCreateCol ? (
                         <p className="text-xs text-muted-foreground/50 text-center py-3 italic">Nenhuma tarefa</p>
-                      ) : (
+                      ) : colCards.length > 0 ? (
                         <Table>
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
@@ -660,32 +718,82 @@ export default function KanbanPage() {
                               const member = getMember(card.member_id);
                               const projName = getProjectName(card.project_id);
                               return (
-                                <TableRow key={card.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditCard({ ...card })}>
-                                  <TableCell className="text-sm py-2">
+                                <TableRow
+                                  key={card.id}
+                                  className={`hover:bg-muted/50 ${dragCardId === card.id ? "opacity-50" : ""}`}
+                                  draggable
+                                  onDragStart={(e) => handleDragStart(e as unknown as DragEvent, card.id)}
+                                >
+                                  <TableCell className="text-sm py-2 cursor-pointer" onClick={() => setEditCard({ ...card })}>
                                     <div className="flex items-center gap-2">
                                       <span className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
                                       {card.title}
                                     </div>
                                   </TableCell>
-                                  <TableCell className="text-xs py-2">{PRIORITY_LABEL[card.priority] || "Média"}</TableCell>
-                                  <TableCell className="py-2">
-                                    {member ? (
-                                      <div className="flex items-center gap-1 text-xs">
-                                        <Avatar className="h-4 w-4">
-                                          {member.avatar_url ? <AvatarImage src={member.avatar_url} /> : null}
-                                          <AvatarFallback className="text-[7px] bg-secondary">{member.name[0]}</AvatarFallback>
-                                        </Avatar>
-                                        <span className="truncate max-w-[60px]">{member.name}</span>
-                                      </div>
-                                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                                  <TableCell className="py-2" onClick={e => e.stopPropagation()}>
+                                    <Select
+                                      value={card.priority}
+                                      onValueChange={async (v) => {
+                                        await supabase.from("imphq_kanban_cards").update({ priority: v }).eq("id", card.id);
+                                        loadAllData();
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-6 text-[10px] border-none bg-transparent px-1 w-[70px]">
+                                        <span className={`h-1.5 w-1.5 rounded-full mr-1 ${PRIORITY_DOT[card.priority]}`} />
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="low">Baixa</SelectItem>
+                                        <SelectItem value="medium">Média</SelectItem>
+                                        <SelectItem value="high">Alta</SelectItem>
+                                        <SelectItem value="urgent">Urgente</SelectItem>
+                                      </SelectContent>
+                                    </Select>
                                   </TableCell>
-                                  <TableCell className="text-xs py-2 text-muted-foreground">{projName || "—"}</TableCell>
-                                  <TableCell className="py-2">
-                                    {card.due_date ? (
-                                      <span className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
-                                        {new Date(card.due_date).toLocaleDateString("pt-BR")}
-                                      </span>
-                                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                                  <TableCell className="py-2" onClick={e => e.stopPropagation()}>
+                                    <Select
+                                      value={card.member_id || "none"}
+                                      onValueChange={async (v) => {
+                                        await supabase.from("imphq_kanban_cards").update({ member_id: v === "none" ? null : v }).eq("id", card.id);
+                                        loadAllData();
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-6 text-[10px] border-none bg-transparent px-1 w-[90px]">
+                                        <SelectValue placeholder="—" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">Nenhum</SelectItem>
+                                        {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell className="py-2" onClick={e => e.stopPropagation()}>
+                                    <Select
+                                      value={card.project_id || "none"}
+                                      onValueChange={async (v) => {
+                                        await supabase.from("imphq_kanban_cards").update({ project_id: v === "none" ? null : v }).eq("id", card.id);
+                                        loadAllData();
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-6 text-[10px] border-none bg-transparent px-1 w-[90px]">
+                                        <SelectValue placeholder="—" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">Nenhum</SelectItem>
+                                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell className="py-2" onClick={e => e.stopPropagation()}>
+                                    <Input
+                                      type="date"
+                                      value={card.due_date ? card.due_date.split("T")[0] : ""}
+                                      onChange={async (e) => {
+                                        await supabase.from("imphq_kanban_cards").update({ due_date: e.target.value || null }).eq("id", card.id);
+                                        loadAllData();
+                                      }}
+                                      className={`h-6 text-[10px] border-none bg-transparent px-1 w-[90px] ${card.due_date && isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}
+                                    />
                                   </TableCell>
                                   {activeBoard === "geral" && (
                                     <TableCell className="py-2">
@@ -703,7 +811,7 @@ export default function KanbanPage() {
                             })}
                           </TableBody>
                         </Table>
-                      )}
+                      ) : null}
                     </CollapsibleContent>
                   </Collapsible>
                 );
