@@ -655,6 +655,12 @@ export default function KanbanPage() {
                       </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
+                      <div
+                        onDragOver={(e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; e.currentTarget.classList.add("ring-1", "ring-primary/30", "bg-primary/5"); }}
+                        onDragLeave={(e: React.DragEvent<HTMLDivElement>) => { e.currentTarget.classList.remove("ring-1", "ring-primary/30", "bg-primary/5"); }}
+                        onDrop={(e: React.DragEvent<HTMLDivElement>) => { e.currentTarget.classList.remove("ring-1", "ring-primary/30", "bg-primary/5"); handleDrop(e as unknown as DragEvent, col.id); }}
+                        className="transition-colors rounded-b-md"
+                      >
                       {/* Inline create */}
                       {inlineCreateCol === col.id && (
                         <div className="flex items-center gap-2 px-4 py-2 bg-muted/30">
