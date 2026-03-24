@@ -104,6 +104,10 @@ export default function KanbanPage() {
   // List view collapsed groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
+  // Inline create in list view
+  const [inlineCreateCol, setInlineCreateCol] = useState<string | null>(null);
+  const [inlineCreateTitle, setInlineCreateTitle] = useState("");
+
   const loadAllData = useCallback(async () => {
     setLoading(true);
     const [colRes, cardRes, memberRes, projRes, attRes, checkRes] = await Promise.all([
