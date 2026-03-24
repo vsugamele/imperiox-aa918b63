@@ -1,65 +1,48 @@
 
 
-# Plano: Anexos nas Tarefas + Correção de Duplicatas + Projeto nos Cards
+# Plano: Reorganizar Kanban e Tarefas (inspirado no ClickUp)
 
-## Problemas identificados
+## Problema principal
 
-1. **Duplicatas no Kanban "Geral"**: A view "geral" mostra todos os cards agrupados por titulo de coluna. Se existem cards duplicados no banco ou se o merge de colunas cria repetição visual, precisamos deduplicar por `card.id`.
+A aba "Geral" agrupa colunas por titulo, mas como cada board cria colunas com nomes ligeiramente diferentes (ex: "A Fazer" vs "Backlog", "Em Progresso" vs "Fazendo"), aparecem dezenas de colunas vazias repetidas. Falta tambem gestao de colunas (renomear, excluir) e uma view de lista como o ClickUp.
 
-2. **Sem anexos visuais**: O CardDetailPanel tem checklist e comentários mas não permite subir imagens/videos de referência.
+## O que sera feito
 
-3. **Sem indicação de projeto**: Os cards não mostram de qual projeto são, dificultando a visão geral.
+### 1. Gestao de colunas (renomear, excluir, reordenar)
 
-## O que será feito
+- Botao de "..." em cada header de coluna com opcoes: Renomear, Excluir (move cards para backlog), Alterar cor
+- Dialog simples para renomear coluna inline
+- Ao excluir coluna vazia, deletar direto; se tiver cards, perguntar para mover para outra coluna
+- Botao "+ Coluna" no final para adicionar novas colunas ao board ativo
 
-### 1. Migration: tabela `imphq_card_attachments`
+### 2. Corrigir "Geral" - normalizar merge de colunas
 
-Nova tabela para armazenar anexos (imagens, videos, PDFs) vinculados a cards:
-```sql
-CREATE TABLE imphq_card_attachments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  card_id UUID REFERENCES imphq_kanban_cards(id) ON DELETE CASCADE,
-  file_url TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  file_type TEXT, -- image/png, video/mp4, etc.
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-Usa o bucket `project-docs` existente para uploads.
+- Criar mapa de sinonimos para merge inteligente: `{"a fazer": "backlog", "to do": "backlog", "em progresso": "fazendo", "doing": "fazendo", "concluído": "feito", "concluido": "feito", "done": "feito"}`
+- Na aba "Geral", usar esse mapa para agrupar colunas com nomes equivalentes numa unica coluna visual
+- Reduzir drasticamente o numero de colunas exibidas
 
-### 2. Seção "Anexos" no CardDetailPanel
+### 3. Toggle Board/Lista no Kanban
 
-Adicionar entre a descrição e o checklist:
-- Galeria de thumbnails das imagens/videos anexados
-- Botão de upload (usando o componente FileUpload existente)
-- Click para abrir lightbox (imagem grande) ou player (video)
-- Botão de excluir em cada anexo
-- Inspirado no ClickUp: seção "Attachments" com preview visual
+Adicionar botao de alternancia entre:
+- **Board** (view atual de colunas)
+- **Lista** (inspirado no ClickUp): tabela agrupada por status/coluna, mostrando Nome, Prioridade, Responsavel, Projeto, Prazo, Board em colunas. Cada grupo e colapsavel com contador
 
-### 3. Mostrar projeto nos cards
+### 4. Painel de filtros avancados
 
-- Carregar projetos (`imphq_projects`) no KanbanPage e Tarefas
-- Exibir o nome do projeto como Badge no card (similar ao badge do board)
-- No CardDetailPanel, adicionar campo "Projeto" (Select) para vincular/alterar
-- Na Tarefas, já mostra o projeto -- manter e reforçar visualmente
+Inspirado no ClickUp (imagem 50):
+- Botao "Filtros" que abre um popover/dropdown
+- Filtros combinaveis: Status (coluna), Prioridade, Responsavel, Projeto, Prazo (atrasado/hoje/sem prazo)
+- Badge mostrando quantidade de filtros ativos
+- Botao "Limpar filtros"
 
-### 4. Corrigir duplicatas no Kanban "Geral"
+### 5. Melhorias nos cards do Kanban
 
-- Na função `filteredCards`, adicionar deduplicação por `card.id` usando `Map` ou `Set`
-- Garantir que cada card aparece apenas uma vez mesmo quando múltiplas colunas têm o mesmo título
-
-### 5. Melhorias inspiradas no ClickUp
-
-- **Campo Projeto no detail panel**: Select com projetos disponíveis (como os custom fields do ClickUp)
-- **Ícone de anexo no card mini**: Mostrar ícone de clipe quando o card tem anexos
-- **Contador de subtarefas no card mini**: Mostrar "2/5" quando tem checklist
+- Ao passar o mouse, mostrar botoes rapidos: editar, mover para feito (check), excluir
+- Tags visiveis no card (se houver)
 
 ## Arquivos alterados
 
-| Arquivo | Ação |
+| Arquivo | Acao |
 |---|---|
-| Migration SQL | Criar `imphq_card_attachments` + RLS |
-| `src/components/kanban/CardDetailPanel.tsx` | Seção de anexos com upload/lightbox, campo Projeto |
-| `src/pages/KanbanPage.tsx` | Carregar projetos, mostrar projeto no card, fix duplicatas, ícones de anexo/checklist |
-| `src/pages/Tarefas.tsx` | Carregar projetos para exibir nos cards |
+| `src/pages/KanbanPage.tsx` | Gestao de colunas, merge inteligente no Geral, toggle board/lista, filtros avancados, acoes rapidas nos cards |
 
