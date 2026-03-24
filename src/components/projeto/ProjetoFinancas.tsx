@@ -17,11 +17,13 @@ import { FileUpload } from "@/components/FileUpload";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 
 interface Cost {
-  id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean; documento_url?: string | null;
+  id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
+  documento_url?: string | null; produto_nome?: string | null;
 }
 interface Revenue {
   id: string; descricao: string; valor: number; fonte: string; data_ref: string;
   produto_nome?: string | null; documento_url?: string | null;
+  pix_info?: string | null; data_pagamento?: string | null; plataforma?: string | null;
 }
 interface AdsSpend {
   id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null;
@@ -35,8 +37,9 @@ interface Venda {
 
 const COST_CATS = ["Ferramentas", "Ads", "Freelancer", "Infra", "Outro"];
 const REV_SOURCES = ["Manual", "Hotmart", "Stripe", "Kiwify", "Outro"];
+const PLATAFORMAS = ["Hotmart", "Kiwify", "Ticto", "Stripe", "PIX", "Manual", "Outro"];
 
-export function ProjetoFinancas({ projectId }: { projectId: string }) {
+export function ProjetoFinancas({ projectId, project }: { projectId: string; project?: any }) {
   const { user } = useAuth();
   const [costs, setCosts] = useState<Cost[]>([]);
   const [revenues, setRevenues] = useState<Revenue[]>([]);
@@ -47,9 +50,12 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
   const [showAdsImport, setShowAdsImport] = useState(false);
   const [editingCost, setEditingCost] = useState<Cost | null>(null);
   const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
-  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "" });
-  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "" });
+  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "" });
+  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+
+  // Get products from briefing
+  const briefingProdutos: any[] = project?.data?.produtos || [];
 
   useEffect(() => { loadData(); }, [projectId]);
 
@@ -93,7 +99,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
 
   const openCostFormForNew = () => {
     setEditingCost(null);
-    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "" });
+    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "" });
     setShowCostForm(true);
   };
 
@@ -106,6 +112,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
       moeda: cost.moeda,
       recorrente: cost.recorrente,
       documento_url: cost.documento_url || "",
+      produto_nome: cost.produto_nome || "",
     });
     setShowCostForm(true);
   };
@@ -119,6 +126,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
       moeda: costForm.moeda,
       recorrente: costForm.recorrente,
       documento_url: costForm.documento_url || null,
+      produto_nome: costForm.produto_nome || null,
     };
 
     if (editingCost) {
@@ -139,7 +147,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
 
   const openRevFormForNew = () => {
     setEditingRevenue(null);
-    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "" });
+    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
     setShowRevForm(true);
   };
 
@@ -152,6 +160,9 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
       data_ref: rev.data_ref,
       produto_nome: rev.produto_nome || "",
       documento_url: rev.documento_url || "",
+      pix_info: rev.pix_info || "",
+      data_pagamento: rev.data_pagamento || "",
+      plataforma: rev.plataforma || "",
     });
     setShowRevForm(true);
   };
@@ -165,6 +176,9 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
       data_ref: revForm.data_ref,
       produto_nome: revForm.produto_nome || null,
       documento_url: revForm.documento_url || null,
+      pix_info: revForm.pix_info || null,
+      data_pagamento: revForm.data_pagamento || null,
+      plataforma: revForm.plataforma || null,
     } as any;
 
     if (editingRevenue) {
@@ -180,7 +194,6 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
     }
     setShowRevForm(false);
     setEditingRevenue(null);
-    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "" });
     loadData();
   };
 
@@ -213,6 +226,26 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
   ];
 
   const maxBar = Math.max(totalCusto, totalReceita, 1);
+
+  // Product select component
+  const ProductSelect = ({ value, onChange, label = "Produto (opcional)" }: { value: string; onChange: (v: string) => void; label?: string }) => (
+    <div>
+      <Label>{label}</Label>
+      {briefingProdutos.length > 0 ? (
+        <Select value={value || "__none__"} onValueChange={v => onChange(v === "__none__" ? "" : v)}>
+          <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Nenhum</SelectItem>
+            {briefingProdutos.map((p: any, i: number) => (
+              <SelectItem key={i} value={p.nome || `Produto ${i + 1}`}>{p.nome || `Produto ${i + 1}`}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input value={value} onChange={e => onChange(e.target.value)} placeholder="Nome do produto..." className="bg-secondary" />
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -283,6 +316,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>
+                      <TableHead>Produto</TableHead>
                       <TableHead>Cat.</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                       <TableHead className="w-8"></TableHead>
@@ -296,6 +330,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
                           {c.nome}
                           {c.recorrente && <Badge variant="outline" className="ml-2 text-[9px] py-0">mensal</Badge>}
                         </TableCell>
+                        <TableCell>{c.produto_nome && <Badge variant="outline" className="text-[10px]">{c.produto_nome}</Badge>}</TableCell>
                         <TableCell><Badge variant="secondary" className="text-[10px]">{c.categoria}</Badge></TableCell>
                         <TableCell className="text-right font-mono text-sm text-red-400">
                           {c.moeda === "USD" ? `$${c.valor.toFixed(2)}` : fmt(c.valor)}
@@ -342,7 +377,8 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
                     <TableRow>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Produto</TableHead>
-                      <TableHead>Fonte</TableHead>
+                      <TableHead>Plataforma</TableHead>
+                      <TableHead>Data Pgto</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                       <TableHead className="w-8"></TableHead>
                       <TableHead className="w-20"></TableHead>
@@ -353,7 +389,8 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
                       <TableRow key={r.id}>
                         <TableCell className="text-sm">{r.descricao}</TableCell>
                         <TableCell>{r.produto_nome && <Badge variant="outline" className="text-[10px]">{r.produto_nome}</Badge>}</TableCell>
-                        <TableCell><Badge variant="secondary" className="text-[10px]">{r.fonte}</Badge></TableCell>
+                        <TableCell>{r.plataforma && <Badge variant="secondary" className="text-[10px]">{r.plataforma}</Badge>}</TableCell>
+                        <TableCell className="text-xs font-mono">{r.data_pagamento ? new Date(r.data_pagamento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</TableCell>
                         <TableCell className="text-right font-mono text-sm text-emerald-400">{fmt(r.valor)}</TableCell>
                         <TableCell>
                           {r.documento_url && (
@@ -516,7 +553,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
 
         {/* Produtos Tab */}
         <TabsContent value="produtos">
-          <FinancasProdutos vendas={vendas} />
+          <FinancasProdutos vendas={vendas} briefingProdutos={briefingProdutos} revenues={revenues} costs={costs} />
         </TabsContent>
       </Tabs>
 
@@ -546,6 +583,7 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               </div>
             </div>
             <div><Label>Valor</Label><Input type="number" step="0.01" value={costForm.valor} onChange={e => setCostForm({ ...costForm, valor: e.target.value })} placeholder="0.00" /></div>
+            <ProductSelect value={costForm.produto_nome} onChange={v => setCostForm({ ...costForm, produto_nome: v })} />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={costForm.recorrente} onChange={e => setCostForm({ ...costForm, recorrente: e.target.checked })} className="rounded border-border" />
               Custo recorrente (mensal)
@@ -590,10 +628,23 @@ export function ProjetoFinancas({ projectId }: { projectId: string }) {
               </div>
               <div><Label>Data Ref.</Label><Input type="date" value={revForm.data_ref} onChange={e => setRevForm({ ...revForm, data_ref: e.target.value })} /></div>
             </div>
-            <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={revForm.valor} onChange={e => setRevForm({ ...revForm, valor: e.target.value })} placeholder="0.00" /></div>
-            <div>
-              <Label>Produto (opcional)</Label>
-              <Input value={revForm.produto_nome} onChange={e => setRevForm({ ...revForm, produto_nome: e.target.value })} placeholder="Nome do produto vinculado..." />
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={revForm.valor} onChange={e => setRevForm({ ...revForm, valor: e.target.value })} placeholder="0.00" /></div>
+              <div>
+                <Label>Plataforma</Label>
+                <Select value={revForm.plataforma || "__none__"} onValueChange={v => setRevForm({ ...revForm, plataforma: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhuma</SelectItem>
+                    {PLATAFORMAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <ProductSelect value={revForm.produto_nome} onChange={v => setRevForm({ ...revForm, produto_nome: v })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Data Pagamento</Label><Input type="date" value={revForm.data_pagamento} onChange={e => setRevForm({ ...revForm, data_pagamento: e.target.value })} /></div>
+              <div><Label>PIX Info (chave/comprovante)</Label><Input value={revForm.pix_info} onChange={e => setRevForm({ ...revForm, pix_info: e.target.value })} placeholder="Chave PIX, nº comprovante..." /></div>
             </div>
             {/* Document upload */}
             <div className="space-y-2">

@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 
 const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
 const STATUS_OPTIONS = ["planejamento", "em andamento", "pausado", "concluído"];
@@ -32,11 +32,41 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   };
 
   const addProduto = () => {
-    onUpdateData({ ...data, produtos: [...produtos, { nome: "", tipo: "", preco: "", status: "ativo" }] });
+    onUpdateData({ ...data, produtos: [...produtos, { nome: "", tipo: "", preco: "", status: "ativo", links: [] }] });
   };
 
   const removeProduto = (i: number) => {
     onUpdateData({ ...data, produtos: produtos.filter((_: any, j: number) => j !== i) });
+  };
+
+  // Multi-link helpers
+  const getProductLinks = (p: any): string[] => {
+    if (p.links && Array.isArray(p.links)) return p.links;
+    if (p.link) return [p.link];
+    return [];
+  };
+
+  const updateProductLinks = (index: number, newLinks: string[]) => {
+    const updated = [...produtos];
+    updated[index] = { ...updated[index], links: newLinks, link: undefined };
+    onUpdateData({ ...data, produtos: updated });
+  };
+
+  const addProductLink = (index: number) => {
+    const current = getProductLinks(produtos[index]);
+    updateProductLinks(index, [...current, ""]);
+  };
+
+  const removeProductLink = (prodIndex: number, linkIndex: number) => {
+    const current = getProductLinks(produtos[prodIndex]);
+    updateProductLinks(prodIndex, current.filter((_, i) => i !== linkIndex));
+  };
+
+  const updateProductLink = (prodIndex: number, linkIndex: number, val: string) => {
+    const current = getProductLinks(produtos[prodIndex]);
+    const updated = [...current];
+    updated[linkIndex] = val;
+    updateProductLinks(prodIndex, updated);
   };
 
   return (
@@ -108,42 +138,68 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           <Button size="sm" variant="outline" onClick={addProduto}><Plus className="h-3 w-3 mr-1" /> Produto</Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {produtos.map((p: any, i: number) => (
-            <div key={i} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-md bg-secondary/50 border border-border relative">
-              <div>
-                <Label className="text-xs text-muted-foreground">Nome</Label>
-                <Input value={p.nome || ""} onChange={(e) => updateProduto(i, "nome", e.target.value)} className="bg-secondary h-8 text-sm" />
+          {produtos.map((p: any, i: number) => {
+            const prodLinks = getProductLinks(p);
+            return (
+              <div key={i} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-md bg-secondary/50 border border-border relative">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Nome</Label>
+                  <Input value={p.nome || ""} onChange={(e) => updateProduto(i, "nome", e.target.value)} className="bg-secondary h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <Input value={p.tipo || ""} onChange={(e) => updateProduto(i, "tipo", e.target.value)} className="bg-secondary h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Preço</Label>
+                  <Input value={p.preco || ""} onChange={(e) => updateProduto(i, "preco", e.target.value)} className="bg-secondary h-8 text-sm" />
+                </div>
+                <div className="flex items-end gap-1">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeProduto(i)}><Trash2 className="h-3 w-3" /></Button>
+                </div>
+
+                {/* Multiple links */}
+                <div className="col-span-2 md:col-span-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Links do Produto</Label>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => addProductLink(i)}>
+                      <Plus className="h-3 w-3 mr-1" /> Link
+                    </Button>
+                  </div>
+                  {prodLinks.length === 0 && (
+                    <p className="text-xs text-muted-foreground/60">Nenhum link adicionado</p>
+                  )}
+                  {prodLinks.map((link: string, li: number) => (
+                    <div key={li} className="flex items-center gap-2">
+                      <Input
+                        value={link}
+                        onChange={(e) => updateProductLink(i, li, e.target.value)}
+                        className="bg-secondary h-8 text-sm flex-1"
+                        placeholder="https://..."
+                      />
+                      {link && (
+                        <a href={link} target="_blank" rel="noopener noreferrer" className="h-8 w-8 flex items-center justify-center text-primary hover:text-primary/80 shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                      )}
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeProductLink(i, li)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground">Mecanismo Único</Label>
+                  <Textarea value={p.mecanismo || ""} onChange={(e) => updateProduto(i, "mecanismo", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground">Contexto / Objetivo</Label>
+                  <Textarea value={p.contexto || ""} onChange={(e) => updateProduto(i, "contexto", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+                </div>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Tipo</Label>
-                <Input value={p.tipo || ""} onChange={(e) => updateProduto(i, "tipo", e.target.value)} className="bg-secondary h-8 text-sm" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Preço</Label>
-                <Input value={p.preco || ""} onChange={(e) => updateProduto(i, "preco", e.target.value)} className="bg-secondary h-8 text-sm" />
-              </div>
-              <div className="flex items-end gap-1">
-                {p.link && (
-                  <a href={p.link} target="_blank" rel="noopener" className="h-8 w-8 flex items-center justify-center text-primary hover:text-primary/80">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                )}
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeProduto(i)}><Trash2 className="h-3 w-3" /></Button>
-              </div>
-              <div className="col-span-2 md:col-span-4">
-                <Label className="text-xs text-muted-foreground">Link do Produto</Label>
-                <Input value={p.link || ""} onChange={(e) => updateProduto(i, "link", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="https://..." />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground">Mecanismo Único</Label>
-                <Textarea value={p.mecanismo || ""} onChange={(e) => updateProduto(i, "mecanismo", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground">Contexto / Objetivo</Label>
-                <Textarea value={p.contexto || ""} onChange={(e) => updateProduto(i, "contexto", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {produtos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum produto cadastrado.</p>}
         </CardContent>
       </Card>
