@@ -35,6 +35,11 @@ interface AdsRow {
   hold_rate: number;
   ctr: number;
   frequencia: number;
+  nivel_veiculacao: string;
+  checkouts_iniciados: number;
+  cpm: number;
+  stop_rate: number;
+  cpck: number;
 }
 
 /** Parse BRL currency strings like "1.234,56" or "R$ 1.234,56" to number */

@@ -222,16 +222,21 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
       encoding: "UTF-8",
       complete: (results) => {
         const headers = results.meta.fields || [];
-        setRawHeaders(headers);
-        const detected = detectPlatform(headers);
-        setDetectedPlatform(detected);
-        const usePlatform = platform === "auto" ? detected : platform;
-
-        const mapped = (results.data as Record<string, string>[])
-          .map(r => mapRow(r, usePlatform))
-          .filter(r => r.email);
-
-        setRows(mapped);
+        // Check if headers contain garbled chars (encoding issue)
+        const hasGarbled = headers.some(h => /[\ufffd\u00ef\u00bf\u00bd]/.test(h) || /Ã[¡-¼]/.test(h));
+        if (hasGarbled) {
+          // Re-parse with Latin-1
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            encoding: "latin1",
+            complete: (r2) => {
+              processResults(r2);
+            },
+          });
+          return;
+        }
+        processResults(results);
       },
     });
   }, [platform]);
