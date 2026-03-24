@@ -87,8 +87,9 @@ function detectPlatform(headers: string[]): Platform {
 }
 
 function findCol(row: Record<string, string>, ...candidates: string[]): string {
-  for (const c of candidates) {
-    const key = Object.keys(row).find(k => k.toLowerCase().trim() === c.toLowerCase().trim());
+  const normCandidates = candidates.map(normalizeHeader);
+  for (let i = 0; i < normCandidates.length; i++) {
+    const key = Object.keys(row).find(k => normalizeHeader(k) === normCandidates[i]);
     if (key && row[key]) return row[key].trim();
   }
   return "";
