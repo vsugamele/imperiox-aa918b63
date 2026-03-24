@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users } from "lucide-react";
+import { Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users, Paperclip, CheckSquare, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
@@ -44,7 +44,7 @@ interface KanbanColumn { id: string; title: string; color: string; position: num
 interface KanbanCard {
   id: string; column_id: string; title: string; description?: string;
   priority: string; due_date?: string; tags: string[]; position: number; board: string;
-  member_id?: string;
+  member_id?: string; project_id?: string;
 }
 
 export default function KanbanPage() {
@@ -53,6 +53,9 @@ export default function KanbanPage() {
   const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
+  const [cardChecklistCounts, setCardChecklistCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [activeBoard, setActiveBoard] = useState("geral");
   const [showNewCard, setShowNewCard] = useState<string | null>(null);
   const [editCard, setEditCard] = useState<KanbanCard | null>(null);
@@ -69,10 +72,13 @@ export default function KanbanPage() {
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [colRes, cardRes, memberRes] = await Promise.all([
+    const [colRes, cardRes, memberRes, projRes, attRes, checkRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role"),
+      supabase.from("imphq_projects").select("id, name"),
+      supabase.from("imphq_card_attachments").select("card_id"),
+      supabase.from("imphq_card_checklists").select("card_id, is_done"),
     ]);
 
     let cols = (colRes.data || []) as KanbanColumn[];
@@ -80,17 +86,30 @@ export default function KanbanPage() {
 
     for (const board of ["agentes", "humanas", "criativos", "campanhas"]) {
       if (!existingBoards.has(board)) {
-        const newCols = DEFAULT_COLUMNS.map((title, i) => ({
-          title, color: "#8b5cf6", position: i, board,
-        }));
+        const newCols = DEFAULT_COLUMNS.map((title, i) => ({ title, color: "#8b5cf6", position: i, board }));
         const { data } = await supabase.from("imphq_kanban_columns").insert(newCols).select();
         if (data) cols = [...cols, ...(data as KanbanColumn[])];
       }
     }
 
+    // Count attachments per card
+    const attCounts: Record<string, number> = {};
+    ((attRes.data as any[]) || []).forEach(a => { attCounts[a.card_id] = (attCounts[a.card_id] || 0) + 1; });
+
+    // Count checklist per card
+    const checkCounts: Record<string, { done: number; total: number }> = {};
+    ((checkRes.data as any[]) || []).forEach(c => {
+      if (!checkCounts[c.card_id]) checkCounts[c.card_id] = { done: 0, total: 0 };
+      checkCounts[c.card_id].total++;
+      if (c.is_done) checkCounts[c.card_id].done++;
+    });
+
     setAllColumns(cols);
     setAllCards((cardRes.data || []) as KanbanCard[]);
     setMembers((memberRes.data || []) as TeamMember[]);
+    setProjects((projRes.data || []) as { id: string; name: string }[]);
+    setCardAttachmentCounts(attCounts);
+    setCardChecklistCounts(checkCounts);
     setLoading(false);
   }, []);
 
@@ -127,6 +146,9 @@ export default function KanbanPage() {
       const col = allColumns.find(c => c.id === colId);
       const colTitle = col?.title.toLowerCase() || "";
       filtered = allCards.filter(c => getColTitle(c) === colTitle);
+      // Deduplicate by card id
+      const seen = new Set<string>();
+      filtered = filtered.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
     } else {
       filtered = cards.filter(c => c.column_id === colId);
     }
@@ -140,6 +162,7 @@ export default function KanbanPage() {
   };
 
   const getMember = (memberId?: string) => memberId ? members.find(m => m.id === memberId) : undefined;
+  const getProjectName = (projectId?: string) => projectId ? projects.find(p => p.id === projectId)?.name : undefined;
 
   const createCard = async () => {
     if (!newTitle.trim() || !showNewCard) return;
@@ -163,31 +186,8 @@ export default function KanbanPage() {
     loadAllData();
   };
 
-  const updateCard = async () => {
-    if (!editCard) return;
-    const { error } = await supabase.from("imphq_kanban_cards")
-      .update({
-        title: editCard.title, description: editCard.description, priority: editCard.priority,
-        due_date: editCard.due_date || null, column_id: editCard.column_id,
-        member_id: editCard.member_id || null,
-      })
-      .eq("id", editCard.id);
-    if (error) { toast.error("Erro ao salvar"); return; }
-    toast.success("Card atualizado!");
-    setEditCard(null);
-    loadAllData();
-  };
-
-  const deleteCard = async (id: string) => {
-    await supabase.from("imphq_kanban_cards").delete().eq("id", id);
-    toast.success("Card removido");
-    setEditCard(null);
-    loadAllData();
-  };
-
   const isOverdue = (d?: string) => d ? new Date(d) < new Date() : false;
 
-  // Drag and drop handlers
   const handleDragStart = (e: DragEvent, cardId: string) => {
     setDragCardId(cardId);
     e.dataTransfer.effectAllowed = "move";
@@ -205,7 +205,6 @@ export default function KanbanPage() {
     if (!card) return;
 
     if (activeBoard === "geral") {
-      // In geral view, find the matching column in the card's own board
       const targetCol = allColumns.find(c => c.id === targetColId);
       const targetColTitle = targetCol?.title.toLowerCase() || "";
       const boardCol = allColumns.find(c => c.board === card.board && c.title.toLowerCase() === targetColTitle);
@@ -278,7 +277,6 @@ export default function KanbanPage() {
           ))}
         </TabsList>
 
-        {/* Render only the active board content */}
         <div className="mt-4">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
@@ -298,9 +296,7 @@ export default function KanbanPage() {
                     <div className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}>
                       <div className="flex items-center gap-2">
                         {config.icon}
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">
-                          {col.title}
-                        </h3>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">{col.title}</h3>
                       </div>
                       <div className="flex items-center gap-1">
                         <Badge variant="outline" className="text-[10px] h-5 min-w-[20px] justify-center">{colCards.length}</Badge>
@@ -315,7 +311,10 @@ export default function KanbanPage() {
                       )}
                       {colCards.map((card) => {
                         const member = getMember(card.member_id);
+                        const projName = getProjectName(card.project_id);
                         const priorityBorder = PRIORITY_BORDER[card.priority] || PRIORITY_BORDER.medium;
+                        const attCount = cardAttachmentCounts[card.id] || 0;
+                        const checkInfo = cardChecklistCounts[card.id];
                         return (
                           <Card
                             key={card.id}
@@ -329,13 +328,28 @@ export default function KanbanPage() {
                                 <p className="text-sm font-medium flex-1">{card.title}</p>
                               </div>
                               <div className="flex items-center justify-between mt-2">
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[card.priority] || PRIORITY_DOT.medium}`} />
                                   {activeBoard === "geral" && (
                                     <Badge variant="outline" className="text-[9px] px-1.5 py-0">{card.board}</Badge>
                                   )}
+                                  {projName && (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-primary/5 text-primary border-primary/20">
+                                      <FolderOpen className="h-2 w-2" /> {projName}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1.5">
+                                  {checkInfo && checkInfo.total > 0 && (
+                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                      <CheckSquare className="h-2.5 w-2.5" /> {checkInfo.done}/{checkInfo.total}
+                                    </span>
+                                  )}
+                                  {attCount > 0 && (
+                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                      <Paperclip className="h-2.5 w-2.5" /> {attCount}
+                                    </span>
+                                  )}
                                   {card.due_date && (
                                     <p className={`text-[10px] font-mono ${isOverdue(card.due_date) ? "text-destructive" : "text-muted-foreground"}`}>
                                       {new Date(card.due_date).toLocaleDateString("pt-BR")}
@@ -428,6 +442,7 @@ export default function KanbanPage() {
         onUpdate={loadAllData}
         columns={allColumns}
         members={members}
+        projects={projects}
       />
     </div>
   );
