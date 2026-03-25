@@ -43,6 +43,7 @@ const orgItems = [
   { title: "Equipe", url: "/equipe", icon: UsersRound, color: "text-amber-400" },
   { title: "Empresa", url: "/empresa", icon: Building2, color: "text-amber-400" },
   { title: "Config", url: "/configuracoes", icon: Settings, color: "text-amber-400" },
+  { title: "Guia", url: "/guia", icon: BookOpen, color: "text-amber-400" },
 ];
 
 function NavGroup({ label, items }: { label: string; items: typeof mainItems }) {

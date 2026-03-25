@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Plus, Trash2, X, ChevronDown, ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { CopyArsenalSection } from "./CopyArsenalSection";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
