@@ -21738,6 +21738,14 @@ export type Database = {
           relevance_score: number
         }[]
       }
+      get_admin_user_stats: {
+        Args: never
+        Returns: {
+          post_count: number
+          total_likes: number
+          user_id: string
+        }[]
+      }
       get_available_points_v2: { Args: { user_uuid: string }; Returns: number }
       get_columns: {
         Args: { table_name: string }
