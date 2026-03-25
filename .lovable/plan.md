@@ -1,80 +1,40 @@
 
 
-# Plano: Chat com Comandos + Dashboard Activity Log
+# Plano: Arsenal de Copy por Produto
 
-## 1. Chat Interno com Comandos
+## O que faltou do plano anterior
 
-### Tabelas novas
-
-```sql
--- Mensagens do chat interno
-CREATE TABLE imphq_chat_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  content TEXT NOT NULL,
-  message_type TEXT DEFAULT 'text', -- 'text', 'command', 'system'
-  metadata JSONB DEFAULT '{}', -- dados do comando executado (task criada, evento, etc)
-  project_id UUID REFERENCES imphq_projects(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Activity log para o dashboard
-CREATE TABLE imphq_activity_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  action TEXT NOT NULL, -- 'task_created', 'lead_imported', 'project_updated', etc
-  entity_type TEXT, -- 'task', 'lead', 'project', 'routine', 'event'
-  entity_id UUID,
-  entity_name TEXT,
-  details JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-RLS: usuario ve apenas suas mensagens e atividades do time (mesmo user_id ou equipe).
-
-### Chat Page (`src/pages/Chat.tsx`)
-
-- Interface estilo Slack/Discord: sidebar com canais (geral, por projeto), area de mensagens, input
-- Comandos com `/`:
-  - `/tarefa [titulo]` -- cria task em `imphq_tasks`
-  - `/evento [titulo] [data]` -- cria evento em `imphq_calendar_events`
-  - `/projeto [nome]` -- vincula mensagem a um projeto
-  - `/lead [nome] [telefone]` -- cria lead rapido
-- Autocomplete ao digitar `/` mostrando comandos disponiveis
-- Ao executar comando, mostra card inline com o resultado (ex: "Tarefa criada: X")
-- Acoes com mouse: botao "+" ao lado do input com menu de acoes rapidas (mesmas do /)
-- Mensagens com markdown (react-markdown)
-
-### Sidebar
-
-- Novo item "Chat" no grupo principal (entre Tarefas e Leads)
+Tudo do plano anterior foi implementado: ofertas nos produtos, pipeline inline no briefing, checklist de integração, e pesquisa com Firecrawl. Nada pendente.
 
 ---
 
-## 2. Dashboard Activity Log
+## Nova feature: Campos de Copy Persuasiva por Produto
 
-### Componente `ActivityFeed` no Dashboard
+Adicionar uma seção colapsável "Arsenal de Copy" dentro de cada produto no Briefing, com os 6 blocos de persuasão que você descreveu. Tudo salvo no JSONB do produto (sem migration).
 
-- Card "Atividade Recente" no Dashboard, apos os stats cards
-- Lista cronologica das ultimas 15 acoes de todos os usuarios
-- Cada item: avatar/nome do usuario, icone da acao, descricao, timestamp relativo
-- Ao criar tarefas, leads, eventos, rotinas, etc. via chat ou UI, inserir registro em `imphq_activity_log`
+### Estrutura por produto
 
-### Trigger automatico (opcional fase 1)
+Cada produto ganha um campo `copy_arsenal` no JSONB com estas seções:
 
-Na fase 1, o log sera inserido manualmente nos pontos de criacao (chat commands). Futuramente, triggers SQL podem automatizar.
+| Bloco | Campo | Tipo |
+|---|---|---|
+| **Promessa** | `promessa` | textarea — "Desejo + tempo + dor + objeção principal" |
+| **Inimigo Comum** | `inimigo_comum` | textarea — "A culpa é do sistema, não do lead" |
+| **Efeito Colateral** | `efeito_colateral` | textarea — "Risco de continuar + nome do ciclo" |
+| **Oportunidade Escancarada** | `oportunidade` | textarea — "Mecanismo único + prova social + caso real" |
+| **Método Simplificado** | `metodo_simplificado` | textarea — "Mostrar que é mais simples do que imagina" |
+| **Hora do Show** | `hora_do_show` | textarea — "3 pilares + conteúdo que prova a promessa" |
 
----
+### UI
 
-## Arquivos alterados
+- Botão "✍️ Arsenal de Copy" dentro de cada produto, abre seção colapsável
+- 6 cards organizados em grid 1-2 colunas, cada um com título, descrição curta do propósito e textarea
+- Cada textarea salva no `produtos[i].copy_arsenal.{campo}`
+- Visual compacto, labels com emoji e descrição do que preencher
 
-| Arquivo | Acao |
+### Arquivo alterado
+
+| Arquivo | Ação |
 |---|---|
-| Migration SQL | Criar `imphq_chat_messages` e `imphq_activity_log` com RLS |
-| `src/pages/Chat.tsx` | Novo: interface de chat com comandos, autocomplete, cards inline |
-| `src/pages/Dashboard.tsx` | Adicionar componente ActivityFeed |
-| `src/components/dashboard/ActivityFeed.tsx` | Novo: feed de atividades recentes |
-| `src/App.tsx` | Rota `/chat` |
-| `src/components/AppSidebar.tsx` | Item "Chat" no menu |
+| `src/components/projeto/ProjetoBriefing.tsx` | Adicionar seção "Arsenal de Copy" colapsável dentro de cada produto, com os 6 campos de persuasão |
 
