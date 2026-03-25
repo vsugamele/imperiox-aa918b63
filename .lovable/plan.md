@@ -1,40 +1,67 @@
 
 
-# Plano: Arsenal de Copy por Produto
+# Plano: Oportunidades de Melhoria no Imperio HQ
 
-## O que faltou do plano anterior
+## Status Atual
 
-Tudo do plano anterior foi implementado: ofertas nos produtos, pipeline inline no briefing, checklist de integração, e pesquisa com Firecrawl. Nada pendente.
+O Arsenal de Copy por produto ja foi implementado no Briefing com os 6 blocos (Promessa, Inimigo Comum, Efeito Colateral, Oportunidade, Metodo Simplificado, Hora do Show). O Chat com comandos e o Activity Feed no Dashboard tambem estao prontos.
 
 ---
 
-## Nova feature: Campos de Copy Persuasiva por Produto
+## Oportunidades Identificadas por Modulo
 
-Adicionar uma seção colapsável "Arsenal de Copy" dentro de cada produto no Briefing, com os 6 blocos de persuasão que você descreveu. Tudo salvo no JSONB do produto (sem migration).
+### 1. Arsenal de Copy -- Melhorias (Briefing)
 
-### Estrutura por produto
+O arsenal atual usa 1 textarea por bloco. Pelo seu exemplo do JP, cada bloco precisa de **multiplos textos/variacoes** (nao apenas 1). Melhorias:
 
-Cada produto ganha um campo `copy_arsenal` no JSONB com estas seções:
-
-| Bloco | Campo | Tipo |
-|---|---|---|
-| **Promessa** | `promessa` | textarea — "Desejo + tempo + dor + objeção principal" |
-| **Inimigo Comum** | `inimigo_comum` | textarea — "A culpa é do sistema, não do lead" |
-| **Efeito Colateral** | `efeito_colateral` | textarea — "Risco de continuar + nome do ciclo" |
-| **Oportunidade Escancarada** | `oportunidade` | textarea — "Mecanismo único + prova social + caso real" |
-| **Método Simplificado** | `metodo_simplificado` | textarea — "Mostrar que é mais simples do que imagina" |
-| **Hora do Show** | `hora_do_show` | textarea — "3 pilares + conteúdo que prova a promessa" |
-
-### UI
-
-- Botão "✍️ Arsenal de Copy" dentro de cada produto, abre seção colapsável
-- 6 cards organizados em grid 1-2 colunas, cada um com título, descrição curta do propósito e textarea
-- Cada textarea salva no `produtos[i].copy_arsenal.{campo}`
-- Visual compacto, labels com emoji e descrição do que preencher
-
-### Arquivo alterado
-
-| Arquivo | Ação |
+| Melhoria | Descricao |
 |---|---|
-| `src/components/projeto/ProjetoBriefing.tsx` | Adicionar seção "Arsenal de Copy" colapsável dentro de cada produto, com os 6 campos de persuasão |
+| **Multi-variacoes por bloco** | Em vez de 1 textarea, permitir N variacoes (array de textos) com botao "+ Adicionar variacao" em cada bloco |
+| **Label contextual** | Adicionar subtitulo instrucional mais rico em cada bloco (ex: "Mexer psicologicamente com o lead" na Promessa) |
+| **Copiar bloco** | Botao de copiar todo o conteudo de um bloco para clipboard |
+
+### 2. Guia de Uso da Plataforma (Onboarding)
+
+Criar uma pagina ou modal "Guia / Como Usar" acessivel pela sidebar ou header:
+
+| Secao | Conteudo |
+|---|---|
+| **Visao Geral** | O que e cada modulo (Projetos, Avatar, Briefing, Mentes, Leads, etc.) |
+| **Fluxo de Trabalho** | Passo a passo: Criar projeto → Briefing → Avatar → Arsenal de Copy → Funil → Trafego |
+| **Dicas por Modulo** | Cards interativos com descricao curta e link direto para cada pagina |
+| **Atalhos e Comandos** | Lista de comandos do Chat (`/tarefa`, `/lead`, etc.) |
+
+### 3. Mentes IA -- System Prompt Dinamico
+
+Conforme o doc `MentesIA_Plano_Documentacao.md`, a Mentes IA ainda nao injeta contexto do projeto (briefing, avatar, arsenal de copy) no system prompt. Oportunidade:
+
+- Ao selecionar um projeto na Mentes IA, injetar automaticamente: briefing, avatar, produtos com arsenal de copy
+- Isso tornaria os agentes muito mais inteligentes e contextuais
+
+### 4. Leads -- Jornada do Cliente
+
+Conforme o doc `Detalhes_Imphq_Leads.md`, a timeline unificando cliques + eventos + vendas por lead esta documentada mas pode estar incompleta na UI.
+
+### 5. Dashboard -- Widgets Financeiros por Projeto
+
+O Dashboard carrega `imphq_custos` mas nao mostra ROI por projeto. Oportunidade de card "Top Projetos por ROI".
+
+---
+
+## Prioridade Sugerida
+
+1. **Arsenal de Copy com multi-variacoes** -- impacto direto no workflow de copy
+2. **Guia de Uso da Plataforma** -- ajuda onboarding e referencia rapida
+3. **Mentes IA com contexto do projeto** -- salto de qualidade nos agentes
+
+---
+
+## Arquivos Alterados
+
+| Arquivo | Acao |
+|---|---|
+| `src/components/projeto/ProjetoBriefing.tsx` | Refatorar Arsenal de Copy para suportar array de variacoes por bloco |
+| `src/pages/Guia.tsx` | **Novo**: pagina com guia interativo de uso da plataforma |
+| `src/App.tsx` | Adicionar rota `/guia` |
+| `src/components/AppSidebar.tsx` | Adicionar item "Guia" na sidebar (grupo Organizacao) |
 
