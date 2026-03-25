@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Plus, Trash2, X, ChevronDown, ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { CopyArsenalSection } from "./CopyArsenalSection";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
@@ -337,45 +338,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                 </div>
 
                 {/* Arsenal de Copy */}
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full justify-between text-xs">
-                      <span>✍️ Arsenal de Copy</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {[
-                        { key: "promessa", emoji: "🎯", label: "Promessa", desc: "Desejo + tempo + dor + objeção principal" },
-                        { key: "inimigo_comum", emoji: "👹", label: "Inimigo Comum", desc: "A culpa é do sistema, não do lead" },
-                        { key: "efeito_colateral", emoji: "⚠️", label: "Efeito Colateral", desc: "Risco de continuar + nome do ciclo" },
-                        { key: "oportunidade", emoji: "💎", label: "Oportunidade Escancarada", desc: "Mecanismo único + prova social + caso real" },
-                        { key: "metodo_simplificado", emoji: "🧩", label: "Método Simplificado", desc: "Mostrar que é mais simples do que imagina" },
-                        { key: "hora_do_show", emoji: "🎬", label: "Hora do Show", desc: "3 pilares + conteúdo que prova a promessa" },
-                      ].map((block) => {
-                        const arsenal = p.copy_arsenal || {};
-                        return (
-                          <div key={block.key} className="p-3 rounded-md bg-background/50 border border-border/50 space-y-1">
-                            <Label className="text-xs font-medium flex items-center gap-1">
-                              <span>{block.emoji}</span> {block.label}
-                            </Label>
-                            <p className="text-[10px] text-muted-foreground">{block.desc}</p>
-                            <Textarea
-                              value={arsenal[block.key] || ""}
-                              onChange={(e) => {
-                                const updated = { ...(p.copy_arsenal || {}), [block.key]: e.target.value };
-                                updateProduto(i, "copy_arsenal", updated);
-                              }}
-                              className="bg-secondary text-sm min-h-[80px]"
-                              placeholder={block.desc}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                <CopyArsenalSection
+                  arsenal={p.copy_arsenal || {}}
+                  onChange={(updated) => updateProduto(i, "copy_arsenal", updated)}
+                />
               </div>
             );
           })}
