@@ -29,6 +29,7 @@ import Equipe from "./pages/Equipe";
 import Empresa from "./pages/Empresa";
 import Configuracoes from "./pages/Configuracoes";
 import Cofre from "./pages/Cofre";
+import Guia from "./pages/Guia";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
