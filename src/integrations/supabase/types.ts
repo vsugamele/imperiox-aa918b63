@@ -10335,10 +10335,12 @@ export type Database = {
         Row: {
           categoria: string | null
           created_at: string | null
+          data_pagamento: string | null
           documento_url: string | null
           id: string
           moeda: string | null
           nome: string
+          pix_info: string | null
           produto_nome: string | null
           project_id: string
           recorrente: boolean | null
@@ -10348,10 +10350,12 @@ export type Database = {
         Insert: {
           categoria?: string | null
           created_at?: string | null
+          data_pagamento?: string | null
           documento_url?: string | null
           id?: string
           moeda?: string | null
           nome: string
+          pix_info?: string | null
           produto_nome?: string | null
           project_id: string
           recorrente?: boolean | null
@@ -10361,10 +10365,12 @@ export type Database = {
         Update: {
           categoria?: string | null
           created_at?: string | null
+          data_pagamento?: string | null
           documento_url?: string | null
           id?: string
           moeda?: string | null
           nome?: string
+          pix_info?: string | null
           produto_nome?: string | null
           project_id?: string
           recorrente?: boolean | null
