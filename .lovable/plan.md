@@ -1,66 +1,65 @@
 
 
-# Plano: Melhorar Configuracao CAPI + Guia de Setup por Projeto
+# Plano: Setup de Integração com Campos de Configuração Reais
 
-## Resposta a duvida: Sim, funciona por projeto
+## Situação atual
 
-O CAPI ja esta 100% organizado por projeto. Cada projeto tem seus proprios campos:
-- `facebook_pixel_id`, `facebook_access_token`, `facebook_test_event_code` no JSONB `data`
-- O webhook usa `?project={id}` para identificar o projeto e buscar os tokens CAPI daquele projeto especifico
-- O script `imptrack.js` carrega o Pixel via `<meta name="imp-pixel-id">` na LP do projeto
+Os cards de integração hoje têm apenas status (Pendente/Configurado/Verificado) e um campo genérico "Observação". Não há campos reais para inserir IDs, tokens ou URLs -- o usuário precisa ir a outra aba para configurar.
 
-Nada e compartilhado entre projetos. Tudo isolado.
+## Decisão: Por projeto (não por produto)
 
----
-
-## O que implementar
-
-### 1. Melhorar UI de configuracao CAPI no ProjetoDetalhe (aba Analytics)
-
-Hoje os 3 campos (Pixel ID, Access Token, Test Event Code) existem mas sem explicacao. Adicionar:
-
-- **Texto de ajuda** abaixo de cada campo explicando o que e e onde encontrar
-- **Link direto** para o Events Manager do Facebook (`https://business.facebook.com/events_manager2`)
-- **Passo-a-passo colapsavel** com instrucoes visuais de como gerar o token CAPI
-- **Botao "Testar CAPI"** que chama a edge function com `test_event_code` e mostra resultado
-- **Status badge** mostrando se o ultimo envio CAPI foi bem-sucedido (pode ler de `imphq_webhooks`)
-
-### 2. Adicionar secao CAPI no Guia da Plataforma
-
-No `Guia.tsx`, adicionar uma nova secao "Configurar Facebook CAPI" com:
-- Fluxo visual: `LP com imptrack.js → Captura lead → Webhook de venda → CAPI Purchase`
-- Checklist: Pixel ID preenchido? Token CAPI preenchido? Webhook configurado?
-- FAQ rapido: "Como gerar o token?", "Como testar?", "Preciso dos dois (Pixel + CAPI)?"
-
-### 3. Melhorar explicacoes no dialog do Script (Tracker)
-
-No dialog de script do Tracker (`showScript`), adicionar secao explicando a integracao com Facebook:
-- Como o `<meta name="imp-pixel-id">` ativa o Pixel automaticamente
-- Que o CAPI e enviado pelo servidor (webhook) e nao precisa de nada extra no front
-- Que o `event_id` garante deduplicacao entre Pixel e CAPI
+Integrações como Clarity, GA4, Pixel, Resend e Webhooks são configurações de **infraestrutura do projeto** (um Pixel por projeto, um GA4 por projeto). Os produtos herdam essas configs. Manter por projeto faz mais sentido -- o que muda por produto é apenas o **link do checkout** e **webhook específico da plataforma**, que já existem nas Ofertas.
 
 ---
 
-## Detalhes tecnicos
+## O que muda
 
-### ProjetoDetalhe.tsx (aba Analytics, card "Facebook Pixel & CAPI")
-- Adicionar `<Collapsible>` com passo-a-passo de 5 etapas para gerar o token
-- Textos de ajuda como `<p className="text-[10px] text-muted-foreground">` abaixo de cada Input
-- Botao "Testar Evento" que faz fetch para a edge function webhook-pagamento com payload de teste
+Cada card de integração ganha **campos específicos** de configuração. Quando um campo está vazio, aparece um placeholder explicando exatamente o que preencher e onde encontrar o dado.
 
-### Guia.tsx
-- Nova secao "📘 Facebook CAPI" entre os modulos e os comandos, com cards de checklist e FAQ
+| Integração | Campos | Placeholder/Ajuda |
+|---|---|---|
+| **Microsoft Clarity** | `clarity_id` | "Ex: abc123xyz — Encontre em clarity.ms → Settings → Overview" |
+| **Google Analytics** | `ga4_measurement_id` | "Ex: G-XXXXXXXXXX — GA4 → Admin → Data Streams" |
+| **Webhook Pagamento** | URL gerada (read-only) + `webhook_secret` | URL auto-gerada com project ID, secret para validação |
+| **Facebook Pixel / CAPI** | `pixel_id`, `access_token`, `test_event_code` | Links para Events Manager, passo-a-passo |
+| **Resend (Email)** | `resend_api_key`, `from_email` | "Encontre em resend.com → API Keys" |
+| **UTMs no Site** | `base_url` | "URL base do site para geração de UTMs" |
 
-### Tracker.tsx (dialog showScript)
-- Adicionar bloco "Integracao com Facebook" no final do dialog, explicando Pixel + CAPI + dedup
+### Comportamento
+- Se todos os campos obrigatórios de um card estão preenchidos → status muda automaticamente para "Configurado"
+- Se vazio → badge "Pendente" com texto "Preencha os dados abaixo"
+- Status "Verificado" continua sendo manual (o usuário confirma que testou)
+- Dados salvam no JSONB `data.integrations.{key}` do projeto (já usado pelo checklist atual)
+- O campo "Observação" continua existindo
+
+### Webhook Pagamento -- URL pronta
+- Exibir a URL completa do webhook já montada: `https://{SUPABASE_URL}/functions/v1/webhook-pagamento?project={project.id}`
+- Botão de copiar ao lado
+- Campo para webhook_secret (token de validação)
+
+---
+
+## Detalhes técnicos
+
+### Estrutura no JSONB `data.integrations`
+```text
+integrations: {
+  clarity: { status, nota, clarity_id },
+  google_analytics: { status, nota, ga4_measurement_id },
+  webhook_pagamento: { status, nota, webhook_secret },
+  facebook_pixel: { status, nota, pixel_id, access_token, test_event_code },
+  resend: { status, nota, resend_api_key, from_email },
+  utms: { status, nota, base_url }
+}
+```
+
+Os campos `pixel_id` e `access_token` do Facebook que já existem em `data.facebook_pixel_id` e `data.facebook_access_token` serão lidos como fallback para manter compatibilidade.
 
 ---
 
 ## Arquivos alterados
 
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---|---|
-| `src/pages/ProjetoDetalhe.tsx` | Adicionar textos de ajuda, passo-a-passo colapsavel, botao testar CAPI |
-| `src/pages/Guia.tsx` | Nova secao CAPI com checklist e FAQ |
-| `src/pages/Tracker.tsx` | Adicionar explicacao Facebook no dialog de script |
+| `src/components/projeto/ProjetoBriefing.tsx` | Expandir cada card de integração com campos específicos, placeholders explicativos, auto-status, URL do webhook com botão copiar |
 
