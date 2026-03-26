@@ -527,9 +527,9 @@ export default function Leads() {
           <p className="text-xs text-muted-foreground">{filtered.length} de {leads.length} leads</p>
         </div>
 
-        {/* KPI Cards */}
+        {/* KPI Cards — clickable as quick filters */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          <Card className="bg-card border-border">
+          <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-primary/40", stageFilter === "all" && statusFilter === "all" && "ring-1 ring-primary/30")} onClick={() => { setStageFilter("all"); setStatusFilter("all"); }}>
             <CardContent className="p-3 flex items-center gap-3">
               <Users className="h-4 w-4 text-muted-foreground" />
               <div>
@@ -538,7 +538,7 @@ export default function Leads() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card border-border">
+          <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-emerald-500/40", statusFilter === "cliente" && "ring-1 ring-emerald-500/50")} onClick={() => { setStatusFilter("cliente"); setStageFilter("all"); }}>
             <CardContent className="p-3 flex items-center gap-3">
               <UserCheck className="h-4 w-4 text-emerald-400" />
               <div>
@@ -547,7 +547,7 @@ export default function Leads() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card border-border">
+          <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-amber-500/40", stageFilter === "carrinho_abandonado" && "ring-1 ring-amber-500/50")} onClick={() => { setStageFilter("carrinho_abandonado"); setStatusFilter("all"); }}>
             <CardContent className="p-3 flex items-center gap-3">
               <ShoppingCart className="h-4 w-4 text-amber-400" />
               <div>
@@ -556,16 +556,16 @@ export default function Leads() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card border-border">
+          <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-orange-500/40", stageFilter === "pix_gerado" && "ring-1 ring-orange-500/50")} onClick={() => { setStageFilter("pix_gerado"); setStatusFilter("all"); }}>
             <CardContent className="p-3 flex items-center gap-3">
               <AlertCircle className="h-4 w-4 text-orange-400" />
               <div>
-                <p className="text-xl font-bold">{leads.filter(l => getLeadStage(l) === "aguardando_pagamento" || getLeadStage(l) === "pix_gerado").length}</p>
+                <p className="text-xl font-bold">{leads.filter(l => ["aguardando_pagamento", "pix_gerado"].includes(getLeadStage(l))).length}</p>
                 <p className="text-[10px] text-muted-foreground">Pix Pendente</p>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card border-border">
+          <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-accent/40", statusFilter === "vip" && "ring-1 ring-accent/50")} onClick={() => { setStatusFilter("vip"); setStageFilter("all"); }}>
             <CardContent className="p-3 flex items-center gap-3">
               <Crown className="h-4 w-4 text-accent" />
               <div>
