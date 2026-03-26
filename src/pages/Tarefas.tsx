@@ -26,8 +26,15 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { motion, AnimatePresence } from "framer-motion";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+const safeFmt = (v?: string | null, mask = "dd/MM/yyyy") => {
+  if (!v) return "—";
+  const d = parseISO(v);
+  return isValid(d) ? format(d, mask) : "—";
+};
+const toDateOnly = (v?: string | null) => (v ? v.slice(0, 10) : "");
 
 
 
@@ -178,8 +185,8 @@ export default function Tarefas() {
     if (calFilterType !== "all" && e.event_type !== calFilterType) return false;
     return true;
   });
-  const eventsOnDate = filteredCalEvents.filter(e => e.event_date === selectedDateStr);
-  const eventDates = new Set(filteredCalEvents.map(e => e.event_date));
+  const eventsOnDate = filteredCalEvents.filter(e => toDateOnly(e.event_date) === selectedDateStr);
+  const eventDates = new Set(filteredCalEvents.map(e => toDateOnly(e.event_date)));
 
   const createCalEvent = async () => {
     if (!eventForm.title.trim() || !eventForm.event_date) { toast.error("Título e data são obrigatórios"); return; }
@@ -808,7 +815,7 @@ export default function Tarefas() {
                   selected={calDate}
                   onSelect={setCalDate}
                   locale={ptBR}
-                  modifiers={{ hasEvent: (day) => eventDates.has(format(day, "yyyy-MM-dd")) }}
+                   modifiers={{ hasEvent: (day) => eventDates.has(format(day, "yyyy-MM-dd")) }}
                   modifiersStyles={{ hasEvent: { fontWeight: "bold", textDecoration: "underline", textDecorationColor: "hsl(var(--primary))" } }}
                 />
               </CardContent>
@@ -844,10 +851,10 @@ export default function Tarefas() {
               )}
 
               {/* Upcoming events */}
-              {filteredCalEvents.filter(e => e.event_date > todayStr).length > 0 && (
+               {filteredCalEvents.filter(e => toDateOnly(e.event_date) > todayStr).length > 0 && (
                 <div className="mt-6">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Próximos Eventos</h4>
-                  {filteredCalEvents.filter(e => e.event_date >= todayStr).slice(0, 10).map((ev: any) => {
+                  {filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).slice(0, 10).map((ev: any) => {
                     const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
                     const proj = ev.imphq_projects;
                     return (
@@ -856,7 +863,7 @@ export default function Tarefas() {
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{ev.title}</p>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-mono text-muted-foreground">{format(new Date(ev.event_date + "T12:00:00"), "dd/MM")}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground">{safeFmt(ev.event_date, "dd/MM")}</span>
                             {proj && <span className="text-[10px] text-muted-foreground">{proj.icon || "📁"} {proj.name}</span>}
                           </div>
                         </div>

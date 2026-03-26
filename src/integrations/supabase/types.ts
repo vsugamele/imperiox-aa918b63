@@ -21397,6 +21397,278 @@ export type Database = {
           },
         ]
       }
+      webi_events: {
+        Row: {
+          created_at: string | null
+          id: string
+          payload: Json | null
+          timestamp_seconds: number
+          type: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          timestamp_seconds: number
+          type: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          timestamp_seconds?: number
+          type?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_events_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_leads: {
+        Row: {
+          attended: boolean | null
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          project_id: string
+          registered_at: string | null
+          webinar_id: string
+        }
+        Insert: {
+          attended?: boolean | null
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          project_id: string
+          registered_at?: string | null
+          webinar_id: string
+        }
+        Update: {
+          attended?: boolean | null
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          project_id?: string
+          registered_at?: string | null
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_leads_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_projects: {
+        Row: {
+          accent_color: string | null
+          created_at: string | null
+          custom_domain: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string
+          resend_from_email: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          created_at?: string | null
+          custom_domain?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          owner_id: string
+          resend_from_email?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          created_at?: string | null
+          custom_domain?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          resend_from_email?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "webi_projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_session_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          project_id: string
+          session_id: string
+          timestamp_video: number | null
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          project_id: string
+          session_id: string
+          timestamp_video?: number | null
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          project_id?: string
+          session_id?: string
+          timestamp_video?: number | null
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_session_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "webi_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_session_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_session_events_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_webinars: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          evergreen_offset_seconds: number | null
+          id: string
+          name: string
+          peak_viewers_max: number | null
+          peak_viewers_min: number | null
+          project_id: string
+          slug: string
+          status: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          evergreen_offset_seconds?: number | null
+          id?: string
+          name: string
+          peak_viewers_max?: number | null
+          peak_viewers_min?: number | null
+          project_id: string
+          slug: string
+          status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          evergreen_offset_seconds?: number | null
+          id?: string
+          name?: string
+          peak_viewers_max?: number | null
+          peak_viewers_min?: number | null
+          project_id?: string
+          slug?: string
+          status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_webinars_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_exercise_summary: {
         Row: {
           calories_burned: number
