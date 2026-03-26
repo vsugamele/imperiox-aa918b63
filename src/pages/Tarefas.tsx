@@ -815,7 +815,7 @@ export default function Tarefas() {
                   selected={calDate}
                   onSelect={setCalDate}
                   locale={ptBR}
-                  modifiers={{ hasEvent: (day) => eventDates.has(format(day, "yyyy-MM-dd")) }}
+                   modifiers={{ hasEvent: (day) => eventDates.has(format(day, "yyyy-MM-dd")) }}
                   modifiersStyles={{ hasEvent: { fontWeight: "bold", textDecoration: "underline", textDecorationColor: "hsl(var(--primary))" } }}
                 />
               </CardContent>
