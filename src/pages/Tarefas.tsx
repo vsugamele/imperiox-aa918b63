@@ -616,6 +616,10 @@ export default function Tarefas() {
             <ListTodo className="h-3.5 w-3.5" /> Tarefas
             <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{filtered.filter(c => !isDone(c)).length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="calendar" className="gap-1.5">
+            <CalendarIcon className="h-3.5 w-3.5" /> Calendário
+            <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{calEvents.length}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         {/* ====== ROUTINES TAB ====== */}
