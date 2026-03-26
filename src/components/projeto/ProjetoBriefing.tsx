@@ -9,8 +9,9 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Trash2, X, ChevronDown, ExternalLink } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { CopyArsenalSection } from "./CopyArsenalSection";
 
 const PIPELINE_KEYS = [
@@ -34,6 +35,46 @@ const INTEGRATION_ITEMS = [
   { key: "resend", label: "Resend (Email)", icon: "📧", desc: "Email transacional" },
   { key: "utms", label: "UTMs no Site", icon: "🔗", desc: "Parâmetros de rastreamento" },
 ];
+
+const INTEGRATION_FIELDS: Record<string, Array<{ field: string; label: string; placeholder: string; help: string; required?: boolean; secret?: boolean; readOnly?: boolean }>> = {
+  clarity: [
+    { field: "clarity_id", label: "Clarity ID", placeholder: "Ex: abc123xyz", help: "Encontre em clarity.ms → Settings → Overview", required: true },
+  ],
+  google_analytics: [
+    { field: "ga4_measurement_id", label: "Measurement ID", placeholder: "Ex: G-XXXXXXXXXX", help: "GA4 → Admin → Data Streams → seu stream", required: true },
+  ],
+  webhook_pagamento: [
+    { field: "webhook_url", label: "URL do Webhook (copie e cole na plataforma)", placeholder: "", help: "Cole esta URL na Hotmart, Kiwify ou Ticto como endpoint de webhook", readOnly: true },
+    { field: "webhook_secret", label: "Token de Validação", placeholder: "Token secreto para validar chamadas", help: "Opcional: crie um token e adicione como header na plataforma de pagamento", secret: true },
+  ],
+  facebook_pixel: [
+    { field: "pixel_id", label: "Pixel ID", placeholder: "Ex: 123456789012345", help: "Events Manager → Data Sources → seu Pixel → Settings", required: true },
+    { field: "access_token", label: "Access Token (CAPI)", placeholder: "Token de acesso para Conversions API", help: "Events Manager → Settings → Generate Access Token", secret: true, required: true },
+    { field: "test_event_code", label: "Test Event Code", placeholder: "Ex: TEST12345", help: "Events Manager → Test Events → código exibido no topo" },
+  ],
+  resend: [
+    { field: "resend_api_key", label: "API Key", placeholder: "re_xxxxxxxx...", help: "Encontre em resend.com → API Keys", required: true, secret: true },
+    { field: "from_email", label: "Email Remetente", placeholder: "contato@seudominio.com", help: "Deve ser um domínio verificado no Resend", required: true },
+  ],
+  utms: [
+    { field: "base_url", label: "URL Base do Site", placeholder: "https://seusite.com", help: "URL principal para geração automática de UTMs", required: true },
+  ],
+};
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Copiado!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleCopy}>
+      {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+    </Button>
+  );
+}
 
 interface Props {
   project: any;
@@ -349,15 +390,43 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         </CardContent>
       </Card>
 
-      {/* Checklist de Integração */}
+      {/* Setup de Integração com campos reais */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🛠️ Setup de Integração</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {INTEGRATION_ITEMS.map((item) => {
               const itemData = checklist[item.key] || { status: "pendente", nota: "" };
+              // Fallback for facebook fields stored at top level
+              const fbFallback = item.key === "facebook_pixel" ? {
+                pixel_id: itemData.pixel_id || data.facebook_pixel_id || "",
+                access_token: itemData.access_token || data.facebook_access_token || "",
+                test_event_code: itemData.test_event_code || data.facebook_test_event_code || "",
+              } : {};
+
+              const fields = INTEGRATION_FIELDS[item.key] || [];
+              
+              // Auto-status: if all required fields filled → configurado
+              const filledCount = fields.filter((f: any) => {
+                if (f.readOnly) return true;
+                const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
+                  ? fbFallback[f.field as keyof typeof fbFallback]
+                  : itemData[f.field] || "";
+                return val.toString().trim().length > 0;
+              }).length;
+              const requiredFields = fields.filter((f: any) => f.required);
+              const requiredFilled = requiredFields.filter((f: any) => {
+                const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
+                  ? fbFallback[f.field as keyof typeof fbFallback]
+                  : itemData[f.field] || "";
+                return val.toString().trim().length > 0;
+              }).length;
+              const autoStatus = requiredFields.length > 0 && requiredFilled === requiredFields.length
+                ? (itemData.status === "verificado" ? "verificado" : "configurado")
+                : (itemData.status === "verificado" ? "verificado" : "pendente");
+
               return (
-                <div key={item.key} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
+                <div key={item.key} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{item.icon}</span>
@@ -366,19 +435,71 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                         <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                       </div>
                     </div>
-                    <Select value={itemData.status || "pendente"} onValueChange={(v) => updateChecklist(item.key, "status", v)}>
-                      <SelectTrigger className="w-auto h-6 text-[10px] px-2 gap-1 border-0">
-                        <Badge variant="outline" className={`text-[10px] ${getStatusColor(itemData.status || "pendente")}`}>
-                          {itemData.status === "verificado" ? "✓ Verificado" : itemData.status === "configurado" ? "◐ Configurado" : "○ Pendente"}
-                        </Badge>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pendente" className="text-xs">○ Pendente</SelectItem>
-                        <SelectItem value="configurado" className="text-xs">◐ Configurado</SelectItem>
-                        <SelectItem value="verificado" className="text-xs">✓ Verificado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className={`text-[10px] ${getStatusColor(autoStatus)}`}>
+                        {autoStatus === "verificado" ? "✓ Verificado" : autoStatus === "configurado" ? "◐ Configurado" : "○ Pendente"}
+                      </Badge>
+                      {autoStatus === "configurado" && itemData.status !== "verificado" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 text-[9px] px-1.5"
+                          onClick={() => updateChecklist(item.key, "status", "verificado")}
+                        >
+                          Marcar verificado
+                        </Button>
+                      )}
+                      {itemData.status === "verificado" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 text-[9px] px-1.5 text-muted-foreground"
+                          onClick={() => updateChecklist(item.key, "status", "configurado")}
+                        >
+                          Desfazer
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Specific fields */}
+                  <div className="space-y-2">
+                    {fields.map((f: any) => {
+                      const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
+                        ? fbFallback[f.field as keyof typeof fbFallback]
+                        : itemData[f.field] || "";
+
+                      if (f.readOnly) {
+                        const webhookUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}`;
+                        return (
+                          <div key={f.field}>
+                            <Label className="text-[10px] text-muted-foreground">{f.label}</Label>
+                            <div className="flex items-center gap-1">
+                              <Input value={webhookUrl} readOnly className="bg-secondary h-7 text-[10px] font-mono flex-1" />
+                              <CopyButton text={webhookUrl} />
+                            </div>
+                            <p className="text-[9px] text-muted-foreground/70 mt-0.5">{f.help}</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={f.field}>
+                          <Label className="text-[10px] text-muted-foreground">{f.label}{f.required && " *"}</Label>
+                          <Input
+                            value={val}
+                            onChange={(e) => updateChecklist(item.key, f.field, e.target.value)}
+                            className="bg-secondary h-7 text-xs"
+                            placeholder={f.placeholder}
+                            type={f.secret ? "password" : "text"}
+                          />
+                          <p className="text-[9px] text-muted-foreground/70 mt-0.5">{f.help}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Observação */}
                   <Input
                     value={itemData.nota || ""}
                     onChange={(e) => updateChecklist(item.key, "nota", e.target.value)}
