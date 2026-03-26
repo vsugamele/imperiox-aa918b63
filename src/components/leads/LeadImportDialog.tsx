@@ -486,6 +486,7 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
                       <TableHead className="text-xs">Pagamento</TableHead>
                       <TableHead className="text-xs">Parcelas</TableHead>
                       <TableHead className="text-xs">Valor</TableHead>
+                      <TableHead className="text-xs">Líquido</TableHead>
                       <TableHead className="text-xs">Produto</TableHead>
                     </TableRow>
                   </TableHeader>
