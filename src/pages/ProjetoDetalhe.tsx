@@ -18,7 +18,7 @@ import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 import { ProjetoLinks } from "@/components/projeto/ProjetoLinks";
 import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
-
+import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil, Copy, Check } from "lucide-react";
