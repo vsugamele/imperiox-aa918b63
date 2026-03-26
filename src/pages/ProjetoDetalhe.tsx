@@ -256,6 +256,134 @@ export default function ProjetoDetalhe() {
   );
 }
 
+// ── Facebook CAPI Card ──────────────────────────────────────────
+function FacebookCAPICard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+
+  const updateDataField = (key: string, value: string) => {
+    const newData = { ...(project.data || {}), [key]: value };
+    setProject((p: any) => ({ ...p, data: newData }));
+    updateField("data", newData);
+  };
+
+  const testCAPI = async () => {
+    if (!project.data?.facebook_pixel_id || !project.data?.facebook_access_token) {
+      toast.error("Preencha Pixel ID e Access Token antes de testar");
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(
+        `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}&event=Lead`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ test: true, email: "test@imperiohq.com", name: "Teste CAPI" }),
+        }
+      );
+      setTestResult(res.ok ? "success" : "error");
+      toast[res.ok ? "success" : "error"](res.ok ? "Evento de teste enviado! Verifique no Events Manager." : "Erro ao enviar evento de teste");
+    } catch {
+      setTestResult("error");
+      toast.error("Erro de conexão ao enviar teste");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📘 Facebook Pixel & CAPI</CardTitle>
+          <div className="flex items-center gap-2">
+            {testResult === "success" && <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]"><CheckCircle2 className="h-3 w-3 mr-1" /> CAPI OK</Badge>}
+            {testResult === "error" && <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-[10px]"><XCircle className="h-3 w-3 mr-1" /> Erro</Badge>}
+            <Button size="sm" variant="outline" onClick={testCAPI} disabled={testing} className="h-7 text-xs">
+              <TestTube2 className="h-3 w-3 mr-1" /> {testing ? "Enviando..." : "Testar CAPI"}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label className="text-xs text-muted-foreground">Pixel ID</Label>
+            <Input
+              value={project.data?.facebook_pixel_id || ""}
+              onChange={e => {
+                const newData = { ...(project.data || {}), facebook_pixel_id: e.target.value };
+                setProject((p: any) => ({ ...p, data: newData }));
+              }}
+              onBlur={() => updateDataField("facebook_pixel_id", project.data?.facebook_pixel_id || "")}
+              className="bg-secondary"
+              placeholder="Ex: 123456789012345"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Encontre em Events Manager → Fontes de Dados → Pixel → ID do Pixel</p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Access Token (CAPI)</Label>
+            <Input
+              type="password"
+              value={project.data?.facebook_access_token || ""}
+              onChange={e => {
+                const newData = { ...(project.data || {}), facebook_access_token: e.target.value };
+                setProject((p: any) => ({ ...p, data: newData }));
+              }}
+              onBlur={() => updateDataField("facebook_access_token", project.data?.facebook_access_token || "")}
+              className="bg-secondary"
+              placeholder="EAAxxxxxxx..."
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Gere em Events Manager → Configurações → Conversions API → Gerar Token</p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Test Event Code</Label>
+            <Input
+              value={project.data?.facebook_test_event_code || ""}
+              onChange={e => {
+                const newData = { ...(project.data || {}), facebook_test_event_code: e.target.value };
+                setProject((p: any) => ({ ...p, data: newData }));
+              }}
+              onBlur={() => updateDataField("facebook_test_event_code", project.data?.facebook_test_event_code || "")}
+              className="bg-secondary"
+              placeholder="TEST12345"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Opcional. Aba "Test Events" no Events Manager. Remove antes de ir para produção.</p>
+          </div>
+        </div>
+
+        <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+          <ExternalLink className="h-3 w-3" /> Abrir Facebook Events Manager
+        </a>
+
+        <Collapsible open={guideOpen} onOpenChange={setGuideOpen}>
+          <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-primary hover:underline w-full">
+            <ChevronDown className={`h-3 w-3 transition-transform ${guideOpen ? "rotate-180" : ""}`} />
+            📖 Passo-a-passo: Como gerar o Token CAPI
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2 space-y-2">
+            {[
+              { step: 1, text: "Acesse o Facebook Events Manager e selecione seu Pixel" },
+              { step: 2, text: "Clique em 'Configurações' (ícone de engrenagem)" },
+              { step: 3, text: "Role até 'Conversions API' e clique em 'Gerar Token de Acesso'" },
+              { step: 4, text: "Copie o token (começa com EAA...) e cole no campo 'Access Token' acima" },
+              { step: 5, text: "Para testar, copie o 'Test Event Code' da aba 'Test Events' e cole acima. Depois clique em 'Testar CAPI'" },
+            ].map(s => (
+              <div key={s.step} className="flex items-start gap-2 p-2 rounded bg-secondary/50 border border-border">
+                <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/30 shrink-0">{s.step}</Badge>
+                <p className="text-[11px] text-muted-foreground">{s.text}</p>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Webhooks de Pagamento Card ──────────────────────────────────
 function WebhooksPagamentoCard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
   const [copied, setCopied] = useState<string | null>(null);
