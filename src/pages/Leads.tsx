@@ -44,11 +44,17 @@ function getLeadStage(lead: Lead): string {
   return (lead.data as any)?.ultimo_evento || "lead_capturado";
 }
 
+interface LeadVenda {
+  id: string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: any;
+}
+
 interface Lead {
   id: string; nome?: string; phone?: string; email?: string; project_id?: string;
   funil_id?: string; plataforma?: string; status?: string; score?: number;
   tags?: string[]; total_gasto?: number; data?: any; criado_em?: string;
   _isNew?: boolean;
+  _vendas?: LeadVenda[];
+  _score?: number;
 }
 
 interface TimelineEvent {
