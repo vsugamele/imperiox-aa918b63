@@ -114,6 +114,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       recorrente: cost.recorrente,
       documento_url: cost.documento_url || "",
       produto_nome: cost.produto_nome || "",
+      pix_info: cost.pix_info || "",
+      data_pagamento: cost.data_pagamento || "",
     });
     setShowCostForm(true);
   };
