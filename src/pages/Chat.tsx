@@ -44,6 +44,7 @@ export default function Chat() {
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [showCommands, setShowCommands] = useState(false);
   const [sending, setSending] = useState(false);
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
