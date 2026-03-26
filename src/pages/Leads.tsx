@@ -633,7 +633,13 @@ export default function Leads() {
                           <p className="font-medium text-sm">{l.nome}</p>
                           {l._isNew && <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">NOVO</span>}
                         </div>
-                        <p className="text-[10px] text-muted-foreground">{l.email || "—"}</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-[10px] text-muted-foreground">{l.email || "—"}</p>
+                          {l.tags && l.tags.length > 0 && l.tags.slice(0, 2).map(t => (
+                            <Badge key={t} variant="outline" className="text-[8px] px-1 py-0 h-3.5 leading-none">{t}</Badge>
+                          ))}
+                          {l.tags && l.tags.length > 2 && <span className="text-[8px] text-muted-foreground">+{l.tags.length - 2}</span>}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
