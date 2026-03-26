@@ -55,6 +55,9 @@ export default function Chat() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_chat_messages" }, (payload) => {
         setMessages((prev) => [...prev, payload.new as ChatMessage]);
       })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "imphq_chat_messages" }, (payload) => {
+        setMessages((prev) => prev.filter(m => m.id !== (payload.old as any).id));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
