@@ -26,8 +26,15 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { motion, AnimatePresence } from "framer-motion";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+const safeFmt = (v?: string | null, mask = "dd/MM/yyyy") => {
+  if (!v) return "—";
+  const d = parseISO(v);
+  return isValid(d) ? format(d, mask) : "—";
+};
+const toDateOnly = (v?: string | null) => (v ? v.slice(0, 10) : "");
 
 
 
