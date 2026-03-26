@@ -30,6 +30,8 @@ const STATUS_MAP_TICTO: Record<string, string> = {
   Aguardando: "aguardando_pagamento",
   "Aguardando Pagamento": "aguardando_pagamento",
   Recusado: "recusado",
+  "Pix Gerado": "pix_gerado",
+  "PIX Gerado": "pix_gerado",
 };
 
 const STATUS_MAP_HOTMART: Record<string, string> = {
