@@ -155,6 +155,51 @@ export default function Tarefas() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Calendar data
+  const fetchCalEvents = useCallback(async () => {
+    const { data } = await supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon)").order("event_date", { ascending: true });
+    setCalEvents((data as any[]) || []);
+  }, []);
+  useEffect(() => { fetchCalEvents(); }, [fetchCalEvents]);
+
+  const EVENT_TYPES = ["general", "launch", "live", "deadline", "meeting", "content"];
+  const EVENT_TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
+    general: { label: "Geral", emoji: "📌" },
+    launch: { label: "Lançamento", emoji: "🚀" },
+    live: { label: "Live", emoji: "🎥" },
+    deadline: { label: "Deadline", emoji: "⏰" },
+    meeting: { label: "Reunião", emoji: "🤝" },
+    content: { label: "Conteúdo", emoji: "📝" },
+  };
+
+  const selectedDateStr = calDate ? format(calDate, "yyyy-MM-dd") : "";
+  const filteredCalEvents = calEvents.filter(e => {
+    if (calFilterProject !== "all" && e.project_id !== calFilterProject) return false;
+    if (calFilterType !== "all" && e.event_type !== calFilterType) return false;
+    return true;
+  });
+  const eventsOnDate = filteredCalEvents.filter(e => e.event_date === selectedDateStr);
+  const eventDates = new Set(filteredCalEvents.map(e => e.event_date));
+
+  const createCalEvent = async () => {
+    if (!eventForm.title.trim() || !eventForm.event_date) { toast.error("Título e data são obrigatórios"); return; }
+    if (!user) return;
+    const { error } = await supabase.from("imphq_calendar_events").insert({
+      title: eventForm.title.trim(),
+      event_date: eventForm.event_date,
+      event_type: eventForm.event_type,
+      color: eventForm.color,
+      description: eventForm.description,
+      project_id: eventForm.project_id !== "none" ? eventForm.project_id : null,
+      user_id: user.id,
+    } as any);
+    if (error) { toast.error("Erro ao criar evento"); return; }
+    toast.success("Evento criado!");
+    setShowEventDialog(false);
+    setEventForm({ title: "", event_date: "", event_type: "general", color: "#6366f1", description: "", project_id: "none" });
+    fetchCalEvents();
+  };
+
   // === ROUTINES LOGIC ===
   const teamRoutines = routines.filter(r => r.category === "team");
   const personalRoutines = routines.filter(r => r.category === "personal");
