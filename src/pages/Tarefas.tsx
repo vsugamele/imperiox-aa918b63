@@ -143,9 +143,20 @@ export default function Tarefas() {
   const todayStr = today.toISOString().split("T")[0];
 
   const fetchData = useCallback(async () => {
+    // Check if admin
+    let userIsAdmin = false;
+    if (user) {
+      const { data: memberData } = await supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle();
+      userIsAdmin = memberData?.role === "admin" || memberData?.role === "owner";
+    }
+
+    const cardQuery = userIsAdmin
+      ? supabase.from("imphq_kanban_cards").select("*").order("due_date", { ascending: true })
+      : supabase.from("imphq_kanban_cards").select("*").order("due_date", { ascending: true });
+
     const [colRes, cardRes, projRes, memberRes, routineRes, checksRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("id, title, board, position").order("position", { ascending: true }),
-      supabase.from("imphq_kanban_cards").select("*").order("due_date", { ascending: true }),
+      cardQuery,
       supabase.from("imphq_projects").select("id, name"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role").eq("is_active", true),
       supabase.from("imphq_daily_routines").select("*").eq("is_active", true).order("position", { ascending: true }),
