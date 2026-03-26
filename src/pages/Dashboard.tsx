@@ -90,9 +90,25 @@ export default function Dashboard() {
       }).sort((a, b) => b.profit - a.profit).slice(0, 5);
       
       setProjectFinance(financeData);
+
+      // Total receita from vendas + revenue
+      const [vendasTotal, revsTotal2] = await Promise.all([
+        supabase.from("imphq_vendas").select("valor").eq("status", "aprovado"),
+        supabase.from("imphq_project_revenue").select("valor"),
+      ]);
+      const recV = (vendasTotal.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+      const recR = (revsTotal2.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
+      setTotalReceita(recV + recR);
     }
     load();
-  }, []);
+
+    // Check admin
+    if (user) {
+      supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+        setIsAdmin(data?.role === "admin" || data?.role === "owner");
+      });
+    }
+  }, [user]);
 
   const statCards = [
     { label: "Projetos", value: stats.projects, icon: FolderKanban, gradient: "from-primary/15 to-primary/5", iconBg: "bg-primary/15 text-primary", textColor: "text-primary" },
