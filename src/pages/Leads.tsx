@@ -774,6 +774,52 @@ export default function Leads() {
                     </div>
                   </div>
                   <div><Label>Tags</Label><EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} /></div>
+                  
+                  {/* Notas */}
+                  <div>
+                    <Label>📝 Notas</Label>
+                    <Textarea
+                      value={editLead.data?.notas || ""}
+                      onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, notas: e.target.value } })}
+                      placeholder="Anotações internas sobre este lead..."
+                      className="bg-secondary min-h-[60px]"
+                    />
+                  </div>
+
+                  {/* Dados de Compra */}
+                  {editLead._vendas && editLead._vendas.length > 0 && (
+                    <div className="space-y-2 border-t border-border pt-3">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">💰 Dados de Compra</p>
+                      {editLead._vendas.map((v, i) => (
+                        <div key={v.id || i} className="p-2 bg-secondary/50 rounded-lg space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">{v.produto_nome || "Produto"}</span>
+                            <span className="text-xs font-mono text-primary">R$ {v.valor.toFixed(2)}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {v.data?.metodo_pagamento && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">💳 {v.data.metodo_pagamento}</Badge>}
+                            {v.data?.parcelas && v.data.parcelas > 1 && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.parcelas}x</Badge>}
+                            {v.data?.bandeira_cartao && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.bandeira_cartao}</Badge>}
+                            {v.data?.codigo_pedido && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">#{v.data.codigo_pedido}</Badge>}
+                            {v.data?.valor_liquidado && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-blue-400">Líq: R$ {v.data.valor_liquidado}</Badge>}
+                            {v.data?.oferta && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.oferta}</Badge>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* UTMs */}
+                  {editLead.data?.utms && Object.values(editLead.data.utms).some(Boolean) && (
+                    <div className="space-y-1 border-t border-border pt-3">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🔗 UTMs</p>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(editLead.data.utms).filter(([, v]) => v).map(([k, v]) => (
+                          <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 30)}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="qualificacao" className="space-y-3">

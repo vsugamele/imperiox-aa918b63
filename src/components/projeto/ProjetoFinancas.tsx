@@ -589,6 +589,10 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             </div>
             <div><Label>Valor</Label><Input type="number" step="0.01" value={costForm.valor} onChange={e => setCostForm({ ...costForm, valor: e.target.value })} placeholder="0.00" /></div>
             <ProductSelect value={costForm.produto_nome} onChange={v => setCostForm({ ...costForm, produto_nome: v })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Chave PIX / Info</Label><Input value={costForm.pix_info} onChange={e => setCostForm({ ...costForm, pix_info: e.target.value })} placeholder="Chave PIX, comprovante..." className="bg-secondary" /></div>
+              <div><Label>Data Pagamento</Label><Input type="date" value={costForm.data_pagamento} onChange={e => setCostForm({ ...costForm, data_pagamento: e.target.value })} className="bg-secondary" /></div>
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={costForm.recorrente} onChange={e => setCostForm({ ...costForm, recorrente: e.target.checked })} className="rounded border-border" />
               Custo recorrente (mensal)

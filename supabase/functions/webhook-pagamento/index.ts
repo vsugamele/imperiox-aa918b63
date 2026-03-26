@@ -294,6 +294,29 @@ Deno.serve(async (req) => {
         .eq("id", leadId);
     }
 
+    // Auto-create product in briefing if not exists
+    if (produto && projectId) {
+      try {
+        const { data: projData } = await supabase
+          .from("imphq_projects")
+          .select("data")
+          .eq("id", projectId)
+          .single();
+        if (projData?.data) {
+          const currentData = projData.data as Record<string, any>;
+          const produtos: any[] = currentData.produtos || [];
+          const exists = produtos.some((p: any) => p.nome?.toLowerCase() === produto.toLowerCase());
+          if (!exists) {
+            produtos.push({ nome: produto, tipo: "Infoproduto" });
+            await supabase.from("imphq_projects").update({ data: { ...currentData, produtos } }).eq("id", projectId);
+            console.log(`[webhook-pagamento] Produto "${produto}" adicionado ao briefing do projeto ${projectId}`);
+          }
+        }
+      } catch (e) {
+        console.warn("[webhook-pagamento] Erro ao auto-criar produto:", e);
+      }
+    }
+
     // Send CAPI event for supported event types
     const capiEventName = CAPI_EVENT_MAP[evento];
     if (capiEventName && fbToken && fbPixelId) {

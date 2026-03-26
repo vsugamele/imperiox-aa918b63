@@ -249,6 +249,15 @@ export default function Chat() {
                     <span className="text-[10px] text-muted-foreground">
                       {formatDistanceToNow(new Date(msg.created_at), { locale: ptBR, addSuffix: true })}
                     </span>
+                    {user && msg.user_id === user.id && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteMessage(msg.id); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        title="Excluir mensagem"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                   {msg.message_type === "command" ? (
                     <div className="mt-1">

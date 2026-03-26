@@ -146,6 +146,27 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Receita Total card */}
+      <Card className="bg-gradient-to-br from-emerald-500/10 to-primary/5 border-border animate-fade-in" style={{ animationDelay: "330ms", animationFillMode: "both" }}>
+        <CardContent className="flex items-center gap-4 p-5">
+          <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400">
+            <DollarSign className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Receita Total</p>
+            <p className={`text-2xl font-mono font-bold text-emerald-400 ${!isAdmin ? "blur-md select-none" : ""}`}>
+              R$ {totalReceita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          {!isAdmin && (
+            <div className="ml-auto flex items-center gap-1 text-muted-foreground" title="Apenas administradores podem ver valores">
+              <Lock className="h-4 w-4" />
+              <span className="text-[10px]">Admin only</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Projects */}
         <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "350ms", animationFillMode: "both" }}>

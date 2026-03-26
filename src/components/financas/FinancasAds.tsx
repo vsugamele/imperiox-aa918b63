@@ -172,7 +172,12 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
               </TableRow>
             ))}
             {ads.length === 0 && (
-              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nenhum gasto de ads registrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                <div className="space-y-2">
+                  <p>Nenhum dado de Ads disponível</p>
+                  <p className="text-[11px]">Importe um CSV de relatório ou conecte a API do Facebook/Google para importação automática.</p>
+                </div>
+              </TableCell></TableRow>
             )}
           </TableBody>
         </Table>
