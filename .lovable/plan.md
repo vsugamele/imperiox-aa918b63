@@ -1,44 +1,66 @@
 
 
-# Status: Tudo do Plano Anterior Foi Implementado
+# Plano: Melhorar Configuracao CAPI + Guia de Setup por Projeto
 
-As 10 melhorias do plano foram todas aplicadas com sucesso:
+## Resposta a duvida: Sim, funciona por projeto
 
-| Item | Status |
-|---|---|
-| Leads -- dados ricos na tabela (Produto, Pagamento, Score, Receita) | Implementado |
-| Leads -- Dados de Compra, Notas, UTMs no detalhe | Implementado |
-| Leads -- Lead Score automatico | Implementado |
-| Chat -- deletar mensagens + realtime DELETE + 200 msgs | Implementado |
-| Financas -- KPIs separados Empresa vs Projetos | Implementado |
-| ProjetoFinancas -- PIX + data pagamento | Implementado (migration aplicada) |
-| LeadImportDialog -- deduplicacao vendas | Implementado |
-| Dashboard -- receita total com blur, tarefas urgentes | Implementado |
-| Tarefas -- admin ve tarefas de todos | Implementado |
-| Ads -- empty state melhorado | Implementado |
+O CAPI ja esta 100% organizado por projeto. Cada projeto tem seus proprios campos:
+- `facebook_pixel_id`, `facebook_access_token`, `facebook_test_event_code` no JSONB `data`
+- O webhook usa `?project={id}` para identificar o projeto e buscar os tokens CAPI daquele projeto especifico
+- O script `imptrack.js` carrega o Pixel via `<meta name="imp-pixel-id">` na LP do projeto
 
-O webhook-pagamento com auto-criacao de produto no briefing tambem esta no codigo, mas a **edge function precisa ser redeployada** para a alteracao entrar em producao.
+Nada e compartilhado entre projetos. Tudo isolado.
 
 ---
 
-## Proximas Oportunidades de Melhoria
+## O que implementar
 
-Com tudo do plano anterior resolvido, identifico estas oportunidades:
+### 1. Melhorar UI de configuracao CAPI no ProjetoDetalhe (aba Analytics)
 
-### 1. Deploy do webhook-pagamento atualizado
-A edge function foi editada mas pode nao ter sido deployada. Precisa redeploy.
+Hoje os 3 campos (Pixel ID, Access Token, Test Event Code) existem mas sem explicacao. Adicionar:
 
-### 2. Filtro rapido "Pendentes" no CRM
-O KPI de "Pix Pendente" e "Carrinho" ja existe, mas clicar neles nao filtra a tabela. Transformar os KPI cards em botoes de filtro rapido.
+- **Texto de ajuda** abaixo de cada campo explicando o que e e onde encontrar
+- **Link direto** para o Events Manager do Facebook (`https://business.facebook.com/events_manager2`)
+- **Passo-a-passo colapsavel** com instrucoes visuais de como gerar o token CAPI
+- **Botao "Testar CAPI"** que chama a edge function com `test_event_code` e mostra resultado
+- **Status badge** mostrando se o ultimo envio CAPI foi bem-sucedido (pode ler de `imphq_webhooks`)
 
-### 3. Tags inline na tabela de leads
-Mostrar as 2 primeiras tags como mini-badges na coluna do lead (ao lado do nome).
+### 2. Adicionar secao CAPI no Guia da Plataforma
 
-### 4. Documento/CPF visivel no detalhe
-O campo `documento` do CSV importado esta no JSONB mas nao aparece no detalhe do lead.
+No `Guia.tsx`, adicionar uma nova secao "Configurar Facebook CAPI" com:
+- Fluxo visual: `LP com imptrack.js → Captura lead → Webhook de venda → CAPI Purchase`
+- Checklist: Pixel ID preenchido? Token CAPI preenchido? Webhook configurado?
+- FAQ rapido: "Como gerar o token?", "Como testar?", "Preciso dos dois (Pixel + CAPI)?"
 
-### 5. Chat -- nome do usuario nas mensagens
-Atualmente so mostra user_id. Poderia mostrar o nome do membro da equipe.
+### 3. Melhorar explicacoes no dialog do Script (Tracker)
 
-Quer que eu implemente alguma dessas melhorias ou tem outra prioridade?
+No dialog de script do Tracker (`showScript`), adicionar secao explicando a integracao com Facebook:
+- Como o `<meta name="imp-pixel-id">` ativa o Pixel automaticamente
+- Que o CAPI e enviado pelo servidor (webhook) e nao precisa de nada extra no front
+- Que o `event_id` garante deduplicacao entre Pixel e CAPI
+
+---
+
+## Detalhes tecnicos
+
+### ProjetoDetalhe.tsx (aba Analytics, card "Facebook Pixel & CAPI")
+- Adicionar `<Collapsible>` com passo-a-passo de 5 etapas para gerar o token
+- Textos de ajuda como `<p className="text-[10px] text-muted-foreground">` abaixo de cada Input
+- Botao "Testar Evento" que faz fetch para a edge function webhook-pagamento com payload de teste
+
+### Guia.tsx
+- Nova secao "📘 Facebook CAPI" entre os modulos e os comandos, com cards de checklist e FAQ
+
+### Tracker.tsx (dialog showScript)
+- Adicionar bloco "Integracao com Facebook" no final do dialog, explicando Pixel + CAPI + dedup
+
+---
+
+## Arquivos alterados
+
+| Arquivo | Acao |
+|---|---|
+| `src/pages/ProjetoDetalhe.tsx` | Adicionar textos de ajuda, passo-a-passo colapsavel, botao testar CAPI |
+| `src/pages/Guia.tsx` | Nova secao CAPI com checklist e FAQ |
+| `src/pages/Tracker.tsx` | Adicionar explicacao Facebook no dialog de script |
 
