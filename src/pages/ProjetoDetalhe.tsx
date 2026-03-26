@@ -180,6 +180,9 @@ export default function ProjetoDetalhe() {
         <TabsContent value="financas" className="mt-4">
           <ProjetoFinancas projectId={id!} project={project} />
         </TabsContent>
+        <TabsContent value="emails" className="mt-4">
+          <ProjetoEmails projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
         <TabsContent value="links" className="mt-4">
           <ProjetoLinks project={project} onUpdateData={onUpdateData} />
         </TabsContent>
