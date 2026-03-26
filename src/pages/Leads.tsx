@@ -638,9 +638,19 @@ export default function Leads() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {l.plataforma ? (
-                      <span className="text-xs text-primary">{l.plataforma}</span>
-                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                    {(() => {
+                      const vendas = l._vendas || [];
+                      const prods = [...new Set(vendas.map(v => v.produto_nome).filter(Boolean))];
+                      if (prods.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+                      return <span className="text-xs text-primary truncate max-w-[100px] block" title={prods.join(", ")}>{prods[0]}{prods.length > 1 ? ` +${prods.length - 1}` : ""}</span>;
+                    })()}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const vendas = l._vendas || [];
+                      const pgto = vendas.find(v => v.data?.metodo_pagamento)?.data?.metodo_pagamento;
+                      return pgto ? <span className="text-[10px] text-muted-foreground">{pgto}</span> : <span className="text-xs text-muted-foreground">—</span>;
+                    })()}
                   </TableCell>
                   <TableCell>
                     {(() => {
@@ -658,9 +668,12 @@ export default function Leads() {
                     })()}
                   </TableCell>
                   <TableCell>
-                    <Badge className={`text-[10px] ${STATUS_COLORS[l.status || "lead"]}`}>
-                      {l.status || "lead"}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${l._score || 0}%` }} />
+                      </div>
+                      <span className="text-[10px] font-mono text-muted-foreground">{l._score || 0}</span>
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm text-primary">
                     {l.total_gasto ? `R$ ${parseFloat(String(l.total_gasto)).toFixed(0)}` : "—"}
