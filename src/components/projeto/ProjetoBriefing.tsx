@@ -36,6 +36,46 @@ const INTEGRATION_ITEMS = [
   { key: "utms", label: "UTMs no Site", icon: "🔗", desc: "Parâmetros de rastreamento" },
 ];
 
+const INTEGRATION_FIELDS: Record<string, Array<{ field: string; label: string; placeholder: string; help: string; required?: boolean; secret?: boolean; readOnly?: boolean }>> = {
+  clarity: [
+    { field: "clarity_id", label: "Clarity ID", placeholder: "Ex: abc123xyz", help: "Encontre em clarity.ms → Settings → Overview", required: true },
+  ],
+  google_analytics: [
+    { field: "ga4_measurement_id", label: "Measurement ID", placeholder: "Ex: G-XXXXXXXXXX", help: "GA4 → Admin → Data Streams → seu stream", required: true },
+  ],
+  webhook_pagamento: [
+    { field: "webhook_url", label: "URL do Webhook (copie e cole na plataforma)", placeholder: "", help: "Cole esta URL na Hotmart, Kiwify ou Ticto como endpoint de webhook", readOnly: true },
+    { field: "webhook_secret", label: "Token de Validação", placeholder: "Token secreto para validar chamadas", help: "Opcional: crie um token e adicione como header na plataforma de pagamento", secret: true },
+  ],
+  facebook_pixel: [
+    { field: "pixel_id", label: "Pixel ID", placeholder: "Ex: 123456789012345", help: "Events Manager → Data Sources → seu Pixel → Settings", required: true },
+    { field: "access_token", label: "Access Token (CAPI)", placeholder: "Token de acesso para Conversions API", help: "Events Manager → Settings → Generate Access Token", secret: true, required: true },
+    { field: "test_event_code", label: "Test Event Code", placeholder: "Ex: TEST12345", help: "Events Manager → Test Events → código exibido no topo" },
+  ],
+  resend: [
+    { field: "resend_api_key", label: "API Key", placeholder: "re_xxxxxxxx...", help: "Encontre em resend.com → API Keys", required: true, secret: true },
+    { field: "from_email", label: "Email Remetente", placeholder: "contato@seudominio.com", help: "Deve ser um domínio verificado no Resend", required: true },
+  ],
+  utms: [
+    { field: "base_url", label: "URL Base do Site", placeholder: "https://seusite.com", help: "URL principal para geração automática de UTMs", required: true },
+  ],
+};
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Copiado!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleCopy}>
+      {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+    </Button>
+  );
+}
+
 interface Props {
   project: any;
   onUpdateData: (data: any) => void;
