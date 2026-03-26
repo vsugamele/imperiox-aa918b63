@@ -75,8 +75,13 @@ export default function Chat() {
       .from("imphq_chat_messages")
       .select("*")
       .order("created_at", { ascending: true })
-      .limit(100);
+      .limit(200);
     if (data) setMessages(data);
+  }
+
+  async function deleteMessage(id: string) {
+    await supabase.from("imphq_chat_messages").delete().eq("id", id);
+    setMessages((prev) => prev.filter(m => m.id !== id));
   }
 
   async function loadProjects() {
