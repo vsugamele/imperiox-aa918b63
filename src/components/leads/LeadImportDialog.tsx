@@ -313,7 +313,7 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
         created++;
       }
 
-      // Create sale record
+      // Create sale record (with deduplication)
       if (r.valor > 0 || r.status_evento === "compra_aprovada") {
         const vendaData: Record<string, any> = {
           metodo_pagamento: r.metodo_pagamento || undefined,
@@ -331,23 +331,38 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
         };
         Object.keys(vendaData).forEach(k => vendaData[k] === undefined && delete vendaData[k]);
 
-        await supabase.from("imphq_vendas").insert({
-          id: crypto.randomUUID(),
-          lead_id: leadId,
-          project_id: pid,
-          produto_nome: r.produto,
-          produto_id_ext: r.produto_id_ext || null,
-          valor: r.valor,
-          plataforma: platformLabel,
-          status: r.status_evento === "compra_aprovada" ? "aprovado" : r.status_evento,
-          utm_source: r.utms.utm_source || r.utms.src || null,
-          utm_medium: r.utms.utm_medium || null,
-          utm_campaign: r.utms.utm_campaign || null,
-          utm_content: r.utms.utm_content || null,
-          utm_term: r.utms.utm_term || null,
-          data: vendaData as any,
-        });
-        sales++;
+        // Deduplication: check if venda already exists
+        let isDuplicate = false;
+        if (r.codigo_pedido) {
+          const { data: existingVenda } = await supabase
+            .from("imphq_vendas")
+            .select("id")
+            .eq("lead_id", leadId)
+            .eq("data->>codigo_pedido", r.codigo_pedido)
+            .limit(1)
+            .maybeSingle();
+          if (existingVenda) isDuplicate = true;
+        }
+
+        if (!isDuplicate) {
+          await supabase.from("imphq_vendas").insert({
+            id: crypto.randomUUID(),
+            lead_id: leadId,
+            project_id: pid,
+            produto_nome: r.produto,
+            produto_id_ext: r.produto_id_ext || null,
+            valor: r.valor,
+            plataforma: platformLabel,
+            status: r.status_evento === "compra_aprovada" ? "aprovado" : r.status_evento,
+            utm_source: r.utms.utm_source || r.utms.src || null,
+            utm_medium: r.utms.utm_medium || null,
+            utm_campaign: r.utms.utm_campaign || null,
+            utm_content: r.utms.utm_content || null,
+            utm_term: r.utms.utm_term || null,
+            data: vendaData as any,
+          });
+          sales++;
+        }
       }
 
       // Register CSVImport event in imphq_events for journey tracking

@@ -44,11 +44,17 @@ function getLeadStage(lead: Lead): string {
   return (lead.data as any)?.ultimo_evento || "lead_capturado";
 }
 
+interface LeadVenda {
+  id: string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: any;
+}
+
 interface Lead {
   id: string; nome?: string; phone?: string; email?: string; project_id?: string;
   funil_id?: string; plataforma?: string; status?: string; score?: number;
   tags?: string[]; total_gasto?: number; data?: any; criado_em?: string;
   _isNew?: boolean;
+  _vendas?: LeadVenda[];
+  _score?: number;
 }
 
 interface TimelineEvent {
@@ -95,21 +101,43 @@ export default function Leads() {
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
+  const calcScore = (l: Lead, vendasList: LeadVenda[]) => {
+    let s = 0;
+    if (l.email) s += 10;
+    if (vendasList.length > 0) s += 30;
+    if (vendasList.length > 1) s += 20;
+    const utms = (l.data as any)?.utms;
+    if (utms && Object.values(utms).some(Boolean)) s += 5;
+    if (l.phone) s += 5;
+    return Math.min(s, 100);
+  };
+
   const load = async () => {
     const [leadsRes, projRes, vendasRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
-      supabase.from("imphq_vendas").select("lead_id, produto").not("produto", "is", null),
+      supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data").order("created_at", { ascending: false }),
     ]);
-    setLeads((leadsRes.data || []) as Lead[]);
+    const allVendas = (vendasRes.data || []) as any[];
+    const vendasByLead = new Map<string, LeadVenda[]>();
+    allVendas.forEach((v: any) => {
+      if (!v.lead_id) return;
+      if (!vendasByLead.has(v.lead_id)) vendasByLead.set(v.lead_id, []);
+      vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data });
+    });
+    
+    const enrichedLeads = (leadsRes.data || []).map((l: any) => {
+      const lv = vendasByLead.get(l.id) || [];
+      return { ...l, _vendas: lv, _score: calcScore(l, lv) };
+    }) as Lead[];
+    setLeads(enrichedLeads);
     setProjects(projRes.data || []);
     
-    const vendas = vendasRes.data || [];
-    const uniqueProducts = [...new Set(vendas.map((v: any) => v.produto).filter(Boolean))] as string[];
+    const uniqueProducts = [...new Set(allVendas.map((v: any) => v.produto_nome).filter(Boolean))] as string[];
     setProducts(uniqueProducts);
     
     if (productFilter !== "all") {
-      const ids = new Set(vendas.filter((v: any) => v.produto === productFilter).map((v: any) => v.lead_id));
+      const ids = new Set(allVendas.filter((v: any) => v.produto_nome === productFilter).map((v: any) => v.lead_id));
       setProductLeadIds(ids);
     } else {
       setProductLeadIds(null);
@@ -570,9 +598,10 @@ export default function Leads() {
                   />
                 </TableHead>
                 <TableHead>Lead</TableHead>
-                <TableHead>Plataforma</TableHead>
+                <TableHead>Produto</TableHead>
+                <TableHead>Pagamento</TableHead>
                 <TableHead>Estágio</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Score</TableHead>
                 <TableHead>Receita</TableHead>
                 <TableHead>Desde</TableHead>
                 <TableHead></TableHead>
@@ -609,9 +638,19 @@ export default function Leads() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {l.plataforma ? (
-                      <span className="text-xs text-primary">{l.plataforma}</span>
-                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                    {(() => {
+                      const vendas = l._vendas || [];
+                      const prods = [...new Set(vendas.map(v => v.produto_nome).filter(Boolean))];
+                      if (prods.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+                      return <span className="text-xs text-primary truncate max-w-[100px] block" title={prods.join(", ")}>{prods[0]}{prods.length > 1 ? ` +${prods.length - 1}` : ""}</span>;
+                    })()}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const vendas = l._vendas || [];
+                      const pgto = vendas.find(v => v.data?.metodo_pagamento)?.data?.metodo_pagamento;
+                      return pgto ? <span className="text-[10px] text-muted-foreground">{pgto}</span> : <span className="text-xs text-muted-foreground">—</span>;
+                    })()}
                   </TableCell>
                   <TableCell>
                     {(() => {
@@ -629,9 +668,12 @@ export default function Leads() {
                     })()}
                   </TableCell>
                   <TableCell>
-                    <Badge className={`text-[10px] ${STATUS_COLORS[l.status || "lead"]}`}>
-                      {l.status || "lead"}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${l._score || 0}%` }} />
+                      </div>
+                      <span className="text-[10px] font-mono text-muted-foreground">{l._score || 0}</span>
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm text-primary">
                     {l.total_gasto ? `R$ ${parseFloat(String(l.total_gasto)).toFixed(0)}` : "—"}
@@ -732,6 +774,52 @@ export default function Leads() {
                     </div>
                   </div>
                   <div><Label>Tags</Label><EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} /></div>
+                  
+                  {/* Notas */}
+                  <div>
+                    <Label>📝 Notas</Label>
+                    <Textarea
+                      value={editLead.data?.notas || ""}
+                      onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, notas: e.target.value } })}
+                      placeholder="Anotações internas sobre este lead..."
+                      className="bg-secondary min-h-[60px]"
+                    />
+                  </div>
+
+                  {/* Dados de Compra */}
+                  {editLead._vendas && editLead._vendas.length > 0 && (
+                    <div className="space-y-2 border-t border-border pt-3">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">💰 Dados de Compra</p>
+                      {editLead._vendas.map((v, i) => (
+                        <div key={v.id || i} className="p-2 bg-secondary/50 rounded-lg space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">{v.produto_nome || "Produto"}</span>
+                            <span className="text-xs font-mono text-primary">R$ {v.valor.toFixed(2)}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {v.data?.metodo_pagamento && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">💳 {v.data.metodo_pagamento}</Badge>}
+                            {v.data?.parcelas && v.data.parcelas > 1 && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.parcelas}x</Badge>}
+                            {v.data?.bandeira_cartao && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.bandeira_cartao}</Badge>}
+                            {v.data?.codigo_pedido && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">#{v.data.codigo_pedido}</Badge>}
+                            {v.data?.valor_liquidado && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-blue-400">Líq: R$ {v.data.valor_liquidado}</Badge>}
+                            {v.data?.oferta && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.oferta}</Badge>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* UTMs */}
+                  {editLead.data?.utms && Object.values(editLead.data.utms).some(Boolean) && (
+                    <div className="space-y-1 border-t border-border pt-3">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🔗 UTMs</p>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(editLead.data.utms).filter(([, v]) => v).map(([k, v]) => (
+                          <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 30)}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="qualificacao" className="space-y-3">

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon, Wallet } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon, Wallet, Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -16,12 +17,15 @@ interface Stats {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, monthlyCost: 0 });
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [urgentTasks, setUrgentTasks] = useState<any[]>([]);
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [projectFinance, setProjectFinance] = useState<any[]>([]);
+  const [totalReceita, setTotalReceita] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,7 +36,7 @@ export default function Dashboard() {
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
         supabase.from("imphq_custos").select("valor, moeda"),
         supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("imphq_tasks").select("*").neq("status", "done").order("due_date", { ascending: true }).limit(5),
+        supabase.from("imphq_tasks").select("*").neq("status", "done").or("priority.in.(urgent,high),due_date.lt." + new Date().toISOString()).order("due_date", { ascending: true }).limit(5),
         supabase.from("imphq_mi_opportunities").select("*").eq("ativo", true).order("score", { ascending: false }).limit(4),
         supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
       ]);
@@ -86,9 +90,25 @@ export default function Dashboard() {
       }).sort((a, b) => b.profit - a.profit).slice(0, 5);
       
       setProjectFinance(financeData);
+
+      // Total receita from vendas + revenue
+      const [vendasTotal, revsTotal2] = await Promise.all([
+        supabase.from("imphq_vendas").select("valor").eq("status", "aprovado"),
+        supabase.from("imphq_project_revenue").select("valor"),
+      ]);
+      const recV = (vendasTotal.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+      const recR = (revsTotal2.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
+      setTotalReceita(recV + recR);
     }
     load();
-  }, []);
+
+    // Check admin
+    if (user) {
+      supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+        setIsAdmin(data?.role === "admin" || data?.role === "owner");
+      });
+    }
+  }, [user]);
 
   const statCards = [
     { label: "Projetos", value: stats.projects, icon: FolderKanban, gradient: "from-primary/15 to-primary/5", iconBg: "bg-primary/15 text-primary", textColor: "text-primary" },
@@ -125,6 +145,27 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Receita Total card */}
+      <Card className="bg-gradient-to-br from-emerald-500/10 to-primary/5 border-border animate-fade-in" style={{ animationDelay: "330ms", animationFillMode: "both" }}>
+        <CardContent className="flex items-center gap-4 p-5">
+          <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400">
+            <DollarSign className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Receita Total</p>
+            <p className={`text-2xl font-mono font-bold text-emerald-400 ${!isAdmin ? "blur-md select-none" : ""}`}>
+              R$ {totalReceita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          {!isAdmin && (
+            <div className="ml-auto flex items-center gap-1 text-muted-foreground" title="Apenas administradores podem ver valores">
+              <Lock className="h-4 w-4" />
+              <span className="text-[10px]">Admin only</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Projects */}

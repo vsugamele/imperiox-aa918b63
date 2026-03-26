@@ -19,6 +19,7 @@ import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 interface Cost {
   id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
   documento_url?: string | null; produto_nome?: string | null;
+  pix_info?: string | null; data_pagamento?: string | null;
 }
 interface Revenue {
   id: string; descricao: string; valor: number; fonte: string; data_ref: string;
@@ -50,7 +51,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [showAdsImport, setShowAdsImport] = useState(false);
   const [editingCost, setEditingCost] = useState<Cost | null>(null);
   const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
-  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "" });
+  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
   const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
@@ -99,7 +100,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   const openCostFormForNew = () => {
     setEditingCost(null);
-    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "" });
+    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
     setShowCostForm(true);
   };
 
@@ -113,6 +114,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       recorrente: cost.recorrente,
       documento_url: cost.documento_url || "",
       produto_nome: cost.produto_nome || "",
+      pix_info: cost.pix_info || "",
+      data_pagamento: cost.data_pagamento || "",
     });
     setShowCostForm(true);
   };
@@ -126,6 +129,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       moeda: costForm.moeda,
       recorrente: costForm.recorrente,
       documento_url: costForm.documento_url || null,
+      pix_info: costForm.pix_info || null,
+      data_pagamento: costForm.data_pagamento || null,
       produto_nome: costForm.produto_nome || null,
     };
 
@@ -584,6 +589,10 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             </div>
             <div><Label>Valor</Label><Input type="number" step="0.01" value={costForm.valor} onChange={e => setCostForm({ ...costForm, valor: e.target.value })} placeholder="0.00" /></div>
             <ProductSelect value={costForm.produto_nome} onChange={v => setCostForm({ ...costForm, produto_nome: v })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Chave PIX / Info</Label><Input value={costForm.pix_info} onChange={e => setCostForm({ ...costForm, pix_info: e.target.value })} placeholder="Chave PIX, comprovante..." className="bg-secondary" /></div>
+              <div><Label>Data Pagamento</Label><Input type="date" value={costForm.data_pagamento} onChange={e => setCostForm({ ...costForm, data_pagamento: e.target.value })} className="bg-secondary" /></div>
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={costForm.recorrente} onChange={e => setCostForm({ ...costForm, recorrente: e.target.checked })} className="rounded border-border" />
               Custo recorrente (mensal)

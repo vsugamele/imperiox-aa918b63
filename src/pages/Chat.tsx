@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare } from "lucide-react";
+import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -55,6 +55,9 @@ export default function Chat() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_chat_messages" }, (payload) => {
         setMessages((prev) => [...prev, payload.new as ChatMessage]);
       })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "imphq_chat_messages" }, (payload) => {
+        setMessages((prev) => prev.filter(m => m.id !== (payload.old as any).id));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
@@ -72,8 +75,13 @@ export default function Chat() {
       .from("imphq_chat_messages")
       .select("*")
       .order("created_at", { ascending: true })
-      .limit(100);
+      .limit(200);
     if (data) setMessages(data);
+  }
+
+  async function deleteMessage(id: string) {
+    await supabase.from("imphq_chat_messages").delete().eq("id", id);
+    setMessages((prev) => prev.filter(m => m.id !== id));
   }
 
   async function loadProjects() {
@@ -241,6 +249,15 @@ export default function Chat() {
                     <span className="text-[10px] text-muted-foreground">
                       {formatDistanceToNow(new Date(msg.created_at), { locale: ptBR, addSuffix: true })}
                     </span>
+                    {user && msg.user_id === user.id && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteMessage(msg.id); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        title="Excluir mensagem"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                   {msg.message_type === "command" ? (
                     <div className="mt-1">
