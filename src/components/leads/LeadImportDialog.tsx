@@ -30,6 +30,8 @@ const STATUS_MAP_TICTO: Record<string, string> = {
   Aguardando: "aguardando_pagamento",
   "Aguardando Pagamento": "aguardando_pagamento",
   Recusado: "recusado",
+  "Pix Gerado": "pix_gerado",
+  "PIX Gerado": "pix_gerado",
 };
 
 const STATUS_MAP_HOTMART: Record<string, string> = {
@@ -450,6 +452,27 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
                 <Badge variant="outline" className="text-xs">
                   {rawHeaders.length} colunas
                 </Badge>
+                <Badge variant="outline" className="text-xs font-mono text-emerald-400">
+                  Bruto: R$ {rows.reduce((s, r) => s + r.valor, 0).toFixed(2)}
+                </Badge>
+                <Badge variant="outline" className="text-xs font-mono text-blue-400">
+                  Líquido: R$ {rows.reduce((s, r) => s + r.valor_liquidado, 0).toFixed(2)}
+                </Badge>
+                {rows.filter(r => r.status_evento === "carrinho_abandonado").length > 0 && (
+                  <Badge variant="outline" className="text-xs text-amber-400 border-amber-500/30">
+                    🛒 {rows.filter(r => r.status_evento === "carrinho_abandonado").length} carrinhos
+                  </Badge>
+                )}
+                {rows.filter(r => r.status_evento === "pix_gerado").length > 0 && (
+                  <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-500/30">
+                    💳 {rows.filter(r => r.status_evento === "pix_gerado").length} pix gerados
+                  </Badge>
+                )}
+                {rows.filter(r => r.status_evento === "aguardando_pagamento").length > 0 && (
+                  <Badge variant="outline" className="text-xs text-orange-400 border-orange-500/30">
+                    ⏳ {rows.filter(r => r.status_evento === "aguardando_pagamento").length} aguardando
+                  </Badge>
+                )}
               </div>
 
               {/* Preview */}
@@ -463,6 +486,7 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
                       <TableHead className="text-xs">Pagamento</TableHead>
                       <TableHead className="text-xs">Parcelas</TableHead>
                       <TableHead className="text-xs">Valor</TableHead>
+                      <TableHead className="text-xs">Líquido</TableHead>
                       <TableHead className="text-xs">Produto</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -480,6 +504,9 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
                         <TableCell className="text-xs text-center">{r.parcelas > 1 ? `${r.parcelas}x` : "—"}</TableCell>
                         <TableCell className="text-xs font-mono">
                           {r.valor > 0 ? `R$ ${r.valor.toFixed(2)}` : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-blue-400">
+                          {r.valor_liquidado > 0 ? `R$ ${r.valor_liquidado.toFixed(2)}` : "—"}
                         </TableCell>
                         <TableCell className="text-xs truncate max-w-[120px]">{r.produto || "—"}</TableCell>
                       </TableRow>
