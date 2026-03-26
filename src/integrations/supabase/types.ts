@@ -21403,6 +21403,59 @@ export type Database = {
           },
         ]
       }
+      webi_email_templates: {
+        Row: {
+          body: string
+          click_count: number
+          created_at: string | null
+          delay_minutes: number
+          enabled: boolean
+          id: string
+          open_count: number
+          sent_count: number
+          subject: string
+          type: string
+          updated_at: string | null
+          webinar_id: string
+        }
+        Insert: {
+          body?: string
+          click_count?: number
+          created_at?: string | null
+          delay_minutes?: number
+          enabled?: boolean
+          id?: string
+          open_count?: number
+          sent_count?: number
+          subject?: string
+          type: string
+          updated_at?: string | null
+          webinar_id: string
+        }
+        Update: {
+          body?: string
+          click_count?: number
+          created_at?: string | null
+          delay_minutes?: number
+          enabled?: boolean
+          id?: string
+          open_count?: number
+          sent_count?: number
+          subject?: string
+          type?: string
+          updated_at?: string | null
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_email_templates_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_events: {
         Row: {
           created_at: string | null
@@ -21443,9 +21496,11 @@ export type Database = {
           attended: boolean | null
           email: string
           id: string
+          metadata: Json | null
           name: string
           phone: string | null
           project_id: string
+          purchase_value: number | null
           registered_at: string | null
           webinar_id: string
         }
@@ -21453,9 +21508,11 @@ export type Database = {
           attended?: boolean | null
           email: string
           id?: string
+          metadata?: Json | null
           name: string
           phone?: string | null
           project_id: string
+          purchase_value?: number | null
           registered_at?: string | null
           webinar_id: string
         }
@@ -21463,9 +21520,11 @@ export type Database = {
           attended?: boolean | null
           email?: string
           id?: string
+          metadata?: Json | null
           name?: string
           phone?: string | null
           project_id?: string
+          purchase_value?: number | null
           registered_at?: string | null
           webinar_id?: string
         }
@@ -21618,10 +21677,13 @@ export type Database = {
       }
       webi_webinars: {
         Row: {
+          chat_cpm: number | null
+          chat_names: Json | null
           created_at: string | null
           description: string | null
           duration_seconds: number | null
           evergreen_offset_seconds: number | null
+          form_fields: Json | null
           id: string
           name: string
           peak_viewers_max: number | null
@@ -21630,14 +21692,19 @@ export type Database = {
           slug: string
           status: string | null
           thumbnail_url: string | null
+          tracking_body_code: string | null
+          tracking_head_code: string | null
           updated_at: string | null
           video_url: string | null
         }
         Insert: {
+          chat_cpm?: number | null
+          chat_names?: Json | null
           created_at?: string | null
           description?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
+          form_fields?: Json | null
           id?: string
           name: string
           peak_viewers_max?: number | null
@@ -21646,14 +21713,19 @@ export type Database = {
           slug: string
           status?: string | null
           thumbnail_url?: string | null
+          tracking_body_code?: string | null
+          tracking_head_code?: string | null
           updated_at?: string | null
           video_url?: string | null
         }
         Update: {
+          chat_cpm?: number | null
+          chat_names?: Json | null
           created_at?: string | null
           description?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
+          form_fields?: Json | null
           id?: string
           name?: string
           peak_viewers_max?: number | null
@@ -21662,6 +21734,8 @@ export type Database = {
           slug?: string
           status?: string | null
           thumbnail_url?: string | null
+          tracking_body_code?: string | null
+          tracking_head_code?: string | null
           updated_at?: string | null
           video_url?: string | null
         }
