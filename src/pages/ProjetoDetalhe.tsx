@@ -220,51 +220,7 @@ export default function ProjetoDetalhe() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📘 Facebook Pixel & CAPI</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Pixel ID</Label>
-                <Input
-                  value={project.data?.facebook_pixel_id || ""}
-                  onChange={e => {
-                    const newData = { ...(project.data || {}), facebook_pixel_id: e.target.value };
-                    setProject((p: any) => ({ ...p, data: newData }));
-                  }}
-                  onBlur={() => updateField("data", { ...(project.data || {}), facebook_pixel_id: project.data?.facebook_pixel_id })}
-                  className="bg-secondary"
-                  placeholder="Ex: 123456789012345"
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Access Token (CAPI)</Label>
-                <Input
-                  type="password"
-                  value={project.data?.facebook_access_token || ""}
-                  onChange={e => {
-                    const newData = { ...(project.data || {}), facebook_access_token: e.target.value };
-                    setProject((p: any) => ({ ...p, data: newData }));
-                  }}
-                  onBlur={() => updateField("data", { ...(project.data || {}), facebook_access_token: project.data?.facebook_access_token })}
-                  className="bg-secondary"
-                  placeholder="EAAxxxxxxx..."
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Test Event Code</Label>
-                <Input
-                  value={project.data?.facebook_test_event_code || ""}
-                  onChange={e => {
-                    const newData = { ...(project.data || {}), facebook_test_event_code: e.target.value };
-                    setProject((p: any) => ({ ...p, data: newData }));
-                  }}
-                  onBlur={() => updateField("data", { ...(project.data || {}), facebook_test_event_code: project.data?.facebook_test_event_code })}
-                  className="bg-secondary"
-                  placeholder="TEST12345"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <FacebookCAPICard project={project} setProject={setProject} updateField={updateField} />
 
           {/* Webhooks de Pagamento — por projeto */}
           <WebhooksPagamentoCard project={project} setProject={setProject} updateField={updateField} />
