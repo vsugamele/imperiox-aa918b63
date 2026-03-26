@@ -505,6 +505,9 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
                         <TableCell className="text-xs font-mono">
                           {r.valor > 0 ? `R$ ${r.valor.toFixed(2)}` : "—"}
                         </TableCell>
+                        <TableCell className="text-xs font-mono text-blue-400">
+                          {r.valor_liquidado > 0 ? `R$ ${r.valor_liquidado.toFixed(2)}` : "—"}
+                        </TableCell>
                         <TableCell className="text-xs truncate max-w-[120px]">{r.produto || "—"}</TableCell>
                       </TableRow>
                     ))}

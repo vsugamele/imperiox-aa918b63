@@ -616,7 +616,15 @@ export default function Leads() {
                     {(() => {
                       const stage = getLeadStage(l);
                       const cfg = STAGE_LABELS[stage] || STAGE_LABELS.lead_capturado;
-                      return <Badge className={`text-[10px] ${cfg.color}`}>{cfg.label}</Badge>;
+                      const isPending = ["carrinho_abandonado", "pix_gerado", "aguardando_pagamento"].includes(stage);
+                      return (
+                        <div className="flex items-center gap-1">
+                          <Badge className={cn("text-[10px]", cfg.color, isPending && "animate-pulse ring-1 ring-amber-500/40")}>
+                            {cfg.label}
+                          </Badge>
+                          {isPending && <AlertCircle className="h-3 w-3 text-amber-400" />}
+                        </div>
+                      );
                     })()}
                   </TableCell>
                   <TableCell>
