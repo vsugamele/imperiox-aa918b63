@@ -36,7 +36,7 @@ export default function Dashboard() {
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
         supabase.from("imphq_custos").select("valor, moeda"),
         supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("imphq_tasks").select("*").neq("status", "done").order("due_date", { ascending: true }).limit(5),
+        supabase.from("imphq_tasks").select("*").neq("status", "done").or("priority.in.(urgent,high),due_date.lt." + new Date().toISOString()).order("due_date", { ascending: true }).limit(5),
         supabase.from("imphq_mi_opportunities").select("*").eq("ativo", true).order("score", { ascending: false }).limit(4),
         supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
       ]);
