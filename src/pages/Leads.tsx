@@ -598,9 +598,10 @@ export default function Leads() {
                   />
                 </TableHead>
                 <TableHead>Lead</TableHead>
-                <TableHead>Plataforma</TableHead>
+                <TableHead>Produto</TableHead>
+                <TableHead>Pagamento</TableHead>
                 <TableHead>Estágio</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Score</TableHead>
                 <TableHead>Receita</TableHead>
                 <TableHead>Desde</TableHead>
                 <TableHead></TableHead>
