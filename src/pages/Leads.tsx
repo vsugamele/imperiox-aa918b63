@@ -815,6 +815,17 @@ export default function Leads() {
                     </div>
                   )}
 
+                  {/* Documento/CPF */}
+                  {(() => {
+                    const doc = editLead._vendas?.find(v => v.data?.documento)?.data?.documento || editLead.data?.documento;
+                    return doc ? (
+                      <div className="space-y-1 border-t border-border pt-3">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🪪 Documento</p>
+                        <p className="text-sm font-mono">{doc}</p>
+                      </div>
+                    ) : null;
+                  })()}
+
                   {/* UTMs */}
                   {editLead.data?.utms && Object.values(editLead.data.utms).some(Boolean) && (
                     <div className="space-y-1 border-t border-border pt-3">
