@@ -776,7 +776,134 @@ export default function Tarefas() {
             {doneRecent.length > 0 && <Section title="Concluídas recentes" icon={<CheckCircle2 className="h-4 w-4 text-success" />} cards={doneRecent} color="text-success" emptyMsg="" />}
           </div>
         </TabsContent>
+
+        {/* ====== CALENDAR TAB ====== */}
+        <TabsContent value="calendar" className="space-y-4 mt-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={calFilterProject} onValueChange={setCalFilterProject}>
+              <SelectTrigger className="w-40 bg-secondary h-9"><SelectValue placeholder="Projeto" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Projetos</SelectItem>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={calFilterType} onValueChange={setCalFilterType}>
+              <SelectTrigger className="w-36 bg-secondary h-9"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Tipos</SelectItem>
+                {EVENT_TYPES.map(t => <SelectItem key={t} value={t}>{EVENT_TYPE_LABELS[t]?.emoji} {EVENT_TYPE_LABELS[t]?.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="outline" onClick={() => { setEventForm({ title: "", event_date: selectedDateStr || todayStr, event_type: "general", color: "#6366f1", description: "", project_id: "none" }); setShowEventDialog(true); }}>
+              <Plus className="h-3 w-3 mr-1" /> Evento
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-6">
+            {/* Calendar */}
+            <Card className="border-border w-fit">
+              <CardContent className="p-2">
+                <Calendar
+                  mode="single"
+                  selected={calDate}
+                  onSelect={setCalDate}
+                  locale={ptBR}
+                  modifiers={{ hasEvent: (day) => eventDates.has(format(day, "yyyy-MM-dd")) }}
+                  modifiersStyles={{ hasEvent: { fontWeight: "bold", textDecoration: "underline", textDecorationColor: "hsl(var(--primary))" } }}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Events list */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-primary">
+                {calDate ? format(calDate, "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Selecione uma data"}
+              </h3>
+              {eventsOnDate.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Nenhum evento nesta data</p>
+              ) : (
+                eventsOnDate.map((ev: any) => {
+                  const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
+                  const proj = ev.imphq_projects;
+                  return (
+                    <Card key={ev.id} className="border-border">
+                      <CardContent className="p-3 flex items-start gap-3">
+                        <span className="text-xl">{typeInfo.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{ev.title}</p>
+                          {ev.description && <p className="text-[10px] text-muted-foreground mt-0.5">{ev.description}</p>}
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
+                            {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+
+              {/* Upcoming events */}
+              {filteredCalEvents.filter(e => e.event_date > todayStr).length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Próximos Eventos</h4>
+                  {filteredCalEvents.filter(e => e.event_date >= todayStr).slice(0, 10).map((ev: any) => {
+                    const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
+                    const proj = ev.imphq_projects;
+                    return (
+                      <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                        <span className="text-sm">{typeInfo.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{ev.title}</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono text-muted-foreground">{format(new Date(ev.event_date + "T12:00:00"), "dd/MM")}</span>
+                            {proj && <span className="text-[10px] text-muted-foreground">{proj.icon || "📁"} {proj.name}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* Event Dialog */}
+      <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Novo Evento</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Título</Label><Input value={eventForm.title} onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Live de lançamento" className="bg-secondary" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Data</Label><Input type="date" value={eventForm.event_date} onChange={e => setEventForm(f => ({ ...f, event_date: e.target.value }))} className="bg-secondary" /></div>
+              <div>
+                <Label>Tipo</Label>
+                <Select value={eventForm.event_type} onValueChange={v => setEventForm(f => ({ ...f, event_type: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>{EVENT_TYPES.map(t => <SelectItem key={t} value={t}>{EVENT_TYPE_LABELS[t]?.emoji} {EVENT_TYPE_LABELS[t]?.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Projeto</Label>
+              <Select value={eventForm.project_id} onValueChange={v => setEventForm(f => ({ ...f, project_id: v }))}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem projeto</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Descrição</Label><Input value={eventForm.description} onChange={e => setEventForm(f => ({ ...f, description: e.target.value }))} placeholder="Detalhes..." className="bg-secondary" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEventDialog(false)}>Cancelar</Button>
+            <Button onClick={createCalEvent}>Criar Evento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Routine Dialog */}
       <Dialog open={showRoutineDialog} onOpenChange={setShowRoutineDialog}>
