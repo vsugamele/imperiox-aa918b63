@@ -123,6 +123,14 @@ export default function Tarefas() {
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [routineForm, setRoutineForm] = useState({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
 
+  // Calendar state
+  const [calEvents, setCalEvents] = useState<any[]>([]);
+  const [calDate, setCalDate] = useState<Date | undefined>(new Date());
+  const [calFilterProject, setCalFilterProject] = useState("all");
+  const [calFilterType, setCalFilterType] = useState("all");
+  const [showEventDialog, setShowEventDialog] = useState(false);
+  const [eventForm, setEventForm] = useState({ title: "", event_date: "", event_type: "general", color: "#6366f1", description: "", project_id: "none" });
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
