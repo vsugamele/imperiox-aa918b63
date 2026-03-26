@@ -185,8 +185,8 @@ export default function Tarefas() {
     if (calFilterType !== "all" && e.event_type !== calFilterType) return false;
     return true;
   });
-  const eventsOnDate = filteredCalEvents.filter(e => e.event_date === selectedDateStr);
-  const eventDates = new Set(filteredCalEvents.map(e => e.event_date));
+  const eventsOnDate = filteredCalEvents.filter(e => toDateOnly(e.event_date) === selectedDateStr);
+  const eventDates = new Set(filteredCalEvents.map(e => toDateOnly(e.event_date)));
 
   const createCalEvent = async () => {
     if (!eventForm.title.trim() || !eventForm.event_date) { toast.error("Título e data são obrigatórios"); return; }
