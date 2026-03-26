@@ -51,6 +51,7 @@ export default function Chat() {
   useEffect(() => {
     loadMessages();
     loadProjects();
+    loadMembers();
     const channel = supabase
       .channel("chat-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_chat_messages" }, (payload) => {
