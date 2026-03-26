@@ -28,11 +28,8 @@ import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { toast } from "sonner";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import CardDetailPanel from "@/components/kanban/CardDetailPanel";
-import { motion, AnimatePresence } from "framer-motion";
+
+
 
 interface KanbanCard {
   id: string;
