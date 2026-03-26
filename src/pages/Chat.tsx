@@ -44,12 +44,14 @@ export default function Chat() {
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [showCommands, setShowCommands] = useState(false);
   const [sending, setSending] = useState(false);
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadMessages();
     loadProjects();
+    loadMembers();
     const channel = supabase
       .channel("chat-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_chat_messages" }, (payload) => {
@@ -82,6 +84,15 @@ export default function Chat() {
   async function deleteMessage(id: string) {
     await supabase.from("imphq_chat_messages").delete().eq("id", id);
     setMessages((prev) => prev.filter(m => m.id !== id));
+  }
+
+  async function loadMembers() {
+    const { data } = await supabase.from("imphq_team_members").select("user_id, name");
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach((m: any) => { if (m.user_id && m.name) map[m.user_id] = m.name; });
+      setMemberNames(map);
+    }
   }
 
   async function loadProjects() {
@@ -241,11 +252,11 @@ export default function Chat() {
             .map((msg) => (
               <div key={msg.id} className="group flex gap-3 hover:bg-secondary/30 rounded-lg p-2 -mx-2 transition-colors">
                 <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                  {msg.user_id.slice(0, 2).toUpperCase()}
+                  {(memberNames[msg.user_id] || "U")[0].toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-medium text-foreground">Usuário</span>
+                    <span className="text-xs font-medium text-foreground">{memberNames[msg.user_id] || "Usuário"}</span>
                     <span className="text-[10px] text-muted-foreground">
                       {formatDistanceToNow(new Date(msg.created_at), { locale: ptBR, addSuffix: true })}
                     </span>
