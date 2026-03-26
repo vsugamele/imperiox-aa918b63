@@ -252,11 +252,11 @@ export default function Chat() {
             .map((msg) => (
               <div key={msg.id} className="group flex gap-3 hover:bg-secondary/30 rounded-lg p-2 -mx-2 transition-colors">
                 <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                  {msg.user_id.slice(0, 2).toUpperCase()}
+                  {(memberNames[msg.user_id] || "U")[0].toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-medium text-foreground">Usuário</span>
+                    <span className="text-xs font-medium text-foreground">{memberNames[msg.user_id] || "Usuário"}</span>
                     <span className="text-[10px] text-muted-foreground">
                       {formatDistanceToNow(new Date(msg.created_at), { locale: ptBR, addSuffix: true })}
                     </span>
