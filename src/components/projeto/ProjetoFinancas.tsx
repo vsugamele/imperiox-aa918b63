@@ -129,6 +129,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       moeda: costForm.moeda,
       recorrente: costForm.recorrente,
       documento_url: costForm.documento_url || null,
+      pix_info: costForm.pix_info || null,
+      data_pagamento: costForm.data_pagamento || null,
       produto_nome: costForm.produto_nome || null,
     };
 
