@@ -350,15 +350,43 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         </CardContent>
       </Card>
 
-      {/* Checklist de Integração */}
+      {/* Setup de Integração com campos reais */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🛠️ Setup de Integração</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {INTEGRATION_ITEMS.map((item) => {
               const itemData = checklist[item.key] || { status: "pendente", nota: "" };
+              // Fallback for facebook fields stored at top level
+              const fbFallback = item.key === "facebook_pixel" ? {
+                pixel_id: itemData.pixel_id || data.facebook_pixel_id || "",
+                access_token: itemData.access_token || data.facebook_access_token || "",
+                test_event_code: itemData.test_event_code || data.facebook_test_event_code || "",
+              } : {};
+
+              const fields = INTEGRATION_FIELDS[item.key] || [];
+              
+              // Auto-status: if all required fields filled → configurado
+              const filledCount = fields.filter((f: any) => {
+                if (f.readOnly) return true;
+                const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
+                  ? fbFallback[f.field as keyof typeof fbFallback]
+                  : itemData[f.field] || "";
+                return val.toString().trim().length > 0;
+              }).length;
+              const requiredFields = fields.filter((f: any) => f.required);
+              const requiredFilled = requiredFields.filter((f: any) => {
+                const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
+                  ? fbFallback[f.field as keyof typeof fbFallback]
+                  : itemData[f.field] || "";
+                return val.toString().trim().length > 0;
+              }).length;
+              const autoStatus = requiredFields.length > 0 && requiredFilled === requiredFields.length
+                ? (itemData.status === "verificado" ? "verificado" : "configurado")
+                : (itemData.status === "verificado" ? "verificado" : "pendente");
+
               return (
-                <div key={item.key} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
+                <div key={item.key} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{item.icon}</span>
@@ -367,19 +395,71 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                         <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                       </div>
                     </div>
-                    <Select value={itemData.status || "pendente"} onValueChange={(v) => updateChecklist(item.key, "status", v)}>
-                      <SelectTrigger className="w-auto h-6 text-[10px] px-2 gap-1 border-0">
-                        <Badge variant="outline" className={`text-[10px] ${getStatusColor(itemData.status || "pendente")}`}>
-                          {itemData.status === "verificado" ? "✓ Verificado" : itemData.status === "configurado" ? "◐ Configurado" : "○ Pendente"}
-                        </Badge>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pendente" className="text-xs">○ Pendente</SelectItem>
-                        <SelectItem value="configurado" className="text-xs">◐ Configurado</SelectItem>
-                        <SelectItem value="verificado" className="text-xs">✓ Verificado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className={`text-[10px] ${getStatusColor(autoStatus)}`}>
+                        {autoStatus === "verificado" ? "✓ Verificado" : autoStatus === "configurado" ? "◐ Configurado" : "○ Pendente"}
+                      </Badge>
+                      {autoStatus === "configurado" && itemData.status !== "verificado" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 text-[9px] px-1.5"
+                          onClick={() => updateChecklist(item.key, "status", "verificado")}
+                        >
+                          Marcar verificado
+                        </Button>
+                      )}
+                      {itemData.status === "verificado" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 text-[9px] px-1.5 text-muted-foreground"
+                          onClick={() => updateChecklist(item.key, "status", "configurado")}
+                        >
+                          Desfazer
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Specific fields */}
+                  <div className="space-y-2">
+                    {fields.map((f: any) => {
+                      const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
+                        ? fbFallback[f.field as keyof typeof fbFallback]
+                        : itemData[f.field] || "";
+
+                      if (f.readOnly) {
+                        const webhookUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}`;
+                        return (
+                          <div key={f.field}>
+                            <Label className="text-[10px] text-muted-foreground">{f.label}</Label>
+                            <div className="flex items-center gap-1">
+                              <Input value={webhookUrl} readOnly className="bg-secondary h-7 text-[10px] font-mono flex-1" />
+                              <CopyButton text={webhookUrl} />
+                            </div>
+                            <p className="text-[9px] text-muted-foreground/70 mt-0.5">{f.help}</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={f.field}>
+                          <Label className="text-[10px] text-muted-foreground">{f.label}{f.required && " *"}</Label>
+                          <Input
+                            value={val}
+                            onChange={(e) => updateChecklist(item.key, f.field, e.target.value)}
+                            className="bg-secondary h-7 text-xs"
+                            placeholder={f.placeholder}
+                            type={f.secret ? "password" : "text"}
+                          />
+                          <p className="text-[9px] text-muted-foreground/70 mt-0.5">{f.help}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Observação */}
                   <Input
                     value={itemData.nota || ""}
                     onChange={(e) => updateChecklist(item.key, "nota", e.target.value)}
