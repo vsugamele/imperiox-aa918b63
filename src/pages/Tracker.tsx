@@ -582,6 +582,18 @@ export default function Tracker() {
                 <p><span className="text-primary">imptrack.trackAddToCart({"{"} value, currency {"}"})</span> → AddToCart + fbq</p>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">⚡ PageView é registrado automaticamente. Pixel do Facebook carrega se <code>&lt;meta name="imp-pixel-id" content="SEU_PIXEL_ID"&gt;</code> estiver na página.</p>
+              
+              {/* Facebook Integration Explanation */}
+              <div className="mt-4 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-2">
+                <p className="text-xs font-medium text-blue-400">📘 Integração com Facebook (Pixel + CAPI)</p>
+                <div className="space-y-1.5 text-[11px] text-muted-foreground">
+                  <p>• <strong className="text-foreground">Pixel (cliente)</strong>: Ativado automaticamente quando a meta tag <code className="text-primary">&lt;meta name="imp-pixel-id" content="SEU_PIXEL_ID"&gt;</code> está na página. Dispara PageView e todos os eventos padrão (Lead, ViewContent, AddToCart).</p>
+                  <p>• <strong className="text-foreground">CAPI (servidor)</strong>: Enviado automaticamente pelo webhook de pagamento (<code className="text-primary">webhook-pagamento</code>). Não precisa de nada extra no front-end. Envia Purchase, Lead e InitiateCheckout com dados hashados (SHA-256).</p>
+                  <p>• <strong className="text-foreground">Deduplicação</strong>: Ambos usam o mesmo <code className="text-primary">event_id</code> (UUID). O Facebook identifica eventos duplicados e conta apenas uma vez.</p>
+                  <p>• <strong className="text-foreground">Configuração</strong>: Vá em <span className="text-primary">Projeto → Analytics → Facebook Pixel & CAPI</span> e preencha o Pixel ID e o Access Token. Cada projeto tem sua configuração isolada.</p>
+                </div>
+              </div>
+
               <p className="text-xs text-muted-foreground mt-2">
                 <span className="font-medium">Exemplo de uso no formulário:</span>
               </p>

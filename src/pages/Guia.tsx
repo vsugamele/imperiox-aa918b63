@@ -112,6 +112,55 @@ export default function Guia() {
         </CardContent>
       </Card>
 
+      {/* Facebook CAPI */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📘 Facebook CAPI — Configuração por Projeto</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Flow Visual */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            {["LP com imptrack.js", "→", "Captura Lead", "→", "Webhook de Venda", "→", "CAPI Purchase"].map((item, i) => (
+              item === "→" ? <ArrowRight key={i} className="h-3 w-3 text-primary shrink-0" /> :
+              <Badge key={i} variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px]">{item}</Badge>
+            ))}
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-foreground">✅ Checklist de Configuração</p>
+            {[
+              { label: "Pixel ID preenchido no projeto", desc: "Projeto → Analytics → Facebook Pixel & CAPI → Pixel ID" },
+              { label: "Access Token CAPI preenchido", desc: "Gerado no Events Manager → Configurações → Gerar Token de Acesso" },
+              { label: "Webhook configurado na plataforma de pagamento", desc: "Copie a URL do webhook em Projeto → Analytics → Webhooks de Pagamento" },
+              { label: "Meta tag imp-pixel-id na LP", desc: '<meta name=\"imp-pixel-id\" content=\"SEU_PIXEL_ID\"> no <head> da página' },
+              { label: "Script imptrack.js instalado na LP", desc: "Copie em Tracker → Script e cole no <head> da landing page" },
+            ].map((item, i) => (
+              <div key={i} className="p-2 rounded bg-secondary/50 border border-border">
+                <p className="text-xs font-medium">{item.label}</p>
+                <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* FAQ */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-foreground">❓ FAQ Rápido</p>
+            {[
+              { q: "Como gerar o Access Token CAPI?", a: "No Events Manager do Facebook → Configurações do Pixel → Conversions API → Gerar Token de Acesso. O token começa com EAA..." },
+              { q: "Como testar se está funcionando?", a: "Preencha o campo 'Test Event Code' no projeto (formato TEST12345). Eventos aparecerão na aba 'Test Events' do Events Manager." },
+              { q: "Preciso do Pixel E do CAPI?", a: "Sim, ambos. O Pixel captura eventos no navegador, o CAPI envia pelo servidor. Juntos garantem cobertura máxima mesmo com bloqueadores de anúncios." },
+              { q: "É por projeto ou global?", a: "Por projeto. Cada projeto tem seu próprio Pixel ID, Access Token e URLs de webhook isolados." },
+            ].map((item, i) => (
+              <div key={i} className="p-2 rounded bg-secondary/50 border border-border">
+                <p className="text-xs font-medium text-primary">{item.q}</p>
+                <p className="text-[10px] text-muted-foreground">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Comandos do Chat */}
       <Card className="bg-card border-border">
         <CardHeader>
