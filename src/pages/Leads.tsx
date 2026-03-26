@@ -101,21 +101,43 @@ export default function Leads() {
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
+  const calcScore = (l: Lead, vendasList: LeadVenda[]) => {
+    let s = 0;
+    if (l.email) s += 10;
+    if (vendasList.length > 0) s += 30;
+    if (vendasList.length > 1) s += 20;
+    const utms = (l.data as any)?.utms;
+    if (utms && Object.values(utms).some(Boolean)) s += 5;
+    if (l.phone) s += 5;
+    return Math.min(s, 100);
+  };
+
   const load = async () => {
     const [leadsRes, projRes, vendasRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
-      supabase.from("imphq_vendas").select("lead_id, produto").not("produto", "is", null),
+      supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data").order("created_at", { ascending: false }),
     ]);
-    setLeads((leadsRes.data || []) as Lead[]);
+    const allVendas = (vendasRes.data || []) as any[];
+    const vendasByLead = new Map<string, LeadVenda[]>();
+    allVendas.forEach((v: any) => {
+      if (!v.lead_id) return;
+      if (!vendasByLead.has(v.lead_id)) vendasByLead.set(v.lead_id, []);
+      vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data });
+    });
+    
+    const enrichedLeads = (leadsRes.data || []).map((l: any) => {
+      const lv = vendasByLead.get(l.id) || [];
+      return { ...l, _vendas: lv, _score: calcScore(l, lv) };
+    }) as Lead[];
+    setLeads(enrichedLeads);
     setProjects(projRes.data || []);
     
-    const vendas = vendasRes.data || [];
-    const uniqueProducts = [...new Set(vendas.map((v: any) => v.produto).filter(Boolean))] as string[];
+    const uniqueProducts = [...new Set(allVendas.map((v: any) => v.produto_nome).filter(Boolean))] as string[];
     setProducts(uniqueProducts);
     
     if (productFilter !== "all") {
-      const ids = new Set(vendas.filter((v: any) => v.produto === productFilter).map((v: any) => v.lead_id));
+      const ids = new Set(allVendas.filter((v: any) => v.produto_nome === productFilter).map((v: any) => v.lead_id));
       setProductLeadIds(ids);
     } else {
       setProductLeadIds(null);
