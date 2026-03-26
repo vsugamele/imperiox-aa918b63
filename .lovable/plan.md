@@ -1,67 +1,53 @@
 
 
-# Plano: Oportunidades de Melhoria no Imperio HQ
+# Plano: Branding Expandido + Leads com Receita Bruta/Liquida e Sinalizacao de Pendencias
 
-## Status Atual
-
-O Arsenal de Copy por produto ja foi implementado no Briefing com os 6 blocos (Promessa, Inimigo Comum, Efeito Colateral, Oportunidade, Metodo Simplificado, Hora do Show). O Chat com comandos e o Activity Feed no Dashboard tambem estao prontos.
+## 3 frentes
 
 ---
 
-## Oportunidades Identificadas por Modulo
+### 1. Branding -- Novos blocos (baseado nas imagens de referencia)
 
-### 1. Arsenal de Copy -- Melhorias (Briefing)
+Adicionar ao `ProjetoBranding.tsx` os seguintes cards alem dos existentes (Paleta, Tipografia, Tom Visual):
 
-O arsenal atual usa 1 textarea por bloco. Pelo seu exemplo do JP, cada bloco precisa de **multiplos textos/variacoes** (nao apenas 1). Melhorias:
+| Card | Campos | Tipo |
+|---|---|---|
+| **Arquetipo da Marca** | Grid de 9 arquetipos selecionaveis (Heroi, Mentor, Fora da Lei, Explorador, Criador, Cuidador, Rei, Mago, Bobo) | botoes toggle, 1 selecionado por vez |
+| **Posicionamento** | Inimigo Comum, Mecanismo-Chave, Personalidade da Marca | 3 textareas |
+| **Manifesto da Marca** | Texto longo do manifesto | 1 textarea grande |
+| **Linguagem: Usa / Evita** | Duas listas de palavras lado a lado | 2 textareas (ou EditableTagList) |
 
-| Melhoria | Descricao |
-|---|---|
-| **Multi-variacoes por bloco** | Em vez de 1 textarea, permitir N variacoes (array de textos) com botao "+ Adicionar variacao" em cada bloco |
-| **Label contextual** | Adicionar subtitulo instrucional mais rico em cada bloco (ex: "Mexer psicologicamente com o lead" na Promessa) |
-| **Copiar bloco** | Botao de copiar todo o conteudo de um bloco para clipboard |
-
-### 2. Guia de Uso da Plataforma (Onboarding)
-
-Criar uma pagina ou modal "Guia / Como Usar" acessivel pela sidebar ou header:
-
-| Secao | Conteudo |
-|---|---|
-| **Visao Geral** | O que e cada modulo (Projetos, Avatar, Briefing, Mentes, Leads, etc.) |
-| **Fluxo de Trabalho** | Passo a passo: Criar projeto → Briefing → Avatar → Arsenal de Copy → Funil → Trafego |
-| **Dicas por Modulo** | Cards interativos com descricao curta e link direto para cada pagina |
-| **Atalhos e Comandos** | Lista de comandos do Chat (`/tarefa`, `/lead`, etc.) |
-
-### 3. Mentes IA -- System Prompt Dinamico
-
-Conforme o doc `MentesIA_Plano_Documentacao.md`, a Mentes IA ainda nao injeta contexto do projeto (briefing, avatar, arsenal de copy) no system prompt. Oportunidade:
-
-- Ao selecionar um projeto na Mentes IA, injetar automaticamente: briefing, avatar, produtos com arsenal de copy
-- Isso tornaria os agentes muito mais inteligentes e contextuais
-
-### 4. Leads -- Jornada do Cliente
-
-Conforme o doc `Detalhes_Imphq_Leads.md`, a timeline unificando cliques + eventos + vendas por lead esta documentada mas pode estar incompleta na UI.
-
-### 5. Dashboard -- Widgets Financeiros por Projeto
-
-O Dashboard carrega `imphq_custos` mas nao mostra ROI por projeto. Oportunidade de card "Top Projetos por ROI".
+Tudo salvo no JSONB `brand_kit` existente (sem migration). O "Tom Visual" atual pode ser mantido e os novos cards adicionados abaixo.
 
 ---
 
-## Prioridade Sugerida
+### 2. Leads Import -- Receita Bruta e Liquida no preview e no banco
 
-1. **Arsenal de Copy com multi-variacoes** -- impacto direto no workflow de copy
-2. **Guia de Uso da Plataforma** -- ajuda onboarding e referencia rapida
-3. **Mentes IA com contexto do projeto** -- salto de qualidade nos agentes
+O CSV da Ticto ja tem "Valor Pago" (bruto) e "Valor Liquidado" (liquido). O `mapRow` ja extrai ambos, mas:
+
+- O **preview** so mostra "Valor" (bruto). Adicionar coluna "Liquido" na tabela de preview.
+- Os **badges de resumo** so mostram contagem de vendas. Adicionar: `Receita Bruta: R$ X` e `Receita Liquida: R$ Y`.
+- Na **insercao** em `imphq_vendas`, salvar `valor_liquidado` no campo `data` (JSONB) ja que nao existe coluna dedicada.
 
 ---
 
-## Arquivos Alterados
+### 3. Leads -- Sinalizacao de status pendente (carrinho abandonado, pix gerado, aguardando)
+
+O sistema ja mapeia esses status (`carrinho_abandonado`, `aguardando_pagamento`, `pix_gerado`), mas falta **sinalizacao visual clara** na listagem de leads:
+
+- Na tabela de leads (`Leads.tsx`), adicionar um **icone de alerta** ao lado do badge de estagio para status pendentes (`carrinho_abandonado`, `pix_gerado`, `aguardando_pagamento`).
+- Badge pulsante ou com borda amarela/laranja para esses estagios.
+- No resumo do import, badge separado: `X carrinhos abandonados`, `X pix gerados`, `X aguardando pagamento`.
+- Adicionar `pix_gerado` ao `STATUS_MAP_TICTO` se existir no CSV (ex: "Pix Gerado", "PIX Gerado").
+- Adicionar filtro rapido por "Pendentes" na listagem de leads.
+
+---
+
+## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/projeto/ProjetoBriefing.tsx` | Refatorar Arsenal de Copy para suportar array de variacoes por bloco |
-| `src/pages/Guia.tsx` | **Novo**: pagina com guia interativo de uso da plataforma |
-| `src/App.tsx` | Adicionar rota `/guia` |
-| `src/components/AppSidebar.tsx` | Adicionar item "Guia" na sidebar (grupo Organizacao) |
+| `src/components/projeto/ProjetoBranding.tsx` | Adicionar cards de Arquetipo, Posicionamento, Manifesto, Linguagem |
+| `src/components/leads/LeadImportDialog.tsx` | Coluna Liquido no preview, badges de receita bruta/liquida, badges de pendencias, mapear pix_gerado |
+| `src/pages/Leads.tsx` | Icone de alerta em status pendentes, badge pulsante, filtro "Pendentes" |
 
