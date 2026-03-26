@@ -452,6 +452,27 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
                 <Badge variant="outline" className="text-xs">
                   {rawHeaders.length} colunas
                 </Badge>
+                <Badge variant="outline" className="text-xs font-mono text-emerald-400">
+                  Bruto: R$ {rows.reduce((s, r) => s + r.valor, 0).toFixed(2)}
+                </Badge>
+                <Badge variant="outline" className="text-xs font-mono text-blue-400">
+                  Líquido: R$ {rows.reduce((s, r) => s + r.valor_liquidado, 0).toFixed(2)}
+                </Badge>
+                {rows.filter(r => r.status_evento === "carrinho_abandonado").length > 0 && (
+                  <Badge variant="outline" className="text-xs text-amber-400 border-amber-500/30">
+                    🛒 {rows.filter(r => r.status_evento === "carrinho_abandonado").length} carrinhos
+                  </Badge>
+                )}
+                {rows.filter(r => r.status_evento === "pix_gerado").length > 0 && (
+                  <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-500/30">
+                    💳 {rows.filter(r => r.status_evento === "pix_gerado").length} pix gerados
+                  </Badge>
+                )}
+                {rows.filter(r => r.status_evento === "aguardando_pagamento").length > 0 && (
+                  <Badge variant="outline" className="text-xs text-orange-400 border-orange-500/30">
+                    ⏳ {rows.filter(r => r.status_evento === "aguardando_pagamento").length} aguardando
+                  </Badge>
+                )}
               </div>
 
               {/* Preview */}
