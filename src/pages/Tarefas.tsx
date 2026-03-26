@@ -11,14 +11,23 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
   Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
-  RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft
+  RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon
 } from "lucide-react";
+import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import CardDetailPanel from "@/components/kanban/CardDetailPanel";
+import { motion, AnimatePresence } from "framer-motion";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
