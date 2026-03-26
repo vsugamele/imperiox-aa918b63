@@ -86,6 +86,15 @@ export default function Chat() {
     setMessages((prev) => prev.filter(m => m.id !== id));
   }
 
+  async function loadMembers() {
+    const { data } = await supabase.from("imphq_team_members").select("user_id, name");
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach((m: any) => { if (m.user_id && m.name) map[m.user_id] = m.name; });
+      setMemberNames(map);
+    }
+  }
+
   async function loadProjects() {
     const { data } = await supabase.from("imphq_projects").select("id, name, icon, color").order("name");
     if (data) setProjects(data as Project[]);
