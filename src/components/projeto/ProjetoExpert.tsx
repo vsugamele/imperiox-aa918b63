@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { EditableTagList } from "./EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AIGenerateButton } from "./AIGenerateButton";
+import { toast } from "sonner";
 
 interface Props {
   project: any;
@@ -19,8 +21,33 @@ export function ProjetoExpert({ project, onUpdateData }: Props) {
     onUpdateData({ ...data, expert: { ...expert, [key]: val } });
   };
 
+  const handleAIResult = (result: any) => {
+    if (result?.expert) {
+      const e = result.expert;
+      const newExpert = { ...expert };
+      for (const [key, val] of Object.entries(e)) {
+        if (!newExpert[key] && val) {
+          newExpert[key] = val;
+        }
+      }
+      onUpdateData({ ...data, expert: newExpert });
+      toast.success("Expert preenchido com IA! Campos vazios completados.");
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <AIGenerateButton
+          projectId={project.id}
+          action="generate_expert"
+          onResult={handleAIResult}
+          contextSources={["Briefing", "Pesquisa", "Concorrentes", "Avatar"]}
+          fieldsToFill={["Bio", "Tom de Voz", "Método", "Pilares", "Transformação", "Temas"]}
+          label="Completar com IA"
+        />
+      </div>
+
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">👤 Dados Pessoais</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -33,11 +60,7 @@ export function ProjetoExpert({ project, onUpdateData }: Props) {
               <Label className="text-xs text-muted-foreground">Foto do Expert</Label>
               <div className="flex gap-2 items-center">
                 <Input value={expert.foto || ""} onChange={(e) => update("foto", e.target.value)} className="bg-secondary max-w-xs" placeholder="URL da foto..." />
-                <FileUpload
-                  bucket="project-media"
-                  path={`${project.id}/expert`}
-                  onUpload={(url) => update("foto", url)}
-                />
+                <FileUpload bucket="project-media" path={`${project.id}/expert`} onUpload={(url) => update("foto", url)} />
               </div>
             </div>
           </div>

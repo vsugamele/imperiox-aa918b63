@@ -21555,9 +21555,48 @@ export type Database = {
           },
         ]
       }
+      webi_materials: {
+        Row: {
+          created_at: string | null
+          icon: string | null
+          id: string
+          label: string
+          show_at_seconds: number | null
+          url: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          label: string
+          show_at_seconds?: number | null
+          url: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          label?: string
+          show_at_seconds?: number | null
+          url?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_materials_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_projects: {
         Row: {
           accent_color: string | null
+          brand_color: string | null
           created_at: string | null
           custom_domain: string | null
           id: string
@@ -21567,9 +21606,11 @@ export type Database = {
           owner_id: string
           resend_from_email: string | null
           updated_at: string | null
+          webhook_url: string | null
         }
         Insert: {
           accent_color?: string | null
+          brand_color?: string | null
           created_at?: string | null
           custom_domain?: string | null
           id?: string
@@ -21579,9 +21620,11 @@ export type Database = {
           owner_id: string
           resend_from_email?: string | null
           updated_at?: string | null
+          webhook_url?: string | null
         }
         Update: {
           accent_color?: string | null
+          brand_color?: string | null
           created_at?: string | null
           custom_domain?: string | null
           id?: string
@@ -21591,6 +21634,7 @@ export type Database = {
           owner_id?: string
           resend_from_email?: string | null
           updated_at?: string | null
+          webhook_url?: string | null
         }
         Relationships: [
           {
@@ -21839,6 +21883,9 @@ export type Database = {
           tracking_head_code: string | null
           updated_at: string | null
           video_url: string | null
+          waiting_delay_seconds: number | null
+          waiting_room_enabled: boolean | null
+          waiting_room_message: string | null
         }
         Insert: {
           ai_enabled?: boolean | null
@@ -21864,6 +21911,9 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_url?: string | null
+          waiting_delay_seconds?: number | null
+          waiting_room_enabled?: boolean | null
+          waiting_room_message?: string | null
         }
         Update: {
           ai_enabled?: boolean | null
@@ -21889,6 +21939,9 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_url?: string | null
+          waiting_delay_seconds?: number | null
+          waiting_room_enabled?: boolean | null
+          waiting_room_message?: string | null
         }
         Relationships: [
           {

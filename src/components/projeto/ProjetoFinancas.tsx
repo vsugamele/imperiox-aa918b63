@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,11 +10,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target, Pencil, Paperclip, ExternalLink, Package } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target, Pencil, Paperclip, ExternalLink, Package, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "@/components/financas/AdsImportDialog";
 import { FileUpload } from "@/components/FileUpload";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Cost {
   id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
@@ -40,6 +44,15 @@ const COST_CATS = ["Ferramentas", "Ads", "Freelancer", "Infra", "Outro"];
 const REV_SOURCES = ["Manual", "Hotmart", "Stripe", "Kiwify", "Outro"];
 const PLATAFORMAS = ["Hotmart", "Kiwify", "Ticto", "Stripe", "PIX", "Manual", "Outro"];
 
+const PERIOD_OPTIONS = [
+  { key: "all", label: "Todo período" },
+  { key: "7d", label: "7 dias" },
+  { key: "30d", label: "30 dias" },
+  { key: "this_month", label: "Este mês" },
+  { key: "last_month", label: "Mês passado" },
+  { key: "custom", label: "Personalizado" },
+];
+
 export function ProjetoFinancas({ projectId, project }: { projectId: string; project?: any }) {
   const { user } = useAuth();
   const [costs, setCosts] = useState<Cost[]>([]);
@@ -54,6 +67,9 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
   const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [period, setPeriod] = useState("all");
+  const [customFrom, setCustomFrom] = useState<Date | undefined>();
+  const [customTo, setCustomTo] = useState<Date | undefined>();
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
@@ -81,22 +97,46 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
     setProjects((p.data || []) as { id: string; name: string }[]);
   };
 
-  // KPIs
-  const totalCost = costs.reduce((s, c) => s + (c.moeda === "USD" ? c.valor * 5.2 : c.valor), 0);
-  const totalRev = revenues.reduce((s, r) => s + r.valor, 0);
-  const totalAds = ads.reduce((s, a) => s + a.valor, 0);
-  const totalVendas = vendas.reduce((s, v) => s + v.valor, 0);
+  // Period filter
+  const getDateRange = (): { start: Date; end: Date } | null => {
+    const now = new Date();
+    switch (period) {
+      case "7d": return { start: subDays(now, 7), end: now };
+      case "30d": return { start: subDays(now, 30), end: now };
+      case "this_month": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "last_month": { const lm = subMonths(now, 1); return { start: startOfMonth(lm), end: endOfMonth(lm) }; }
+      case "custom": return customFrom && customTo ? { start: startOfDay(customFrom), end: endOfDay(customTo) } : null;
+      default: return null;
+    }
+  };
+
+  const dateRange = getDateRange();
+  const inRange = (dateStr: string | undefined | null) => {
+    if (!dateRange || !dateStr) return !dateRange;
+    try { return isWithinInterval(new Date(dateStr), { start: dateRange.start, end: dateRange.end }); } catch { return true; }
+  };
+
+  const fCosts = useMemo(() => costs.filter(c => inRange(c.data_pagamento || null)), [costs, period, customFrom, customTo]);
+  const fRevenues = useMemo(() => revenues.filter(r => inRange(r.data_ref)), [revenues, period, customFrom, customTo]);
+  const fAds = useMemo(() => ads.filter(a => inRange(a.data_ref)), [ads, period, customFrom, customTo]);
+  const fVendas = useMemo(() => vendas.filter(v => inRange(v.data_venda)), [vendas, period, customFrom, customTo]);
+
+  // KPIs (filtered)
+  const totalCost = fCosts.reduce((s, c) => s + (c.moeda === "USD" ? c.valor * 5.2 : c.valor), 0);
+  const totalRev = fRevenues.reduce((s, r) => s + r.valor, 0);
+  const totalAds = fAds.reduce((s, a) => s + a.valor, 0);
+  const totalVendas = fVendas.reduce((s, v) => s + v.valor, 0);
   const totalReceita = totalRev + totalVendas;
   const totalCusto = totalCost + totalAds;
   const profit = totalReceita - totalCusto;
   const roi = totalCusto > 0 ? ((profit / totalCusto) * 100) : 0;
   const roas = totalAds > 0 ? totalReceita / totalAds : 0;
 
-  // Ads KPIs
-  const totalCliques = ads.reduce((s, a) => s + a.cliques, 0);
-  const totalCompras = ads.reduce((s, a) => s + (a.compras || 0), 0);
+  // Ads KPIs (filtered)
+  const totalCliques = fAds.reduce((s, a) => s + a.cliques, 0);
+  const totalCompras = fAds.reduce((s, a) => s + (a.compras || 0), 0);
   const cpc = totalCliques > 0 ? totalAds / totalCliques : 0;
-  const cpl = ads.reduce((s, a) => s + a.leads, 0) > 0 ? totalAds / ads.reduce((s, a) => s + a.leads, 0) : 0;
+  const cpl = fAds.reduce((s, a) => s + a.leads, 0) > 0 ? totalAds / fAds.reduce((s, a) => s + a.leads, 0) : 0;
 
   const openCostFormForNew = () => {
     setEditingCost(null);
@@ -254,6 +294,47 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   return (
     <div className="space-y-6">
+      {/* Period Filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+        {PERIOD_OPTIONS.map(p => (
+          <Button
+            key={p.key}
+            size="sm"
+            variant={period === p.key ? "default" : "outline"}
+            className="h-7 text-xs"
+            onClick={() => setPeriod(p.key)}
+          >
+            {p.label}
+          </Button>
+        ))}
+        {period === "custom" && (
+          <div className="flex items-center gap-1">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("h-7 text-xs", !customFrom && "text-muted-foreground")}>
+                  {customFrom ? format(customFrom, "dd/MM/yyyy") : "De"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={customFrom} onSelect={setCustomFrom} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+            <span className="text-xs text-muted-foreground">→</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("h-7 text-xs", !customTo && "text-muted-foreground")}>
+                  {customTo ? format(customTo, "dd/MM/yyyy") : "Até"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={customTo} onSelect={setCustomTo} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {kpis.map((k) => (

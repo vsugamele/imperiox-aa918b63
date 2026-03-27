@@ -1,14 +1,11 @@
-import { useState } from "react";
+import { useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { EditableTagList } from "./EditableTagList";
 import { cn } from "@/lib/utils";
-import { Sparkles, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { AIGenerateButton } from "./AIGenerateButton";
 
 interface Props {
   project: any;
@@ -29,46 +26,51 @@ const ARCHETYPES = [
 
 export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
   const bk = project.brand_kit || {};
-  const [generating, setGenerating] = useState(false);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const editColorRef = useRef<{ index: number; el: HTMLInputElement | null }>({ index: -1, el: null });
 
   const update = (key: string, val: any) => onUpdateBrandKit({ ...bk, [key]: val });
 
-  const generateWithAI = async () => {
-    if (!project.id) return;
-    setGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", {
-        body: { project_id: project.id, action: "generate_branding" },
-      });
-      if (error) throw error;
-      if (data?.branding) {
-        const b = data.branding;
-        const newBk = { ...bk };
-        if (!bk.arquetipo && b.arquetipo) newBk.arquetipo = b.arquetipo;
-        if (!bk.inimigo_comum && b.inimigo_comum) newBk.inimigo_comum = b.inimigo_comum;
-        if (!bk.mecanismo_chave && b.mecanismo_chave) newBk.mecanismo_chave = b.mecanismo_chave;
-        if (!bk.personalidade && b.personalidade) newBk.personalidade = b.personalidade;
-        if (!bk.manifesto && b.manifesto) newBk.manifesto = b.manifesto;
-        if ((!bk.palavras_usa || bk.palavras_usa.length === 0) && b.palavras_usa) newBk.palavras_usa = b.palavras_usa;
-        if ((!bk.palavras_evita || bk.palavras_evita.length === 0) && b.palavras_evita) newBk.palavras_evita = b.palavras_evita;
-        onUpdateBrandKit(newBk);
-        toast.success("Branding gerado com IA! Campos vazios preenchidos.");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao gerar branding com IA");
-    } finally {
-      setGenerating(false);
+  const handleAIResult = (data: any) => {
+    if (data?.branding) {
+      const b = data.branding;
+      const newBk = { ...bk };
+      if (!bk.arquetipo && b.arquetipo) newBk.arquetipo = b.arquetipo;
+      if (!bk.inimigo_comum && b.inimigo_comum) newBk.inimigo_comum = b.inimigo_comum;
+      if (!bk.mecanismo_chave && b.mecanismo_chave) newBk.mecanismo_chave = b.mecanismo_chave;
+      if (!bk.personalidade && b.personalidade) newBk.personalidade = b.personalidade;
+      if (!bk.manifesto && b.manifesto) newBk.manifesto = b.manifesto;
+      if ((!bk.palavras_usa || bk.palavras_usa.length === 0) && b.palavras_usa) newBk.palavras_usa = b.palavras_usa;
+      if ((!bk.palavras_evita || bk.palavras_evita.length === 0) && b.palavras_evita) newBk.palavras_evita = b.palavras_evita;
+      onUpdateBrandKit(newBk);
     }
+  };
+
+  const addColorFromPicker = (hex: string) => {
+    const cores = bk.cores || [];
+    if (!cores.includes(hex)) {
+      update("cores", [...cores, hex]);
+    }
+  };
+
+  const editColorSwatch = (index: number, newColor: string) => {
+    const cores = [...(bk.cores || [])];
+    cores[index] = newColor;
+    update("cores", cores);
   };
 
   return (
     <div className="space-y-6">
       {/* AI Button */}
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={generateWithAI} disabled={generating}>
-          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {generating ? "Gerando..." : "🤖 Completar com IA"}
-        </Button>
+        <AIGenerateButton
+          projectId={project.id}
+          action="generate_branding"
+          onResult={handleAIResult}
+          contextSources={["Avatar", "Briefing", "Produtos", "Concorrentes"]}
+          fieldsToFill={["Arquétipo", "Inimigo Comum", "Mecanismo", "Personalidade", "Manifesto", "Linguagem"]}
+          label="Completar com IA"
+        />
       </div>
 
       {/* Paleta de Cores */}
@@ -77,11 +79,40 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
         <CardContent className="space-y-4">
           <div>
             <Label className="text-xs text-muted-foreground">Cores (hex)</Label>
-            <EditableTagList tags={bk.cores || []} onChange={(v) => update("cores", v)} placeholder="#000000" />
+            <div className="flex gap-2 items-start">
+              <div className="flex-1">
+                <EditableTagList tags={bk.cores || []} onChange={(v) => update("cores", v)} placeholder="#000000" />
+              </div>
+              <div className="relative shrink-0">
+                <input
+                  ref={colorInputRef}
+                  type="color"
+                  className="absolute inset-0 opacity-0 w-10 h-10 cursor-pointer"
+                  onChange={(e) => addColorFromPicker(e.target.value)}
+                />
+                <div className="h-10 w-10 rounded-md border-2 border-dashed border-primary/40 flex items-center justify-center text-primary hover:border-primary transition-colors cursor-pointer">
+                  <span className="text-lg">+</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             {(bk.cores || []).map((c: string, i: number) => (
-              <div key={i} className="h-10 w-10 rounded-md border border-border" style={{ backgroundColor: c }} title={c} />
+              <div key={i} className="relative group">
+                <div
+                  className="h-10 w-10 rounded-md border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                  style={{ backgroundColor: c }}
+                  title={c}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "color";
+                    input.value = c;
+                    input.addEventListener("input", (e) => editColorSwatch(i, (e.target as HTMLInputElement).value));
+                    input.click();
+                  }}
+                />
+                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{c}</span>
+              </div>
             ))}
           </div>
         </CardContent>

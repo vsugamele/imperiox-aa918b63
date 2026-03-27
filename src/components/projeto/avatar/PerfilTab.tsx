@@ -2,20 +2,63 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AIGenerateButton } from "../AIGenerateButton";
+import { toast } from "sonner";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
+  projectId?: string;
 }
 
-export function PerfilTab({ avatar, onUpdate }: Props) {
+export function PerfilTab({ avatar, onUpdate, projectId }: Props) {
   const perfil = avatar.perfil_psicologico || {};
   const update = (key: string, val: any) => onUpdate({ ...avatar, [key]: val });
   const updatePerfil = (key: string, val: string) =>
     onUpdate({ ...avatar, perfil_psicologico: { ...perfil, [key]: val } });
 
+  const handleAIResult = (data: any) => {
+    if (data?.avatar_perfil) {
+      const p = data.avatar_perfil;
+      const newAvatar = { ...avatar };
+      const newPerfil = { ...perfil };
+
+      if (p.perfil_psicologico) {
+        for (const [k, v] of Object.entries(p.perfil_psicologico)) {
+          if (!newPerfil[k] && v) newPerfil[k] = v;
+        }
+        newAvatar.perfil_psicologico = newPerfil;
+      }
+      for (const key of ["desejo_externo", "desejo_interno", "inimigo", "resultado_sonhado", "trigger_event", "fase_consciencia", "crenca_bloqueadora", "crenca_necessaria", "epifania_central"]) {
+        if (!newAvatar[key] && p[key]) newAvatar[key] = p[key];
+      }
+      if (p.camadas_psique) {
+        const cam = newAvatar.camadas_psique || {};
+        for (const [k, v] of Object.entries(p.camadas_psique)) {
+          if (!cam[k] && v) cam[k] = v;
+        }
+        newAvatar.camadas_psique = cam;
+      }
+      onUpdate(newAvatar);
+      toast.success("Perfil do Avatar preenchido com IA!");
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {projectId && (
+        <div className="flex justify-end">
+          <AIGenerateButton
+            projectId={projectId}
+            action="generate_avatar_perfil"
+            onResult={handleAIResult}
+            contextSources={["Briefing", "Expert", "Pesquisa", "Concorrentes", "Dores", "Desejos"]}
+            fieldsToFill={["Retrato", "Arquétipo", "Ferida Central", "Desejos", "Camadas C1-C4", "Crenças"]}
+            label="Completar com IA"
+          />
+        </div>
+      )}
+
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🧠 Perfil Psicológico</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -24,22 +67,10 @@ export function PerfilTab({ avatar, onUpdate }: Props) {
             <Textarea value={perfil.retrato || ""} onChange={e => updatePerfil("retrato", e.target.value)} className="bg-secondary min-h-[80px]" placeholder="Descrição detalhada do avatar..." />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs text-muted-foreground">Arquétipo</Label>
-              <Input value={perfil.arquetipo || ""} onChange={e => updatePerfil("arquetipo", e.target.value)} className="bg-secondary" placeholder="Ex: O Mártir Competente" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Ferida Central</Label>
-              <Input value={perfil.ferida_central || ""} onChange={e => updatePerfil("ferida_central", e.target.value)} className="bg-secondary" placeholder="Ex: Não se sentir merecedora..." />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Padrão de Autossabotagem</Label>
-              <Input value={perfil.padrao || ""} onChange={e => updatePerfil("padrao", e.target.value)} className="bg-secondary" placeholder="Ex: Acumula conhecimento mas não age" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Contradição Central</Label>
-              <Input value={perfil.contradicao || ""} onChange={e => updatePerfil("contradicao", e.target.value)} className="bg-secondary" placeholder="Ex: Sabe que é boa mas cobra barato" />
-            </div>
+            <div><Label className="text-xs text-muted-foreground">Arquétipo</Label><Input value={perfil.arquetipo || ""} onChange={e => updatePerfil("arquetipo", e.target.value)} className="bg-secondary" placeholder="Ex: O Mártir Competente" /></div>
+            <div><Label className="text-xs text-muted-foreground">Ferida Central</Label><Input value={perfil.ferida_central || ""} onChange={e => updatePerfil("ferida_central", e.target.value)} className="bg-secondary" placeholder="Ex: Não se sentir merecedora..." /></div>
+            <div><Label className="text-xs text-muted-foreground">Padrão de Autossabotagem</Label><Input value={perfil.padrao || ""} onChange={e => updatePerfil("padrao", e.target.value)} className="bg-secondary" placeholder="Ex: Acumula conhecimento mas não age" /></div>
+            <div><Label className="text-xs text-muted-foreground">Contradição Central</Label><Input value={perfil.contradicao || ""} onChange={e => updatePerfil("contradicao", e.target.value)} className="bg-secondary" placeholder="Ex: Sabe que é boa mas cobra barato" /></div>
           </div>
         </CardContent>
       </Card>
@@ -47,36 +78,17 @@ export function PerfilTab({ avatar, onUpdate }: Props) {
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">💫 Desejos & Motivação Core</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label className="text-xs text-muted-foreground">Desejo Externo</Label>
-            <Input value={avatar.desejo_externo || ""} onChange={e => update("desejo_externo", e.target.value)} className="bg-secondary" />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Desejo Interno Core</Label>
-            <Input value={avatar.desejo_interno || ""} onChange={e => update("desejo_interno", e.target.value)} className="bg-secondary" />
-          </div>
+          <div><Label className="text-xs text-muted-foreground">Desejo Externo</Label><Input value={avatar.desejo_externo || ""} onChange={e => update("desejo_externo", e.target.value)} className="bg-secondary" /></div>
+          <div><Label className="text-xs text-muted-foreground">Desejo Interno Core</Label><Input value={avatar.desejo_interno || ""} onChange={e => update("desejo_interno", e.target.value)} className="bg-secondary" /></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs text-muted-foreground">Inimigo</Label>
-              <Input value={avatar.inimigo || ""} onChange={e => update("inimigo", e.target.value)} className="bg-secondary" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Resultado Sonhado</Label>
-              <Input value={avatar.resultado_sonhado || ""} onChange={e => update("resultado_sonhado", e.target.value)} className="bg-secondary" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Trigger Event</Label>
-              <Input value={avatar.trigger_event || ""} onChange={e => update("trigger_event", e.target.value)} className="bg-secondary" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Fase de Consciência</Label>
-              <Input value={avatar.fase_consciencia || ""} onChange={e => update("fase_consciencia", e.target.value)} className="bg-secondary" />
-            </div>
+            <div><Label className="text-xs text-muted-foreground">Inimigo</Label><Input value={avatar.inimigo || ""} onChange={e => update("inimigo", e.target.value)} className="bg-secondary" /></div>
+            <div><Label className="text-xs text-muted-foreground">Resultado Sonhado</Label><Input value={avatar.resultado_sonhado || ""} onChange={e => update("resultado_sonhado", e.target.value)} className="bg-secondary" /></div>
+            <div><Label className="text-xs text-muted-foreground">Trigger Event</Label><Input value={avatar.trigger_event || ""} onChange={e => update("trigger_event", e.target.value)} className="bg-secondary" /></div>
+            <div><Label className="text-xs text-muted-foreground">Fase de Consciência</Label><Input value={avatar.fase_consciencia || ""} onChange={e => update("fase_consciencia", e.target.value)} className="bg-secondary" /></div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Camadas da Psique */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔬 Camadas da Psique (C1–C4)</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -90,19 +102,13 @@ export function PerfilTab({ avatar, onUpdate }: Props) {
             return (
               <div key={c.key} className={`border-l-4 ${c.color} pl-4`}>
                 <Label className="text-xs font-semibold">{c.label}</Label>
-                <Textarea
-                  value={camadas[c.key] || ""}
-                  onChange={e => onUpdate({ ...avatar, camadas_psique: { ...camadas, [c.key]: e.target.value } })}
-                  className="bg-secondary text-sm min-h-[60px] mt-1"
-                  placeholder={`Descreva ${c.label}...`}
-                />
+                <Textarea value={camadas[c.key] || ""} onChange={e => onUpdate({ ...avatar, camadas_psique: { ...camadas, [c.key]: e.target.value } })} className="bg-secondary text-sm min-h-[60px] mt-1" placeholder={`Descreva ${c.label}...`} />
               </div>
             );
           })}
         </CardContent>
       </Card>
 
-      {/* Engenharia de Crença */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚡ Engenharia de Crença</CardTitle></CardHeader>
         <CardContent className="space-y-4">
