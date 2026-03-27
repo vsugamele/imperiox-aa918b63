@@ -13,7 +13,8 @@ interface Props {
 
 export function ProjetoLinks({ project, onUpdateData }: Props) {
   const data = project.data || {};
-  const links: LinkItem[] = data.links || [];
+  const rawLinks = data.links;
+  const links: LinkItem[] = Array.isArray(rawLinks) ? rawLinks : [];
   const [newLabel, setNewLabel] = useState("");
   const [newUrl, setNewUrl] = useState("");
 
