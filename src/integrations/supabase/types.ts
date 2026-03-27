@@ -8595,6 +8595,7 @@ export type Database = {
           entity_name: string | null
           entity_type: string | null
           id: string
+          lead_id: string | null
           user_id: string
         }
         Insert: {
@@ -8605,6 +8606,7 @@ export type Database = {
           entity_name?: string | null
           entity_type?: string | null
           id?: string
+          lead_id?: string | null
           user_id: string
         }
         Update: {
@@ -8615,9 +8617,17 @@ export type Database = {
           entity_name?: string | null
           entity_type?: string | null
           id?: string
+          lead_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_activity_log_user_id_fkey"
             columns: ["user_id"]
