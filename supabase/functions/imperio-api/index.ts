@@ -135,6 +135,31 @@ Deno.serve(async (req) => {
       });
     }
 
+    // GET: export_context
+    if (req.method === "GET" && action === "export_context") {
+      const projectId = url.searchParams.get("project_id");
+      if (!projectId) throw new Error("project_id is required");
+
+      const { data: project } = await supabase.from("imphq_projects").select("*").eq("id", projectId).single();
+      if (!project) throw new Error("Project not found");
+
+      const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
+      const context = {
+        projeto: { id: project.id, name: project.name, category: project.category, description: project.description },
+        expert: d.expert || {},
+        briefing: { produtos: d.produtos || [], status: d.status, links: d.links },
+        avatar: project.avatar || {},
+        brand_kit: project.brand_kit || {},
+        kpis: d.kpis || {},
+        pipeline: project.pipeline || {},
+        integracoes: d.integracoes || {},
+      };
+
+      return new Response(JSON.stringify({ success: true, context }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action. Use: create_task, create_lead, project_status" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
