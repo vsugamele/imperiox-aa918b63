@@ -14,12 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, LineChart, Line, ResponsiveContainer, CartesianGrid, Tooltip, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, ChevronDown, ChevronRight, CalendarIcon, TrendingUp, Clock, Target, Megaphone } from "lucide-react";
 import { toast } from "sonner";
-import { format, isToday, startOfMonth, parseISO } from "date-fns";
+import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
 
@@ -48,7 +50,7 @@ function getLeadStage(lead: Lead): string {
 }
 
 interface LeadVenda {
-  id: string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: any;
+  id: string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: any; created_at?: string;
 }
 
 interface Lead {
@@ -82,6 +84,48 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];
 
+type PeriodKey = "today" | "7d" | "30d" | "90d" | "this_month" | "last_month" | "custom";
+const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
+  { key: "today", label: "Hoje" },
+  { key: "7d", label: "7 dias" },
+  { key: "30d", label: "30 dias" },
+  { key: "90d", label: "90 dias" },
+  { key: "this_month", label: "Este mês" },
+  { key: "last_month", label: "Mês passado" },
+  { key: "custom", label: "Personalizado" },
+];
+
+function getPeriodRange(key: PeriodKey, customFrom?: Date, customTo?: Date): { from: Date; to: Date } {
+  const now = new Date();
+  switch (key) {
+    case "today": return { from: startOfDay(now), to: endOfDay(now) };
+    case "7d": return { from: startOfDay(subDays(now, 7)), to: endOfDay(now) };
+    case "30d": return { from: startOfDay(subDays(now, 30)), to: endOfDay(now) };
+    case "90d": return { from: startOfDay(subDays(now, 90)), to: endOfDay(now) };
+    case "this_month": return { from: startOfMonth(now), to: endOfDay(now) };
+    case "last_month": { const lm = subMonths(now, 1); return { from: startOfMonth(lm), to: endOfMonth(lm) }; }
+    case "custom": return { from: customFrom || startOfDay(subDays(now, 30)), to: customTo || endOfDay(now) };
+    default: return { from: startOfDay(subDays(now, 30)), to: endOfDay(now) };
+  }
+}
+
+function formatConversionTime(hours: number): string {
+  if (hours < 1) return "< 1h";
+  if (hours < 24) return `${Math.round(hours)}h`;
+  const days = Math.floor(hours / 24);
+  const remaining = Math.round(hours % 24);
+  return remaining > 0 ? `${days}d ${remaining}h` : `${days}d`;
+}
+
+function getConversionBucket(hours: number): string {
+  if (hours < 24) return "0-1d";
+  if (hours < 72) return "1-3d";
+  if (hours < 168) return "3-7d";
+  if (hours < 336) return "7-14d";
+  if (hours < 720) return "14-30d";
+  return "30d+";
+}
+
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -107,6 +151,11 @@ export default function Leads() {
   const [automations, setAutomations] = useState<any[]>([]);
   const [leadAutomationLogs, setLeadAutomationLogs] = useState<any[]>([]);
   const [allVendasRaw, setAllVendasRaw] = useState<any[]>([]);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [adsSpend, setAdsSpend] = useState<any[]>([]);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<PeriodKey>("30d");
+  const [customFrom, setCustomFrom] = useState<Date>();
+  const [customTo, setCustomTo] = useState<Date>();
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -122,19 +171,21 @@ export default function Leads() {
   };
 
   const load = async () => {
-    const [leadsRes, projRes, vendasRes, autoRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
-      supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data").order("created_at", { ascending: false }),
+      supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
+      supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }).limit(500),
     ]);
     const allVendas = (vendasRes.data || []) as any[];
     setAllVendasRaw(allVendas);
+    setAdsSpend(adsRes.data || []);
     const vendasByLead = new Map<string, LeadVenda[]>();
     allVendas.forEach((v: any) => {
       if (!v.lead_id) return;
       if (!vendasByLead.has(v.lead_id)) vendasByLead.set(v.lead_id, []);
-      vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data });
+      vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data, created_at: v.created_at });
     });
     
     const enrichedLeads = (leadsRes.data || []).map((l: any) => {
@@ -236,7 +287,6 @@ export default function Leads() {
       );
     }
 
-    // Load automation logs for this lead
     promises.push(
       Promise.resolve(supabase.from("imphq_activity_log").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(50))
         .then(({ data }) => { setLeadAutomationLogs(data || []); })
@@ -330,7 +380,6 @@ export default function Leads() {
     return p ? `${p.icon || "📁"} ${p.name}` : null;
   };
 
-  // Quick action: trigger automation for lead
   const triggerAutomation = async (lead: Lead, auto: any) => {
     try {
       const actions = auto.data?.actions || [];
@@ -348,15 +397,11 @@ export default function Leads() {
           });
         }
       }
-      // Log the action
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from("imphq_activity_log").insert({
-          action: "automacao_executada",
-          entity_type: "lead",
-          entity_id: lead.id,
-          lead_id: lead.id,
-          user_id: user.id,
+          action: "automacao_executada", entity_type: "lead", entity_id: lead.id,
+          lead_id: lead.id, user_id: user.id,
           details: { automacao_nome: auto.nome, automacao_id: auto.id },
         });
       }
@@ -366,7 +411,6 @@ export default function Leads() {
     }
   };
 
-  // Quick action: send email
   const sendQuickEmail = async (lead: Lead) => {
     if (!lead.email || !lead.project_id) { toast.error("Lead precisa ter email e projeto"); return; }
     const { data: proj } = await supabase.from("imphq_projects").select("data").eq("id", lead.project_id).single();
@@ -380,8 +424,7 @@ export default function Leads() {
     if (user) {
       await supabase.from("imphq_activity_log").insert({
         action: "email_enviado", entity_type: "lead", entity_id: lead.id, lead_id: lead.id,
-        user_id: user.id,
-        details: { template: templates[0].name, to: lead.email },
+        user_id: user.id, details: { template: templates[0].name, to: lead.email },
       });
     }
     toast.success(`Email enviado para ${lead.email}`);
@@ -392,32 +435,180 @@ export default function Leads() {
     window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}`, "_blank");
   };
 
-  // ── Analytics data ──
-  const leadsByProject = useMemo(() => {
-    const map = new Map<string, number>();
-    leads.forEach(l => {
-      const name = getProjectName(l.project_id) || "Sem Projeto";
-      map.set(name, (map.get(name) || 0) + 1);
+  // ── Sidebar: products grouped by project ──
+  const projectProductMap = useMemo(() => {
+    const map = new Map<string, { products: Map<string, number>; totalLeads: number }>();
+    // Build product → lead mapping
+    const productLeadMap = new Map<string, Set<string>>();
+    allVendasRaw.forEach(v => {
+      if (!v.produto_nome || !v.lead_id) return;
+      if (!productLeadMap.has(v.produto_nome)) productLeadMap.set(v.produto_nome, new Set());
+      productLeadMap.get(v.produto_nome)!.add(v.lead_id);
     });
-    return Array.from(map.entries()).map(([name, count]) => ({ name: name.substring(0, 20), count })).sort((a, b) => b.count - a.count).slice(0, 10);
-  }, [leads, projects]);
 
-  const leadsByMonth = useMemo(() => {
-    const map = new Map<string, number>();
-    leads.forEach(l => {
-      if (!l.criado_em) return;
+    projects.forEach(p => {
+      const projectLeads = leads.filter(l => l.project_id === p.id);
+      const projectLeadIdsSet = new Set(projectLeads.map(l => l.id));
+      const prodMap = new Map<string, number>();
+      productLeadMap.forEach((leadIds, prodName) => {
+        const count = [...leadIds].filter(id => projectLeadIdsSet.has(id)).length;
+        if (count > 0) prodMap.set(prodName, count);
+      });
+      if (projectLeads.length > 0) {
+        map.set(p.id, { products: prodMap, totalLeads: projectLeads.length });
+      }
+    });
+    return map;
+  }, [projects, leads, allVendasRaw]);
+
+  const toggleProject = (pid: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(pid)) next.delete(pid); else next.add(pid);
+      return next;
+    });
+  };
+
+  // ── Conversion time calculation ──
+  const getConversionHours = (lead: Lead): number | null => {
+    if (!lead.criado_em || !lead._vendas || lead._vendas.length === 0) return null;
+    const approvedSale = lead._vendas.find(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved");
+    const firstSale = approvedSale || lead._vendas[0];
+    if (!firstSale.created_at) return null;
+    try {
+      const leadDate = parseISO(lead.criado_em);
+      const saleDate = parseISO(firstSale.created_at);
+      if (!isValid(leadDate) || !isValid(saleDate)) return null;
+      return differenceInHours(saleDate, leadDate);
+    } catch { return null; }
+  };
+
+  // ── Analytics with period filter ──
+  const periodRange = useMemo(() => getPeriodRange(analyticsPeriod, customFrom, customTo), [analyticsPeriod, customFrom, customTo]);
+
+  const periodLeads = useMemo(() => {
+    return leads.filter(l => {
+      if (!l.criado_em) return false;
       try {
         const d = parseISO(l.criado_em);
-        const key = format(d, "MMM/yy", { locale: ptBR });
-        map.set(key, (map.get(key) || 0) + 1);
+        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
+      } catch { return false; }
+    });
+  }, [leads, periodRange]);
+
+  const periodVendas = useMemo(() => {
+    return allVendasRaw.filter(v => {
+      if (!v.created_at) return false;
+      try {
+        const d = parseISO(v.created_at);
+        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
+      } catch { return false; }
+    });
+  }, [allVendasRaw, periodRange]);
+
+  const periodAds = useMemo(() => {
+    return adsSpend.filter(a => {
+      if (!a.data_ref) return false;
+      try {
+        const d = parseISO(a.data_ref);
+        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
+      } catch { return false; }
+    });
+  }, [adsSpend, periodRange]);
+
+  // KPIs for period
+  const periodKPIs = useMemo(() => {
+    const newLeads = periodLeads.length;
+    const conversions = periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").length;
+    const revenue = periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved")
+      .reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
+    const avgTicket = conversions > 0 ? revenue / conversions : 0;
+    const convRate = newLeads > 0 ? (conversions / newLeads * 100) : 0;
+
+    // Avg conversion time
+    const convTimes: number[] = [];
+    periodLeads.forEach(l => {
+      const h = getConversionHours(l);
+      if (h !== null && h >= 0) convTimes.push(h);
+    });
+    const avgConvTime = convTimes.length > 0 ? convTimes.reduce((a, b) => a + b, 0) / convTimes.length : null;
+
+    const totalAds = periodAds.reduce((s, a) => s + (parseFloat(a.valor) || 0), 0);
+    const roas = totalAds > 0 ? revenue / totalAds : null;
+
+    return { newLeads, conversions, revenue, avgTicket, convRate, avgConvTime, totalAds, roas };
+  }, [periodLeads, periodVendas, periodAds]);
+
+  // Leads by Product (period)
+  const leadsByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    periodVendas.forEach(v => {
+      if (!v.produto_nome) return;
+      map.set(v.produto_nome, (map.get(v.produto_nome) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name: name.substring(0, 25), count })).sort((a, b) => b.count - a.count).slice(0, 10);
+  }, [periodVendas]);
+
+  // Revenue by Product (period)
+  const revenueByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").forEach(v => {
+      if (!v.produto_nome) return;
+      map.set(v.produto_nome, (map.get(v.produto_nome) || 0) + (parseFloat(v.valor) || 0));
+    });
+    return Array.from(map.entries()).map(([name, revenue]) => ({ name: name.substring(0, 25), revenue: Math.round(revenue) })).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  }, [periodVendas]);
+
+  // Conversion time distribution
+  const conversionTimeDist = useMemo(() => {
+    const buckets: Record<string, number> = { "0-1d": 0, "1-3d": 0, "3-7d": 0, "7-14d": 0, "14-30d": 0, "30d+": 0 };
+    periodLeads.forEach(l => {
+      const h = getConversionHours(l);
+      if (h !== null && h >= 0) {
+        const bucket = getConversionBucket(h);
+        buckets[bucket]++;
+      }
+    });
+    return Object.entries(buckets).map(([name, count]) => ({ name, count }));
+  }, [periodLeads]);
+
+  // Leads vs Ads timeline
+  const leadsVsAds = useMemo(() => {
+    const dayMap = new Map<string, { leads: number; ads: number; revenue: number }>();
+    periodLeads.forEach(l => {
+      if (!l.criado_em) return;
+      try {
+        const key = format(parseISO(l.criado_em), "dd/MM");
+        const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 };
+        entry.leads++;
+        dayMap.set(key, entry);
       } catch {}
     });
-    return Array.from(map.entries()).map(([month, count]) => ({ month, count })).reverse().slice(-12);
-  }, [leads]);
+    periodAds.forEach(a => {
+      if (!a.data_ref) return;
+      try {
+        const key = format(parseISO(a.data_ref), "dd/MM");
+        const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 };
+        entry.ads += parseFloat(a.valor) || 0;
+        dayMap.set(key, entry);
+      } catch {}
+    });
+    periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").forEach(v => {
+      if (!v.created_at) return;
+      try {
+        const key = format(parseISO(v.created_at), "dd/MM");
+        const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 };
+        entry.revenue += parseFloat(v.valor) || 0;
+        dayMap.set(key, entry);
+      } catch {}
+    });
+    return Array.from(dayMap.entries()).map(([day, d]) => ({ day, ...d })).sort((a, b) => a.day.localeCompare(b.day));
+  }, [periodLeads, periodAds, periodVendas]);
 
+  // Funnel (period)
   const funnelData = useMemo(() => {
     const stages = { lead_capturado: 0, carrinho_abandonado: 0, pix_gerado: 0, compra_aprovada: 0 };
-    leads.forEach(l => {
+    periodLeads.forEach(l => {
       const stage = getLeadStage(l);
       if (stage in stages) (stages as any)[stage]++;
     });
@@ -427,83 +618,112 @@ export default function Leads() {
       { stage: "Pix", value: stages.pix_gerado, fill: "#ef4444" },
       { stage: "Clientes", value: stages.compra_aprovada, fill: "#10b981" },
     ];
-  }, [leads]);
+  }, [periodLeads]);
 
-  const revenueByProject = useMemo(() => {
+  // Leads by Month (all time for sidebar)
+  const leadsByMonth = useMemo(() => {
     const map = new Map<string, number>();
     leads.forEach(l => {
-      if (!l.total_gasto || l.total_gasto <= 0) return;
-      const name = getProjectName(l.project_id) || "Sem Projeto";
-      map.set(name, (map.get(name) || 0) + parseFloat(String(l.total_gasto)));
+      if (!l.criado_em) return;
+      try {
+        const d = parseISO(l.criado_em);
+        if (!isValid(d)) return;
+        const key = format(d, "MMM/yy", { locale: ptBR });
+        map.set(key, (map.get(key) || 0) + 1);
+      } catch {}
     });
-    return Array.from(map.entries()).map(([name, revenue]) => ({ name: name.substring(0, 20), revenue: Math.round(revenue) })).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
-  }, [leads, projects]);
+    return Array.from(map.entries()).map(([month, count]) => ({ month, count })).reverse().slice(-12);
+  }, [leads]);
 
   // ── Pix Hoje ──
   const pixHoje = useMemo(() => {
     return leads.filter(l => {
       const stage = getLeadStage(l);
       if (!["pix_gerado", "aguardando_pagamento"].includes(stage)) return false;
-      if (!l.criado_em) return true; // show anyway
+      if (!l.criado_em) return true;
       try { return isToday(parseISO(l.criado_em)); } catch { return false; }
     });
   }, [leads]);
 
-  // Products filtered by selected project
-  const filteredProducts = useMemo(() => {
-    if (projectFilter === "all" || projectFilter === "none") return products;
-    const projectLeadIdsSet = new Set(leads.filter(l => l.project_id === projectFilter).map(l => l.id));
-    const projectProducts = [...new Set(
-      allVendasRaw.filter(v => v.lead_id && projectLeadIdsSet.has(v.lead_id) && v.produto_nome).map(v => v.produto_nome)
-    )];
-    return projectProducts as string[];
-  }, [projectFilter, leads, allVendasRaw, products]);
-
   const chartConfig = {
     count: { label: "Leads", color: "hsl(var(--primary))" },
-    revenue: { label: "Receita", color: "hsl(var(--primary))" },
+    revenue: { label: "Receita", color: "#10b981" },
     value: { label: "Qtd", color: "hsl(var(--primary))" },
+    leads: { label: "Leads", color: "hsl(var(--primary))" },
+    ads: { label: "Ads R$", color: "#ef4444" },
   };
+
+  const noLeadsInProject = leads.filter(l => !l.project_id).length;
 
   return (
     <div className="flex gap-6">
-      {/* Project Sidebar */}
-      <div className="w-48 shrink-0 hidden lg:block">
+      {/* ═══ SIDEBAR COLAPSÁVEL ═══ */}
+      <div className="w-52 shrink-0 hidden lg:block">
         <div className="flex items-center gap-2 mb-2">
           <h2 className="font-display text-sm font-bold text-primary">Leads</h2>
           {realtimeActive && <Radio className="h-3 w-3 text-emerald-400 animate-pulse" />}
         </div>
         <p className="text-[10px] text-muted-foreground mb-3">{leads.length} total</p>
-        <div className="space-y-0.5">
-          <button className={cn("w-full text-left text-xs px-2 py-1.5 rounded transition-colors", projectFilter === "all" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} onClick={() => setProjectFilter("all")}>🌐 Todos os leads</button>
-          <button className={cn("w-full text-left text-xs px-2 py-1.5 rounded transition-colors", projectFilter === "none" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} onClick={() => setProjectFilter("none")}>📂 Sem projeto</button>
+        <div className="space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto pr-1">
+          {/* All leads */}
+          <button className={cn("w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between", projectFilter === "all" && productFilter === "all" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} onClick={() => { setProjectFilter("all"); setProductFilter("all"); }}>
+            <span>🌐 Todos os leads</span>
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1">{leads.length}</Badge>
+          </button>
+          {/* No project */}
+          {noLeadsInProject > 0 && (
+            <button className={cn("w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between", projectFilter === "none" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} onClick={() => { setProjectFilter("none"); setProductFilter("all"); }}>
+              <span>📂 Sem projeto</span>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1">{noLeadsInProject}</Badge>
+            </button>
+          )}
+
+          {/* Projects with collapsible products */}
           {projects.map(p => {
-            const count = leads.filter(l => l.project_id === p.id).length;
-            if (count === 0) return null;
+            const info = projectProductMap.get(p.id);
+            if (!info || info.totalLeads === 0) return null;
+            const isExpanded = expandedProjects.has(p.id);
+            const isSelected = projectFilter === p.id && productFilter === "all";
             return (
-              <button key={p.id} className={cn("w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate", projectFilter === p.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} onClick={() => setProjectFilter(p.id)}>
-                {p.icon || "📁"} {p.name} <span className="text-muted-foreground">({count})</span>
-              </button>
+              <div key={p.id}>
+                <div className="flex items-center">
+                  <button
+                    className="p-1 text-muted-foreground hover:text-foreground"
+                    onClick={(e) => { e.stopPropagation(); toggleProject(p.id); }}
+                  >
+                    {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  </button>
+                  <button
+                    className={cn("flex-1 text-left text-xs px-1 py-1.5 rounded transition-colors truncate flex items-center justify-between", isSelected ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")}
+                    onClick={() => { setProjectFilter(p.id); setProductFilter("all"); }}
+                  >
+                    <span className="truncate">{p.icon || "📁"} {p.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1 shrink-0">{info.totalLeads}</Badge>
+                  </button>
+                </div>
+                {isExpanded && info.products.size > 0 && (
+                  <div className="ml-5 space-y-0.5 mt-0.5">
+                    {Array.from(info.products.entries()).sort((a, b) => b[1] - a[1]).map(([prodName, count]) => (
+                      <button
+                        key={prodName}
+                        className={cn("w-full text-left text-[11px] px-2 py-1 rounded transition-colors truncate flex items-center justify-between", productFilter === prodName && projectFilter === p.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}
+                        onClick={() => { setProjectFilter(p.id); setProductFilter(prodName); }}
+                        title={prodName}
+                      >
+                        <span className="truncate">🏷️ {prodName}</span>
+                        <span className="text-[9px] text-muted-foreground/70 ml-1 shrink-0">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
-
-        {filteredProducts.length > 0 && (
-          <div className="mt-4">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1"><Package className="h-3 w-3" /> Produtos</p>
-            <div className="space-y-0.5">
-              <button className={cn("w-full text-left text-xs px-2 py-1.5 rounded transition-colors", productFilter === "all" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} onClick={() => setProductFilter("all")}>📦 Todos</button>
-              {filteredProducts.map(prod => (
-                <button key={prod} className={cn("w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate", productFilter === prod ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} onClick={() => setProductFilter(prod)} title={prod}>🏷️ {prod}</button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Main Content */}
       <div className="flex-1 space-y-4 min-w-0">
-        {/* Main Tabs: Leads / Analytics */}
         <Tabs value={mainTab} onValueChange={setMainTab}>
           <div className="flex items-center gap-3 flex-wrap">
             <TabsList>
@@ -524,7 +744,6 @@ export default function Leads() {
 
           {/* ═══ TAB: LEADS ═══ */}
           <TabsContent value="leads" className="space-y-4">
-            {/* Filters */}
             <div className="flex items-center gap-3 flex-wrap">
               <div className="relative max-w-xs flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -571,8 +790,12 @@ export default function Leads() {
             )}
 
             <div className="flex items-center gap-2">
-              <p className="text-sm font-medium">{projectFilter === "all" ? "Todos os Leads" : projectFilter === "none" ? "Sem Projeto" : getProjectName(projectFilter) || "Leads"}</p>
-              <p className="text-xs text-muted-foreground">{filtered.length} de {leads.length} leads</p>
+              <p className="text-sm font-medium">
+                {productFilter !== "all"
+                  ? `🏷️ Produto: ${productFilter}`
+                  : projectFilter === "all" ? "Todos os Leads" : projectFilter === "none" ? "Sem Projeto" : getProjectName(projectFilter) || "Leads"}
+              </p>
+              <Badge variant="outline" className="text-[10px]">{filtered.length} de {leads.length}</Badge>
             </div>
 
             {/* KPI Cards */}
@@ -638,7 +861,7 @@ export default function Leads() {
                       <TableCell>{(() => { const stage = getLeadStage(l); const cfg = STAGE_LABELS[stage] || STAGE_LABELS.lead_capturado; const isPending = ["carrinho_abandonado", "pix_gerado", "aguardando_pagamento"].includes(stage); return (<div className="flex items-center gap-1"><Badge className={cn("text-[10px]", cfg.color, isPending && "animate-pulse ring-1 ring-amber-500/40")}>{cfg.label}</Badge>{isPending && <AlertCircle className="h-3 w-3 text-amber-400" />}</div>); })()}</TableCell>
                       <TableCell><div className="flex items-center gap-1.5"><div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${l._score || 0}%` }} /></div><span className="text-[10px] font-mono text-muted-foreground">{l._score || 0}</span></div></TableCell>
                       <TableCell className="font-mono text-sm text-primary">{l.total_gasto ? `R$ ${parseFloat(String(l.total_gasto)).toFixed(0)}` : "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{l.criado_em ? format(new Date(l.criado_em), "dd/MM/yy") : "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{l.criado_em ? (() => { try { const d = parseISO(l.criado_em!); return isValid(d) ? format(d, "dd/MM/yy") : "—"; } catch { return "—"; } })() : "—"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           {l.phone && <Button size="icon" variant="ghost" asChild className="h-7 w-7"><a href={`https://wa.me/${l.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener"><MessageCircle className="h-4 w-4 text-emerald-400" /></a></Button>}
@@ -653,17 +876,106 @@ export default function Leads() {
 
           {/* ═══ TAB: ANALYTICS ═══ */}
           <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Leads por Projeto */}
+            {/* Period Filter Bar */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              {PERIOD_OPTIONS.map(opt => (
+                <Button
+                  key={opt.key}
+                  size="sm"
+                  variant={analyticsPeriod === opt.key ? "default" : "outline"}
+                  className="text-xs h-7"
+                  onClick={() => setAnalyticsPeriod(opt.key)}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+              {analyticsPeriod === "custom" && (
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="text-xs h-7">
+                        {customFrom ? format(customFrom, "dd/MM/yy") : "De"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={customFrom} onSelect={setCustomFrom} className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-xs text-muted-foreground">→</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="text-xs h-7">
+                        {customTo ? format(customTo, "dd/MM/yy") : "Até"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={customTo} onSelect={setCustomTo} className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
               <Card className="bg-card border-border">
-                <CardHeader className="pb-2"><CardTitle className="text-sm">📊 Leads por Projeto</CardTitle></CardHeader>
+                <CardContent className="p-3"><p className="text-lg font-bold">{periodKPIs.newLeads}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Novos Leads</p></CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-3"><p className="text-lg font-bold text-emerald-400">{periodKPIs.conversions}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><UserCheck className="h-3 w-3" /> Conversões</p></CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-3"><p className="text-lg font-bold text-primary">{periodKPIs.convRate.toFixed(1)}%</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><Target className="h-3 w-3" /> Taxa Conv.</p></CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-3"><p className="text-lg font-bold font-mono text-primary">R$ {periodKPIs.revenue.toFixed(0)}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> Receita</p></CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-3"><p className="text-lg font-bold font-mono">R$ {periodKPIs.avgTicket.toFixed(0)}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Ticket Médio</p></CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-3"><p className="text-lg font-bold">{periodKPIs.avgConvTime !== null ? formatConversionTime(periodKPIs.avgConvTime) : "—"}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Tempo Conv.</p></CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-3"><p className="text-lg font-bold font-mono text-destructive">R$ {periodKPIs.totalAds.toFixed(0)}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><Megaphone className="h-3 w-3" /> Investido Ads</p></CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-3"><p className="text-lg font-bold font-mono">{periodKPIs.roas !== null ? `${periodKPIs.roas.toFixed(1)}x` : "—"}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> ROAS</p></CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Leads vs Ads vs Receita Timeline */}
+              <Card className="bg-card border-border md:col-span-2">
+                <CardHeader className="pb-2"><CardTitle className="text-sm">📈 Leads vs Ads vs Receita (diário)</CardTitle></CardHeader>
                 <CardContent>
-                  {leadsByProject.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem dados</p> : (
+                  {leadsVsAds.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem dados no período</p> : (
+                    <ChartContainer config={chartConfig} className="h-[280px] w-full">
+                      <AreaChart data={leadsVsAds} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                        <XAxis dataKey="day" className="text-[10px]" />
+                        <YAxis className="text-[10px]" />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Area type="monotone" dataKey="revenue" fill="#10b981" fillOpacity={0.15} stroke="#10b981" strokeWidth={2} name="Receita R$" />
+                        <Area type="monotone" dataKey="ads" fill="#ef4444" fillOpacity={0.1} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 4" name="Ads R$" />
+                        <Line type="monotone" dataKey="leads" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} name="Leads" />
+                      </AreaChart>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Leads by Product */}
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-2"><CardTitle className="text-sm">📦 Leads por Produto</CardTitle></CardHeader>
+                <CardContent>
+                  {leadsByProduct.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem dados</p> : (
                     <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                      <BarChart data={leadsByProject} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                      <BarChart data={leadsByProduct} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
                         <XAxis type="number" className="text-[10px]" />
-                        <YAxis dataKey="name" type="category" width={100} className="text-[10px]" tick={{ fontSize: 10 }} />
+                        <YAxis dataKey="name" type="category" width={120} className="text-[10px]" tick={{ fontSize: 9 }} />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                       </BarChart>
@@ -672,25 +984,43 @@ export default function Leads() {
                 </CardContent>
               </Card>
 
-              {/* Leads por Mês */}
+              {/* Revenue by Product */}
               <Card className="bg-card border-border">
-                <CardHeader className="pb-2"><CardTitle className="text-sm">📈 Leads por Mês</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">💰 Receita por Produto</CardTitle></CardHeader>
                 <CardContent>
-                  {leadsByMonth.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem dados</p> : (
+                  {revenueByProduct.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem receita</p> : (
                     <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                      <LineChart data={leadsByMonth} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                      <BarChart data={revenueByProduct} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                        <XAxis dataKey="month" className="text-[10px]" />
-                        <YAxis className="text-[10px]" />
+                        <XAxis type="number" className="text-[10px]" tickFormatter={(v) => `R$${v}`} />
+                        <YAxis dataKey="name" type="category" width={120} className="text-[10px]" tick={{ fontSize: 9 }} />
                         <ChartTooltip content={<ChartTooltipContent />} />
-                        <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: "hsl(var(--primary))" }} />
-                      </LineChart>
+                        <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} />
+                      </BarChart>
                     </ChartContainer>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Funil de Conversão */}
+              {/* Conversion Time Distribution */}
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-2"><CardTitle className="text-sm">⏱️ Tempo de Conversão</CardTitle></CardHeader>
+                <CardContent>
+                  {conversionTimeDist.every(d => d.count === 0) ? <p className="text-sm text-muted-foreground text-center py-8">Sem conversões no período</p> : (
+                    <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                      <BarChart data={conversionTimeDist} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                        <XAxis dataKey="name" className="text-[10px]" />
+                        <YAxis className="text-[10px]" />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Funnel */}
               <Card className="bg-card border-border">
                 <CardHeader className="pb-2"><CardTitle className="text-sm">🔻 Funil de Conversão</CardTitle></CardHeader>
                 <CardContent>
@@ -708,19 +1038,19 @@ export default function Leads() {
                 </CardContent>
               </Card>
 
-              {/* Receita por Projeto */}
-              <Card className="bg-card border-border">
-                <CardHeader className="pb-2"><CardTitle className="text-sm">💰 Receita por Projeto</CardTitle></CardHeader>
+              {/* Leads by Month */}
+              <Card className="bg-card border-border md:col-span-2">
+                <CardHeader className="pb-2"><CardTitle className="text-sm">📈 Leads por Mês (histórico)</CardTitle></CardHeader>
                 <CardContent>
-                  {revenueByProject.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem receita registrada</p> : (
-                    <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                      <BarChart data={revenueByProject} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                  {leadsByMonth.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem dados</p> : (
+                    <ChartContainer config={chartConfig} className="h-[220px] w-full">
+                      <LineChart data={leadsByMonth} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                        <XAxis type="number" className="text-[10px]" tickFormatter={(v) => `R$${v}`} />
-                        <YAxis dataKey="name" type="category" width={100} className="text-[10px]" tick={{ fontSize: 10 }} />
+                        <XAxis dataKey="month" className="text-[10px]" />
+                        <YAxis className="text-[10px]" />
                         <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} />
-                      </BarChart>
+                        <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: "hsl(var(--primary))" }} />
+                      </LineChart>
                     </ChartContainer>
                   )}
                 </CardContent>
@@ -740,48 +1070,46 @@ export default function Leads() {
               <div className="space-y-3">
                 {pixHoje.map(l => {
                   const vendas = l._vendas || [];
-                  const produto = vendas.find(v => v.produto_nome)?.produto_nome || "—";
+                  const produto = vendas[0]?.produto_nome || "—";
                   const valor = vendas.reduce((s, v) => s + v.valor, 0);
                   return (
-                    <Card key={l.id} className="bg-card border-border border-l-4 border-l-orange-500">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Avatar className="h-10 w-10 bg-secondary shrink-0"><AvatarFallback className="font-bold bg-secondary text-foreground">{(l.nome || "?")[0].toUpperCase()}</AvatarFallback></Avatar>
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{l.nome}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{l.email || "—"} • {l.phone || "sem tel."}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <Badge variant="outline" className="text-[9px]">{produto}</Badge>
-                                {valor > 0 && <span className="text-xs font-mono text-primary">R$ {valor.toFixed(2)}</span>}
-                                {l.criado_em && <span className="text-[9px] text-muted-foreground">{format(new Date(l.criado_em), "HH:mm")}</span>}
-                              </div>
+                    <Card key={l.id} className="bg-card border-border hover:ring-1 hover:ring-orange-500/30 transition-all">
+                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-10 w-10 bg-secondary shrink-0"><AvatarFallback className="font-bold bg-secondary text-foreground">{(l.nome || "?")[0].toUpperCase()}</AvatarFallback></Avatar>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{l.nome}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{l.email || "—"} • {l.phone || "sem tel."}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="outline" className="text-[9px]">{produto}</Badge>
+                              {valor > 0 && <span className="text-xs font-mono text-primary">R$ {valor.toFixed(2)}</span>}
+                              {l.criado_em && (() => { try { const d = parseISO(l.criado_em!); return isValid(d) ? <span className="text-[9px] text-muted-foreground">{format(d, "HH:mm")}</span> : null; } catch { return null; } })()}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button size="sm" variant="outline" onClick={() => sendQuickEmail(l)} disabled={!l.email || !l.project_id}>
-                              <Mail className="h-3 w-3 mr-1" /> Email
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => sendQuickWhatsApp(l)} disabled={!l.phone}>
-                              <MessageCircle className="h-3 w-3 mr-1" /> WhatsApp
-                            </Button>
-                            {automations.length > 0 && (
-                              <Select onValueChange={(autoId) => {
-                                const auto = automations.find(a => a.id === autoId);
-                                if (auto) triggerAutomation(l, auto);
-                              }}>
-                                <SelectTrigger className="h-8 w-[150px] text-xs">
-                                  <SelectValue placeholder="⚡ Automação" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {automations.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            )}
-                            <Button size="sm" variant="ghost" onClick={() => setEditLead({ ...l })}>
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => sendQuickEmail(l)} disabled={!l.email || !l.project_id}>
+                            <Mail className="h-3 w-3 mr-1" /> Email
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => sendQuickWhatsApp(l)} disabled={!l.phone}>
+                            <MessageCircle className="h-3 w-3 mr-1" /> WhatsApp
+                          </Button>
+                          {automations.length > 0 && (
+                            <Select onValueChange={(autoId) => {
+                              const auto = automations.find(a => a.id === autoId);
+                              if (auto) triggerAutomation(l, auto);
+                            }}>
+                              <SelectTrigger className="h-8 w-[150px] text-xs">
+                                <SelectValue placeholder="⚡ Automação" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {automations.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => setEditLead({ ...l })}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -828,8 +1156,40 @@ export default function Leads() {
                 <TabsContent value="dados" className="space-y-3">
                   <div className="flex items-center gap-3 pb-2">
                     <Avatar className="h-10 w-10 bg-secondary"><AvatarFallback className="font-bold bg-secondary text-foreground">{(editLead.nome || "?")[0].toUpperCase()}</AvatarFallback></Avatar>
-                    <div><p className="font-medium">{editLead.nome}</p><p className="text-xs text-muted-foreground">{editLead.email}</p></div>
+                    <div>
+                      <p className="font-medium">{editLead.nome}</p>
+                      <p className="text-xs text-muted-foreground">{editLead.email}</p>
+                    </div>
                   </div>
+
+                  {/* Conversion time */}
+                  {(() => {
+                    const hours = getConversionHours(editLead);
+                    if (hours !== null && hours >= 0) {
+                      return (
+                        <div className="flex items-center gap-2 p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                          <Clock className="h-4 w-4 text-emerald-400" />
+                          <span className="text-xs font-medium text-emerald-400">Tempo até compra: {formatConversionTime(hours)}</span>
+                        </div>
+                      );
+                    }
+                    if (editLead.criado_em && (!editLead._vendas || editLead._vendas.length === 0)) {
+                      try {
+                        const d = parseISO(editLead.criado_em);
+                        if (isValid(d)) {
+                          const daysSince = differenceInDays(new Date(), d);
+                          return (
+                            <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                              <Clock className="h-4 w-4 text-amber-400" />
+                              <span className="text-xs text-amber-400">Aguardando conversão — {daysSince} dias desde captura</span>
+                            </div>
+                          );
+                        }
+                      } catch {}
+                    }
+                    return null;
+                  })()}
+
                   <div><Label>Nome</Label><Input value={editLead.nome || ""} onChange={e => setEditLead({ ...editLead, nome: e.target.value })} /></div>
                   <div className="grid grid-cols-2 gap-3">
                     <div><Label>Email</Label><Input value={editLead.email || ""} onChange={e => setEditLead({ ...editLead, email: e.target.value })} /></div>
@@ -897,7 +1257,7 @@ export default function Leads() {
                             <div key={ev.id} className="flex gap-3 relative">
                               <div className={`h-[30px] w-[30px] rounded-full ${config.color} flex items-center justify-center text-white shrink-0 z-10`}>{config.icon}</div>
                               <div className="flex-1 min-w-0 pb-1">
-                                <div className="flex items-center gap-2"><span className="text-xs font-medium">{config.label}</span><span className="text-[10px] text-muted-foreground">{format(new Date(ev.timestamp), "dd/MM HH:mm")}</span></div>
+                                <div className="flex items-center gap-2"><span className="text-xs font-medium">{config.label}</span><span className="text-[10px] text-muted-foreground">{(() => { try { const d = new Date(ev.timestamp); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div>
                                 {ev.subtitle && <p className="text-[11px] text-muted-foreground truncate">{ev.subtitle}</p>}
                                 {ev.details && Object.keys(ev.details).filter(k => ev.details![k]).length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">{Object.entries(ev.details).filter(([, v]) => v).slice(0, 4).map(([k, v]) => <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 30)}</Badge>)}</div>
@@ -911,7 +1271,6 @@ export default function Leads() {
                   )}
                 </TabsContent>
 
-                {/* ═══ TAB: AUTOMAÇÕES do Lead ═══ */}
                 <TabsContent value="automacoes" className="space-y-4">
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">⚡ Disparar Automação</p>
@@ -938,7 +1297,7 @@ export default function Leads() {
                           <div key={log.id} className="p-2 bg-secondary/50 rounded-lg">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-medium">{log.action}</span>
-                              <span className="text-[10px] text-muted-foreground">{log.created_at ? format(new Date(log.created_at), "dd/MM HH:mm") : ""}</span>
+                              <span className="text-[10px] text-muted-foreground">{log.created_at ? (() => { try { const d = new Date(log.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })() : ""}</span>
                             </div>
                             {log.details && (
                               <div className="flex flex-wrap gap-1 mt-1">

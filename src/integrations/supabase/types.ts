@@ -21563,6 +21563,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          openrouter_api_key: string | null
           owner_id: string
           resend_from_email: string | null
           updated_at: string | null
@@ -21574,6 +21575,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          openrouter_api_key?: string | null
           owner_id: string
           resend_from_email?: string | null
           updated_at?: string | null
@@ -21585,6 +21587,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          openrouter_api_key?: string | null
           owner_id?: string
           resend_from_email?: string | null
           updated_at?: string | null
@@ -21623,6 +21626,85 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_quiz_questions: {
+        Row: {
+          correct_index: number
+          created_at: string | null
+          id: string
+          options: Json
+          question: string
+          sort_order: number | null
+          webinar_id: string
+        }
+        Insert: {
+          correct_index?: number
+          created_at?: string | null
+          id?: string
+          options?: Json
+          question: string
+          sort_order?: number | null
+          webinar_id: string
+        }
+        Update: {
+          correct_index?: number
+          created_at?: string | null
+          id?: string
+          options?: Json
+          question?: string
+          sort_order?: number | null
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_quiz_questions_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_quiz_responses: {
+        Row: {
+          answers: Json | null
+          completed_at: string | null
+          id: string
+          lead_email: string | null
+          lead_name: string | null
+          score: number | null
+          total: number | null
+          webinar_id: string
+        }
+        Insert: {
+          answers?: Json | null
+          completed_at?: string | null
+          id?: string
+          lead_email?: string | null
+          lead_name?: string | null
+          score?: number | null
+          total?: number | null
+          webinar_id: string
+        }
+        Update: {
+          answers?: Json | null
+          completed_at?: string | null
+          id?: string
+          lead_email?: string | null
+          lead_name?: string | null
+          score?: number | null
+          total?: number | null
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_quiz_responses_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
             referencedColumns: ["id"]
           },
         ]
@@ -21685,8 +21767,59 @@ export type Database = {
           },
         ]
       }
+      webi_testimonials: {
+        Row: {
+          approved: boolean | null
+          avatar_url: string | null
+          created_at: string | null
+          id: string
+          name: string
+          rating: number | null
+          role: string | null
+          show_at_seconds: number | null
+          text: string
+          webinar_id: string
+        }
+        Insert: {
+          approved?: boolean | null
+          avatar_url?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          rating?: number | null
+          role?: string | null
+          show_at_seconds?: number | null
+          text: string
+          webinar_id: string
+        }
+        Update: {
+          approved?: boolean | null
+          avatar_url?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          rating?: number | null
+          role?: string | null
+          show_at_seconds?: number | null
+          text?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_testimonials_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_webinars: {
         Row: {
+          ai_enabled: boolean | null
+          ai_knowledge_base: string | null
+          ai_model: string | null
+          ai_system_prompt: string | null
           chat_cpm: number | null
           chat_names: Json | null
           created_at: string | null
@@ -21708,6 +21841,10 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          ai_enabled?: boolean | null
+          ai_knowledge_base?: string | null
+          ai_model?: string | null
+          ai_system_prompt?: string | null
           chat_cpm?: number | null
           chat_names?: Json | null
           created_at?: string | null
@@ -21729,6 +21866,10 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          ai_enabled?: boolean | null
+          ai_knowledge_base?: string | null
+          ai_model?: string | null
+          ai_system_prompt?: string | null
           chat_cpm?: number | null
           chat_names?: Json | null
           created_at?: string | null
