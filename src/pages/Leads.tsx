@@ -376,10 +376,14 @@ export default function Leads() {
       body: { project_id: lead.project_id, template_id: templates[0].id, to_email: lead.email },
     });
     if (error) { toast.error("Erro: " + error.message); return; }
-    await supabase.from("imphq_activity_log").insert({
-      id: crypto.randomUUID(), action: "email_enviado", entity_type: "lead", entity_id: lead.id, lead_id: lead.id,
-      details: { template: templates[0].name, to: lead.email },
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("imphq_activity_log").insert({
+        action: "email_enviado", entity_type: "lead", entity_id: lead.id, lead_id: lead.id,
+        user_id: user.id,
+        details: { template: templates[0].name, to: lead.email },
+      });
+    }
     toast.success(`Email enviado para ${lead.email}`);
   };
 
