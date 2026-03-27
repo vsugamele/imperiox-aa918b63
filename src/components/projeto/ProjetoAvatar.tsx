@@ -77,7 +77,7 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
         </TabsList>
 
         <TabsContent value="perfil" className="mt-4">
-          <PerfilTab avatar={avatar} onUpdate={onUpdateAvatar} />
+          <PerfilTab avatar={avatar} onUpdate={onUpdateAvatar} projectId={project.id} />
         </TabsContent>
         <TabsContent value="desejos" className="mt-4">
           <DesejosTab avatar={avatar} onUpdate={onUpdateAvatar} />
