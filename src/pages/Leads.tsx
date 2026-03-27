@@ -349,14 +349,17 @@ export default function Leads() {
         }
       }
       // Log the action
-      await supabase.from("imphq_activity_log").insert({
-        id: crypto.randomUUID(),
-        action: "automacao_executada",
-        entity_type: "lead",
-        entity_id: lead.id,
-        lead_id: lead.id,
-        details: { automacao_nome: auto.nome, automacao_id: auto.id },
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("imphq_activity_log").insert({
+          action: "automacao_executada",
+          entity_type: "lead",
+          entity_id: lead.id,
+          lead_id: lead.id,
+          user_id: user.id,
+          details: { automacao_nome: auto.nome, automacao_id: auto.id },
+        });
+      }
       toast.success(`Automação "${auto.nome}" executada para ${lead.nome || lead.email}`);
     } catch (err: any) {
       toast.error("Erro ao executar automação: " + err.message);
