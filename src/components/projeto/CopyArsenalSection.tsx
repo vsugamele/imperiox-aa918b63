@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Trash2, ChevronDown, Copy } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Copy, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const COPY_BLOCKS = [
   {
@@ -53,10 +55,12 @@ const COPY_BLOCKS = [
 interface Props {
   arsenal: Record<string, string | string[]>;
   onChange: (updated: Record<string, string | string[]>) => void;
+  projectId?: string;
 }
 
-export function CopyArsenalSection({ arsenal, onChange }: Props) {
-  // Normalize: old format was single string, new is string[]
+export function CopyArsenalSection({ arsenal, onChange, projectId }: Props) {
+  const [generating, setGenerating] = useState(false);
+
   const getVariations = (key: string): string[] => {
     const val = arsenal[key];
     if (!val) return [""];
@@ -94,14 +98,58 @@ export function CopyArsenalSection({ arsenal, onChange }: Props) {
     toast.success("Copiado para a área de transferência");
   };
 
+  const generateWithAI = async () => {
+    if (!projectId) {
+      toast.error("ID do projeto não disponível");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: projectId, action: "generate_copy_arsenal" },
+      });
+      if (error) throw error;
+      if (data?.arsenal) {
+        const newArsenal = { ...arsenal };
+        for (const key of Object.keys(data.arsenal)) {
+          const existing = getVariations(key);
+          const hasContent = existing.some((v: string) => v.trim().length > 0);
+          if (!hasContent) {
+            newArsenal[key] = data.arsenal[key];
+          }
+        }
+        onChange(newArsenal);
+        toast.success("Arsenal de Copy gerado com IA!");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar com IA");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <Collapsible>
-      <CollapsibleTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-between text-xs">
-          <span>✍️ Arsenal de Copy</span>
-          <ChevronDown className="h-3 w-3" />
-        </Button>
-      </CollapsibleTrigger>
+      <div className="flex items-center gap-2">
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" size="sm" className="flex-1 justify-between text-xs">
+            <span>✍️ Arsenal de Copy</span>
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </CollapsibleTrigger>
+        {projectId && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs gap-1 shrink-0"
+            onClick={generateWithAI}
+            disabled={generating}
+          >
+            {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            {generating ? "Gerando..." : "Gerar com IA"}
+          </Button>
+        )}
+      </div>
       <CollapsibleContent className="pt-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {COPY_BLOCKS.map((block) => {

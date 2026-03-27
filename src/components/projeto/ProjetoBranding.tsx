@@ -1,9 +1,14 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { EditableTagList } from "./EditableTagList";
 import { cn } from "@/lib/utils";
+import { Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   project: any;
@@ -24,11 +29,48 @@ const ARCHETYPES = [
 
 export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
   const bk = project.brand_kit || {};
+  const [generating, setGenerating] = useState(false);
 
   const update = (key: string, val: any) => onUpdateBrandKit({ ...bk, [key]: val });
 
+  const generateWithAI = async () => {
+    if (!project.id) return;
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: project.id, action: "generate_branding" },
+      });
+      if (error) throw error;
+      if (data?.branding) {
+        const b = data.branding;
+        const newBk = { ...bk };
+        if (!bk.arquetipo && b.arquetipo) newBk.arquetipo = b.arquetipo;
+        if (!bk.inimigo_comum && b.inimigo_comum) newBk.inimigo_comum = b.inimigo_comum;
+        if (!bk.mecanismo_chave && b.mecanismo_chave) newBk.mecanismo_chave = b.mecanismo_chave;
+        if (!bk.personalidade && b.personalidade) newBk.personalidade = b.personalidade;
+        if (!bk.manifesto && b.manifesto) newBk.manifesto = b.manifesto;
+        if ((!bk.palavras_usa || bk.palavras_usa.length === 0) && b.palavras_usa) newBk.palavras_usa = b.palavras_usa;
+        if ((!bk.palavras_evita || bk.palavras_evita.length === 0) && b.palavras_evita) newBk.palavras_evita = b.palavras_evita;
+        onUpdateBrandKit(newBk);
+        toast.success("Branding gerado com IA! Campos vazios preenchidos.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar branding com IA");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* AI Button */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={generateWithAI} disabled={generating}>
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {generating ? "Gerando..." : "🤖 Completar com IA"}
+        </Button>
+      </div>
+
       {/* Paleta de Cores */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🎨 Paleta de Cores</CardTitle></CardHeader>
@@ -92,30 +134,15 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
         <CardContent className="space-y-4">
           <div>
             <Label className="text-xs text-muted-foreground">Inimigo Comum</Label>
-            <Textarea
-              value={bk.inimigo_comum || ""}
-              onChange={(e) => update("inimigo_comum", e.target.value)}
-              className="bg-secondary min-h-[60px]"
-              placeholder="Contra o quê a marca luta? Ex: métodos ultrapassados, desinformação..."
-            />
+            <Textarea value={bk.inimigo_comum || ""} onChange={(e) => update("inimigo_comum", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Contra o quê a marca luta? Ex: métodos ultrapassados, desinformação..." />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Mecanismo-Chave</Label>
-            <Textarea
-              value={bk.mecanismo_chave || ""}
-              onChange={(e) => update("mecanismo_chave", e.target.value)}
-              className="bg-secondary min-h-[60px]"
-              placeholder="Qual o diferencial ou método exclusivo que a marca oferece?"
-            />
+            <Textarea value={bk.mecanismo_chave || ""} onChange={(e) => update("mecanismo_chave", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Qual o diferencial ou método exclusivo que a marca oferece?" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Personalidade da Marca</Label>
-            <Textarea
-              value={bk.personalidade || ""}
-              onChange={(e) => update("personalidade", e.target.value)}
-              className="bg-secondary min-h-[60px]"
-              placeholder="Se a marca fosse uma pessoa, como ela falaria, agiria, se vestiria?"
-            />
+            <Textarea value={bk.personalidade || ""} onChange={(e) => update("personalidade", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Se a marca fosse uma pessoa, como ela falaria, agiria, se vestiria?" />
           </div>
         </CardContent>
       </Card>
@@ -124,12 +151,7 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📜 Manifesto da Marca</CardTitle></CardHeader>
         <CardContent>
-          <Textarea
-            value={bk.manifesto || ""}
-            onChange={(e) => update("manifesto", e.target.value)}
-            className="bg-secondary min-h-[120px]"
-            placeholder="O manifesto é o texto que resume a essência, a missão e os valores da marca em tom emocional..."
-          />
+          <Textarea value={bk.manifesto || ""} onChange={(e) => update("manifesto", e.target.value)} className="bg-secondary min-h-[120px]" placeholder="O manifesto é o texto que resume a essência, a missão e os valores da marca em tom emocional..." />
         </CardContent>
       </Card>
 
@@ -139,19 +161,11 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground flex items-center gap-1">✅ Palavras que Usa</Label>
-            <EditableTagList
-              tags={bk.palavras_usa || []}
-              onChange={(v) => update("palavras_usa", v)}
-              placeholder="Ex: transformação, método..."
-            />
+            <EditableTagList tags={bk.palavras_usa || []} onChange={(v) => update("palavras_usa", v)} placeholder="Ex: transformação, método..." />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground flex items-center gap-1">🚫 Palavras que Evita</Label>
-            <EditableTagList
-              tags={bk.palavras_evita || []}
-              onChange={(v) => update("palavras_evita", v)}
-              placeholder="Ex: fácil, milagre..."
-            />
+            <EditableTagList tags={bk.palavras_evita || []} onChange={(v) => update("palavras_evita", v)} placeholder="Ex: fácil, milagre..." />
           </div>
         </CardContent>
       </Card>

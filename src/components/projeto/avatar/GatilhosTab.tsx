@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
+  projectId?: string;
 }
 
 const STORYBOARD_SECTIONS = [
@@ -18,9 +22,10 @@ const STORYBOARD_SECTIONS = [
   { key: "decisao", label: "🔵 Decisão", border: "border-l-blue-500" },
 ];
 
-export function GatilhosTab({ avatar, onUpdate }: Props) {
+export function GatilhosTab({ avatar, onUpdate, projectId }: Props) {
   const gatilhos = avatar.gatilhos || [];
   const storyboard = avatar.storyboard || {};
+  const [generating, setGenerating] = useState(false);
 
   const add = () => onUpdate({
     ...avatar,
@@ -39,13 +44,61 @@ export function GatilhosTab({ avatar, onUpdate }: Props) {
     onUpdate({ ...avatar, storyboard: { ...storyboard, [key]: val } });
   };
 
+  const generateWithAI = async () => {
+    if (!projectId) {
+      toast.error("ID do projeto não disponível");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: projectId, action: "generate_gatilhos" },
+      });
+      if (error) throw error;
+      if (data?.gatilhos) {
+        const g = data.gatilhos;
+        const newAvatar = { ...avatar };
+
+        if (g.gatilhos && (!gatilhos.length || gatilhos.every((gt: any) => !gt.nome))) {
+          newAvatar.gatilhos = g.gatilhos;
+        }
+        if (g.storyboard) {
+          const newStory = { ...storyboard };
+          for (const key of Object.keys(g.storyboard)) {
+            if (!newStory[key]) newStory[key] = g.storyboard[key];
+          }
+          newAvatar.storyboard = newStory;
+        }
+        if (!avatar.gatilho_nuclear && g.gatilho_nuclear) newAvatar.gatilho_nuclear = g.gatilho_nuclear;
+        if (!avatar.the_high && g.the_high) newAvatar.the_high = g.the_high;
+        if (!avatar.the_hell && g.the_hell) newAvatar.the_hell = g.the_hell;
+        if (!avatar.segredo_final && g.segredo_final) newAvatar.segredo_final = g.segredo_final;
+
+        onUpdate(newAvatar);
+        toast.success("Gatilhos gerados com IA! Campos vazios preenchidos.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar gatilhos com IA");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Gatilhos Emocionais */}
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚡ Gatilhos Emocionais</CardTitle>
-          <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Gatilho</Button>
+          <div className="flex items-center gap-2">
+            {projectId && (
+              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={generateWithAI} disabled={generating}>
+                {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                {generating ? "Gerando..." : "Gerar com IA"}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Gatilho</Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {gatilhos.map((g: any, i: number) => (
