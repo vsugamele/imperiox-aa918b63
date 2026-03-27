@@ -491,7 +491,7 @@ export default function Leads() {
       if (!l.criado_em) return false;
       try {
         const d = parseISO(l.criado_em);
-        return isValid(d) && isWithinInterval(d, periodRange);
+        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
       } catch { return false; }
     });
   }, [leads, periodRange]);
@@ -501,7 +501,7 @@ export default function Leads() {
       if (!v.created_at) return false;
       try {
         const d = parseISO(v.created_at);
-        return isValid(d) && isWithinInterval(d, periodRange);
+        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
       } catch { return false; }
     });
   }, [allVendasRaw, periodRange]);
@@ -511,7 +511,7 @@ export default function Leads() {
       if (!a.data_ref) return false;
       try {
         const d = parseISO(a.data_ref);
-        return isValid(d) && isWithinInterval(d, periodRange);
+        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
       } catch { return false; }
     });
   }, [adsSpend, periodRange]);
