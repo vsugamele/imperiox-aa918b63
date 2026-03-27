@@ -97,22 +97,46 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
     setProjects((p.data || []) as { id: string; name: string }[]);
   };
 
-  // KPIs
-  const totalCost = costs.reduce((s, c) => s + (c.moeda === "USD" ? c.valor * 5.2 : c.valor), 0);
-  const totalRev = revenues.reduce((s, r) => s + r.valor, 0);
-  const totalAds = ads.reduce((s, a) => s + a.valor, 0);
-  const totalVendas = vendas.reduce((s, v) => s + v.valor, 0);
+  // Period filter
+  const getDateRange = (): { start: Date; end: Date } | null => {
+    const now = new Date();
+    switch (period) {
+      case "7d": return { start: subDays(now, 7), end: now };
+      case "30d": return { start: subDays(now, 30), end: now };
+      case "this_month": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "last_month": { const lm = subMonths(now, 1); return { start: startOfMonth(lm), end: endOfMonth(lm) }; }
+      case "custom": return customFrom && customTo ? { start: startOfDay(customFrom), end: endOfDay(customTo) } : null;
+      default: return null;
+    }
+  };
+
+  const dateRange = getDateRange();
+  const inRange = (dateStr: string | undefined | null) => {
+    if (!dateRange || !dateStr) return !dateRange;
+    try { return isWithinInterval(new Date(dateStr), { start: dateRange.start, end: dateRange.end }); } catch { return true; }
+  };
+
+  const fCosts = useMemo(() => costs.filter(c => inRange(c.data_pagamento || null)), [costs, period, customFrom, customTo]);
+  const fRevenues = useMemo(() => revenues.filter(r => inRange(r.data_ref)), [revenues, period, customFrom, customTo]);
+  const fAds = useMemo(() => ads.filter(a => inRange(a.data_ref)), [ads, period, customFrom, customTo]);
+  const fVendas = useMemo(() => vendas.filter(v => inRange(v.data_venda)), [vendas, period, customFrom, customTo]);
+
+  // KPIs (filtered)
+  const totalCost = fCosts.reduce((s, c) => s + (c.moeda === "USD" ? c.valor * 5.2 : c.valor), 0);
+  const totalRev = fRevenues.reduce((s, r) => s + r.valor, 0);
+  const totalAds = fAds.reduce((s, a) => s + a.valor, 0);
+  const totalVendas = fVendas.reduce((s, v) => s + v.valor, 0);
   const totalReceita = totalRev + totalVendas;
   const totalCusto = totalCost + totalAds;
   const profit = totalReceita - totalCusto;
   const roi = totalCusto > 0 ? ((profit / totalCusto) * 100) : 0;
   const roas = totalAds > 0 ? totalReceita / totalAds : 0;
 
-  // Ads KPIs
-  const totalCliques = ads.reduce((s, a) => s + a.cliques, 0);
-  const totalCompras = ads.reduce((s, a) => s + (a.compras || 0), 0);
+  // Ads KPIs (filtered)
+  const totalCliques = fAds.reduce((s, a) => s + a.cliques, 0);
+  const totalCompras = fAds.reduce((s, a) => s + (a.compras || 0), 0);
   const cpc = totalCliques > 0 ? totalAds / totalCliques : 0;
-  const cpl = ads.reduce((s, a) => s + a.leads, 0) > 0 ? totalAds / ads.reduce((s, a) => s + a.leads, 0) : 0;
+  const cpl = fAds.reduce((s, a) => s + a.leads, 0) > 0 ? totalAds / fAds.reduce((s, a) => s + a.leads, 0) : 0;
 
   const openCostFormForNew = () => {
     setEditingCost(null);
