@@ -1,89 +1,84 @@
 
 
-# Plano: CRM Avancado — Produtos por Projeto, Tempo de Conversao, Analytics Melhorado e Filtros por Periodo
+# Plano: Export de Contexto, IA Expandida, Color Picker, KPIs com IA e Filtros em Finanças
 
-## Resumo das melhorias solicitadas
-
-1. Ao clicar em um produto na sidebar, mostrar contagem de leads daquele produto
-2. Produtos organizados dentro de cada projeto (colapsavel/expansivel)
-3. Tempo de conversao: quanto tempo entre captura e compra
-4. Analytics com muito mais profundidade e filtros por periodo
-5. Cruzar dados de Ads no Analytics para comparar gastos vs receita
+## 6 frentes
 
 ---
 
-### 1. Sidebar: Produtos dentro de Projetos (colapsavel)
+### 1. Exportar dados do projeto (JSON/Markdown + Webhook)
 
-Atualmente a sidebar lista projetos e depois uma lista flat de produtos. Melhorar para:
+Adicionar botao "📤 Exportar Contexto" no header do `ProjetoDetalhe` que gera um JSON/Markdown consolidado com: Expert, Briefing, Avatar, Branding, Concorrentes, KPIs, Produtos, Pesquisa. O usuario pode copiar ou baixar.
 
-- Cada projeto vira um item colapsavel (chevron para expandir/recolher)
-- Ao expandir, mostra os produtos daquele projeto com contagem de leads por produto
-- Badge com contagem ao lado de cada produto
-- "Todos os leads" e "Sem projeto" ficam no topo
+Para webhooks: criar uma nova edge function `imperio-api` (ou expandir a existente) com endpoint `GET /imperio-api?project_id=X&action=export_context` que retorna o mesmo JSON consolidado. Cada projeto ja tem seu ID, entao o webhook e por projeto automaticamente.
 
-```text
-🌐 Todos os leads (342)
-📂 Sem projeto (12)
-▼ 🚀 JP Freitas (180)
-   🏷️ Finalização Express (45)
-   🏷️ Mentoria VIP (22)
-   🏷️ Curso Completo (113)
-▶ 📁 Outro Projeto (150)
-```
-
-**Arquivo**: `src/pages/Leads.tsx` — sidebar section (linhas 470-502)
+**Arquivos**: `src/pages/ProjetoDetalhe.tsx` (botao + dialog de export), `supabase/functions/imperio-api/index.ts` (endpoint de export)
 
 ---
 
-### 2. Contagem de leads por produto visivel
+### 2. "Completar com IA" expandido -- seletor de modelo + contexto visivel
 
-Quando o usuario clica em um produto, alem de filtrar, mostrar:
-- Badge com total de leads daquele produto no KPI area
-- No titulo da tabela: "Produto: Finalizacao Express — 45 leads"
+Criar um componente reutilizavel `AIGenerateButton` que:
+- Antes de chamar a IA, abre um mini-dialog perguntando qual modelo usar (Gemini Flash, Gemini Pro, GPT-5, GPT-5 Mini)
+- Mostra um resumo dos campos/dados que serao usados como contexto (ex: "Usando: Avatar, Branding, Concorrentes, Produtos")
+- Indica quais campos serao preenchidos
 
-**Arquivo**: `src/pages/Leads.tsx`
+Aplicar esse componente em todos os lugares que ja tem "Completar com IA" (Branding, CopyArsenal, Gatilhos) e adicionar em novos:
+- **Expert** (ProjetoExpert) -- preencher bio, tom de voz, pilares baseado em pesquisas
+- **Avatar perfil** (PerfilTab) -- preencher dados demograficos baseado em pesquisas/concorrentes
+- **Posicionamento** (dentro de Branding) -- preencher inimigo, mecanismo, personalidade
 
----
+A edge function `openflow-ai` recebera um campo `model` opcional no body.
 
-### 3. Tempo de conversao (Lead → Compra)
-
-Calcular a diferenca entre `criado_em` do lead e `created_at` da primeira venda aprovada. Exibir:
-
-- No detalhe do lead (aba Dados): "⏱️ Tempo até compra: 3 dias 4h"
-- No Analytics: grafico com distribuicao de tempo de conversao (0-1d, 1-3d, 3-7d, 7-14d, 14-30d, 30d+)
-- Metrica media no KPI do Analytics
-
-Para leads que ainda nao compraram, mostrar "Aguardando conversao — X dias desde captura"
-
-**Arquivo**: `src/pages/Leads.tsx`
+**Arquivos**: `src/components/projeto/AIGenerateButton.tsx` (novo componente), `src/components/projeto/ProjetoExpert.tsx`, `src/components/projeto/avatar/PerfilTab.tsx`, `src/components/projeto/ProjetoBranding.tsx`, `src/components/projeto/CopyArsenalSection.tsx`, `src/components/projeto/avatar/GatilhosTab.tsx`, `supabase/functions/openflow-ai/index.ts`
 
 ---
 
-### 4. Analytics expandido com filtros por periodo
+### 3. Branding -- Color Picker nativo
 
-Adicionar barra de filtros no topo do Analytics:
-- Seletor de periodo: Hoje, 7 dias, 30 dias, 90 dias, Este mes, Mes passado, Custom (date picker)
-- Todos os graficos e KPIs filtrados pelo periodo selecionado
+Na secao "Paleta de Cores" do `ProjetoBranding`, adicionar:
+- Um `<input type="color">` nativo ao lado do campo de tags hex
+- Ao selecionar uma cor, ela e adicionada automaticamente a lista de tags
+- Os swatches de cor ja existentes continuam funcionando
+- Clicar em um swatch existente abre o color picker para editar aquela cor
 
-Novos cards/graficos no Analytics:
-- **KPIs do periodo**: Total leads, Novos no periodo, Conversoes, Taxa de conversao %, Receita, Ticket medio, Tempo medio de conversao
-- **Leads por Produto** (bar chart horizontal com contagem)
-- **Receita por Produto** (bar chart)
-- **Distribuicao tempo de conversao** (bar chart: 0-1d, 1-3d, etc)
-- **Leads vs Ads** (AreaChart cruzando novos leads/dia com gasto ads/dia, usando `imphq_ads_spend`)
-- **ROI por periodo**: Receita de vendas vs Gasto em ads do periodo
-
-**Arquivo**: `src/pages/Leads.tsx` — tab Analytics (linhas 654-728)
+**Arquivo**: `src/components/projeto/ProjetoBranding.tsx`
 
 ---
 
-### 5. Cruzar Ads no Analytics
+### 4. KPIs com IA
 
-Buscar dados de `imphq_ads_spend` filtrados por periodo e projeto. Mostrar:
-- Card "Investido em Ads no periodo" + "ROAS do periodo"
-- Grafico timeline Ads vs Receita (mesmo estilo do FinancasOverview)
+Adicionar botao "🤖 Calcular com IA" no `ProjetoKPIs` que:
+- Usa o mesmo `AIGenerateButton` com seletor de modelo
+- Envia dados reais do projeto (vendas, custos, ads, leads) para a IA
+- A IA calcula/estima CPL, CAC, ROI, ROAS, Ticket Medio, LTV, Taxa de Conversao, Leads/Mes
+- Preenche apenas campos vazios
 
-**Arquivo**: `src/pages/Leads.tsx` — carregar `imphq_ads_spend` no `load()`
+Nova action `generate_kpis` na edge function `openflow-ai`.
+
+**Arquivos**: `src/components/projeto/ProjetoKPIs.tsx`, `supabase/functions/openflow-ai/index.ts`
+
+---
+
+### 5. Financas do projeto -- filtros por periodo
+
+Adicionar barra de filtros no topo do `ProjetoFinancas`:
+- Seletor de periodo: Hoje, 7 dias, 30 dias, Este mes, Mes passado, Custom
+- Filtrar custos, receitas, ads e vendas pelo periodo selecionado
+- KPIs recalculados com base no periodo filtrado
+
+**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
+
+---
+
+### 6. Edge function -- novos actions e modelo configuravel
+
+Expandir `openflow-ai`:
+- Aceitar campo `model` no body (default: `google/gemini-3-flash-preview`)
+- Nova action `export_context` -- retorna JSON consolidado do projeto
+- Nova action `generate_kpis` -- calcula KPIs baseado em dados reais
+- Nova action `generate_expert` -- preenche dados do expert
+- Nova action `generate_avatar_perfil` -- preenche perfil do avatar
 
 ---
 
@@ -91,5 +86,14 @@ Buscar dados de `imphq_ads_spend` filtrados por periodo e projeto. Mostrar:
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/Leads.tsx` | Sidebar colapsavel por projeto com produtos e contagens, filtro por periodo no Analytics, novos graficos (produtos, tempo conversao, ads vs receita), KPIs do periodo, carregar ads_spend |
+| `src/components/projeto/AIGenerateButton.tsx` | **Novo**: componente reutilizavel com seletor de modelo e contexto visivel |
+| `src/pages/ProjetoDetalhe.tsx` | Botao "Exportar Contexto" no header |
+| `src/components/projeto/ProjetoBranding.tsx` | Color picker nativo na paleta de cores |
+| `src/components/projeto/ProjetoKPIs.tsx` | Botao "Calcular com IA" usando AIGenerateButton |
+| `src/components/projeto/ProjetoExpert.tsx` | Botao "Completar com IA" |
+| `src/components/projeto/ProjetoFinancas.tsx` | Filtros por periodo |
+| `src/components/projeto/CopyArsenalSection.tsx` | Migrar para AIGenerateButton |
+| `src/components/projeto/avatar/GatilhosTab.tsx` | Migrar para AIGenerateButton |
+| `supabase/functions/openflow-ai/index.ts` | Campo `model`, actions generate_kpis, generate_expert, generate_avatar_perfil |
+| `supabase/functions/imperio-api/index.ts` | Endpoint export_context por projeto |
 
