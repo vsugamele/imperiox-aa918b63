@@ -44,6 +44,15 @@ const COST_CATS = ["Ferramentas", "Ads", "Freelancer", "Infra", "Outro"];
 const REV_SOURCES = ["Manual", "Hotmart", "Stripe", "Kiwify", "Outro"];
 const PLATAFORMAS = ["Hotmart", "Kiwify", "Ticto", "Stripe", "PIX", "Manual", "Outro"];
 
+const PERIOD_OPTIONS = [
+  { key: "all", label: "Todo período" },
+  { key: "7d", label: "7 dias" },
+  { key: "30d", label: "30 dias" },
+  { key: "this_month", label: "Este mês" },
+  { key: "last_month", label: "Mês passado" },
+  { key: "custom", label: "Personalizado" },
+];
+
 export function ProjetoFinancas({ projectId, project }: { projectId: string; project?: any }) {
   const { user } = useAuth();
   const [costs, setCosts] = useState<Cost[]>([]);
@@ -58,6 +67,9 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
   const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [period, setPeriod] = useState("all");
+  const [customFrom, setCustomFrom] = useState<Date | undefined>();
+  const [customTo, setCustomTo] = useState<Date | undefined>();
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
