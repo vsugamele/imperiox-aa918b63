@@ -95,7 +95,7 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
           <CopyArsenalTab avatar={avatar} onUpdate={onUpdateAvatar} />
         </TabsContent>
         <TabsContent value="gatilhos" className="mt-4">
-          <GatilhosTab avatar={avatar} onUpdate={onUpdateAvatar} />
+          <GatilhosTab avatar={avatar} onUpdate={onUpdateAvatar} projectId={project.id} />
         </TabsContent>
       </Tabs>
 
