@@ -1,0 +1,1 @@
+ALTER TABLE imphq_activity_log ADD COLUMN IF NOT EXISTS lead_id TEXT REFERENCES imphq_leads(id) ON DELETE SET NULL;
