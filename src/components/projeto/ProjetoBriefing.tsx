@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CopyArsenalSection } from "./CopyArsenalSection";
@@ -28,11 +28,11 @@ const STATUS_OPTIONS = ["planejamento", "em andamento", "pausado", "concluído"]
 const OFFER_TYPES = ["principal", "tripwire", "order_bump", "upsell", "downsell"];
 
 const INTEGRATION_ITEMS = [
-  { key: "clarity", label: "Microsoft Clarity", icon: "🔍", desc: "Heatmaps e session replay" },
-  { key: "google_analytics", label: "Google Analytics", icon: "📊", desc: "GA4 tracking" },
+  { key: "clarity", label: "Microsoft Clarity", icon: "🔍", desc: "Heatmaps e session replay", url: "https://clarity.microsoft.com" },
+  { key: "google_analytics", label: "Google Analytics", icon: "📊", desc: "GA4 tracking", url: "https://analytics.google.com" },
   { key: "webhook_pagamento", label: "Webhook Pagamento", icon: "🔔", desc: "Hotmart / Kiwify / Ticto" },
-  { key: "facebook_pixel", label: "Facebook Pixel / CAPI", icon: "📘", desc: "Conversions API" },
-  { key: "resend", label: "Resend (Email)", icon: "📧", desc: "Email transacional" },
+  { key: "facebook_pixel", label: "Facebook Pixel / CAPI", icon: "📘", desc: "Conversions API", url: "https://business.facebook.com/events_manager2" },
+  { key: "resend", label: "Resend (Email)", icon: "📧", desc: "Email transacional", url: "https://resend.com/api-keys" },
   { key: "utms", label: "UTMs no Site", icon: "🔗", desc: "Parâmetros de rastreamento" },
 ];
 
@@ -60,6 +60,19 @@ const INTEGRATION_FIELDS: Record<string, Array<{ field: string; label: string; p
     { field: "base_url", label: "URL Base do Site", placeholder: "https://seusite.com", help: "URL principal para geração automática de UTMs", required: true },
   ],
 };
+
+const SOCIAL_NETWORKS = [
+  { key: "youtube", label: "YouTube", emoji: "▶️" },
+  { key: "tiktok", label: "TikTok", emoji: "🎵" },
+  { key: "pinterest", label: "Pinterest", emoji: "📌" },
+  { key: "instagram", label: "Instagram", emoji: "📸" },
+  { key: "facebook", label: "Facebook", emoji: "📘" },
+  { key: "twitter", label: "Twitter/X", emoji: "🐦" },
+  { key: "linkedin", label: "LinkedIn", emoji: "💼" },
+  { key: "site", label: "Site", emoji: "🌐" },
+  { key: "blog", label: "Blog", emoji: "📝" },
+  { key: "whatsapp", label: "WhatsApp", emoji: "💬" },
+];
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -89,9 +102,26 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   const produtos = data.produtos || [];
   const pipelineNotes = data.pipeline_notes || {};
   const checklist = data.integrations_checklist || {};
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+
+  const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
 
   const updateField = (key: string, val: any) => onUpdateData({ ...data, [key]: val });
   const updateLink = (key: string, val: string) => onUpdateData({ ...data, links: { ...links, [key]: val } });
+
+  // Project links (social/custom)
+  const projectLinks: Array<{ label: string; url: string }> = Array.isArray(data.project_links) ? data.project_links : [];
+  const updateProjectLinks = (newLinks: Array<{ label: string; url: string }>) => onUpdateData({ ...data, project_links: newLinks });
+  const addSocialLink = (network: typeof SOCIAL_NETWORKS[0]) => {
+    const exists = projectLinks.some(l => l.label === network.label);
+    if (exists) {
+      toast.info(`${network.label} já adicionado`);
+      return;
+    }
+    updateProjectLinks([...projectLinks, { label: network.label, url: "" }]);
+  };
+  const [customLabel, setCustomLabel] = useState("");
+  const [customUrl, setCustomUrl] = useState("");
 
   const updateProduto = (index: number, field: string, val: any) => {
     const updated = [...produtos];
@@ -107,7 +137,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     onUpdateData({ ...data, produtos: produtos.filter((_: any, j: number) => j !== i) });
   };
 
-  // Multi-link helpers
   const getProductLinks = (p: any): string[] => {
     if (p.links && Array.isArray(p.links)) return p.links;
     if (p.link) return [p.link];
@@ -137,7 +166,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     updateProductLinks(prodIndex, updated);
   };
 
-  // Offer helpers
   const getOffers = (p: any) => p.ofertas || [];
 
   const addOffer = (prodIndex: number) => {
@@ -162,7 +190,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     onUpdateData({ ...data, produtos: updated });
   };
 
-  // Pipeline helpers
   const updatePipelineVal = (key: string, val: number) => {
     onUpdatePipeline({ ...pipeline, [key]: val });
   };
@@ -171,7 +198,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     onUpdateData({ ...data, pipeline_notes: { ...pipelineNotes, [key]: val } });
   };
 
-  // Checklist helpers
   const updateChecklist = (key: string, field: string, val: any) => {
     const item = checklist[key] || { status: "pendente", nota: "" };
     onUpdateData({ ...data, integrations_checklist: { ...checklist, [key]: { ...item, [field]: val } } });
@@ -213,7 +239,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         </CardContent>
       </Card>
 
-      {/* Pipeline Rápido com notas inline */}
+      {/* Pipeline Rápido */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚡ Pipeline Rápido</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -250,16 +276,69 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         </CardContent>
       </Card>
 
-      {/* Links */}
+      {/* Links & Redes Sociais (moved from separate tab) */}
       <Card className="bg-card border-border">
-        <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔗 Links do Projeto</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {["site", "whatsapp", "instagram"].map((key) => (
-            <div key={key}>
-              <Label className="text-xs text-muted-foreground capitalize">{key}</Label>
-              <Input value={links[key] || ""} onChange={(e) => updateLink(key, e.target.value)} className="bg-secondary" placeholder={`URL do ${key}`} />
+        <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔗 Links & Redes Sociais</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {/* Quick add buttons */}
+          <div className="flex flex-wrap gap-1.5">
+            {SOCIAL_NETWORKS.map((net) => (
+              <Button
+                key={net.key}
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1 px-2"
+                onClick={() => addSocialLink(net)}
+              >
+                <span>{net.emoji}</span> {net.label}
+              </Button>
+            ))}
+          </div>
+
+          {/* Existing links */}
+          {projectLinks.map((link, i) => (
+            <div key={i} className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 border border-border">
+              <span className="text-sm font-medium min-w-[80px] truncate">{link.label}</span>
+              <Input
+                value={link.url}
+                onChange={(e) => {
+                  const updated = [...projectLinks];
+                  updated[i] = { ...updated[i], url: e.target.value };
+                  updateProjectLinks(updated);
+                }}
+                className="bg-secondary h-8 text-xs flex-1"
+                placeholder={`URL do ${link.label}...`}
+              />
+              {link.url && (
+                <a href={link.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                </a>
+              )}
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={() => updateProjectLinks(projectLinks.filter((_, j) => j !== i))}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
             </div>
           ))}
+
+          {/* Custom link */}
+          <div className="flex gap-2 items-end pt-2 border-t border-border">
+            <div className="flex-1">
+              <Input value={customLabel} onChange={e => setCustomLabel(e.target.value)} placeholder="Nome do link" className="bg-secondary h-8 text-xs" />
+            </div>
+            <div className="flex-1">
+              <Input value={customUrl} onChange={e => setCustomUrl(e.target.value)} placeholder="https://..." className="bg-secondary h-8 text-xs" />
+            </div>
+            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => {
+              if (!customLabel.trim() || !customUrl.trim()) return;
+              updateProjectLinks([...projectLinks, { label: customLabel.trim(), url: customUrl.trim() }]);
+              setCustomLabel("");
+              setCustomUrl("");
+            }}>
+              <Plus className="h-3 w-3 mr-1" /> Custom
+            </Button>
+          </div>
+
+          {projectLinks.length === 0 && <p className="text-xs text-muted-foreground">Clique em uma rede acima ou adicione um link custom.</p>}
         </CardContent>
       </Card>
 
@@ -275,7 +354,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
             const ofertas = getOffers(p);
             return (
               <div key={i} className="p-4 rounded-lg bg-secondary/50 border border-border space-y-4">
-                {/* Product basic fields */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">Nome</Label>
@@ -294,7 +372,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
                 </div>
 
-                {/* Product links */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">Links do Produto</Label>
@@ -318,7 +395,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   ))}
                 </div>
 
-                {/* Ofertas */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground font-medium">🏷️ Ofertas</Label>
@@ -366,7 +442,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   ))}
                 </div>
 
-                {/* Mecanismo + Contexto */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">Mecanismo Único</Label>
@@ -378,10 +453,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
                 </div>
 
-                {/* Arsenal de Copy */}
                 <CopyArsenalSection
                   arsenal={p.copy_arsenal || {}}
                   onChange={(updated) => updateProduto(i, "copy_arsenal", updated)}
+                  projectId={project.id}
                 />
               </div>
             );
@@ -390,14 +465,13 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         </CardContent>
       </Card>
 
-      {/* Setup de Integração com campos reais */}
+      {/* Setup de Integração com campos reais + links externos + toggle secrets */}
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🛠️ Setup de Integração</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {INTEGRATION_ITEMS.map((item) => {
               const itemData = checklist[item.key] || { status: "pendente", nota: "" };
-              // Fallback for facebook fields stored at top level
               const fbFallback = item.key === "facebook_pixel" ? {
                 pixel_id: itemData.pixel_id || data.facebook_pixel_id || "",
                 access_token: itemData.access_token || data.facebook_access_token || "",
@@ -406,7 +480,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
 
               const fields = INTEGRATION_FIELDS[item.key] || [];
               
-              // Auto-status: if all required fields filled → configurado
               const filledCount = fields.filter((f: any) => {
                 if (f.readOnly) return true;
                 const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
@@ -431,7 +504,14 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{item.icon}</span>
                       <div>
-                        <p className="text-xs font-medium">{item.label}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium">{item.label}</p>
+                          {item.url && (
+                            <a href={item.url} target="_blank" rel="noopener noreferrer" title={`Abrir ${item.label}`}>
+                              <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-primary transition-colors" />
+                            </a>
+                          )}
+                        </div>
                         <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                       </div>
                     </div>
@@ -440,34 +520,25 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                         {autoStatus === "verificado" ? "✓ Verificado" : autoStatus === "configurado" ? "◐ Configurado" : "○ Pendente"}
                       </Badge>
                       {autoStatus === "configurado" && itemData.status !== "verificado" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-5 text-[9px] px-1.5"
-                          onClick={() => updateChecklist(item.key, "status", "verificado")}
-                        >
+                        <Button size="sm" variant="ghost" className="h-5 text-[9px] px-1.5" onClick={() => updateChecklist(item.key, "status", "verificado")}>
                           Marcar verificado
                         </Button>
                       )}
                       {itemData.status === "verificado" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-5 text-[9px] px-1.5 text-muted-foreground"
-                          onClick={() => updateChecklist(item.key, "status", "configurado")}
-                        >
+                        <Button size="sm" variant="ghost" className="h-5 text-[9px] px-1.5 text-muted-foreground" onClick={() => updateChecklist(item.key, "status", "configurado")}>
                           Desfazer
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  {/* Specific fields */}
                   <div className="space-y-2">
                     {fields.map((f: any) => {
                       const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
                         ? fbFallback[f.field as keyof typeof fbFallback]
                         : itemData[f.field] || "";
+                      const secretKey = `${item.key}_${f.field}`;
+                      const isVisible = visibleSecrets[secretKey];
 
                       if (f.readOnly) {
                         const webhookUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}`;
@@ -486,20 +557,26 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                       return (
                         <div key={f.field}>
                           <Label className="text-[10px] text-muted-foreground">{f.label}{f.required && " *"}</Label>
-                          <Input
-                            value={val}
-                            onChange={(e) => updateChecklist(item.key, f.field, e.target.value)}
-                            className="bg-secondary h-7 text-xs"
-                            placeholder={f.placeholder}
-                            type={f.secret ? "password" : "text"}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={val}
+                              onChange={(e) => updateChecklist(item.key, f.field, e.target.value)}
+                              className="bg-secondary h-7 text-xs flex-1"
+                              placeholder={f.placeholder}
+                              type={f.secret && !isVisible ? "password" : "text"}
+                            />
+                            {f.secret && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => toggleSecret(secretKey)}>
+                                {isVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              </Button>
+                            )}
+                          </div>
                           <p className="text-[9px] text-muted-foreground/70 mt-0.5">{f.help}</p>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Observação */}
                   <Input
                     value={itemData.nota || ""}
                     onChange={(e) => updateChecklist(item.key, "nota", e.target.value)}
