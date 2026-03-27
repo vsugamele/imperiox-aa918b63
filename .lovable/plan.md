@@ -1,93 +1,95 @@
 
 
-# Plano: Melhorias em Integrações, IA no Arsenal/Branding/Gatilhos, e Links
+# Plano: CRM Avancado — Produtos por Projeto, Tempo de Conversao, Analytics Melhorado e Filtros por Periodo
 
-## 5 frentes
+## Resumo das melhorias solicitadas
 
----
-
-### 1. Setup de Integração -- Links diretos para os sites
-
-Cada card de integração no Briefing ganha um botão/link externo para o site da plataforma, facilitando acesso rápido para copiar IDs e tokens.
-
-| Integração | Link |
-|---|---|
-| Clarity | `https://clarity.microsoft.com` |
-| Google Analytics | `https://analytics.google.com` |
-| Facebook Pixel | `https://business.facebook.com/events_manager2` |
-| Resend | `https://resend.com/api-keys` |
-| Webhook | Sem link externo (URL local) |
-| UTMs | Sem link externo |
-
-Adicionar um `<a>` com ícone `ExternalLink` ao lado do título de cada card. Quando os campos estão preenchidos, o link leva direto ao dashboard (ex: Clarity com o ID no path).
-
-Tambem garantir que os valores dos campos de API (IDs, tokens) ficam visíveis por padrão (não mais `type="password"`) com um botão toggle para mostrar/ocultar os secrets.
+1. Ao clicar em um produto na sidebar, mostrar contagem de leads daquele produto
+2. Produtos organizados dentro de cada projeto (colapsavel/expansivel)
+3. Tempo de conversao: quanto tempo entre captura e compra
+4. Analytics com muito mais profundidade e filtros por periodo
+5. Cruzar dados de Ads no Analytics para comparar gastos vs receita
 
 ---
 
-### 2. Arsenal de Copy -- Botão "Gerar com IA"
+### 1. Sidebar: Produtos dentro de Projetos (colapsavel)
 
-Adicionar um botão "🤖 Gerar com IA" no `CopyArsenalSection` que:
-- Chama a edge function `openflow-ai` (já existente e conectada ao Lovable AI Gateway)
-- Envia como contexto: avatar, branding, concorrentes e produtos do projeto
-- Pede para a IA preencher os 6 blocos de copy (Promessa, Inimigo Comum, Efeito Colateral, Oportunidade, Método Simplificado, Hora do Show)
-- Preenche automaticamente os campos vazios com o resultado
-- Loading state no botão durante a geração
+Atualmente a sidebar lista projetos e depois uma lista flat de produtos. Melhorar para:
 
-O `CopyArsenalSection` precisa receber `projectId` como prop para buscar os dados do projeto.
+- Cada projeto vira um item colapsavel (chevron para expandir/recolher)
+- Ao expandir, mostra os produtos daquele projeto com contagem de leads por produto
+- Badge com contagem ao lado de cada produto
+- "Todos os leads" e "Sem projeto" ficam no topo
 
----
+```text
+🌐 Todos os leads (342)
+📂 Sem projeto (12)
+▼ 🚀 JP Freitas (180)
+   🏷️ Finalização Express (45)
+   🏷️ Mentoria VIP (22)
+   🏷️ Curso Completo (113)
+▶ 📁 Outro Projeto (150)
+```
 
-### 3. Branding e Gatilhos -- Botão "Completar com IA"
-
-**Branding** (`ProjetoBranding.tsx`):
-- Botão "🤖 Completar com IA" no topo
-- Chama `openflow-ai` com contexto do projeto (avatar, expert, produtos, concorrentes)
-- Preenche campos vazios: arquétipo sugerido, posicionamento, manifesto, linguagem
-
-**Gatilhos** (`GatilhosTab.tsx`):
-- Botão "🤖 Gerar Gatilhos com IA" no card de Gatilhos Emocionais
-- Analisa avatar (dores, desejos, problemas, voyerismos) + branding + concorrentes
-- Gera gatilhos emocionais sugeridos e preenche o storyboard narrativo
-
-Ambos usam a mesma edge function `openflow-ai` com um novo campo `action` no payload para diferenciar o tipo de geração.
+**Arquivo**: `src/pages/Leads.tsx` — sidebar section (linhas 470-502)
 
 ---
 
-### 4. Links do Projeto -- Botões rápidos de redes sociais + Mover para Briefing
+### 2. Contagem de leads por produto visivel
 
-A aba "Links" é redundante como aba separada. Solução:
+Quando o usuario clica em um produto, alem de filtrar, mostrar:
+- Badge com total de leads daquele produto no KPI area
+- No titulo da tabela: "Produto: Finalizacao Express — 45 leads"
 
-- **Mover os links para dentro do Briefing** como uma seção colapsável "🔗 Links & Redes Sociais"
-- Adicionar **botões rápidos** para redes comuns: YouTube, TikTok, Pinterest, Instagram, Facebook, Twitter/X, LinkedIn, Site, Blog
-- Cada botão rápido cria um link pré-rotulado, o usuário só precisa colar a URL
-- Manter o "Adicionar custom" para links genéricos
-- **Remover a aba "Links"** do `ProjetoDetalhe.tsx`
+**Arquivo**: `src/pages/Leads.tsx`
 
 ---
 
-### 5. Edge Function -- Novo action para geração de conteúdo
+### 3. Tempo de conversao (Lead → Compra)
 
-Expandir `openflow-ai` para aceitar um campo `action` no body:
+Calcular a diferenca entre `criado_em` do lead e `created_at` da primeira venda aprovada. Exibir:
 
-| action | Contexto enviado | Output esperado |
-|---|---|---|
-| `generate_copy_arsenal` | avatar + branding + concorrentes + produtos | 6 blocos de copy preenchidos |
-| `generate_branding` | avatar + expert + produtos + concorrentes | arquétipo, posicionamento, manifesto, linguagem |
-| `generate_gatilhos` | avatar (dores, desejos, problemas) + branding | gatilhos emocionais + storyboard |
-| (default/existente) | projeto completo | sequência de automação |
+- No detalhe do lead (aba Dados): "⏱️ Tempo até compra: 3 dias 4h"
+- No Analytics: grafico com distribuicao de tempo de conversao (0-1d, 1-3d, 3-7d, 7-14d, 14-30d, 30d+)
+- Metrica media no KPI do Analytics
+
+Para leads que ainda nao compraram, mostrar "Aguardando conversao — X dias desde captura"
+
+**Arquivo**: `src/pages/Leads.tsx`
+
+---
+
+### 4. Analytics expandido com filtros por periodo
+
+Adicionar barra de filtros no topo do Analytics:
+- Seletor de periodo: Hoje, 7 dias, 30 dias, 90 dias, Este mes, Mes passado, Custom (date picker)
+- Todos os graficos e KPIs filtrados pelo periodo selecionado
+
+Novos cards/graficos no Analytics:
+- **KPIs do periodo**: Total leads, Novos no periodo, Conversoes, Taxa de conversao %, Receita, Ticket medio, Tempo medio de conversao
+- **Leads por Produto** (bar chart horizontal com contagem)
+- **Receita por Produto** (bar chart)
+- **Distribuicao tempo de conversao** (bar chart: 0-1d, 1-3d, etc)
+- **Leads vs Ads** (AreaChart cruzando novos leads/dia com gasto ads/dia, usando `imphq_ads_spend`)
+- **ROI por periodo**: Receita de vendas vs Gasto em ads do periodo
+
+**Arquivo**: `src/pages/Leads.tsx` — tab Analytics (linhas 654-728)
+
+---
+
+### 5. Cruzar Ads no Analytics
+
+Buscar dados de `imphq_ads_spend` filtrados por periodo e projeto. Mostrar:
+- Card "Investido em Ads no periodo" + "ROAS do periodo"
+- Grafico timeline Ads vs Receita (mesmo estilo do FinancasOverview)
+
+**Arquivo**: `src/pages/Leads.tsx` — carregar `imphq_ads_spend` no `load()`
 
 ---
 
 ## Arquivos alterados
 
-| Arquivo | Ação |
+| Arquivo | Acao |
 |---|---|
-| `src/components/projeto/ProjetoBriefing.tsx` | Links externos nos cards de integração, toggle de visibilidade de secrets, seção "Links & Redes Sociais" inline |
-| `src/components/projeto/CopyArsenalSection.tsx` | Receber `projectId`, botão "Gerar com IA" |
-| `src/components/projeto/ProjetoBranding.tsx` | Botão "Completar com IA" no topo |
-| `src/components/projeto/avatar/GatilhosTab.tsx` | Botão "Gerar Gatilhos com IA" |
-| `src/pages/ProjetoDetalhe.tsx` | Remover aba "Links", passar `projectId` ao CopyArsenalSection |
-| `supabase/functions/openflow-ai/index.ts` | Novo campo `action` com prompts específicos para copy, branding e gatilhos |
-| `src/components/projeto/ProjetoLinks.tsx` | Deletar (funcionalidade movida para Briefing) |
+| `src/pages/Leads.tsx` | Sidebar colapsavel por projeto com produtos e contagens, filtro por periodo no Analytics, novos graficos (produtos, tempo conversao, ads vs receita), KPIs do periodo, carregar ads_spend |
 
