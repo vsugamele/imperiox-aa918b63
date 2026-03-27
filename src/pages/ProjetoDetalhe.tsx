@@ -16,7 +16,7 @@ import { ProjetoPesquisa } from "@/components/projeto/ProjetoPesquisa";
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
-import { ProjetoLinks } from "@/components/projeto/ProjetoLinks";
+
 import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
