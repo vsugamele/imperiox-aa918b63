@@ -124,9 +124,58 @@ export default function ProjetoDetalhe() {
           </div>
         </div>
         <div className="text-right space-y-1">
-          <span className="text-3xl font-mono font-bold text-primary">{pipelineAvg}%</span>
-          <Progress value={pipelineAvg} className="h-2 w-32" />
-          <p className="text-xs text-muted-foreground">Pipeline Geral</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mb-2 gap-1.5 text-xs"
+            onClick={() => {
+              const ctx = {
+                projeto: { name: project.name, category: project.category, description: project.description },
+                expert: project.data?.expert || {},
+                briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
+                avatar: project.avatar || {},
+                brand_kit: project.brand_kit || {},
+                kpis: project.data?.kpis || {},
+                pipeline: project.pipeline || {},
+              };
+              const json = JSON.stringify(ctx, null, 2);
+              navigator.clipboard.writeText(json);
+              toast.success("Contexto copiado para a área de transferência!");
+            }}
+          >
+            <Copy className="h-3 w-3" /> Copiar Contexto
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-2 gap-1.5 text-xs"
+            onClick={() => {
+              const ctx = {
+                projeto: { name: project.name, category: project.category, description: project.description },
+                expert: project.data?.expert || {},
+                briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
+                avatar: project.avatar || {},
+                brand_kit: project.brand_kit || {},
+                kpis: project.data?.kpis || {},
+                pipeline: project.pipeline || {},
+              };
+              const blob = new Blob([JSON.stringify(ctx, null, 2)], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `${project.id}_contexto.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+              toast.success("Contexto exportado!");
+            }}
+          >
+            <Download className="h-3 w-3" /> Exportar JSON
+          </Button>
+          <div className="mt-2">
+            <span className="text-3xl font-mono font-bold text-primary">{pipelineAvg}%</span>
+            <Progress value={pipelineAvg} className="h-2 w-32" />
+            <p className="text-xs text-muted-foreground">Pipeline Geral</p>
+          </div>
         </div>
       </div>
 
