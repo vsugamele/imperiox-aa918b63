@@ -1,75 +1,81 @@
 
 
-# Plano: CRM Avançado — Gráficos, Pix Hoje, Ações Rápidas e Conexão com OpenFlow
+# Plano: Melhorias em Integrações, IA no Arsenal/Branding/Gatilhos, e Links
 
-## Situação atual
-
-- A página de Leads tem KPI cards, filtros por projeto/produto/estágio, tabela com dados ricos e timeline de jornada.
-- OpenFlow tem automações com triggers (carrinho_abandonado, compra_aprovada, lead_novo, reembolso) mas NÃO está conectado à tela de Leads — não dá para disparar uma automação a partir de um lead ou ver se alguma automação já rodou para ele.
-- Não existem gráficos no CRM. Tudo é numérico.
-- Não existe visão "Pix gerado hoje" com ações rápidas (enviar email, WhatsApp, disparar automação).
+## 5 frentes
 
 ---
 
-## O que implementar (4 blocos)
+### 1. Setup de Integração -- Links diretos para os sites
 
-### 1. Gráficos no CRM
+Cada card de integração no Briefing ganha um botão/link externo para o site da plataforma, facilitando acesso rápido para copiar IDs e tokens.
 
-Adicionar uma nova aba **"📊 Analytics"** na página de Leads (ao lado da listagem atual) com:
+| Integração | Link |
+|---|---|
+| Clarity | `https://clarity.microsoft.com` |
+| Google Analytics | `https://analytics.google.com` |
+| Facebook Pixel | `https://business.facebook.com/events_manager2` |
+| Resend | `https://resend.com/api-keys` |
+| Webhook | Sem link externo (URL local) |
+| UTMs | Sem link externo |
 
-- **Leads por projeto** — gráfico de barras horizontal mostrando quantidade por projeto (usando dados já carregados)
-- **Leads por mês** — gráfico de linha com evolução mensal baseado em `criado_em`
-- **Funil de conversão** — gráfico de barras empilhado mostrando lead → carrinho → pix → cliente
-- **Receita por projeto** — barras mostrando `total_gasto` agregado por projeto
+Adicionar um `<a>` com ícone `ExternalLink` ao lado do título de cada card. Quando os campos estão preenchidos, o link leva direto ao dashboard (ex: Clarity com o ID no path).
 
-Usar Recharts (já está no projeto via shadcn charts).
-
-### 2. Painel "Pix Hoje" com ações rápidas
-
-Adicionar um card expandido quando o filtro de estágio é "pix_gerado" ou criar uma **seção fixa** no topo quando existem leads com pix pendente de hoje:
-
-- Listar leads que geraram pix **hoje** (filtro por `criado_em` ou `data.ultimo_evento_data` no dia atual)
-- Cada lead mostra: nome, email, telefone, produto, valor, hora que gerou o pix
-- **Botões de ação rápida** para cada lead:
-  - 📧 **Enviar Email** — abre dialog com templates do projeto (conecta com `send-project-email`)
-  - 💬 **WhatsApp** — abre dialog para enviar mensagem via `whatsapp-api`
-  - ⚡ **Disparar Automação** — dropdown com automações do OpenFlow que podem ser executadas manualmente
-- Indicador visual de quais ações já foram executadas (checa `imphq_activity_log` ou registra no JSONB do lead)
-
-### 3. Conexão Leads ↔ OpenFlow
-
-- No detalhe do lead (dialog de edição), adicionar aba **"⚡ Automações"** mostrando:
-  - Quais automações rodaram para este lead (buscar em `imphq_activity_log` pelo `lead_id`)
-  - Botão "Disparar automação" — seleciona uma automação e executa as ações para este lead específico
-- No OpenFlow, nos cards de automação, mostrar **contador de leads impactados** (quantos passaram por aquela automação)
-
-### 4. Produtos dentro dos projetos
-
-Na sidebar de leads, os produtos que aparecem hoje são globais. Ajustar para:
-- Quando um projeto está selecionado, mostrar apenas os produtos daquele projeto
-- O produto no filtro lateral fica agrupado abaixo do projeto selecionado
-- Contagem de leads por produto
+Tambem garantir que os valores dos campos de API (IDs, tokens) ficam visíveis por padrão (não mais `type="password"`) com um botão toggle para mostrar/ocultar os secrets.
 
 ---
 
-## Detalhes técnicos
+### 2. Arsenal de Copy -- Botão "Gerar com IA"
 
-### Migration necessária
-Adicionar coluna `lead_id` na `imphq_activity_log` (se não existir) para registrar ações executadas em leads específicos:
-```sql
-ALTER TABLE imphq_activity_log ADD COLUMN IF NOT EXISTS lead_id UUID REFERENCES imphq_leads(id) ON DELETE SET NULL;
-```
+Adicionar um botão "🤖 Gerar com IA" no `CopyArsenalSection` que:
+- Chama a edge function `openflow-ai` (já existente e conectada ao Lovable AI Gateway)
+- Envia como contexto: avatar, branding, concorrentes e produtos do projeto
+- Pede para a IA preencher os 6 blocos de copy (Promessa, Inimigo Comum, Efeito Colateral, Oportunidade, Método Simplificado, Hora do Show)
+- Preenche automaticamente os campos vazios com o resultado
+- Loading state no botão durante a geração
 
-### Recharts
-Já disponível via `@/components/ui/chart`. Usar `BarChart`, `LineChart`, `ResponsiveContainer`.
+O `CopyArsenalSection` precisa receber `projectId` como prop para buscar os dados do projeto.
 
-### Disparo manual de automação
-Criar uma função client-side que percorre as ações da automação e executa cada uma:
-- `email` → chama `send-project-email`
-- `whatsapp` → chama `whatsapp-api?action=send_message`
-- `aguardar` → pula (não faz sentido em manual)
+---
 
-Cada execução registra em `imphq_activity_log` com `action: "automacao_executada"`, `entity_type: "lead"`, `entity_id: lead_id`.
+### 3. Branding e Gatilhos -- Botão "Completar com IA"
+
+**Branding** (`ProjetoBranding.tsx`):
+- Botão "🤖 Completar com IA" no topo
+- Chama `openflow-ai` com contexto do projeto (avatar, expert, produtos, concorrentes)
+- Preenche campos vazios: arquétipo sugerido, posicionamento, manifesto, linguagem
+
+**Gatilhos** (`GatilhosTab.tsx`):
+- Botão "🤖 Gerar Gatilhos com IA" no card de Gatilhos Emocionais
+- Analisa avatar (dores, desejos, problemas, voyerismos) + branding + concorrentes
+- Gera gatilhos emocionais sugeridos e preenche o storyboard narrativo
+
+Ambos usam a mesma edge function `openflow-ai` com um novo campo `action` no payload para diferenciar o tipo de geração.
+
+---
+
+### 4. Links do Projeto -- Botões rápidos de redes sociais + Mover para Briefing
+
+A aba "Links" é redundante como aba separada. Solução:
+
+- **Mover os links para dentro do Briefing** como uma seção colapsável "🔗 Links & Redes Sociais"
+- Adicionar **botões rápidos** para redes comuns: YouTube, TikTok, Pinterest, Instagram, Facebook, Twitter/X, LinkedIn, Site, Blog
+- Cada botão rápido cria um link pré-rotulado, o usuário só precisa colar a URL
+- Manter o "Adicionar custom" para links genéricos
+- **Remover a aba "Links"** do `ProjetoDetalhe.tsx`
+
+---
+
+### 5. Edge Function -- Novo action para geração de conteúdo
+
+Expandir `openflow-ai` para aceitar um campo `action` no body:
+
+| action | Contexto enviado | Output esperado |
+|---|---|---|
+| `generate_copy_arsenal` | avatar + branding + concorrentes + produtos | 6 blocos de copy preenchidos |
+| `generate_branding` | avatar + expert + produtos + concorrentes | arquétipo, posicionamento, manifesto, linguagem |
+| `generate_gatilhos` | avatar (dores, desejos, problemas) + branding | gatilhos emocionais + storyboard |
+| (default/existente) | projeto completo | sequência de automação |
 
 ---
 
@@ -77,6 +83,11 @@ Cada execução registra em `imphq_activity_log` com `action: "automacao_executa
 
 | Arquivo | Ação |
 |---|---|
-| Migration SQL | Adicionar `lead_id` na `imphq_activity_log` |
-| `src/pages/Leads.tsx` | Adicionar aba Analytics com gráficos, seção Pix Hoje com ações rápidas, aba Automações no detalhe, produtos filtrados por projeto |
+| `src/components/projeto/ProjetoBriefing.tsx` | Links externos nos cards de integração, toggle de visibilidade de secrets, seção "Links & Redes Sociais" inline |
+| `src/components/projeto/CopyArsenalSection.tsx` | Receber `projectId`, botão "Gerar com IA" |
+| `src/components/projeto/ProjetoBranding.tsx` | Botão "Completar com IA" no topo |
+| `src/components/projeto/avatar/GatilhosTab.tsx` | Botão "Gerar Gatilhos com IA" |
+| `src/pages/ProjetoDetalhe.tsx` | Remover aba "Links", passar `projectId` ao CopyArsenalSection |
+| `supabase/functions/openflow-ai/index.ts` | Novo campo `action` com prompts específicos para copy, branding e gatilhos |
+| `src/components/projeto/ProjetoLinks.tsx` | Deletar (funcionalidade movida para Briefing) |
 
