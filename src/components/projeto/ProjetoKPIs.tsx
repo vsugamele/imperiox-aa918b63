@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AIGenerateButton } from "./AIGenerateButton";
+import { toast } from "sonner";
 
 const KPI_FIELDS = [
   { key: "cpl", label: "Custo por Lead (CPL)", prefix: "R$" },
@@ -26,9 +28,30 @@ export function ProjetoKPIs({ project, onUpdateData }: Props) {
     onUpdateData({ ...data, kpis: { ...kpis, [key]: val } });
   };
 
+  const handleAIResult = (result: any) => {
+    if (result?.kpis) {
+      const newKpis = { ...kpis };
+      for (const [key, val] of Object.entries(result.kpis)) {
+        if (!newKpis[key] && val) newKpis[key] = String(val);
+      }
+      onUpdateData({ ...data, kpis: newKpis });
+      toast.success("KPIs calculados com IA! Campos vazios preenchidos.");
+    }
+  };
+
   return (
     <Card className="bg-card border-border">
-      <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📊 KPIs do Projeto</CardTitle></CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📊 KPIs do Projeto</CardTitle>
+        <AIGenerateButton
+          projectId={project.id}
+          action="generate_kpis"
+          onResult={handleAIResult}
+          contextSources={["Vendas", "Leads", "Custos", "Ads", "Produtos"]}
+          fieldsToFill={KPI_FIELDS.map(f => f.label)}
+          label="Calcular com IA"
+        />
+      </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {KPI_FIELDS.map((f) => (
           <div key={f.key} className="space-y-1">
