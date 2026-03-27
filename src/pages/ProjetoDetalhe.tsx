@@ -145,7 +145,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
-          <TabsTrigger value="links">🔗 Links</TabsTrigger>
+          
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
