@@ -294,6 +294,47 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   return (
     <div className="space-y-6">
+      {/* Period Filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+        {PERIOD_OPTIONS.map(p => (
+          <Button
+            key={p.key}
+            size="sm"
+            variant={period === p.key ? "default" : "outline"}
+            className="h-7 text-xs"
+            onClick={() => setPeriod(p.key)}
+          >
+            {p.label}
+          </Button>
+        ))}
+        {period === "custom" && (
+          <div className="flex items-center gap-1">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("h-7 text-xs", !customFrom && "text-muted-foreground")}>
+                  {customFrom ? format(customFrom, "dd/MM/yyyy") : "De"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={customFrom} onSelect={setCustomFrom} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+            <span className="text-xs text-muted-foreground">→</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("h-7 text-xs", !customTo && "text-muted-foreground")}>
+                  {customTo ? format(customTo, "dd/MM/yyyy") : "Até"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={customTo} onSelect={setCustomTo} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {kpis.map((k) => (
