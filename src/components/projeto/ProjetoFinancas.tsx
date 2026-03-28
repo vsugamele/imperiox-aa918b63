@@ -97,6 +97,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
     })));
     setVendas((v.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
     setProjects((p.data || []) as { id: string; name: string }[]);
+    setEvents(ev.data || []);
   };
 
   // Period filter
