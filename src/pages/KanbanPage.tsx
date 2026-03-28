@@ -86,6 +86,7 @@ export default function KanbanPage() {
   const [newDesc, setNewDesc] = useState("");
   const [newBoard, setNewBoard] = useState("agentes");
   const [newMemberId, setNewMemberId] = useState("none");
+  const [newProjectId, setNewProjectId] = useState("none");
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMember, setFilterMember] = useState("all");
