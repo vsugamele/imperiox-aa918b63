@@ -1015,6 +1015,70 @@ export default function Tarefas() {
         </DialogContent>
       </Dialog>
 
+      {/* Create Task Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Criar Tarefa</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Título</Label><Input value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} placeholder="Título da tarefa" className="bg-secondary" /></div>
+            <div><Label>Descrição</Label><Input value={createForm.description} onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))} placeholder="Descrição (opcional)" className="bg-secondary" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Prioridade</Label>
+                <Select value={createForm.priority} onValueChange={v => setCreateForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="urgent">🔴 Urgente</SelectItem>
+                    <SelectItem value="high">🟡 Alta</SelectItem>
+                    <SelectItem value="medium">🟢 Média</SelectItem>
+                    <SelectItem value="low">⚪ Baixa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Data Limite</Label><Input type="date" value={createForm.due_date} onChange={e => setCreateForm(f => ({ ...f, due_date: e.target.value }))} className="bg-secondary" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Projeto</Label>
+                <Select value={createForm.project_id} onValueChange={v => setCreateForm(f => ({ ...f, project_id: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem projeto</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Responsável</Label>
+                <Select value={createForm.member_id} onValueChange={v => setCreateForm(f => ({ ...f, member_id: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem responsável</SelectItem>
+                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Board</Label>
+              <Select value={createForm.board} onValueChange={v => setCreateForm(f => ({ ...f, board: v }))}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="agentes">Agentes</SelectItem>
+                  <SelectItem value="humanas">Humanas</SelectItem>
+                  <SelectItem value="criativos">Criativos</SelectItem>
+                  <SelectItem value="campanhas">Campanhas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancelar</Button>
+            <Button onClick={createFullTask}>Criar Tarefa</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <CardDetailPanel
         card={selectedCard}
         open={!!selectedCard}
