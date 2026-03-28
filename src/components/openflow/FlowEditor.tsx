@@ -42,7 +42,7 @@ interface FlowEditorProps {
   templates?: ProjectTemplate[];
 }
 
-export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating }: FlowEditorProps) {
+export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [] }: FlowEditorProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
