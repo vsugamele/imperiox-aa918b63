@@ -122,6 +122,8 @@ export default function Tarefas() {
   const [filterProject, setFilterProject] = useState("all");
   const [filterMember, setFilterMember] = useState("all");
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createForm, setCreateForm] = useState({ title: "", description: "", priority: "medium", project_id: "none", member_id: "none", board: "agentes", due_date: "" });
 
   // Routines state
   const [routines, setRoutines] = useState<Routine[]>([]);
