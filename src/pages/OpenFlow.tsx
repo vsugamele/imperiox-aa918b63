@@ -58,6 +58,32 @@ export default function OpenFlow() {
 
   useEffect(() => { load(); }, []);
 
+  // Fetch templates when editing an automation with a project
+  useEffect(() => {
+    if (!editing?.project_id) { setProjectTemplates([]); return; }
+    const fetchTemplates = async () => {
+      const { data } = await supabase.from("imphq_projects").select("data").eq("id", editing.project_id).single();
+      if (!data?.data) { setProjectTemplates([]); return; }
+      const d = data.data as any;
+      const tpls: ProjectTemplate[] = [];
+      // Emails
+      if (Array.isArray(d.emails)) {
+        d.emails.forEach((e: any, i: number) => {
+          if (e.body) tpls.push({ label: e.subject || `Email ${i + 1}`, content: e.body, source: "Email" });
+        });
+      }
+      // Copy arsenal
+      if (d.copy_arsenal) {
+        const ca = d.copy_arsenal;
+        if (ca.headlines) tpls.push({ label: "Headlines", content: ca.headlines, source: "Copy" });
+        if (ca.storytelling) tpls.push({ label: "Storytelling", content: ca.storytelling, source: "Copy" });
+        if (ca.ctas) tpls.push({ label: "CTAs", content: ca.ctas, source: "Copy" });
+      }
+      setProjectTemplates(tpls);
+    };
+    fetchTemplates();
+  }, [editing?.project_id]);
+
   const createAutomacao = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const id = crypto.randomUUID();
