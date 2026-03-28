@@ -122,6 +122,8 @@ export default function Tarefas() {
   const [filterProject, setFilterProject] = useState("all");
   const [filterMember, setFilterMember] = useState("all");
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createForm, setCreateForm] = useState({ title: "", description: "", priority: "medium", project_id: "none", member_id: "none", board: "agentes", due_date: "" });
 
   // Routines state
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -373,20 +375,16 @@ export default function Tarefas() {
 
   const addQuickTask = async () => {
     if (!newTask.trim()) return;
-    const boards = [...new Set(columns.map(c => c.board))];
-    let targetCol: Column | undefined;
-    let targetBoard = "agentes";
-    for (const board of boards) {
-      const col = findFirstColumn(board);
-      if (col) { targetCol = col; targetBoard = board; break; }
-    }
+    // Use filtered board or fallback to "agentes"
+    const targetBoard = newProjectId !== "none" ? "agentes" : "agentes";
+    const targetCol = findFirstColumn(targetBoard) || columns.find(c => !isDoneColumn(c));
     if (!targetCol) { toast.error("Nenhuma coluna disponível"); return; }
     const { data, error } = await supabase
       .from("imphq_kanban_cards")
       .insert({
         title: newTask.trim(),
         column_id: targetCol.id,
-        board: targetBoard,
+        board: targetCol.board,
         priority: newPriority,
         due_date: todayStr,
         tags: [],
@@ -399,6 +397,32 @@ export default function Tarefas() {
     setCards(prev => [...prev, data as any]);
     setNewTask("");
     toast.success("Tarefa adicionada ✅");
+  };
+
+  const createFullTask = async () => {
+    if (!createForm.title.trim()) { toast.error("Título obrigatório"); return; }
+    const targetCol = findFirstColumn(createForm.board) || columns.find(c => c.board === createForm.board && !isDoneColumn(c));
+    if (!targetCol) { toast.error("Nenhuma coluna disponível para este board"); return; }
+    const { data, error } = await supabase
+      .from("imphq_kanban_cards")
+      .insert({
+        title: createForm.title.trim(),
+        description: createForm.description || null,
+        column_id: targetCol.id,
+        board: createForm.board,
+        priority: createForm.priority,
+        due_date: createForm.due_date || null,
+        tags: [],
+        project_id: createForm.project_id !== "none" ? createForm.project_id : null,
+        member_id: createForm.member_id !== "none" ? createForm.member_id : null,
+      } as any)
+      .select()
+      .single();
+    if (error) { toast.error("Erro ao criar tarefa"); return; }
+    setCards(prev => [...prev, data as any]);
+    setShowCreateDialog(false);
+    setCreateForm({ title: "", description: "", priority: "medium", project_id: "none", member_id: "none", board: "agentes", due_date: "" });
+    toast.success("Tarefa criada! ✅");
   };
 
   const getProjectName = (id?: string | null) => {
@@ -571,12 +595,16 @@ export default function Tarefas() {
           </p>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline">
-              <FileDown className="h-3 w-3 mr-1" /> Exportar
-            </Button>
-          </DropdownMenuTrigger>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Criar Tarefa
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <FileDown className="h-3 w-3 mr-1" /> Exportar
+              </Button>
+            </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => {
               const doc = new jsPDF();
@@ -621,6 +649,7 @@ export default function Tarefas() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -982,6 +1011,70 @@ export default function Tarefas() {
             <Button onClick={saveRoutine} disabled={!routineForm.title.trim()}>
               {editingRoutine ? "Salvar" : "Criar Rotina"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Task Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Criar Tarefa</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Título</Label><Input value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} placeholder="Título da tarefa" className="bg-secondary" /></div>
+            <div><Label>Descrição</Label><Input value={createForm.description} onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))} placeholder="Descrição (opcional)" className="bg-secondary" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Prioridade</Label>
+                <Select value={createForm.priority} onValueChange={v => setCreateForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="urgent">🔴 Urgente</SelectItem>
+                    <SelectItem value="high">🟡 Alta</SelectItem>
+                    <SelectItem value="medium">🟢 Média</SelectItem>
+                    <SelectItem value="low">⚪ Baixa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Data Limite</Label><Input type="date" value={createForm.due_date} onChange={e => setCreateForm(f => ({ ...f, due_date: e.target.value }))} className="bg-secondary" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Projeto</Label>
+                <Select value={createForm.project_id} onValueChange={v => setCreateForm(f => ({ ...f, project_id: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem projeto</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Responsável</Label>
+                <Select value={createForm.member_id} onValueChange={v => setCreateForm(f => ({ ...f, member_id: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem responsável</SelectItem>
+                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Board</Label>
+              <Select value={createForm.board} onValueChange={v => setCreateForm(f => ({ ...f, board: v }))}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="agentes">Agentes</SelectItem>
+                  <SelectItem value="humanas">Humanas</SelectItem>
+                  <SelectItem value="criativos">Criativos</SelectItem>
+                  <SelectItem value="campanhas">Campanhas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancelar</Button>
+            <Button onClick={createFullTask}>Criar Tarefa</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
