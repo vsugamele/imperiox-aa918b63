@@ -244,10 +244,11 @@ export default function KanbanPage() {
       due_date: newDueDate || null, description: newDesc || null,
       board, position: allCards.filter(c => c.column_id === targetColId).length, tags: [],
       member_id: newMemberId === "none" ? null : newMemberId,
+      project_id: newProjectId === "none" ? null : newProjectId,
     });
     if (error) { toast.error("Erro ao criar card"); return; }
     toast.success("Card criado!");
-    setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none");
+    setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); setNewProjectId("none");
     loadAllData();
   };
 
