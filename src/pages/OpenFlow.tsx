@@ -320,6 +320,7 @@ export default function OpenFlow() {
                 onChange={acoes => setEditing({ ...editing, acoes })}
                 onGenerateAI={generateWithAI}
                 isGenerating={isGeneratingAI}
+                templates={projectTemplates}
               />
             </div>
           )}
