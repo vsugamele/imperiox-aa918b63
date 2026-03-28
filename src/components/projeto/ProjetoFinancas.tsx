@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target, Pencil, Paperclip, ExternalLink, Package, CalendarIcon } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target, Pencil, Paperclip, ExternalLink, Package, CalendarIcon, Globe, Eye, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "@/components/financas/AdsImportDialog";
 import { FileUpload } from "@/components/FileUpload";
@@ -70,6 +70,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const [events, setEvents] = useState<any[]>([]);
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
@@ -77,12 +78,13 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   useEffect(() => { loadData(); }, [projectId]);
 
   const loadData = async () => {
-    const [c, r, a, v, p] = await Promise.all([
+    const [c, r, a, v, p, ev] = await Promise.all([
       supabase.from("imphq_project_costs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("imphq_project_revenue").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("*").eq("project_id", projectId).order("data_ref", { ascending: false }),
       supabase.from("imphq_vendas").select("*").eq("project_id", projectId).eq("status", "aprovado").order("data_venda", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
+      supabase.from("imphq_events").select("id, event_name, created_at, page_url").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1000),
     ]);
     setCosts((c.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
     setRevenues((r.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
@@ -95,6 +97,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
     })));
     setVendas((v.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
     setProjects((p.data || []) as { id: string; name: string }[]);
+    setEvents(ev.data || []);
   };
 
   // Period filter
@@ -120,6 +123,20 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const fRevenues = useMemo(() => revenues.filter(r => inRange(r.data_ref)), [revenues, period, customFrom, customTo]);
   const fAds = useMemo(() => ads.filter(a => inRange(a.data_ref)), [ads, period, customFrom, customTo]);
   const fVendas = useMemo(() => vendas.filter(v => inRange(v.data_venda)), [vendas, period, customFrom, customTo]);
+  const fEvents = useMemo(() => events.filter(e => inRange(e.created_at)), [events, period, customFrom, customTo]);
+
+  // Event KPIs
+  const eventKPIs = useMemo(() => {
+    const counts: Record<string, number> = {};
+    fEvents.forEach(e => { counts[e.event_name] = (counts[e.event_name] || 0) + 1; });
+    return {
+      pageViews: counts["PageView"] || 0,
+      viewContent: counts["ViewContent"] || 0,
+      addToCart: counts["AddToCart"] || 0,
+      leadCapture: counts["LeadCapture"] || 0,
+      total: fEvents.length,
+    };
+  }, [fEvents]);
 
   // KPIs (filtered)
   const totalCost = fCosts.reduce((s, c) => s + (c.moeda === "USD" ? c.valor * 5.2 : c.valor), 0);
@@ -334,6 +351,25 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
           </div>
         )}
       </div>
+
+      {/* Pixel/Events KPIs */}
+      {eventKPIs.total > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "PageViews", value: eventKPIs.pageViews, icon: Globe, color: "text-blue-400" },
+            { label: "ViewContent", value: eventKPIs.viewContent, icon: Eye, color: "text-violet-400" },
+            { label: "AddToCart", value: eventKPIs.addToCart, icon: ShoppingCart, color: "text-amber-400" },
+            { label: "Lead Capture", value: eventKPIs.leadCapture, icon: Users, color: "text-emerald-400" },
+          ].map(k => (
+            <Card key={k.label} className="bg-card border-border">
+              <CardContent className="flex items-center gap-3 p-3">
+                <div className={`p-1.5 rounded-lg bg-secondary/50 ${k.color}`}><k.icon className="h-3.5 w-3.5" /></div>
+                <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k.label}</p><p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

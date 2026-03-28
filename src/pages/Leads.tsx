@@ -80,6 +80,11 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
   click: { icon: <MousePointerClick className="h-3 w-3" />, color: "bg-cyan-500", label: "Click UTM" },
   ButtonClick: { icon: <Zap className="h-3 w-3" />, color: "bg-orange-500", label: "Click" },
   CSVImport: { icon: <FileUp className="h-3 w-3" />, color: "bg-indigo-500", label: "Importado CSV" },
+  PixGerado: { icon: <DollarSign className="h-3 w-3" />, color: "bg-yellow-500", label: "Pix Gerado" },
+  CarrinhoAbandonado: { icon: <ShoppingCart className="h-3 w-3" />, color: "bg-amber-600", label: "Carrinho Abandonado" },
+  CompraAprovada: { icon: <DollarSign className="h-3 w-3" />, color: "bg-emerald-600", label: "Compra Aprovada" },
+  Reembolso: { icon: <RefreshCw className="h-3 w-3" />, color: "bg-red-500", label: "Reembolso" },
+  LeadNovo: { icon: <Users className="h-3 w-3" />, color: "bg-blue-400", label: "Lead Novo" },
 };
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];
@@ -861,7 +866,7 @@ export default function Leads() {
                       <TableCell>{(() => { const stage = getLeadStage(l); const cfg = STAGE_LABELS[stage] || STAGE_LABELS.lead_capturado; const isPending = ["carrinho_abandonado", "pix_gerado", "aguardando_pagamento"].includes(stage); return (<div className="flex items-center gap-1"><Badge className={cn("text-[10px]", cfg.color, isPending && "animate-pulse ring-1 ring-amber-500/40")}>{cfg.label}</Badge>{isPending && <AlertCircle className="h-3 w-3 text-amber-400" />}</div>); })()}</TableCell>
                       <TableCell><div className="flex items-center gap-1.5"><div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${l._score || 0}%` }} /></div><span className="text-[10px] font-mono text-muted-foreground">{l._score || 0}</span></div></TableCell>
                       <TableCell className="font-mono text-sm text-primary">{l.total_gasto ? `R$ ${parseFloat(String(l.total_gasto)).toFixed(0)}` : "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{l.criado_em ? (() => { try { const d = parseISO(l.criado_em!); return isValid(d) ? format(d, "dd/MM/yy") : "—"; } catch { return "—"; } })() : "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{l.criado_em ? (() => { try { const d = parseISO(l.criado_em!); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })() : "—"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           {l.phone && <Button size="icon" variant="ghost" asChild className="h-7 w-7"><a href={`https://wa.me/${l.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener"><MessageCircle className="h-4 w-4 text-emerald-400" /></a></Button>}
