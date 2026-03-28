@@ -575,6 +575,61 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                         </div>
                       );
                     })}
+
+                    {/* Multiple webhooks for webhook_pagamento */}
+                    {item.key === "webhook_pagamento" && (() => {
+                      const webhooks: Array<{ nome: string; token: string }> = data.webhooks || [];
+                      const addWebhook = () => {
+                        const updated = [...webhooks, { nome: "", token: "" }];
+                        onUpdateData({ ...data, webhooks: updated });
+                      };
+                      const updateWebhook = (idx: number, field: string, val: string) => {
+                        const updated = [...webhooks];
+                        updated[idx] = { ...updated[idx], [field]: val };
+                        onUpdateData({ ...data, webhooks: updated });
+                      };
+                      const removeWebhook = (idx: number) => {
+                        onUpdateData({ ...data, webhooks: webhooks.filter((_, i) => i !== idx) });
+                      };
+                      return (
+                        <div className="space-y-2 pt-2 border-t border-border">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] text-muted-foreground font-medium">Webhooks por Plataforma</Label>
+                            <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={addWebhook}>
+                              <Plus className="h-3 w-3 mr-1" /> Webhook
+                            </Button>
+                          </div>
+                          {webhooks.map((wh, wi) => {
+                            const whUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}${wh.nome ? `&source=${encodeURIComponent(wh.nome)}` : ""}`;
+                            return (
+                              <div key={wi} className="p-2 rounded bg-background/50 border border-border/50 space-y-1.5">
+                                <div className="flex gap-2 items-center">
+                                  <Input value={wh.nome} onChange={e => updateWebhook(wi, "nome", e.target.value)} placeholder="Ex: Hotmart, Kiwify..." className="bg-secondary h-7 text-xs flex-1" />
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={() => removeWebhook(wi)}><Trash2 className="h-3 w-3" /></Button>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Input value={whUrl} readOnly className="bg-secondary h-6 text-[9px] font-mono flex-1" />
+                                  <CopyButton text={whUrl} />
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={wh.token || ""}
+                                    onChange={e => updateWebhook(wi, "token", e.target.value)}
+                                    placeholder="Token de validação (opcional)"
+                                    className="bg-secondary h-6 text-xs flex-1"
+                                    type={visibleSecrets[`wh_${wi}`] ? "text" : "password"}
+                                  />
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => toggleSecret(`wh_${wi}`)}>
+                                    {visibleSecrets[`wh_${wi}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {webhooks.length === 0 && <p className="text-[9px] text-muted-foreground">Adicione webhooks para cada plataforma de pagamento.</p>}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <Input
