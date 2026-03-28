@@ -183,11 +183,30 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                   </div>
                   {!isAguardar && (
                     <div>
-                      <Label className="text-[10px]">Mensagem / Template</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px]">Mensagem / Template</Label>
+                        {templates.length > 0 && (
+                          <Select onValueChange={v => {
+                            const tpl = templates.find(t => t.content === v);
+                            if (tpl) updateAcao(idx, "template", tpl.content);
+                          }}>
+                            <SelectTrigger className="h-6 w-[140px] text-[10px] border-primary/30">
+                              <SelectValue placeholder="📋 Usar Template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {templates.map((t, ti) => (
+                                <SelectItem key={ti} value={t.content}>
+                                  <span className="text-[10px]">{t.source}: {t.label}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                       <Textarea
                         value={acao.template}
                         onChange={e => updateAcao(idx, "template", e.target.value)}
-                        className="text-xs min-h-[70px]"
+                        className="text-xs min-h-[70px] mt-1"
                         placeholder="Olá {{nome}}, notamos que você..."
                       />
                     </div>
