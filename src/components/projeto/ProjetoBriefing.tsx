@@ -45,8 +45,8 @@ const INTEGRATION_FIELDS: Record<string, Array<{ field: string; label: string; p
   ],
   webhook_pagamento: [
     { field: "webhook_url", label: "URL do Webhook (copie e cole na plataforma)", placeholder: "", help: "Cole esta URL na Hotmart, Kiwify ou Ticto como endpoint de webhook", readOnly: true },
-    { field: "webhook_secret", label: "Token de Validação", placeholder: "Token secreto para validar chamadas", help: "Opcional: crie um token e adicione como header na plataforma de pagamento", secret: true },
   ],
+  webhook_pagamento_list: [],
   facebook_pixel: [
     { field: "pixel_id", label: "Pixel ID", placeholder: "Ex: 123456789012345", help: "Events Manager → Data Sources → seu Pixel → Settings", required: true },
     { field: "access_token", label: "Access Token (CAPI)", placeholder: "Token de acesso para Conversions API", help: "Events Manager → Settings → Generate Access Token", secret: true, required: true },

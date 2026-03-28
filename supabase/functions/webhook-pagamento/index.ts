@@ -294,6 +294,38 @@ Deno.serve(async (req) => {
         .eq("id", leadId);
     }
 
+    // Register journey event in imphq_events
+    const JOURNEY_EVENT_MAP: Record<string, string> = {
+      compra_aprovada: "CompraAprovada",
+      carrinho_abandonado: "CarrinhoAbandonado",
+      pix_gerado: "PixGerado",
+      aguardando_pagamento: "PixGerado",
+      reembolso: "Reembolso",
+      lead_capturado: "LeadNovo",
+      inicio_checkout: "AddToCart",
+    };
+    const journeyEventName = JOURNEY_EVENT_MAP[evento];
+    if (journeyEventName && leadId) {
+      try {
+        await supabase.from("imphq_events").insert({
+          event_name: journeyEventName,
+          project_id: projectId,
+          visitor_id: leadId,
+          page_url: `webhook://${plataforma}`,
+          event_data: { produto, valor, plataforma, evento },
+          utm_source: email?.toLowerCase() || null,
+        });
+        // Update ultimo_evento on lead
+        const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
+        const currentData = (leadData?.data as Record<string, any>) || {};
+        await supabase.from("imphq_leads").update({
+          data: { ...currentData, ultimo_evento: evento },
+        }).eq("id", leadId);
+      } catch (e) {
+        console.warn("[webhook-pagamento] Erro ao registrar evento de jornada:", e);
+      }
+    }
+
     // Auto-create product in briefing if not exists
     if (produto && projectId) {
       try {
