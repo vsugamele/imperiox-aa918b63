@@ -123,6 +123,20 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const fRevenues = useMemo(() => revenues.filter(r => inRange(r.data_ref)), [revenues, period, customFrom, customTo]);
   const fAds = useMemo(() => ads.filter(a => inRange(a.data_ref)), [ads, period, customFrom, customTo]);
   const fVendas = useMemo(() => vendas.filter(v => inRange(v.data_venda)), [vendas, period, customFrom, customTo]);
+  const fEvents = useMemo(() => events.filter(e => inRange(e.created_at)), [events, period, customFrom, customTo]);
+
+  // Event KPIs
+  const eventKPIs = useMemo(() => {
+    const counts: Record<string, number> = {};
+    fEvents.forEach(e => { counts[e.event_name] = (counts[e.event_name] || 0) + 1; });
+    return {
+      pageViews: counts["PageView"] || 0,
+      viewContent: counts["ViewContent"] || 0,
+      addToCart: counts["AddToCart"] || 0,
+      leadCapture: counts["LeadCapture"] || 0,
+      total: fEvents.length,
+    };
+  }, [fEvents]);
 
   // KPIs (filtered)
   const totalCost = fCosts.reduce((s, c) => s + (c.moeda === "USD" ? c.valor * 5.2 : c.valor), 0);
