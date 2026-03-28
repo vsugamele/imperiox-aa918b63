@@ -595,10 +595,16 @@ export default function Tarefas() {
           </p>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline">
-              <FileDown className="h-3 w-3 mr-1" /> Exportar
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Criar Tarefa
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <FileDown className="h-3 w-3 mr-1" /> Exportar
+              </Button>
+            </DropdownMenuTrigger>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
