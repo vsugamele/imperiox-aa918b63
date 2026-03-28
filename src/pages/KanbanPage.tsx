@@ -893,6 +893,16 @@ export default function KanbanPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Projeto</Label>
+              <Select value={newProjectId} onValueChange={setNewProjectId}>
+                <SelectTrigger><SelectValue placeholder="Sem projeto" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem projeto</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             {activeBoard === "geral" && (
               <div>
                 <Label>Quadro</Label>
