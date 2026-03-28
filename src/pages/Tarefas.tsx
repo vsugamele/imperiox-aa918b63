@@ -375,20 +375,16 @@ export default function Tarefas() {
 
   const addQuickTask = async () => {
     if (!newTask.trim()) return;
-    const boards = [...new Set(columns.map(c => c.board))];
-    let targetCol: Column | undefined;
-    let targetBoard = "agentes";
-    for (const board of boards) {
-      const col = findFirstColumn(board);
-      if (col) { targetCol = col; targetBoard = board; break; }
-    }
+    // Use filtered board or fallback to "agentes"
+    const targetBoard = newProjectId !== "none" ? "agentes" : "agentes";
+    const targetCol = findFirstColumn(targetBoard) || columns.find(c => !isDoneColumn(c));
     if (!targetCol) { toast.error("Nenhuma coluna disponível"); return; }
     const { data, error } = await supabase
       .from("imphq_kanban_cards")
       .insert({
         title: newTask.trim(),
         column_id: targetCol.id,
-        board: targetBoard,
+        board: targetCol.board,
         priority: newPriority,
         due_date: todayStr,
         tags: [],
@@ -401,6 +397,32 @@ export default function Tarefas() {
     setCards(prev => [...prev, data as any]);
     setNewTask("");
     toast.success("Tarefa adicionada ✅");
+  };
+
+  const createFullTask = async () => {
+    if (!createForm.title.trim()) { toast.error("Título obrigatório"); return; }
+    const targetCol = findFirstColumn(createForm.board) || columns.find(c => c.board === createForm.board && !isDoneColumn(c));
+    if (!targetCol) { toast.error("Nenhuma coluna disponível para este board"); return; }
+    const { data, error } = await supabase
+      .from("imphq_kanban_cards")
+      .insert({
+        title: createForm.title.trim(),
+        description: createForm.description || null,
+        column_id: targetCol.id,
+        board: createForm.board,
+        priority: createForm.priority,
+        due_date: createForm.due_date || null,
+        tags: [],
+        project_id: createForm.project_id !== "none" ? createForm.project_id : null,
+        member_id: createForm.member_id !== "none" ? createForm.member_id : null,
+      } as any)
+      .select()
+      .single();
+    if (error) { toast.error("Erro ao criar tarefa"); return; }
+    setCards(prev => [...prev, data as any]);
+    setShowCreateDialog(false);
+    setCreateForm({ title: "", description: "", priority: "medium", project_id: "none", member_id: "none", board: "agentes", due_date: "" });
+    toast.success("Tarefa criada! ✅");
   };
 
   const getProjectName = (id?: string | null) => {
