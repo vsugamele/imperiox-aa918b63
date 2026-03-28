@@ -70,6 +70,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const [events, setEvents] = useState<any[]>([]);
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
