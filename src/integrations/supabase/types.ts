@@ -21863,6 +21863,8 @@ export type Database = {
           ai_enabled: boolean | null
           ai_knowledge_base: string | null
           ai_model: string | null
+          ai_persona_avatar: string | null
+          ai_persona_name: string | null
           ai_system_prompt: string | null
           chat_cpm: number | null
           chat_names: Json | null
@@ -21891,6 +21893,8 @@ export type Database = {
           ai_enabled?: boolean | null
           ai_knowledge_base?: string | null
           ai_model?: string | null
+          ai_persona_avatar?: string | null
+          ai_persona_name?: string | null
           ai_system_prompt?: string | null
           chat_cpm?: number | null
           chat_names?: Json | null
@@ -21919,6 +21923,8 @@ export type Database = {
           ai_enabled?: boolean | null
           ai_knowledge_base?: string | null
           ai_model?: string | null
+          ai_persona_avatar?: string | null
+          ai_persona_name?: string | null
           ai_system_prompt?: string | null
           chat_cpm?: number | null
           chat_names?: Json | null
