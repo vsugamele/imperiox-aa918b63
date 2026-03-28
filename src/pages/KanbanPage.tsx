@@ -428,17 +428,34 @@ export default function KanbanPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">Kanban</h1>
-        <div className="flex items-center gap-3 flex-wrap">
-          <Badge className="bg-destructive/15 text-destructive border-destructive/30 gap-1.5 px-3 py-1">
-            <AlertTriangle className="h-3 w-3" /> {stuckCount} Travados
-          </Badge>
-          <Badge className="bg-warning/15 text-warning border-warning/30 gap-1.5 px-3 py-1">
-            <Flame className="h-3 w-3" /> {doingCount} Fazendo
-          </Badge>
-          <Badge className="bg-success/15 text-success border-success/30 gap-1.5 px-3 py-1">
-            <CheckCircle2 className="h-3 w-3" /> {doneCount} Feitos
-          </Badge>
-        </div>
+      </div>
+
+      {/* Mini Analytics KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="border-muted-foreground/20">
+          <CardContent className="p-3 flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-muted-foreground" />
+            <div><div className="text-lg font-bold">{allCards.length}</div><div className="text-[10px] text-muted-foreground">Total Cards</div></div>
+          </CardContent>
+        </Card>
+        <Card className="border-destructive/30">
+          <CardContent className="p-3 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <div><div className="text-lg font-bold text-destructive">{stuckCount}</div><div className="text-[10px] text-muted-foreground">Travados</div></div>
+          </CardContent>
+        </Card>
+        <Card className="border-warning/30">
+          <CardContent className="p-3 flex items-center gap-2">
+            <Flame className="h-4 w-4 text-warning" />
+            <div><div className="text-lg font-bold text-warning">{allCards.filter(c => c.due_date && isOverdue(c.due_date) && getCardNormalizedCol(c) !== "feito").length}</div><div className="text-[10px] text-muted-foreground">Atrasados</div></div>
+          </CardContent>
+        </Card>
+        <Card className="border-success/30">
+          <CardContent className="p-3 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            <div><div className="text-lg font-bold text-success">{doneCount}</div><div className="text-[10px] text-muted-foreground">Concluídos</div></div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search + Filters + View Toggle */}
