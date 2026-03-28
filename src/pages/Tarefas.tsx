@@ -605,8 +605,6 @@ export default function Tarefas() {
                 <FileDown className="h-3 w-3 mr-1" /> Exportar
               </Button>
             </DropdownMenuTrigger>
-            </Button>
-          </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => {
               const doc = new jsPDF();
