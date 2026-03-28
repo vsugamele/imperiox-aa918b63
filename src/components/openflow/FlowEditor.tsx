@@ -27,12 +27,19 @@ export interface Acao {
   delay_min: number;
 }
 
+export interface ProjectTemplate {
+  label: string;
+  content: string;
+  source: string;
+}
+
 interface FlowEditorProps {
   triggerTipo: string;
   acoes: Acao[];
   onChange: (acoes: Acao[]) => void;
   onGenerateAI?: () => void;
   isGenerating?: boolean;
+  templates?: ProjectTemplate[];
 }
 
 export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating }: FlowEditorProps) {
