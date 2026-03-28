@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { FlowEditor, type Acao } from "@/components/openflow/FlowEditor";
+import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 
 const TRIGGERS = [
   { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500" },
