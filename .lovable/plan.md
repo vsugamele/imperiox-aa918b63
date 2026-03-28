@@ -1,59 +1,49 @@
 
 
-# Plano: 5 Correções e Melhorias
+# Plano: Kanban com Scope/Projeto, Fix Criar Tarefa, Templates no OpenFlow
 
-## 1. Analytics de Projeto -- incluir dados do Pixel/Events
-
-**Problema**: O analytics dentro do projeto (`ProjetoFinancas` ou `ProjetoKPIs`) não puxa dados da tabela `imphq_events` (PageViews, ViewContent, AddToCart registrados pelo Pixel/imptrack.js).
-
-**Solução**: No `ProjetoFinancas.tsx`, além de vendas e custos, buscar `imphq_events` filtrado pelo `project_id` do projeto. Exibir KPIs: Total PageViews, ViewContent, AddToCart, LeadCapture no período. Adicionar mini-gráfico de eventos/dia.
-
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
+## 3 problemas identificados
 
 ---
 
-## 2. Webhook -- permitir múltiplos webhooks e tokens por projeto
+### 1. Kanban -- falta seletor de scope (agente/humana/geral) e projeto no dialog de novo card + analytics
 
-**Problema**: Atualmente só tem 1 URL de webhook e 1 token por projeto. Projetos com múltiplas plataformas (Hotmart + Kiwify + Ticto) precisam de URLs/tokens separados.
+**Problema**: O dialog "Novo Card" no Kanban (`KanbanPage.tsx` linhas 835-890) tem campos de título, descrição, prioridade, data, responsável e quadro (board), mas NÃO tem seletor de **projeto**. O campo "Quadro" já permite escolher entre agentes/humanas/criativos/campanhas, mas só aparece quando `activeBoard === "geral"`.
 
-**Solução**: No `ProjetoBriefing.tsx`, trocar o campo único de webhook por uma lista dinâmica. Cada webhook terá:
-- Nome/plataforma (ex: "Hotmart", "Kiwify")
-- URL gerada automaticamente com `?project={id}&source={nome}`
-- Token de validação individual
+**Solução**:
+- Adicionar estado `newProjectId` no KanbanPage (já existe `projects` carregado)
+- Adicionar Select de Projeto no dialog de novo card (sempre visível)
+- Incluir `project_id` no `createCard()`
+- Adicionar mini-analytics no topo do Kanban: cards por board, por prioridade, atrasados, concluídos (4 KPI cards compactos acima das tabs)
 
-Armazenar em `data.webhooks[]` (array). Manter compatibilidade com o campo antigo `webhook_secret`. No `webhook-pagamento/index.ts`, ler tanto o token do array quanto o legado.
-
-**Arquivos**: `src/components/projeto/ProjetoBriefing.tsx`, `supabase/functions/webhook-pagamento/index.ts`
-
----
-
-## 3. Chat -- corrigir atualização em tempo real
-
-**Problema**: O chat realtime não está funcionando. O canal de realtime precisa de RLS habilitado com policy de SELECT para que `postgres_changes` funcione.
-
-**Solução**: Verificar se a tabela `imphq_chat_messages` tem replica identity e RLS policies adequadas. No `Chat.tsx`, o subscribe já está correto. O problema provavelmente é que falta habilitar a replication na tabela. Criar migration para `ALTER TABLE imphq_chat_messages REPLICA IDENTITY FULL` e garantir RLS policy de SELECT para authenticated.
-
-**Arquivo**: Migration SQL, `src/pages/Chat.tsx` (verificar se channel está correto)
+**Arquivo**: `src/pages/KanbanPage.tsx`
 
 ---
 
-## 4. Leads -- capturar horário (hora/minuto) e exibir na tabela
+### 2. Tarefas -- botão "Criar tarefa" / "Adicionar" não funciona
 
-**Problema**: O `criado_em` já é timestamp, mas na tabela de leads só mostra a data sem hora.
+**Problema**: O `addQuickTask()` (linha 374) encontra a primeira coluna de qualquer board e insere. O problema é que usa um loop `for (const board of boards)` que pega o primeiro board disponível, mas pode falhar se não encontrar a coluna ou se `boards` está vazio. Além disso, o botão "Adicionar" (linha 783) chama `addQuickTask` mas não há um botão separado "Criar tarefa" com dialog -- o usuário provavelmente quer um dialog mais completo como no Kanban.
 
-**Solução**: Na tabela de leads e no detalhe, exibir `format(parseISO(l.criado_em), "dd/MM/yyyy HH:mm")` ao invés de só a data. No `capture-lead` e `webhook-pagamento`, garantir que `criado_em` salva com timezone (já faz via default do Supabase).
+**Solução**:
+- Adicionar um botão "Criar Tarefa" que abre um dialog completo (como no Kanban) com: título, descrição, prioridade, projeto, responsável, board, data
+- Corrigir `addQuickTask` para usar o board filtrado ou "agentes" como fallback robusto
+- O dialog usa `columns` para encontrar a coluna correta do board selecionado
 
-**Arquivo**: `src/pages/Leads.tsx`
+**Arquivo**: `src/pages/Tarefas.tsx`
 
 ---
 
-## 5. Jornada do lead -- registrar eventos de transição de estágio
+### 3. OpenFlow -- puxar templates dos projetos na automação
 
-**Problema**: Quando o webhook muda o lead de "lead" para "pix_gerado" ou "carrinho_abandonado", isso não aparece na jornada/timeline do lead.
+**Problema**: Ao editar uma automação no FlowEditor, o campo "Mensagem / Template" é um textarea livre. Não puxa templates já criados dentro dos projetos (emails, copy arsenal, etc).
 
-**Solução**: No `webhook-pagamento/index.ts`, após criar/atualizar o lead, inserir um registro em `imphq_events` com `event_name` correspondente ao evento (ex: "PixGerado", "CarrinhoAbandonado", "CompraAprovada") vinculado ao `lead_id`. Também atualizar o `data.ultimo_evento` do lead. No `Leads.tsx`, adicionar esses tipos no `EVENT_CONFIG` e na query de timeline buscar por `lead_id` em `imphq_events`.
+**Solução**:
+- No `OpenFlow.tsx`, quando o editing dialog abre e tem `project_id`, buscar dados do projeto (`data` JSONB) que contém templates de email, copy arsenal, etc.
+- No FlowEditor, adicionar um botão "📋 Usar Template" ao lado do textarea que abre um dropdown/select com templates disponíveis do projeto
+- Templates viriam de: `imphq_projects.data.emails[]`, `imphq_projects.data.copy_arsenal`, ou da tabela de automações do próprio projeto
+- Ao selecionar, preenche o textarea com o conteúdo do template
 
-**Arquivos**: `supabase/functions/webhook-pagamento/index.ts`, `src/pages/Leads.tsx`
+**Arquivos**: `src/pages/OpenFlow.tsx`, `src/components/openflow/FlowEditor.tsx`
 
 ---
 
@@ -61,9 +51,8 @@ Armazenar em `data.webhooks[]` (array). Manter compatibilidade com o campo antig
 
 | Arquivo | Ação |
 |---|---|
-| `src/components/projeto/ProjetoFinancas.tsx` | Buscar `imphq_events` do projeto, exibir KPIs de Pixel |
-| `src/components/projeto/ProjetoBriefing.tsx` | Lista dinâmica de webhooks com tokens individuais |
-| `supabase/functions/webhook-pagamento/index.ts` | Suportar múltiplos tokens, registrar eventos na jornada do lead, atualizar `data.ultimo_evento` |
-| `src/pages/Leads.tsx` | Exibir horário (HH:mm), novos tipos de evento na timeline |
-| Migration SQL | Replica identity para chat realtime |
+| `src/pages/KanbanPage.tsx` | Adicionar seletor de projeto no dialog de novo card, mini-analytics no topo |
+| `src/pages/Tarefas.tsx` | Dialog completo "Criar Tarefa" com todos os campos, fix addQuickTask |
+| `src/pages/OpenFlow.tsx` | Buscar templates do projeto ao editar automação, passar para FlowEditor |
+| `src/components/openflow/FlowEditor.tsx` | Botão "Usar Template" no textarea de cada ação, receber templates via props |
 
