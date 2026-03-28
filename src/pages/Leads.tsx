@@ -80,6 +80,11 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
   click: { icon: <MousePointerClick className="h-3 w-3" />, color: "bg-cyan-500", label: "Click UTM" },
   ButtonClick: { icon: <Zap className="h-3 w-3" />, color: "bg-orange-500", label: "Click" },
   CSVImport: { icon: <FileUp className="h-3 w-3" />, color: "bg-indigo-500", label: "Importado CSV" },
+  PixGerado: { icon: <DollarSign className="h-3 w-3" />, color: "bg-yellow-500", label: "Pix Gerado" },
+  CarrinhoAbandonado: { icon: <ShoppingCart className="h-3 w-3" />, color: "bg-amber-600", label: "Carrinho Abandonado" },
+  CompraAprovada: { icon: <DollarSign className="h-3 w-3" />, color: "bg-emerald-600", label: "Compra Aprovada" },
+  Reembolso: { icon: <RefreshCw className="h-3 w-3" />, color: "bg-red-500", label: "Reembolso" },
+  LeadNovo: { icon: <Users className="h-3 w-3" />, color: "bg-blue-400", label: "Lead Novo" },
 };
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];

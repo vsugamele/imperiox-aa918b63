@@ -352,6 +352,25 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
         )}
       </div>
 
+      {/* Pixel/Events KPIs */}
+      {eventKPIs.total > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "PageViews", value: eventKPIs.pageViews, icon: Globe, color: "text-blue-400" },
+            { label: "ViewContent", value: eventKPIs.viewContent, icon: Eye, color: "text-violet-400" },
+            { label: "AddToCart", value: eventKPIs.addToCart, icon: ShoppingCart, color: "text-amber-400" },
+            { label: "Lead Capture", value: eventKPIs.leadCapture, icon: Users, color: "text-emerald-400" },
+          ].map(k => (
+            <Card key={k.label} className="bg-card border-border">
+              <CardContent className="flex items-center gap-3 p-3">
+                <div className={`p-1.5 rounded-lg bg-secondary/50 ${k.color}`}><k.icon className="h-3.5 w-3.5" /></div>
+                <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k.label}</p><p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {kpis.map((k) => (
