@@ -104,6 +104,7 @@ export default function Funis() {
   const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
 
   const load = async () => {
     const [fRes, pRes] = await Promise.all([
