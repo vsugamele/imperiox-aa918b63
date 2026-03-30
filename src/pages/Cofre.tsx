@@ -240,6 +240,121 @@ export default function Cofre() {
         </div>
       )}
 
+      {/* ═══ API GUIDE SECTION ═══ */}
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" /> Guia da API — Império HQ
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Conecte IAs externas (Claude, GPT, n8n, Make) ao seu sistema. Use a API para criar tarefas, mover cards, gerenciar leads e mais.
+          </p>
+
+          {/* Base URL */}
+          <div>
+            <Label className="text-xs font-bold uppercase text-muted-foreground">URL Base</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <Input readOnly value="https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/imperio-api?action=..." className="font-mono text-xs bg-secondary" />
+              <Button size="sm" variant="outline" onClick={() => copyText("https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/imperio-api", "URL Base")}>
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+
+          {/* How to connect */}
+          <div>
+            <Label className="text-xs font-bold uppercase text-muted-foreground">Como conectar uma IA externa</Label>
+            <ol className="text-xs text-muted-foreground mt-2 space-y-1 list-decimal list-inside">
+              <li>Gere uma API Key acima no Cofre (categoria "dev")</li>
+              <li>Copie a URL base</li>
+              <li>Passe o header <code className="text-primary">x-api-key: SUA_CHAVE</code></li>
+              <li>Use <code className="text-primary">?action=NOME_DA_ACTION</code> na query string</li>
+            </ol>
+          </div>
+
+          {/* Endpoints table */}
+          <div>
+            <Label className="text-xs font-bold uppercase text-muted-foreground mb-2 block">Endpoints disponíveis</Label>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-secondary">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">Método</th>
+                    <th className="text-left px-3 py-2 font-semibold">Action</th>
+                    <th className="text-left px-3 py-2 font-semibold">Descrição</th>
+                    <th className="text-left px-3 py-2 font-semibold">Params</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {[
+                    ["GET", "list_projects", "Lista projetos", "—"],
+                    ["GET", "project_status", "Status do projeto + KPIs", "project_id"],
+                    ["GET", "export_context", "Exporta contexto completo (avatar, branding...)", "project_id"],
+                    ["GET", "list_columns", "Colunas do kanban", "board"],
+                    ["GET", "list_cards", "Lista cards (filtros opcionais)", "board, column_id, project_id, priority"],
+                    ["GET", "get_card", "Detalhe de um card", "card_id"],
+                    ["GET", "list_leads", "Lista leads", "project_id, status, plataforma"],
+                    ["GET", "list_skills", "Skills cadastradas", "—"],
+                    ["GET", "get_skill", "Skill com system_prompt", "skill_id"],
+                    ["POST", "create_task", "Cria card no kanban", "title, board, priority, due_date, project_id"],
+                    ["POST", "create_lead", "Cria lead", "nome, email, phone, plataforma, project_id"],
+                    ["POST", "create_notification", "Cria notificação", "title, message, type, link"],
+                    ["PUT", "update_card", "Atualiza card", "card_id + campos"],
+                    ["PUT", "move_card", "Move card entre colunas", "card_id, column_id ou column_title+board"],
+                    ["PUT", "update_lead", "Atualiza lead", "lead_id + campos"],
+                    ["DELETE", "delete_card", "Deleta card", "card_id"],
+                  ].map(([method, act, desc, params], i) => (
+                    <tr key={i} className="hover:bg-secondary/30">
+                      <td className="px-3 py-1.5">
+                        <Badge variant="outline" className={`text-[9px] ${
+                          method === "GET" ? "text-emerald-400 border-emerald-400/30" :
+                          method === "POST" ? "text-blue-400 border-blue-400/30" :
+                          method === "PUT" ? "text-amber-400 border-amber-400/30" :
+                          "text-red-400 border-red-400/30"
+                        }`}>{method}</Badge>
+                      </td>
+                      <td className="px-3 py-1.5 font-mono text-primary">{act}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{desc}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground font-mono text-[10px]">{params}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Curl example */}
+          <div>
+            <Label className="text-xs font-bold uppercase text-muted-foreground">Exemplo curl</Label>
+            <pre className="mt-1 text-[11px] bg-secondary/50 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground/80 whitespace-pre-wrap">{`# Listar projetos
+curl -H "x-api-key: SUA_CHAVE" \\
+  "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/imperio-api?action=list_projects"
+
+# Criar tarefa
+curl -X POST -H "x-api-key: SUA_CHAVE" -H "Content-Type: application/json" \\
+  -d '{"title":"Revisar copy do lançamento","board":"humanas","priority":"high"}' \\
+  "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/imperio-api?action=create_task"
+
+# Mover card
+curl -X PUT -H "x-api-key: SUA_CHAVE" -H "Content-Type: application/json" \\
+  -d '{"card_id":"UUID","column_title":"done","board":"humanas"}' \\
+  "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/imperio-api?action=move_card"
+
+# Exportar contexto do projeto
+curl -H "x-api-key: SUA_CHAVE" \\
+  "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/imperio-api?action=export_context&project_id=UUID"`}
+            </pre>
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => {
+              copyText(`curl -H "x-api-key: SUA_CHAVE" "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/imperio-api?action=list_projects"`, "Exemplo");
+            }}>
+              <Copy className="h-3 w-3 mr-1" /> Copiar exemplo
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>

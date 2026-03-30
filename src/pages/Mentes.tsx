@@ -3,11 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { MENTES_DATA, MenteDNA } from "@/data/mentesData";
+import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import {
   Brain, Send, X, ChevronRight, Zap, Target, BarChart3,
-  MessageSquare, Dna, Lightbulb, BookOpen, ArrowLeft
+  MessageSquare, Dna, Lightbulb, BookOpen, ArrowLeft, Wrench
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -105,6 +107,14 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [kbSections, setKbSections] = useState<any[]>([]);
   const [contextChars, setContextChars] = useState(0);
+  const [activeSkills, setActiveSkills] = useState<Set<string>>(new Set());
+  const [customSkills, setCustomSkills] = useState<any[]>([]);
+
+  // Load custom skills from Supabase
+  useEffect(() => {
+    supabase.from("imphq_skills").select("id,nome,categoria,system_prompt,descricao")
+      .then(({ data }) => setCustomSkills(data || []));
+  }, []);
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id,name,produto,categoria,objetivo,avatar,contexto,data")
@@ -190,6 +200,33 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
         }
       }
     }
+
+    // ── SKILLS INJECTION ──
+    const allSkills: { id: string; nome: string; categoria: string; descricao: string; system_prompt: string }[] = [
+      ...SKILLS_DATA.map(s => ({ id: s.id, nome: s.nome, categoria: s.categoria, descricao: s.descricao, system_prompt: s.system_prompt })),
+      ...customSkills.filter(s => s.system_prompt),
+    ];
+
+    const activatedSkills = allSkills.filter(s => activeSkills.has(s.id));
+    if (activatedSkills.length > 0) {
+      sys += `\n\n═══════════════════════════════\nSKILLS ATIVADAS\n═══════════════════════════════\n`;
+      sys += `Você possui as seguintes habilidades especializadas ativadas. USE-AS quando a tarefa exigir:\n\n`;
+      for (const skill of activatedSkills) {
+        sys += `\n────── SKILL: ${skill.nome} (${skill.categoria}) ──────\n`;
+        sys += skill.system_prompt + "\n";
+      }
+    } else {
+      // Show available skills as summary
+      const relevantSkills = allSkills.slice(0, 8);
+      if (relevantSkills.length > 0) {
+        sys += `\n\n── SKILLS DISPONÍVEIS (não ativadas) ──\n`;
+        sys += `O usuário pode ativar as seguintes skills no painel lateral:\n`;
+        for (const s of relevantSkills) {
+          sys += `- ${s.nome} (${s.categoria}): ${s.descricao.slice(0, 120)}...\n`;
+        }
+      }
+    }
+
     sys += `\n\nResponda sempre em Português do Brasil com o exato tom e metodologia de ${mente.nome}.`;
     setContextChars(sys.length);
     return sys;
@@ -387,8 +424,8 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
           {/* ── CHAT TAB ── */}
           {tab === "chat" && (
             <div className="flex flex-col h-full" style={{ height: "calc(100vh - 140px)" }}>
-              {/* Project selector */}
-              <div className="px-4 py-2 border-b border-border bg-secondary/20 shrink-0">
+              {/* Project selector + Skills panel */}
+              <div className="px-4 py-2 border-b border-border bg-secondary/20 shrink-0 space-y-2">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Projeto:</span>
                   <select
@@ -402,18 +439,55 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
                     ))}
                   </select>
                   {selectedProject !== "none" && (
-                    <>
-                      <Badge variant="outline" className="text-[9px] text-green-400 border-green-400/30">
-                        Contexto ativo
-                      </Badge>
-                      {contextChars > 0 && (
-                        <Badge variant="outline" className="text-[9px] text-amber-400 border-amber-400/30">
-                          {(contextChars / 1000).toFixed(1)}K chars
-                        </Badge>
-                      )}
-                    </>
+                    <Badge variant="outline" className="text-[9px] text-green-400 border-green-400/30">
+                      Contexto ativo
+                    </Badge>
+                  )}
+                  {contextChars > 0 && (
+                    <Badge variant="outline" className="text-[9px] text-amber-400 border-amber-400/30">
+                      {(contextChars / 1000).toFixed(1)}K chars
+                    </Badge>
+                  )}
+                  {activeSkills.size > 0 && (
+                    <Badge variant="outline" className="text-[9px] text-purple-400 border-purple-400/30">
+                      <Wrench className="h-2.5 w-2.5 mr-1" />{activeSkills.size} skills
+                    </Badge>
                   )}
                 </div>
+
+                {/* Skills checklist - collapsible */}
+                <details className="group">
+                  <summary className="flex items-center gap-1.5 cursor-pointer text-[10px] text-muted-foreground font-semibold uppercase tracking-wider hover:text-foreground transition-colors">
+                    <Wrench className="h-3 w-3" /> Skills ({SKILLS_DATA.length + customSkills.length} disponíveis · {activeSkills.size} ativas)
+                  </summary>
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    {[...SKILLS_DATA, ...customSkills.filter(s => s.system_prompt)].map((skill: any) => (
+                      <label
+                        key={skill.id}
+                        className={`flex items-center gap-1.5 rounded-md border px-2 py-1 cursor-pointer text-[10px] transition-colors ${
+                          activeSkills.has(skill.id)
+                            ? "border-purple-500/40 bg-purple-500/10 text-purple-300"
+                            : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={activeSkills.has(skill.id)}
+                          onCheckedChange={(checked) => {
+                            setActiveSkills(prev => {
+                              const next = new Set(prev);
+                              if (checked) next.add(skill.id);
+                              else next.delete(skill.id);
+                              return next;
+                            });
+                          }}
+                          className="h-3 w-3"
+                        />
+                        <span className="mr-0.5">{skill.icone || "⚙️"}</span>
+                        <span className="truncate">{skill.nome}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
               </div>
 
               {/* Messages */}
