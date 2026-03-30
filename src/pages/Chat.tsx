@@ -183,6 +183,8 @@ export default function Chat() {
       user_id: user.id, content, message_type: messageType, metadata, project_id: activeProject,
     });
 
+    // Refetch imediato como fallback do Realtime
+    await loadMessages();
     setSending(false);
   }
 
