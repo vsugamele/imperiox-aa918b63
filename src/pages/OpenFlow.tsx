@@ -19,6 +19,8 @@ const TRIGGERS = [
   { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅", color: "border-l-emerald-500" },
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500" },
   { value: "reembolso", label: "Reembolso", icon: "↩️", color: "border-l-red-500" },
+  { value: "aguardando_pagamento", label: "Aguardando Pagamento / Pix", icon: "💰", color: "border-l-yellow-500" },
+  { value: "inicio_checkout", label: "Início de Checkout", icon: "🛍️", color: "border-l-purple-500" },
 ];
 
 const ACAO_TIPOS = [
