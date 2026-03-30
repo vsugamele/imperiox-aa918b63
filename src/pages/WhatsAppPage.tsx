@@ -46,14 +46,16 @@ export default function WhatsApp() {
   const [activeTab, setActiveTab] = useState<"sessoes" | "templates">("sessoes");
 
   const load = async () => {
-    const [sRes, pRes, provRes] = await Promise.all([
+    const [sRes, pRes, provRes, tRes] = await Promise.all([
       supabase.from("imphq_wa_conversations").select("*").order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
+      supabase.from("imphq_wa_templates").select("*").order("created_at", { ascending: false }),
     ]);
     setSessions(sRes.data as any[] || []);
     setProjects(pRes.data || []);
     setProviders(provRes.data as any[] || []);
+    setTemplates((tRes.data as any[]) || []);
   };
 
   useEffect(() => { load(); }, []);
