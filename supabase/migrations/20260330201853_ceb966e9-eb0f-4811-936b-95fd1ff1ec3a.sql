@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_chat_messages REPLICA IDENTITY FULL;
