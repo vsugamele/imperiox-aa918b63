@@ -102,10 +102,26 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
+  const [competitors, setCompetitors] = useState<any[]>([]);
+  const [kbSections, setKbSections] = useState<any[]>([]);
+  const [contextChars, setContextChars] = useState(0);
+
   useEffect(() => {
-    supabase.from("imphq_projects").select("id,name,produto,categoria,objetivo,avatar,contexto")
+    supabase.from("imphq_projects").select("id,name,produto,categoria,objetivo,avatar,contexto,data")
       .order("name").then(({ data }) => setProjects(data || []));
   }, []);
+
+  // Load competitors & KB when project changes
+  useEffect(() => {
+    if (selectedProject === "none") { setCompetitors([]); setKbSections([]); return; }
+    Promise.all([
+      supabase.from("imphq_competitors").select("nome,ponto_forte,escala_score").eq("project_id", selectedProject).limit(5),
+      supabase.from("imphq_kb").select("title,content").or(`project_id.eq.${selectedProject},project_id.is.null`).limit(10),
+    ]).then(([cRes, kRes]) => {
+      setCompetitors(cRes.data || []);
+      setKbSections(kRes.data || []);
+    });
+  }, [selectedProject]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
