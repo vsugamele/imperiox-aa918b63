@@ -22217,6 +22217,166 @@ export type Database = {
         }
         Relationships: []
       }
+      zap_broadcast_logs: {
+        Row: {
+          broadcast_name: string | null
+          campaign_id: string | null
+          group_id: string | null
+          id: string
+          message: string
+          recipients_count: number | null
+          sent_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          broadcast_name?: string | null
+          campaign_id?: string | null
+          group_id?: string | null
+          id?: string
+          message: string
+          recipients_count?: number | null
+          sent_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          broadcast_name?: string | null
+          campaign_id?: string | null
+          group_id?: string | null
+          id?: string
+          message?: string
+          recipients_count?: number | null
+          sent_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_broadcast_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "zap_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_broadcast_logs_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "zap_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_broadcast_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_broadcast_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_broadcast_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_broadcast_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_broadcast_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_campaign_groups: {
+        Row: {
+          added_at: string
+          campaign_id: string
+          group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          campaign_id: string
+          group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          campaign_id?: string
+          group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_campaign_groups_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "zap_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_campaign_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "zap_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_campaign_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_campaign_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_campaign_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_campaign_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_campaign_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zap_campaigns: {
         Row: {
           created_at: string
