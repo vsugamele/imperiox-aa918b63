@@ -247,6 +247,91 @@ export default function WhatsApp() {
         </Card>
       )}
 
+      {/* Tab switcher */}
+      <div className="flex items-center gap-2 border-b border-border">
+        <button onClick={() => setActiveTab("sessoes")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "sessoes" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <MessageSquare className="h-3.5 w-3.5 inline mr-1.5" />Sessões
+        </button>
+        <button onClick={() => setActiveTab("templates")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "templates" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <FileText className="h-3.5 w-3.5 inline mr-1.5" />Templates ({templates.length})
+        </button>
+      </div>
+
+      {activeTab === "templates" && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingTemplate(null); setTplForm({ nome: "", conteudo: "", categoria: "geral", project_id: "" }); setShowTemplateForm(true); }}>
+              <Plus className="h-4 w-4 mr-1" /> Novo Template
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {templates.map(t => (
+              <Card key={t.id} className="bg-card border-border">
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-sm">{t.nome}</h3>
+                    <Badge variant="outline" className="text-[9px]">{t.categoria}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{t.conteudo}</p>
+                  {t.project_id && <p className="text-[10px] text-muted-foreground">{projectName(t.project_id)}</p>}
+                  <div className="flex gap-1 pt-1">
+                    <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => {
+                      setEditingTemplate(t);
+                      setTplForm({ nome: t.nome, conteudo: t.conteudo, categoria: t.categoria, project_id: t.project_id || "" });
+                      setShowTemplateForm(true);
+                    }}><Edit className="h-3 w-3 mr-1" /> Editar</Button>
+                    <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive" onClick={() => deleteTemplate(t.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {templates.length === 0 && <p className="text-sm text-muted-foreground">Nenhum template criado</p>}
+          </div>
+
+          {/* Template Form Dialog */}
+          <Dialog open={showTemplateForm} onOpenChange={setShowTemplateForm}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>{editingTemplate ? "Editar Template" : "Novo Template"}</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div><Label>Nome</Label><Input value={tplForm.nome} onChange={e => setTplForm({ ...tplForm, nome: e.target.value })} placeholder="Ex: Boas-vindas" /></div>
+                <div>
+                  <Label>Conteúdo</Label>
+                  <Textarea value={tplForm.conteudo} onChange={e => setTplForm({ ...tplForm, conteudo: e.target.value })} rows={4} placeholder="Olá {{nome}}, tudo bem?" />
+                  <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {"{{nome}}"}, {"{{telefone}}"}, {"{{produto}}"}</p>
+                </div>
+                <div>
+                  <Label>Categoria</Label>
+                  <Select value={tplForm.categoria} onValueChange={v => setTplForm({ ...tplForm, categoria: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="geral">Geral</SelectItem>
+                      <SelectItem value="boas-vindas">Boas-vindas</SelectItem>
+                      <SelectItem value="follow-up">Follow-up</SelectItem>
+                      <SelectItem value="vendas">Vendas</SelectItem>
+                      <SelectItem value="suporte">Suporte</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Projeto (opcional)</Label>
+                  <Select value={tplForm.project_id || "none"} onValueChange={v => setTplForm({ ...tplForm, project_id: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter><Button onClick={saveTemplate}>{editingTemplate ? "Salvar" : "Criar"}</Button></DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+
+      {activeTab === "sessoes" && (<>
       <div className="flex items-center gap-3">
         <Select value={filterProject} onValueChange={setFilterProject}>
           <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
