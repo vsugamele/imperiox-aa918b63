@@ -732,6 +732,33 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog Analisar Comportamento */}
+      <Dialog open={behaviorDialog.open} onOpenChange={(open) => !open && setBehaviorDialog(prev => ({ ...prev, open: false }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">📊 Análise de Comportamento</DialogTitle>
+          </DialogHeader>
+          {behaviorDialog.loading ? (
+            <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : behaviorDialog.results.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Eventos coletados via imptrack.js para as URLs deste produto:</p>
+              {behaviorDialog.results.map((r: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between p-2 rounded bg-secondary/50 border border-border">
+                  <span className="text-xs font-medium">{r.event_type}</span>
+                  <Badge variant="secondary" className="text-xs">{r.count}x</Badge>
+                </div>
+              ))}
+              <p className="text-[10px] text-muted-foreground mt-2">
+                Dica: Use o Clarity ID do produto para heatmaps detalhados. Os dados acima vêm do pixel imptrack.js.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum evento encontrado. Verifique se o imptrack.js está instalado nas páginas do produto.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
