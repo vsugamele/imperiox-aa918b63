@@ -200,6 +200,33 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
         }
       }
     }
+
+    // ── SKILLS INJECTION ──
+    const allSkills: { id: string; nome: string; categoria: string; descricao: string; system_prompt: string }[] = [
+      ...SKILLS_DATA.map(s => ({ id: s.id, nome: s.nome, categoria: s.categoria, descricao: s.descricao, system_prompt: s.system_prompt })),
+      ...customSkills.filter(s => s.system_prompt),
+    ];
+
+    const activatedSkills = allSkills.filter(s => activeSkills.has(s.id));
+    if (activatedSkills.length > 0) {
+      sys += `\n\n═══════════════════════════════\nSKILLS ATIVADAS\n═══════════════════════════════\n`;
+      sys += `Você possui as seguintes habilidades especializadas ativadas. USE-AS quando a tarefa exigir:\n\n`;
+      for (const skill of activatedSkills) {
+        sys += `\n────── SKILL: ${skill.nome} (${skill.categoria}) ──────\n`;
+        sys += skill.system_prompt + "\n";
+      }
+    } else {
+      // Show available skills as summary
+      const relevantSkills = allSkills.slice(0, 8);
+      if (relevantSkills.length > 0) {
+        sys += `\n\n── SKILLS DISPONÍVEIS (não ativadas) ──\n`;
+        sys += `O usuário pode ativar as seguintes skills no painel lateral:\n`;
+        for (const s of relevantSkills) {
+          sys += `- ${s.nome} (${s.categoria}): ${s.descricao.slice(0, 120)}...\n`;
+        }
+      }
+    }
+
     sys += `\n\nResponda sempre em Português do Brasil com o exato tom e metodologia de ${mente.nome}.`;
     setContextChars(sys.length);
     return sys;
