@@ -6451,6 +6451,24 @@ export type Database = {
         }
         Relationships: []
       }
+      diri_site_stats: {
+        Row: {
+          id: string
+          total_visits: number
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       diri_videos: {
         Row: {
           category_id: string | null
@@ -22290,6 +22308,7 @@ export type Database = {
         Args: { banner_id: string }
         Returns: undefined
       }
+      diri_increment_site_visits: { Args: never; Returns: undefined }
       diri_increment_views: { Args: { post_id: string }; Returns: undefined }
       generate_nutrition_insights: {
         Args: { p_days_to_analyze?: number; p_user_id: string }
