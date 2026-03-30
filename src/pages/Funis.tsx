@@ -132,6 +132,28 @@ export default function Funis() {
     }
   }, [selectedFunil?.project_id, projects]);
 
+  // Load pixel data for funnel project
+  useEffect(() => {
+    if (!selectedFunil?.project_id || !usePixelData) { setPixelMetrics({}); return; }
+    const fetchPixel = async () => {
+      const { data } = await supabase
+        .from("imphq_events")
+        .select("page_url, event_name")
+        .eq("project_id", selectedFunil.project_id!);
+      if (!data) return;
+      const metrics: Record<string, { pageviews: number; conversions: number }> = {};
+      for (const ev of data) {
+        const url = (ev.page_url || "").replace(/\/$/, "").toLowerCase();
+        if (!url) continue;
+        if (!metrics[url]) metrics[url] = { pageviews: 0, conversions: 0 };
+        if (ev.event_name === "PageView") metrics[url].pageviews++;
+        else metrics[url].conversions++;
+      }
+      setPixelMetrics(metrics);
+    };
+    fetchPixel();
+  }, [selectedFunil?.project_id, usePixelData]);
+
   const filtered = funis.filter(f => {
     if (filterProject !== "all" && f.project_id !== filterProject) return false;
     if (searchQuery.trim()) {
