@@ -135,14 +135,63 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
         sys += `\n\n═══════════════════════════════\nCONTEXTO DO PROJETO\n═══════════════════════════════\n`;
         sys += `Projeto: ${proj.name}\nProduto: ${proj.produto || "—"}\nCategoria: ${proj.categoria || "—"}\n`;
         sys += `Objetivo: ${proj.objetivo || "—"}\nContexto: ${proj.contexto || "—"}\n`;
+
+        // Avatar completo
         const av = proj.avatar as any;
-        if (av?.desejo_externo) sys += `\nDesejo do Avatar: ${av.desejo_externo}`;
-        if (av?.dores_superficiais?.length) {
-          sys += `\nDores: ${(av.dores_superficiais as string[]).slice(0, 3).join(", ")}`;
+        if (av) {
+          sys += `\n── AVATAR ──\n`;
+          if (av.desejo_externo) sys += `Desejo externo: ${av.desejo_externo}\n`;
+          if (av.desejo_interno) sys += `Desejo interno: ${av.desejo_interno}\n`;
+          if (av.dores_superficiais?.length) sys += `Dores superficiais: ${av.dores_superficiais.join(", ")}\n`;
+          if (av.dores_profundas?.length) sys += `Dores profundas: ${av.dores_profundas.join(", ")}\n`;
+          if (av.problemas?.length) sys += `Problemas: ${av.problemas.join(", ")}\n`;
+          if (av.gatilhos?.length) sys += `Gatilhos: ${av.gatilhos.join(", ")}\n`;
+          if (av.voyerismos?.length) sys += `Voyerismos: ${av.voyerismos.join(", ")}\n`;
+          if (av.perfil) sys += `Perfil: ${JSON.stringify(av.perfil)}\n`;
+        }
+
+        // Briefing / Branding / Copy Arsenal / KPIs from data JSONB
+        const d = proj.data as any;
+        if (d) {
+          if (d.branding) {
+            sys += `\n── BRANDING ──\n`;
+            if (d.branding.tom_de_voz) sys += `Tom de voz: ${d.branding.tom_de_voz}\n`;
+            if (d.branding.arquetipo) sys += `Arquétipo: ${d.branding.arquetipo}\n`;
+            if (d.branding.paleta) sys += `Paleta: ${JSON.stringify(d.branding.paleta)}\n`;
+            if (d.branding.posicionamento) sys += `Posicionamento: ${d.branding.posicionamento}\n`;
+            if (d.branding.manifesto) sys += `Manifesto: ${d.branding.manifesto}\n`;
+          }
+          if (d.copy_arsenal) {
+            sys += `\n── COPY ARSENAL ──\n`;
+            const blocks = ["promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo", "hora_do_show"];
+            for (const b of blocks) {
+              if (d.copy_arsenal[b]?.length) sys += `${b}: ${d.copy_arsenal[b].join(" | ")}\n`;
+            }
+          }
+          if (d.kpis) {
+            sys += `\n── KPIs ──\n${JSON.stringify(d.kpis)}\n`;
+          }
+        }
+
+        // Concorrentes
+        if (competitors.length > 0) {
+          sys += `\n── CONCORRENTES ──\n`;
+          for (const c of competitors) {
+            sys += `- ${c.nome} (escala: ${c.escala_score || "?"}) — ${c.ponto_forte || ""}\n`;
+          }
+        }
+
+        // KB
+        if (kbSections.length > 0) {
+          sys += `\n── KNOWLEDGE BASE ──\n`;
+          for (const kb of kbSections.slice(0, 5)) {
+            sys += `[${kb.title}]: ${(kb.content || "").slice(0, 500)}\n`;
+          }
         }
       }
     }
     sys += `\n\nResponda sempre em Português do Brasil com o exato tom e metodologia de ${mente.nome}.`;
+    setContextChars(sys.length);
     return sys;
   };
 
