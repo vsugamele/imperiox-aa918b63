@@ -1,64 +1,39 @@
 
 
-# Diagnóstico: O que as imagens mostram vs o que temos
+# Plano: Botão "Copiar parâmetros para Facebook Ads" no Tracker
 
-## Imagens 1 e 2 — Mapa de Ecossistema / Escada de Valor
+## Problema
 
-Mostram uma visão estratégica de **clusters de produtos** organizados por nível (Aquisição → Ascensão → Core → Premium), com:
-- Cards por produto com **nome, preço, plataforma** (Eduzz, Kiwify, Hotmart), descrição e insight estratégico
-- **Setas/conexões** entre produtos mostrando o fluxo do cliente
-- **Agrupamento em clusters** (Cluster 01: entrada, Cluster 02: upsells, Cluster 03: core/premium)
-- Badges de tipo (BUNDLE, PRODUTO NUCLEAR, 5 VERSOES)
+O usuário quer copiar rapidamente a string completa de parâmetros UTM (com macros do Facebook) para colar no campo "URL Parameters" do Facebook Ads Manager — sem precisar montar manualmente.
 
-**No nosso sistema**: O módulo Funis já tem canvas visual com drag, setas e tipos de etapa, mas é focado em **etapas de um funil individual** (anúncio → opt-in → VSL → checkout). Falta a visão macro de **ecossistema de produtos** — onde cada card é um produto/oferta e as conexões mostram a escada de valor.
+A imagem mostra o formato esperado:
+```
+utm_source=FB&utm_medium={{adset.name}}%7C{{adset.id}}&utm_campaign={{campaign.name}}%7C{{campaign.id}}&utm_content={{ad.name}}%7C{{ad.id}}&utm_term={{placement}}&xcod=...
+```
 
-## Imagem 3 — Centro de Comando por Projeto
+## Solução
 
-Mostra um dashboard operacional focado em um projeto com:
-- Header com **projeto, fase, complexidade, última atualização**
-- Barra de progresso de tarefas (8/8 = 100%)
-- **KPIs do dia**: leads hoje, agendados, atendidos, voicemail, pendentes
-- Tabela de **últimos leads** com nome, telefone, região, status, horário
-- **Fila de clientes** lateral
-- **Kanban inline** (Fazendo, Revisão, Concluído) com cards de tarefas
+Adicionar na seção de "Prévia do parâmetro" (linha ~522 do `Tracker.tsx`) um botão **"📋 Copiar para Facebook Ads"** que gera apenas a query string (sem a URL de destino) no formato que o Facebook espera — com `%7C` (pipe encoded) separando nome e ID das macros, e incluindo um campo `xcod` para tracking avançado.
 
-**No nosso sistema**: Temos o `ProjetoDetalhe` com abas separadas (Briefing, Avatar, Finanças, etc.) mas não temos essa visão consolidada de "centro de comando" que mostra tudo de uma vez.
+### Mudanças em `src/pages/Tracker.tsx`
 
----
+1. **Nova função `buildFbAdsParams()`** que monta a string de parâmetros otimizada para Facebook Ads:
+   - `utm_source=FB`
+   - `utm_medium={{adset.name}}%7C{{adset.id}}`
+   - `utm_campaign={{campaign.name}}%7C{{campaign.id}}`
+   - `utm_content={{ad.name}}%7C{{ad.id}}`
+   - `utm_term={{placement}}`
+   - `xcod=` com hash de tracking concatenando macros (como na imagem)
 
-## Plano de Melhorias
+2. **Botão "Copiar para FB Ads"** ao lado do preview, que chama `navigator.clipboard.writeText()` com a string gerada.
 
-### 1. Mapa de Ecossistema de Produtos (nova view em Funis)
+3. **Seção "Prévia do parâmetro"** expandida: exibir a string formatada em bloco `break-all` para o usuário conferir antes de copiar.
 
-Adicionar um toggle/aba "Ecossistema" no módulo Funis que mostra uma visão macro:
-- Cada card representa um **produto** (não etapa de funil), puxado dos projetos (`briefing.produtos`)
-- Cards mostram: nome, preço, plataforma (badge), descrição curta, insight
-- Organizar em **clusters** arrastáveis (Aquisição, Ascensão, Core, Premium)
-- Setas entre produtos representando a escada de valor
-- Reutilizar o canvas engine existente (drag, zoom, pan, conexões)
-- Estilo visual dark com bordas vermelhas como nas imagens
+4. O botão só aparece quando a plataforma selecionada for "Meta Ads".
 
-**Arquivo**: `src/pages/Funis.tsx` — novo modo "ecossistema" ao lado do modo "funil individual"
-
-### 2. Centro de Comando por Projeto (nova aba em ProjetoDetalhe)
-
-Adicionar aba "🎯 Comando" no `ProjetoDetalhe` que consolida:
-- **Header**: fase do projeto, complexidade, última atualização, botão atualizar
-- **Barra de progresso**: total de tarefas do projeto (cards no Kanban vinculados) vs concluídas
-- **KPIs do dia**: leads capturados hoje, pix gerados, vendas, pendentes
-- **Tabela de últimos leads** do projeto (nome, email/tel, status, horário)
-- **Mini-Kanban inline**: colunas Fazendo/Revisão/Concluído com cards do projeto
-- Tudo em uma tela só, estilo painel operacional
-
-**Arquivos**: Criar `src/components/projeto/ProjetoComando.tsx`, registrar nova aba em `src/pages/ProjetoDetalhe.tsx`
-
----
-
-## Arquivos alterados/criados
+### Arquivo alterado
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Funis.tsx` | Toggle "Ecossistema" com visão macro de produtos por cluster, cards com preço/plataforma/insight, conexões de escada de valor |
-| `src/components/projeto/ProjetoComando.tsx` | Criar — Centro de Comando por projeto com KPIs do dia, leads recentes, barra de progresso, mini-kanban inline |
-| `src/pages/ProjetoDetalhe.tsx` | Registrar aba "Comando" |
+| `src/pages/Tracker.tsx` | Função `buildFbAdsParams()`, botão copiar, prévia expandida |
 
