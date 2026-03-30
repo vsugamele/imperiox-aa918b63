@@ -52,12 +52,13 @@ export function GlobalSearch() {
     if (!term || term.length < 2) { setResults([]); return; }
     const like = `%${term}%`;
 
-    const [projRes, taskRes, leadRes, docRes, funilRes] = await Promise.all([
+    const [projRes, taskRes, leadRes, docRes, funilRes, chatRes] = await Promise.all([
       supabase.from("imphq_projects").select("id, name, category").ilike("name", like).limit(5),
       supabase.from("imphq_kanban_cards").select("id, title, board").ilike("title", like).limit(5),
       supabase.from("imphq_leads").select("id, nome, email").or(`nome.ilike.${like},email.ilike.${like}`).limit(5),
       supabase.from("imphq_docs").select("id, title").ilike("title", like).limit(5),
       supabase.from("imphq_funis").select("id, nome").ilike("nome", like).limit(5),
+      supabase.from("imphq_chat_messages").select("id, content, message_type, created_at").ilike("content", like).limit(5),
     ]);
 
     const items: SearchResult[] = [
@@ -66,6 +67,7 @@ export function GlobalSearch() {
       ...(leadRes.data || []).map((l: any) => ({ id: l.id, title: l.nome || l.email, type: "lead" as const, url: "/leads", subtitle: l.email })),
       ...(docRes.data || []).map((d: any) => ({ id: d.id, title: d.title, type: "doc" as const, url: "/docs" })),
       ...(funilRes.data || []).map((f: any) => ({ id: f.id, title: f.nome, type: "funil" as const, url: "/funis" })),
+      ...(chatRes.data || []).map((c: any) => ({ id: c.id, title: c.content?.slice(0, 80), type: "doc" as const, url: "/chat", subtitle: "Mensagem do chat" })),
     ];
     setResults(items);
   }, []);

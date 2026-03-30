@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2 } from "lucide-react";
+import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -43,6 +43,8 @@ export default function Chat() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [showCommands, setShowCommands] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const [sending, setSending] = useState(false);
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -243,12 +245,33 @@ export default function Chat() {
               projeto
             </Badge>
           )}
+          <div className="ml-auto flex items-center gap-1">
+            {showSearch ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Buscar mensagens..."
+                  className="h-7 w-48 text-xs bg-secondary/50 border-none"
+                  autoFocus
+                />
+                <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setShowSearch(true)} className="text-muted-foreground hover:text-foreground">
+                <Search className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages
             .filter((m) => !activeProject || !m.project_id || m.project_id === activeProject)
+            .filter((m) => !searchQuery || m.content.toLowerCase().includes(searchQuery.toLowerCase()))
             .map((msg) => (
               <div key={msg.id} className="group flex gap-3 hover:bg-secondary/30 rounded-lg p-2 -mx-2 transition-colors">
                 <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">

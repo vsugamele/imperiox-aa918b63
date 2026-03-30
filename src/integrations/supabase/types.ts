@@ -10359,6 +10359,78 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_notifications: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          message: string | null
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          message?: string | null
+          read?: boolean | null
+          title: string
+          type?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          message?: string | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_project_costs: {
         Row: {
           categoria: string | null
@@ -11383,6 +11455,72 @@ export type Database = {
           twilio_from?: string | null
         }
         Relationships: []
+      }
+      imphq_wa_templates: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          id: string
+          name: string
+          project_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          name: string
+          project_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          project_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_webhooks: {
         Row: {
@@ -22051,6 +22189,182 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      zap_accounts: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          phone: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          phone: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          phone?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      zap_campaigns: {
+        Row: {
+          created_at: string
+          dispatches: number
+          groups_count: number
+          id: string
+          inbox: number
+          name: string
+          rate: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dispatches?: number
+          groups_count?: number
+          id?: string
+          inbox?: number
+          name: string
+          rate?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dispatches?: number
+          groups_count?: number
+          id?: string
+          inbox?: number
+          name?: string
+          rate?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      zap_groups: {
+        Row: {
+          account_id: string | null
+          capacity: number
+          created_at: string
+          entries: number
+          exits: number
+          id: string
+          members: number
+          name: string
+          relocated: number
+          removed: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          capacity?: number
+          created_at?: string
+          entries?: number
+          exits?: number
+          id?: string
+          members?: number
+          name: string
+          relocated?: number
+          removed?: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          capacity?: number
+          created_at?: string
+          entries?: number
+          exits?: number
+          id?: string
+          members?: number
+          name?: string
+          relocated?: number
+          removed?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_groups_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "zap_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_scheduled_broadcasts: {
+        Row: {
+          created_at: string
+          groups: string[] | null
+          id: string
+          message: string
+          name: string
+          scheduled_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          groups?: string[] | null
+          id?: string
+          message: string
+          name: string
+          scheduled_at: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          groups?: string[] | null
+          id?: string
+          message?: string
+          name?: string
+          scheduled_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      zap_webhooks: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          status: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          status?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
