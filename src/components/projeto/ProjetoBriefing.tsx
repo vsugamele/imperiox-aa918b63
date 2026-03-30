@@ -9,10 +9,12 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff, BarChart3, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { CopyArsenalSection } from "./CopyArsenalSection";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
@@ -103,8 +105,41 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   const pipelineNotes = data.pipeline_notes || {};
   const checklist = data.integrations_checklist || {};
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const [behaviorDialog, setBehaviorDialog] = useState<{ open: boolean; prodIndex: number; loading: boolean; results: any[] }>({ open: false, prodIndex: -1, loading: false, results: [] });
 
   const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const analyzeBehavior = async (prodIndex: number) => {
+    const prod = produtos[prodIndex];
+    const prodLinks = getProductLinks(prod);
+    if (prodLinks.length === 0) {
+      toast.error("Adicione pelo menos um link ao produto para analisar");
+      return;
+    }
+    setBehaviorDialog({ open: true, prodIndex, loading: true, results: [] });
+    try {
+      const urlFilters = prodLinks.filter((l: string) => l.trim()).map((l: string) => {
+        try { return new URL(l).pathname; } catch { return l; }
+      });
+      const { data: events } = await supabase
+        .from("imphq_events")
+        .select("event_type, page_url, created_at")
+        .eq("project_id", project.id)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      const filtered = (events || []).filter((e: any) =>
+        urlFilters.some((path: string) => e.page_url?.includes(path))
+      );
+      const grouped: Record<string, number> = {};
+      filtered.forEach((e: any) => { grouped[e.event_type] = (grouped[e.event_type] || 0) + 1; });
+      const results = Object.entries(grouped).map(([event_type, count]) => ({ event_type, count })).sort((a, b) => b.count - a.count);
+      setBehaviorDialog(prev => ({ ...prev, loading: false, results }));
+      if (results.length === 0) toast.info("Nenhum evento encontrado para as URLs deste produto");
+    } catch (err: any) {
+      toast.error("Erro ao buscar eventos: " + err.message);
+      setBehaviorDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   const updateField = (key: string, val: any) => onUpdateData({ ...data, [key]: val });
   const updateLink = (key: string, val: string) => onUpdateData({ ...data, links: { ...links, [key]: val } });
@@ -393,6 +428,17 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                       </Button>
                     </div>
                   ))}
+                </div>
+
+                {/* Clarity ID por produto + Analisar Comportamento */}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">🔍 Clarity ID (produto)</Label>
+                    <Input value={p.clarity_id || ""} onChange={(e) => updateProduto(i, "clarity_id", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="ID do Clarity para este produto" />
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 text-xs gap-1 shrink-0" onClick={() => analyzeBehavior(i)}>
+                    <BarChart3 className="h-3 w-3" /> Analisar Comportamento
+                  </Button>
                 </div>
 
                 <div className="space-y-2">
@@ -686,6 +732,33 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog Analisar Comportamento */}
+      <Dialog open={behaviorDialog.open} onOpenChange={(open) => !open && setBehaviorDialog(prev => ({ ...prev, open: false }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">📊 Análise de Comportamento</DialogTitle>
+          </DialogHeader>
+          {behaviorDialog.loading ? (
+            <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : behaviorDialog.results.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Eventos coletados via imptrack.js para as URLs deste produto:</p>
+              {behaviorDialog.results.map((r: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between p-2 rounded bg-secondary/50 border border-border">
+                  <span className="text-xs font-medium">{r.event_type}</span>
+                  <Badge variant="secondary" className="text-xs">{r.count}x</Badge>
+                </div>
+              ))}
+              <p className="text-[10px] text-muted-foreground mt-2">
+                Dica: Use o Clarity ID do produto para heatmaps detalhados. Os dados acima vêm do pixel imptrack.js.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum evento encontrado. Verifique se o imptrack.js está instalado nas páginas do produto.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

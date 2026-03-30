@@ -1,11 +1,13 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2, FileText } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+
+const PAGE_SIZE = 50;
 
 interface Message {
   id: string;
@@ -32,26 +34,72 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<WaTemplate[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
     supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
   }, []);
 
-  const loadMessages = async () => {
+  // Initial load: last PAGE_SIZE messages
+  const loadInitial = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_wa_messages")
       .select("*")
       .or(`conversation_id.eq.${conversationId},conversation_id.eq.${phone}`)
-      .order("created_at", { ascending: true });
-    setMessages((data as any[]) || []);
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE);
+    const sorted = ((data as any[]) || []).reverse();
+    setMessages(sorted);
+    setHasMore((data?.length || 0) >= PAGE_SIZE);
+    initialLoadDone.current = true;
+  }, [conversationId, phone]);
+
+  // Load older messages
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || messages.length === 0) return;
+    setLoadingMore(true);
+    const oldest = messages[0]?.created_at;
+    const { data } = await supabase
+      .from("imphq_wa_messages")
+      .select("*")
+      .or(`conversation_id.eq.${conversationId},conversation_id.eq.${phone}`)
+      .lt("created_at", oldest)
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE);
+    const older = ((data as any[]) || []).reverse();
+    setMessages(prev => [...older, ...prev]);
+    setHasMore((data?.length || 0) >= PAGE_SIZE);
+    setLoadingMore(false);
   };
 
+  // Poll for new messages only
+  const pollNew = useCallback(async () => {
+    if (!initialLoadDone.current) return;
+    const newest = messages[messages.length - 1]?.created_at;
+    if (!newest) return;
+    const { data } = await supabase
+      .from("imphq_wa_messages")
+      .select("*")
+      .or(`conversation_id.eq.${conversationId},conversation_id.eq.${phone}`)
+      .gt("created_at", newest)
+      .order("created_at", { ascending: true });
+    if (data && data.length > 0) {
+      setMessages(prev => [...prev, ...(data as any[])]);
+    }
+  }, [conversationId, phone, messages]);
+
   useEffect(() => {
-    loadMessages();
-    const interval = setInterval(loadMessages, 8000);
+    initialLoadDone.current = false;
+    loadInitial();
+  }, [conversationId, phone, loadInitial]);
+
+  useEffect(() => {
+    const interval = setInterval(pollNew, 8000);
     return () => clearInterval(interval);
-  }, [conversationId, phone]);
+  }, [pollNew]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -67,7 +115,7 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
       });
       if (error) throw error;
       setText("");
-      await loadMessages();
+      await pollNew();
       toast.success("Mensagem enviada!");
     } catch (err: any) {
       toast.error("Erro ao enviar: " + err.message);
@@ -80,6 +128,14 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
     <div className="flex flex-col h-[500px]">
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-3">
+          {hasMore && (
+            <div className="flex justify-center">
+              <Button size="sm" variant="ghost" className="text-xs gap-1" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronUp className="h-3 w-3" />}
+                Carregar anteriores
+              </Button>
+            </div>
+          )}
           {messages.map(m => (
             <div key={m.id} className={`flex ${m.direction === "outgoing" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
