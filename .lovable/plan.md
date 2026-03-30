@@ -1,46 +1,67 @@
 
 
-# Plano: Clarity por Produto, Clarity Autônomo, Chat WhatsApp com Paginação
-
-## 3 melhorias
+# Plano: 4 Correções e Melhorias
 
 ---
 
-### 1. Clarity por produto (não só por projeto)
+## 1. Bug Admin — Vinicius e Bruno não reconhecidos
 
-**Problema**: Hoje o `clarity_id` é um campo único no projeto. Se o projeto tem múltiplos produtos (ex: tripwire, core, premium), cada um com sua landing page, precisaria de um Clarity ID por produto/página.
+**Causa raiz**: O banco armazena role como `"Admin"` (maiúsculo), mas o código compara com `"admin"` (minúsculo).
 
-**Solução**: No campo de produtos dentro do Briefing (`ProjetoBriefing.tsx`), adicionar um campo `clarity_id` em cada item do array de produtos. O campo no nível do projeto continua como fallback/global. Assim cada produto pode ter seu próprio heatmap.
+- Bruno está com `role: "Admin"` no banco
+- Dashboard linha 197: `data?.role === "admin"` → falha
+- Tarefas linha 152: `memberData?.role === "admin"` → falha
 
-**Arquivo**: `src/components/projeto/ProjetoBriefing.tsx` — adicionar campo Clarity ID no form de cada produto
+**Fix**: Usar `.toLowerCase()` em todas as comparações de role:
+```ts
+const r = (data?.role || "").toLowerCase();
+setIsAdmin(r === "admin" || r === "owner");
+```
 
----
-
-### 2. Clarity com análise automática via IA
-
-**Problema**: Hoje o Clarity é só um link externo. O usuário quer que a IA analise os dados sem precisar abrir o dashboard manualmente.
-
-**Solução**: A API do Clarity não é pública para extração direta. Mas podemos fazer algo prático:
-- Adicionar um botão **"🤖 Analisar com IA"** ao lado do link do Clarity no Briefing
-- Ao clicar, abre um campo onde o usuário cola o resumo/screenshot/dados do Clarity
-- A IA (via Mentes) analisa e sugere melhorias na página
-- Alternativamente, se o usuário tiver o script `imptrack.js` coletando eventos em `imphq_events`, podemos analisar PageViews, scroll depth, cliques por URL — dados já disponíveis no banco
-
-**Arquivo**: `src/components/projeto/ProjetoBriefing.tsx` — botão "Analisar Comportamento" que puxa `imphq_events` filtrados pela URL do produto e gera insights
+**Arquivos**: `src/pages/Dashboard.tsx`, `src/pages/Tarefas.tsx`
 
 ---
 
-### 3. Chat WhatsApp — paginação de mensagens
+## 2. Chat sem atualização em tempo real
 
-**Problema**: O `ChatView.tsx` carrega **todas** as mensagens da conversa sem limite (`select("*")`). Com muitas mensagens isso fica lento e pesado.
+**Causa raiz**: A subscription Realtime está configurada (INSERT/DELETE em `imphq_chat_messages`), mas a tabela pode não ter **REPLICA IDENTITY FULL** habilitado para o canal, ou o Realtime não está ativo para essa tabela no Supabase Dashboard.
 
-**Solução**: Implementar paginação com "carregar mais":
-- Query inicial: últimas 50 mensagens (`.order("created_at", { ascending: false }).limit(50)`)
-- Reverter a ordem no frontend para exibir cronologicamente
-- Botão **"Carregar anteriores"** no topo do chat que busca mais 50
-- Manter o polling de 8s apenas para mensagens novas (`.gt("created_at", lastTimestamp)`)
+Porém, como fallback mais robusto, o chat deveria também ter **polling incremental** (a cada 5s) para garantir que mensagens apareçam mesmo se o Realtime falhar. Além disso, após enviar, fazer refetch imediato.
 
-**Arquivo**: `src/components/whatsapp/ChatView.tsx` — limit 50, botão carregar mais, polling incremental
+**Fix**:
+- Após `sendMessage()`, chamar `loadMessages()` imediatamente (fallback)
+- Adicionar polling a cada 5s como backup do Realtime
+- Verificar via migration se REPLICA IDENTITY FULL está configurado
+
+**Arquivo**: `src/pages/Chat.tsx`
+
+---
+
+## 3. Calendário maior e com mais dados
+
+**Problema**: O calendário é um widget pequeno (`w-fit`) com o componente Calendar padrão (cells de 36px). Só mostra dots de eventos, sem detalhes visuais.
+
+**Melhorias**:
+- Aumentar o tamanho do calendário para ocupar largura total em telas maiores
+- Dentro de cada célula do dia, mostrar **contagem de eventos** e **tarefas com due_date**
+- Layout: calendário no topo (full-width), lista de eventos embaixo
+- Mostrar resumo do dia selecionado: tarefas + eventos + rotinas pendentes
+- Adicionar cores diferentes por tipo de evento nas células
+
+**Arquivo**: `src/pages/Tarefas.tsx` — refatorar a aba "calendar"
+
+---
+
+## 4. Notificações via WhatsApp + PWA por usuário
+
+**Problema**: O `notify-scheduler` cria notificações no banco, mas não envia via WhatsApp nem push PWA. Notifica todos os usuários igualmente, sem considerar o responsável da tarefa.
+
+**Melhorias**:
+- Se o card tem `member_id`, notificar apenas o responsável (não todos)
+- Adicionar envio via WhatsApp: buscar telefone do membro em `imphq_team_members`, chamar `whatsapp-api` para enviar a notificação
+- Para PWA: o sistema já tem `Notification.permission` no `NotificationBell.tsx`. Expandir para que o `notify-scheduler` também grave um campo `channels: ['pwa', 'whatsapp']` para tracking
+
+**Arquivo**: `supabase/functions/notify-scheduler/index.ts`
 
 ---
 
@@ -48,6 +69,9 @@
 
 | Arquivo | Ação |
 |---|---|
-| `src/components/projeto/ProjetoBriefing.tsx` | Campo `clarity_id` por produto + botão "Analisar Comportamento" com dados de `imphq_events` |
-| `src/components/whatsapp/ChatView.tsx` | Paginação (limit 50), botão "Carregar anteriores", polling incremental |
+| `src/pages/Dashboard.tsx` | Fix: `.toLowerCase()` na comparação de role |
+| `src/pages/Tarefas.tsx` | Fix role + calendário maior com tarefas integradas |
+| `src/pages/Chat.tsx` | Refetch após envio + polling backup de 5s |
+| `supabase/functions/notify-scheduler/index.ts` | Notificar responsável, enviar via WhatsApp |
+| SQL migration | Garantir REPLICA IDENTITY FULL em `imphq_chat_messages` |
 
