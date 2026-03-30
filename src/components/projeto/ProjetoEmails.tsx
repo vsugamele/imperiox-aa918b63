@@ -56,6 +56,28 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
   const [sendingTest, setSendingTest] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(null);
 
+  const loadEmailHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const { data: events } = await supabase
+        .from("imphq_events")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("event_name", "email_sent")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setEmailHistory(events || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    loadEmailHistory();
+  }, [loadEmailHistory]);
+
   const updateConfig = useCallback((partial: Partial<EmailConfig>) => {
     const newConfig = { ...config, ...partial };
     onUpdateData({ ...(project.data || {}), email_config: newConfig });
