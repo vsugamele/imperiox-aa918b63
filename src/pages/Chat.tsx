@@ -57,13 +57,19 @@ export default function Chat() {
     const channel = supabase
       .channel("chat-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_chat_messages" }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as ChatMessage]);
+        setMessages((prev) => {
+          const exists = prev.some(m => m.id === (payload.new as ChatMessage).id);
+          return exists ? prev : [...prev, payload.new as ChatMessage];
+        });
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "imphq_chat_messages" }, (payload) => {
         setMessages((prev) => prev.filter(m => m.id !== (payload.old as any).id));
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Polling backup a cada 5s
+    const poll = setInterval(loadMessages, 5000);
+    return () => { supabase.removeChannel(channel); clearInterval(poll); };
   }, []);
 
   useEffect(() => {

@@ -149,7 +149,8 @@ export default function Tarefas() {
     let userIsAdmin = false;
     if (user) {
       const { data: memberData } = await supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle();
-      userIsAdmin = memberData?.role === "admin" || memberData?.role === "owner";
+      const r = (memberData?.role || "").toLowerCase();
+      userIsAdmin = r === "admin" || r === "owner";
     }
 
     const cardQuery = userIsAdmin
