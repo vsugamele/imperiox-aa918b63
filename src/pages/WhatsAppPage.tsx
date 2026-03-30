@@ -18,7 +18,7 @@ import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
 
 interface WaTemplate {
-  id: string; nome: string; conteudo: string; categoria: string; project_id: string | null;
+  id: string; name: string; content: string; category: string; project_id: string | null;
 }
 
 interface WaSession {
