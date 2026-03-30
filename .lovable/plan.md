@@ -1,65 +1,56 @@
 
 
-# Plano: PWA Instalável + Notificações Push Automáticas
+# Diagnóstico: O que as imagens mostram vs o que temos
 
-## Resumo
+## Imagens 1 e 2 — Mapa de Ecossistema / Escada de Valor
 
-Tornar o Imperio X instalável como app (PWA sem service worker — apenas manifest) e expandir o sistema de notificações para cobrir automaticamente: tarefas pendentes/atrasadas, novas tarefas criadas, rotinas diárias não completadas, vendas e leads.
+Mostram uma visão estratégica de **clusters de produtos** organizados por nível (Aquisição → Ascensão → Core → Premium), com:
+- Cards por produto com **nome, preço, plataforma** (Eduzz, Kiwify, Hotmart), descrição e insight estratégico
+- **Setas/conexões** entre produtos mostrando o fluxo do cliente
+- **Agrupamento em clusters** (Cluster 01: entrada, Cluster 02: upsells, Cluster 03: core/premium)
+- Badges de tipo (BUNDLE, PRODUTO NUCLEAR, 5 VERSOES)
 
----
+**No nosso sistema**: O módulo Funis já tem canvas visual com drag, setas e tipos de etapa, mas é focado em **etapas de um funil individual** (anúncio → opt-in → VSL → checkout). Falta a visão macro de **ecossistema de produtos** — onde cada card é um produto/oferta e as conexões mostram a escada de valor.
 
-## 1. PWA — App Instalável (sem service worker)
+## Imagem 3 — Centro de Comando por Projeto
 
-Como o app roda em preview iframe do Lovable, usar a abordagem simples: apenas `manifest.json` + meta tags. Sem `vite-plugin-pwa` nem service worker.
+Mostra um dashboard operacional focado em um projeto com:
+- Header com **projeto, fase, complexidade, última atualização**
+- Barra de progresso de tarefas (8/8 = 100%)
+- **KPIs do dia**: leads hoje, agendados, atendidos, voicemail, pendentes
+- Tabela de **últimos leads** com nome, telefone, região, status, horário
+- **Fila de clientes** lateral
+- **Kanban inline** (Fazendo, Revisão, Concluído) com cards de tarefas
 
-**Arquivos**:
-
-- `public/manifest.json` — criar com `name: "Imperio X"`, `short_name: "ImperioX"`, `display: "standalone"`, `theme_color`, `background_color`, ícones (192x192, 512x512)
-- `index.html` — adicionar `<link rel="manifest" href="/manifest.json">`, meta tags para mobile (`apple-mobile-web-app-capable`, `theme-color`)
-- `public/icon-192.png` e `public/icon-512.png` — ícones PWA (placeholder SVG convertido ou ícone genérico)
-
-**Resultado**: O app fica instalável via "Add to Home Screen" no mobile e desktop, sem problemas de cache no preview.
-
----
-
-## 2. Notificações Push via Browser (expandir NotificationBell)
-
-O `NotificationBell.tsx` já pede permissão de notificação do browser e envia push quando recebe INSERT via Realtime. O que falta é **gerar as notificações automaticamente** no backend.
+**No nosso sistema**: Temos o `ProjetoDetalhe` com abas separadas (Briefing, Avatar, Finanças, etc.) mas não temos essa visão consolidada de "centro de comando" que mostra tudo de uma vez.
 
 ---
 
-## 3. Edge Function `notify-scheduler` — Notificações automáticas
+## Plano de Melhorias
 
-Criar uma edge function que roda via `pg_cron` (a cada 30 min) e gera notificações em `imphq_notifications`:
+### 1. Mapa de Ecossistema de Produtos (nova view em Funis)
 
-| Tipo | Condição | Mensagem |
-|---|---|---|
-| `tarefa` | Cards com `due_date` = hoje e status != done | "Tarefa X vence hoje" |
-| `tarefa` | Cards com `due_date` < hoje e status != done | "Tarefa X está atrasada!" |
-| `tarefa` | Card criado nos últimos 30min (por outro user) | "Nova tarefa: X" |
-| `rotina` | Rotinas do dia sem check até 18h | "Rotina X ainda não foi completada" |
-| `venda` | Novo lead com `status = 'aprovado'` nos últimos 30min | "Nova venda: R$ X" |
-| `lead` | Novo lead capturado nos últimos 30min | "Novo lead: Nome" |
+Adicionar um toggle/aba "Ecossistema" no módulo Funis que mostra uma visão macro:
+- Cada card representa um **produto** (não etapa de funil), puxado dos projetos (`briefing.produtos`)
+- Cards mostram: nome, preço, plataforma (badge), descrição curta, insight
+- Organizar em **clusters** arrastáveis (Aquisição, Ascensão, Core, Premium)
+- Setas entre produtos representando a escada de valor
+- Reutilizar o canvas engine existente (drag, zoom, pan, conexões)
+- Estilo visual dark com bordas vermelhas como nas imagens
 
-A function consulta as tabelas relevantes, verifica o que já foi notificado (evita duplicatas via `entity_type + entity_id + type`), e insere em `imphq_notifications`. O Realtime já cuida de entregar ao browser.
+**Arquivo**: `src/pages/Funis.tsx` — novo modo "ecossistema" ao lado do modo "funil individual"
 
-**Arquivo**: `supabase/functions/notify-scheduler/index.ts`
+### 2. Centro de Comando por Projeto (nova aba em ProjetoDetalhe)
 
-**Cron**: Registrar via SQL insert (`cron.schedule`) para rodar a cada 30 minutos.
+Adicionar aba "🎯 Comando" no `ProjetoDetalhe` que consolida:
+- **Header**: fase do projeto, complexidade, última atualização, botão atualizar
+- **Barra de progresso**: total de tarefas do projeto (cards no Kanban vinculados) vs concluídas
+- **KPIs do dia**: leads capturados hoje, pix gerados, vendas, pendentes
+- **Tabela de últimos leads** do projeto (nome, email/tel, status, horário)
+- **Mini-Kanban inline**: colunas Fazendo/Revisão/Concluído com cards do projeto
+- Tudo em uma tela só, estilo painel operacional
 
----
-
-## 4. Notificação instantânea ao criar tarefa
-
-No `KanbanPage.tsx` e `Tarefas.tsx`, após inserir um card com sucesso, inserir também uma notificação em `imphq_notifications` para os membros do time (exceto o criador):
-
-```
-type: "tarefa", title: "Nova tarefa: {titulo}", entity_type: "card", entity_id: card.id
-```
-
-Isso garante notificação instantânea sem esperar o cron.
-
-**Arquivos**: `src/pages/KanbanPage.tsx`, `src/pages/Tarefas.tsx`
+**Arquivos**: Criar `src/components/projeto/ProjetoComando.tsx`, registrar nova aba em `src/pages/ProjetoDetalhe.tsx`
 
 ---
 
@@ -67,10 +58,7 @@ Isso garante notificação instantânea sem esperar o cron.
 
 | Arquivo | Ação |
 |---|---|
-| `public/manifest.json` | Criar — manifest PWA |
-| `index.html` | Meta tags PWA + link manifest |
-| `supabase/functions/notify-scheduler/index.ts` | Criar — cron de notificações automáticas |
-| `src/pages/KanbanPage.tsx` | Notificação instantânea ao criar card |
-| `src/pages/Tarefas.tsx` | Notificação instantânea ao criar tarefa |
-| SQL (insert, não migration) | Registrar cron job via `cron.schedule` |
+| `src/pages/Funis.tsx` | Toggle "Ecossistema" com visão macro de produtos por cluster, cards com preço/plataforma/insight, conexões de escada de valor |
+| `src/components/projeto/ProjetoComando.tsx` | Criar — Centro de Comando por projeto com KPIs do dia, leads recentes, barra de progresso, mini-kanban inline |
+| `src/pages/ProjetoDetalhe.tsx` | Registrar aba "Comando" |
 
