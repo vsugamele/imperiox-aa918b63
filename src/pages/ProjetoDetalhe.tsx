@@ -181,7 +181,7 @@ export default function ProjetoDetalhe() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="briefing">
+      <Tabs defaultValue="comando">
         <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="comando">🎯 Comando</TabsTrigger>
           <TabsTrigger value="briefing">📋 Briefing</TabsTrigger>
