@@ -35,7 +35,7 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.from("imphq_wa_templates").select("*").order("nome").then(({ data }) => setTemplates((data as any[]) || []));
+    supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
   }, []);
 
   const loadMessages = async () => {
