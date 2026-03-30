@@ -1,58 +1,109 @@
 
 
-# Plano: Kanban com Scope/Projeto, Fix Criar Tarefa, Templates no OpenFlow
+# Diagnóstico: O que precisamos melhorar no Imperio HQ
 
-## 3 problemas identificados
-
----
-
-### 1. Kanban -- falta seletor de scope (agente/humana/geral) e projeto no dialog de novo card + analytics
-
-**Problema**: O dialog "Novo Card" no Kanban (`KanbanPage.tsx` linhas 835-890) tem campos de título, descrição, prioridade, data, responsável e quadro (board), mas NÃO tem seletor de **projeto**. O campo "Quadro" já permite escolher entre agentes/humanas/criativos/campanhas, mas só aparece quando `activeBoard === "geral"`.
-
-**Solução**:
-- Adicionar estado `newProjectId` no KanbanPage (já existe `projects` carregado)
-- Adicionar Select de Projeto no dialog de novo card (sempre visível)
-- Incluir `project_id` no `createCard()`
-- Adicionar mini-analytics no topo do Kanban: cards por board, por prioridade, atrasados, concluídos (4 KPI cards compactos acima das tabs)
-
-**Arquivo**: `src/pages/KanbanPage.tsx`
+Após analisar todos os módulos, identifiquei melhorias organizadas por prioridade.
 
 ---
 
-### 2. Tarefas -- botão "Criar tarefa" / "Adicionar" não funciona
+## PRIORIDADE ALTA — Problemas que afetam uso diário
 
-**Problema**: O `addQuickTask()` (linha 374) encontra a primeira coluna de qualquer board e insere. O problema é que usa um loop `for (const board of boards)` que pega o primeiro board disponível, mas pode falhar se não encontrar a coluna ou se `boards` está vazio. Além disso, o botão "Adicionar" (linha 783) chama `addQuickTask` mas não há um botão separado "Criar tarefa" com dialog -- o usuário provavelmente quer um dialog mais completo como no Kanban.
+### 1. Dashboard precisa de mais inteligência
+- Hoje mostra KPIs básicos (projetos, tarefas, leads, custo mensal) mas falta:
+  - Gráfico de tendência de leads nos últimos 30 dias
+  - Funil de conversão consolidado (Lead → Pix → Compra)
+  - Alertas inteligentes ("3 leads geraram pix hoje e não compraram", "Campanha X com CTR abaixo de 1%")
+  - Widget de receita vs custo por período
+  - Resumo de automações executadas
 
-**Solução**:
-- Adicionar um botão "Criar Tarefa" que abre um dialog completo (como no Kanban) com: título, descrição, prioridade, projeto, responsável, board, data
-- Corrigir `addQuickTask` para usar o board filtrado ou "agentes" como fallback robusto
-- O dialog usa `columns` para encontrar a coluna correta do board selecionado
+### 2. Notificações em tempo real (global)
+- Não existe sistema de notificações na plataforma
+- O sino de notificações não aparece na sidebar/header
+- Deveria notificar: nova venda, lead gerou pix, tarefa atrasada, automação executada, novo lead capturado
+- Push via browser notification API + badge na sidebar
 
-**Arquivo**: `src/pages/Tarefas.tsx`
+### 3. Chat ainda com limitações
+- Não mostra nome do usuário nas mensagens (só user_id)
+- Falta busca de mensagens
+- Não tem reações/emojis
+- Não suporta anexos/imagens
+
+### 4. Busca Global (GlobalSearch) precisa ser mais útil
+- Deveria buscar em: projetos, leads, tarefas, docs, mensagens do chat
+- Atalho Cmd+K para abrir
 
 ---
 
-### 3. OpenFlow -- puxar templates dos projetos na automação
+## PRIORIDADE MÉDIA — Funcionalidades incompletas
 
-**Problema**: Ao editar uma automação no FlowEditor, o campo "Mensagem / Template" é um textarea livre. Não puxa templates já criados dentro dos projetos (emails, copy arsenal, etc).
+### 5. Funis precisa conectar com dados reais
+- O editor visual de funis é bom, mas visitantes e conversões são preenchidos manualmente
+- Deveria puxar dados de `imphq_events` (PageView, AddToCart) automaticamente por URL/etapa
+- Calcular taxa de conversão entre etapas em tempo real
 
-**Solução**:
-- No `OpenFlow.tsx`, quando o editing dialog abre e tem `project_id`, buscar dados do projeto (`data` JSONB) que contém templates de email, copy arsenal, etc.
-- No FlowEditor, adicionar um botão "📋 Usar Template" ao lado do textarea que abre um dropdown/select com templates disponíveis do projeto
-- Templates viriam de: `imphq_projects.data.emails[]`, `imphq_projects.data.copy_arsenal`, ou da tabela de automações do próprio projeto
-- Ao selecionar, preenche o textarea com o conteúdo do template
+### 6. WhatsApp precisa de mais automação
+- Hoje tem envio em massa e chat básico
+- Falta: templates de mensagem salvos, agendamento de envios, respostas automáticas baseadas em keywords
+- Integrar com OpenFlow (trigger "mensagem_recebida")
 
-**Arquivos**: `src/pages/OpenFlow.tsx`, `src/components/openflow/FlowEditor.tsx`
+### 7. Mentes IA — contexto do projeto não é carregado automaticamente
+- Quando o usuário abre uma Mente IA, deveria poder selecionar o projeto e carregar o contexto completo (briefing, avatar, concorrentes) automaticamente no prompt
+- Hoje o usuário precisa copiar/colar manualmente
+
+### 8. OpenFlow — falta execução real das automações
+- As automações são criadas visualmente mas não executam automaticamente
+- Precisaria de um "motor" que observa triggers (novo_lead, pix_gerado) e executa os steps
+- Pelo menos mostrar um log de execuções simuladas
+
+### 9. Financas — faltam gráficos comparativos
+- Não tem gráfico de Receita vs Custo ao longo do tempo
+- Falta comparativo mês a mês
+- Projeção de receita baseada em tendência
 
 ---
 
-## Arquivos alterados
+## PRIORIDADE BAIXA — Polish e UX
 
-| Arquivo | Ação |
-|---|---|
-| `src/pages/KanbanPage.tsx` | Adicionar seletor de projeto no dialog de novo card, mini-analytics no topo |
-| `src/pages/Tarefas.tsx` | Dialog completo "Criar Tarefa" com todos os campos, fix addQuickTask |
-| `src/pages/OpenFlow.tsx` | Buscar templates do projeto ao editar automação, passar para FlowEditor |
-| `src/components/openflow/FlowEditor.tsx` | Botão "Usar Template" no textarea de cada ação, receber templates via props |
+### 10. Mobile/Responsivo
+- A sidebar em mobile pode ter problemas
+- Tabelas grandes (Leads, Finanças) não são responsivas
+- Modais podem estourar em telas pequenas
+
+### 11. Onboarding para novos usuários
+- Não tem wizard de primeiro acesso
+- Poderia ter um tour guiado mostrando os módulos principais
+- Checklist de setup inicial (criar projeto → preencher briefing → configurar integrações)
+
+### 12. Cofre de senhas — criptografia
+- As senhas no Cofre são armazenadas no Supabase mas não há criptografia client-side
+- Deveria ter criptografia AES antes de salvar
+
+### 13. Docs/KB — editor mais rico
+- O editor de documentos é básico (textarea)
+- Poderia ter Markdown com preview ou editor WYSIWYG
+- Falta organização por pastas/categorias
+
+### 14. Equipe — permissões por módulo
+- Hoje todos os membros veem tudo
+- Falta sistema de permissões (admin, editor, viewer) por módulo
+
+### 15. Referências — organização
+- Falta categorização (por projeto, por tipo: landing page, email, criativo)
+- Falta anotações nas referências
+
+---
+
+## Sugestão de próximos passos (por impacto)
+
+| # | Melhoria | Impacto | Esforço |
+|---|---|---|---|
+| 1 | Dashboard inteligente com alertas e gráficos | Alto | Médio |
+| 2 | Sistema de notificações global | Alto | Médio |
+| 3 | Chat — nome do usuário + busca | Médio | Baixo |
+| 4 | Funis conectados com dados reais | Alto | Alto |
+| 5 | Mentes IA com contexto automático | Alto | Médio |
+| 6 | Mobile/responsivo | Médio | Médio |
+| 7 | Onboarding/wizard | Médio | Médio |
+
+Qual dessas frentes você quer atacar primeiro?
 
