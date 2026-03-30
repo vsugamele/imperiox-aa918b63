@@ -31,7 +31,12 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    supabase.from("imphq_wa_templates").select("*").order("nome").then(({ data }) => setTemplates((data as any[]) || []));
+  }, []);
 
   const loadMessages = async () => {
     const { data } = await supabase
