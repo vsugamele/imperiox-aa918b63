@@ -1,109 +1,72 @@
 
 
-# Diagnóstico: O que precisamos melhorar no Imperio HQ
+# Plano: Funis com Dados Reais, WhatsApp Automacao, Mentes IA com Contexto Completo
 
-Após analisar todos os módulos, identifiquei melhorias organizadas por prioridade.
-
----
-
-## PRIORIDADE ALTA — Problemas que afetam uso diário
-
-### 1. Dashboard precisa de mais inteligência
-- Hoje mostra KPIs básicos (projetos, tarefas, leads, custo mensal) mas falta:
-  - Gráfico de tendência de leads nos últimos 30 dias
-  - Funil de conversão consolidado (Lead → Pix → Compra)
-  - Alertas inteligentes ("3 leads geraram pix hoje e não compraram", "Campanha X com CTR abaixo de 1%")
-  - Widget de receita vs custo por período
-  - Resumo de automações executadas
-
-### 2. Notificações em tempo real (global)
-- Não existe sistema de notificações na plataforma
-- O sino de notificações não aparece na sidebar/header
-- Deveria notificar: nova venda, lead gerou pix, tarefa atrasada, automação executada, novo lead capturado
-- Push via browser notification API + badge na sidebar
-
-### 3. Chat ainda com limitações
-- Não mostra nome do usuário nas mensagens (só user_id)
-- Falta busca de mensagens
-- Não tem reações/emojis
-- Não suporta anexos/imagens
-
-### 4. Busca Global (GlobalSearch) precisa ser mais útil
-- Deveria buscar em: projetos, leads, tarefas, docs, mensagens do chat
-- Atalho Cmd+K para abrir
+## 3 frentes restantes
 
 ---
 
-## PRIORIDADE MÉDIA — Funcionalidades incompletas
+### 1. Funis com dados reais do Pixel (`imphq_events`)
 
-### 5. Funis precisa conectar com dados reais
-- O editor visual de funis é bom, mas visitantes e conversões são preenchidos manualmente
-- Deveria puxar dados de `imphq_events` (PageView, AddToCart) automaticamente por URL/etapa
-- Calcular taxa de conversão entre etapas em tempo real
+**Problema**: Os campos visitantes/conversoes em cada etapa do funil sao preenchidos manualmente. A tabela `imphq_events` ja recebe PageView, ViewContent, AddToCart, Lead via imptrack.js mas nao e consultada.
 
-### 6. WhatsApp precisa de mais automação
-- Hoje tem envio em massa e chat básico
-- Falta: templates de mensagem salvos, agendamento de envios, respostas automáticas baseadas em keywords
-- Integrar com OpenFlow (trigger "mensagem_recebida")
+**Solucao**: Quando um funil tem `project_id` e as etapas tem `url`, buscar automaticamente contagens de `imphq_events` agrupadas por `page_url` para popular visitantes e conversoes.
 
-### 7. Mentes IA — contexto do projeto não é carregado automaticamente
-- Quando o usuário abre uma Mente IA, deveria poder selecionar o projeto e carregar o contexto completo (briefing, avatar, concorrentes) automaticamente no prompt
-- Hoje o usuário precisa copiar/colar manualmente
+- Ao abrir o editor de funil, buscar `imphq_events` do projeto agrupado por `page_url` e `event_name`
+- Para cada etapa com `url` preenchida, calcular: visitantes = count(PageView para essa URL), conversoes = count(ViewContent ou AddToCart ou Lead)
+- Exibir badge "Dados reais" vs "Manual" em cada card
+- Adicionar toggle "Usar dados do Pixel" no header do editor
+- Taxas de conversao entre etapas calculadas automaticamente com os dados reais
 
-### 8. OpenFlow — falta execução real das automações
-- As automações são criadas visualmente mas não executam automaticamente
-- Precisaria de um "motor" que observa triggers (novo_lead, pix_gerado) e executa os steps
-- Pelo menos mostrar um log de execuções simuladas
-
-### 9. Financas — faltam gráficos comparativos
-- Não tem gráfico de Receita vs Custo ao longo do tempo
-- Falta comparativo mês a mês
-- Projeção de receita baseada em tendência
+**Arquivo**: `src/pages/Funis.tsx`
 
 ---
 
-## PRIORIDADE BAIXA — Polish e UX
+### 2. WhatsApp com templates salvos, agendamento e keywords
 
-### 10. Mobile/Responsivo
-- A sidebar em mobile pode ter problemas
-- Tabelas grandes (Leads, Finanças) não são responsivas
-- Modais podem estourar em telas pequenas
+**Problema**: Hoje o WhatsApp tem envio em massa e chat basico. Falta templates reutilizaveis, agendamento de envios e respostas automaticas por keyword.
 
-### 11. Onboarding para novos usuários
-- Não tem wizard de primeiro acesso
-- Poderia ter um tour guiado mostrando os módulos principais
-- Checklist de setup inicial (criar projeto → preencher briefing → configurar integrações)
+**Solucao**:
 
-### 12. Cofre de senhas — criptografia
-- As senhas no Cofre são armazenadas no Supabase mas não há criptografia client-side
-- Deveria ter criptografia AES antes de salvar
+- **Templates**: Nova aba "Templates" na pagina WhatsApp. CRUD de templates usando tabela `imphq_wa_templates` (ja criada na migration anterior). Campos: nome, conteudo (com variaveis {{nome}}, {{produto}}), categoria, project_id.
+- **Usar template no chat**: Botao "📋 Template" no ChatView para inserir template no campo de mensagem.
+- **Agendamento**: No BulkSendDialog, campo opcional "Agendar para" com date/time picker. Se preenchido, salva na tabela com status "agendado" em vez de enviar imediatamente.
+- **Keywords**: Lista simples de keyword → resposta automatica no provider config (armazenado no JSONB metadata do provider). Quando mensagem incoming contem keyword, sugere resposta.
 
-### 13. Docs/KB — editor mais rico
-- O editor de documentos é básico (textarea)
-- Poderia ter Markdown com preview ou editor WYSIWYG
-- Falta organização por pastas/categorias
-
-### 14. Equipe — permissões por módulo
-- Hoje todos os membros veem tudo
-- Falta sistema de permissões (admin, editor, viewer) por módulo
-
-### 15. Referências — organização
-- Falta categorização (por projeto, por tipo: landing page, email, criativo)
-- Falta anotações nas referências
+**Arquivos**: `src/pages/WhatsAppPage.tsx`, `src/components/whatsapp/ChatView.tsx`, `src/components/whatsapp/BulkSendDialog.tsx`
 
 ---
 
-## Sugestão de próximos passos (por impacto)
+### 3. Mentes IA com contexto automatico completo do projeto
 
-| # | Melhoria | Impacto | Esforço |
-|---|---|---|---|
-| 1 | Dashboard inteligente com alertas e gráficos | Alto | Médio |
-| 2 | Sistema de notificações global | Alto | Médio |
-| 3 | Chat — nome do usuário + busca | Médio | Baixo |
-| 4 | Funis conectados com dados reais | Alto | Alto |
-| 5 | Mentes IA com contexto automático | Alto | Médio |
-| 6 | Mobile/responsivo | Médio | Médio |
-| 7 | Onboarding/wizard | Médio | Médio |
+**Problema**: O `buildSystemPrompt()` hoje injeta apenas campos basicos (nome, produto, categoria, objetivo, contexto, desejo_externo, 3 dores). Falta: briefing completo, branding, concorrentes, copy arsenal, KPIs, emails.
 
-Qual dessas frentes você quer atacar primeiro?
+**Solucao**:
+
+- Expandir a query de projetos para incluir `data` (JSONB com briefing, branding, copy_arsenal, emails, kpis, integracoes)
+- Buscar concorrentes do projeto via `imphq_competitors` quando projeto selecionado
+- Buscar KB ativa via `imphq_kb` do projeto
+- Montar system prompt com secoes:
+  - BRIEFING (do data.briefing ou campos diretos)
+  - BRANDING (paleta, tom de voz, do data.branding)
+  - AVATAR COMPLETO (todas as dores, desejos, problemas, gatilhos do avatar JSONB)
+  - CONCORRENTES (top 3 nomes + diferenciais)
+  - COPY ARSENAL (headlines, ganchos do data.copy_arsenal)
+  - KPIs (metas do data.kpis)
+- Mostrar badge com contagem de caracteres injetados ("12.4K chars de contexto")
+- Exibir checklist visual mostrando quais dados do projeto estao disponiveis vs vazios
+
+**Arquivo**: `src/pages/Mentes.tsx`
+
+---
+
+## Arquivos alterados
+
+| Arquivo | Acao |
+|---|---|
+| `src/pages/Funis.tsx` | Buscar `imphq_events` por URL, popular metricas reais, toggle dados pixel |
+| `src/pages/WhatsAppPage.tsx` | Nova aba Templates, CRUD de templates |
+| `src/components/whatsapp/ChatView.tsx` | Botao "Usar Template" no input |
+| `src/components/whatsapp/BulkSendDialog.tsx` | Campo agendar, selecionar template |
+| `src/pages/Mentes.tsx` | Contexto expandido com briefing/branding/concorrentes/KB, badge de chars, checklist visual |
 
