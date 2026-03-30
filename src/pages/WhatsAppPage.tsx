@@ -181,24 +181,24 @@ export default function WhatsApp() {
   }
 
   const saveTemplate = async () => {
-    if (!tplForm.nome.trim() || !tplForm.conteudo.trim()) { toast.error("Nome e conteúdo obrigatórios"); return; }
+    if (!tplForm.name.trim() || !tplForm.content.trim()) { toast.error("Nome e conteúdo obrigatórios"); return; }
     if (editingTemplate) {
       const { error } = await supabase.from("imphq_wa_templates").update({
-        nome: tplForm.nome, conteudo: tplForm.conteudo, categoria: tplForm.categoria,
+        name: tplForm.name, content: tplForm.content, category: tplForm.category,
         project_id: tplForm.project_id || null,
       }).eq("id", editingTemplate.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Template atualizado!");
     } else {
       const { error } = await supabase.from("imphq_wa_templates").insert({
-        id: crypto.randomUUID(), nome: tplForm.nome, conteudo: tplForm.conteudo,
-        categoria: tplForm.categoria, project_id: tplForm.project_id || null,
+        name: tplForm.name, content: tplForm.content,
+        category: tplForm.category, project_id: tplForm.project_id || null,
       });
       if (error) { toast.error(error.message); return; }
       toast.success("Template criado!");
     }
     setShowTemplateForm(false); setEditingTemplate(null);
-    setTplForm({ nome: "", conteudo: "", categoria: "geral", project_id: "" });
+    setTplForm({ name: "", content: "", category: "geral", project_id: "" });
     load();
   };
 
