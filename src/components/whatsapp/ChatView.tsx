@@ -17,7 +17,7 @@ interface Message {
 }
 
 interface WaTemplate {
-  id: string; nome: string; conteudo: string; categoria: string; project_id: string | null;
+  id: string; name: string; content: string; category: string; project_id: string | null;
 }
 
 interface Props {
