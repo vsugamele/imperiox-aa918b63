@@ -22445,6 +22445,79 @@ export type Database = {
           },
         ]
       }
+      zap_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          project_id: string
+          tags: string[] | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+          project_id: string
+          tags?: string[] | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          project_id?: string
+          tags?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_contacts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zap_group_settings: {
         Row: {
           auto_create_when_full: boolean
@@ -22577,6 +22650,91 @@ export type Database = {
           },
         ]
       }
+      zap_private_broadcasts: {
+        Row: {
+          contact_ids: string[] | null
+          created_at: string
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message: string
+          name: string
+          project_id: string
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          contact_ids?: string[] | null
+          created_at?: string
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message: string
+          name: string
+          project_id: string
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          contact_ids?: string[] | null
+          created_at?: string
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message?: string
+          name?: string
+          project_id?: string
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_private_broadcasts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_private_broadcasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_private_broadcasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_private_broadcasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_private_broadcasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_private_broadcasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zap_projects: {
         Row: {
           created_at: string
@@ -22681,6 +22839,120 @@ export type Database = {
           },
         ]
       }
+      zap_sequence_steps: {
+        Row: {
+          created_at: string
+          delay_minutes: number
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message: string
+          sequence_id: string
+          step_order: number
+        }
+        Insert: {
+          created_at?: string
+          delay_minutes?: number
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message?: string
+          sequence_id: string
+          step_order?: number
+        }
+        Update: {
+          created_at?: string
+          delay_minutes?: number
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message?: string
+          sequence_id?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "zap_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_sequences: {
+        Row: {
+          created_at: string
+          group_ids: string[] | null
+          id: string
+          name: string
+          project_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_ids?: string[] | null
+          id?: string
+          name: string
+          project_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_ids?: string[] | null
+          id?: string
+          name?: string
+          project_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_sequences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_sequences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_sequences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_sequences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_sequences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_sequences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zap_webhooks: {
         Row: {
           created_at: string
@@ -22715,6 +22987,95 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_welcome_messages: {
+        Row: {
+          created_at: string
+          delay_seconds: number
+          enabled: boolean
+          group_id: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delay_seconds?: number
+          enabled?: boolean
+          group_id?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delay_seconds?: number
+          enabled?: boolean
+          group_id?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_welcome_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "zap_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_welcome_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_welcome_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_welcome_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_welcome_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_welcome_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_welcome_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
             referencedColumns: ["id"]
           },
         ]
