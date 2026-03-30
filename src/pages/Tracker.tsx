@@ -524,6 +524,39 @@ export default function Tracker() {
                 <span className="text-primary font-medium">Preview: </span>{buildUrl(form as any)}
               </div>
             )}
+
+            {/* Copiar parâmetros para Facebook Ads */}
+            {form.plataforma === "Meta Ads" && (
+              <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-blue-400">📋 Parâmetros para Facebook Ads Manager</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
+                    onClick={() => {
+                      const fbParams = [
+                        `utm_source=FB`,
+                        `utm_medium={{adset.name}}%7C{{adset.id}}`,
+                        `utm_campaign={{campaign.name}}%7C{{campaign.id}}`,
+                        `utm_content={{ad.name}}%7C{{ad.id}}`,
+                        `utm_term={{placement}}`,
+                        `xcod={{campaign.id}}%7C{{adset.id}}%7C{{ad.id}}%7C{{placement}}`,
+                      ].join("&");
+                      navigator.clipboard.writeText(fbParams);
+                      toast.success("Parâmetros FB Ads copiados!");
+                    }}
+                  >
+                    <Copy className="h-3 w-3 mr-1" /> Copiar para FB Ads
+                  </Button>
+                </div>
+                <div className="p-2 bg-secondary rounded text-[10px] font-mono text-muted-foreground break-all select-all">
+                  utm_source=FB&utm_medium={"{{adset.name}}%7C{{adset.id}}"}&utm_campaign={"{{campaign.name}}%7C{{campaign.id}}"}&utm_content={"{{ad.name}}%7C{{ad.id}}"}&utm_term={"{{placement}}"}&xcod={"{{campaign.id}}%7C{{adset.id}}%7C{{ad.id}}%7C{{placement}}"}
+                </div>
+                <p className="text-[10px] text-muted-foreground">Cole no campo <strong>URL Parameters</strong> do Facebook Ads Manager.</p>
+              </div>
+            )}
           </div>
           <DialogFooter><Button onClick={createLink}>Criar Link</Button></DialogFooter>
         </DialogContent>
