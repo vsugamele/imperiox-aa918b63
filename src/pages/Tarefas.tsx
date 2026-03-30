@@ -901,7 +901,7 @@ export default function Tarefas() {
                   DayContent: ({ date }) => {
                     const dateStr = format(date, "yyyy-MM-dd");
                     const dayEvents = filteredCalEvents.filter(e => toDateOnly(e.event_date) === dateStr);
-                    const dayTasks = cards.filter(c => toDateOnly(c.due_date) === dateStr && !doneColumnIds.has(c.column_id));
+                    const dayTasks = cards.filter(c => toDateOnly(c.due_date) === dateStr && !doneColumnIds.includes(c.column_id));
                     return (
                       <div className="flex flex-col items-center gap-0.5 w-full">
                         <span className="text-sm">{date.getDate()}</span>
