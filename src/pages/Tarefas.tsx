@@ -395,6 +395,18 @@ export default function Tarefas() {
       .single();
     if (error) { toast.error("Erro ao criar tarefa"); return; }
     setCards(prev => [...prev, data as any]);
+    // Notificação instantânea
+    if (data && user) {
+      const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
+      for (const m of otherUsers) {
+        if (m.user_id && m.user_id !== user.id) {
+          await supabase.from("imphq_notifications").insert({
+            user_id: m.user_id, title: `📝 Nova tarefa: ${newTask.trim()}`,
+            type: "tarefa", entity_type: "card", entity_id: (data as any).id,
+          });
+        }
+      }
+    }
     setNewTask("");
     toast.success("Tarefa adicionada ✅");
   };
