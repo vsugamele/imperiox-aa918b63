@@ -194,7 +194,8 @@ export default function Dashboard() {
 
     if (user) {
       supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle().then(({ data }) => {
-        setIsAdmin(data?.role === "admin" || data?.role === "owner");
+        const r = (data?.role || "").toLowerCase();
+        setIsAdmin(r === "admin" || r === "owner");
       });
     }
   }, [user]);

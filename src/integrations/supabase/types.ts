@@ -22609,6 +22609,9 @@ export type Database = {
           removed: number
           status: string
           user_id: string
+          whatsapp_id: string | null
+          whatsapp_size: number | null
+          whatsapp_subject: string | null
         }
         Insert: {
           account_id?: string | null
@@ -22624,6 +22627,9 @@ export type Database = {
           removed?: number
           status?: string
           user_id: string
+          whatsapp_id?: string | null
+          whatsapp_size?: number | null
+          whatsapp_subject?: string | null
         }
         Update: {
           account_id?: string | null
@@ -22639,6 +22645,9 @@ export type Database = {
           removed?: number
           status?: string
           user_id?: string
+          whatsapp_id?: string | null
+          whatsapp_size?: number | null
+          whatsapp_subject?: string | null
         }
         Relationships: [
           {
@@ -23073,6 +23082,91 @@ export type Database = {
           },
           {
             foreignKeyName: "zap_welcome_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_whatsapp_config: {
+        Row: {
+          created_at: string
+          evolution_api_key: string | null
+          evolution_api_url: string | null
+          id: string
+          instance_name: string | null
+          project_id: string
+          qrcode: string | null
+          qrcode_expires_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          id?: string
+          instance_name?: string | null
+          project_id: string
+          qrcode?: string | null
+          qrcode_expires_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          id?: string
+          instance_name?: string | null
+          project_id?: string
+          qrcode?: string | null
+          qrcode_expires_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_whatsapp_config_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_whatsapp_config_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_whatsapp_config_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_whatsapp_config_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_whatsapp_config_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_whatsapp_config_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
