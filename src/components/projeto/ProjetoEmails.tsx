@@ -32,8 +32,20 @@ interface Props {
 }
 
 export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
-  const config: EmailConfig = project.data?.email_config || {};
+  // Fallback: ler config do Briefing (data.checklist.resend) se email_config não tiver
+  const rawConfig: EmailConfig = project.data?.email_config || {};
+  const briefingResend = project.data?.checklist?.resend || {};
+  const config: EmailConfig = {
+    resend_api_key: rawConfig.resend_api_key || briefingResend.resend_api_key || "",
+    from_email: rawConfig.from_email || briefingResend.from_email || "",
+    from_name: rawConfig.from_name || briefingResend.from_name || "",
+    reply_to: rawConfig.reply_to || briefingResend.reply_to || "",
+    templates: rawConfig.templates || [],
+  };
   const templates = config.templates || [];
+
+  const [emailHistory, setEmailHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
