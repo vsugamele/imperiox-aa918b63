@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Pencil, Send, Eye, Mail, Settings } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Trash2, Pencil, Send, Eye, Mail, Settings, History, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 interface EmailTemplate {
   id: string;
@@ -32,8 +34,20 @@ interface Props {
 }
 
 export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
-  const config: EmailConfig = project.data?.email_config || {};
+  // Fallback: ler config do Briefing (data.checklist.resend) se email_config não tiver
+  const rawConfig: EmailConfig = project.data?.email_config || {};
+  const briefingResend = project.data?.checklist?.resend || {};
+  const config: EmailConfig = {
+    resend_api_key: rawConfig.resend_api_key || briefingResend.resend_api_key || "",
+    from_email: rawConfig.from_email || briefingResend.from_email || "",
+    from_name: rawConfig.from_name || briefingResend.from_name || "",
+    reply_to: rawConfig.reply_to || briefingResend.reply_to || "",
+    templates: rawConfig.templates || [],
+  };
   const templates = config.templates || [];
+
+  const [emailHistory, setEmailHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
@@ -41,6 +55,28 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
   const [testEmail, setTestEmail] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(null);
+
+  const loadEmailHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const { data: events } = await supabase
+        .from("imphq_events")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("event_name", "email_sent")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setEmailHistory(events || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    loadEmailHistory();
+  }, [loadEmailHistory]);
 
   const updateConfig = useCallback((partial: Partial<EmailConfig>) => {
     const newConfig = { ...config, ...partial };
@@ -274,6 +310,70 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Histórico de Envios */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
+              <History className="h-4 w-4" /> Histórico de Envios
+            </CardTitle>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={loadEmailHistory} disabled={loadingHistory}>
+              <RefreshCw className={`h-3 w-3 mr-1 ${loadingHistory ? "animate-spin" : ""}`} /> Atualizar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {emailHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhum email enviado ainda. Envie um email de teste para ver o histórico.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Destinatário</TableHead>
+                  <TableHead className="text-xs">Template</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Data/Hora</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {emailHistory.map((ev: any) => (
+                  <TableRow key={ev.id}>
+                    <TableCell className="text-xs">{ev.data?.to_email || "—"}</TableCell>
+                    <TableCell className="text-xs">{ev.data?.template_name || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={ev.data?.status === "sent" ? "default" : "destructive"} className={ev.data?.status === "sent" ? "bg-emerald-500/20 text-emerald-400 text-[10px]" : "text-[10px]"}>
+                        {ev.data?.status === "sent" ? "Enviado" : "Erro"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {ev.created_at ? format(new Date(ev.created_at), "dd/MM/yyyy HH:mm") : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          {/* Card informativo sobre webhooks Resend */}
+          <div className="mt-4 p-3 rounded-lg border border-border bg-secondary/30">
+            <p className="text-xs font-medium mb-1">📊 Rastrear aberturas e cliques</p>
+            <p className="text-[10px] text-muted-foreground mb-2">
+              Para rastrear aberturas (open), cliques e bounces, configure um webhook no painel do Resend apontando para a API do Imperio.
+            </p>
+            <a
+              href="https://resend.com/webhooks"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary flex items-center gap-1 hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" /> Configurar Webhooks no Resend
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

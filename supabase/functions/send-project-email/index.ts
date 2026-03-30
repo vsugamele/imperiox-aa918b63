@@ -38,8 +38,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const emailConfig = (project.data as any)?.email_config;
-    if (!emailConfig?.resend_api_key) {
+    // Try email_config first, fallback to checklist.resend
+    const emailConfig = (project.data as any)?.email_config || {};
+    const briefingResend = (project.data as any)?.checklist?.resend || {};
+    const resendApiKey = emailConfig.resend_api_key || briefingResend.resend_api_key;
+    const fromEmail = emailConfig.from_email || briefingResend.from_email;
+    const fromName = emailConfig.from_name || briefingResend.from_name || "";
+    const replyTo = emailConfig.reply_to || briefingResend.reply_to || "";
+
+    if (!resendApiKey) {
       return new Response(JSON.stringify({ error: "Resend API Key não configurada neste projeto" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,21 +66,36 @@ Deno.serve(async (req) => {
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${emailConfig.resend_api_key}`,
+        "Authorization": `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: emailConfig.from_name
-          ? `${emailConfig.from_name} <${emailConfig.from_email}>`
-          : emailConfig.from_email,
+        from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
         to: [to_email],
         subject: template.subject,
         html: template.html_body,
-        reply_to: emailConfig.reply_to || undefined,
+        reply_to: replyTo || undefined,
       }),
     });
 
     const resendData = await resendRes.json();
+
+    // Log the email event in imphq_events
+    const eventData: any = {
+      to_email,
+      template_name: template.name,
+      template_id,
+      resend_id: resendData.id || null,
+      status: resendRes.ok ? "sent" : "error",
+      error: resendRes.ok ? null : (resendData.message || "Unknown error"),
+    };
+
+    await supabase.from("imphq_events").insert({
+      project_id,
+      event_name: "email_sent",
+      page_url: "",
+      data: eventData,
+    });
 
     if (!resendRes.ok) {
       return new Response(JSON.stringify({ error: resendData.message || "Erro no Resend", details: resendData }), {

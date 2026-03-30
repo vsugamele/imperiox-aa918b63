@@ -600,13 +600,55 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                             </Button>
                           </div>
                           {webhooks.map((wh, wi) => {
-                            const whUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}${wh.nome ? `&source=${encodeURIComponent(wh.nome)}` : ""}`;
+                            const PLATAFORMAS_PADRAO = ["Hotmart", "Kiwify", "Ticto", "Eduzz", "Hubla"];
+                            const customPlatforms: string[] = data.custom_platforms || [];
+                            const allPlatforms = [...PLATAFORMAS_PADRAO, ...customPlatforms];
+                            const isCustom = wh.nome && !allPlatforms.includes(wh.nome) && wh.nome !== "__custom__";
+                            const whUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}${wh.nome && wh.nome !== "__custom__" ? `&source=${encodeURIComponent(wh.nome)}` : ""}`;
                             return (
                               <div key={wi} className="p-2 rounded bg-background/50 border border-border/50 space-y-1.5">
                                 <div className="flex gap-2 items-center">
-                                  <Input value={wh.nome} onChange={e => updateWebhook(wi, "nome", e.target.value)} placeholder="Ex: Hotmart, Kiwify..." className="bg-secondary h-7 text-xs flex-1" />
+                                  <Select
+                                    value={isCustom ? "__custom__" : (wh.nome || "")}
+                                    onValueChange={(val) => {
+                                      if (val === "__custom__") {
+                                        updateWebhook(wi, "nome", "");
+                                      } else {
+                                        updateWebhook(wi, "nome", val);
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="bg-secondary h-7 text-xs flex-1">
+                                      <SelectValue placeholder="Selecionar plataforma..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {allPlatforms.map(p => (
+                                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                                      ))}
+                                      <SelectItem value="__custom__">Outro...</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                   <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={() => removeWebhook(wi)}><Trash2 className="h-3 w-3" /></Button>
                                 </div>
+                                {(isCustom || (!wh.nome && webhooks[wi])) && (
+                                  <Input
+                                    value={isCustom ? wh.nome : ""}
+                                    onChange={e => {
+                                      updateWebhook(wi, "nome", e.target.value);
+                                    }}
+                                    onBlur={() => {
+                                      if (wh.nome && !allPlatforms.includes(wh.nome) && wh.nome !== "__custom__") {
+                                        const updated = [...customPlatforms];
+                                        if (!updated.includes(wh.nome)) {
+                                          updated.push(wh.nome);
+                                          onUpdateData({ ...data, custom_platforms: updated });
+                                        }
+                                      }
+                                    }}
+                                    placeholder="Nome da plataforma custom..."
+                                    className="bg-secondary h-7 text-xs"
+                                  />
+                                )}
                                 <div className="flex items-center gap-1">
                                   <Input value={whUrl} readOnly className="bg-secondary h-6 text-[9px] font-mono flex-1" />
                                   <CopyButton text={whUrl} />
