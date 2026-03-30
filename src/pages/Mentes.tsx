@@ -3,11 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { MENTES_DATA, MenteDNA } from "@/data/mentesData";
+import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import {
   Brain, Send, X, ChevronRight, Zap, Target, BarChart3,
-  MessageSquare, Dna, Lightbulb, BookOpen, ArrowLeft
+  MessageSquare, Dna, Lightbulb, BookOpen, ArrowLeft, Wrench
 } from "lucide-react";
 import { toast } from "sonner";
 
