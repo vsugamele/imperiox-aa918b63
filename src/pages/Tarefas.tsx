@@ -872,59 +872,130 @@ export default function Tarefas() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-6">
-            {/* Calendar */}
-            <Card className="border-border w-fit">
-              <CardContent className="p-2">
-                <Calendar
-                  mode="single"
-                  selected={calDate}
-                  onSelect={setCalDate}
-                  locale={ptBR}
-                   modifiers={{ hasEvent: (day) => eventDates.has(format(day, "yyyy-MM-dd")) }}
-                  modifiersStyles={{ hasEvent: { fontWeight: "bold", textDecoration: "underline", textDecorationColor: "hsl(var(--primary))" } }}
-                />
+          {/* Full-width calendar */}
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <Calendar
+                mode="single"
+                selected={calDate}
+                onSelect={setCalDate}
+                locale={ptBR}
+                className="w-full"
+                classNames={{
+                  months: "flex flex-col w-full",
+                  month: "space-y-4 w-full",
+                  caption: "flex justify-center pt-1 relative items-center",
+                  caption_label: "text-base font-semibold",
+                  table: "w-full border-collapse",
+                  head_row: "flex w-full",
+                  head_cell: "text-muted-foreground rounded-md flex-1 font-medium text-xs text-center py-2",
+                  row: "flex w-full mt-1",
+                  cell: "flex-1 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                  day: "w-full h-16 md:h-20 p-1 font-normal flex flex-col items-center justify-start rounded-md hover:bg-secondary/50 transition-colors aria-selected:opacity-100",
+                  day_selected: "bg-primary/15 text-primary font-semibold ring-1 ring-primary",
+                  day_today: "bg-accent text-accent-foreground font-bold",
+                  day_outside: "text-muted-foreground opacity-40",
+                  day_disabled: "text-muted-foreground opacity-30",
+                }}
+                components={{
+                  DayContent: ({ date }) => {
+                    const dateStr = format(date, "yyyy-MM-dd");
+                    const dayEvents = filteredCalEvents.filter(e => toDateOnly(e.event_date) === dateStr);
+                    const dayTasks = cards.filter(c => toDateOnly(c.due_date) === dateStr && !doneColumnIds.has(c.column_id));
+                    return (
+                      <div className="flex flex-col items-center gap-0.5 w-full">
+                        <span className="text-sm">{date.getDate()}</span>
+                        <div className="flex gap-0.5 flex-wrap justify-center max-w-full">
+                          {dayEvents.slice(0, 3).map((ev: any, i: number) => {
+                            const typeColors: Record<string, string> = {
+                              launch: "bg-orange-500", live: "bg-red-500", deadline: "bg-amber-500",
+                              meeting: "bg-blue-500", content: "bg-emerald-500", general: "bg-primary",
+                            };
+                            return <div key={i} className={`h-1.5 w-1.5 rounded-full ${typeColors[ev.event_type] || "bg-primary"}`} title={ev.title} />;
+                          })}
+                          {dayTasks.slice(0, 2).map((_, i) => (
+                            <div key={`t${i}`} className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          ))}
+                        </div>
+                        {(dayEvents.length + dayTasks.length) > 0 && (
+                          <span className="text-[9px] text-muted-foreground leading-none">
+                            {dayEvents.length > 0 && `${dayEvents.length}ev`}
+                            {dayTasks.length > 0 && ` ${dayTasks.length}t`}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  },
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Day detail */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Events on selected date */}
+            <Card className="border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-primary" />
+                  {calDate ? format(calDate, "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Selecione uma data"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {eventsOnDate.length === 0 && (!calDate || cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).length === 0) ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento ou tarefa nesta data</p>
+                ) : (
+                  <>
+                    {eventsOnDate.map((ev: any) => {
+                      const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
+                      const proj = ev.imphq_projects;
+                      return (
+                        <div key={ev.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/30">
+                          <span className="text-lg">{typeInfo.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{ev.title}</p>
+                            {ev.description && <p className="text-[10px] text-muted-foreground">{ev.description}</p>}
+                            <div className="flex items-center gap-1 mt-1">
+                              <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
+                              {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {calDate && cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).map(card => (
+                      <div key={card.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10" onClick={() => setSelectedCard(card)}>
+                        <ListTodo className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{card.title}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Badge variant="outline" className="text-[10px]">{priorityLabels[card.priority as keyof typeof priorityLabels] || card.priority}</Badge>
+                            {doneColumnIds.has(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </CardContent>
             </Card>
 
-            {/* Events list */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-primary">
-                {calDate ? format(calDate, "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Selecione uma data"}
-              </h3>
-              {eventsOnDate.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Nenhum evento nesta data</p>
-              ) : (
-                eventsOnDate.map((ev: any) => {
-                  const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
-                  const proj = ev.imphq_projects;
-                  return (
-                    <Card key={ev.id} className="border-border">
-                      <CardContent className="p-3 flex items-start gap-3">
-                        <span className="text-xl">{typeInfo.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{ev.title}</p>
-                          {ev.description && <p className="text-[10px] text-muted-foreground mt-0.5">{ev.description}</p>}
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
-                            {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-
-              {/* Upcoming events */}
-               {filteredCalEvents.filter(e => toDateOnly(e.event_date) > todayStr).length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Próximos Eventos</h4>
-                  {filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).slice(0, 10).map((ev: any) => {
+            {/* Upcoming events */}
+            <Card className="border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-warning" /> Próximos Eventos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                {filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento futuro</p>
+                ) : (
+                  filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).slice(0, 12).map((ev: any) => {
                     const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
                     const proj = ev.imphq_projects;
                     return (
-                      <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                      <div key={ev.id} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0 cursor-pointer hover:bg-secondary/30 rounded px-1" onClick={() => { setCalDate(parseISO(ev.event_date)); }}>
                         <span className="text-sm">{typeInfo.emoji}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{ev.title}</p>
@@ -935,10 +1006,10 @@ export default function Tarefas() {
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              )}
-            </div>
+                  })
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
