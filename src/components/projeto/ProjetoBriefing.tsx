@@ -430,9 +430,16 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   ))}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground font-medium">🏷️ Ofertas</Label>
+                {/* Clarity ID por produto + Analisar Comportamento */}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">🔍 Clarity ID (produto)</Label>
+                    <Input value={p.clarity_id || ""} onChange={(e) => updateProduto(i, "clarity_id", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="ID do Clarity para este produto" />
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 text-xs gap-1 shrink-0" onClick={() => analyzeBehavior(i)}>
+                    <BarChart3 className="h-3 w-3" /> Analisar Comportamento
+                  </Button>
+                </div>
                     <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => addOffer(i)}>
                       <Plus className="h-3 w-3 mr-1" /> Oferta
                     </Button>
