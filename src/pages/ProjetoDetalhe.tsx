@@ -183,6 +183,7 @@ export default function ProjetoDetalhe() {
       {/* Tabs */}
       <Tabs defaultValue="briefing">
         <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="comando">🎯 Comando</TabsTrigger>
           <TabsTrigger value="briefing">📋 Briefing</TabsTrigger>
           <TabsTrigger value="expert">👤 Expert</TabsTrigger>
           <TabsTrigger value="avatar">🎭 Avatar</TabsTrigger>
@@ -195,7 +196,6 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
-          
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
