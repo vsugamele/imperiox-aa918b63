@@ -22196,6 +22196,7 @@ export type Database = {
           id: string
           label: string | null
           phone: string
+          project_id: string | null
           status: string
           user_id: string
         }
@@ -22204,6 +22205,7 @@ export type Database = {
           id?: string
           label?: string | null
           phone: string
+          project_id?: string | null
           status?: string
           user_id: string
         }
@@ -22212,10 +22214,19 @@ export type Database = {
           id?: string
           label?: string | null
           phone?: string
+          project_id?: string | null
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "zap_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       zap_broadcast_logs: {
         Row: {
@@ -22224,6 +22235,7 @@ export type Database = {
           group_id: string | null
           id: string
           message: string
+          project_id: string | null
           recipients_count: number | null
           sent_at: string
           status: string
@@ -22235,6 +22247,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           message: string
+          project_id?: string | null
           recipients_count?: number | null
           sent_at?: string
           status?: string
@@ -22246,6 +22259,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           message?: string
+          project_id?: string | null
           recipients_count?: number | null
           sent_at?: string
           status?: string
@@ -22264,6 +22278,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "zap_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_broadcast_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
             referencedColumns: ["id"]
           },
           {
@@ -22385,6 +22406,7 @@ export type Database = {
           id: string
           inbox: number
           name: string
+          project_id: string | null
           rate: string
           status: string
           user_id: string
@@ -22396,6 +22418,7 @@ export type Database = {
           id?: string
           inbox?: number
           name: string
+          project_id?: string | null
           rate?: string
           status?: string
           user_id: string
@@ -22407,11 +22430,96 @@ export type Database = {
           id?: string
           inbox?: number
           name?: string
+          project_id?: string | null
           rate?: string
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "zap_campaigns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_group_settings: {
+        Row: {
+          auto_create_when_full: boolean
+          auto_reallocate: boolean
+          created_at: string
+          group_name_template: string | null
+          id: string
+          max_capacity: number
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          auto_create_when_full?: boolean
+          auto_reallocate?: boolean
+          created_at?: string
+          group_name_template?: string | null
+          id?: string
+          max_capacity?: number
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          auto_create_when_full?: boolean
+          auto_reallocate?: boolean
+          created_at?: string
+          group_name_template?: string | null
+          id?: string
+          max_capacity?: number
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_group_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_group_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_group_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_group_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_group_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_group_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       zap_groups: {
         Row: {
@@ -22421,6 +22529,7 @@ export type Database = {
           entries: number
           exits: number
           id: string
+          is_active: boolean
           members: number
           name: string
           relocated: number
@@ -22435,6 +22544,7 @@ export type Database = {
           entries?: number
           exits?: number
           id?: string
+          is_active?: boolean
           members?: number
           name: string
           relocated?: number
@@ -22449,6 +22559,7 @@ export type Database = {
           entries?: number
           exits?: number
           id?: string
+          is_active?: boolean
           members?: number
           name?: string
           relocated?: number
@@ -22466,6 +22577,66 @@ export type Database = {
           },
         ]
       }
+      zap_projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zap_scheduled_broadcasts: {
         Row: {
           created_at: string
@@ -22473,6 +22644,7 @@ export type Database = {
           id: string
           message: string
           name: string
+          project_id: string | null
           scheduled_at: string
           status: string
           user_id: string
@@ -22483,6 +22655,7 @@ export type Database = {
           id?: string
           message: string
           name: string
+          project_id?: string | null
           scheduled_at: string
           status?: string
           user_id: string
@@ -22493,17 +22666,27 @@ export type Database = {
           id?: string
           message?: string
           name?: string
+          project_id?: string | null
           scheduled_at?: string
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "zap_scheduled_broadcasts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       zap_webhooks: {
         Row: {
           created_at: string
           id: string
           name: string
+          project_id: string | null
           status: string
           url: string
           user_id: string
@@ -22512,6 +22695,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          project_id?: string | null
           status?: string
           url: string
           user_id: string
@@ -22520,11 +22704,20 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          project_id?: string | null
           status?: string
           url?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "zap_webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

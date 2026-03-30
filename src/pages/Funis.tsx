@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLab
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network } from "lucide-react";
 import { toast } from "sonner";
 
 interface Etapa {
@@ -104,6 +104,7 @@ export default function Funis() {
   const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
 
   const load = async () => {
     const [fRes, pRes] = await Promise.all([
@@ -758,61 +759,77 @@ export default function Funis() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">🔗 Funis</h1>
-        <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
-      </div>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Buscar funil ou projeto..." className="pl-8 h-8 text-xs w-[220px]" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-secondary rounded-md p-0.5">
+            <Button size="sm" variant={viewMode === "funis" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("funis")}>
+              <Layers className="h-3 w-3" /> Funis
+            </Button>
+            <Button size="sm" variant={viewMode === "ecossistema" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("ecossistema")}>
+              <Network className="h-3 w-3" /> Ecossistema
+            </Button>
+          </div>
+          {viewMode === "funis" && <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>}
         </div>
-        <Select value={filterProject} onValueChange={setFilterProject}>
-          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos Projetos</SelectItem>
-            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Badge variant="outline" className="text-xs">{filtered.length} funis</Badge>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((f, idx) => {
-          const etapas = f.data?.etapas || [];
-          const statusStyle = STATUS_STYLES[f.status || "Rascunho"] || STATUS_STYLES.Rascunho;
-          return (
-            <Card key={f.id}
-              className={`bg-gradient-to-br ${statusStyle} border-border border-l-4 hover:scale-[1.02] cursor-pointer transition-all duration-200 animate-fade-in`}
-              style={{ animationDelay: `${idx * 60}ms`, animationFillMode: "both" }}
-              onClick={() => setSelectedFunil(f)}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-sm">{f.nome}</h3>
-                  <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
-                {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}
-                {etapas.length > 0 && (
-                  <div className="flex items-center gap-1 mt-2 overflow-hidden">
-                    {etapas.slice(0, 5).map((e, i) => {
-                      const ts = TIPO_STYLES[e.tipo || "outro"] || TIPO_STYLES.outro;
-                      return (
-                        <div key={i} className="flex items-center">
-                          <div className={`px-1.5 py-0.5 rounded text-[8px] font-medium ${ts.bg} ${ts.text} border ${ts.border}`}>{e.nome}</div>
-                          {i < Math.min(etapas.length, 5) - 1 && <ArrowRight className="h-2 w-2 text-muted-foreground/50 mx-0.5 shrink-0" />}
-                        </div>
-                      );
-                    })}
-                    {etapas.length > 5 && <span className="text-[9px] text-muted-foreground">+{etapas.length - 5}</span>}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-        {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhum funil encontrado</p>}
-      </div>
+      {viewMode === "funis" ? (
+        <>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Buscar funil ou projeto..." className="pl-8 h-8 text-xs w-[220px]" />
+            </div>
+            <Select value={filterProject} onValueChange={setFilterProject}>
+              <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Projetos</SelectItem>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Badge variant="outline" className="text-xs">{filtered.length} funis</Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((f, idx) => {
+              const etapas = f.data?.etapas || [];
+              const statusStyle = STATUS_STYLES[f.status || "Rascunho"] || STATUS_STYLES.Rascunho;
+              return (
+                <Card key={f.id}
+                  className={`bg-gradient-to-br ${statusStyle} border-border border-l-4 hover:scale-[1.02] cursor-pointer transition-all duration-200 animate-fade-in`}
+                  style={{ animationDelay: `${idx * 60}ms`, animationFillMode: "both" }}
+                  onClick={() => setSelectedFunil(f)}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-sm">{f.nome}</h3>
+                      <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
+                    {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}
+                    {etapas.length > 0 && (
+                      <div className="flex items-center gap-1 mt-2 overflow-hidden">
+                        {etapas.slice(0, 5).map((e, i) => {
+                          const ts = TIPO_STYLES[e.tipo || "outro"] || TIPO_STYLES.outro;
+                          return (
+                            <div key={i} className="flex items-center">
+                              <div className={`px-1.5 py-0.5 rounded text-[8px] font-medium ${ts.bg} ${ts.text} border ${ts.border}`}>{e.nome}</div>
+                              {i < Math.min(etapas.length, 5) - 1 && <ArrowRight className="h-2 w-2 text-muted-foreground/50 mx-0.5 shrink-0" />}
+                            </div>
+                          );
+                        })}
+                        {etapas.length > 5 && <span className="text-[9px] text-muted-foreground">+{etapas.length - 5}</span>}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhum funil encontrado</p>}
+          </div>
+        </>
+      ) : (
+        <EcossistemaView projects={projects} />
+      )}
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent>
@@ -858,6 +875,116 @@ export default function Funis() {
           <DialogFooter><Button onClick={createFunil}>Criar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Ecossistema View ──────────────────────────────────────────
+const CLUSTER_LEVELS = [
+  { key: "aquisicao", label: "Aquisição", color: "border-blue-500/50", bg: "bg-blue-500/5" },
+  { key: "ascensao", label: "Ascensão / Upsell", color: "border-amber-500/50", bg: "bg-amber-500/5" },
+  { key: "core", label: "Core", color: "border-emerald-500/50", bg: "bg-emerald-500/5" },
+  { key: "premium", label: "Premium", color: "border-rose-500/50", bg: "bg-rose-500/5" },
+];
+
+const PLATFORM_BADGES: Record<string, string> = {
+  hotmart: "🟧 Hotmart", kiwify: "🟪 Kiwify", eduzz: "🔵 Eduzz",
+  hubla: "🟢 Hubla", ticto: "🟩 Ticto", braip: "🟡 Braip",
+};
+
+interface ProductCard {
+  projectId: string; projectName: string; nome: string; preco?: string;
+  plataforma?: string; tipo?: string; descricao?: string; cluster: string; ofertas?: any[];
+}
+
+function EcossistemaView({ projects }: { projects: any[] }) {
+  const allProducts: ProductCard[] = [];
+
+  for (const proj of projects) {
+    const b = typeof proj.briefing === "string" ? (() => { try { return JSON.parse(proj.briefing); } catch { return {}; } })() : (proj.briefing || {});
+    const data = typeof proj.data === "string" ? (() => { try { return JSON.parse(proj.data); } catch { return {}; } })() : (proj.data || {});
+    const produtos = b?.produtos || data?.produtos || [];
+    const webhooks = data?.webhooks || b?.webhooks || [];
+    const plataforma = webhooks[0]?.nome?.toLowerCase() || "";
+
+    if (Array.isArray(produtos) && produtos.length > 0) {
+      for (const p of produtos) {
+        const nome = typeof p === "string" ? p : (p.nome || p.name || "");
+        const preco = typeof p === "object" ? (p.preco || p.price || p.preco_por || "") : "";
+        const tipo = typeof p === "object" ? (p.tipo_oferta || p.tipo || "") : "";
+        const descricao = typeof p === "object" ? (p.descricao || "") : "";
+        const ofertas = typeof p === "object" ? (p.ofertas || []) : [];
+
+        let cluster = "core";
+        const tipoLower = (tipo || "").toLowerCase();
+        const nomeLower = nome.toLowerCase();
+        if (tipoLower.includes("tripwire") || tipoLower.includes("isca") || nomeLower.includes("grátis")) cluster = "aquisicao";
+        else if (tipoLower.includes("upsell") || tipoLower.includes("bump")) cluster = "ascensao";
+        else if (tipoLower.includes("premium") || tipoLower.includes("mentoria") || tipoLower.includes("high ticket")) cluster = "premium";
+
+        if (nome) allProducts.push({ projectId: proj.id, projectName: proj.name || "", nome, preco: String(preco), plataforma, tipo, descricao, cluster, ofertas });
+      }
+    } else {
+      allProducts.push({ projectId: proj.id, projectName: proj.name || "", nome: proj.name || "Sem nome", preco: "", plataforma, tipo: "", descricao: proj.description || "", cluster: "core", ofertas: [] });
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-muted-foreground">Visão macro de todos os produtos organizados por nível na escada de valor. Dados do briefing de cada projeto.</p>
+      {CLUSTER_LEVELS.map((cluster) => {
+        const items = allProducts.filter(p => p.cluster === cluster.key);
+        return (
+          <div key={cluster.key} className={`rounded-xl border-2 ${cluster.color} ${cluster.bg} p-4 space-y-3`}>
+            <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              {cluster.label}
+              <Badge variant="outline" className="text-[9px]">{items.length}</Badge>
+            </h3>
+            {items.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhum produto neste nível</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {items.map((prod, idx) => {
+                  const platLabel = PLATFORM_BADGES[prod.plataforma || ""] || "";
+                  return (
+                    <Card key={`${prod.projectId}-${idx}`} className="bg-card border-border hover:border-primary/30 transition-colors">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold truncate flex-1">{prod.nome}</h4>
+                          {prod.preco && prod.preco !== "0" && prod.preco !== "" && <span className="text-sm font-mono font-bold text-primary ml-2">R${prod.preco}</span>}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{prod.projectName}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {platLabel && <Badge variant="outline" className="text-[9px]">{platLabel}</Badge>}
+                          {prod.tipo && <Badge variant="secondary" className="text-[9px]">{prod.tipo}</Badge>}
+                        </div>
+                        {prod.descricao && <p className="text-[10px] text-muted-foreground line-clamp-2">{prod.descricao}</p>}
+                        {prod.ofertas && prod.ofertas.length > 0 && (
+                          <div className="border-t border-border pt-1.5 space-y-1">
+                            <p className="text-[9px] font-medium text-muted-foreground uppercase">Ofertas</p>
+                            {prod.ofertas.map((of: any, oi: number) => (
+                              <div key={oi} className="flex items-center justify-between text-[10px]">
+                                <span className="truncate flex-1">{of.nome || `Oferta ${oi + 1}`}</span>
+                                {of.preco_por && <span className="font-mono text-primary">R${of.preco_por}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {allProducts.length === 0 && (
+        <div className="text-center py-12">
+          <Network className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Nenhum produto encontrado. Adicione produtos no Briefing dos projetos.</p>
+        </div>
+      )}
     </div>
   );
 }
