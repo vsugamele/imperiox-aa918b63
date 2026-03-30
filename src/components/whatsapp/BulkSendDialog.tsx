@@ -16,6 +16,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   providers: any[];
+  templates?: any[];
 }
 
 export default function BulkSendDialog({ open, onOpenChange, providers }: Props) {
