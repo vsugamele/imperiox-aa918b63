@@ -1,42 +1,66 @@
 
 
-# Plano: OpenFlow — Seletor de Projeto no Editor, Templates de Email + WhatsApp, Mapeamento de Triggers
+# Plano: Skills nas Mentes IA + API Externa Robusta para IAs
 
-## Problemas identificados
+## 2 frentes
 
-1. **Falta seletor de projeto no dialog de edição** — o campo `project_id` só é setado na criação, não pode ser alterado depois
-2. **Templates não puxam emails do Resend nem WhatsApp** — hoje só puxa `data.emails` e `copy_arsenal`, mas os templates reais estão em `data.email_config.templates` e na tabela `imphq_wa_templates`
-3. **Carrinho abandonado e triggers** — o webhook já mapeia corretamente `abandoned_cart` (Ticto), `PURCHASE_ABANDONED` (Hotmart) e `waiting_payment` (Kiwify) para o evento `carrinho_abandonado`. A Ticto envia `pix_created` como parte do fluxo `waiting_payment`/`started` → isso já chega como `aguardando_pagamento` ou `inicio_checkout`. Precisa adicionar esses como triggers disponíveis no OpenFlow
+---
 
-## Alterações
+### 1. Mentes IA puxam Skills quando necessário
 
-### 1. Seletor de Projeto no dialog de edição (`src/pages/OpenFlow.tsx`)
+**Problema**: O `buildSystemPrompt()` em `Mentes.tsx` injeta contexto do projeto (avatar, branding, concorrentes, KB) mas não injeta as Skills disponíveis. Se o agente "Devastador" precisa usar a skill "Avatar Architect v2", ele não tem acesso ao system_prompt dela.
 
-Adicionar um `Select` de projeto entre Nome e Trigger no dialog de edição (linhas 299-309). Quando o projeto muda, o `useEffect` existente (linha 62) já recarrega os templates.
+**Solução**:
+- No `Mentes.tsx`, ao montar o prompt, buscar skills relevantes de duas fontes:
+  - `skillsData.ts` (skills built-in com `system_prompt`)
+  - `imphq_skills` do Supabase (skills custom do usuário com `system_prompt`)
+- Filtrar skills pela `categoria` compatível com a mente selecionada (ex: mente de copy → skills de copy)
+- Injetar no system prompt uma seção `── SKILLS DISPONÍVEIS ──` com nome + descrição + prompt resumido (primeiros 500 chars) de cada skill relevante
+- Adicionar na UI um checklist visual de "Skills ativas" que o usuário pode ativar/desativar para cada conversa
+- Se uma skill estiver ativada, injetar o `system_prompt` completo dela
 
-### 2. Templates expandidos — Email (Resend) + WhatsApp (`src/pages/OpenFlow.tsx`)
+**Arquivo**: `src/pages/Mentes.tsx`
 
-No `useEffect` que busca templates (linhas 62-85), expandir para:
-- **Email Resend**: ler `data.email_config.templates[]` → cada template tem `subject` e `html_body`
-- **WhatsApp**: buscar `imphq_wa_templates` filtrado por `project_id` → cada template tem `name` e `content`
-- Manter os templates de `data.emails` e `copy_arsenal` que já existem
+---
 
-### 3. Novos triggers (`src/pages/OpenFlow.tsx` + `src/components/openflow/FlowEditor.tsx`)
+### 2. API Externa robusta (imperio-api) — CRUD completo para IAs externas
 
-Adicionar triggers:
-- `aguardando_pagamento` — "Aguardando Pagamento / Pix Gerado" (icon: 💰)
-- `inicio_checkout` — "Início de Checkout" (icon: 🛍️)
+**Problema**: A `imperio-api` hoje suporta apenas 4 actions: `create_task`, `create_lead`, `project_status`, `export_context`. Uma IA externa não consegue listar cards, mover entre colunas, editar, deletar, listar projetos, listar leads, etc.
 
-Isso permite criar automações para quando alguém gera um pix (Ticto `waiting_payment`) mas ainda não pagou.
+**Solução**: Expandir a edge function `imperio-api` com endpoints CRUD completos + página de documentação/guia no app.
 
-### 4. Trigger no FlowEditor (`src/components/openflow/FlowEditor.tsx`)
+**Novos endpoints na API**:
 
-Atualizar `TRIGGERS_MAP` com os 2 novos triggers para exibir corretamente no editor visual.
+| Action | Método | Descrição |
+|---|---|---|
+| `list_projects` | GET | Listar todos os projetos |
+| `list_cards` | GET | Listar cards (filtro por board, column, project_id, priority) |
+| `get_card` | GET | Detalhe de um card |
+| `update_card` | PUT | Atualizar título, descrição, prioridade, tags, due_date |
+| `move_card` | PUT | Mover card para outra coluna (recebe column_id ou column_title + board) |
+| `delete_card` | DELETE | Deletar card |
+| `list_columns` | GET | Listar colunas por board |
+| `list_leads` | GET | Listar leads (filtro por project_id, status, plataforma) |
+| `update_lead` | PUT | Atualizar status, tags, dados do lead |
+| `create_notification` | POST | Criar notificação no sistema |
+| `list_skills` | GET | Listar skills disponíveis |
+| `get_skill` | GET | Retornar skill com system_prompt completo |
 
-## Arquivos alterados
+**Página de Guia da API** (`src/pages/Cofre.tsx` ou nova seção):
+- Documentação interativa com exemplos curl para cada endpoint
+- Campo para copiar a URL base da API
+- Exemplos prontos para usar com Claude, GPT, n8n
+- Seção "Como conectar uma IA externa" com passo a passo:
+  1. Gerar API key no Cofre
+  2. Copiar URL base
+  3. Exemplos de chamadas
+- Tabela com todos os endpoints, métodos, parâmetros e respostas
+
+**Arquivos alterados**:
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/OpenFlow.tsx` | Seletor de projeto no editor, templates de email_config + wa_templates, 2 novos triggers |
-| `src/components/openflow/FlowEditor.tsx` | Adicionar novos triggers no TRIGGERS_MAP |
+| `src/pages/Mentes.tsx` | Buscar skills (built-in + custom), checklist de skills ativas, injetar no prompt |
+| `supabase/functions/imperio-api/index.ts` | +12 endpoints CRUD (list/get/update/move/delete cards, list leads, update lead, list projects, list columns, create notification, list/get skills) |
+| `src/pages/Cofre.tsx` | Seção "Guia da API" com documentação interativa, exemplos curl, passo a passo para IAs externas |
 
