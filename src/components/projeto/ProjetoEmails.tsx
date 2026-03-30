@@ -288,6 +288,70 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Histórico de Envios */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
+              <History className="h-4 w-4" /> Histórico de Envios
+            </CardTitle>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={loadEmailHistory} disabled={loadingHistory}>
+              <RefreshCw className={`h-3 w-3 mr-1 ${loadingHistory ? "animate-spin" : ""}`} /> Atualizar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {emailHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhum email enviado ainda. Envie um email de teste para ver o histórico.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Destinatário</TableHead>
+                  <TableHead className="text-xs">Template</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Data/Hora</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {emailHistory.map((ev: any) => (
+                  <TableRow key={ev.id}>
+                    <TableCell className="text-xs">{ev.data?.to_email || "—"}</TableCell>
+                    <TableCell className="text-xs">{ev.data?.template_name || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={ev.data?.status === "sent" ? "default" : "destructive"} className={ev.data?.status === "sent" ? "bg-emerald-500/20 text-emerald-400 text-[10px]" : "text-[10px]"}>
+                        {ev.data?.status === "sent" ? "Enviado" : "Erro"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {ev.created_at ? format(new Date(ev.created_at), "dd/MM/yyyy HH:mm") : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          {/* Card informativo sobre webhooks Resend */}
+          <div className="mt-4 p-3 rounded-lg border border-border bg-secondary/30">
+            <p className="text-xs font-medium mb-1">📊 Rastrear aberturas e cliques</p>
+            <p className="text-[10px] text-muted-foreground mb-2">
+              Para rastrear aberturas (open), cliques e bounces, configure um webhook no painel do Resend apontando para a API do Imperio.
+            </p>
+            <a
+              href="https://resend.com/webhooks"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary flex items-center gap-1 hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" /> Configurar Webhooks no Resend
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
