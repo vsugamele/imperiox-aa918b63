@@ -1,39 +1,53 @@
 
 
-# Plano: Botão "Copiar parâmetros para Facebook Ads" no Tracker
+# Plano: Clarity por Produto, Clarity Autônomo, Chat WhatsApp com Paginação
 
-## Problema
+## 3 melhorias
 
-O usuário quer copiar rapidamente a string completa de parâmetros UTM (com macros do Facebook) para colar no campo "URL Parameters" do Facebook Ads Manager — sem precisar montar manualmente.
+---
 
-A imagem mostra o formato esperado:
-```
-utm_source=FB&utm_medium={{adset.name}}%7C{{adset.id}}&utm_campaign={{campaign.name}}%7C{{campaign.id}}&utm_content={{ad.name}}%7C{{ad.id}}&utm_term={{placement}}&xcod=...
-```
+### 1. Clarity por produto (não só por projeto)
 
-## Solução
+**Problema**: Hoje o `clarity_id` é um campo único no projeto. Se o projeto tem múltiplos produtos (ex: tripwire, core, premium), cada um com sua landing page, precisaria de um Clarity ID por produto/página.
 
-Adicionar na seção de "Prévia do parâmetro" (linha ~522 do `Tracker.tsx`) um botão **"📋 Copiar para Facebook Ads"** que gera apenas a query string (sem a URL de destino) no formato que o Facebook espera — com `%7C` (pipe encoded) separando nome e ID das macros, e incluindo um campo `xcod` para tracking avançado.
+**Solução**: No campo de produtos dentro do Briefing (`ProjetoBriefing.tsx`), adicionar um campo `clarity_id` em cada item do array de produtos. O campo no nível do projeto continua como fallback/global. Assim cada produto pode ter seu próprio heatmap.
 
-### Mudanças em `src/pages/Tracker.tsx`
+**Arquivo**: `src/components/projeto/ProjetoBriefing.tsx` — adicionar campo Clarity ID no form de cada produto
 
-1. **Nova função `buildFbAdsParams()`** que monta a string de parâmetros otimizada para Facebook Ads:
-   - `utm_source=FB`
-   - `utm_medium={{adset.name}}%7C{{adset.id}}`
-   - `utm_campaign={{campaign.name}}%7C{{campaign.id}}`
-   - `utm_content={{ad.name}}%7C{{ad.id}}`
-   - `utm_term={{placement}}`
-   - `xcod=` com hash de tracking concatenando macros (como na imagem)
+---
 
-2. **Botão "Copiar para FB Ads"** ao lado do preview, que chama `navigator.clipboard.writeText()` com a string gerada.
+### 2. Clarity com análise automática via IA
 
-3. **Seção "Prévia do parâmetro"** expandida: exibir a string formatada em bloco `break-all` para o usuário conferir antes de copiar.
+**Problema**: Hoje o Clarity é só um link externo. O usuário quer que a IA analise os dados sem precisar abrir o dashboard manualmente.
 
-4. O botão só aparece quando a plataforma selecionada for "Meta Ads".
+**Solução**: A API do Clarity não é pública para extração direta. Mas podemos fazer algo prático:
+- Adicionar um botão **"🤖 Analisar com IA"** ao lado do link do Clarity no Briefing
+- Ao clicar, abre um campo onde o usuário cola o resumo/screenshot/dados do Clarity
+- A IA (via Mentes) analisa e sugere melhorias na página
+- Alternativamente, se o usuário tiver o script `imptrack.js` coletando eventos em `imphq_events`, podemos analisar PageViews, scroll depth, cliques por URL — dados já disponíveis no banco
 
-### Arquivo alterado
+**Arquivo**: `src/components/projeto/ProjetoBriefing.tsx` — botão "Analisar Comportamento" que puxa `imphq_events` filtrados pela URL do produto e gera insights
+
+---
+
+### 3. Chat WhatsApp — paginação de mensagens
+
+**Problema**: O `ChatView.tsx` carrega **todas** as mensagens da conversa sem limite (`select("*")`). Com muitas mensagens isso fica lento e pesado.
+
+**Solução**: Implementar paginação com "carregar mais":
+- Query inicial: últimas 50 mensagens (`.order("created_at", { ascending: false }).limit(50)`)
+- Reverter a ordem no frontend para exibir cronologicamente
+- Botão **"Carregar anteriores"** no topo do chat que busca mais 50
+- Manter o polling de 8s apenas para mensagens novas (`.gt("created_at", lastTimestamp)`)
+
+**Arquivo**: `src/components/whatsapp/ChatView.tsx` — limit 50, botão carregar mais, polling incremental
+
+---
+
+## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Tracker.tsx` | Função `buildFbAdsParams()`, botão copiar, prévia expandida |
+| `src/components/projeto/ProjetoBriefing.tsx` | Campo `clarity_id` por produto + botão "Analisar Comportamento" com dados de `imphq_events` |
+| `src/components/whatsapp/ChatView.tsx` | Paginação (limit 50), botão "Carregar anteriores", polling incremental |
 
