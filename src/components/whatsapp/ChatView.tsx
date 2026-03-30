@@ -110,8 +110,8 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
               <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
               {templates.map(t => (
                 <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
-                  onClick={() => setText(t.conteudo)}>
-                  {t.nome}
+                  onClick={() => setText(t.content)}>
+                  {t.name}
                 </button>
               ))}
             </PopoverContent>
