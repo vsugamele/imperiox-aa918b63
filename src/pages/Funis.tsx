@@ -100,6 +100,8 @@ export default function Funis() {
   const [connectingFrom, setConnectingFrom] = useState<number | null>(null);
   const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [usePixelData, setUsePixelData] = useState(false);
+  const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
 
