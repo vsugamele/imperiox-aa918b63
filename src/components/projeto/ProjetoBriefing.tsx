@@ -440,6 +440,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                     <BarChart3 className="h-3 w-3" /> Analisar Comportamento
                   </Button>
                 </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground font-medium">🏷️ Ofertas</Label>
                     <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => addOffer(i)}>
                       <Plus className="h-3 w-3 mr-1" /> Oferta
                     </Button>
