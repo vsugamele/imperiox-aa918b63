@@ -969,8 +969,8 @@ export default function Tarefas() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">{card.title}</p>
                           <div className="flex items-center gap-1 mt-0.5">
-                            <Badge variant="outline" className="text-[10px]">{priorityLabels[card.priority as keyof typeof priorityLabels] || card.priority}</Badge>
-                            {doneColumnIds.has(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
+                            <Badge variant="outline" className="text-[10px]">{card.priority}</Badge>
+                            {doneColumnIds.includes(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
                           </div>
                         </div>
                       </div>
