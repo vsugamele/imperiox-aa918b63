@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff, BarChart3, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CopyArsenalSection } from "./CopyArsenalSection";
