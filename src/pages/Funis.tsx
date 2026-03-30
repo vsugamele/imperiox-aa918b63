@@ -399,6 +399,19 @@ export default function Funis() {
             </div>
           )}
 
+          {selectedFunil.project_id && (
+            <div className="flex items-center gap-2 ml-4 border-l border-border pl-4">
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">Dados do Pixel</span>
+              <Switch checked={usePixelData} onCheckedChange={setUsePixelData} className="scale-75" />
+              {usePixelData && Object.keys(pixelMetrics).length > 0 && (
+                <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-400/30">
+                  {Object.keys(pixelMetrics).length} URLs rastreadas
+                </Badge>
+              )}
+            </div>
+          )}
+
           <div className="ml-auto flex items-center gap-1">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
             <span className="text-xs text-muted-foreground font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
