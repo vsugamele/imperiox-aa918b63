@@ -294,15 +294,15 @@ export default function WhatsApp() {
             <DialogContent>
               <DialogHeader><DialogTitle>{editingTemplate ? "Editar Template" : "Novo Template"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
-                <div><Label>Nome</Label><Input value={tplForm.nome} onChange={e => setTplForm({ ...tplForm, nome: e.target.value })} placeholder="Ex: Boas-vindas" /></div>
+                <div><Label>Nome</Label><Input value={tplForm.name} onChange={e => setTplForm({ ...tplForm, name: e.target.value })} placeholder="Ex: Boas-vindas" /></div>
                 <div>
                   <Label>Conteúdo</Label>
-                  <Textarea value={tplForm.conteudo} onChange={e => setTplForm({ ...tplForm, conteudo: e.target.value })} rows={4} placeholder="Olá {{nome}}, tudo bem?" />
+                  <Textarea value={tplForm.content} onChange={e => setTplForm({ ...tplForm, content: e.target.value })} rows={4} placeholder="Olá {{nome}}, tudo bem?" />
                   <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {"{{nome}}"}, {"{{telefone}}"}, {"{{produto}}"}</p>
                 </div>
                 <div>
                   <Label>Categoria</Label>
-                  <Select value={tplForm.categoria} onValueChange={v => setTplForm({ ...tplForm, categoria: v })}>
+                  <Select value={tplForm.category} onValueChange={v => setTplForm({ ...tplForm, category: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="geral">Geral</SelectItem>
