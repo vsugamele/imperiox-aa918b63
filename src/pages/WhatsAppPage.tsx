@@ -268,15 +268,15 @@ export default function WhatsApp() {
               <Card key={t.id} className="bg-card border-border">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-sm">{t.nome}</h3>
-                    <Badge variant="outline" className="text-[9px]">{t.categoria}</Badge>
+                    <h3 className="font-medium text-sm">{t.name}</h3>
+                    <Badge variant="outline" className="text-[9px]">{t.category}</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{t.conteudo}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{t.content}</p>
                   {t.project_id && <p className="text-[10px] text-muted-foreground">{projectName(t.project_id)}</p>}
                   <div className="flex gap-1 pt-1">
                     <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => {
                       setEditingTemplate(t);
-                      setTplForm({ nome: t.nome, conteudo: t.conteudo, categoria: t.categoria, project_id: t.project_id || "" });
+                      setTplForm({ name: t.name, content: t.content, category: t.category, project_id: t.project_id || "" });
                       setShowTemplateForm(true);
                     }}><Edit className="h-3 w-3 mr-1" /> Editar</Button>
                     <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive" onClick={() => deleteTemplate(t.id)}>
