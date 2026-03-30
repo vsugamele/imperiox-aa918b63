@@ -105,8 +105,41 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   const pipelineNotes = data.pipeline_notes || {};
   const checklist = data.integrations_checklist || {};
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const [behaviorDialog, setBehaviorDialog] = useState<{ open: boolean; prodIndex: number; loading: boolean; results: any[] }>({ open: false, prodIndex: -1, loading: false, results: [] });
 
   const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const analyzeBehavior = async (prodIndex: number) => {
+    const prod = produtos[prodIndex];
+    const prodLinks = getProductLinks(prod);
+    if (prodLinks.length === 0) {
+      toast.error("Adicione pelo menos um link ao produto para analisar");
+      return;
+    }
+    setBehaviorDialog({ open: true, prodIndex, loading: true, results: [] });
+    try {
+      const urlFilters = prodLinks.filter((l: string) => l.trim()).map((l: string) => {
+        try { return new URL(l).pathname; } catch { return l; }
+      });
+      const { data: events } = await supabase
+        .from("imphq_events")
+        .select("event_type, page_url, created_at")
+        .eq("project_id", project.id)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      const filtered = (events || []).filter((e: any) =>
+        urlFilters.some((path: string) => e.page_url?.includes(path))
+      );
+      const grouped: Record<string, number> = {};
+      filtered.forEach((e: any) => { grouped[e.event_type] = (grouped[e.event_type] || 0) + 1; });
+      const results = Object.entries(grouped).map(([event_type, count]) => ({ event_type, count })).sort((a, b) => b.count - a.count);
+      setBehaviorDialog(prev => ({ ...prev, loading: false, results }));
+      if (results.length === 0) toast.info("Nenhum evento encontrado para as URLs deste produto");
+    } catch (err: any) {
+      toast.error("Erro ao buscar eventos: " + err.message);
+      setBehaviorDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   const updateField = (key: string, val: any) => onUpdateData({ ...data, [key]: val });
   const updateLink = (key: string, val: string) => onUpdateData({ ...data, links: { ...links, [key]: val } });
