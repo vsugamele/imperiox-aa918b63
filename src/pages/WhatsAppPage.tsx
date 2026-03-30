@@ -259,7 +259,7 @@ export default function WhatsApp() {
       {activeTab === "templates" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setEditingTemplate(null); setTplForm({ nome: "", conteudo: "", categoria: "geral", project_id: "" }); setShowTemplateForm(true); }}>
+            <Button size="sm" onClick={() => { setEditingTemplate(null); setTplForm({ name: "", content: "", category: "geral", project_id: "" }); setShowTemplateForm(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Novo Template
             </Button>
           </div>
