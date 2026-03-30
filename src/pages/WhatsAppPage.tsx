@@ -41,7 +41,7 @@ export default function WhatsApp() {
   const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WaTemplate | null>(null);
-  const [tplForm, setTplForm] = useState({ nome: "", conteudo: "", categoria: "geral", project_id: "" });
+  const [tplForm, setTplForm] = useState({ name: "", content: "", category: "geral", project_id: "" });
   const [activeTab, setActiveTab] = useState<"sessoes" | "templates">("sessoes");
 
   const load = async () => {
