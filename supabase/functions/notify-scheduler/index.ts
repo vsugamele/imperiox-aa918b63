@@ -42,13 +42,80 @@ Deno.serve(async (req) => {
         .not("user_id", "is", null);
       const ids = new Set<string>();
       if (members) members.forEach((m: any) => { if (m.user_id) ids.add(m.user_id); });
-      // Also get distinct owner_ids from projects
       const { data: projects } = await supabase
         .from("imphq_projects")
         .select("owner_id")
         .limit(100);
       if (projects) projects.forEach((p: any) => { if (p.owner_id) ids.add(p.owner_id); });
       return Array.from(ids);
+    }
+
+    // Helper: get member phone for WhatsApp notifications
+    async function getMemberPhone(memberId: string): Promise<string | null> {
+      const { data } = await supabase
+        .from("imphq_team_members")
+        .select("phone, user_id")
+        .eq("id", memberId)
+        .maybeSingle();
+      return data?.phone || null;
+    }
+
+    // Helper: get user_id from member_id
+    async function getMemberUserId(memberId: string): Promise<string | null> {
+      const { data } = await supabase
+        .from("imphq_team_members")
+        .select("user_id")
+        .eq("id", memberId)
+        .maybeSingle();
+      return data?.user_id || null;
+    }
+
+    // Helper: send WhatsApp message via whatsapp-api
+    async function sendWhatsApp(phone: string, message: string) {
+      try {
+        // Get first active provider config
+        const { data: config } = await supabase
+          .from("imphq_whatsapp_config")
+          .select("*")
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+        if (!config) return;
+
+        const baseUrl = config.provider === "evolution"
+          ? `${config.api_url}/message/sendText/${config.instance_name}`
+          : config.api_url;
+
+        if (config.provider === "evolution") {
+          await fetch(baseUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: config.api_key },
+            body: JSON.stringify({ number: phone, text: message }),
+          });
+        }
+      } catch (e) {
+        console.error("[notify-scheduler] WhatsApp send error:", e);
+      }
+    }
+
+    // Helper: create notification + optionally send WhatsApp
+    async function notify(userId: string, title: string, message: string, type: string, entityType: string, entityId: string, memberId?: string | null) {
+      await supabase.from("imphq_notifications").insert({
+        user_id: userId,
+        title,
+        message,
+        type,
+        entity_type: entityType,
+        entity_id: entityId,
+      });
+
+      // Try WhatsApp if member has phone
+      if (memberId) {
+        const phone = await getMemberPhone(memberId);
+        if (phone) {
+          await sendWhatsApp(phone, `${title}\n${message}`);
+        }
+      }
     }
 
     const userIds = await getAllUserIds();
@@ -59,14 +126,11 @@ Deno.serve(async (req) => {
     // 1. Tarefas vencendo hoje
     const { data: dueTodayCards } = await supabase
       .from("imphq_kanban_cards")
-      .select("id, title, due_date, column_id")
+      .select("id, title, due_date, column_id, member_id")
       .eq("due_date", todayStr);
 
     if (dueTodayCards) {
-      // Get done columns
-      const { data: doneCols } = await supabase
-        .from("imphq_kanban_columns")
-        .select("id, title");
+      const { data: doneCols } = await supabase.from("imphq_kanban_columns").select("id, title");
       const doneColIds = new Set(
         (doneCols || []).filter((c: any) => /feito|done|conclu/i.test(c.title)).map((c: any) => c.id)
       );
@@ -74,15 +138,16 @@ Deno.serve(async (req) => {
       for (const card of dueTodayCards) {
         if (doneColIds.has(card.column_id)) continue;
         if (await alreadyNotified("card", card.id, "tarefa_vence_hoje")) continue;
-        for (const uid of userIds) {
-          await supabase.from("imphq_notifications").insert({
-            user_id: uid,
-            title: `⏰ Tarefa vence hoje: ${card.title}`,
-            message: `A tarefa "${card.title}" vence hoje.`,
-            type: "tarefa",
-            entity_type: "card",
-            entity_id: card.id,
-          });
+
+        if (card.member_id) {
+          const uid = await getMemberUserId(card.member_id);
+          if (uid) {
+            await notify(uid, `⏰ Tarefa vence hoje: ${card.title}`, `A tarefa "${card.title}" vence hoje.`, "tarefa", "card", card.id, card.member_id);
+          }
+        } else {
+          for (const uid of userIds) {
+            await notify(uid, `⏰ Tarefa vence hoje: ${card.title}`, `A tarefa "${card.title}" vence hoje.`, "tarefa", "card", card.id);
+          }
         }
         inserted.push(`tarefa_vence_hoje:${card.id}`);
       }
@@ -91,13 +156,11 @@ Deno.serve(async (req) => {
     // 2. Tarefas atrasadas
     const { data: overdueCards } = await supabase
       .from("imphq_kanban_cards")
-      .select("id, title, due_date, column_id")
+      .select("id, title, due_date, column_id, member_id")
       .lt("due_date", todayStr);
 
     if (overdueCards) {
-      const { data: doneCols } = await supabase
-        .from("imphq_kanban_columns")
-        .select("id, title");
+      const { data: doneCols } = await supabase.from("imphq_kanban_columns").select("id, title");
       const doneColIds = new Set(
         (doneCols || []).filter((c: any) => /feito|done|conclu/i.test(c.title)).map((c: any) => c.id)
       );
@@ -105,25 +168,26 @@ Deno.serve(async (req) => {
       for (const card of overdueCards) {
         if (doneColIds.has(card.column_id)) continue;
         if (await alreadyNotified("card", card.id, "tarefa_atrasada")) continue;
-        for (const uid of userIds) {
-          await supabase.from("imphq_notifications").insert({
-            user_id: uid,
-            title: `🚨 Tarefa atrasada: ${card.title}`,
-            message: `A tarefa "${card.title}" está atrasada (vencia em ${card.due_date}).`,
-            type: "tarefa",
-            entity_type: "card",
-            entity_id: card.id,
-          });
+
+        if (card.member_id) {
+          const uid = await getMemberUserId(card.member_id);
+          if (uid) {
+            await notify(uid, `🚨 Tarefa atrasada: ${card.title}`, `A tarefa "${card.title}" está atrasada (vencia em ${card.due_date}).`, "tarefa", "card", card.id, card.member_id);
+          }
+        } else {
+          for (const uid of userIds) {
+            await notify(uid, `🚨 Tarefa atrasada: ${card.title}`, `A tarefa "${card.title}" está atrasada (vencia em ${card.due_date}).`, "tarefa", "card", card.id);
+          }
         }
         inserted.push(`tarefa_atrasada:${card.id}`);
       }
     }
 
-    // 3. Rotinas não completadas (verificar após 18h)
-    if (now.getUTCHours() >= 21) { // 18h BRT = 21h UTC
+    // 3. Rotinas não completadas (após 18h BRT = 21h UTC)
+    if (now.getUTCHours() >= 21) {
       const { data: routines } = await supabase
         .from("imphq_daily_routines")
-        .select("id, title, user_id")
+        .select("id, title, user_id, member_id")
         .eq("is_active", true);
 
       if (routines) {
@@ -138,14 +202,13 @@ Deno.serve(async (req) => {
           if (checks && checks.length > 0) continue;
           if (await alreadyNotified("routine", routine.id, "rotina_pendente")) continue;
 
-          await supabase.from("imphq_notifications").insert({
-            user_id: routine.user_id,
-            title: `📋 Rotina pendente: ${routine.title}`,
-            message: `A rotina "${routine.title}" ainda não foi completada hoje.`,
-            type: "tarefa",
-            entity_type: "routine",
-            entity_id: routine.id,
-          });
+          const targetUid = routine.member_id
+            ? await getMemberUserId(routine.member_id)
+            : routine.user_id;
+
+          if (targetUid) {
+            await notify(targetUid, `📋 Rotina pendente: ${routine.title}`, `A rotina "${routine.title}" ainda não foi completada hoje.`, "tarefa", "routine", routine.id, routine.member_id);
+          }
           inserted.push(`rotina_pendente:${routine.id}`);
         }
       }
@@ -162,14 +225,7 @@ Deno.serve(async (req) => {
       for (const lead of newLeads) {
         if (await alreadyNotified("lead", lead.id, "lead")) continue;
         for (const uid of userIds) {
-          await supabase.from("imphq_notifications").insert({
-            user_id: uid,
-            title: `👤 Novo lead: ${lead.nome || lead.email}`,
-            message: `Lead capturado: ${lead.email}`,
-            type: "lead",
-            entity_type: "lead",
-            entity_id: lead.id,
-          });
+          await notify(uid, `👤 Novo lead: ${lead.nome || lead.email}`, `Lead capturado: ${lead.email}`, "lead", "lead", lead.id);
         }
         inserted.push(`lead:${lead.id}`);
       }
@@ -188,14 +244,7 @@ Deno.serve(async (req) => {
         const d = (ev.event_data as any) || {};
         const valor = d.value || d.valor || "";
         for (const uid of userIds) {
-          await supabase.from("imphq_notifications").insert({
-            user_id: uid,
-            title: `💰 Nova venda${valor ? `: R$ ${valor}` : "!"}`,
-            message: d.product || d.produto || "Venda registrada",
-            type: "venda",
-            entity_type: "event",
-            entity_id: ev.id,
-          });
+          await notify(uid, `💰 Nova venda${valor ? `: R$ ${valor}` : "!"}`, d.product || d.produto || "Venda registrada", "venda", "event", ev.id);
         }
         inserted.push(`venda:${ev.id}`);
       }
