@@ -16,9 +16,10 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   providers: any[];
+  templates?: any[];
 }
 
-export default function BulkSendDialog({ open, onOpenChange, providers }: Props) {
+export default function BulkSendDialog({ open, onOpenChange, providers, templates = [] }: Props) {
   const [leads, setLeads] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [providerId, setProviderId] = useState("");
@@ -95,6 +96,14 @@ export default function BulkSendDialog({ open, onOpenChange, providers }: Props)
 
           <div>
             <Label>Template de mensagem</Label>
+            {templates.length > 0 && (
+              <Select onValueChange={v => { const t = templates.find((x: any) => x.id === v); if (t) setTemplate(t.content); }}>
+                <SelectTrigger className="mb-2"><SelectValue placeholder="Usar template salvo..." /></SelectTrigger>
+                <SelectContent>
+                  {templates.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
             <Textarea value={template} onChange={e => setTemplate(e.target.value)} rows={3} placeholder="Use {{nome}} para personalizar" />
             <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {"{{nome}}"}, {"{{telefone}}"}</p>
           </div>

@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity } from "lucide-react";
 import { toast } from "sonner";
 
 interface Etapa {
@@ -99,6 +100,8 @@ export default function Funis() {
   const [connectingFrom, setConnectingFrom] = useState<number | null>(null);
   const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [usePixelData, setUsePixelData] = useState(false);
+  const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
 
@@ -128,6 +131,28 @@ export default function Funis() {
       setProjectProducts([]);
     }
   }, [selectedFunil?.project_id, projects]);
+
+  // Load pixel data for funnel project
+  useEffect(() => {
+    if (!selectedFunil?.project_id || !usePixelData) { setPixelMetrics({}); return; }
+    const fetchPixel = async () => {
+      const { data } = await supabase
+        .from("imphq_events")
+        .select("page_url, event_name")
+        .eq("project_id", selectedFunil.project_id!);
+      if (!data) return;
+      const metrics: Record<string, { pageviews: number; conversions: number }> = {};
+      for (const ev of data) {
+        const url = (ev.page_url || "").replace(/\/$/, "").toLowerCase();
+        if (!url) continue;
+        if (!metrics[url]) metrics[url] = { pageviews: 0, conversions: 0 };
+        if (ev.event_name === "PageView") metrics[url].pageviews++;
+        else metrics[url].conversions++;
+      }
+      setPixelMetrics(metrics);
+    };
+    fetchPixel();
+  }, [selectedFunil?.project_id, usePixelData]);
 
   const filtered = funis.filter(f => {
     if (filterProject !== "all" && f.project_id !== filterProject) return false;
@@ -374,6 +399,19 @@ export default function Funis() {
             </div>
           )}
 
+          {selectedFunil.project_id && (
+            <div className="flex items-center gap-2 ml-4 border-l border-border pl-4">
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">Dados do Pixel</span>
+              <Switch checked={usePixelData} onCheckedChange={setUsePixelData} className="scale-75" />
+              {usePixelData && Object.keys(pixelMetrics).length > 0 && (
+                <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-400/30">
+                  {Object.keys(pixelMetrics).length} URLs rastreadas
+                </Badge>
+              )}
+            </div>
+          )}
+
           <div className="ml-auto flex items-center gap-1">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
             <span className="text-xs text-muted-foreground font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
@@ -488,7 +526,12 @@ export default function Funis() {
 
             {/* Cards */}
             {etapas.map((etapa, i) => {
-              const taxa = etapa.visitantes > 0 ? (etapa.conversoes / etapa.visitantes) * 100 : 0;
+              // Pixel data override
+              const urlKey = (etapa.url || "").replace(/\/$/, "").toLowerCase();
+              const pixData = usePixelData && urlKey ? pixelMetrics[urlKey] : null;
+              const effectiveVisitantes = pixData ? pixData.pageviews : etapa.visitantes;
+              const effectiveConversoes = pixData ? pixData.conversions : etapa.conversoes;
+              const taxa = effectiveVisitantes > 0 ? (effectiveConversoes / effectiveVisitantes) * 100 : 0;
               const convColors = getConversionColor(taxa);
               const tipoStyle = TIPO_STYLES[etapa.tipo || "outro"] || TIPO_STYLES.outro;
               const isTextType = etapa.tipo === "texto";
@@ -604,14 +647,27 @@ export default function Funis() {
 
                       {tipoStyle.hasMetrics && (
                         <>
+                          {pixData && (
+                            <Badge variant="outline" className="text-[8px] text-emerald-400 border-emerald-400/30 w-fit">
+                              📡 Dados reais
+                            </Badge>
+                          )}
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Visitas</p>
-                              <Input type="number" defaultValue={etapa.visitantes} onBlur={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              {pixData ? (
+                                <p className="text-xs font-mono font-bold text-emerald-400 px-1">{effectiveVisitantes.toLocaleString()}</p>
+                              ) : (
+                                <Input type="number" defaultValue={etapa.visitantes} onBlur={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              )}
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground flex items-center gap-1"><ShoppingCart className="h-2.5 w-2.5" /> Conv.</p>
-                              <Input type="number" defaultValue={etapa.conversoes} onBlur={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              {pixData ? (
+                                <p className="text-xs font-mono font-bold text-emerald-400 px-1">{effectiveConversoes.toLocaleString()}</p>
+                              ) : (
+                                <Input type="number" defaultValue={etapa.conversoes} onBlur={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between">

@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, FileText } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 
 interface Message {
@@ -13,6 +14,10 @@ interface Message {
   phone: string;
   created_at: string;
   status: string;
+}
+
+interface WaTemplate {
+  id: string; name: string; content: string; category: string; project_id: string | null;
 }
 
 interface Props {
@@ -26,7 +31,12 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
+  }, []);
 
   const loadMessages = async () => {
     const { data } = await supabase
@@ -89,6 +99,24 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
         </div>
       </ScrollArea>
       <div className="border-t border-border p-3 flex gap-2">
+        {templates.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="icon" variant="ghost" className="shrink-0" title="Usar template">
+                <FileText className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1" align="start">
+              <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
+              {templates.map(t => (
+                <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
+                  onClick={() => setText(t.content)}>
+                  {t.name}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
         <Input
           value={text}
           onChange={e => setText(e.target.value)}
