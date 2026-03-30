@@ -424,8 +424,8 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
           {/* ── CHAT TAB ── */}
           {tab === "chat" && (
             <div className="flex flex-col h-full" style={{ height: "calc(100vh - 140px)" }}>
-              {/* Project selector */}
-              <div className="px-4 py-2 border-b border-border bg-secondary/20 shrink-0">
+              {/* Project selector + Skills panel */}
+              <div className="px-4 py-2 border-b border-border bg-secondary/20 shrink-0 space-y-2">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Projeto:</span>
                   <select
@@ -439,18 +439,55 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
                     ))}
                   </select>
                   {selectedProject !== "none" && (
-                    <>
-                      <Badge variant="outline" className="text-[9px] text-green-400 border-green-400/30">
-                        Contexto ativo
-                      </Badge>
-                      {contextChars > 0 && (
-                        <Badge variant="outline" className="text-[9px] text-amber-400 border-amber-400/30">
-                          {(contextChars / 1000).toFixed(1)}K chars
-                        </Badge>
-                      )}
-                    </>
+                    <Badge variant="outline" className="text-[9px] text-green-400 border-green-400/30">
+                      Contexto ativo
+                    </Badge>
+                  )}
+                  {contextChars > 0 && (
+                    <Badge variant="outline" className="text-[9px] text-amber-400 border-amber-400/30">
+                      {(contextChars / 1000).toFixed(1)}K chars
+                    </Badge>
+                  )}
+                  {activeSkills.size > 0 && (
+                    <Badge variant="outline" className="text-[9px] text-purple-400 border-purple-400/30">
+                      <Wrench className="h-2.5 w-2.5 mr-1" />{activeSkills.size} skills
+                    </Badge>
                   )}
                 </div>
+
+                {/* Skills checklist - collapsible */}
+                <details className="group">
+                  <summary className="flex items-center gap-1.5 cursor-pointer text-[10px] text-muted-foreground font-semibold uppercase tracking-wider hover:text-foreground transition-colors">
+                    <Wrench className="h-3 w-3" /> Skills ({SKILLS_DATA.length + customSkills.length} disponíveis · {activeSkills.size} ativas)
+                  </summary>
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    {[...SKILLS_DATA, ...customSkills.filter(s => s.system_prompt)].map((skill: any) => (
+                      <label
+                        key={skill.id}
+                        className={`flex items-center gap-1.5 rounded-md border px-2 py-1 cursor-pointer text-[10px] transition-colors ${
+                          activeSkills.has(skill.id)
+                            ? "border-purple-500/40 bg-purple-500/10 text-purple-300"
+                            : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={activeSkills.has(skill.id)}
+                          onCheckedChange={(checked) => {
+                            setActiveSkills(prev => {
+                              const next = new Set(prev);
+                              if (checked) next.add(skill.id);
+                              else next.delete(skill.id);
+                              return next;
+                            });
+                          }}
+                          className="h-3 w-3"
+                        />
+                        <span className="mr-0.5">{skill.icone || "⚙️"}</span>
+                        <span className="truncate">{skill.nome}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
               </div>
 
               {/* Messages */}
