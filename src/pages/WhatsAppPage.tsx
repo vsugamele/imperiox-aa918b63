@@ -9,12 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone } from "lucide-react";
+import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ChatView from "@/components/whatsapp/ChatView";
 import QrCodePanel from "@/components/whatsapp/QrCodePanel";
 import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
+
+interface WaTemplate {
+  id: string; nome: string; conteudo: string; categoria: string; project_id: string | null;
+}
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
