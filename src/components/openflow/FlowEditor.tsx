@@ -19,6 +19,8 @@ const TRIGGERS_MAP: Record<string, { label: string; icon: string }> = {
   compra_aprovada: { label: "Compra Aprovada", icon: "✅" },
   lead_novo: { label: "Novo Lead", icon: "👤" },
   reembolso: { label: "Reembolso", icon: "↩️" },
+  aguardando_pagamento: { label: "Aguardando Pagamento / Pix Gerado", icon: "💰" },
+  inicio_checkout: { label: "Início de Checkout", icon: "🛍️" },
 };
 
 export interface Acao {
