@@ -12,7 +12,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff, BarChart3, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { CopyArsenalSection } from "./CopyArsenalSection";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
