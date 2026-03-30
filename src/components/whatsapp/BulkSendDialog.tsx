@@ -19,7 +19,7 @@ interface Props {
   templates?: any[];
 }
 
-export default function BulkSendDialog({ open, onOpenChange, providers }: Props) {
+export default function BulkSendDialog({ open, onOpenChange, providers, templates = [] }: Props) {
   const [leads, setLeads] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [providerId, setProviderId] = useState("");
