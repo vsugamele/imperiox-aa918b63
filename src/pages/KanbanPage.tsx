@@ -245,8 +245,24 @@ export default function KanbanPage() {
       board, position: allCards.filter(c => c.column_id === targetColId).length, tags: [],
       member_id: newMemberId === "none" ? null : newMemberId,
       project_id: newProjectId === "none" ? null : newProjectId,
-    });
+    }).select().single();
     if (error) { toast.error("Erro ao criar card"); return; }
+    // Notificação instantânea para o time
+    if (data && user) {
+      const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
+      for (const m of otherUsers) {
+        if (m.user_id && m.user_id !== user.id) {
+          await supabase.from("imphq_notifications").insert({
+            user_id: m.user_id,
+            title: `📝 Nova tarefa: ${newTitle.trim()}`,
+            message: newDesc || null,
+            type: "tarefa",
+            entity_type: "card",
+            entity_id: (data as any).id,
+          });
+        }
+      }
+    }
     toast.success("Card criado!");
     setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); setNewProjectId("none");
     loadAllData();
