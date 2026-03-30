@@ -64,14 +64,23 @@ export default function OpenFlow() {
   useEffect(() => {
     if (!editing?.project_id) { setProjectTemplates([]); return; }
     const fetchTemplates = async () => {
-      const { data } = await supabase.from("imphq_projects").select("data").eq("id", editing.project_id).single();
-      if (!data?.data) { setProjectTemplates([]); return; }
-      const d = data.data as any;
+      const [projRes, waRes] = await Promise.all([
+        supabase.from("imphq_projects").select("data").eq("id", editing.project_id!).single(),
+        supabase.from("imphq_wa_templates").select("name, content").eq("project_id", editing.project_id!),
+      ]);
       const tpls: ProjectTemplate[] = [];
-      // Emails
+      const d = (projRes.data?.data || {}) as any;
+
+      // Emails from data.emails
       if (Array.isArray(d.emails)) {
         d.emails.forEach((e: any, i: number) => {
           if (e.body) tpls.push({ label: e.subject || `Email ${i + 1}`, content: e.body, source: "Email" });
+        });
+      }
+      // Email Resend templates from data.email_config.templates
+      if (d.email_config?.templates && Array.isArray(d.email_config.templates)) {
+        d.email_config.templates.forEach((t: any, i: number) => {
+          if (t.html_body) tpls.push({ label: t.subject || `Resend ${i + 1}`, content: t.html_body, source: "✉️ Resend" });
         });
       }
       // Copy arsenal
@@ -80,6 +89,12 @@ export default function OpenFlow() {
         if (ca.headlines) tpls.push({ label: "Headlines", content: ca.headlines, source: "Copy" });
         if (ca.storytelling) tpls.push({ label: "Storytelling", content: ca.storytelling, source: "Copy" });
         if (ca.ctas) tpls.push({ label: "CTAs", content: ca.ctas, source: "Copy" });
+      }
+      // WhatsApp templates
+      if (waRes.data?.length) {
+        waRes.data.forEach((t: any) => {
+          if (t.content) tpls.push({ label: t.name || "WhatsApp", content: t.content, source: "💬 WhatsApp" });
+        });
       }
       setProjectTemplates(tpls);
     };
