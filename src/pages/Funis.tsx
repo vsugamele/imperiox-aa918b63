@@ -526,7 +526,12 @@ export default function Funis() {
 
             {/* Cards */}
             {etapas.map((etapa, i) => {
-              const taxa = etapa.visitantes > 0 ? (etapa.conversoes / etapa.visitantes) * 100 : 0;
+              // Pixel data override
+              const urlKey = (etapa.url || "").replace(/\/$/, "").toLowerCase();
+              const pixData = usePixelData && urlKey ? pixelMetrics[urlKey] : null;
+              const effectiveVisitantes = pixData ? pixData.pageviews : etapa.visitantes;
+              const effectiveConversoes = pixData ? pixData.conversions : etapa.conversoes;
+              const taxa = effectiveVisitantes > 0 ? (effectiveConversoes / effectiveVisitantes) * 100 : 0;
               const convColors = getConversionColor(taxa);
               const tipoStyle = TIPO_STYLES[etapa.tipo || "outro"] || TIPO_STYLES.outro;
               const isTextType = etapa.tipo === "texto";
