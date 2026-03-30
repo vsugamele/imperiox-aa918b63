@@ -199,6 +199,9 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="comando" className="mt-4">
+          <ProjetoComando projectId={id!} project={project} />
+        </TabsContent>
         <TabsContent value="briefing" className="mt-4">
           <ProjetoBriefing project={project} onUpdateData={onUpdateData} onUpdatePipeline={onUpdatePipeline} />
         </TabsContent>
