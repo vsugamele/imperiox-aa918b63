@@ -239,7 +239,7 @@ export default function KanbanPage() {
       const boardCol = allColumns.find(c => c.board === board && normalizeColTitle(c.title) === colTitle);
       if (boardCol) targetColId = boardCol.id;
     }
-    const { error } = await supabase.from("imphq_kanban_cards").insert({
+    const { data: newCard, error } = await supabase.from("imphq_kanban_cards").insert({
       column_id: targetColId, title: newTitle.trim(), priority: newPriority,
       due_date: newDueDate || null, description: newDesc || null,
       board, position: allCards.filter(c => c.column_id === targetColId).length, tags: [],
@@ -248,18 +248,21 @@ export default function KanbanPage() {
     }).select().single();
     if (error) { toast.error("Erro ao criar card"); return; }
     // Notificação instantânea para o time
-    if (data && user) {
-      const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
-      for (const m of otherUsers) {
-        if (m.user_id && m.user_id !== user.id) {
-          await supabase.from("imphq_notifications").insert({
-            user_id: m.user_id,
-            title: `📝 Nova tarefa: ${newTitle.trim()}`,
-            message: newDesc || null,
-            type: "tarefa",
-            entity_type: "card",
-            entity_id: (data as any).id,
-          });
+    if (newCard) {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
+        for (const m of otherUsers) {
+          if (m.user_id && m.user_id !== currentUser.id) {
+            await supabase.from("imphq_notifications").insert({
+              user_id: m.user_id,
+              title: `📝 Nova tarefa: ${newTitle.trim()}`,
+              message: newDesc || null,
+              type: "tarefa",
+              entity_type: "card",
+              entity_id: (newCard as any).id,
+            });
+          }
         }
       }
     }
