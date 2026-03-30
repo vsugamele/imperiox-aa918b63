@@ -107,6 +107,14 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [kbSections, setKbSections] = useState<any[]>([]);
   const [contextChars, setContextChars] = useState(0);
+  const [activeSkills, setActiveSkills] = useState<Set<string>>(new Set());
+  const [customSkills, setCustomSkills] = useState<any[]>([]);
+
+  // Load custom skills from Supabase
+  useEffect(() => {
+    supabase.from("imphq_skills").select("id,nome,categoria,system_prompt,descricao")
+      .then(({ data }) => setCustomSkills(data || []));
+  }, []);
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id,name,produto,categoria,objetivo,avatar,contexto,data")
