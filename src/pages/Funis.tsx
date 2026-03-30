@@ -647,14 +647,27 @@ export default function Funis() {
 
                       {tipoStyle.hasMetrics && (
                         <>
+                          {pixData && (
+                            <Badge variant="outline" className="text-[8px] text-emerald-400 border-emerald-400/30 w-fit">
+                              📡 Dados reais
+                            </Badge>
+                          )}
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Visitas</p>
-                              <Input type="number" defaultValue={etapa.visitantes} onBlur={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              {pixData ? (
+                                <p className="text-xs font-mono font-bold text-emerald-400 px-1">{effectiveVisitantes.toLocaleString()}</p>
+                              ) : (
+                                <Input type="number" defaultValue={etapa.visitantes} onBlur={e => setEtapaField(i, "visitantes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              )}
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground flex items-center gap-1"><ShoppingCart className="h-2.5 w-2.5" /> Conv.</p>
-                              <Input type="number" defaultValue={etapa.conversoes} onBlur={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              {pixData ? (
+                                <p className="text-xs font-mono font-bold text-emerald-400 px-1">{effectiveConversoes.toLocaleString()}</p>
+                              ) : (
+                                <Input type="number" defaultValue={etapa.conversoes} onBlur={e => setEtapaField(i, "conversoes", parseInt(e.target.value) || 0)} className="h-6 text-xs font-mono bg-card/50 border-border p-1" />
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between">

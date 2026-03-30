@@ -99,6 +99,24 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
         </div>
       </ScrollArea>
       <div className="border-t border-border p-3 flex gap-2">
+        {templates.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="icon" variant="ghost" className="shrink-0" title="Usar template">
+                <FileText className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1" align="start">
+              <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
+              {templates.map(t => (
+                <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
+                  onClick={() => setText(t.conteudo)}>
+                  {t.nome}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
         <Input
           value={text}
           onChange={e => setText(e.target.value)}

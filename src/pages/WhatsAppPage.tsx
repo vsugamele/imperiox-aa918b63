@@ -402,7 +402,8 @@ export default function WhatsApp() {
       <ProviderConfigDialog open={showProviderConfig} onOpenChange={setShowProviderConfig} projects={projects} onCreated={load} />
 
       {/* Bulk Send Dialog */}
-      <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} />
+      <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} templates={templates} />
+      </>)}
     </div>
   );
 }

@@ -402,9 +402,16 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
                     ))}
                   </select>
                   {selectedProject !== "none" && (
-                    <Badge variant="outline" className="text-[9px] text-green-400 border-green-400/30">
-                      Contexto ativo
-                    </Badge>
+                    <>
+                      <Badge variant="outline" className="text-[9px] text-green-400 border-green-400/30">
+                        Contexto ativo
+                      </Badge>
+                      {contextChars > 0 && (
+                        <Badge variant="outline" className="text-[9px] text-amber-400 border-amber-400/30">
+                          {(contextChars / 1000).toFixed(1)}K chars
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
