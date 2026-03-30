@@ -16,6 +16,10 @@ interface Message {
   status: string;
 }
 
+interface WaTemplate {
+  id: string; nome: string; conteudo: string; categoria: string; project_id: string | null;
+}
+
 interface Props {
   conversationId: string;
   phone: string;
