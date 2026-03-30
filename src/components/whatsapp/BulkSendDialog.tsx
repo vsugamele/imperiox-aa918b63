@@ -97,10 +97,10 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
           <div>
             <Label>Template de mensagem</Label>
             {templates.length > 0 && (
-              <Select onValueChange={v => { const t = templates.find((x: any) => x.id === v); if (t) setTemplate(t.conteudo); }}>
+              <Select onValueChange={v => { const t = templates.find((x: any) => x.id === v); if (t) setTemplate(t.content); }}>
                 <SelectTrigger className="mb-2"><SelectValue placeholder="Usar template salvo..." /></SelectTrigger>
                 <SelectContent>
-                  {templates.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
+                  {templates.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
