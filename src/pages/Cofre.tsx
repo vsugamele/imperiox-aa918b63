@@ -365,7 +365,7 @@ curl -H "x-api-key: SUA_CHAVE" \\
             <div><Label>URL</Label><Input value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://..." /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Usuário / E-mail</Label><Input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} /></div>
-              <div><Label>Senha</Label><Input type="password" value={form.password_encrypted} onChange={e => setForm(f => ({ ...f, password_encrypted: e.target.value }))} /></div>
+              <div><Label>Senha</Label><div className="relative"><Input type={showFormPassword ? "text" : "password"} value={form.password_encrypted} onChange={e => setForm(f => ({ ...f, password_encrypted: e.target.value }))} className="pr-10" /><Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => setShowFormPassword(!showFormPassword)}>{showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button></div></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
