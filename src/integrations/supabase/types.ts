@@ -149,6 +149,389 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_agendamentos: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string
+          data: string
+          horario: string
+          id: string
+          observacoes: string | null
+          profissional_id: string | null
+          profissional_nome: string | null
+          servico_id: string | null
+          servico_nome: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          valor: number | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data: string
+          horario: string
+          id?: string
+          observacoes?: string | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          servico_id?: string | null
+          servico_nome?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          valor?: number | null
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data?: string
+          horario?: string
+          id?: string
+          observacoes?: string | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          servico_id?: string | null
+          servico_nome?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_agendamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_agendamentos_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_agendamentos_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_servicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_caixa: {
+        Row: {
+          abertura: string | null
+          created_at: string
+          data: string
+          fechamento: string | null
+          id: string
+          saldo_final: number | null
+          saldo_inicial: number | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          abertura?: string | null
+          created_at?: string
+          data?: string
+          fechamento?: string | null
+          id?: string
+          saldo_final?: number | null
+          saldo_inicial?: number | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          abertura?: string | null
+          created_at?: string
+          data?: string
+          fechamento?: string | null
+          id?: string
+          saldo_final?: number | null
+          saldo_inicial?: number | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      appbrabas_clientes: {
+        Row: {
+          aniversario: string | null
+          celular: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          email: string | null
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aniversario?: string | null
+          celular?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aniversario?: string | null
+          celular?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      appbrabas_notas_fiscais: {
+        Row: {
+          cliente_nome: string | null
+          created_at: string
+          data_emissao: string
+          id: string
+          numero: string
+          status: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          cliente_nome?: string | null
+          created_at?: string
+          data_emissao?: string
+          id?: string
+          numero: string
+          status?: string
+          tipo?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          cliente_nome?: string | null
+          created_at?: string
+          data_emissao?: string
+          id?: string
+          numero?: string
+          status?: string
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      appbrabas_pacote_servicos: {
+        Row: {
+          created_at: string
+          id: string
+          nome_servico: string
+          pacote_id: string
+          servico_id: string | null
+          total: number
+          usado: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome_servico: string
+          pacote_id: string
+          servico_id?: string | null
+          total?: number
+          usado?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome_servico?: string
+          pacote_id?: string
+          servico_id?: string | null
+          total?: number
+          usado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_pacote_servicos_pacote_id_fkey"
+            columns: ["pacote_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_pacotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_pacote_servicos_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_servicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_pacotes: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string
+          data_inicio: string | null
+          data_vencimento: string | null
+          id: string
+          nome: string
+          status: string
+          updated_at: string
+          user_id: string
+          valor: number | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_inicio?: string | null
+          data_vencimento?: string | null
+          id?: string
+          nome: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          valor?: number | null
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_inicio?: string | null
+          data_vencimento?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_pacotes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_profissionais: {
+        Row: {
+          ativo: boolean | null
+          comissao_pct: number | null
+          created_at: string
+          id: string
+          nome: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          comissao_pct?: number | null
+          created_at?: string
+          id?: string
+          nome: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean | null
+          comissao_pct?: number | null
+          created_at?: string
+          id?: string
+          nome?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      appbrabas_servicos: {
+        Row: {
+          created_at: string
+          duracao_min: number | null
+          id: string
+          nome: string
+          preco: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duracao_min?: number | null
+          id?: string
+          nome: string
+          preco?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duracao_min?: number | null
+          id?: string
+          nome?: string
+          preco?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      appbrabas_transacoes: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          data: string
+          descricao: string
+          forma_pagamento: string | null
+          id: string
+          profissional_id: string | null
+          profissional_nome: string | null
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          data?: string
+          descricao: string
+          forma_pagamento?: string | null
+          id?: string
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          tipo?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          data?: string
+          descricao?: string
+          forma_pagamento?: string | null
+          id?: string
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_transacoes_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aromatherapy_protocols: {
         Row: {
           created_at: string
