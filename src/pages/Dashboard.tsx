@@ -6,7 +6,7 @@ import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, C
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import GrowthDashboard from "@/components/dashboard/GrowthDashboard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";

@@ -1094,7 +1094,154 @@ export default function Tarefas() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* ====== PROCESSES TAB ====== */}
+        <TabsContent value="processes" className="space-y-4 mt-4">
+          {/* Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={processFilterMember} onValueChange={setProcessFilterMember}>
+              <SelectTrigger className="w-[180px] bg-secondary/60 h-9 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={processFilterCategory} onValueChange={setProcessFilterCategory}>
+              <SelectTrigger className="w-[160px] bg-secondary/60 h-9 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas categorias</SelectItem>
+                {PROCESS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
+            <Button size="sm" onClick={() => { setEditingProcess(null); setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none" }); setShowProcessDialog(true); }}>
+              <Plus className="h-4 w-4 mr-1" /> Novo Processo
+            </Button>
+          </div>
+
+          {/* Process List */}
+          {filteredProcesses.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Nenhum processo encontrado.</p>
+              <p className="text-xs mt-1">Crie SOPs e rotinas para sua equipe.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredProcesses.map(proc => {
+                const steps = Array.isArray(proc.steps) ? proc.steps : [];
+                const doneSteps = steps.filter((s: any) => s.done).length;
+                const member = members.find(m => m.id === proc.member_id);
+                const project = projects.find(p => p.id === proc.project_id);
+                return (
+                  <Card key={proc.id} className="border-border hover:border-primary/30 transition-colors">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-sm font-semibold truncate">{proc.title}</CardTitle>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">{proc.category}</Badge>
+                            {member && <Badge variant="secondary" className="text-[10px]"><User className="h-2.5 w-2.5 mr-0.5" />{member.name}</Badge>}
+                            {project && <Badge variant="secondary" className="text-[10px]">📁 {project.name}</Badge>}
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditProcess(proc)}><Pencil className="h-3.5 w-3.5 mr-2" /> Editar</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => deleteProcess(proc.id)}><Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-2">
+                      {proc.description && <p className="text-xs text-muted-foreground">{proc.description}</p>}
+                      {steps.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Progress value={steps.length > 0 ? (doneSteps / steps.length) * 100 : 0} className="h-1.5 flex-1" />
+                            <span>{doneSteps}/{steps.length}</span>
+                          </div>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {steps.map((step: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 py-0.5">
+                                <Checkbox checked={step.done} onCheckedChange={() => toggleProcessStepDone(proc, idx)} className="h-3.5 w-3.5" />
+                                <span className={`text-xs ${step.done ? "line-through text-muted-foreground" : ""}`}>{step.text || `Etapa ${idx + 1}`}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* Process Dialog */}
+      <Dialog open={showProcessDialog} onOpenChange={setShowProcessDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editingProcess ? "Editar Processo" : "Novo Processo"}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Título</Label><Input value={processForm.title} onChange={e => setProcessForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Rotina de Tráfego Diário" className="bg-secondary" /></div>
+            <div><Label>Descrição</Label><Textarea value={processForm.description} onChange={e => setProcessForm(f => ({ ...f, description: e.target.value }))} placeholder="Descreva o objetivo deste processo..." className="bg-secondary min-h-[60px]" /></div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Categoria</Label>
+                <Select value={processForm.category} onValueChange={v => setProcessForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>{PROCESS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Responsável</Label>
+                <Select value={processForm.member_id} onValueChange={v => setProcessForm(f => ({ ...f, member_id: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Projeto</Label>
+                <Select value={processForm.project_id} onValueChange={v => setProcessForm(f => ({ ...f, project_id: v }))}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {/* Steps */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Etapas do Processo</Label>
+                <Button size="sm" variant="outline" onClick={addProcessStep} className="h-7 text-xs"><Plus className="h-3 w-3 mr-1" /> Etapa</Button>
+              </div>
+              <div className="space-y-2">
+                {processForm.steps.map((step, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs text-muted-foreground w-5 shrink-0">{idx + 1}.</span>
+                    <Input value={step.text} onChange={e => updateProcessStep(idx, e.target.value)} placeholder={`Etapa ${idx + 1}...`} className="bg-secondary h-8 text-xs" />
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => removeProcessStep(idx)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                  </div>
+                ))}
+                {processForm.steps.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">Adicione etapas para criar um checklist</p>}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProcessDialog(false)}>Cancelar</Button>
+            <Button onClick={saveProcess} disabled={!processForm.title.trim()}>{editingProcess ? "Salvar" : "Criar Processo"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Event Dialog */}
       <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
