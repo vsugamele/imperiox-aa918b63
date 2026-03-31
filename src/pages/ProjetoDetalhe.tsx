@@ -446,6 +446,8 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
 // ── Webhooks de Pagamento Card ──────────────────────────────────
 function WebhooksPagamentoCard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
   const baseUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}`;
 
   const copyUrl = (url: string, label: string) => {
