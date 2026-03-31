@@ -669,7 +669,6 @@ export default function KanbanPage() {
             </TabsTrigger>
           ))}
         </TabsList>
-        </TabsList>
 
         <div className="mt-4">
           {loading ? (
