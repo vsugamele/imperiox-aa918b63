@@ -47,6 +47,7 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
   const templates = config.templates || [];
 
   const [emailHistory, setEmailHistory] = useState<any[]>([]);
+  const [showResendKey, setShowResendKey] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
