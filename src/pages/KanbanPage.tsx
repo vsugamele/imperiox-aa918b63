@@ -1066,6 +1066,20 @@ export default function KanbanPage() {
         members={members}
         projects={projects}
       />
+
+      {/* AI Doc Dialog */}
+      <Dialog open={showAiDoc} onOpenChange={setShowAiDoc}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader><DialogTitle>📄 Documento Gerado por IA</DialogTitle></DialogHeader>
+          <Textarea value={aiDocResult} readOnly className="min-h-[300px] text-sm font-mono" />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(aiDocResult); toast.success("Copiado!"); }}>
+              <Copy className="h-3.5 w-3.5 mr-1.5" /> Copiar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowAiDoc(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
