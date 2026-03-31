@@ -95,6 +95,8 @@ interface CardDetailPanelProps {
   projects?: { id: string; name: string }[];
 }
 
+const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
+
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   urgent: { label: "Urgente", color: "bg-destructive/15 text-destructive border-destructive/30", dot: "bg-destructive" },
   high: { label: "Alta", color: "bg-warning/15 text-warning border-warning/30", dot: "bg-warning" },
