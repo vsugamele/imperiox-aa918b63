@@ -11292,36 +11292,48 @@ export type Database = {
       imphq_skills: {
         Row: {
           categoria: string
+          cor: string | null
           created_at: string | null
           descricao: string | null
+          gatilho: string | null
           icone: string | null
           id: string
           nome: string
           owner_id: string | null
           status: string
+          system_prompt: string | null
           updated_at: string | null
+          versao: string | null
         }
         Insert: {
           categoria?: string
+          cor?: string | null
           created_at?: string | null
           descricao?: string | null
+          gatilho?: string | null
           icone?: string | null
           id: string
           nome: string
           owner_id?: string | null
           status?: string
+          system_prompt?: string | null
           updated_at?: string | null
+          versao?: string | null
         }
         Update: {
           categoria?: string
+          cor?: string | null
           created_at?: string | null
           descricao?: string | null
+          gatilho?: string | null
           icone?: string | null
           id?: string
           nome?: string
           owner_id?: string | null
           status?: string
+          system_prompt?: string | null
           updated_at?: string | null
+          versao?: string | null
         }
         Relationships: [
           {
