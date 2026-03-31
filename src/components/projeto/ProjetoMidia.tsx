@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon, Paperclip } from "lucide-react";
 import { FileUpload } from "@/components/FileUpload";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
