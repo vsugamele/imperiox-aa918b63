@@ -1145,6 +1145,7 @@ export default function Tarefas() {
                           <CardTitle className="text-sm font-semibold truncate">{proc.title}</CardTitle>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{proc.category}</Badge>
+                            {(proc as any).horario && <Badge variant="secondary" className="text-[10px]"><Clock className="h-2.5 w-2.5 mr-0.5" />{(proc as any).horario}</Badge>}
                             {member && <Badge variant="secondary" className="text-[10px]"><User className="h-2.5 w-2.5 mr-0.5" />{member.name}</Badge>}
                             {project && <Badge variant="secondary" className="text-[10px]">📁 {project.name}</Badge>}
                           </div>
