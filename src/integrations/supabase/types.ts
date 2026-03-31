@@ -10814,6 +10814,48 @@ export type Database = {
           },
         ]
       }
+      imphq_processes: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          member_id: string | null
+          position: number | null
+          project_id: string | null
+          steps: Json | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          member_id?: string | null
+          position?: number | null
+          project_id?: string | null
+          steps?: Json | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          member_id?: string | null
+          position?: number | null
+          project_id?: string | null
+          steps?: Json | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_project_costs: {
         Row: {
           categoria: string | null
@@ -23379,6 +23421,7 @@ export type Database = {
       }
       zap_sequences: {
         Row: {
+          campaign_id: string | null
           created_at: string
           group_ids: string[] | null
           id: string
@@ -23388,6 +23431,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          campaign_id?: string | null
           created_at?: string
           group_ids?: string[] | null
           id?: string
@@ -23397,6 +23441,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          campaign_id?: string | null
           created_at?: string
           group_ids?: string[] | null
           id?: string
@@ -23406,6 +23451,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "zap_sequences_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "zap_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "zap_sequences_project_id_fkey"
             columns: ["project_id"]
@@ -23490,6 +23542,7 @@ export type Database = {
       }
       zap_welcome_messages: {
         Row: {
+          campaign_id: string | null
           created_at: string
           delay_seconds: number
           enabled: boolean
@@ -23502,6 +23555,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          campaign_id?: string | null
           created_at?: string
           delay_seconds?: number
           enabled?: boolean
@@ -23514,6 +23568,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          campaign_id?: string | null
           created_at?: string
           delay_seconds?: number
           enabled?: boolean
@@ -23526,6 +23581,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "zap_welcome_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "zap_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "zap_welcome_messages_group_id_fkey"
             columns: ["group_id"]

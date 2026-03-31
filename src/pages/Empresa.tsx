@@ -68,12 +68,12 @@ export default function Empresa() {
         </TabsContent>
         <TabsContent value="instagram">
           <AccountTable contas={filterByType("instagram")} tipo="instagram"
-            columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
+            columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="tiktok">
           <AccountTable contas={filterByType("tiktok")} tipo="tiktok"
-            columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
+            columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
       </Tabs>
@@ -215,6 +215,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                   ) : (
                     <>
                       <TableCell className="font-medium text-sm">@{c.nome}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{c.valor || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
                         {c.extra?.senha && (
@@ -280,6 +281,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
             ) : (
               <>
                 <div><Label>Perfil *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="@nomedoperfil" /></div>
+                <div><Label>Usuário / Email de Login</Label><Input value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} placeholder="email@exemplo.com" /></div>
                 <div>
                   <Label>Senha</Label>
                   <div className="relative">

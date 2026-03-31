@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,7 +20,8 @@ import {
 import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
   Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
-  RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon
+  RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon,
+  BookOpen, GripVertical
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -140,6 +142,16 @@ export default function Tarefas() {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [eventForm, setEventForm] = useState({ title: "", event_date: "", event_type: "general", color: "#6366f1", description: "", project_id: "none" });
 
+  // Process state
+  interface Process { id: string; title: string; description?: string; steps: any[]; member_id?: string; project_id?: string; category: string; is_active: boolean; created_at: string; }
+  const [processes, setProcesses] = useState<Process[]>([]);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
+  const [editingProcess, setEditingProcess] = useState<Process | null>(null);
+  const [processForm, setProcessForm] = useState({ title: "", description: "", steps: [] as { text: string; done: boolean }[], category: "geral", member_id: "none", project_id: "none" });
+  const [processFilterMember, setProcessFilterMember] = useState("all");
+  const [processFilterCategory, setProcessFilterCategory] = useState("all");
+  const PROCESS_CATEGORIES = ["geral", "tráfego", "conteúdo", "atendimento", "financeiro", "vendas", "operações"];
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
@@ -171,6 +183,9 @@ export default function Tarefas() {
     setMembers((memberRes.data as any[]) || []);
     setRoutines((routineRes.data as any[]) || []);
     setChecks((checksRes.data as any[]) || []);
+    // Fetch processes
+    const { data: procData } = await supabase.from("imphq_processes").select("*").eq("is_active", true).order("position", { ascending: true });
+    setProcesses((procData as any[]) || []);
     setLoading(false);
   }, [todayStr]);
 
@@ -317,6 +332,69 @@ export default function Tarefas() {
     setEditingRoutine(null);
     setRoutineForm({ title: "", icon: "✅", category, member_id: "none", project_id: "none" });
     setShowRoutineDialog(true);
+  };
+
+  // === PROCESSES LOGIC ===
+  const filteredProcesses = processes.filter(p => {
+    if (processFilterMember !== "all" && p.member_id !== processFilterMember) return false;
+    if (processFilterCategory !== "all" && p.category !== processFilterCategory) return false;
+    return true;
+  });
+
+  const saveProcess = async () => {
+    if (!user || !processForm.title.trim()) { toast.error("Título obrigatório"); return; }
+    const payload = {
+      title: processForm.title.trim(),
+      description: processForm.description || null,
+      steps: processForm.steps,
+      category: processForm.category,
+      member_id: processForm.member_id !== "none" ? processForm.member_id : null,
+      project_id: processForm.project_id !== "none" ? processForm.project_id : null,
+    } as any;
+
+    if (editingProcess) {
+      const { error } = await supabase.from("imphq_processes").update(payload).eq("id", editingProcess.id);
+      if (error) { toast.error("Erro: " + error.message); return; }
+      setProcesses(prev => prev.map(p => p.id === editingProcess.id ? { ...p, ...payload } : p));
+      toast.success("Processo atualizado!");
+    } else {
+      payload.user_id = user.id;
+      payload.position = processes.length;
+      const { data, error } = await supabase.from("imphq_processes").insert(payload).select().single();
+      if (error) { toast.error("Erro: " + error.message); return; }
+      setProcesses(prev => [...prev, data as any]);
+      toast.success("Processo criado!");
+    }
+    setShowProcessDialog(false);
+    setEditingProcess(null);
+    setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none" });
+  };
+
+  const deleteProcess = async (id: string) => {
+    await supabase.from("imphq_processes").delete().eq("id", id);
+    setProcesses(prev => prev.filter(p => p.id !== id));
+    toast.success("Processo excluído");
+  };
+
+  const openEditProcess = (proc: Process) => {
+    setEditingProcess(proc);
+    setProcessForm({
+      title: proc.title, description: proc.description || "",
+      steps: Array.isArray(proc.steps) ? proc.steps : [],
+      category: proc.category, member_id: proc.member_id || "none", project_id: proc.project_id || "none",
+    });
+    setShowProcessDialog(true);
+  };
+
+  const addProcessStep = () => setProcessForm(f => ({ ...f, steps: [...f.steps, { text: "", done: false }] }));
+  const removeProcessStep = (i: number) => setProcessForm(f => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
+  const updateProcessStep = (i: number, text: string) => setProcessForm(f => ({ ...f, steps: f.steps.map((s, idx) => idx === i ? { ...s, text } : s) }));
+
+  const toggleProcessStepDone = async (proc: Process, stepIndex: number) => {
+    const steps = Array.isArray(proc.steps) ? [...proc.steps] : [];
+    steps[stepIndex] = { ...steps[stepIndex], done: !steps[stepIndex].done };
+    await supabase.from("imphq_processes").update({ steps } as any).eq("id", proc.id);
+    setProcesses(prev => prev.map(p => p.id === proc.id ? { ...p, steps } : p));
   };
 
   // === TASKS LOGIC (existing) ===
@@ -692,6 +770,10 @@ export default function Tarefas() {
           <TabsTrigger value="calendar" className="gap-1.5">
             <CalendarIcon className="h-3.5 w-3.5" /> Calendário
             <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{calEvents.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="processes" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" /> Processos
+            <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{processes.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
