@@ -272,6 +272,12 @@ export default function Dashboard() {
               <p className={`text-2xl font-mono font-bold text-emerald-400 ${!isAdmin ? "blur-md select-none" : ""}`}>
                 R$ {totalReceita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </p>
+              {isAdmin && (receitaBreakdown.vendas > 0 || receitaBreakdown.manual > 0) && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Vendas (webhook): R$ {receitaBreakdown.vendas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  {receitaBreakdown.manual > 0 && ` + Manual: R$ ${receitaBreakdown.manual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                </p>
+              )}
             </div>
             {!isAdmin && <div className="ml-auto flex items-center gap-1 text-muted-foreground"><Lock className="h-4 w-4" /><span className="text-[10px]">Admin only</span></div>}
           </CardContent>
