@@ -238,6 +238,42 @@ export default function KanbanPage() {
   const stuckCount = allCards.filter(c => getCardNormalizedCol(c) === "travado").length;
   const doingCount = allCards.filter(c => getCardNormalizedCol(c) === "fazendo").length;
   const doneCount = allCards.filter(c => getCardNormalizedCol(c) === "feito").length;
+  const noOwnerCount = allCards.filter(c => !c.member_id).length;
+  const boardCardCounts: Record<string, number> = {};
+  for (const b of BOARDS) {
+    boardCardCounts[b] = b === "geral" ? allCards.length : allCards.filter(c => c.board === b).length;
+  }
+
+  const toggleHideDone = (v: boolean) => {
+    setHideDone(v);
+    localStorage.setItem("kanban_hideDone", String(v));
+  };
+
+  const generateAiDoc = async () => {
+    setAiDocLoading(true);
+    try {
+      const cardsData = (activeBoard === "geral" ? allCards : allCards.filter(c => c.board === activeBoard))
+        .map(c => {
+          const m = getMember(c.member_id);
+          const col = allColumns.find(co => co.id === c.column_id);
+          return `- [${col?.title || "?"}] ${c.title}${m ? ` (${m.name})` : ""}${c.due_date ? ` | Prazo: ${new Date(c.due_date).toLocaleDateString("pt-BR")}` : ""}${c.description ? ` — ${c.description.slice(0, 80)}` : ""}`;
+        }).join("\n");
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          action: "generate",
+          prompt: `Gere um documento resumido das atividades do time para compartilhar. Organize por status e responsável.\n\nCards do board "${activeBoard}":\n${cardsData}`,
+          context: "",
+        },
+      });
+      if (error) throw error;
+      setAiDocResult(data?.result || data?.text || "Sem resultado");
+      setShowAiDoc(true);
+    } catch (e: any) {
+      toast.error("Erro ao gerar doc: " + (e.message || ""));
+    } finally {
+      setAiDocLoading(false);
+    }
+  };
 
   const createCard = async () => {
     if (!newTitle.trim() || !showNewCard) return;
