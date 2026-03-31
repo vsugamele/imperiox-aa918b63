@@ -16,6 +16,7 @@ import salesCloserPrompt from "./skills/sales-closer.md?raw";
 import desejoPrompt from "./skills/mapeamento-desejos-v2.md?raw";
 import dossiePrompt from "./skills/dossie-problemas-v2.md?raw";
 import anamsPrompt from "./skills/anams-copywriter.md?raw";
+import webinarRoteiroPrompt from "./skills/webinar-roteiro.md?raw";
 
 export interface SkillData {
   id: string;
