@@ -246,12 +246,27 @@ export default function Leads() {
     const visitorId = lead.data?.visitor_id;
     const promises: Promise<any>[] = [];
 
+    // Fetch events by visitor_id
     if (visitorId) {
       promises.push(
         Promise.resolve(supabase.from("imphq_events").select("*").eq("visitor_id", visitorId).order("created_at", { ascending: false }).limit(100))
           .then(({ data }) => {
             (data || []).forEach((e: any) => {
               events.push({ id: e.id, type: e.event_name || "PageView", timestamp: e.created_at, title: e.event_name || "Evento", subtitle: e.page_url ? new URL(e.page_url).pathname : undefined, details: { ...e.event_data, utm_source: e.utm_source, utm_medium: e.utm_medium, utm_campaign: e.utm_campaign } });
+            });
+          })
+      );
+    }
+
+    // Also fetch events by lead.id as visitor_id (webhook events use lead id)
+    if (!visitorId || visitorId !== lead.id) {
+      promises.push(
+        Promise.resolve(supabase.from("imphq_events").select("*").eq("visitor_id", lead.id).order("created_at", { ascending: false }).limit(100))
+          .then(({ data }) => {
+            (data || []).forEach((e: any) => {
+              if (!events.find(ev => ev.id === e.id)) {
+                events.push({ id: e.id, type: e.event_name || "PageView", timestamp: e.created_at, title: e.event_name || "Evento", subtitle: e.page_url ? new URL(e.page_url).pathname : undefined, details: { ...e.event_data, utm_source: e.utm_source, utm_medium: e.utm_medium, utm_campaign: e.utm_campaign } });
+              }
             });
           })
       );
