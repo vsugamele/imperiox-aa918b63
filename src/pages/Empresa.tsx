@@ -280,6 +280,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
             ) : (
               <>
                 <div><Label>Perfil *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="@nomedoperfil" /></div>
+                <div><Label>Usuário / Email de Login</Label><Input value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} placeholder="email@exemplo.com" /></div>
                 <div>
                   <Label>Senha</Label>
                   <div className="relative">
