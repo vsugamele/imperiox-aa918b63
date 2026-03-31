@@ -378,17 +378,22 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Access Token (CAPI)</Label>
-            <Input
-              type="password"
-              value={project.data?.facebook_access_token || ""}
-              onChange={e => {
-                const newData = { ...(project.data || {}), facebook_access_token: e.target.value };
-                setProject((p: any) => ({ ...p, data: newData }));
-              }}
-              onBlur={() => updateDataField("facebook_access_token", project.data?.facebook_access_token || "")}
-              className="bg-secondary"
-              placeholder="EAAxxxxxxx..."
-            />
+            <div className="relative">
+              <Input
+                type={visibleSecrets["fb_token"] ? "text" : "password"}
+                value={project.data?.facebook_access_token || ""}
+                onChange={e => {
+                  const newData = { ...(project.data || {}), facebook_access_token: e.target.value };
+                  setProject((p: any) => ({ ...p, data: newData }));
+                }}
+                onBlur={() => updateDataField("facebook_access_token", project.data?.facebook_access_token || "")}
+                className="bg-secondary pr-10"
+                placeholder="EAAxxxxxxx..."
+              />
+              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => toggleSecret("fb_token")}>
+                {visibleSecrets["fb_token"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
             <p className="text-[10px] text-muted-foreground mt-1">Gere em Events Manager → Configurações → Conversions API → Gerar Token</p>
           </div>
           <div>
