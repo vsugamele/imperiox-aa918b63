@@ -847,6 +847,7 @@ export type Database = {
         Row: {
           ativo: boolean | null
           comissao_pct: number | null
+          comissao_somente_recebido: boolean | null
           created_at: string
           id: string
           nome: string
@@ -855,6 +856,7 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           comissao_pct?: number | null
+          comissao_somente_recebido?: boolean | null
           created_at?: string
           id?: string
           nome: string
@@ -863,6 +865,7 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           comissao_pct?: number | null
+          comissao_somente_recebido?: boolean | null
           created_at?: string
           id?: string
           nome?: string
