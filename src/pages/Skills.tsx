@@ -298,13 +298,12 @@ export default function Skills() {
 
   const saveResultAsDoc = async () => {
     if (!execProjectId || !execResult) { toast.error("Selecione um projeto"); return; }
-    const { error } = await supabase.from("imphq_kb").insert([{
+    const { error } = await supabase.from("imphq_docs").insert([{
       id: crypto.randomUUID(),
       project_id: execProjectId,
-      titulo: `[IA] ${executeSkill?.nome || "Skill"} — ${new Date().toLocaleDateString("pt-BR")}`,
-      conteudo: execResult,
-      tipo: "documento",
-      owner_id: user?.id,
+      title: `[IA] ${executeSkill?.nome || "Skill"} — ${new Date().toLocaleDateString("pt-BR")}`,
+      body: execResult,
+      cat: "skill-ia",
     }]);
     if (error) { toast.error(error.message); return; }
     toast.success("Salvo como documento no projeto!");
