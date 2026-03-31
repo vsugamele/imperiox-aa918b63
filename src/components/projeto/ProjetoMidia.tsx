@@ -70,6 +70,9 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   const [tagInput, setTagInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Task attachments state
+  const [taskAttachments, setTaskAttachments] = useState<any[]>([]);
+
   const projectId = project.id;
 
   const loadItems = useCallback(async () => {
@@ -81,7 +84,24 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
     setItems((data as ContentItem[]) || []);
   }, [projectId]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  const loadTaskAttachments = useCallback(async () => {
+    // Get cards linked to this project, then their attachments
+    const { data: cards } = await supabase
+      .from("imphq_kanban_cards")
+      .select("id, title")
+      .eq("project_id", projectId);
+    if (!cards || cards.length === 0) { setTaskAttachments([]); return; }
+    const cardIds = cards.map(c => c.id);
+    const cardMap = new Map(cards.map(c => [c.id, c.title]));
+    const { data: attachments } = await supabase
+      .from("imphq_card_attachments")
+      .select("*")
+      .in("card_id", cardIds)
+      .order("created_at", { ascending: false });
+    setTaskAttachments((attachments || []).map(a => ({ ...a, card_title: cardMap.get(a.card_id) || "?" })));
+  }, [projectId]);
+
+  useEffect(() => { loadItems(); loadTaskAttachments(); }, [loadItems, loadTaskAttachments]);
 
   // Photo functions
   const addImage = (cat: string, url?: string) => {
