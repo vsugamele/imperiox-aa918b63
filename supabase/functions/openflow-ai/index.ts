@@ -85,6 +85,7 @@ serve(async (req) => {
     }
 
     // Route by action
+    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, LOVABLE_API_KEY, model);
     if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, LOVABLE_API_KEY, model);
     if (action === "generate_branding") return await handleBranding(projectContext, LOVABLE_API_KEY, model);
     if (action === "generate_gatilhos") return await handleGatilhos(projectContext, LOVABLE_API_KEY, model);
@@ -242,4 +243,64 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string) {
   );
   if (avatar_perfil instanceof Response) return avatar_perfil;
   return new Response(JSON.stringify({ avatar_perfil }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string) {
+  const { skill_id, skill_system_prompt, produto, extra_instructions } = body;
+
+  // Get skill system prompt - prefer passed prompt, fallback to DB
+  let systemPrompt = skill_system_prompt || "";
+  let skillCategoria = "";
+  if (!systemPrompt && skill_id) {
+    const { data: skill } = await sb.from("imphq_skills").select("system_prompt, categoria").eq("id", skill_id).single();
+    if (skill?.system_prompt) { systemPrompt = skill.system_prompt; skillCategoria = skill.categoria || ""; }
+  }
+  if (!systemPrompt) throw new Error("Skill sem system_prompt");
+
+  // Auto-enrich with complementary skills
+  let complementaryContext = "";
+  try {
+    const complementaryCats: Record<string, string[]> = {
+      "Copy & Persuasão": ["Pesquisa & Avatar", "Estratégia & Posicionamento"],
+      "Pesquisa & Avatar": ["Copy & Persuasão", "Estratégia & Posicionamento"],
+      "Estratégia & Posicionamento": ["Copy & Persuasão", "Pesquisa & Avatar"],
+      "Vendas High-Ticket": ["Copy & Persuasão", "Pesquisa & Avatar"],
+      "Inteligência Competitiva": ["Estratégia & Posicionamento", "Copy & Persuasão"],
+    };
+    const cats = complementaryCats[skillCategoria] || [];
+    if (cats.length > 0) {
+      const { data: compSkills } = await sb.from("imphq_skills").select("nome, system_prompt, categoria")
+        .eq("status", "Ativa").not("system_prompt", "is", null).in("categoria", cats).limit(3);
+      if (compSkills?.length) {
+        complementaryContext = "\n\n## Skills complementares para referência:\n";
+        for (const s of compSkills) {
+          complementaryContext += `### ${s.nome} (${s.categoria})\n${(s.system_prompt || "").slice(0, 500)}\n\n`;
+        }
+      }
+    }
+  } catch (e) { console.error("Error fetching complementary skills:", e); }
+
+  // Mentes IA summary
+  const mentesRef = `\n## Referências de Mentes IA:\n- Dan Kennedy: Marketing direto, urgência real, ROI mensurável\n- Gary Halbert: Headlines magnéticas, leads irresistíveis\n- Eugene Schwartz: Níveis de consciência, sofisticação de mercado\n- Russell Brunson: Funis, Expert Secrets, Epiphany Bridge\n- Alex Hormozi: Value equation, Grand Slam Offers\n- Robert Cialdini: 6 princípios de influência\n- David Ogilvy: Pesquisa, elegância, brand\n- Claude Hopkins: Scientific Advertising, testes\n`;
+
+  // Product context
+  let produtoContext = "";
+  if (produto) produtoContext = `\n## Produto selecionado: ${produto}\n`;
+
+  const fullSystem = `${systemPrompt}\n\n---\n\n## CONTEXTO DO PROJETO\n${projectContext}${produtoContext}${complementaryContext}${mentesRef}${skillsContext}`;
+
+  const userMsg = extra_instructions
+    ? `Execute a skill com base no contexto completo do projeto. Instruções adicionais: ${extra_instructions}`
+    : "Execute a skill com base no contexto completo do projeto. Gere o resultado mais completo e detalhado possível.";
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages: [{ role: "system", content: fullSystem }, { role: "user", content: userMsg }] }),
+  });
+
+  if (!response.ok) return handleAIError(response);
+  const result = await response.json();
+  const text = result.choices?.[0]?.message?.content || "";
+  return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }

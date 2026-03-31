@@ -16,6 +16,7 @@ import salesCloserPrompt from "./skills/sales-closer.md?raw";
 import desejoPrompt from "./skills/mapeamento-desejos-v2.md?raw";
 import dossiePrompt from "./skills/dossie-problemas-v2.md?raw";
 import anamsPrompt from "./skills/anams-copywriter.md?raw";
+import webinarRoteiroPrompt from "./skills/webinar-roteiro.md?raw";
 
 export interface SkillData {
   id: string;
@@ -186,5 +187,17 @@ export const SKILLS_DATA: SkillData[] = [
     icone: "✍️",
     cor: "#ff9ef5",
     system_prompt: anamsPrompt,
+  },
+  {
+    id: "webinar-roteiro",
+    nome: "Gerador de Roteiro de Webinar",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Gera roteiros completos de webinar de alta conversão narrados em primeira pessoa na voz do expert, aplicando automaticamente Epiphany Bridge e Novo Veículo (Brunson), urgência pelo custo do não-agir (Cardone) e psicologia do avatar.",
+    gatilho: "[Produto] e [Dados do Expert/Avatar]",
+    status: "Ativo",
+    icone: "🎭",
+    cor: "#e05c5c",
+    system_prompt: webinarRoteiroPrompt,
   },
 ];
