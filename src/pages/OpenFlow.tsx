@@ -112,7 +112,7 @@ export default function OpenFlow() {
     });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
-    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "" }); load();
+    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" }); load();
   };
 
   const saveAutomacao = async () => {
