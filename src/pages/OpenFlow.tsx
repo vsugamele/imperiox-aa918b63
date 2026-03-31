@@ -31,7 +31,7 @@ const ACAO_TIPOS = [
 ];
 
 interface Automacao {
-  id: string; project_id?: string; nome: string;
+  id: string; project_id?: string; produto?: string; nome: string;
   trigger_tipo: string; acoes: Acao[]; ativo: boolean;
   created_at?: string;
 }
