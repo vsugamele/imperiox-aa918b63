@@ -1205,7 +1205,7 @@ export default function Tarefas() {
           <div className="space-y-4">
             <div><Label>Título</Label><Input value={processForm.title} onChange={e => setProcessForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Rotina de Tráfego Diário" className="bg-secondary" /></div>
             <div><Label>Descrição</Label><Textarea value={processForm.description} onChange={e => setProcessForm(f => ({ ...f, description: e.target.value }))} placeholder="Descreva o objetivo deste processo..." className="bg-secondary min-h-[60px]" /></div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Categoria</Label>
                 <Select value={processForm.category} onValueChange={v => setProcessForm(f => ({ ...f, category: v }))}>
@@ -1213,6 +1213,12 @@ export default function Tarefas() {
                   <SelectContent>{PROCESS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Horário</Label>
+                <Input type="time" value={processForm.horario} onChange={e => setProcessForm(f => ({ ...f, horario: e.target.value }))} className="bg-secondary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Responsável</Label>
                 <Select value={processForm.member_id} onValueChange={v => setProcessForm(f => ({ ...f, member_id: v }))}>
@@ -1232,6 +1238,43 @@ export default function Tarefas() {
                     {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            {/* Referências */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Referências (fotos / links)</Label>
+              </div>
+              <div className="space-y-2">
+                {processForm.referencias.map((ref, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-secondary/30 rounded-md p-2">
+                    {ref.tipo === "imagem" ? (
+                      <img src={ref.url} alt="" className="h-10 w-10 rounded object-cover border border-border shrink-0" />
+                    ) : (
+                      <span className="text-primary text-xs truncate flex-1">🔗 {ref.label || ref.url}</span>
+                    )}
+                    {ref.tipo === "imagem" && <span className="text-xs text-muted-foreground truncate flex-1">{ref.label || "Imagem"}</span>}
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setProcessForm(f => ({ ...f, referencias: f.referencias.filter((_, i) => i !== idx) }))}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Input placeholder="Cole URL de link ou referência..." className="bg-secondary h-8 text-xs flex-1"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const url = (e.target as HTMLInputElement).value.trim();
+                      if (!url) return;
+                      const isImg = /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url);
+                      setProcessForm(f => ({ ...f, referencias: [...f.referencias, { tipo: isImg ? "imagem" : "link", url, label: "" }] }));
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }}
+                />
+                <FileUpload bucket="project-media" path="processos" accept="image/*" label="📷" multiple
+                  onUpload={(url) => setProcessForm(f => ({ ...f, referencias: [...f.referencias, { tipo: "imagem", url }] }))}
+                />
               </div>
             </div>
             {/* Steps */}
