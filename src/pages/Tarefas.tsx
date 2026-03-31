@@ -1177,6 +1177,18 @@ export default function Tarefas() {
                           </div>
                         </>
                       )}
+                      {/* Referências thumbnails */}
+                      {Array.isArray((proc as any).referencias) && (proc as any).referencias.length > 0 && (
+                        <div className="flex gap-1.5 flex-wrap mt-1">
+                          {(proc as any).referencias.map((ref: any, idx: number) => (
+                            ref.tipo === "imagem" ? (
+                              <img key={idx} src={ref.url} alt={ref.label || "ref"} className="h-10 w-10 rounded object-cover border border-border" />
+                            ) : (
+                              <a key={idx} href={ref.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary underline truncate max-w-[120px]">{ref.label || ref.url}</a>
+                            )
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
