@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<string[]>([]);
   const [autoExecCount, setAutoExecCount] = useState(0);
   const [recentCards, setRecentCards] = useState<any[]>([]);
+  const [receitaBreakdown, setReceitaBreakdown] = useState<{ vendas: number; manual: number }>({ vendas: 0, manual: 0 });
   const navigate = useNavigate();
 
   useEffect(() => {
