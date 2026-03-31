@@ -334,6 +334,69 @@ export default function Tarefas() {
     setShowRoutineDialog(true);
   };
 
+  // === PROCESSES LOGIC ===
+  const filteredProcesses = processes.filter(p => {
+    if (processFilterMember !== "all" && p.member_id !== processFilterMember) return false;
+    if (processFilterCategory !== "all" && p.category !== processFilterCategory) return false;
+    return true;
+  });
+
+  const saveProcess = async () => {
+    if (!user || !processForm.title.trim()) { toast.error("Título obrigatório"); return; }
+    const payload = {
+      title: processForm.title.trim(),
+      description: processForm.description || null,
+      steps: processForm.steps,
+      category: processForm.category,
+      member_id: processForm.member_id !== "none" ? processForm.member_id : null,
+      project_id: processForm.project_id !== "none" ? processForm.project_id : null,
+    } as any;
+
+    if (editingProcess) {
+      const { error } = await supabase.from("imphq_processes").update(payload).eq("id", editingProcess.id);
+      if (error) { toast.error("Erro: " + error.message); return; }
+      setProcesses(prev => prev.map(p => p.id === editingProcess.id ? { ...p, ...payload } : p));
+      toast.success("Processo atualizado!");
+    } else {
+      payload.user_id = user.id;
+      payload.position = processes.length;
+      const { data, error } = await supabase.from("imphq_processes").insert(payload).select().single();
+      if (error) { toast.error("Erro: " + error.message); return; }
+      setProcesses(prev => [...prev, data as any]);
+      toast.success("Processo criado!");
+    }
+    setShowProcessDialog(false);
+    setEditingProcess(null);
+    setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none" });
+  };
+
+  const deleteProcess = async (id: string) => {
+    await supabase.from("imphq_processes").delete().eq("id", id);
+    setProcesses(prev => prev.filter(p => p.id !== id));
+    toast.success("Processo excluído");
+  };
+
+  const openEditProcess = (proc: Process) => {
+    setEditingProcess(proc);
+    setProcessForm({
+      title: proc.title, description: proc.description || "",
+      steps: Array.isArray(proc.steps) ? proc.steps : [],
+      category: proc.category, member_id: proc.member_id || "none", project_id: proc.project_id || "none",
+    });
+    setShowProcessDialog(true);
+  };
+
+  const addProcessStep = () => setProcessForm(f => ({ ...f, steps: [...f.steps, { text: "", done: false }] }));
+  const removeProcessStep = (i: number) => setProcessForm(f => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
+  const updateProcessStep = (i: number, text: string) => setProcessForm(f => ({ ...f, steps: f.steps.map((s, idx) => idx === i ? { ...s, text } : s) }));
+
+  const toggleProcessStepDone = async (proc: Process, stepIndex: number) => {
+    const steps = Array.isArray(proc.steps) ? [...proc.steps] : [];
+    steps[stepIndex] = { ...steps[stepIndex], done: !steps[stepIndex].done };
+    await supabase.from("imphq_processes").update({ steps } as any).eq("id", proc.id);
+    setProcesses(prev => prev.map(p => p.id === proc.id ? { ...p, steps } : p));
+  };
+
   // === TASKS LOGIC (existing) ===
   const doneColumnIds = columns.filter(isDoneColumn).map(c => c.id);
   const isDone = (card: KanbanCard) => doneColumnIds.includes(card.column_id);
