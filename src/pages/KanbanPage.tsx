@@ -247,10 +247,17 @@ export default function KanbanPage() {
       project_id: newProjectId === "none" ? null : newProjectId,
     }).select().single();
     if (error) { toast.error("Erro ao criar card"); return; }
-    // Notificação instantânea para o time
+    // Notificação instantânea + activity log
     if (newCard) {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (currentUser) {
+        // Activity log
+        await supabase.from("imphq_activity_log").insert({
+          user_id: currentUser.id,
+          action: "card_created",
+          entity_type: "card",
+          entity_name: newTitle.trim(),
+        });
         const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
         for (const m of otherUsers) {
           if (m.user_id && m.user_id !== currentUser.id) {
