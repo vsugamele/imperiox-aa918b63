@@ -662,7 +662,13 @@ export default function KanbanPage() {
 
       <Tabs value={activeBoard} onValueChange={setActiveBoard}>
         <TabsList className="bg-secondary">
-          {BOARDS.map(b => <TabsTrigger key={b} value={b} className="capitalize">{b}</TabsTrigger>)}
+          {BOARDS.map(b => (
+            <TabsTrigger key={b} value={b} className="capitalize gap-1.5">
+              {b}
+              <Badge variant="outline" className="text-[9px] h-4 min-w-[18px] justify-center px-1">{boardCardCounts[b] || 0}</Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
         </TabsList>
 
         <div className="mt-4">
