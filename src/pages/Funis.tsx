@@ -458,6 +458,12 @@ export default function Funis() {
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {selectedFunil.project_id && projectProductsFull.length > 0 && (
+              <Button size="sm" variant={showProjectPanel ? "default" : "outline"} className="h-7 text-xs gap-1 mr-2" onClick={() => setShowProjectPanel(!showProjectPanel)}>
+                {showProjectPanel ? <PanelRightClose className="h-3 w-3" /> : <PanelRightOpen className="h-3 w-3" />}
+                Dados do Projeto
+              </Button>
+            )}
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
             <span className="text-xs text-muted-foreground font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.min(2, z + 0.1))}><ZoomIn className="h-3.5 w-3.5" /></Button>
