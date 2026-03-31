@@ -447,6 +447,9 @@ export default function Tarefas() {
       if (error) { toast.error("Erro ao atualizar"); return; }
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: doneCol.id } : c));
       toast.success("Tarefa concluída! ✅");
+      // Open next step dialog
+      setNextStepCard(card);
+      setShowNextStepDialog(true);
     }
   };
 
