@@ -127,6 +127,19 @@ export default function Skills() {
   const importRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("marketing");
 
+  // Execute skill states
+  const [showExecute, setShowExecute] = useState(false);
+  const [executeSkill, setExecuteSkill] = useState<Skill | null>(null);
+  const [execProjects, setExecProjects] = useState<any[]>([]);
+  const [execProjectId, setExecProjectId] = useState("");
+  const [execProduto, setExecProduto] = useState("");
+  const [execModel, setExecModel] = useState("google/gemini-3-flash-preview");
+  const [execExtra, setExecExtra] = useState("");
+  const [execLoading, setExecLoading] = useState(false);
+  const [execResult, setExecResult] = useState("");
+  const [showResult, setShowResult] = useState(false);
+  const [execProdutos, setExecProdutos] = useState<string[]>([]);
+
   useEffect(() => {
     if (!user) return;
     supabase.from("imphq_skills").select("*").order("created_at").then(({ data }) => {
