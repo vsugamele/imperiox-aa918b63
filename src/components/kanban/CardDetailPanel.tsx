@@ -476,6 +476,19 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                 </div>
                 <div>
                   <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                    <Columns className="h-3 w-3" /> Board
+                  </Label>
+                  <Select value={card.board} onValueChange={handleBoardChange}>
+                    <SelectTrigger className="h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {BOARDS.filter(b => b !== "geral").map(b => (
+                        <SelectItem key={b} value={b} className="capitalize">{b}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
                     <Columns className="h-3 w-3" /> Coluna
                   </Label>
                   <Select value={columnId} onValueChange={handleColumnChange}>
