@@ -332,26 +332,42 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
 
           {/* Existing links */}
           {projectLinks.map((link, i) => (
-            <div key={i} className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 border border-border">
-              <span className="text-sm font-medium min-w-[80px] truncate">{link.label}</span>
-              <Input
-                value={link.url}
-                onChange={(e) => {
-                  const updated = [...projectLinks];
-                  updated[i] = { ...updated[i], url: e.target.value };
-                  updateProjectLinks(updated);
-                }}
-                className="bg-secondary h-8 text-xs flex-1"
-                placeholder={`URL do ${link.label}...`}
-              />
-              {link.url && (
-                <a href={link.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
-                </a>
+            <div key={i} className="space-y-1.5 p-2 rounded-md bg-secondary/50 border border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium min-w-[80px] truncate">{link.label}</span>
+                <Input
+                  value={link.url}
+                  onChange={(e) => {
+                    const updated = [...projectLinks];
+                    updated[i] = { ...updated[i], url: e.target.value };
+                    updateProjectLinks(updated);
+                  }}
+                  className="bg-secondary h-8 text-xs flex-1"
+                  placeholder={`URL do ${link.label}...`}
+                />
+                {link.url && (
+                  <a href={link.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                  </a>
+                )}
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={() => updateProjectLinks(projectLinks.filter((_, j) => j !== i))}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              {link.label?.toLowerCase() === "instagram" && (
+                <div className="flex items-center gap-2 pl-[80px]">
+                  <span className="text-xs text-muted-foreground">@</span>
+                  <Input
+                    value={(data.social_links?.instagram_handle) || ""}
+                    onChange={(e) => {
+                      const handle = e.target.value.replace(/^@/, "");
+                      onUpdateData({ ...data, social_links: { ...(data.social_links || {}), instagram_handle: handle } });
+                    }}
+                    className="bg-secondary h-7 text-xs flex-1"
+                    placeholder="usuario (sem @)"
+                  />
+                </div>
               )}
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={() => updateProjectLinks(projectLinks.filter((_, j) => j !== i))}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
             </div>
           ))}
 

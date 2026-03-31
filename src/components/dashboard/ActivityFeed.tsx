@@ -21,6 +21,8 @@ const actionIcons: Record<string, any> = {
   event_created: CalendarIcon,
   routine_checked: CheckCircle2,
   lead_imported: Users,
+  card_created: ListTodo,
+  card_moved: FolderKanban,
 };
 
 const actionColors: Record<string, string> = {
@@ -30,6 +32,8 @@ const actionColors: Record<string, string> = {
   event_created: "text-violet-400 bg-violet-400/10",
   routine_checked: "text-cyan-400 bg-cyan-400/10",
   lead_imported: "text-emerald-400 bg-emerald-400/10",
+  card_created: "text-amber-400 bg-amber-400/10",
+  card_moved: "text-violet-400 bg-violet-400/10",
 };
 
 const actionLabels: Record<string, string> = {
@@ -39,6 +43,8 @@ const actionLabels: Record<string, string> = {
   event_created: "criou evento",
   routine_checked: "completou rotina",
   lead_imported: "importou leads",
+  card_created: "criou card",
+  card_moved: "moveu card",
 };
 
 export default function ActivityFeed() {
