@@ -297,6 +297,111 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_comanda_itens: {
+        Row: {
+          comanda_id: string
+          created_at: string | null
+          id: string
+          profissional_id: string | null
+          quantidade: number | null
+          servico_nome: string
+          valor_unitario: number
+        }
+        Insert: {
+          comanda_id: string
+          created_at?: string | null
+          id?: string
+          profissional_id?: string | null
+          quantidade?: number | null
+          servico_nome: string
+          valor_unitario: number
+        }
+        Update: {
+          comanda_id?: string
+          created_at?: string | null
+          id?: string
+          profissional_id?: string | null
+          quantidade?: number | null
+          servico_nome?: string
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_comanda_itens_comanda_id_fkey"
+            columns: ["comanda_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_comandas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_comanda_itens_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_comandas: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string | null
+          data: string
+          id: string
+          observacoes: string | null
+          profissional_id: string | null
+          profissional_nome: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+          valor_total: number | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string | null
+          data?: string
+          id?: string
+          observacoes?: string | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+          valor_total?: number | null
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string | null
+          data?: string
+          id?: string
+          observacoes?: string | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_comandas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_comandas_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_notas_fiscais: {
         Row: {
           cliente_nome: string | null
