@@ -249,6 +249,39 @@ export default function Funis() {
     toast.success("Etapas salvas!");
   };
 
+  const addProductAsEtapa = (prod: any) => {
+    if (!selectedFunil) return;
+    const etapas = selectedFunil.data.etapas || [];
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cx = rect ? (-pan.x + rect.width / 2) / zoom : 400;
+    const cy = rect ? (-pan.y + rect.height / 2) / zoom : 200;
+    
+    const tipoLower = (prod.tipo_oferta || prod.tipo || "").toLowerCase();
+    let tipo = "checkout";
+    if (tipoLower.includes("upsell")) tipo = "upsell";
+    else if (tipoLower.includes("tripwire")) tipo = "checkout";
+    else if (tipoLower.includes("bump")) tipo = "upsell";
+    
+    const url = prod.ofertas?.[0]?.link || prod.link || prod.url || "";
+    const nome = prod.nome || prod.name || "Produto";
+    const preco = prod.preco_por || prod.preco || prod.price || "";
+    
+    const newEtapa: Etapa = {
+      nome: preco ? `${nome} (R$${preco})` : nome,
+      tipo,
+      visitantes: 0,
+      conversoes: 0,
+      url,
+      pos_x: Math.round(cx - CARD_W / 2 + Math.random() * 100),
+      pos_y: Math.round(cy - CARD_H_METRICS / 2 + Math.random() * 100),
+      descricao: prod.descricao || prod.tipo_oferta || "",
+    };
+    const updated = [...etapas, newEtapa];
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
+    triggerAutoSave();
+    toast.success(`"${nome}" adicionado como etapa!`);
+  };
+
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
 
   // --- Remove a specific connection ---
