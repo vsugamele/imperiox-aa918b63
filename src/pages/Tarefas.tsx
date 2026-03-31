@@ -378,10 +378,12 @@ export default function Tarefas() {
 
   const openEditProcess = (proc: Process) => {
     setEditingProcess(proc);
+    const procData = proc as any;
     setProcessForm({
       title: proc.title, description: proc.description || "",
       steps: Array.isArray(proc.steps) ? proc.steps : [],
       category: proc.category, member_id: proc.member_id || "none", project_id: proc.project_id || "none",
+      horario: procData.horario || "", referencias: Array.isArray(procData.referencias) ? procData.referencias : [],
     });
     setShowProcessDialog(true);
   };
