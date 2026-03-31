@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon, Paperclip } from "lucide-react";
 import { FileUpload } from "@/components/FileUpload";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -70,6 +70,9 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   const [tagInput, setTagInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Task attachments state
+  const [taskAttachments, setTaskAttachments] = useState<any[]>([]);
+
   const projectId = project.id;
 
   const loadItems = useCallback(async () => {
@@ -81,7 +84,24 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
     setItems((data as ContentItem[]) || []);
   }, [projectId]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  const loadTaskAttachments = useCallback(async () => {
+    // Get cards linked to this project, then their attachments
+    const { data: cards } = await supabase
+      .from("imphq_kanban_cards")
+      .select("id, title")
+      .eq("project_id", projectId);
+    if (!cards || cards.length === 0) { setTaskAttachments([]); return; }
+    const cardIds = cards.map(c => c.id);
+    const cardMap = new Map(cards.map(c => [c.id, c.title]));
+    const { data: attachments } = await supabase
+      .from("imphq_card_attachments")
+      .select("*")
+      .in("card_id", cardIds)
+      .order("created_at", { ascending: false });
+    setTaskAttachments((attachments || []).map(a => ({ ...a, card_title: cardMap.get(a.card_id) || "?" })));
+  }, [projectId]);
+
+  useEffect(() => { loadItems(); loadTaskAttachments(); }, [loadItems, loadTaskAttachments]);
 
   // Photo functions
   const addImage = (cat: string, url?: string) => {
@@ -267,6 +287,46 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Task Attachments */}
+      {taskAttachments.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
+              <Paperclip className="h-4 w-4" /> Anexos de Tarefas ({taskAttachments.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {taskAttachments.map((a: any) => {
+                const isImg = a.file_type?.startsWith("image");
+                return (
+                  <div key={a.id} className="relative rounded-lg border border-border bg-secondary/30 overflow-hidden group">
+                    {isImg ? (
+                      <div className="aspect-square">
+                        <img src={a.file_url} alt={a.file_name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="aspect-square flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="p-1.5">
+                      <p className="text-[10px] font-medium truncate">{a.file_name}</p>
+                      <p className="text-[9px] text-muted-foreground truncate">📌 {a.card_title}</p>
+                    </div>
+                    <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button size="icon" variant="ghost" className="h-8 w-8 bg-card/80" onClick={() => window.open(a.file_url, "_blank")}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Preview Dialog */}
       <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>

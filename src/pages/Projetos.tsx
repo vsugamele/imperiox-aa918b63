@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookTemplate, Loader2 } from "lucide-react";
+import { Plus, Search, BookTemplate, Loader2, FolderOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
 
 interface ProjectTemplate {
   id: string;
@@ -104,6 +105,7 @@ export default function Projetos() {
   const [form, setForm] = useState({ name: "", icon: "📁", category: "", description: "" });
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [creatingFromTemplate, setCreatingFromTemplate] = useState(false);
+  const [activeFolder, setActiveFolder] = useState("all");
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -118,10 +120,33 @@ export default function Projetos() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = projects.filter((p) =>
-    p.name?.toLowerCase().includes(search.toLowerCase()) ||
-    p.category?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Get unique folders from categories
+  const folders = [...new Set(projects.map(p => p.category || "").filter(Boolean))].sort();
+
+  const filtered = projects.filter((p) => {
+    const matchesSearch = p.name?.toLowerCase().includes(search.toLowerCase()) ||
+      p.category?.toLowerCase().includes(search.toLowerCase());
+    const matchesFolder = activeFolder === "all" || (p.category || "") === activeFolder || (activeFolder === "sem-pasta" && !p.category);
+    return matchesSearch && matchesFolder;
+  });
+
+  // Group by folder
+  const groupedByFolder = () => {
+    if (activeFolder !== "all") return [{ folder: activeFolder, items: filtered }];
+    const groups: { folder: string; items: any[] }[] = [];
+    const folderMap = new Map<string, any[]>();
+    filtered.forEach(p => {
+      const f = p.category || "";
+      if (!folderMap.has(f)) folderMap.set(f, []);
+      folderMap.get(f)!.push(p);
+    });
+    // Named folders first, then "Sem pasta"
+    folders.forEach(f => {
+      if (folderMap.has(f)) groups.push({ folder: f, items: folderMap.get(f)! });
+    });
+    if (folderMap.has("")) groups.push({ folder: "", items: folderMap.get("")! });
+    return groups;
+  };
 
   const handleCreate = async () => {
     if (!form.name) return;
@@ -140,55 +165,28 @@ export default function Projetos() {
     try {
       const projectName = tpl.name;
       const projectId = projectName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") + "-" + Date.now().toString(36);
-
-      // Create project
       const { error: projErr } = await supabase.from("imphq_projects").insert({
         id: projectId, name: projectName, icon: tpl.icon, category: tpl.category, description: tpl.description,
       });
       if (projErr) throw projErr;
-
-      // Create boards, columns and cards from template
       for (const boardDef of tpl.boards_json) {
         for (let colIdx = 0; colIdx < boardDef.columns.length; colIdx++) {
           const colDef = boardDef.columns[colIdx];
-          
-          // Check if column exists for this board
-          const { data: existingCols } = await supabase
-            .from("imphq_kanban_columns")
-            .select("id")
-            .eq("board", boardDef.board)
-            .eq("title", colDef.title)
-            .limit(1);
-
+          const { data: existingCols } = await supabase.from("imphq_kanban_columns").select("id").eq("board", boardDef.board).eq("title", colDef.title).limit(1);
           let columnId: string;
-          if (existingCols && existingCols.length > 0) {
-            columnId = existingCols[0].id;
-          } else {
-            const { data: newCol } = await supabase
-              .from("imphq_kanban_columns")
-              .insert({ title: colDef.title, color: "#8b5cf6", position: colIdx, board: boardDef.board })
-              .select("id")
-              .single();
+          if (existingCols && existingCols.length > 0) { columnId = existingCols[0].id; } else {
+            const { data: newCol } = await supabase.from("imphq_kanban_columns").insert({ title: colDef.title, color: "#8b5cf6", position: colIdx, board: boardDef.board }).select("id").single();
             if (!newCol) continue;
             columnId = newCol.id;
           }
-
-          // Create cards
           if (colDef.cards && colDef.cards.length > 0) {
             const cardsToInsert = colDef.cards.map((title: string, i: number) => ({
-              column_id: columnId,
-              title,
-              priority: "medium",
-              board: boardDef.board,
-              position: i,
-              tags: [projectId],
-              project_id: projectId,
+              column_id: columnId, title, priority: "medium", board: boardDef.board, position: i, tags: [projectId], project_id: projectId,
             }));
             await supabase.from("imphq_kanban_cards").insert(cardsToInsert);
           }
         }
       }
-
       toast({ title: "Projeto criado!", description: `${projectName} foi criado com ${tpl.boards_json.length} quadro(s) pré-configurados.` });
       setTemplateOpen(false);
       load();
@@ -230,7 +228,19 @@ export default function Projetos() {
                     <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="bg-secondary" />
                   </div>
                 </div>
-                <div><Label>Categoria</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="bg-secondary" /></div>
+                <div>
+                  <Label>Pasta / Categoria</Label>
+                  <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="bg-secondary" placeholder="Ex: Agência, Pessoal, Clientes..." />
+                  {folders.length > 0 && (
+                    <div className="flex gap-1 flex-wrap mt-1.5">
+                      {folders.map(f => (
+                        <Badge key={f} variant={form.category === f ? "default" : "outline"} className="text-[10px] cursor-pointer" onClick={() => setForm({ ...form, category: f })}>
+                          {f}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div><Label>Descrição</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="bg-secondary" /></div>
                 <Button onClick={handleCreate} className="w-full">Criar Projeto</Button>
               </div>
@@ -239,25 +249,54 @@ export default function Projetos() {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar projetos..." className="pl-9 bg-secondary" />
+      {/* Search + Folder Filter */}
+      <div className="space-y-3">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar projetos..." className="pl-9 bg-secondary" />
+        </div>
+        {folders.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap items-center">
+            <FolderOpen className="h-4 w-4 text-muted-foreground" />
+            <Badge variant={activeFolder === "all" ? "default" : "outline"} className="cursor-pointer text-xs" onClick={() => setActiveFolder("all")}>
+              Todos ({projects.length})
+            </Badge>
+            {folders.map(f => (
+              <Badge key={f} variant={activeFolder === f ? "default" : "outline"} className="cursor-pointer text-xs" onClick={() => setActiveFolder(f)}>
+                {f} ({projects.filter(p => p.category === f).length})
+              </Badge>
+            ))}
+            <Badge variant={activeFolder === "sem-pasta" ? "default" : "outline"} className="cursor-pointer text-xs" onClick={() => setActiveFolder("sem-pasta")}>
+              Sem pasta ({projects.filter(p => !p.category).length})
+            </Badge>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((p) => (
-          <Card key={p.id} onClick={() => navigate(`/projetos/${p.id}`)} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <span className="text-2xl">{p.icon || "📁"}</span>
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
-              </div>
-              <h3 className="mt-2 font-medium text-sm">{p.name}</h3>
-              <p className="text-xs text-muted-foreground mt-1">{p.category || "Sem categoria"}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Grouped Projects */}
+      {groupedByFolder().map(group => (
+        <div key={group.folder || "sem-pasta"} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{group.folder || "Sem pasta"}</h2>
+            <span className="text-xs text-muted-foreground">({group.items.length})</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {group.items.map((p) => (
+              <Card key={p.id} onClick={() => navigate(`/projetos/${p.id}`)} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <span className="text-2xl">{p.icon || "📁"}</span>
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
+                  </div>
+                  <h3 className="mt-2 font-medium text-sm">{p.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{p.category || "Sem categoria"}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ))}
 
       {/* Template Selection Dialog */}
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>

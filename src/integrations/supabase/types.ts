@@ -22744,6 +22744,111 @@ export type Database = {
           },
         ]
       }
+      zap_project_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_by: string | null
+          project_id: string
+          role: Database["public"]["Enums"]["zap_project_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          project_id: string
+          role?: Database["public"]["Enums"]["zap_project_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          project_id?: string
+          role?: Database["public"]["Enums"]["zap_project_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_project_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "zap_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_project_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zap_projects: {
         Row: {
           created_at: string
@@ -23486,9 +23591,21 @@ export type Database = {
         Args: { admin_uuid: string; prize_uuid: string }
         Returns: undefined
       }
+      has_project_role: {
+        Args: {
+          _project_id: string
+          _role: Database["public"]["Enums"]["zap_project_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_diri_admin: { Args: never; Returns: boolean }
+      is_project_member: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_user_active: { Args: never; Returns: boolean }
       list_admin_tables: { Args: never; Returns: Json }
       mark_admin_message_read: {
@@ -23558,6 +23675,7 @@ export type Database = {
       prize_type: "money" | "ticket" | "none"
       record_type: "exercise" | "water" | "emotion" | "body_diary"
       social_mission_type: "registration" | "instagram" | "telegram"
+      zap_project_role: "admin" | "operator" | "viewer"
     }
     CompositeTypes: {
       dblink_pkey_results: {
@@ -23718,6 +23836,7 @@ export const Constants = {
       prize_type: ["money", "ticket", "none"],
       record_type: ["exercise", "water", "emotion", "body_diary"],
       social_mission_type: ["registration", "instagram", "telegram"],
+      zap_project_role: ["admin", "operator", "viewer"],
     },
   },
 } as const

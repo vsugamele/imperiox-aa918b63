@@ -247,10 +247,17 @@ export default function KanbanPage() {
       project_id: newProjectId === "none" ? null : newProjectId,
     }).select().single();
     if (error) { toast.error("Erro ao criar card"); return; }
-    // Notificação instantânea para o time
+    // Notificação instantânea + activity log
     if (newCard) {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (currentUser) {
+        // Activity log
+        await supabase.from("imphq_activity_log").insert({
+          user_id: currentUser.id,
+          action: "card_created",
+          entity_type: "card",
+          entity_name: newTitle.trim(),
+        });
         const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
         for (const m of otherUsers) {
           if (m.user_id && m.user_id !== currentUser.id) {
@@ -286,11 +293,17 @@ export default function KanbanPage() {
       const boardCol = allColumns.find(c => c.board === card.board && normalizeColTitle(c.title) === targetNormalized);
       if (boardCol && boardCol.id !== card.column_id) {
         await supabase.from("imphq_kanban_cards").update({ column_id: boardCol.id }).eq("id", card.id);
+        // Log card_moved
+        const { data: { user: u } } = await supabase.auth.getUser();
+        if (u) await supabase.from("imphq_activity_log").insert({ user_id: u.id, action: "card_moved", entity_type: "card", entity_name: `${card.title} → ${targetCol?.title || ""}` });
         loadAllData();
       }
     } else {
       if (targetColId !== card.column_id) {
         await supabase.from("imphq_kanban_cards").update({ column_id: targetColId }).eq("id", card.id);
+        const targetCol2 = allColumns.find(c => c.id === targetColId);
+        const { data: { user: u } } = await supabase.auth.getUser();
+        if (u) await supabase.from("imphq_activity_log").insert({ user_id: u.id, action: "card_moved", entity_type: "card", entity_name: `${card.title} → ${targetCol2?.title || ""}` });
         loadAllData();
       }
     }

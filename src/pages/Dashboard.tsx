@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon, Wallet, Lock, Zap, ShoppingCart } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon, Wallet, Lock, Zap, ShoppingCart, ArrowRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [receitaVsCusto, setReceitaVsCusto] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<string[]>([]);
   const [autoExecCount, setAutoExecCount] = useState(0);
+  const [recentCards, setRecentCards] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -189,6 +190,20 @@ export default function Dashboard() {
       const recV = (vendasRes.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
       const recR = (revsRes.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
       setTotalReceita(recV + recR);
+
+      // Recent kanban cards
+      const { data: cardsData } = await supabase
+        .from("imphq_kanban_cards")
+        .select("id, title, priority, board, column_id, project_id, updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(10);
+      if (cardsData) {
+        // Fetch column names
+        const colIds = [...new Set(cardsData.map(c => c.column_id))];
+        const { data: colsData } = await supabase.from("imphq_kanban_columns").select("id, title").in("id", colIds);
+        const colMap = new Map((colsData || []).map(c => [c.id, c.title]));
+        setRecentCards(cardsData.map(c => ({ ...c, column_title: colMap.get(c.column_id) || "?" })));
+      }
     }
     load();
 
@@ -502,6 +517,36 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      {/* Recent Kanban Cards */}
+      {recentCards.length > 0 && (
+        <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "500ms", animationFillMode: "both" }}>
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-lg flex items-center gap-2">
+              <ListTodo className="h-4 w-4 text-amber-400" /> Últimos Cards Movimentados
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentCards.map((c: any) => (
+              <div key={c.id} onClick={() => navigate("/kanban")} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <span className={`h-2 w-2 rounded-full shrink-0 ${c.priority === "urgent" ? "bg-destructive" : c.priority === "high" ? "bg-amber-400" : "bg-emerald-400"}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{c.title}</p>
+                    <p className="text-[10px] text-muted-foreground">{c.board} · {c.column_title}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="text-[9px]">{c.column_title}</Badge>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {formatDistanceToNow(new Date(c.updated_at), { locale: ptBR, addSuffix: true })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <ActivityFeed />
       <GrowthDashboard />
