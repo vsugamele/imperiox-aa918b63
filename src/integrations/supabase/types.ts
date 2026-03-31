@@ -261,6 +261,69 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_categorias_financeiras: {
+        Row: {
+          ativa: boolean | null
+          created_at: string
+          id: string
+          nome: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          ativa?: boolean | null
+          created_at?: string
+          id?: string
+          nome: string
+          tipo?: string
+          user_id: string
+        }
+        Update: {
+          ativa?: boolean | null
+          created_at?: string
+          id?: string
+          nome?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_categorias_financeiras_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_categorias_financeiras_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_categorias_financeiras_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_categorias_financeiras_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_categorias_financeiras_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_clientes: {
         Row: {
           aniversario: string | null
@@ -402,6 +465,166 @@ export type Database = {
           },
         ]
       }
+      appbrabas_contas: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          data_pagamento: string | null
+          data_vencimento: string
+          descricao: string
+          fornecedor_cliente: string | null
+          id: string
+          recorrente: boolean | null
+          status: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento: string
+          descricao: string
+          fornecedor_cliente?: string | null
+          id?: string
+          recorrente?: boolean | null
+          status?: string
+          tipo?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento?: string
+          descricao?: string
+          fornecedor_cliente?: string | null
+          id?: string
+          recorrente?: boolean | null
+          status?: string
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_contas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_contas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_contas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_contas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_contas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_estoque_movimentacoes: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          motivo: string | null
+          produto_id: string
+          quantidade: number
+          referencia_id: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          id?: string
+          motivo?: string | null
+          produto_id: string
+          quantidade?: number
+          referencia_id?: string | null
+          tipo?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          motivo?: string | null
+          produto_id?: string
+          quantidade?: number
+          referencia_id?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_estoque_movimentacoes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_estoque_movimentacoes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_estoque_movimentacoes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_estoque_movimentacoes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_estoque_movimentacoes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_estoque_movimentacoes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_notas_fiscais: {
         Row: {
           cliente_nome: string | null
@@ -529,6 +752,93 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_produtos: {
+        Row: {
+          ativo: boolean | null
+          categoria: string | null
+          created_at: string
+          estoque_atual: number
+          estoque_maximo: number
+          estoque_minimo: number
+          id: string
+          nome: string
+          preco_custo: number
+          preco_venda: number
+          tipo: string
+          unidade: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string
+          estoque_atual?: number
+          estoque_maximo?: number
+          estoque_minimo?: number
+          id?: string
+          nome: string
+          preco_custo?: number
+          preco_venda?: number
+          tipo?: string
+          unidade?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string
+          estoque_atual?: number
+          estoque_maximo?: number
+          estoque_minimo?: number
+          id?: string
+          nome?: string
+          preco_custo?: number
+          preco_venda?: number
+          tipo?: string
+          unidade?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_produtos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_produtos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_produtos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_produtos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_produtos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
             referencedColumns: ["id"]
           },
         ]
