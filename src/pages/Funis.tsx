@@ -100,8 +100,11 @@ export default function Funis() {
   const [connectingFrom, setConnectingFrom] = useState<number | null>(null);
   const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [projectProductsFull, setProjectProductsFull] = useState<any[]>([]);
+  const [projectData, setProjectData] = useState<any>(null);
   const [usePixelData, setUsePixelData] = useState(false);
   const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
+  const [showProjectPanel, setShowProjectPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
