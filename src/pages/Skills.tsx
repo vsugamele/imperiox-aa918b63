@@ -244,6 +244,72 @@ export default function Skills() {
     toast.success("Skill removida!");
   };
 
+  const openExecute = (skill: Skill) => {
+    setExecuteSkill(skill);
+    setExecProjectId("");
+    setExecProduto("");
+    setExecExtra("");
+    setExecResult("");
+    setExecProdutos([]);
+    setShowExecute(true);
+    // Load projects
+    supabase.from("imphq_projects").select("id, name, data").order("created_at", { ascending: false }).then(({ data }) => {
+      setExecProjects(data || []);
+    });
+  };
+
+  const onExecProjectChange = (pid: string) => {
+    setExecProjectId(pid);
+    setExecProduto("");
+    const proj = execProjects.find((p: any) => p.id === pid);
+    if (proj) {
+      const d = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
+      const prods = (d.produtos || []).map((p: any) => p.nome || p.name).filter(Boolean);
+      setExecProdutos(prods);
+    } else {
+      setExecProdutos([]);
+    }
+  };
+
+  const runExecuteSkill = async () => {
+    if (!executeSkill) return;
+    setExecLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          action: "execute_skill",
+          skill_id: executeSkill.id,
+          skill_system_prompt: executeSkill.system_prompt,
+          project_id: execProjectId || undefined,
+          produto: execProduto || undefined,
+          model: execModel,
+          extra_instructions: execExtra || undefined,
+        },
+      });
+      if (error) throw error;
+      setExecResult(data?.result || data?.error || "Sem resultado");
+      setShowResult(true);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao executar skill");
+    } finally {
+      setExecLoading(false);
+    }
+  };
+
+  const saveResultAsDoc = async () => {
+    if (!execProjectId || !execResult) { toast.error("Selecione um projeto"); return; }
+    const { error } = await supabase.from("imphq_kb").insert([{
+      id: crypto.randomUUID(),
+      project_id: execProjectId,
+      titulo: `[IA] ${executeSkill?.nome || "Skill"} — ${new Date().toLocaleDateString("pt-BR")}`,
+      conteudo: execResult,
+      tipo: "documento",
+      owner_id: user?.id,
+    }]);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Salvo como documento no projeto!");
+  };
+
   const getSkillTags = (skill: Skill): string[] => {
     const tags: string[] = [skill.categoria];
     if (skill.versao) tags.push(skill.versao);
