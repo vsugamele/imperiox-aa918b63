@@ -41,8 +41,8 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
   const periodRange = useMemo(() => {
     const now = new Date();
     const p = PERIODS.find(x => x.value === period);
-    if (period === "month") return { from: startOfMonth(now), to: now };
-    return { from: subDays(now, p?.days || 30), to: now };
+    if (period === "month") return { start: startOfMonth(now), end: now };
+    return { start: subDays(now, p?.days || 30), end: now };
   }, [period]);
 
   const products = useMemo(() => {
