@@ -103,6 +103,7 @@ serve(async (req) => {
     const systemPrompt = `Você é um copywriter brasileiro especialista em automações de marketing digital e sequências multicanal (email, WhatsApp, Telegram).
 Seu objetivo: criar uma sequência de ${num_etapas} mensagens para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}".
 ${projectContext ? `Contexto do projeto:\n${projectContext}` : ""}
+${skillsContext}
 REGRAS:
 - Use linguagem conversacional e persuasiva em português brasileiro
 - Cada mensagem deve ter um propósito claro
