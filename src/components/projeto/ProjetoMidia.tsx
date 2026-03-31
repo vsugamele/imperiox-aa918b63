@@ -265,6 +265,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                     bucket="project-media"
                     path={`${project.id}/${c.key}`}
                     onUpload={(url) => addImage(c.key, url)}
+                    multiple
                   />
                 </div>
               </CardContent>

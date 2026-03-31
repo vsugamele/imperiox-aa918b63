@@ -634,6 +634,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                     onUpload={handleAttachmentUpload}
                     accept="image/*,video/*,.pdf,.doc,.docx"
                     label="Anexar"
+                    multiple
                   />
                 </div>
                 {attachments.length > 0 && (

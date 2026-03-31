@@ -11,37 +11,48 @@ interface FileUploadProps {
   accept?: string;
   label?: string;
   className?: string;
+  multiple?: boolean;
 }
 
-export function FileUpload({ bucket, path, onUpload, accept = "image/*", label, className }: FileUploadProps) {
+export function FileUpload({ bucket, path, onUpload, accept = "image/*", label, className, multiple = false }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadCount, setUploadCount] = useState(0);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const filePath = `${path}/${Date.now()}.${ext}`;
+    const total = files.length;
+    let uploaded = 0;
 
-    const { error } = await supabase.storage.from(bucket).upload(filePath, file, { upsert: true });
-    if (error) {
-      toast.error("Erro no upload: " + error.message);
-      setUploading(false);
-      return;
+    for (let i = 0; i < total; i++) {
+      const file = files[i];
+      const ext = file.name.split(".").pop();
+      const filePath = `${path}/${Date.now()}_${i}.${ext}`;
+
+      const { error } = await supabase.storage.from(bucket).upload(filePath, file, { upsert: true });
+      if (error) {
+        toast.error(`Erro no upload (${file.name}): ${error.message}`);
+        continue;
+      }
+
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      onUpload(urlData.publicUrl);
+      uploaded++;
+      setUploadCount(uploaded);
     }
 
-    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    onUpload(urlData.publicUrl);
     setUploading(false);
-    toast.success("Upload concluído!");
+    setUploadCount(0);
+    if (uploaded > 0) toast.success(`${uploaded} arquivo(s) enviado(s)!`);
     if (inputRef.current) inputRef.current.value = "";
   };
 
   return (
     <div className={className}>
-      <input ref={inputRef} type="file" accept={accept} onChange={handleUpload} className="hidden" />
+      <input ref={inputRef} type="file" accept={accept} multiple={multiple} onChange={handleUpload} className="hidden" />
       <Button
         type="button"
         size="sm"
@@ -49,7 +60,14 @@ export function FileUpload({ bucket, path, onUpload, accept = "image/*", label, 
         disabled={uploading}
         onClick={() => inputRef.current?.click()}
       >
-        {uploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
+        {uploading ? (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            {uploadCount > 0 ? `${uploadCount}...` : ""}
+          </>
+        ) : (
+          <Upload className="h-3 w-3 mr-1" />
+        )}
         {label || "Upload"}
       </Button>
     </div>

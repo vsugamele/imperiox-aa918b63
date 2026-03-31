@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<string[]>([]);
   const [autoExecCount, setAutoExecCount] = useState(0);
   const [recentCards, setRecentCards] = useState<any[]>([]);
+  const [receitaBreakdown, setReceitaBreakdown] = useState<{ vendas: number; manual: number }>({ vendas: 0, manual: 0 });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -186,10 +187,11 @@ export default function Dashboard() {
       
       setProjectFinance(financeData);
 
-      // Total receita
+      // Total receita with breakdown
       const recV = (vendasRes.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
       const recR = (revsRes.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
       setTotalReceita(recV + recR);
+      setReceitaBreakdown({ vendas: recV, manual: recR });
 
       // Recent kanban cards
       const { data: cardsData } = await supabase
@@ -270,6 +272,12 @@ export default function Dashboard() {
               <p className={`text-2xl font-mono font-bold text-emerald-400 ${!isAdmin ? "blur-md select-none" : ""}`}>
                 R$ {totalReceita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </p>
+              {isAdmin && (receitaBreakdown.vendas > 0 || receitaBreakdown.manual > 0) && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Vendas (webhook): R$ {receitaBreakdown.vendas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  {receitaBreakdown.manual > 0 && ` + Manual: R$ ${receitaBreakdown.manual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                </p>
+              )}
             </div>
             {!isAdmin && <div className="ml-auto flex items-center gap-1 text-muted-foreground"><Lock className="h-4 w-4" /><span className="text-[10px]">Admin only</span></div>}
           </CardContent>

@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLab
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package } from "lucide-react";
 import { toast } from "sonner";
 
 interface Etapa {
@@ -100,8 +100,11 @@ export default function Funis() {
   const [connectingFrom, setConnectingFrom] = useState<number | null>(null);
   const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [projectProductsFull, setProjectProductsFull] = useState<any[]>([]);
+  const [projectData, setProjectData] = useState<any>(null);
   const [usePixelData, setUsePixelData] = useState(false);
   const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
+  const [showProjectPanel, setShowProjectPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
@@ -123,13 +126,21 @@ export default function Funis() {
       const proj = projects.find(p => p.id === selectedFunil.project_id);
       if (proj?.briefing) {
         const b = typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing;
+        const d = typeof proj.data === "string" ? (() => { try { return JSON.parse(proj.data); } catch { return {}; } })() : (proj.data || {});
         const prods = b?.produtos || b?.products || [];
-        setProjectProducts(Array.isArray(prods) ? prods.map((p: any) => typeof p === "string" ? p : p.nome || p.name || "") : []);
+        const prodArray = Array.isArray(prods) ? prods : [];
+        setProjectProducts(prodArray.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
+        setProjectProductsFull(prodArray.map((p: any) => typeof p === "string" ? { nome: p } : p));
+        setProjectData({ ...b, ...d, links: d?.links || b?.links || {}, webhooks: d?.webhooks || b?.webhooks || [] });
       } else {
         setProjectProducts([]);
+        setProjectProductsFull([]);
+        setProjectData(null);
       }
     } else {
       setProjectProducts([]);
+      setProjectProductsFull([]);
+      setProjectData(null);
     }
   }, [selectedFunil?.project_id, projects]);
 
@@ -236,6 +247,39 @@ export default function Funis() {
     if (!selectedFunil) return;
     updateEtapa(selectedFunil.id, selectedFunil.data.etapas || []);
     toast.success("Etapas salvas!");
+  };
+
+  const addProductAsEtapa = (prod: any) => {
+    if (!selectedFunil) return;
+    const etapas = selectedFunil.data.etapas || [];
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cx = rect ? (-pan.x + rect.width / 2) / zoom : 400;
+    const cy = rect ? (-pan.y + rect.height / 2) / zoom : 200;
+    
+    const tipoLower = (prod.tipo_oferta || prod.tipo || "").toLowerCase();
+    let tipo = "checkout";
+    if (tipoLower.includes("upsell")) tipo = "upsell";
+    else if (tipoLower.includes("tripwire")) tipo = "checkout";
+    else if (tipoLower.includes("bump")) tipo = "upsell";
+    
+    const url = prod.ofertas?.[0]?.link || prod.link || prod.url || "";
+    const nome = prod.nome || prod.name || "Produto";
+    const preco = prod.preco_por || prod.preco || prod.price || "";
+    
+    const newEtapa: Etapa = {
+      nome: preco ? `${nome} (R$${preco})` : nome,
+      tipo,
+      visitantes: 0,
+      conversoes: 0,
+      url,
+      pos_x: Math.round(cx - CARD_W / 2 + Math.random() * 100),
+      pos_y: Math.round(cy - CARD_H_METRICS / 2 + Math.random() * 100),
+      descricao: prod.descricao || prod.tipo_oferta || "",
+    };
+    const updated = [...etapas, newEtapa];
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
+    triggerAutoSave();
+    toast.success(`"${nome}" adicionado como etapa!`);
   };
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
@@ -414,6 +458,12 @@ export default function Funis() {
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {selectedFunil.project_id && projectProductsFull.length > 0 && (
+              <Button size="sm" variant={showProjectPanel ? "default" : "outline"} className="h-7 text-xs gap-1 mr-2" onClick={() => setShowProjectPanel(!showProjectPanel)}>
+                {showProjectPanel ? <PanelRightClose className="h-3 w-3" /> : <PanelRightOpen className="h-3 w-3" />}
+                Dados do Projeto
+              </Button>
+            )}
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
             <span className="text-xs text-muted-foreground font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.min(2, z + 0.1))}><ZoomIn className="h-3.5 w-3.5" /></Button>
@@ -696,6 +746,63 @@ export default function Funis() {
               );
             })}
           </div>
+
+          {/* Project Data Sidebar */}
+          {showProjectPanel && selectedFunil.project_id && projectProductsFull.length > 0 && (
+            <div className="absolute top-3 right-[180px] w-64 max-h-[calc(100%-24px)] overflow-y-auto rounded-xl border border-border bg-card/95 backdrop-blur-sm p-3 space-y-3 z-20">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold flex items-center gap-1.5"><Package className="h-3 w-3 text-primary" /> Produtos do Projeto</h4>
+                <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setShowProjectPanel(false)}><X className="h-3 w-3" /></Button>
+              </div>
+              {projectProductsFull.map((prod: any, idx: number) => {
+                const nome = prod.nome || prod.name || `Produto ${idx + 1}`;
+                const preco = prod.preco_por || prod.preco || prod.price || "";
+                const tipo = prod.tipo_oferta || prod.tipo || "";
+                const url = prod.ofertas?.[0]?.link || prod.link || "";
+                return (
+                  <div key={idx} className="p-2 rounded-lg bg-secondary/50 border border-border space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium truncate flex-1">{nome}</p>
+                      {preco && <span className="text-[10px] font-mono font-bold text-primary ml-1">R${preco}</span>}
+                    </div>
+                    {tipo && <Badge variant="secondary" className="text-[8px]">{tipo}</Badge>}
+                    {url && <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1"><Link2 className="h-2.5 w-2.5 shrink-0" />{url}</p>}
+                    {prod.ofertas?.length > 0 && (
+                      <div className="space-y-0.5">
+                        {prod.ofertas.map((of: any, oi: number) => (
+                          <div key={oi} className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span className="truncate">{of.nome || `Oferta ${oi + 1}`}</span>
+                            {of.preco_por && <span className="font-mono text-primary">R${of.preco_por}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] w-full gap-1" onClick={() => addProductAsEtapa(prod)}>
+                      <Plus className="h-2.5 w-2.5" /> Adicionar como etapa
+                    </Button>
+                  </div>
+                );
+              })}
+              {projectData?.links && Object.keys(projectData.links).length > 0 && (
+                <div className="border-t border-border pt-2 space-y-1">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase">Links do Projeto</p>
+                  {Object.entries(projectData.links).filter(([, v]) => v).map(([k, v]) => (
+                    <a key={k} href={v as string} target="_blank" rel="noopener" className="flex items-center gap-1.5 text-[10px] text-primary hover:underline">
+                      <ExternalLink className="h-2.5 w-2.5" />{k}: {String(v).slice(0, 30)}...
+                    </a>
+                  ))}
+                </div>
+              )}
+              {projectData?.webhooks?.length > 0 && (
+                <div className="border-t border-border pt-2 space-y-1">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase">Webhooks</p>
+                  {projectData.webhooks.map((wh: any, wi: number) => (
+                    <Badge key={wi} variant="outline" className="text-[8px]">{wh.nome || wh.plataforma || `Webhook ${wi + 1}`}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Minimap */}
           <div className="absolute bottom-3 right-3 rounded-lg border border-border bg-card/90 backdrop-blur-sm p-1.5"
