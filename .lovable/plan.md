@@ -1,91 +1,73 @@
 
 
-# Plano: 5 Melhorias — Processos com Horário/Fotos, IA com Skills/Mentes, Bug Coluna Duplicada, Próximo Passo em Tarefas, Funis sem Projetos
+# Plano: 5 Melhorias no Kanban/Tarefas
 
 ---
 
-## 1. Processos — Horário e fotos/links de referência
+## 1. Trocar Board dentro da tarefa (CardDetailPanel)
 
-**Problema**: O formulário de processos (`imphq_processes`) só tem título, descrição, steps (checklist), categoria, membro e projeto. Não tem campo de horário nem suporte a fotos/links de referência.
+**Problema**: No `CardDetailPanel.tsx`, o board é exibido apenas como badge estático (linha 396). Não existe Select para mudar o board do card.
 
-**Solução**:
-- Adicionar ao `processForm` os campos `horario` (string, ex: "09:00") e `referencias` (array de `{ tipo: "imagem" | "link", url: string, label?: string }`)
-- No dialog de criar/editar processo:
-  - Input type="time" para horário
-  - Seção "Referências": input de URL + botão adicionar, FileUpload para subir imagem (bucket `project-media`, path `processos/`), lista de referências com preview (thumbnail para imagens, link clicável para URLs), botão remover
-- No card do processo na lista, mostrar horário como badge e thumbnails das referências
-- Os dados ficam no JSONB `steps` existente — não precisa de migration, pois `horario` e `referencias` podem ser salvos como campos extras no payload do processo (a tabela já aceita JSONB)
+**Solução**: Adicionar um Select de "Board" no grid de metadados (ao lado da Coluna). Ao trocar o board:
+- Atualizar `card.board` no banco
+- Buscar a primeira coluna do novo board e mover o card para lá
+- Atualizar `boardColumns` para refletir as colunas do novo board
+- Adicionar estado local `boardName` e handler `handleBoardChange`
+- Usar `BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"]` (mesmo array do KanbanPage)
 
-**Arquivo**: `src/pages/Tarefas.tsx` (formulário de processo + card)
-
----
-
-## 2. AIGenerateButton — Buscar Skills e Mentes relevantes + mais modelos
-
-**Problema**: O `AIGenerateButton` envia a ação para `openflow-ai` sem consultar skills nem mentes. Também falta modelos Claude e Kimi.
-
-**Solução em 2 partes**:
-
-**a) Mais modelos no AIGenerateButton**: Adicionar ao array `MODELS`:
-- `anthropic/claude-sonnet-4` — "Claude Sonnet"
-- `moonshotai/kimi-k2` — "Kimi K2"
-
-**b) Edge function `openflow-ai`**: Antes de chamar a IA, buscar automaticamente:
-- Skills relevantes: `SELECT nome, system_prompt FROM imphq_skills WHERE status = 'Ativa' AND system_prompt IS NOT NULL LIMIT 5`
-- Mentes: dados de `mentesData.ts` (hardcoded no edge function como referência rápida dos 8 perfis)
-- Injetar no system prompt: "Você tem acesso às seguintes skills especializadas: [lista]. Use as mais relevantes para esta tarefa."
-- O contexto das skills mais relevantes (por nome/categoria match com a action) será incluído no prompt
-
-**Arquivos**: `src/components/projeto/AIGenerateButton.tsx` (novos modelos), `supabase/functions/openflow-ai/index.ts` (buscar skills + injetar contexto)
+**Arquivo**: `src/components/kanban/CardDetailPanel.tsx`
 
 ---
 
-## 3. Bug — Dropdown de Coluna com duplicatas
+## 2. Contagem de itens por board no Kanban
 
-**Problema**: Na imagem, o dropdown de "Coluna" no CardDetailPanel mostra "A Fazer" repetido ~6 vezes. O filtro `boardColumns = columns.filter(c => c.board === card.board)` funciona, mas o banco tem múltiplas colunas com o mesmo título no mesmo board (provavelmente criadas acidentalmente).
+**Problema**: Na `TabsList` do KanbanPage (linha ~80), os boards não mostram quantos cards cada um tem.
 
-**Solução**: No `CardDetailPanel.tsx`, deduplicar `boardColumns` por título — manter apenas a primeira coluna de cada título único no board. Isso resolve o visual sem precisar limpar o banco.
+**Solução**: No `TabsTrigger` de cada board, adicionar Badge com count:
+- `allCards.filter(c => c.board === board).length` para boards específicos
+- `allCards.length` para "geral"
 
-```
-const boardColumns = columns
-  .filter(c => c.board === card.board)
-  .filter((c, i, arr) => arr.findIndex(x => x.title === c.title) === i);
-```
-
-**Arquivo**: `src/components/kanban/CardDetailPanel.tsx` (linha 359)
+**Arquivo**: `src/pages/KanbanPage.tsx`
 
 ---
 
-## 4. Tarefas — "Próximo passo" ao concluir
+## 3. Mais dados no Kanban (mini-analytics)
 
-**Problema**: Quando Bruno marca uma tarefa como concluída, ele quer atribuir um próximo passo a outra pessoa, e ter histórico disso.
+**Solução**: Adicionar uma barra de stats acima do board com:
+- Total de cards no board
+- Distribuição por coluna (backlog X, fazendo Y, feito Z)
+- Cards atrasados (due_date < hoje e não feito)
+- Cards sem responsável
+- Layout: row de badges/chips compactos
 
-**Solução**:
-- Ao clicar em "concluir" (checkbox no `toggleDone`), se a tarefa está sendo marcada como feita, abrir um **Dialog de "Próximo Passo"** (opcional):
-  - Select de membro responsável
-  - Input de título do próximo passo
-  - Textarea de observação
-  - Botão "Criar próximo passo" → cria novo card no mesmo board/coluna inicial, com `member_id` do selecionado e referência ao card original via `imphq_card_relations` (tipo "sequencia")
-  - Botão "Apenas concluir" → fecha sem criar
-- Histórico: o `imphq_card_relations` com `relation_type = "sequencia"` já permite rastrear a cadeia. No `CardDetailPanel`, na seção de "Tarefas relacionadas", mostrar relações do tipo "sequencia" com label "Passo anterior" / "Próximo passo"
-- Notificação automática para o membro atribuído
-
-**Arquivo**: `src/pages/Tarefas.tsx` (dialog de próximo passo no `toggleDone`), `src/components/kanban/CardDetailPanel.tsx` (label "sequencia" nas relações)
+**Arquivo**: `src/pages/KanbanPage.tsx`
 
 ---
 
-## 5. Funis — Projetos e produtos não carregando no editor
+## 4. Ocultar concluídas
 
-**Problema**: A query `select("id, name, briefing")` na linha 115 do `Funis.tsx` não inclui `data`, mas o `useEffect` na linha 129 tenta acessar `proj.data` para extrair produtos. Resultado: `proj.data` é `undefined`, e `projectProductsFull` fica vazio.
+**Problema**: Cards na coluna "feito" sempre aparecem, poluindo a visão.
 
-**Solução**: Alterar a query para incluir `data`:
-```
-supabase.from("imphq_projects").select("id, name, briefing, data").order("name")
-```
+**Solução**: Adicionar toggle/switch "Ocultar concluídas" nos filtros do KanbanPage. Quando ativo:
+- Na visualização Board: esconder cards da coluna "feito" (ou colapsar a coluna com apenas o count)
+- Na visualização Lista: filtrar cards de colunas "feito"
+- Estado: `hideDone` boolean, persistido em localStorage
 
-Isso resolve tanto o seletor de projeto (que já funciona com `id, name`) quanto os produtos (que precisam de `briefing` e `data`).
+**Arquivo**: `src/pages/KanbanPage.tsx`
 
-**Arquivo**: `src/pages/Funis.tsx` (linha 115)
+---
+
+## 5. Botão IA para gerar documentação das atividades
+
+**Problema**: Não há forma rápida de pedir à IA para resumir/documentar as tarefas do board para o time.
+
+**Solução**: Botão "📄 Gerar Doc com IA" na barra de ações do KanbanPage. Ao clicar:
+- Coleta todos os cards do board ativo (título, descrição, responsável, status, prazo)
+- Chama a edge function `openflow-ai` com prompt: "Gere um documento resumido das atividades do time para compartilhar. Organize por status e responsável."
+- Exibe o resultado em um Dialog com textarea (copiável) e botão copiar
+- Usa o modelo já configurado no `openflow-ai`
+
+**Arquivo**: `src/pages/KanbanPage.tsx`
 
 ---
 
@@ -93,9 +75,6 @@ Isso resolve tanto o seletor de projeto (que já funciona com `id, name`) quanto
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Tarefas.tsx` | Processos com horário/referências + Dialog "Próximo Passo" ao concluir |
-| `src/components/projeto/AIGenerateButton.tsx` | Modelos Claude e Kimi |
-| `supabase/functions/openflow-ai/index.ts` | Buscar skills relevantes e injetar no contexto |
-| `src/components/kanban/CardDetailPanel.tsx` | Deduplicar colunas no dropdown + label "sequencia" |
-| `src/pages/Funis.tsx` | Adicionar `data` na query de projetos |
+| `src/components/kanban/CardDetailPanel.tsx` | Select de Board + handler para mudar board e coluna |
+| `src/pages/KanbanPage.tsx` | Count por board, stats bar, toggle ocultar concluídas, botão IA doc |
 
