@@ -313,6 +313,8 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
   const [guideOpen, setGuideOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
 
   const updateDataField = (key: string, value: string) => {
     const newData = { ...(project.data || {}), [key]: value };
