@@ -288,6 +288,46 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
         ))}
       </Tabs>
 
+      {/* Task Attachments */}
+      {taskAttachments.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
+              <Paperclip className="h-4 w-4" /> Anexos de Tarefas ({taskAttachments.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {taskAttachments.map((a: any) => {
+                const isImg = a.file_type?.startsWith("image");
+                return (
+                  <div key={a.id} className="relative rounded-lg border border-border bg-secondary/30 overflow-hidden group">
+                    {isImg ? (
+                      <div className="aspect-square">
+                        <img src={a.file_url} alt={a.file_name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="aspect-square flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="p-1.5">
+                      <p className="text-[10px] font-medium truncate">{a.file_name}</p>
+                      <p className="text-[9px] text-muted-foreground truncate">📌 {a.card_title}</p>
+                    </div>
+                    <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button size="icon" variant="ghost" className="h-8 w-8 bg-card/80" onClick={() => window.open(a.file_url, "_blank")}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Preview Dialog */}
       <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>
         <DialogContent className="max-w-3xl">
