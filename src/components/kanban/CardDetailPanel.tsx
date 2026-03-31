@@ -113,6 +113,7 @@ const RELATION_COLORS: Record<string, string> = {
   related: "bg-primary/10 text-primary border-primary/20",
   blocks: "bg-destructive/10 text-destructive border-destructive/20",
   blocked_by: "bg-warning/10 text-warning border-warning/20",
+  sequencia: "bg-success/10 text-success border-success/20",
 };
 
 export default function CardDetailPanel({ card, open, onClose, onUpdate, columns, members, projects = [] }: CardDetailPanelProps) {
