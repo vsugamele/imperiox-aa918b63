@@ -120,7 +120,8 @@ export default function OpenFlow() {
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: editing.nome, trigger_tipo: editing.trigger_tipo,
       acoes: editing.acoes as any, ativo: editing.ativo, project_id: editing.project_id,
-    }).eq("id", editing.id);
+      produto: (editing as any).produto || null,
+    } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
   };
