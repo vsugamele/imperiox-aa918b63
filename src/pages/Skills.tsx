@@ -134,6 +134,8 @@ export default function Skills() {
         id: s.id, nome: s.nome, descricao: s.descricao,
         categoria: s.categoria as Categoria, status: s.status as Status,
         icone: s.icone || "Zap",
+        system_prompt: s.system_prompt || "", versao: s.versao || "",
+        gatilho: s.gatilho || "", cor: s.cor || "",
       })));
     });
   }, [user]);
