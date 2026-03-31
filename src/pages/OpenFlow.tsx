@@ -102,6 +102,23 @@ export default function OpenFlow() {
     };
     fetchTemplates();
   }, [editing?.project_id]);
+  // Load products when form project changes
+  useEffect(() => {
+    if (!form.project_id) { setProjectProducts([]); return; }
+    supabase.from("imphq_projects").select("data").eq("id", form.project_id).single().then(({ data }) => {
+      const produtos = ((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean);
+      setProjectProducts(produtos);
+    });
+  }, [form.project_id]);
+
+  // Load products when editing project changes
+  useEffect(() => {
+    if (!editing?.project_id) { setEditProjectProducts([]); return; }
+    supabase.from("imphq_projects").select("data").eq("id", editing.project_id).single().then(({ data }) => {
+      const produtos = ((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean);
+      setEditProjectProducts(produtos);
+    });
+  }, [editing?.project_id]);
 
   const createAutomacao = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
@@ -109,7 +126,8 @@ export default function OpenFlow() {
     const { error } = await supabase.from("imphq_automacoes").insert({
       id, nome: form.nome, trigger_tipo: form.trigger_tipo,
       project_id: form.project_id || null, acoes: [] as any, ativo: true,
-    });
+      produto: form.produto || null,
+    } as any);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
     setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" }); load();
