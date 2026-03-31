@@ -190,6 +190,20 @@ export default function Dashboard() {
       const recV = (vendasRes.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
       const recR = (revsRes.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
       setTotalReceita(recV + recR);
+
+      // Recent kanban cards
+      const { data: cardsData } = await supabase
+        .from("imphq_kanban_cards")
+        .select("id, title, priority, board, column_id, project_id, updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(10);
+      if (cardsData) {
+        // Fetch column names
+        const colIds = [...new Set(cardsData.map(c => c.column_id))];
+        const { data: colsData } = await supabase.from("imphq_kanban_columns").select("id, title").in("id", colIds);
+        const colMap = new Map((colsData || []).map(c => [c.id, c.title]));
+        setRecentCards(cardsData.map(c => ({ ...c, column_title: colMap.get(c.column_id) || "?" })));
+      }
     }
     load();
 
