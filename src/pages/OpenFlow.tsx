@@ -316,7 +316,7 @@ export default function OpenFlow() {
             </div>
             <div>
               <Label>Projeto</Label>
-              <Select value={form.project_id || "none"} onValueChange={v => setForm({ ...form, project_id: v === "none" ? "" : v })}>
+              <Select value={form.project_id || "none"} onValueChange={v => setForm({ ...form, project_id: v === "none" ? "" : v, produto: "" })}>
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Todos os projetos</SelectItem>
@@ -324,6 +324,18 @@ export default function OpenFlow() {
                 </SelectContent>
               </Select>
             </div>
+            {form.project_id && projectProducts.length > 0 && (
+              <div>
+                <Label>Produto</Label>
+                <Select value={form.produto || "none"} onValueChange={v => setForm({ ...form, produto: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Todos produtos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Todos os produtos</SelectItem>
+                    {projectProducts.map(p => <SelectItem key={p} value={p}>🏷️ {p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter><Button onClick={createAutomacao}>Criar</Button></DialogFooter>
         </DialogContent>
