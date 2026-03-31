@@ -183,6 +183,9 @@ export default function Tarefas() {
     setMembers((memberRes.data as any[]) || []);
     setRoutines((routineRes.data as any[]) || []);
     setChecks((checksRes.data as any[]) || []);
+    // Fetch processes
+    const { data: procData } = await supabase.from("imphq_processes").select("*").eq("is_active", true).order("position", { ascending: true });
+    setProcesses((procData as any[]) || []);
     setLoading(false);
   }, [todayStr]);
 
