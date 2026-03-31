@@ -344,6 +344,10 @@ export default function Financas() {
         <TabsContent value="produtos">
           <FinancasProdutos vendas={fVendas} />
         </TabsContent>
+
+        <TabsContent value="performance">
+          <FinancasPerformance ads={fAds} vendas={fVendas} projects={projects} />
+        </TabsContent>
       </Tabs>
 
       {/* Custo Dialog */}
