@@ -369,7 +369,7 @@ export default function Tarefas() {
     }
     setShowProcessDialog(false);
     setEditingProcess(null);
-    setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none" });
+    setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none", horario: "", referencias: [] });
   };
 
   const deleteProcess = async (id: string) => {
