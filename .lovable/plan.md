@@ -1,67 +1,51 @@
 
 
-# Plano: 4 Correções e Melhorias
+# Plano: 4 Melhorias — Instagram, Anexos no Projeto, Kanban no Dashboard, Pastas de Projetos
 
 ---
 
-## 1. Bug Admin — Vinicius e Bruno não reconhecidos
+## 1. Instagram — campo de usuário nos Links & Redes Sociais
 
-**Causa raiz**: O banco armazena role como `"Admin"` (maiúsculo), mas o código compara com `"admin"` (minúsculo).
+**Problema**: No Briefing, o campo Instagram só aceita URL. Mas no Instagram o `@usuario` é mais útil (para pesquisa, concorrentes, etc).
 
-- Bruno está com `role: "Admin"` no banco
-- Dashboard linha 197: `data?.role === "admin"` → falha
-- Tarefas linha 152: `memberData?.role === "admin"` → falha
+**Solução**: No array `SOCIAL_NETWORKS` do `ProjetoBriefing.tsx`, quando a rede for `instagram`, exibir um campo extra de `@usuario` além da URL. Salvar como `instagram_handle` no `data.social_links`.
 
-**Fix**: Usar `.toLowerCase()` em todas as comparações de role:
-```ts
-const r = (data?.role || "").toLowerCase();
-setIsAdmin(r === "admin" || r === "owner");
-```
-
-**Arquivos**: `src/pages/Dashboard.tsx`, `src/pages/Tarefas.tsx`
+**Arquivo**: `src/components/projeto/ProjetoBriefing.tsx`
 
 ---
 
-## 2. Chat sem atualização em tempo real
+## 2. Anexos de tarefas visíveis dentro do projeto
 
-**Causa raiz**: A subscription Realtime está configurada (INSERT/DELETE em `imphq_chat_messages`), mas a tabela pode não ter **REPLICA IDENTITY FULL** habilitado para o canal, ou o Realtime não está ativo para essa tabela no Supabase Dashboard.
+**Problema**: Fotos anexadas a cards do Kanban (via `CardDetailPanel`) ficam apenas no card. Não aparecem na aba Mídia do projeto.
 
-Porém, como fallback mais robusto, o chat deveria também ter **polling incremental** (a cada 5s) para garantir que mensagens apareçam mesmo se o Realtime falhar. Além disso, após enviar, fazer refetch imediato.
+**Solução**: Na aba Mídia (`ProjetoMidia.tsx`), adicionar uma seção "Anexos de Tarefas" que busca `imphq_card_attachments` dos cards vinculados ao projeto (`project_id`). Exibir como galeria read-only com link para abrir o card.
 
-**Fix**:
-- Após `sendMessage()`, chamar `loadMessages()` imediatamente (fallback)
-- Adicionar polling a cada 5s como backup do Realtime
-- Verificar via migration se REPLICA IDENTITY FULL está configurado
-
-**Arquivo**: `src/pages/Chat.tsx`
+**Arquivo**: `src/components/projeto/ProjetoMidia.tsx`
 
 ---
 
-## 3. Calendário maior e com mais dados
+## 3. Últimas movimentações do Kanban no Dashboard
 
-**Problema**: O calendário é um widget pequeno (`w-fit`) com o componente Calendar padrão (cells de 36px). Só mostra dots de eventos, sem detalhes visuais.
+**Problema**: O `ActivityFeed` só mostra ações registradas em `imphq_activity_log`. Movimentações de cards (criar, mover, completar) não aparecem.
 
-**Melhorias**:
-- Aumentar o tamanho do calendário para ocupar largura total em telas maiores
-- Dentro de cada célula do dia, mostrar **contagem de eventos** e **tarefas com due_date**
-- Layout: calendário no topo (full-width), lista de eventos embaixo
-- Mostrar resumo do dia selecionado: tarefas + eventos + rotinas pendentes
-- Adicionar cores diferentes por tipo de evento nas células
+**Solução**: No Dashboard, adicionar uma seção "Últimos Cards" que busca os últimos 10 cards atualizados (`imphq_kanban_cards` ordenados por `updated_at` desc). Exibir título, coluna atual, projeto e tempo relativo. Também registrar `card_created` e `card_moved` no activity feed quando ações acontecerem no Kanban.
 
-**Arquivo**: `src/pages/Tarefas.tsx` — refatorar a aba "calendar"
+**Arquivos**: `src/pages/Dashboard.tsx` (seção "Últimos Cards"), `src/pages/KanbanPage.tsx` (registrar no activity_log ao mover/criar)
 
 ---
 
-## 4. Notificações via WhatsApp + PWA por usuário
+## 4. Pastas para agrupar projetos
 
-**Problema**: O `notify-scheduler` cria notificações no banco, mas não envia via WhatsApp nem push PWA. Notifica todos os usuários igualmente, sem considerar o responsável da tarefa.
+**Problema**: A lista de projetos é flat — todos no mesmo nível, sem agrupamento visual.
 
-**Melhorias**:
-- Se o card tem `member_id`, notificar apenas o responsável (não todos)
-- Adicionar envio via WhatsApp: buscar telefone do membro em `imphq_team_members`, chamar `whatsapp-api` para enviar a notificação
-- Para PWA: o sistema já tem `Notification.permission` no `NotificationBell.tsx`. Expandir para que o `notify-scheduler` também grave um campo `channels: ['pwa', 'whatsapp']` para tracking
+**Solução**: Adicionar campo `folder` (string) no projeto. Na página Projetos:
+- Barra de pastas no topo (chips clicáveis) com as pastas existentes + "Todos"
+- Botão "Nova Pasta" que cria uma pasta (salva como tag no projeto)
+- Agrupar cards por pasta visualmente com headers
+- Projetos sem pasta aparecem em "Sem pasta"
+- No dialog de criação de projeto, campo opcional "Pasta"
 
-**Arquivo**: `supabase/functions/notify-scheduler/index.ts`
+**Arquivo**: `src/pages/Projetos.tsx` — filtro por pasta, agrupamento visual, campo pasta no form
 
 ---
 
@@ -69,9 +53,10 @@ Porém, como fallback mais robusto, o chat deveria também ter **polling increme
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Dashboard.tsx` | Fix: `.toLowerCase()` na comparação de role |
-| `src/pages/Tarefas.tsx` | Fix role + calendário maior com tarefas integradas |
-| `src/pages/Chat.tsx` | Refetch após envio + polling backup de 5s |
-| `supabase/functions/notify-scheduler/index.ts` | Notificar responsável, enviar via WhatsApp |
-| SQL migration | Garantir REPLICA IDENTITY FULL em `imphq_chat_messages` |
+| `src/components/projeto/ProjetoBriefing.tsx` | Campo `@usuario` para Instagram nos social links |
+| `src/components/projeto/ProjetoMidia.tsx` | Seção "Anexos de Tarefas" buscando attachments por project_id |
+| `src/pages/Dashboard.tsx` | Seção "Últimos Cards" com cards recentemente atualizados |
+| `src/pages/KanbanPage.tsx` | Registrar card_created/card_moved no activity_log |
+| `src/components/dashboard/ActivityFeed.tsx` | Adicionar ícones/labels para card_created e card_moved |
+| `src/pages/Projetos.tsx` | Sistema de pastas: filtro, agrupamento, campo no form de criação |
 
