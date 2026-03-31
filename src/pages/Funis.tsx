@@ -126,13 +126,21 @@ export default function Funis() {
       const proj = projects.find(p => p.id === selectedFunil.project_id);
       if (proj?.briefing) {
         const b = typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing;
+        const d = typeof proj.data === "string" ? (() => { try { return JSON.parse(proj.data); } catch { return {}; } })() : (proj.data || {});
         const prods = b?.produtos || b?.products || [];
-        setProjectProducts(Array.isArray(prods) ? prods.map((p: any) => typeof p === "string" ? p : p.nome || p.name || "") : []);
+        const prodArray = Array.isArray(prods) ? prods : [];
+        setProjectProducts(prodArray.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
+        setProjectProductsFull(prodArray.map((p: any) => typeof p === "string" ? { nome: p } : p));
+        setProjectData({ ...b, ...d, links: d?.links || b?.links || {}, webhooks: d?.webhooks || b?.webhooks || [] });
       } else {
         setProjectProducts([]);
+        setProjectProductsFull([]);
+        setProjectData(null);
       }
     } else {
       setProjectProducts([]);
+      setProjectProductsFull([]);
+      setProjectData(null);
     }
   }, [selectedFunil?.project_id, projects]);
 
