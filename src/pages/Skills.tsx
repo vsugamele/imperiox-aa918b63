@@ -453,10 +453,19 @@ export default function Skills() {
 
       {/* FORM DE NOVA SKILL */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editing ? "Editar Skill" : "Nova Skill"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Slack Bot" /></div>
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+            {/* Import button */}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/15">
+              <input ref={importRef} type="file" accept=".md,.zip" onChange={handleImportFile} className="hidden" />
+              <Button size="sm" variant="outline" onClick={() => importRef.current?.click()} className="gap-1">
+                <Plus className="h-3 w-3" /> Importar .md / .zip
+              </Button>
+              <span className="text-[10px] text-muted-foreground">Importa o system prompt de um arquivo .md ou .zip contendo .md</span>
+            </div>
+
+            <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Avatar Architect" /></div>
             <div><Label>Descrição</Label><Textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} placeholder="O que essa skill faz..." rows={2} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -478,6 +487,23 @@ export default function Skills() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Versão</Label>
+                <Input value={form.versao} onChange={e => setForm({ ...form, versao: e.target.value })} placeholder="V2.0" />
+              </div>
+              <div>
+                <Label>Gatilho</Label>
+                <Input value={form.gatilho} onChange={e => setForm({ ...form, gatilho: e.target.value })} placeholder="[Nicho] e [Avatar]" />
+              </div>
+              <div>
+                <Label>Cor</Label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={form.cor} onChange={e => setForm({ ...form, cor: e.target.value })} className="h-8 w-8 rounded border cursor-pointer" />
+                  <Input value={form.cor} onChange={e => setForm({ ...form, cor: e.target.value })} className="flex-1" />
+                </div>
+              </div>
+            </div>
             <div>
               <Label>Ícone</Label>
               <Select value={form.icone} onValueChange={v => setForm({ ...form, icone: v })}>
@@ -489,6 +515,11 @@ export default function Skills() {
                   })}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>System Prompt</Label>
+              <Textarea value={form.system_prompt} onChange={e => setForm({ ...form, system_prompt: e.target.value })} placeholder="Cole aqui o system prompt completo da skill (markdown)..." rows={8} className="font-mono text-xs" />
+              {form.system_prompt && <p className="text-[10px] text-muted-foreground mt-1">{form.system_prompt.split("\n").length} linhas · {form.system_prompt.length} chars</p>}
             </div>
           </div>
           <DialogFooter><Button onClick={saveSkill}>{editing ? "Salvar" : "Criar"}</Button></DialogFooter>
