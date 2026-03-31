@@ -628,6 +628,19 @@ export default function KanbanPage() {
           <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={clearAllFilters}>Limpar</Button>
         )}
 
+        {/* Hide done toggle */}
+        <div className="flex items-center gap-2">
+          <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+          <Label className="text-xs text-muted-foreground cursor-pointer" htmlFor="hide-done">Ocultar concluídas</Label>
+          <Switch id="hide-done" checked={hideDone} onCheckedChange={toggleHideDone} />
+        </div>
+
+        {/* AI Doc button */}
+        <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={generateAiDoc} disabled={aiDocLoading}>
+          {aiDocLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+          Gerar Doc IA
+        </Button>
+
         {/* View toggle */}
         <div className="flex items-center border border-border rounded-md ml-auto">
           <Button
