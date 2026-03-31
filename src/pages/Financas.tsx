@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { FinancasOverview } from "@/components/financas/FinancasOverview";
 import { FinancasAds } from "@/components/financas/FinancasAds";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
+import { FinancasPerformance } from "@/components/financas/FinancasPerformance";
 
 const USD_BRL = 5.2;
 const TIPOS = ["SaaS", "API", "Infra", "Ads", "Freelancer", "Outro"];
