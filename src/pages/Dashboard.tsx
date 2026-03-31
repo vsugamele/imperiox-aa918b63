@@ -186,10 +186,11 @@ export default function Dashboard() {
       
       setProjectFinance(financeData);
 
-      // Total receita
+      // Total receita with breakdown
       const recV = (vendasRes.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
       const recR = (revsRes.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
       setTotalReceita(recV + recR);
+      setReceitaBreakdown({ vendas: recV, manual: recR });
 
       // Recent kanban cards
       const { data: cardsData } = await supabase
