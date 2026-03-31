@@ -208,6 +208,7 @@ export default function KanbanPage() {
     if (filters.deadline === "overdue") result = result.filter(c => isOverdue(c.due_date));
     else if (filters.deadline === "today") result = result.filter(c => isToday(c.due_date));
     else if (filters.deadline === "none") result = result.filter(c => !c.due_date);
+    if (hideDone) result = result.filter(c => getCardNormalizedCol(c) !== "feito");
     return result;
   };
 
