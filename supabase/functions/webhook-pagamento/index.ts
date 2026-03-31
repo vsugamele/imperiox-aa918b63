@@ -379,7 +379,12 @@ Deno.serve(async (req) => {
         .eq("trigger_tipo", triggerTipo)
         .eq("ativo", true);
 
-      if (automacoes && automacoes.length > 0) {
+      // Filter by project and product
+      const matched = (automacoes || []).filter((a: any) => {
+        if (a.project_id && a.project_id !== projectId) return false;
+        if (a.produto && produto && a.produto.toLowerCase() !== produto.toLowerCase()) return false;
+        return true;
+      });
         console.log(`[webhook-pagamento] ${automacoes.length} automações encontradas para ${triggerTipo}`);
       }
     }
