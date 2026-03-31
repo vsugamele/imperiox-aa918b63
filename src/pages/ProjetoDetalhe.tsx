@@ -35,6 +35,8 @@ export default function ProjetoDetalhe() {
   const [editingName, setEditingName] = useState(false);
   const [editingIcon, setEditingIcon] = useState(false);
   const [editingCategory, setEditingCategory] = useState(false);
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
   const save = useAutoSave(id);
 
   useEffect(() => {
