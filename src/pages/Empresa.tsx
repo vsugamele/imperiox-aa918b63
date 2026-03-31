@@ -215,6 +215,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                   ) : (
                     <>
                       <TableCell className="font-medium text-sm">@{c.nome}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{c.valor || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
                         {c.extra?.senha && (
