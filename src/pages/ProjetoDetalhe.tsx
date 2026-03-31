@@ -22,7 +22,7 @@ import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
-import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download } from "lucide-react";
+import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -311,6 +311,8 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
   const [guideOpen, setGuideOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
 
   const updateDataField = (key: string, value: string) => {
     const newData = { ...(project.data || {}), [key]: value };
@@ -376,17 +378,22 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Access Token (CAPI)</Label>
-            <Input
-              type="password"
-              value={project.data?.facebook_access_token || ""}
-              onChange={e => {
-                const newData = { ...(project.data || {}), facebook_access_token: e.target.value };
-                setProject((p: any) => ({ ...p, data: newData }));
-              }}
-              onBlur={() => updateDataField("facebook_access_token", project.data?.facebook_access_token || "")}
-              className="bg-secondary"
-              placeholder="EAAxxxxxxx..."
-            />
+            <div className="relative">
+              <Input
+                type={visibleSecrets["fb_token"] ? "text" : "password"}
+                value={project.data?.facebook_access_token || ""}
+                onChange={e => {
+                  const newData = { ...(project.data || {}), facebook_access_token: e.target.value };
+                  setProject((p: any) => ({ ...p, data: newData }));
+                }}
+                onBlur={() => updateDataField("facebook_access_token", project.data?.facebook_access_token || "")}
+                className="bg-secondary pr-10"
+                placeholder="EAAxxxxxxx..."
+              />
+              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => toggleSecret("fb_token")}>
+                {visibleSecrets["fb_token"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
             <p className="text-[10px] text-muted-foreground mt-1">Gere em Events Manager → Configurações → Conversions API → Gerar Token</p>
           </div>
           <div>
@@ -437,6 +444,8 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
 // ── Webhooks de Pagamento Card ──────────────────────────────────
 function WebhooksPagamentoCard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
   const baseUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}`;
 
   const copyUrl = (url: string, label: string) => {
@@ -500,17 +509,22 @@ function WebhooksPagamentoCard({ project, setProject, updateField }: { project: 
                 <span className="text-sm">{p.icon}</span>
                 <Label className="text-xs text-muted-foreground">{p.label}</Label>
               </div>
-              <Input
-                type="password"
-                value={project.data?.[p.key] || ""}
-                onChange={e => {
-                  const newData = { ...(project.data || {}), [p.key]: e.target.value };
-                  setProject((prev: any) => ({ ...prev, data: newData }));
-                }}
-                onBlur={() => updateDataField(p.key, project.data?.[p.key] || "")}
-                className="bg-secondary"
-                placeholder={p.placeholder}
-              />
+              <div className="relative">
+                <Input
+                  type={visibleSecrets[p.key] ? "text" : "password"}
+                  value={project.data?.[p.key] || ""}
+                  onChange={e => {
+                    const newData = { ...(project.data || {}), [p.key]: e.target.value };
+                    setProject((prev: any) => ({ ...prev, data: newData }));
+                  }}
+                  onBlur={() => updateDataField(p.key, project.data?.[p.key] || "")}
+                  className="bg-secondary pr-10"
+                  placeholder={p.placeholder}
+                />
+                <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => toggleSecret(p.key)}>
+                  {visibleSecrets[p.key] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
               <p className="text-[9px] text-muted-foreground">{p.help}</p>
             </div>
           ))}

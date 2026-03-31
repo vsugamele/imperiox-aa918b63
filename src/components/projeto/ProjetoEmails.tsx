@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Pencil, Send, Eye, Mail, Settings, History, ExternalLink, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Pencil, Send, Eye, EyeOff, Mail, Settings, History, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -47,6 +47,7 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
   const templates = config.templates || [];
 
   const [emailHistory, setEmailHistory] = useState<any[]>([]);
+  const [showResendKey, setShowResendKey] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
@@ -159,13 +160,18 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground">API Key Resend</Label>
-            <Input
-              type="password"
-              value={config.resend_api_key || ""}
-              onChange={e => updateConfig({ resend_api_key: e.target.value })}
-              className="bg-secondary"
-              placeholder="re_xxxxxxxx..."
-            />
+            <div className="relative">
+              <Input
+                type={showResendKey ? "text" : "password"}
+                value={config.resend_api_key || ""}
+                onChange={e => updateConfig({ resend_api_key: e.target.value })}
+                className="bg-secondary pr-10"
+                placeholder="re_xxxxxxxx..."
+              />
+              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => setShowResendKey(!showResendKey)}>
+                {showResendKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
             <p className="text-[9px] text-muted-foreground mt-1">Encontre em resend.com/api-keys</p>
           </div>
           <div>

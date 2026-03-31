@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { FinancasOverview } from "@/components/financas/FinancasOverview";
 import { FinancasAds } from "@/components/financas/FinancasAds";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
+import { FinancasPerformance } from "@/components/financas/FinancasPerformance";
 
 const USD_BRL = 5.2;
 const TIPOS = ["SaaS", "API", "Infra", "Ads", "Freelancer", "Outro"];
@@ -185,6 +186,7 @@ export default function Financas() {
           <TabsTrigger value="receitas">Receitas</TabsTrigger>
           <TabsTrigger value="ads">Ads</TabsTrigger>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -341,6 +343,10 @@ export default function Financas() {
 
         <TabsContent value="produtos">
           <FinancasProdutos vendas={fVendas} />
+        </TabsContent>
+
+        <TabsContent value="performance">
+          <FinancasPerformance ads={fAds} vendas={fVendas} projects={projects} />
         </TabsContent>
       </Tabs>
 

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -23,6 +24,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, onC
     api_key: "",
     twilio_from: "",
   });
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const save = async () => {
     if (!form.project_id || !form.provider) {
@@ -69,7 +71,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, onC
           {form.provider === "evolution" && (
             <>
               <div><Label>URL da API</Label><Input value={form.api_url} onChange={e => setForm({ ...form, api_url: e.target.value })} placeholder="https://evolution.seuserver.com" /></div>
-              <div><Label>API Key</Label><Input value={form.api_key} onChange={e => setForm({ ...form, api_key: e.target.value })} placeholder="Sua API Key" type="password" /></div>
+              <div><Label>API Key</Label><div className="relative"><Input value={form.api_key} onChange={e => setForm({ ...form, api_key: e.target.value })} placeholder="Sua API Key" type={showApiKey ? "text" : "password"} className="pr-10" /><Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => setShowApiKey(!showApiKey)}>{showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button></div></div>
               <div><Label>Nome da Instância</Label><Input value={form.instance_name} onChange={e => setForm({ ...form, instance_name: e.target.value })} placeholder="minha-instancia" /></div>
             </>
           )}
