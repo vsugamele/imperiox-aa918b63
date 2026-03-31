@@ -1118,7 +1118,7 @@ export default function Tarefas() {
               </SelectContent>
             </Select>
             <div className="flex-1" />
-            <Button size="sm" onClick={() => { setEditingProcess(null); setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none" }); setShowProcessDialog(true); }}>
+            <Button size="sm" onClick={() => { setEditingProcess(null); setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none", horario: "", referencias: [] }); setShowProcessDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Novo Processo
             </Button>
           </div>
