@@ -509,7 +509,7 @@ export default function KanbanPage() {
       </div>
 
       {/* Mini Analytics KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Card className="border-muted-foreground/20">
           <CardContent className="p-3 flex items-center gap-2">
             <Inbox className="h-4 w-4 text-muted-foreground" />
@@ -532,6 +532,12 @@ export default function KanbanPage() {
           <CardContent className="p-3 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
             <div><div className="text-lg font-bold text-success">{doneCount}</div><div className="text-[10px] text-muted-foreground">Concluídos</div></div>
+          </CardContent>
+        </Card>
+        <Card className="border-muted-foreground/20">
+          <CardContent className="p-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <div><div className="text-lg font-bold">{noOwnerCount}</div><div className="text-[10px] text-muted-foreground">Sem dono</div></div>
           </CardContent>
         </Card>
       </div>
