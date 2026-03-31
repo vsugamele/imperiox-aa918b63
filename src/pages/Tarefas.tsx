@@ -142,6 +142,16 @@ export default function Tarefas() {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [eventForm, setEventForm] = useState({ title: "", event_date: "", event_type: "general", color: "#6366f1", description: "", project_id: "none" });
 
+  // Process state
+  interface Process { id: string; title: string; description?: string; steps: any[]; member_id?: string; project_id?: string; category: string; is_active: boolean; created_at: string; }
+  const [processes, setProcesses] = useState<Process[]>([]);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
+  const [editingProcess, setEditingProcess] = useState<Process | null>(null);
+  const [processForm, setProcessForm] = useState({ title: "", description: "", steps: [] as { text: string; done: boolean }[], category: "geral", member_id: "none", project_id: "none" });
+  const [processFilterMember, setProcessFilterMember] = useState("all");
+  const [processFilterCategory, setProcessFilterCategory] = useState("all");
+  const PROCESS_CATEGORIES = ["geral", "tráfego", "conteúdo", "atendimento", "financeiro", "vendas", "operações"];
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
