@@ -122,7 +122,8 @@ export default function Skills() {
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState<Skill | null>(null);
   const [editing, setEditing] = useState<Skill | null>(null);
-  const [form, setForm] = useState({ nome: "", descricao: "", categoria: "Outro" as Categoria, status: "Ativo" as Status, icone: "Zap" });
+  const [form, setForm] = useState({ nome: "", descricao: "", categoria: "Outro" as Categoria, status: "Ativo" as Status, icone: "Zap", system_prompt: "", versao: "", gatilho: "", cor: "#3b82f6" });
+  const importRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("marketing");
 
   useEffect(() => {
