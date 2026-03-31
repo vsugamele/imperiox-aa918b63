@@ -507,17 +507,22 @@ function WebhooksPagamentoCard({ project, setProject, updateField }: { project: 
                 <span className="text-sm">{p.icon}</span>
                 <Label className="text-xs text-muted-foreground">{p.label}</Label>
               </div>
-              <Input
-                type="password"
-                value={project.data?.[p.key] || ""}
-                onChange={e => {
-                  const newData = { ...(project.data || {}), [p.key]: e.target.value };
-                  setProject((prev: any) => ({ ...prev, data: newData }));
-                }}
-                onBlur={() => updateDataField(p.key, project.data?.[p.key] || "")}
-                className="bg-secondary"
-                placeholder={p.placeholder}
-              />
+              <div className="relative">
+                <Input
+                  type={visibleSecrets[p.key] ? "text" : "password"}
+                  value={project.data?.[p.key] || ""}
+                  onChange={e => {
+                    const newData = { ...(project.data || {}), [p.key]: e.target.value };
+                    setProject((prev: any) => ({ ...prev, data: newData }));
+                  }}
+                  onBlur={() => updateDataField(p.key, project.data?.[p.key] || "")}
+                  className="bg-secondary pr-10"
+                  placeholder={p.placeholder}
+                />
+                <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => toggleSecret(p.key)}>
+                  {visibleSecrets[p.key] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
               <p className="text-[9px] text-muted-foreground">{p.help}</p>
             </div>
           ))}
