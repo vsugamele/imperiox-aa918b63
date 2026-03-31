@@ -68,12 +68,12 @@ export default function Empresa() {
         </TabsContent>
         <TabsContent value="instagram">
           <AccountTable contas={filterByType("instagram")} tipo="instagram"
-            columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
+            columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="tiktok">
           <AccountTable contas={filterByType("tiktok")} tipo="tiktok"
-            columns={["Perfil", "Senha", "Seguidores", "Bio", "Status"]}
+            columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
       </Tabs>
