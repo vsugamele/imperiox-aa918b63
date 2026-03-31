@@ -432,7 +432,22 @@ export default function Funis() {
           <h1 className="font-display text-2xl font-bold text-primary">{selectedFunil.nome}</h1>
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
-          {selectedFunil.project_id && <Badge variant="outline" className="text-[10px]">{projectName(selectedFunil.project_id)}</Badge>}
+
+          {/* Project selector in editor */}
+          <Select
+            value={selectedFunil.project_id || "none"}
+            onValueChange={async (v) => {
+              const pid = v === "none" ? null : v;
+              setSelectedFunil({ ...selectedFunil, project_id: pid || undefined });
+              await supabase.from("imphq_funis").update({ project_id: pid }).eq("id", selectedFunil.id);
+            }}
+          >
+            <SelectTrigger className="w-[180px] h-7 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem projeto</SelectItem>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
 
           {/* Project products reference */}
           {projectProducts.length > 0 && (
