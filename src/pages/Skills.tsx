@@ -20,7 +20,7 @@ import {
   Sheet, CloudSun, BarChart3, ShoppingCart, Banana, ImagePlus,
   Film, FrameIcon, Send, Youtube, Globe, HeartPulse, Plus,
   Pencil, Trash2, type LucideIcon, Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield,
-  ArrowRight, Info
+  ArrowRight, Info, Play, Copy, Save, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { SKILLS_DATA, SkillData } from "@/data/skillsData";
