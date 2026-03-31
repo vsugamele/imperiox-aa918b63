@@ -106,6 +106,7 @@ const RELATION_TYPES = [
   { value: "related", label: "Relacionado" },
   { value: "blocks", label: "Bloqueia" },
   { value: "blocked_by", label: "Bloqueado por" },
+  { value: "sequencia", label: "Próximo passo" },
 ];
 
 const RELATION_COLORS: Record<string, string> = {
