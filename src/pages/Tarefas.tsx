@@ -128,6 +128,11 @@ export default function Tarefas() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState({ title: "", description: "", priority: "medium", project_id: "none", member_id: "none", board: "agentes", due_date: "" });
 
+  // Next step state
+  const [showNextStepDialog, setShowNextStepDialog] = useState(false);
+  const [nextStepCard, setNextStepCard] = useState<KanbanCard | null>(null);
+  const [nextStepForm, setNextStepForm] = useState({ title: "", member_id: "none", observation: "" });
+
   // Routines state
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [checks, setChecks] = useState<RoutineCheck[]>([]);
