@@ -95,6 +95,8 @@ interface CardDetailPanelProps {
   projects?: { id: string; name: string }[];
 }
 
+const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
+
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   urgent: { label: "Urgente", color: "bg-destructive/15 text-destructive border-destructive/30", dot: "bg-destructive" },
   high: { label: "Alta", color: "bg-warning/15 text-warning border-warning/30", dot: "bg-warning" },
@@ -250,6 +252,18 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     onUpdate();
   };
 
+  const handleBoardChange = async (newBoard: string) => {
+    if (!card || newBoard === card.board) return;
+    // Find first column of the new board
+    const newBoardCols = columns.filter(c => c.board === newBoard).sort((a, b) => (a.position || 0) - (b.position || 0));
+    const firstCol = newBoardCols[0];
+    if (!firstCol) { toast.error("Board sem colunas"); return; }
+    await supabase.from("imphq_kanban_cards").update({ board: newBoard, column_id: firstCol.id } as any).eq("id", card.id);
+    setColumnId(firstCol.id);
+    toast.success(`Movido para board "${newBoard}"`);
+    onUpdate();
+  };
+
   // Tags
   const addTag = () => {
     if (!newTag.trim() || !card) return;
@@ -393,7 +407,6 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`text-[10px] ${pConfig.color}`}>{pConfig.label}</Badge>
-              <Badge variant="outline" className="text-[10px] capitalize">{card.board}</Badge>
               {project && (
                 <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5 text-primary border-primary/20">
                   <FolderOpen className="h-2.5 w-2.5" /> {project.name}
@@ -460,6 +473,19 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                     <Calendar className="h-3 w-3" /> Prazo
                   </Label>
                   <Input type="date" value={dueDate} onChange={e => handleDueDateChange(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                    <Columns className="h-3 w-3" /> Board
+                  </Label>
+                  <Select value={card.board} onValueChange={handleBoardChange}>
+                    <SelectTrigger className="h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {BOARDS.filter(b => b !== "geral").map(b => (
+                        <SelectItem key={b} value={b} className="capitalize">{b}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">

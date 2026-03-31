@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users,
   Paperclip, CheckSquare, FolderOpen, MoreHorizontal, Pencil, LayoutGrid, List,
-  Filter, X, ChevronDown, ChevronRight, Check
+  Filter, X, ChevronDown, ChevronRight, Check, FileText, Loader2, Copy, EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
@@ -104,6 +105,14 @@ export default function KanbanPage() {
 
   // List view collapsed groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  // Hide done toggle
+  const [hideDone, setHideDone] = useState(() => localStorage.getItem("kanban_hideDone") === "true");
+
+  // AI Doc generation
+  const [aiDocLoading, setAiDocLoading] = useState(false);
+  const [aiDocResult, setAiDocResult] = useState("");
+  const [showAiDoc, setShowAiDoc] = useState(false);
 
   // Inline create in list view
   const [inlineCreateCol, setInlineCreateCol] = useState<string | null>(null);
@@ -199,6 +208,7 @@ export default function KanbanPage() {
     if (filters.deadline === "overdue") result = result.filter(c => isOverdue(c.due_date));
     else if (filters.deadline === "today") result = result.filter(c => isToday(c.due_date));
     else if (filters.deadline === "none") result = result.filter(c => !c.due_date);
+    if (hideDone) result = result.filter(c => getCardNormalizedCol(c) !== "feito");
     return result;
   };
 
@@ -228,6 +238,42 @@ export default function KanbanPage() {
   const stuckCount = allCards.filter(c => getCardNormalizedCol(c) === "travado").length;
   const doingCount = allCards.filter(c => getCardNormalizedCol(c) === "fazendo").length;
   const doneCount = allCards.filter(c => getCardNormalizedCol(c) === "feito").length;
+  const noOwnerCount = allCards.filter(c => !c.member_id).length;
+  const boardCardCounts: Record<string, number> = {};
+  for (const b of BOARDS) {
+    boardCardCounts[b] = b === "geral" ? allCards.length : allCards.filter(c => c.board === b).length;
+  }
+
+  const toggleHideDone = (v: boolean) => {
+    setHideDone(v);
+    localStorage.setItem("kanban_hideDone", String(v));
+  };
+
+  const generateAiDoc = async () => {
+    setAiDocLoading(true);
+    try {
+      const cardsData = (activeBoard === "geral" ? allCards : allCards.filter(c => c.board === activeBoard))
+        .map(c => {
+          const m = getMember(c.member_id);
+          const col = allColumns.find(co => co.id === c.column_id);
+          return `- [${col?.title || "?"}] ${c.title}${m ? ` (${m.name})` : ""}${c.due_date ? ` | Prazo: ${new Date(c.due_date).toLocaleDateString("pt-BR")}` : ""}${c.description ? ` — ${c.description.slice(0, 80)}` : ""}`;
+        }).join("\n");
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          action: "generate",
+          prompt: `Gere um documento resumido das atividades do time para compartilhar. Organize por status e responsável.\n\nCards do board "${activeBoard}":\n${cardsData}`,
+          context: "",
+        },
+      });
+      if (error) throw error;
+      setAiDocResult(data?.result || data?.text || "Sem resultado");
+      setShowAiDoc(true);
+    } catch (e: any) {
+      toast.error("Erro ao gerar doc: " + (e.message || ""));
+    } finally {
+      setAiDocLoading(false);
+    }
+  };
 
   const createCard = async () => {
     if (!newTitle.trim() || !showNewCard) return;
@@ -463,7 +509,7 @@ export default function KanbanPage() {
       </div>
 
       {/* Mini Analytics KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Card className="border-muted-foreground/20">
           <CardContent className="p-3 flex items-center gap-2">
             <Inbox className="h-4 w-4 text-muted-foreground" />
@@ -486,6 +532,12 @@ export default function KanbanPage() {
           <CardContent className="p-3 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
             <div><div className="text-lg font-bold text-success">{doneCount}</div><div className="text-[10px] text-muted-foreground">Concluídos</div></div>
+          </CardContent>
+        </Card>
+        <Card className="border-muted-foreground/20">
+          <CardContent className="p-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <div><div className="text-lg font-bold">{noOwnerCount}</div><div className="text-[10px] text-muted-foreground">Sem dono</div></div>
           </CardContent>
         </Card>
       </div>
@@ -576,6 +628,19 @@ export default function KanbanPage() {
           <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={clearAllFilters}>Limpar</Button>
         )}
 
+        {/* Hide done toggle */}
+        <div className="flex items-center gap-2">
+          <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+          <Label className="text-xs text-muted-foreground cursor-pointer" htmlFor="hide-done">Ocultar concluídas</Label>
+          <Switch id="hide-done" checked={hideDone} onCheckedChange={toggleHideDone} />
+        </div>
+
+        {/* AI Doc button */}
+        <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={generateAiDoc} disabled={aiDocLoading}>
+          {aiDocLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+          Gerar Doc IA
+        </Button>
+
         {/* View toggle */}
         <div className="flex items-center border border-border rounded-md ml-auto">
           <Button
@@ -597,7 +662,12 @@ export default function KanbanPage() {
 
       <Tabs value={activeBoard} onValueChange={setActiveBoard}>
         <TabsList className="bg-secondary">
-          {BOARDS.map(b => <TabsTrigger key={b} value={b} className="capitalize">{b}</TabsTrigger>)}
+          {BOARDS.map(b => (
+            <TabsTrigger key={b} value={b} className="capitalize gap-1.5">
+              {b}
+              <Badge variant="outline" className="text-[9px] h-4 min-w-[18px] justify-center px-1">{boardCardCounts[b] || 0}</Badge>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <div className="mt-4">
@@ -996,6 +1066,20 @@ export default function KanbanPage() {
         members={members}
         projects={projects}
       />
+
+      {/* AI Doc Dialog */}
+      <Dialog open={showAiDoc} onOpenChange={setShowAiDoc}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader><DialogTitle>📄 Documento Gerado por IA</DialogTitle></DialogHeader>
+          <Textarea value={aiDocResult} readOnly className="min-h-[300px] text-sm font-mono" />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(aiDocResult); toast.success("Copiado!"); }}>
+              <Copy className="h-3.5 w-3.5 mr-1.5" /> Copiar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowAiDoc(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
