@@ -520,7 +520,12 @@ export default function Skills() {
                   );
                 })()}
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  {showDetail.system_prompt && (
+                    <Button onClick={() => { setShowDetail(null); openExecute(showDetail); }} className="gap-1.5">
+                      <Play className="h-4 w-4" /> Executar com IA
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={() => setShowDetail(null)}>Fechar</Button>
                 </div>
               </div>
