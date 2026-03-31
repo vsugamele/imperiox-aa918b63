@@ -1,107 +1,101 @@
 
 
-# Plano: 7 Melhorias — Expert Multi-Fotos, Jornada PIX, OpenFlow Condicional, Produto em Automações, Segmentação
+# Plano: 5 Melhorias — Processos com Horário/Fotos, IA com Skills/Mentes, Bug Coluna Duplicada, Próximo Passo em Tarefas, Funis sem Projetos
 
 ---
 
-## 1. Expert — Galeria de fotos (não apenas 1)
+## 1. Processos — Horário e fotos/links de referência
 
-**Problema**: O campo `expert.foto` é uma string única. Ao subir 3 fotos, apenas a última sobrevive porque `onUpload` sobrescreve `expert.foto` com a URL mais recente. Além disso, os dados ficam no JSONB `data.expert` do projeto — qualquer membro salva e todos veem, mas se dois salvam ao mesmo tempo, o último ganha.
+**Problema**: O formulário de processos (`imphq_processes`) só tem título, descrição, steps (checklist), categoria, membro e projeto. Não tem campo de horário nem suporte a fotos/links de referência.
 
 **Solução**:
-- Mudar `expert.foto` de string para array: `expert.fotos: string[]`
-- Na UI: manter o `Avatar` mostrando `fotos[0]`, mas adicionar galeria abaixo com thumbnails de todas as fotos
-- O `FileUpload` com `multiple={true}` chama `onUpload` para cada arquivo — no handler, fazer push no array em vez de substituir
-- Manter o campo `foto` (URL input) como foto principal, e adicionar seção "Galeria" abaixo com as fotos adicionais e botão de remover individual
+- Adicionar ao `processForm` os campos `horario` (string, ex: "09:00") e `referencias` (array de `{ tipo: "imagem" | "link", url: string, label?: string }`)
+- No dialog de criar/editar processo:
+  - Input type="time" para horário
+  - Seção "Referências": input de URL + botão adicionar, FileUpload para subir imagem (bucket `project-media`, path `processos/`), lista de referências com preview (thumbnail para imagens, link clicável para URLs), botão remover
+- No card do processo na lista, mostrar horário como badge e thumbnails das referências
+- Os dados ficam no JSONB `steps` existente — não precisa de migration, pois `horario` e `referencias` podem ser salvos como campos extras no payload do processo (a tabela já aceita JSONB)
 
-**Arquivo**: `src/components/projeto/ProjetoExpert.tsx`
-
----
-
-## 2. Jornada do Lead — PIX gerado antes da compra
-
-**Problema**: O webhook já registra `PixGerado` em `imphq_events` (linhas 298-306 do webhook), e o Leads.tsx já tem `PixGerado` no `EVENT_CONFIG` (linha 83). Mas o `ultimo_evento` no lead fica como `"aguardando_pagamento"` ou `"pix_gerado"`, e na timeline os eventos de webhook são buscados via `visitor_id = leadId`.
-
-**Verificação necessária**: Checar se a query de timeline em Leads.tsx busca `imphq_events` onde `visitor_id = lead.id` — se sim, os eventos de PIX já devem aparecer. O problema pode ser que o webhook salva `visitor_id` como `leadId` mas a timeline busca por outro campo.
-
-**Solução**: 
-- Verificar query de timeline e garantir que filtra por `visitor_id = lead.id` OU `utm_source = lead.email`
-- Adicionar mapeamento `aguardando_pagamento` → label "Pix Gerado / Aguardando" na timeline
-- Garantir que o estágio visual do funil mostra "Pix Gerado" como etapa intermediária antes de "Compra"
-
-**Arquivo**: `src/pages/Leads.tsx` (query de timeline + estágio visual)
+**Arquivo**: `src/pages/Tarefas.tsx` (formulário de processo + card)
 
 ---
 
-## 3. OpenFlow — Nós condicionais (Se não abriu, Se não leu)
+## 2. AIGenerateButton — Buscar Skills e Mentes relevantes + mais modelos
 
-**Problema**: Hoje o FlowEditor só tem nós lineares (ação após ação). Não existe nó de condição/branch.
+**Problema**: O `AIGenerateButton` envia a ação para `openflow-ai` sem consultar skills nem mentes. Também falta modelos Claude e Kimi.
 
-**Solução**: Adicionar novo tipo de ação `"condicao"` com:
-- Campo `condicao_tipo`: "nao_abriu_email", "nao_respondeu_whatsapp", "nao_clicou_link", "clicou_link"
-- Campo `condicao_tempo_min`: tempo de espera antes de verificar (ex: 1440 min = 24h)
-- Na UI do FlowEditor: nó especial com cor diferente (roxo), ícone de bifurcação
-- Branch SIM/NÃO: por simplicidade, o branch "SIM" continua o fluxo sequencial; o branch "NÃO" é a condição — ou seja, "se não abriu em 24h, faz X"
-- Cada ação ganha campo opcional `condicao` que define quando executar
+**Solução em 2 partes**:
 
-**Arquivos**: `src/components/openflow/FlowEditor.tsx` (novo tipo + UI), `src/pages/OpenFlow.tsx` (atualizar `ACAO_TIPOS`)
+**a) Mais modelos no AIGenerateButton**: Adicionar ao array `MODELS`:
+- `anthropic/claude-sonnet-4` — "Claude Sonnet"
+- `moonshotai/kimi-k2` — "Kimi K2"
+
+**b) Edge function `openflow-ai`**: Antes de chamar a IA, buscar automaticamente:
+- Skills relevantes: `SELECT nome, system_prompt FROM imphq_skills WHERE status = 'Ativa' AND system_prompt IS NOT NULL LIMIT 5`
+- Mentes: dados de `mentesData.ts` (hardcoded no edge function como referência rápida dos 8 perfis)
+- Injetar no system prompt: "Você tem acesso às seguintes skills especializadas: [lista]. Use as mais relevantes para esta tarefa."
+- O contexto das skills mais relevantes (por nome/categoria match com a action) será incluído no prompt
+
+**Arquivos**: `src/components/projeto/AIGenerateButton.tsx` (novos modelos), `supabase/functions/openflow-ai/index.ts` (buscar skills + injetar contexto)
 
 ---
 
-## 4. OpenFlow — Filtro por Produto (não só projeto)
+## 3. Bug — Dropdown de Coluna com duplicatas
 
-**Problema**: Automação tem `project_id` mas não `product_name`. Quando o projeto tem 5 produtos, todas as automações disparam para qualquer produto daquele projeto.
+**Problema**: Na imagem, o dropdown de "Coluna" no CardDetailPanel mostra "A Fazer" repetido ~6 vezes. O filtro `boardColumns = columns.filter(c => c.board === card.board)` funciona, mas o banco tem múltiplas colunas com o mesmo título no mesmo board (provavelmente criadas acidentalmente).
+
+**Solução**: No `CardDetailPanel.tsx`, deduplicar `boardColumns` por título — manter apenas a primeira coluna de cada título único no board. Isso resolve o visual sem precisar limpar o banco.
+
+```
+const boardColumns = columns
+  .filter(c => c.board === card.board)
+  .filter((c, i, arr) => arr.findIndex(x => x.title === c.title) === i);
+```
+
+**Arquivo**: `src/components/kanban/CardDetailPanel.tsx` (linha 359)
+
+---
+
+## 4. Tarefas — "Próximo passo" ao concluir
+
+**Problema**: Quando Bruno marca uma tarefa como concluída, ele quer atribuir um próximo passo a outra pessoa, e ter histórico disso.
 
 **Solução**:
-- Adicionar campo `produto` (string) no formulário de criar/editar automação
-- Quando um projeto é selecionado, carregar `data.produtos` do projeto e mostrar dropdown de produtos
-- No webhook, ao buscar automações, filtrar também por `produto` (match contra `produto_nome` do webhook)
-- No card da automação, mostrar badge do produto quando definido
+- Ao clicar em "concluir" (checkbox no `toggleDone`), se a tarefa está sendo marcada como feita, abrir um **Dialog de "Próximo Passo"** (opcional):
+  - Select de membro responsável
+  - Input de título do próximo passo
+  - Textarea de observação
+  - Botão "Criar próximo passo" → cria novo card no mesmo board/coluna inicial, com `member_id` do selecionado e referência ao card original via `imphq_card_relations` (tipo "sequencia")
+  - Botão "Apenas concluir" → fecha sem criar
+- Histórico: o `imphq_card_relations` com `relation_type = "sequencia"` já permite rastrear a cadeia. No `CardDetailPanel`, na seção de "Tarefas relacionadas", mostrar relações do tipo "sequencia" com label "Passo anterior" / "Próximo passo"
+- Notificação automática para o membro atribuído
 
-**Arquivos**: `src/pages/OpenFlow.tsx` (campo produto no form + edit), `supabase/functions/webhook-pagamento/index.ts` (filtrar automações por produto)
-
----
-
-## 5. Automações em Leads — Filtro por projeto
-
-**Problema**: O botão "Automações" no lead (se existir) não filtra por projeto, podendo disparar automação do projeto errado.
-
-**Solução**: Na seção de automações do detalhe do lead, filtrar `imphq_automacoes` pelo `project_id` do lead. Se o lead não tem `project_id`, mostrar todas mas com aviso.
-
-**Arquivo**: `src/pages/Leads.tsx`
+**Arquivo**: `src/pages/Tarefas.tsx` (dialog de próximo passo no `toggleDone`), `src/components/kanban/CardDetailPanel.tsx` (label "sequencia" nas relações)
 
 ---
 
-## 6. Webhook — Produtos do webhook salvos no briefing por projeto
+## 5. Funis — Projetos e produtos não carregando no editor
 
-**Problema**: Já está implementado! Linhas 329-349 do `webhook-pagamento/index.ts` fazem exatamente isso: auto-criam produto no `data.produtos` do projeto quando não existe.
+**Problema**: A query `select("id, name, briefing")` na linha 115 do `Funis.tsx` não inclui `data`, mas o `useEffect` na linha 129 tenta acessar `proj.data` para extrair produtos. Resultado: `proj.data` é `undefined`, e `projectProductsFull` fica vazio.
 
-**Melhoria**: Salvar também o `valor` e a `plataforma` do produto no auto-create, para que fique mais completo no briefing.
+**Solução**: Alterar a query para incluir `data`:
+```
+supabase.from("imphq_projects").select("id, name, briefing, data").order("name")
+```
 
-**Arquivo**: `supabase/functions/webhook-pagamento/index.ts` (enriquecer auto-create com preço e plataforma)
+Isso resolve tanto o seletor de projeto (que já funciona com `id, name`) quanto os produtos (que precisam de `briefing` e `data`).
 
----
-
-## 7. Segmentação global — Sistema ler produto/projeto para classificar
-
-**Problema**: Hoje a segmentação é fraca. O lead tem `project_id` mas não `product_id`. As automações filtram por projeto mas não por produto.
-
-**Solução**: Conjunto de melhorias:
-- No lead, manter array `data.produtos_comprados` atualizado pelo webhook (já parcialmente feito via `imphq_vendas`)
-- No OpenFlow, permitir filtro por produto (item 4 acima)
-- Na importação CSV de leads, quando o CSV traz produto, gravar no `data.produto_importado` do lead
-
-**Arquivos**: `supabase/functions/webhook-pagamento/index.ts`, `src/pages/Leads.tsx` (importação)
+**Arquivo**: `src/pages/Funis.tsx` (linha 115)
 
 ---
 
-## Arquivos alterados/criados
+## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| `src/components/projeto/ProjetoExpert.tsx` | Galeria multi-fotos (array), upload múltiplo, thumbnails |
-| `src/pages/Leads.tsx` | Timeline PIX, filtro automações por projeto, segmentação produto |
-| `src/components/openflow/FlowEditor.tsx` | Nó condicional (se não abriu, se não leu), tipo "condicao" |
-| `src/pages/OpenFlow.tsx` | Campo produto no form, carregar produtos do projeto selecionado |
-| `supabase/functions/webhook-pagamento/index.ts` | Filtrar automações por produto, enriquecer auto-create, atualizar `produtos_comprados` no lead |
+| `src/pages/Tarefas.tsx` | Processos com horário/referências + Dialog "Próximo Passo" ao concluir |
+| `src/components/projeto/AIGenerateButton.tsx` | Modelos Claude e Kimi |
+| `supabase/functions/openflow-ai/index.ts` | Buscar skills relevantes e injetar no contexto |
+| `src/components/kanban/CardDetailPanel.tsx` | Deduplicar colunas no dropdown + label "sequencia" |
+| `src/pages/Funis.tsx` | Adicionar `data` na query de projetos |
 
