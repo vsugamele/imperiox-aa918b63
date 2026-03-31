@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
           const produtos: any[] = currentData.produtos || [];
           const exists = produtos.some((p: any) => p.nome?.toLowerCase() === produto.toLowerCase());
           if (!exists) {
-            produtos.push({ nome: produto, tipo: "Infoproduto" });
+            produtos.push({ nome: produto, tipo: "Infoproduto", valor: valor || null, plataforma: plataforma || null });
             await supabase.from("imphq_projects").update({ data: { ...currentData, produtos } }).eq("id", projectId);
             console.log(`[webhook-pagamento] Produto "${produto}" adicionado ao briefing do projeto ${projectId}`);
           }
