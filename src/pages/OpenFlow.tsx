@@ -31,7 +31,7 @@ const ACAO_TIPOS = [
 ];
 
 interface Automacao {
-  id: string; project_id?: string; nome: string;
+  id: string; project_id?: string; produto?: string; nome: string;
   trigger_tipo: string; acoes: Acao[]; ativo: boolean;
   created_at?: string;
 }
@@ -42,7 +42,9 @@ export default function OpenFlow() {
   const [projects, setProjects] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
-  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "" });
+  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" });
+  const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
   const [webhookProject, setWebhookProject] = useState("none");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
@@ -100,6 +102,23 @@ export default function OpenFlow() {
     };
     fetchTemplates();
   }, [editing?.project_id]);
+  // Load products when form project changes
+  useEffect(() => {
+    if (!form.project_id) { setProjectProducts([]); return; }
+    supabase.from("imphq_projects").select("data").eq("id", form.project_id).single().then(({ data }) => {
+      const produtos = ((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean);
+      setProjectProducts(produtos);
+    });
+  }, [form.project_id]);
+
+  // Load products when editing project changes
+  useEffect(() => {
+    if (!editing?.project_id) { setEditProjectProducts([]); return; }
+    supabase.from("imphq_projects").select("data").eq("id", editing.project_id).single().then(({ data }) => {
+      const produtos = ((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean);
+      setEditProjectProducts(produtos);
+    });
+  }, [editing?.project_id]);
 
   const createAutomacao = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
@@ -107,10 +126,11 @@ export default function OpenFlow() {
     const { error } = await supabase.from("imphq_automacoes").insert({
       id, nome: form.nome, trigger_tipo: form.trigger_tipo,
       project_id: form.project_id || null, acoes: [] as any, ativo: true,
-    });
+      produto: form.produto || null,
+    } as any);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
-    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "" }); load();
+    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" }); load();
   };
 
   const saveAutomacao = async () => {
@@ -118,7 +138,8 @@ export default function OpenFlow() {
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: editing.nome, trigger_tipo: editing.trigger_tipo,
       acoes: editing.acoes as any, ativo: editing.ativo, project_id: editing.project_id,
-    }).eq("id", editing.id);
+      produto: (editing as any).produto || null,
+    } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
   };
@@ -229,6 +250,7 @@ export default function OpenFlow() {
                     <Badge variant="outline" className="text-[10px]">{triggerLabel(a.trigger_tipo)}</Badge>
                     <Badge variant={a.ativo ? "default" : "secondary"} className="text-[10px]">{a.ativo ? "Ativo" : "Inativo"}</Badge>
                     {a.project_id && <Badge className="text-[9px] bg-primary/20 text-primary">{projectName(a.project_id)}</Badge>}
+                    {(a as any).produto && <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-400">🏷️ {(a as any).produto}</Badge>}
                   </div>
                   <div className="flex items-center gap-1">
                     {a.acoes.map((ac, i) => {
@@ -294,7 +316,7 @@ export default function OpenFlow() {
             </div>
             <div>
               <Label>Projeto</Label>
-              <Select value={form.project_id || "none"} onValueChange={v => setForm({ ...form, project_id: v === "none" ? "" : v })}>
+              <Select value={form.project_id || "none"} onValueChange={v => setForm({ ...form, project_id: v === "none" ? "" : v, produto: "" })}>
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Todos os projetos</SelectItem>
@@ -302,6 +324,18 @@ export default function OpenFlow() {
                 </SelectContent>
               </Select>
             </div>
+            {form.project_id && projectProducts.length > 0 && (
+              <div>
+                <Label>Produto</Label>
+                <Select value={form.produto || "none"} onValueChange={v => setForm({ ...form, produto: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Todos produtos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Todos os produtos</SelectItem>
+                    {projectProducts.map(p => <SelectItem key={p} value={p}>🏷️ {p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter><Button onClick={createAutomacao}>Criar</Button></DialogFooter>
         </DialogContent>
@@ -313,11 +347,11 @@ export default function OpenFlow() {
           <DialogHeader><DialogTitle>Editar Automação</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div><Label>Nome</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} /></div>
                 <div>
                   <Label>Projeto</Label>
-                  <Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v })}>
+                  <Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v, produto: undefined })}>
                     <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Todos os projetos</SelectItem>
@@ -325,6 +359,18 @@ export default function OpenFlow() {
                     </SelectContent>
                   </Select>
                 </div>
+                {editing.project_id && editProjectProducts.length > 0 && (
+                  <div>
+                    <Label>Produto</Label>
+                    <Select value={editing.produto || "none"} onValueChange={v => setEditing({ ...editing, produto: v === "none" ? undefined : v })}>
+                      <SelectTrigger><SelectValue placeholder="Todos produtos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Todos os produtos</SelectItem>
+                        {editProjectProducts.map(p => <SelectItem key={p} value={p}>🏷️ {p}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <Label>Trigger</Label>
                   <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>

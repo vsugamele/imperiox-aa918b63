@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
           const produtos: any[] = currentData.produtos || [];
           const exists = produtos.some((p: any) => p.nome?.toLowerCase() === produto.toLowerCase());
           if (!exists) {
-            produtos.push({ nome: produto, tipo: "Infoproduto" });
+            produtos.push({ nome: produto, tipo: "Infoproduto", valor: valor || null, plataforma: plataforma || null });
             await supabase.from("imphq_projects").update({ data: { ...currentData, produtos } }).eq("id", projectId);
             console.log(`[webhook-pagamento] Produto "${produto}" adicionado ao briefing do projeto ${projectId}`);
           }
@@ -379,8 +379,15 @@ Deno.serve(async (req) => {
         .eq("trigger_tipo", triggerTipo)
         .eq("ativo", true);
 
-      if (automacoes && automacoes.length > 0) {
-        console.log(`[webhook-pagamento] ${automacoes.length} automações encontradas para ${triggerTipo}`);
+      // Filter by project and product
+      const matched = (automacoes || []).filter((a: any) => {
+        if (a.project_id && a.project_id !== projectId) return false;
+        if (a.produto && produto && a.produto.toLowerCase() !== produto.toLowerCase()) return false;
+        return true;
+      });
+
+      if (matched.length > 0) {
+        console.log(`[webhook-pagamento] ${matched.length} automações encontradas para ${triggerTipo}`);
       }
     }
 

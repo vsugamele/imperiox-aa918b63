@@ -5,13 +5,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, GripVertical, Clock, Mail, MessageCircle, Send, Sparkles, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles, ChevronUp, ChevronDown, GitBranch } from "lucide-react";
+
+const CONDICAO_TIPOS = [
+  { value: "nao_abriu_email", label: "Não abriu email" },
+  { value: "nao_respondeu_whatsapp", label: "Não respondeu WhatsApp" },
+  { value: "nao_clicou_link", label: "Não clicou no link" },
+  { value: "clicou_link", label: "Clicou no link" },
+  { value: "abriu_email", label: "Abriu email" },
+  { value: "respondeu_whatsapp", label: "Respondeu WhatsApp" },
+];
 
 const ACAO_TIPOS = [
   { value: "email", label: "Email (Resend)", icon: Mail, emoji: "✉️", color: "border-blue-500/40 bg-blue-500/5" },
   { value: "whatsapp", label: "WhatsApp", icon: MessageCircle, emoji: "💬", color: "border-emerald-500/40 bg-emerald-500/5" },
   { value: "telegram", label: "Telegram", icon: Send, emoji: "📨", color: "border-sky-500/40 bg-sky-500/5" },
   { value: "aguardar", label: "Aguardar", icon: Clock, emoji: "⏱", color: "border-amber-500/40 bg-amber-500/5" },
+  { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string }> = {
@@ -27,6 +37,8 @@ export interface Acao {
   tipo: string;
   template: string;
   delay_min: number;
+  condicao_tipo?: string;
+  condicao_tempo_min?: number;
 }
 
 export interface ProjectTemplate {
@@ -86,32 +98,21 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
 
   return (
     <div className="space-y-2">
-      {/* AI Generate Button */}
       {onGenerateAI && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onGenerateAI}
-          disabled={isGenerating}
-          className="w-full mb-3 border-primary/30 text-primary hover:bg-primary/10"
-        >
+        <Button variant="outline" size="sm" onClick={onGenerateAI} disabled={isGenerating} className="w-full mb-3 border-primary/30 text-primary hover:bg-primary/10">
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
           {isGenerating ? "Gerando narrativa…" : "🤖 Gerar Narrativa com IA"}
         </Button>
       )}
 
-      {/* Trigger Node (fixed) */}
+      {/* Trigger Node */}
       <div className="flex flex-col items-center">
         <div className="w-full max-w-md border-2 border-primary/30 bg-primary/5 rounded-lg p-3 text-center">
           <span className="text-xl">{trigger.icon}</span>
           <p className="text-sm font-semibold text-foreground mt-1">{trigger.label}</p>
           <Badge variant="outline" className="text-[9px] mt-1">TRIGGER</Badge>
         </div>
-
-        {/* Connector */}
         <SVGConnector />
-
-        {/* Add first action */}
         {acoes.length === 0 && (
           <Button variant="ghost" size="sm" onClick={() => addAcao()} className="text-muted-foreground hover:text-primary">
             <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar ação
@@ -124,11 +125,12 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
         const meta = acaoMeta(acao.tipo);
         const isExpanded = expandedIdx === idx;
         const isAguardar = acao.tipo === "aguardar";
+        const isCondicao = acao.tipo === "condicao";
 
         return (
           <div key={idx} className="flex flex-col items-center">
             <div
-              className={`w-full max-w-md border rounded-lg p-3 transition-all cursor-pointer ${meta.color} ${isExpanded ? "ring-1 ring-primary/40" : ""}`}
+              className={`w-full max-w-md border rounded-lg p-3 transition-all cursor-pointer ${meta.color} ${isExpanded ? "ring-1 ring-primary/40" : ""} ${isCondicao ? "border-l-4 border-l-violet-500" : ""}`}
               onClick={() => setExpandedIdx(isExpanded ? null : idx)}
             >
               {/* Header */}
@@ -136,15 +138,21 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                 <div className="flex items-center gap-2">
                   <span className="text-base">{meta.emoji}</span>
                   <span className="text-xs font-medium text-foreground">{meta.label}</span>
+                  {isCondicao && acao.condicao_tipo && (
+                    <Badge variant="secondary" className="text-[9px]">
+                      {CONDICAO_TIPOS.find(c => c.value === acao.condicao_tipo)?.label || acao.condicao_tipo}
+                      {acao.condicao_tempo_min ? ` (${acao.condicao_tempo_min}min)` : ""}
+                    </Badge>
+                  )}
                   {isAguardar && acao.delay_min > 0 && (
                     <Badge variant="secondary" className="text-[9px]">{acao.delay_min} min</Badge>
                   )}
-                  {!isAguardar && acao.template && (
+                  {!isAguardar && !isCondicao && acao.template && (
                     <span className="text-[10px] text-muted-foreground truncate max-w-[180px]">
                       {acao.template.slice(0, 40)}…
                     </span>
                   )}
-                  {!isAguardar && acao.delay_min > 0 && (
+                  {!isAguardar && !isCondicao && acao.delay_min > 0 && (
                     <Badge variant="secondary" className="text-[9px]">+{acao.delay_min}min</Badge>
                   )}
                 </div>
@@ -174,16 +182,40 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[10px]">{isAguardar ? "Tempo (min)" : "Delay (min)"}</Label>
+                      <Label className="text-[10px]">{isAguardar ? "Tempo (min)" : isCondicao ? "Verificar após (min)" : "Delay (min)"}</Label>
                       <Input
                         type="number"
-                        value={acao.delay_min}
-                        onChange={e => updateAcao(idx, "delay_min", parseInt(e.target.value) || 0)}
+                        value={isCondicao ? (acao.condicao_tempo_min || 0) : acao.delay_min}
+                        onChange={e => {
+                          const val = parseInt(e.target.value) || 0;
+                          if (isCondicao) updateAcao(idx, "condicao_tempo_min", val);
+                          else updateAcao(idx, "delay_min", val);
+                        }}
                         className="h-8 text-xs"
                       />
                     </div>
                   </div>
-                  {!isAguardar && (
+
+                  {/* Condition-specific fields */}
+                  {isCondicao && (
+                    <div>
+                      <Label className="text-[10px]">Condição</Label>
+                      <Select value={acao.condicao_tipo || ""} onValueChange={v => updateAcao(idx, "condicao_tipo", v)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecionar condição..." /></SelectTrigger>
+                        <SelectContent>
+                          {CONDICAO_TIPOS.map(c => (
+                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[9px] text-muted-foreground mt-1">
+                        Se a condição for verdadeira, o fluxo continua para o próximo nó.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Message/template for email/whatsapp/telegram */}
+                  {!isAguardar && !isCondicao && (
                     <div>
                       <div className="flex items-center justify-between">
                         <Label className="text-[10px]">Mensagem / Template</Label>
@@ -213,6 +245,7 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                       />
                     </div>
                   )}
+
                   <div className="flex justify-end">
                     <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => removeAcao(idx)}>
                       <Trash2 className="h-3 w-3 mr-1" /> Remover
