@@ -1474,6 +1474,73 @@ export default function Tarefas() {
         </DialogContent>
       </Dialog>
 
+      {/* Next Step Dialog */}
+      <Dialog open={showNextStepDialog} onOpenChange={v => { if (!v) { setShowNextStepDialog(false); setNextStepCard(null); setNextStepForm({ title: "", member_id: "none", observation: "" }); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Próximo Passo (opcional)</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">Tarefa concluída! Deseja criar um próximo passo para outra pessoa?</p>
+          <div className="space-y-3">
+            <div><Label>Título do próximo passo</Label><Input value={nextStepForm.title} onChange={e => setNextStepForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Revisar e aprovar" className="bg-secondary" /></div>
+            <div>
+              <Label>Responsável</Label>
+              <Select value={nextStepForm.member_id} onValueChange={v => setNextStepForm(f => ({ ...f, member_id: v }))}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Observação</Label><Textarea value={nextStepForm.observation} onChange={e => setNextStepForm(f => ({ ...f, observation: e.target.value }))} placeholder="Contexto ou instruções..." className="bg-secondary min-h-[60px]" /></div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => { setShowNextStepDialog(false); setNextStepCard(null); setNextStepForm({ title: "", member_id: "none", observation: "" }); }}>Apenas concluir</Button>
+            <Button disabled={!nextStepForm.title.trim()} onClick={async () => {
+              if (!nextStepCard || !nextStepForm.title.trim()) return;
+              const targetCol = findFirstColumn(nextStepCard.board) || columns.find(c => c.board === nextStepCard.board && !isDoneColumn(c));
+              if (!targetCol) { toast.error("Coluna não encontrada"); return; }
+              const { data: newCard, error } = await supabase.from("imphq_kanban_cards").insert({
+                title: nextStepForm.title.trim(),
+                description: nextStepForm.observation || null,
+                column_id: targetCol.id,
+                board: nextStepCard.board,
+                priority: nextStepCard.priority,
+                tags: [],
+                project_id: nextStepCard.project_id || null,
+                member_id: nextStepForm.member_id !== "none" ? nextStepForm.member_id : null,
+              } as any).select().single();
+              if (error) { toast.error("Erro ao criar próximo passo"); return; }
+              // Create relation
+              await supabase.from("imphq_card_relations").insert({
+                card_id: nextStepCard.id,
+                related_card_id: (newCard as any).id,
+                relation_type: "sequencia",
+              } as any);
+              // Notify assigned member
+              if (nextStepForm.member_id !== "none" && user) {
+                const assignedMember = members.find(m => m.id === nextStepForm.member_id);
+                const memberRecord = await supabase.from("imphq_team_members").select("user_id").eq("id", nextStepForm.member_id).maybeSingle();
+                if (memberRecord.data?.user_id) {
+                  await supabase.from("imphq_notifications").insert({
+                    user_id: memberRecord.data.user_id,
+                    title: `➡️ Próximo passo: ${nextStepForm.title.trim()}`,
+                    message: `${nextStepCard.title} foi concluída. Agora é com você!`,
+                    type: "tarefa", entity_type: "card", entity_id: (newCard as any).id,
+                  });
+                }
+              }
+              setCards(prev => [...prev, newCard as any]);
+              setShowNextStepDialog(false); setNextStepCard(null);
+              setNextStepForm({ title: "", member_id: "none", observation: "" });
+              toast.success("Próximo passo criado! ➡️");
+              fetchData();
+            }}>
+              Criar Próximo Passo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <CardDetailPanel
         card={selectedCard}
         open={!!selectedCard}
