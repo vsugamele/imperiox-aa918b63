@@ -818,27 +818,63 @@ export default function Leads() {
               <Badge variant="outline" className="text-[10px]">{filtered.length} de {leads.length}</Badge>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-              <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-primary/40", stageFilter === "all" && statusFilter === "all" && "ring-1 ring-primary/30")} onClick={() => { setStageFilter("all"); setStatusFilter("all"); }}>
-                <CardContent className="p-3 flex items-center gap-3"><Users className="h-4 w-4 text-muted-foreground" /><div><p className="text-xl font-bold">{totalLeads}</p><p className="text-[10px] text-muted-foreground">Total Leads</p></div></CardContent>
-              </Card>
-              <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-emerald-500/40", statusFilter === "cliente" && "ring-1 ring-emerald-500/50")} onClick={() => { setStatusFilter("cliente"); setStageFilter("all"); }}>
-                <CardContent className="p-3 flex items-center gap-3"><UserCheck className="h-4 w-4 text-emerald-400" /><div><p className="text-xl font-bold">{clientes}</p><p className="text-[10px] text-muted-foreground">Clientes</p></div></CardContent>
-              </Card>
-              <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-amber-500/40", stageFilter === "carrinho_abandonado" && "ring-1 ring-amber-500/50")} onClick={() => { setStageFilter("carrinho_abandonado"); setStatusFilter("all"); }}>
-                <CardContent className="p-3 flex items-center gap-3"><ShoppingCart className="h-4 w-4 text-amber-400" /><div><p className="text-xl font-bold">{leads.filter(l => getLeadStage(l) === "carrinho_abandonado").length}</p><p className="text-[10px] text-muted-foreground">Carrinho</p></div></CardContent>
-              </Card>
-              <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-orange-500/40", stageFilter === "pix_gerado" && "ring-1 ring-orange-500/50")} onClick={() => { setStageFilter("pix_gerado"); setStatusFilter("all"); }}>
-                <CardContent className="p-3 flex items-center gap-3"><AlertCircle className="h-4 w-4 text-orange-400" /><div><p className="text-xl font-bold">{leads.filter(l => ["aguardando_pagamento", "pix_gerado"].includes(getLeadStage(l))).length}</p><p className="text-[10px] text-muted-foreground">Pix Pendente</p></div></CardContent>
-              </Card>
-              <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-accent/40", statusFilter === "vip" && "ring-1 ring-accent/50")} onClick={() => { setStatusFilter("vip"); setStageFilter("all"); }}>
-                <CardContent className="p-3 flex items-center gap-3"><Crown className="h-4 w-4 text-accent" /><div><p className="text-xl font-bold">{vips}</p><p className="text-[10px] text-muted-foreground">VIP</p></div></CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardContent className="p-3 flex items-center gap-3"><DollarSign className="h-4 w-4 text-primary" /><div><p className="text-xl font-bold font-mono text-primary">R$ {totalReceita.toFixed(0)}</p><p className="text-[10px] text-muted-foreground">Receita</p></div></CardContent>
-              </Card>
+            {/* Period Filter */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-muted-foreground mr-1">Período:</span>
+              {PERIOD_OPTIONS.filter(p => p.key !== "custom").map(p => (
+                <Button key={p.key} size="sm" variant={analyticsPeriod === p.key ? "default" : "outline"} className="h-7 text-[11px] px-2.5" onClick={() => setAnalyticsPeriod(p.key)}>{p.label}</Button>
+              ))}
             </div>
+
+            {/* KPI Cards */}
+            {(() => {
+              const pLeads = leads.filter(l => {
+                if (!l.criado_em) return false;
+                try { const d = parseISO(l.criado_em); return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to }); } catch { return false; }
+              });
+              const pTotal = pLeads.length;
+              const pNovosHoje = leads.filter(l => { try { return l.criado_em && isToday(parseISO(l.criado_em)); } catch { return false; } }).length;
+              const pClientes = pLeads.filter(l => l.status === "cliente").length;
+              const pCarrinho = pLeads.filter(l => getLeadStage(l) === "carrinho_abandonado").length;
+              const pPixAberto = pLeads.filter(l => ["pix_gerado", "aguardando_pagamento"].includes(getLeadStage(l))).length;
+              const pTxConv = pTotal > 0 ? ((pClientes / pTotal) * 100).toFixed(1) : "0";
+              const pRecuperacao = pLeads.filter(l => {
+                const stage = getLeadStage(l);
+                if (!["pix_gerado", "aguardando_pagamento", "carrinho_abandonado"].includes(stage)) return false;
+                if (!l.criado_em) return true;
+                try { return differenceInHours(new Date(), parseISO(l.criado_em)) > 24; } catch { return false; }
+              }).length;
+              const pReceita = pLeads.reduce((s, l) => s + (parseFloat(String(l.total_gasto)) || 0), 0);
+
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+                  <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-primary/40", stageFilter === "all" && statusFilter === "all" && "ring-1 ring-primary/30")} onClick={() => { setStageFilter("all"); setStatusFilter("all"); }}>
+                    <CardContent className="p-2.5 flex items-center gap-2"><Users className="h-4 w-4 text-muted-foreground shrink-0" /><div><p className="text-lg font-bold leading-none">{pTotal}</p><p className="text-[9px] text-muted-foreground mt-0.5">Total Leads</p></div></CardContent>
+                  </Card>
+                  <Card className="bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-blue-500/40" onClick={() => { setStageFilter("all"); setStatusFilter("all"); }}>
+                    <CardContent className="p-2.5 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-blue-400 shrink-0" /><div><p className="text-lg font-bold leading-none">{pNovosHoje}</p><p className="text-[9px] text-muted-foreground mt-0.5">Novos Hoje</p></div></CardContent>
+                  </Card>
+                  <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-emerald-500/40", statusFilter === "cliente" && "ring-1 ring-emerald-500/50")} onClick={() => { setStatusFilter("cliente"); setStageFilter("all"); }}>
+                    <CardContent className="p-2.5 flex items-center gap-2"><UserCheck className="h-4 w-4 text-emerald-400 shrink-0" /><div><p className="text-lg font-bold leading-none">{pClientes}</p><p className="text-[9px] text-muted-foreground mt-0.5">Clientes</p></div></CardContent>
+                  </Card>
+                  <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-amber-500/40", stageFilter === "carrinho_abandonado" && "ring-1 ring-amber-500/50")} onClick={() => { setStageFilter("carrinho_abandonado"); setStatusFilter("all"); }}>
+                    <CardContent className="p-2.5 flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-amber-400 shrink-0" /><div><p className="text-lg font-bold leading-none">{pCarrinho}</p><p className="text-[9px] text-muted-foreground mt-0.5">Carrinho</p></div></CardContent>
+                  </Card>
+                  <Card className={cn("bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-orange-500/40", stageFilter === "pix_gerado" && "ring-1 ring-orange-500/50")} onClick={() => { setStageFilter("pix_gerado"); setStatusFilter("all"); }}>
+                    <CardContent className="p-2.5 flex items-center gap-2"><AlertCircle className="h-4 w-4 text-orange-400 shrink-0" /><div><p className="text-lg font-bold leading-none">{pPixAberto}</p><p className="text-[9px] text-muted-foreground mt-0.5">Pix Aberto</p></div></CardContent>
+                  </Card>
+                  <Card className="bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-primary/40" onClick={() => { setStatusFilter("all"); setStageFilter("all"); }}>
+                    <CardContent className="p-2.5 flex items-center gap-2"><Target className="h-4 w-4 text-primary shrink-0" /><div><p className="text-lg font-bold leading-none">{pTxConv}%</p><p className="text-[9px] text-muted-foreground mt-0.5">Conversão</p></div></CardContent>
+                  </Card>
+                  <Card className="bg-card border-border cursor-pointer transition-all hover:ring-1 hover:ring-red-500/40" onClick={() => { setStageFilter("pix_gerado"); setStatusFilter("all"); }}>
+                    <CardContent className="p-2.5 flex items-center gap-2"><Clock className="h-4 w-4 text-red-400 shrink-0" /><div><p className="text-lg font-bold leading-none">{pRecuperacao}</p><p className="text-[9px] text-muted-foreground mt-0.5">Recuperar</p></div></CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-2.5 flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary shrink-0" /><div><p className="text-lg font-bold font-mono text-primary leading-none">R$ {pReceita.toFixed(0)}</p><p className="text-[9px] text-muted-foreground mt-0.5">Receita</p></div></CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
             {/* Table */}
             <div className="rounded-lg border border-border overflow-auto">
