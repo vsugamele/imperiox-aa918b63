@@ -250,6 +250,7 @@ export default function OpenFlow() {
                     <Badge variant="outline" className="text-[10px]">{triggerLabel(a.trigger_tipo)}</Badge>
                     <Badge variant={a.ativo ? "default" : "secondary"} className="text-[10px]">{a.ativo ? "Ativo" : "Inativo"}</Badge>
                     {a.project_id && <Badge className="text-[9px] bg-primary/20 text-primary">{projectName(a.project_id)}</Badge>}
+                    {(a as any).produto && <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-400">🏷️ {(a as any).produto}</Badge>}
                   </div>
                   <div className="flex items-center gap-1">
                     {a.acoes.map((ac, i) => {
