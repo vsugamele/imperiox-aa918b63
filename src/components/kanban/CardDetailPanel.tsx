@@ -252,6 +252,18 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     onUpdate();
   };
 
+  const handleBoardChange = async (newBoard: string) => {
+    if (!card || newBoard === card.board) return;
+    // Find first column of the new board
+    const newBoardCols = columns.filter(c => c.board === newBoard).sort((a, b) => (a.position || 0) - (b.position || 0));
+    const firstCol = newBoardCols[0];
+    if (!firstCol) { toast.error("Board sem colunas"); return; }
+    await supabase.from("imphq_kanban_cards").update({ board: newBoard, column_id: firstCol.id } as any).eq("id", card.id);
+    setColumnId(firstCol.id);
+    toast.success(`Movido para board "${newBoard}"`);
+    onUpdate();
+  };
+
   // Tags
   const addTag = () => {
     if (!newTag.trim() || !card) return;
