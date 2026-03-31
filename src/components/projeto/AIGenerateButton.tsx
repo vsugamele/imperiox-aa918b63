@@ -13,6 +13,8 @@ const MODELS = [
   { id: "google/gemini-2.5-pro", label: "Gemini Pro", desc: "Máxima qualidade" },
   { id: "openai/gpt-5-mini", label: "GPT-5 Mini", desc: "Equilibrado" },
   { id: "openai/gpt-5", label: "GPT-5", desc: "Mais poderoso" },
+  { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet", desc: "Raciocínio avançado" },
+  { id: "moonshotai/kimi-k2", label: "Kimi K2", desc: "Modelo chinês avançado" },
 ];
 
 interface AIGenerateButtonProps {

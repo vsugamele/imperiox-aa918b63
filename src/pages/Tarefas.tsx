@@ -350,6 +350,8 @@ export default function Tarefas() {
       category: processForm.category,
       member_id: processForm.member_id !== "none" ? processForm.member_id : null,
       project_id: processForm.project_id !== "none" ? processForm.project_id : null,
+      horario: processForm.horario || null,
+      referencias: processForm.referencias.length > 0 ? processForm.referencias : null,
     } as any;
 
     if (editingProcess) {

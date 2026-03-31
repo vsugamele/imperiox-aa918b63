@@ -356,7 +356,9 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
 
   if (!card) return null;
 
-  const boardColumns = columns.filter(c => c.board === card.board);
+  const boardColumns = columns
+    .filter(c => c.board === card.board)
+    .filter((c, i, arr) => arr.findIndex(x => x.title === c.title) === i);
   const doneCount = checklist.filter(c => c.is_done).length;
   const totalCheck = checklist.length;
   const checkProgress = totalCheck > 0 ? (doneCount / totalCheck) * 100 : 0;
