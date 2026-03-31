@@ -1,72 +1,64 @@
 
 
-# Plano: Funis Integrados ao Projeto, Upload Múltiplo, Clareza nas Receitas
+# Plano: 3 Melhorias — Usuário no Instagram, Processos em Tarefas, Gráficos de Receita
 
 ---
 
-## 1. Funis — Puxar produtos, ofertas e URLs do projeto selecionado
+## 1. Campo "Usuário" no dialog de Instagram/TikTok (Empresa)
 
-**Problema**: Ao criar/editar um funil vinculado a um projeto, os produtos do briefing já são carregados (linha 120-134), mas não são usados de forma prática. O editor não sugere etapas baseadas nos produtos, nem preenche URLs ou ofertas automaticamente.
+**Problema**: O dialog de adicionar Instagram (imagem enviada) não tem campo de "Usuário" (login/email da conta). Só tem Perfil, Senha, Seguidores, Bio e Status.
+
+**Solução**: Adicionar campo `valor` como "Usuário / Email de Login" no formulário de Instagram e TikTok (bloco `else` do dialog, linha 281). O campo `valor` já existe no schema (`ContaEmpresa.valor`) mas não é usado no formulário de redes sociais — só no email ("Em Uso"). Reaproveitar esse campo como "Usuário de Login" para Instagram/TikTok.
+
+- No formulário: adicionar `<Input>` para "Usuário / Email" entre Perfil e Senha
+- Na tabela: adicionar coluna "Usuário" após "Perfil"
+
+**Arquivo**: `src/pages/Empresa.tsx`
+
+---
+
+## 2. Aba "Processos" em Tarefas
+
+**Problema**: Não existe um local para documentar processos/SOPs por função ou pessoa. As rotinas diárias são checklists simples, não procedimentos detalhados.
+
+**Solução**: Adicionar uma nova aba **"Processos"** no Tabs de Tarefas (ao lado de Rotinas, Tarefas e Calendário). Funcionalidades:
+
+- **Lista de processos**: cada processo tem título, descrição/passos (textarea), responsável (membro), projeto vinculado e categoria (ex: "Tráfego", "Conteúdo", "Atendimento", "Financeiro")
+- **Etapas do processo**: lista ordenada de passos com checkbox de conclusão
+- **Filtro por membro e categoria**: para cada pessoa ver só seus processos
+- **CRUD completo**: criar, editar, excluir processos
+- Armazenamento na tabela existente — usar `imphq_daily_routines` com `category: "processo"` e guardar os passos no campo `extra` (JSON), ou criar uma nova tabela `imphq_processes` com migration
+
+Recomendo usar uma **migration** para criar `imphq_processes` com: `id, title, description, steps (jsonb), member_id, project_id, category, position, is_active, created_at, user_id`. Mais limpo que sobrecarregar rotinas.
+
+**Arquivos**: `src/pages/Tarefas.tsx` (nova aba), migration SQL
+
+---
+
+## 3. Dashboard — mais gráficos e filtros de receita
+
+**Problema**: Os gráficos atuais (Leads 30d, Receita vs Custo 6 meses, Funil) não permitem filtrar por período nem mostram breakdown por produto/projeto.
 
 **Melhorias**:
 
-- **Painel lateral "Dados do Projeto"** no editor do funil: quando `project_id` está definido, exibir uma sidebar colapsável com:
-  - Lista de produtos com nome, preço, tipo e URL de checkout (do briefing `produtos[].ofertas[].link`)
-  - Botão "Adicionar como etapa" que cria um card no canvas com nome do produto, tipo correto (checkout/upsell) e URL já preenchida
-  - Links do projeto (`data.links`) para referência rápida
-  - Webhooks configurados (plataforma detectada)
+- **Filtro de período global** nos gráficos: botões "7d / 30d / 90d / 6m" que recarregam os dados dos charts
+- **Gráfico de Receita por Projeto** (barras horizontais): usando dados de `imphq_vendas` + `imphq_project_revenue` agrupados por `project_id`
+- **Gráfico de Receita por Produto** (pizza/donut): usando `imphq_vendas.produto` para agrupar
+- **Gráfico de ROAS por mês**: receita / (custo + ads) para cada mês
+- **Tooltip melhorado** nos gráficos existentes com fonte dos dados
 
-- **Auto-preencher URL na etapa**: Quando o usuário seleciona um produto do briefing para uma etapa, a URL de checkout preenche automaticamente o campo `url` da etapa.
+Layout: os gráficos novos ficam numa row abaixo dos existentes (grid 2 ou 3 cols). O filtro de período fica acima dos gráficos como botões.
 
-- **Badge de produto na etapa**: Se a etapa tem um produto associado, exibir badge com o nome/preço dentro do card no canvas.
-
-**Arquivo**: `src/pages/Funis.tsx`
+**Arquivo**: `src/pages/Dashboard.tsx`
 
 ---
 
-## 2. Upload múltiplo de arquivos (tarefas e projeto)
-
-**Problema**: O componente `FileUpload` aceita apenas 1 arquivo por vez (`e.target.files?.[0]`). Para anexar 5 fotos, precisa clicar 5 vezes.
-
-**Solução**:
-- Adicionar prop `multiple?: boolean` ao `FileUpload`
-- Quando `multiple=true`, usar `input.multiple = true` e iterar sobre `e.target.files` fazendo upload de cada um
-- Callback `onUpload` chamado para cada arquivo (ou nova callback `onUploadMultiple` com array de URLs)
-- Aplicar `multiple` no `CardDetailPanel.tsx` (anexos de tarefas) e em `ProjetoMidia.tsx` (mídia do projeto)
-
-**Arquivos**: `src/components/FileUpload.tsx`, `src/components/kanban/CardDetailPanel.tsx`, `src/components/projeto/ProjetoMidia.tsx`
-
----
-
-## 3. Receitas na Dashboard e Tracker — clareza sobre origem dos dados
-
-**Problema**: Na Dashboard, `totalReceita` soma `imphq_vendas` (status aprovado) + `imphq_project_revenue` — sem filtro de período nem indicação de projeto/produto. No Tracker, `totalReceita` vem de `imphq_vendas` filtrada por plataforma/projeto dos links, mas o campo `custo` vem de `imphq_clicks.custo` que provavelmente está vazio.
-
-**Melhorias na Dashboard**:
-- Adicionar tooltip ou subtítulo explicando a composição: "Vendas (webhook) + Receitas manuais"
-- No card de receita, mostrar breakdown: `R$ X (vendas) + R$ Y (manual)`
-- Adicionar filtro de período (7d, 30d, mês atual) nos KPIs financeiros
-- No gráfico Receita vs Custo, exibir legenda clara com as fontes
-
-**Melhorias no Tracker**:
-- Exibir de qual tabela vem cada número — a Receita vem de `imphq_vendas` filtradas
-- Mostrar filtro de período (hoje, 7d, 30d) nos KPIs do dashboard do Tracker
-- Quando filtrado por projeto, exibir nome do projeto nos KPIs
-- Se `totalGasto` = 0 (porque `imphq_clicks.custo` está vazio), exibir aviso: "Sem dados de gasto. Integre via imphq_ads_spend ou configure custos nos links"
-- Considerar puxar gastos de `imphq_ads_spend` (filtrado por projeto/período) como fallback para o gasto
-
-**Arquivos**: `src/pages/Dashboard.tsx`, `src/pages/Tracker.tsx`
-
----
-
-## Resumo de arquivos
+## Arquivos alterados/criados
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Funis.tsx` | Painel lateral com produtos/ofertas/URLs do projeto, botão "adicionar como etapa", auto-preencher URL |
-| `src/components/FileUpload.tsx` | Suporte a `multiple`, iterar sobre todos os arquivos |
-| `src/components/kanban/CardDetailPanel.tsx` | Usar `multiple` no FileUpload de anexos |
-| `src/components/projeto/ProjetoMidia.tsx` | Usar `multiple` no FileUpload de mídia |
-| `src/pages/Dashboard.tsx` | Breakdown de receita (vendas vs manual), filtro de período, tooltips explicativos |
-| `src/pages/Tracker.tsx` | Filtro de período, fallback para gastos via `imphq_ads_spend`, avisos quando dados estão vazios |
+| `src/pages/Empresa.tsx` | Campo "Usuário/Email" no dialog e tabela de Instagram/TikTok |
+| `src/pages/Tarefas.tsx` | Nova aba "Processos" com CRUD de SOPs por função/pessoa |
+| `src/pages/Dashboard.tsx` | Filtro de período, gráfico receita por projeto, por produto, ROAS |
+| SQL migration | Criar tabela `imphq_processes` |
 
