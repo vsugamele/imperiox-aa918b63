@@ -1294,17 +1294,27 @@ export default function Leads() {
                 <TabsContent value="automacoes" className="space-y-4">
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">⚡ Disparar Automação</p>
-                    {automations.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Nenhuma automação cadastrada. Crie em OpenFlow.</p>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {automations.map(a => (
-                          <Button key={a.id} size="sm" variant="outline" className="text-xs justify-start" onClick={() => editLead && triggerAutomation(editLead, a)}>
-                            <Play className="h-3 w-3 mr-1" /> {a.nome}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
+                    {(() => {
+                      const filteredAutos = editLead?.project_id
+                        ? automations.filter(a => !a.project_id || a.project_id === editLead.project_id)
+                        : automations;
+                      return filteredAutos.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          {editLead?.project_id ? "Nenhuma automação para este projeto. Crie em OpenFlow." : "Nenhuma automação cadastrada. Crie em OpenFlow."}
+                        </p>
+                      ) : (
+                        <>
+                          {!editLead?.project_id && <p className="text-[10px] text-amber-400">⚠️ Lead sem projeto — mostrando todas as automações</p>}
+                          <div className="grid grid-cols-2 gap-2">
+                            {filteredAutos.map(a => (
+                              <Button key={a.id} size="sm" variant="outline" className="text-xs justify-start" onClick={() => editLead && triggerAutomation(editLead, a)}>
+                                <Play className="h-3 w-3 mr-1" /> {a.nome}
+                              </Button>
+                            ))}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <div className="space-y-2 border-t border-border pt-3">
