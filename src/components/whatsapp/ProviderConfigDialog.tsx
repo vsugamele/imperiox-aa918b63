@@ -24,6 +24,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, onC
     api_key: "",
     twilio_from: "",
   });
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const save = async () => {
     if (!form.project_id || !form.provider) {
