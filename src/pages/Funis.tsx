@@ -432,7 +432,22 @@ export default function Funis() {
           <h1 className="font-display text-2xl font-bold text-primary">{selectedFunil.nome}</h1>
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
-          {selectedFunil.project_id && <Badge variant="outline" className="text-[10px]">{projectName(selectedFunil.project_id)}</Badge>}
+
+          {/* Project selector in editor */}
+          <Select
+            value={selectedFunil.project_id || "none"}
+            onValueChange={async (v) => {
+              const pid = v === "none" ? null : v;
+              setSelectedFunil({ ...selectedFunil, project_id: pid || undefined });
+              await supabase.from("imphq_funis").update({ project_id: pid }).eq("id", selectedFunil.id);
+            }}
+          >
+            <SelectTrigger className="w-[180px] h-7 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem projeto</SelectItem>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
 
           {/* Project products reference */}
           {projectProducts.length > 0 && (
@@ -659,6 +674,31 @@ export default function Funis() {
 
                       <Input defaultValue={etapa.descricao || ""} onBlur={e => setEtapaField(i, "descricao", e.target.value)}
                         className="h-6 text-[10px] bg-card/50 border-border p-1" placeholder="Descrição..." />
+
+                      {/* Product dropdown */}
+                      {projectProductsFull.length > 0 && (
+                        <Select value="" onValueChange={v => {
+                          const prod = projectProductsFull[parseInt(v)];
+                          if (!prod) return;
+                          const nome = prod.nome || prod.name || "";
+                          const url = prod.ofertas?.[0]?.link || prod.link || "";
+                          setEtapaField(i, "nome", nome);
+                          if (url) setEtapaField(i, "url", url);
+                        }}>
+                          <SelectTrigger className="h-6 text-[9px] bg-primary/5 border-primary/20"><SelectValue placeholder="📦 Vincular Produto" /></SelectTrigger>
+                          <SelectContent>
+                            {projectProductsFull.map((p: any, pi: number) => (
+                              <SelectItem key={pi} value={String(pi)} className="text-xs">
+                                <span className="flex items-center gap-1.5">
+                                  <Package className="h-3 w-3" />
+                                  {p.nome || p.name || `Produto ${pi + 1}`}
+                                  {(p.preco_por || p.preco) && <span className="text-[9px] font-mono text-primary ml-1">R${p.preco_por || p.preco}</span>}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
 
                       <Select value={etapa.tipo || "outro"} onValueChange={v => setEtapaField(i, "tipo", v)}>
                         <SelectTrigger className="h-6 text-[10px] bg-card/50 border-border"><SelectValue /></SelectTrigger>

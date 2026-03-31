@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,7 +123,8 @@ export default function Skills() {
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState<Skill | null>(null);
   const [editing, setEditing] = useState<Skill | null>(null);
-  const [form, setForm] = useState({ nome: "", descricao: "", categoria: "Outro" as Categoria, status: "Ativo" as Status, icone: "Zap" });
+  const [form, setForm] = useState({ nome: "", descricao: "", categoria: "Outro" as Categoria, status: "Ativo" as Status, icone: "Zap", system_prompt: "", versao: "", gatilho: "", cor: "#3b82f6" });
+  const importRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("marketing");
 
   useEffect(() => {
@@ -132,6 +134,8 @@ export default function Skills() {
         id: s.id, nome: s.nome, descricao: s.descricao,
         categoria: s.categoria as Categoria, status: s.status as Status,
         icone: s.icone || "Zap",
+        system_prompt: s.system_prompt || "", versao: s.versao || "",
+        gatilho: s.gatilho || "", cor: s.cor || "",
       })));
     });
   }, [user]);
@@ -164,33 +168,55 @@ export default function Skills() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ nome: "", descricao: "", categoria: "Outro", status: "Ativo", icone: "Zap" });
+    setForm({ nome: "", descricao: "", categoria: "Outro", status: "Ativo", icone: "Zap", system_prompt: "", versao: "", gatilho: "", cor: "#3b82f6" });
     setShowForm(true);
   };
 
   const openEdit = (e: React.MouseEvent, skill: Skill) => {
     e.stopPropagation();
     setEditing(skill);
-    setForm({ nome: skill.nome, descricao: skill.descricao, categoria: skill.categoria, status: skill.status, icone: skill.icone });
+    setForm({ nome: skill.nome, descricao: skill.descricao, categoria: skill.categoria, status: skill.status, icone: skill.icone, system_prompt: skill.system_prompt || "", versao: skill.versao || "", gatilho: skill.gatilho || "", cor: skill.cor || "#3b82f6" });
     setShowForm(true);
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.name.endsWith(".zip")) {
+        const zip = await JSZip.loadAsync(file);
+        const mdFile = Object.keys(zip.files).find(f => f.endsWith(".md"));
+        if (!mdFile) { toast.error("Nenhum .md encontrado no ZIP"); return; }
+        const content = await zip.files[mdFile].async("string");
+        const name = mdFile.replace(/\.md$/, "").replace(/[-_]/g, " ");
+        setForm(prev => ({ ...prev, system_prompt: content, nome: prev.nome || name }));
+        toast.success(`Importado: ${mdFile}`);
+      } else {
+        const content = await file.text();
+        const name = file.name.replace(/\.md$/, "").replace(/[-_]/g, " ");
+        setForm(prev => ({ ...prev, system_prompt: content, nome: prev.nome || name }));
+        toast.success(`Importado: ${file.name}`);
+      }
+    } catch (err) { toast.error("Erro ao importar arquivo"); }
+    if (importRef.current) importRef.current.value = "";
   };
 
   const saveSkill = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
+    const payload = {
+      nome: form.nome, descricao: form.descricao, categoria: form.categoria,
+      status: form.status, icone: form.icone,
+      system_prompt: form.system_prompt || null, versao: form.versao || null,
+      gatilho: form.gatilho || null, cor: form.cor || null,
+    };
     if (editing) {
-      const { error } = await supabase.from("imphq_skills").update({
-        nome: form.nome, descricao: form.descricao, categoria: form.categoria,
-        status: form.status, icone: form.icone,
-      }).eq("id", editing.id);
+      const { error } = await supabase.from("imphq_skills").update(payload).eq("id", editing.id);
       if (error) { toast.error(error.message); return; }
       setCustomSkills(prev => prev.map(s => s.id === editing.id ? { ...s, ...form } : s));
       toast.success("Skill atualizada!");
     } else {
       const id = crypto.randomUUID();
-      const { error } = await supabase.from("imphq_skills").insert([{
-        id, nome: form.nome, descricao: form.descricao, categoria: form.categoria,
-        status: form.status, icone: form.icone, owner_id: user?.id,
-      }]);
+      const { error } = await supabase.from("imphq_skills").insert([{ id, ...payload, owner_id: user?.id }]);
       if (error) { toast.error(error.message); return; }
       setCustomSkills(prev => [...prev, { id, ...form }]);
       toast.success("Skill criada!");
@@ -427,10 +453,19 @@ export default function Skills() {
 
       {/* FORM DE NOVA SKILL */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editing ? "Editar Skill" : "Nova Skill"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Slack Bot" /></div>
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+            {/* Import button */}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/15">
+              <input ref={importRef} type="file" accept=".md,.zip" onChange={handleImportFile} className="hidden" />
+              <Button size="sm" variant="outline" onClick={() => importRef.current?.click()} className="gap-1">
+                <Plus className="h-3 w-3" /> Importar .md / .zip
+              </Button>
+              <span className="text-[10px] text-muted-foreground">Importa o system prompt de um arquivo .md ou .zip contendo .md</span>
+            </div>
+
+            <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Avatar Architect" /></div>
             <div><Label>Descrição</Label><Textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} placeholder="O que essa skill faz..." rows={2} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -452,6 +487,23 @@ export default function Skills() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Versão</Label>
+                <Input value={form.versao} onChange={e => setForm({ ...form, versao: e.target.value })} placeholder="V2.0" />
+              </div>
+              <div>
+                <Label>Gatilho</Label>
+                <Input value={form.gatilho} onChange={e => setForm({ ...form, gatilho: e.target.value })} placeholder="[Nicho] e [Avatar]" />
+              </div>
+              <div>
+                <Label>Cor</Label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={form.cor} onChange={e => setForm({ ...form, cor: e.target.value })} className="h-8 w-8 rounded border cursor-pointer" />
+                  <Input value={form.cor} onChange={e => setForm({ ...form, cor: e.target.value })} className="flex-1" />
+                </div>
+              </div>
+            </div>
             <div>
               <Label>Ícone</Label>
               <Select value={form.icone} onValueChange={v => setForm({ ...form, icone: v })}>
@@ -463,6 +515,11 @@ export default function Skills() {
                   })}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>System Prompt</Label>
+              <Textarea value={form.system_prompt} onChange={e => setForm({ ...form, system_prompt: e.target.value })} placeholder="Cole aqui o system prompt completo da skill (markdown)..." rows={8} className="font-mono text-xs" />
+              {form.system_prompt && <p className="text-[10px] text-muted-foreground mt-1">{form.system_prompt.split("\n").length} linhas · {form.system_prompt.length} chars</p>}
             </div>
           </div>
           <DialogFooter><Button onClick={saveSkill}>{editing ? "Salvar" : "Criar"}</Button></DialogFooter>
