@@ -85,6 +85,7 @@ serve(async (req) => {
     }
 
     // Route by action
+    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, LOVABLE_API_KEY, model);
     if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, LOVABLE_API_KEY, model);
     if (action === "generate_branding") return await handleBranding(projectContext, LOVABLE_API_KEY, model);
     if (action === "generate_gatilhos") return await handleGatilhos(projectContext, LOVABLE_API_KEY, model);

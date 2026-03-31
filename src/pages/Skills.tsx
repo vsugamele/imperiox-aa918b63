@@ -608,6 +608,77 @@ export default function Skills() {
           <DialogFooter><Button onClick={saveSkill}>{editing ? "Salvar" : "Criar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* EXECUTE SKILL DIALOG */}
+      <Dialog open={showExecute} onOpenChange={setShowExecute}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Executar: {executeSkill?.nome}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Projeto</Label>
+              <Select value={execProjectId} onValueChange={onExecProjectChange}>
+                <SelectTrigger><SelectValue placeholder="Selecione o projeto..." /></SelectTrigger>
+                <SelectContent>{execProjects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            {execProdutos.length > 0 && (
+              <div>
+                <Label>Produto</Label>
+                <Select value={execProduto} onValueChange={setExecProduto}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o produto..." /></SelectTrigger>
+                  <SelectContent>{execProdutos.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>Modelo</Label>
+              <Select value={execModel} onValueChange={setExecModel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="google/gemini-3-flash-preview">Gemini Flash</SelectItem>
+                  <SelectItem value="openai/gpt-4.1-mini">GPT-4.1 Mini</SelectItem>
+                  <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet</SelectItem>
+                  <SelectItem value="moonshotai/kimi-k2">Kimi K2</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Instruções adicionais (opcional)</Label>
+              <Textarea value={execExtra} onChange={e => setExecExtra(e.target.value)} placeholder="Ex: Foque nos 3 pilares do método..." rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExecute(false)}>Cancelar</Button>
+            <Button onClick={runExecuteSkill} disabled={execLoading} className="gap-1.5">
+              {execLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {execLoading ? "Gerando..." : "Gerar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RESULT DIALOG */}
+      <Dialog open={showResult} onOpenChange={setShowResult}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader><DialogTitle>Resultado — {executeSkill?.nome}</DialogTitle></DialogHeader>
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="prose prose-invert prose-sm max-w-none p-4">
+              <ReactMarkdown>{execResult}</ReactMarkdown>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(execResult); toast.success("Copiado!"); }} className="gap-1">
+              <Copy className="h-3.5 w-3.5" /> Copiar
+            </Button>
+            {execProjectId && (
+              <Button variant="outline" size="sm" onClick={saveResultAsDoc} className="gap-1">
+                <Save className="h-3.5 w-3.5" /> Salvar como Doc
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setShowResult(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
