@@ -168,15 +168,37 @@ export default function Skills() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ nome: "", descricao: "", categoria: "Outro", status: "Ativo", icone: "Zap" });
+    setForm({ nome: "", descricao: "", categoria: "Outro", status: "Ativo", icone: "Zap", system_prompt: "", versao: "", gatilho: "", cor: "#3b82f6" });
     setShowForm(true);
   };
 
   const openEdit = (e: React.MouseEvent, skill: Skill) => {
     e.stopPropagation();
     setEditing(skill);
-    setForm({ nome: skill.nome, descricao: skill.descricao, categoria: skill.categoria, status: skill.status, icone: skill.icone });
+    setForm({ nome: skill.nome, descricao: skill.descricao, categoria: skill.categoria, status: skill.status, icone: skill.icone, system_prompt: skill.system_prompt || "", versao: skill.versao || "", gatilho: skill.gatilho || "", cor: skill.cor || "#3b82f6" });
     setShowForm(true);
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.name.endsWith(".zip")) {
+        const zip = await JSZip.loadAsync(file);
+        const mdFile = Object.keys(zip.files).find(f => f.endsWith(".md"));
+        if (!mdFile) { toast.error("Nenhum .md encontrado no ZIP"); return; }
+        const content = await zip.files[mdFile].async("string");
+        const name = mdFile.replace(/\.md$/, "").replace(/[-_]/g, " ");
+        setForm(prev => ({ ...prev, system_prompt: content, nome: prev.nome || name }));
+        toast.success(`Importado: ${mdFile}`);
+      } else {
+        const content = await file.text();
+        const name = file.name.replace(/\.md$/, "").replace(/[-_]/g, " ");
+        setForm(prev => ({ ...prev, system_prompt: content, nome: prev.nome || name }));
+        toast.success(`Importado: ${file.name}`);
+      }
+    } catch (err) { toast.error("Erro ao importar arquivo"); }
+    if (importRef.current) importRef.current.value = "";
   };
 
   const saveSkill = async () => {
