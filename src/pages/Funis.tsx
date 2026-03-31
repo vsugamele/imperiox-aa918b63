@@ -112,7 +112,7 @@ export default function Funis() {
   const load = async () => {
     const [fRes, pRes] = await Promise.all([
       supabase.from("imphq_funis").select("*").order("updated_at", { ascending: false }),
-      supabase.from("imphq_projects").select("id, name, briefing").order("name"),
+      supabase.from("imphq_projects").select("id, name, briefing, data").order("name"),
     ]);
     setFunis((fRes.data || []).map((f: any) => ({ ...f, data: f.data || {} })));
     setProjects(pRes.data || []);

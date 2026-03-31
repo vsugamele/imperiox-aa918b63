@@ -106,12 +106,14 @@ const RELATION_TYPES = [
   { value: "related", label: "Relacionado" },
   { value: "blocks", label: "Bloqueia" },
   { value: "blocked_by", label: "Bloqueado por" },
+  { value: "sequencia", label: "Próximo passo" },
 ];
 
 const RELATION_COLORS: Record<string, string> = {
   related: "bg-primary/10 text-primary border-primary/20",
   blocks: "bg-destructive/10 text-destructive border-destructive/20",
   blocked_by: "bg-warning/10 text-warning border-warning/20",
+  sequencia: "bg-success/10 text-success border-success/20",
 };
 
 export default function CardDetailPanel({ card, open, onClose, onUpdate, columns, members, projects = [] }: CardDetailPanelProps) {
@@ -356,7 +358,9 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
 
   if (!card) return null;
 
-  const boardColumns = columns.filter(c => c.board === card.board);
+  const boardColumns = columns
+    .filter(c => c.board === card.board)
+    .filter((c, i, arr) => arr.findIndex(x => x.title === c.title) === i);
   const doneCount = checklist.filter(c => c.is_done).length;
   const totalCheck = checklist.length;
   const checkProgress = totalCheck > 0 ? (doneCount / totalCheck) * 100 : 0;

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FileUpload } from "@/components/FileUpload";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -127,6 +128,11 @@ export default function Tarefas() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState({ title: "", description: "", priority: "medium", project_id: "none", member_id: "none", board: "agentes", due_date: "" });
 
+  // Next step state
+  const [showNextStepDialog, setShowNextStepDialog] = useState(false);
+  const [nextStepCard, setNextStepCard] = useState<KanbanCard | null>(null);
+  const [nextStepForm, setNextStepForm] = useState({ title: "", member_id: "none", observation: "" });
+
   // Routines state
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [checks, setChecks] = useState<RoutineCheck[]>([]);
@@ -147,7 +153,7 @@ export default function Tarefas() {
   const [processes, setProcesses] = useState<Process[]>([]);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
-  const [processForm, setProcessForm] = useState({ title: "", description: "", steps: [] as { text: string; done: boolean }[], category: "geral", member_id: "none", project_id: "none" });
+  const [processForm, setProcessForm] = useState({ title: "", description: "", steps: [] as { text: string; done: boolean }[], category: "geral", member_id: "none", project_id: "none", horario: "", referencias: [] as { tipo: "imagem" | "link"; url: string; label?: string }[] });
   const [processFilterMember, setProcessFilterMember] = useState("all");
   const [processFilterCategory, setProcessFilterCategory] = useState("all");
   const PROCESS_CATEGORIES = ["geral", "tráfego", "conteúdo", "atendimento", "financeiro", "vendas", "operações"];
@@ -350,6 +356,8 @@ export default function Tarefas() {
       category: processForm.category,
       member_id: processForm.member_id !== "none" ? processForm.member_id : null,
       project_id: processForm.project_id !== "none" ? processForm.project_id : null,
+      horario: processForm.horario || null,
+      referencias: processForm.referencias.length > 0 ? processForm.referencias : null,
     } as any;
 
     if (editingProcess) {
@@ -367,7 +375,7 @@ export default function Tarefas() {
     }
     setShowProcessDialog(false);
     setEditingProcess(null);
-    setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none" });
+    setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none", horario: "", referencias: [] });
   };
 
   const deleteProcess = async (id: string) => {
@@ -378,10 +386,12 @@ export default function Tarefas() {
 
   const openEditProcess = (proc: Process) => {
     setEditingProcess(proc);
+    const procData = proc as any;
     setProcessForm({
       title: proc.title, description: proc.description || "",
       steps: Array.isArray(proc.steps) ? proc.steps : [],
       category: proc.category, member_id: proc.member_id || "none", project_id: proc.project_id || "none",
+      horario: procData.horario || "", referencias: Array.isArray(procData.referencias) ? procData.referencias : [],
     });
     setShowProcessDialog(true);
   };
@@ -442,6 +452,9 @@ export default function Tarefas() {
       if (error) { toast.error("Erro ao atualizar"); return; }
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: doneCol.id } : c));
       toast.success("Tarefa concluída! ✅");
+      // Open next step dialog
+      setNextStepCard(card);
+      setShowNextStepDialog(true);
     }
   };
 
@@ -1114,7 +1127,7 @@ export default function Tarefas() {
               </SelectContent>
             </Select>
             <div className="flex-1" />
-            <Button size="sm" onClick={() => { setEditingProcess(null); setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none" }); setShowProcessDialog(true); }}>
+            <Button size="sm" onClick={() => { setEditingProcess(null); setProcessForm({ title: "", description: "", steps: [], category: "geral", member_id: "none", project_id: "none", horario: "", referencias: [] }); setShowProcessDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Novo Processo
             </Button>
           </div>
@@ -1141,6 +1154,7 @@ export default function Tarefas() {
                           <CardTitle className="text-sm font-semibold truncate">{proc.title}</CardTitle>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{proc.category}</Badge>
+                            {(proc as any).horario && <Badge variant="secondary" className="text-[10px]"><Clock className="h-2.5 w-2.5 mr-0.5" />{(proc as any).horario}</Badge>}
                             {member && <Badge variant="secondary" className="text-[10px]"><User className="h-2.5 w-2.5 mr-0.5" />{member.name}</Badge>}
                             {project && <Badge variant="secondary" className="text-[10px]">📁 {project.name}</Badge>}
                           </div>
@@ -1172,6 +1186,18 @@ export default function Tarefas() {
                           </div>
                         </>
                       )}
+                      {/* Referências thumbnails */}
+                      {Array.isArray((proc as any).referencias) && (proc as any).referencias.length > 0 && (
+                        <div className="flex gap-1.5 flex-wrap mt-1">
+                          {(proc as any).referencias.map((ref: any, idx: number) => (
+                            ref.tipo === "imagem" ? (
+                              <img key={idx} src={ref.url} alt={ref.label || "ref"} className="h-10 w-10 rounded object-cover border border-border" />
+                            ) : (
+                              <a key={idx} href={ref.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary underline truncate max-w-[120px]">{ref.label || ref.url}</a>
+                            )
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -1188,7 +1214,7 @@ export default function Tarefas() {
           <div className="space-y-4">
             <div><Label>Título</Label><Input value={processForm.title} onChange={e => setProcessForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Rotina de Tráfego Diário" className="bg-secondary" /></div>
             <div><Label>Descrição</Label><Textarea value={processForm.description} onChange={e => setProcessForm(f => ({ ...f, description: e.target.value }))} placeholder="Descreva o objetivo deste processo..." className="bg-secondary min-h-[60px]" /></div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Categoria</Label>
                 <Select value={processForm.category} onValueChange={v => setProcessForm(f => ({ ...f, category: v }))}>
@@ -1196,6 +1222,12 @@ export default function Tarefas() {
                   <SelectContent>{PROCESS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Horário</Label>
+                <Input type="time" value={processForm.horario} onChange={e => setProcessForm(f => ({ ...f, horario: e.target.value }))} className="bg-secondary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Responsável</Label>
                 <Select value={processForm.member_id} onValueChange={v => setProcessForm(f => ({ ...f, member_id: v }))}>
@@ -1215,6 +1247,43 @@ export default function Tarefas() {
                     {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            {/* Referências */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Referências (fotos / links)</Label>
+              </div>
+              <div className="space-y-2">
+                {processForm.referencias.map((ref, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-secondary/30 rounded-md p-2">
+                    {ref.tipo === "imagem" ? (
+                      <img src={ref.url} alt="" className="h-10 w-10 rounded object-cover border border-border shrink-0" />
+                    ) : (
+                      <span className="text-primary text-xs truncate flex-1">🔗 {ref.label || ref.url}</span>
+                    )}
+                    {ref.tipo === "imagem" && <span className="text-xs text-muted-foreground truncate flex-1">{ref.label || "Imagem"}</span>}
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setProcessForm(f => ({ ...f, referencias: f.referencias.filter((_, i) => i !== idx) }))}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Input placeholder="Cole URL de link ou referência..." className="bg-secondary h-8 text-xs flex-1"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const url = (e.target as HTMLInputElement).value.trim();
+                      if (!url) return;
+                      const isImg = /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url);
+                      setProcessForm(f => ({ ...f, referencias: [...f.referencias, { tipo: isImg ? "imagem" : "link", url, label: "" }] }));
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }}
+                />
+                <FileUpload bucket="project-media" path="processos" accept="image/*" label="📷" multiple
+                  onUpload={(url) => setProcessForm(f => ({ ...f, referencias: [...f.referencias, { tipo: "imagem", url }] }))}
+                />
               </div>
             </div>
             {/* Steps */}
@@ -1401,6 +1470,73 @@ export default function Tarefas() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancelar</Button>
             <Button onClick={createFullTask}>Criar Tarefa</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Next Step Dialog */}
+      <Dialog open={showNextStepDialog} onOpenChange={v => { if (!v) { setShowNextStepDialog(false); setNextStepCard(null); setNextStepForm({ title: "", member_id: "none", observation: "" }); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Próximo Passo (opcional)</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">Tarefa concluída! Deseja criar um próximo passo para outra pessoa?</p>
+          <div className="space-y-3">
+            <div><Label>Título do próximo passo</Label><Input value={nextStepForm.title} onChange={e => setNextStepForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Revisar e aprovar" className="bg-secondary" /></div>
+            <div>
+              <Label>Responsável</Label>
+              <Select value={nextStepForm.member_id} onValueChange={v => setNextStepForm(f => ({ ...f, member_id: v }))}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Observação</Label><Textarea value={nextStepForm.observation} onChange={e => setNextStepForm(f => ({ ...f, observation: e.target.value }))} placeholder="Contexto ou instruções..." className="bg-secondary min-h-[60px]" /></div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => { setShowNextStepDialog(false); setNextStepCard(null); setNextStepForm({ title: "", member_id: "none", observation: "" }); }}>Apenas concluir</Button>
+            <Button disabled={!nextStepForm.title.trim()} onClick={async () => {
+              if (!nextStepCard || !nextStepForm.title.trim()) return;
+              const targetCol = findFirstColumn(nextStepCard.board) || columns.find(c => c.board === nextStepCard.board && !isDoneColumn(c));
+              if (!targetCol) { toast.error("Coluna não encontrada"); return; }
+              const { data: newCard, error } = await supabase.from("imphq_kanban_cards").insert({
+                title: nextStepForm.title.trim(),
+                description: nextStepForm.observation || null,
+                column_id: targetCol.id,
+                board: nextStepCard.board,
+                priority: nextStepCard.priority,
+                tags: [],
+                project_id: nextStepCard.project_id || null,
+                member_id: nextStepForm.member_id !== "none" ? nextStepForm.member_id : null,
+              } as any).select().single();
+              if (error) { toast.error("Erro ao criar próximo passo"); return; }
+              // Create relation
+              await supabase.from("imphq_card_relations").insert({
+                card_id: nextStepCard.id,
+                related_card_id: (newCard as any).id,
+                relation_type: "sequencia",
+              } as any);
+              // Notify assigned member
+              if (nextStepForm.member_id !== "none" && user) {
+                const assignedMember = members.find(m => m.id === nextStepForm.member_id);
+                const memberRecord = await supabase.from("imphq_team_members").select("user_id").eq("id", nextStepForm.member_id).maybeSingle();
+                if (memberRecord.data?.user_id) {
+                  await supabase.from("imphq_notifications").insert({
+                    user_id: memberRecord.data.user_id,
+                    title: `➡️ Próximo passo: ${nextStepForm.title.trim()}`,
+                    message: `${nextStepCard.title} foi concluída. Agora é com você!`,
+                    type: "tarefa", entity_type: "card", entity_id: (newCard as any).id,
+                  });
+                }
+              }
+              setCards(prev => [...prev, newCard as any]);
+              setShowNextStepDialog(false); setNextStepCard(null);
+              setNextStepForm({ title: "", member_id: "none", observation: "" });
+              toast.success("Próximo passo criado! ➡️");
+              fetchData();
+            }}>
+              Criar Próximo Passo
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

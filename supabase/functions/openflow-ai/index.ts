@@ -21,6 +21,18 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
+    // Fetch relevant skills for context enrichment
+    let skillsContext = "";
+    try {
+      const { data: skills } = await sb.from("imphq_skills").select("nome, system_prompt, categoria").eq("status", "Ativa").not("system_prompt", "is", null).limit(5);
+      if (skills && skills.length > 0) {
+        skillsContext = "\n## Skills disponíveis para referência:\n";
+        for (const skill of skills) {
+          skillsContext += `- **${skill.nome}** (${skill.categoria || "geral"}): ${(skill.system_prompt || "").slice(0, 300)}\n`;
+        }
+      }
+    } catch (e) { console.error("Error fetching skills:", e); }
+
     // Gather project context
     let projectData: any = {};
     let projectContext = "";
@@ -91,6 +103,7 @@ serve(async (req) => {
     const systemPrompt = `Você é um copywriter brasileiro especialista em automações de marketing digital e sequências multicanal (email, WhatsApp, Telegram).
 Seu objetivo: criar uma sequência de ${num_etapas} mensagens para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}".
 ${projectContext ? `Contexto do projeto:\n${projectContext}` : ""}
+${skillsContext}
 REGRAS:
 - Use linguagem conversacional e persuasiva em português brasileiro
 - Cada mensagem deve ter um propósito claro
