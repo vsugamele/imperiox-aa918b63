@@ -203,20 +203,20 @@ export default function Skills() {
 
   const saveSkill = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
+    const payload = {
+      nome: form.nome, descricao: form.descricao, categoria: form.categoria,
+      status: form.status, icone: form.icone,
+      system_prompt: form.system_prompt || null, versao: form.versao || null,
+      gatilho: form.gatilho || null, cor: form.cor || null,
+    };
     if (editing) {
-      const { error } = await supabase.from("imphq_skills").update({
-        nome: form.nome, descricao: form.descricao, categoria: form.categoria,
-        status: form.status, icone: form.icone,
-      }).eq("id", editing.id);
+      const { error } = await supabase.from("imphq_skills").update(payload).eq("id", editing.id);
       if (error) { toast.error(error.message); return; }
       setCustomSkills(prev => prev.map(s => s.id === editing.id ? { ...s, ...form } : s));
       toast.success("Skill atualizada!");
     } else {
       const id = crypto.randomUUID();
-      const { error } = await supabase.from("imphq_skills").insert([{
-        id, nome: form.nome, descricao: form.descricao, categoria: form.categoria,
-        status: form.status, icone: form.icone, owner_id: user?.id,
-      }]);
+      const { error } = await supabase.from("imphq_skills").insert([{ id, ...payload, owner_id: user?.id }]);
       if (error) { toast.error(error.message); return; }
       setCustomSkills(prev => [...prev, { id, ...form }]);
       toast.success("Skill criada!");
