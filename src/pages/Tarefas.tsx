@@ -771,6 +771,10 @@ export default function Tarefas() {
             <CalendarIcon className="h-3.5 w-3.5" /> Calendário
             <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{calEvents.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="processes" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" /> Processos
+            <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{processes.length}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         {/* ====== ROUTINES TAB ====== */}
