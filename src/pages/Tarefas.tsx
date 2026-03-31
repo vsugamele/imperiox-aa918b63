@@ -147,7 +147,7 @@ export default function Tarefas() {
   const [processes, setProcesses] = useState<Process[]>([]);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
-  const [processForm, setProcessForm] = useState({ title: "", description: "", steps: [] as { text: string; done: boolean }[], category: "geral", member_id: "none", project_id: "none" });
+  const [processForm, setProcessForm] = useState({ title: "", description: "", steps: [] as { text: string; done: boolean }[], category: "geral", member_id: "none", project_id: "none", horario: "", referencias: [] as { tipo: "imagem" | "link"; url: string; label?: string }[] });
   const [processFilterMember, setProcessFilterMember] = useState("all");
   const [processFilterCategory, setProcessFilterCategory] = useState("all");
   const PROCESS_CATEGORIES = ["geral", "tráfego", "conteúdo", "atendimento", "financeiro", "vendas", "operações"];
