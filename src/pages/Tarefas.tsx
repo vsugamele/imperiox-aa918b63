@@ -20,7 +20,8 @@ import {
 import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
   Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
-  RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon
+  RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon,
+  BookOpen, GripVertical
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
