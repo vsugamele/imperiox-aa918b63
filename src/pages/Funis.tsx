@@ -747,6 +747,63 @@ export default function Funis() {
             })}
           </div>
 
+          {/* Project Data Sidebar */}
+          {showProjectPanel && selectedFunil.project_id && projectProductsFull.length > 0 && (
+            <div className="absolute top-3 right-[180px] w-64 max-h-[calc(100%-24px)] overflow-y-auto rounded-xl border border-border bg-card/95 backdrop-blur-sm p-3 space-y-3 z-20">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold flex items-center gap-1.5"><Package className="h-3 w-3 text-primary" /> Produtos do Projeto</h4>
+                <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setShowProjectPanel(false)}><X className="h-3 w-3" /></Button>
+              </div>
+              {projectProductsFull.map((prod: any, idx: number) => {
+                const nome = prod.nome || prod.name || `Produto ${idx + 1}`;
+                const preco = prod.preco_por || prod.preco || prod.price || "";
+                const tipo = prod.tipo_oferta || prod.tipo || "";
+                const url = prod.ofertas?.[0]?.link || prod.link || "";
+                return (
+                  <div key={idx} className="p-2 rounded-lg bg-secondary/50 border border-border space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium truncate flex-1">{nome}</p>
+                      {preco && <span className="text-[10px] font-mono font-bold text-primary ml-1">R${preco}</span>}
+                    </div>
+                    {tipo && <Badge variant="secondary" className="text-[8px]">{tipo}</Badge>}
+                    {url && <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1"><Link2 className="h-2.5 w-2.5 shrink-0" />{url}</p>}
+                    {prod.ofertas?.length > 0 && (
+                      <div className="space-y-0.5">
+                        {prod.ofertas.map((of: any, oi: number) => (
+                          <div key={oi} className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span className="truncate">{of.nome || `Oferta ${oi + 1}`}</span>
+                            {of.preco_por && <span className="font-mono text-primary">R${of.preco_por}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] w-full gap-1" onClick={() => addProductAsEtapa(prod)}>
+                      <Plus className="h-2.5 w-2.5" /> Adicionar como etapa
+                    </Button>
+                  </div>
+                );
+              })}
+              {projectData?.links && Object.keys(projectData.links).length > 0 && (
+                <div className="border-t border-border pt-2 space-y-1">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase">Links do Projeto</p>
+                  {Object.entries(projectData.links).filter(([, v]) => v).map(([k, v]) => (
+                    <a key={k} href={v as string} target="_blank" rel="noopener" className="flex items-center gap-1.5 text-[10px] text-primary hover:underline">
+                      <ExternalLink className="h-2.5 w-2.5" />{k}: {String(v).slice(0, 30)}...
+                    </a>
+                  ))}
+                </div>
+              )}
+              {projectData?.webhooks?.length > 0 && (
+                <div className="border-t border-border pt-2 space-y-1">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase">Webhooks</p>
+                  {projectData.webhooks.map((wh: any, wi: number) => (
+                    <Badge key={wi} variant="outline" className="text-[8px]">{wh.nome || wh.plataforma || `Webhook ${wi + 1}`}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Minimap */}
           <div className="absolute bottom-3 right-3 rounded-lg border border-border bg-card/90 backdrop-blur-sm p-1.5"
             style={{ width: MINIMAP_W, height: MINIMAP_H }}>
