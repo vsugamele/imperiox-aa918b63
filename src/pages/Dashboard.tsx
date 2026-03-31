@@ -196,6 +196,36 @@ export default function Dashboard() {
       setTotalReceita(recV + recR);
       setReceitaBreakdown({ vendas: recV, manual: recR });
 
+      // Receita por Projeto (vendas + revenue agrupados por project_id)
+      const rpMap = new Map<string, number>();
+      (vendasRes.data || []).forEach((v: any) => {
+        if (v.project_id) rpMap.set(v.project_id, (rpMap.get(v.project_id) || 0) + (parseFloat(v.valor) || 0));
+      });
+      (revsRes.data || []).forEach((r: any) => {
+        if (r.project_id) rpMap.set(r.project_id, (rpMap.get(r.project_id) || 0) + (parseFloat(r.valor) || 0));
+      });
+      const projListMap2 = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+      const rpArr = Array.from(rpMap.entries()).map(([pid, val]) => {
+        const p = projListMap2.get(pid);
+        return { name: p ? `${p.icon || "📁"} ${p.name}` : pid.slice(0, 8), value: val };
+      }).sort((a, b) => b.value - a.value).slice(0, 5);
+      setReceitaPorProjeto(rpArr);
+
+      // Receita por Produto (vendas.produto)
+      const prodMap = new Map<string, number>();
+      (vendasRes.data || []).forEach((v: any) => {
+        const prod = v.produto || "Sem produto";
+        prodMap.set(prod, (prodMap.get(prod) || 0) + (parseFloat(v.valor) || 0));
+      });
+      const COLORS_PIE = ["hsl(var(--primary))", "hsl(142, 71%, 45%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(199, 89%, 48%)", "hsl(340, 82%, 52%)"];
+      setReceitaPorProduto(Array.from(prodMap.entries()).map(([name, value], i) => ({ name, value, fill: COLORS_PIE[i % COLORS_PIE.length] })).sort((a, b) => b.value - a.value).slice(0, 6));
+
+      // ROAS por mês
+      setRoasData(Object.entries(monthMap).map(([month, v]) => {
+        const totalCusto = v.custo + v.ads;
+        return { month: month.slice(5), roas: totalCusto > 0 ? parseFloat((v.receita / totalCusto).toFixed(2)) : 0 };
+      }));
+
       // Recent kanban cards
       const { data: cardsData } = await supabase
         .from("imphq_kanban_cards")
