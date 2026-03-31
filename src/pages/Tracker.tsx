@@ -373,6 +373,15 @@ export default function Tracker() {
             <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Total Clicks" value={String(totalClicks)} />
             <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendas)} />
           </div>
+          {totalGasto === 0 && totalClicks > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+              <p className="text-[11px] text-amber-300">Sem dados de gasto. Os clicks não têm campo <code className="text-amber-400">custo</code> preenchido. Configure gastos via <strong>Finanças → Ads</strong> ou adicione custos nos links.</p>
+            </div>
+          )}
+          {filterProject !== "all" && (
+            <p className="text-xs text-muted-foreground">Filtrando por: <span className="text-primary font-medium">{projectName(filterProject)}</span></p>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICardTarget label="ROAS" value={roas.toFixed(2)} suffix="x" target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`} status={roasStatus} />
             <KPICardTarget label="CPA" value={`R$ ${cpa.toFixed(2)}`} target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`} status={cpaStatus} />
@@ -384,6 +393,9 @@ export default function Tracker() {
             <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(1)}%`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="LTV" value={`R$ ${ltv.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={`R$ ${cac.toFixed(2)}`} />
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border">
+            <span className="text-[10px] text-muted-foreground">📊 <strong>Origem dos dados:</strong> Receita = <code>imphq_vendas</code> (webhooks) · Gasto = <code>imphq_clicks.custo</code> · Clicks = <code>imphq_clicks</code> filtrados por links UTM</span>
           </div>
           {(roasStatus === "bad" || cpaStatus === "bad") && (
             <Card className="border-destructive/50 bg-destructive/5">
