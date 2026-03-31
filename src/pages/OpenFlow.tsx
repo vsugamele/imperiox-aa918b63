@@ -42,7 +42,9 @@ export default function OpenFlow() {
   const [projects, setProjects] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
-  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "" });
+  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" });
+  const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
   const [webhookProject, setWebhookProject] = useState("none");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
