@@ -106,6 +106,14 @@ export default function KanbanPage() {
   // List view collapsed groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
+  // Hide done toggle
+  const [hideDone, setHideDone] = useState(() => localStorage.getItem("kanban_hideDone") === "true");
+
+  // AI Doc generation
+  const [aiDocLoading, setAiDocLoading] = useState(false);
+  const [aiDocResult, setAiDocResult] = useState("");
+  const [showAiDoc, setShowAiDoc] = useState(false);
+
   // Inline create in list view
   const [inlineCreateCol, setInlineCreateCol] = useState<string | null>(null);
   const [inlineCreateTitle, setInlineCreateTitle] = useState("");
