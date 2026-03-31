@@ -385,7 +385,9 @@ Deno.serve(async (req) => {
         if (a.produto && produto && a.produto.toLowerCase() !== produto.toLowerCase()) return false;
         return true;
       });
-        console.log(`[webhook-pagamento] ${automacoes.length} automações encontradas para ${triggerTipo}`);
+
+      if (matched.length > 0) {
+        console.log(`[webhook-pagamento] ${matched.length} automações encontradas para ${triggerTipo}`);
       }
     }
 
