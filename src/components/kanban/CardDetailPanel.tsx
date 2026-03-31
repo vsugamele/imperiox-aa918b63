@@ -407,7 +407,6 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`text-[10px] ${pConfig.color}`}>{pConfig.label}</Badge>
-              <Badge variant="outline" className="text-[10px] capitalize">{card.board}</Badge>
               {project && (
                 <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5 text-primary border-primary/20">
                   <FolderOpen className="h-2.5 w-2.5" /> {project.name}
