@@ -786,6 +786,62 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           )}
         </DialogContent>
       </Dialog>
+      {/* CAPI Token Guide Dialog */}
+      <Dialog open={capiGuideOpen} onOpenChange={setCapiGuideOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">🔑 Como obter o Access Token CAPI</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <p className="font-medium text-xs text-primary mb-1">Passo 1 — Acessar Configurações do Negócio</p>
+              <p className="text-xs text-muted-foreground">
+                Acesse <a href="https://business.facebook.com/settings" target="_blank" rel="noopener noreferrer" className="text-primary underline">business.facebook.com/settings</a> → 
+                No menu lateral, clique em <strong>"Usuários do Sistema"</strong>.
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <p className="font-medium text-xs text-primary mb-1">Passo 2 — Criar Usuário do Sistema</p>
+              <p className="text-xs text-muted-foreground">
+                Clique em <strong>"Adicionar"</strong> → Escolha o nome (ex: "ImperioHQ CAPI") → Função: <strong>Admin</strong> → Clique em "Criar usuário do sistema".
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <p className="font-medium text-xs text-primary mb-1">Passo 3 — Gerar Token de Acesso</p>
+              <p className="text-xs text-muted-foreground">
+                Selecione o usuário criado → Clique em <strong>"Gerar novo token"</strong> → Selecione o App vinculado ao Pixel → Marque as permissões:
+              </p>
+              <ul className="text-[11px] text-muted-foreground mt-1 space-y-0.5 list-disc list-inside">
+                <li><code className="bg-secondary px-1 rounded">ads_management</code></li>
+                <li><code className="bg-secondary px-1 rounded">ads_read</code></li>
+                <li><code className="bg-secondary px-1 rounded">business_management</code></li>
+                <li><code className="bg-secondary px-1 rounded">pages_read_engagement</code></li>
+              </ul>
+            </div>
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <p className="font-medium text-xs text-primary mb-1">Passo 4 — Copiar e Colar</p>
+              <p className="text-xs text-muted-foreground">
+                Copie o token gerado (ele <strong>nunca expira</strong> para Usuários do Sistema) → Cole no campo <strong>"Access Token (CAPI)"</strong> acima.
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <p className="font-medium text-xs text-primary mb-1">Passo 5 — Vincular Ativos</p>
+              <p className="text-xs text-muted-foreground">
+                Ainda em Usuários do Sistema → Clique em <strong>"Adicionar ativos"</strong> → Vincule o <strong>Pixel</strong> e a <strong>Conta de Anúncios</strong> ao usuário com permissão total.
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <p className="font-medium text-xs text-primary mb-1">Passo 6 — Testar</p>
+              <p className="text-xs text-muted-foreground">
+                Preencha o <strong>Pixel ID</strong> e o <strong>Token</strong> → Clique em <strong>"Testar CAPI"</strong> no card acima para validar se os eventos estão sendo recebidos.
+              </p>
+            </div>
+            <div className="p-2 rounded bg-muted text-[10px] text-muted-foreground">
+              💡 O token de Usuário do Sistema não expira. Diferente do token do Graph API Explorer, que dura apenas 1-2 horas.
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
