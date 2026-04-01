@@ -1,54 +1,75 @@
 
 
-# Plano: Custos por Produto + Receita com Qtd/Lucro + Explicação Facebook Ads
+# Plano: Integração Facebook Marketing API + Bug Vendas Duplicadas
 
 ---
 
-## 1. Custos associados ao produto na aba Produtos e no Breakdown
+## 1. Integração automática com Facebook Marketing API
 
-**Problema**: A tabela de Produtos (`FinancasProdutos.tsx`) já recebe `costs` e cruza por `produto_nome`, mas na coluna "Custos" a maioria mostra "—" porque poucos custos têm `produto_nome` preenchido. No breakdown do `FinancasPerformance.tsx`, os cards de produto só mostram Receita, Vendas e Ticket Médio — não mostram custos nem lucro.
+**Objetivo**: Ler campanhas, conjuntos de anúncios, criativos, métricas e enviar eventos de conversão (CAPI) — tudo automaticamente, sem CSV manual.
+
+**Requisitos**: O Facebook Marketing API exige um **Access Token de longa duração** com permissões `ads_read`, `ads_management`, e o **Ad Account ID** (formato `act_XXXXXXX`). Esses dados já existem parcialmente no projeto (o `facebook_access_token` e `facebook_pixel_id` são salvos por projeto no briefing).
+
+### Arquitetura
+
+Nova Edge Function `facebook-ads-sync` que:
+
+1. **Lê campanhas e métricas** do Facebook Marketing API:
+   - `GET /act_{ad_account_id}/campaigns?fields=name,status,objective`
+   - `GET /act_{ad_account_id}/insights?fields=campaign_name,adset_name,ad_name,spend,impressions,reach,clicks,actions&time_range={...}&level=ad&time_increment=1`
+   - Mapeia `actions` do Facebook (onde `action_type=offsite_conversion.fb_pixel_purchase` conta como compras, `lead` como leads, etc.)
+   - Insere/atualiza em `imphq_ads_spend` com os dados do dia
+
+2. **Lê criativos**:
+   - `GET /act_{ad_account_id}/adcreatives?fields=name,thumbnail_url,body,title,image_url,video_id`
+   - Salva no JSONB do projeto ou em nova tabela
+
+3. **Envia eventos CAPI** (já existe parcialmente no `webhook-pagamento`, apenas expor de forma mais acessível)
+
+### Configuração por projeto
+
+Adicionar campos no briefing do projeto (`ProjetoDetalhe.tsx`):
+- `facebook_ad_account_id` (act_XXXXX) — novo campo
+- `facebook_access_token` — já existe
+- Botão "Sincronizar Ads Agora" que chama a Edge Function
+- Toggle "Sincronização automática" (para futuro cron job)
+
+### Novo secret necessário
+
+O token do Facebook já é salvo por projeto no JSONB `data`. Para a Edge Function ler, ela busca o `facebook_access_token` e `facebook_ad_account_id` do projeto.
+
+### Edge Function `facebook-ads-sync`
+
+- Input: `{ project_id, date_from?, date_to? }`
+- Busca o token e ad_account_id do projeto
+- Chama a API do Facebook para insights diários
+- Faz upsert em `imphq_ads_spend` (evita duplicatas por campanha+data)
+- Retorna resumo do que foi importado
+
+### UI no Frontend
+
+- Em `ProjetoFinancas.tsx` (aba Ads): botão "Sincronizar Facebook" ao lado do "Importar CSV"
+- Em `FinancasPerformance.tsx`: substituir o banner de "importar CSV" por "conectado ao Facebook" quando o token estiver configurado
+- Em `ProjetoDetalhe.tsx`: campo `facebook_ad_account_id`
+
+**Arquivos**: `supabase/functions/facebook-ads-sync/index.ts` (novo), `src/pages/ProjetoDetalhe.tsx`, `src/components/projeto/ProjetoFinancas.tsx`, `src/components/financas/FinancasPerformance.tsx`
+
+---
+
+## 2. Bug: Vendas contando mais do que deveria
+
+**Causa raiz**: Dois problemas identificados:
+
+**a) Status inconsistente**: O webhook insere vendas com `status: "aprovado"`, mas os KPIs em Leads.tsx filtram por `"Aprovada" || "aprovada" || "approved"` — nenhum bate com `"aprovado"`. Resultado: as conversões aparecem como 0 nos KPIs de analytics, mas o count total (sem filtro de status) mostra todas.
+
+**b) `leadsByProduct` conta todas as vendas**: Na linha 563, o cálculo de "Leads por Produto" conta TODAS as vendas (incluindo pendentes, pix_gerado, etc.), não apenas aprovadas.
 
 **Solução**:
-- **FinancasProdutos**: Incluir também os custos de Ads (`imphq_ads_spend`) no cálculo por produto. Atualmente só soma `imphq_project_costs` com `produto_nome`. Adicionar uma prop `ads` e distribuir o gasto de ads proporcionalmente ou por campanha quando possível. Também adicionar uma linha de "Custos Ads" separada na tabela (além dos custos operacionais).
-- **FinancasPerformance** (Breakdown por Produto): Adicionar linhas de Custos e Lucro em cada card de produto, cruzando vendas daquele produto com ads do mesmo projeto/período.
-- **ProjetoFinancas**: Passar `ads` como prop para `FinancasProdutos`.
+- Normalizar o filtro de status para incluir `"aprovado"` em todos os cálculos de KPIs (adicionar ao array de checks)
+- Em `leadsByProduct`, filtrar apenas vendas aprovadas
+- No webhook, manter `"aprovado"` como padrão, mas adicionar ao array de verificação no frontend
 
-**Arquivos**: `src/components/financas/FinancasProdutos.tsx`, `src/components/financas/FinancasPerformance.tsx`, `src/components/projeto/ProjetoFinancas.tsx`
-
----
-
-## 2. Receita — campos de Quantidade de Vendas e Lucro no form
-
-**Problema**: O dialog de "Adicionar/Editar Receita" em `ProjetoFinancas.tsx` só tem Descrição, Fonte, Data, Valor, Plataforma, Produto, PIX, Documento. Não tem campo de quantidade de vendas, nem mostra lucro bruto/líquido.
-
-**Solução**:
-- Adicionar campo `quantidade` (número inteiro, default 1) no form de receita
-- Adicionar campo `custo_produto` (valor do custo associado àquela receita, opcional) para calcular lucro
-- Exibir abaixo dos campos um resumo calculado: **Lucro Bruto** = valor × quantidade - custo_produto, **Ticket Médio** = valor / quantidade
-- Na tabela de receitas, adicionar colunas Qtd e Lucro
-- Isso requer adicionar colunas `quantidade` e `custo_produto` na tabela `imphq_project_revenue`
-
-**Arquivos**: `src/components/projeto/ProjetoFinancas.tsx`, migration SQL
-
----
-
-## 3. Explicação clara de como os dados do Facebook chegam
-
-**Problema**: O usuário não entende como os valores do Facebook chegam ao sistema. Atualmente os dados de Ads são 100% manuais (importação de CSV). Não há integração automática com a API do Facebook.
-
-**Solução**: Adicionar um bloco informativo na aba "Ads" e na "Performance" explicando claramente o fluxo:
-
-> **Como os dados do Facebook chegam aqui?**
-> 
-> **Ads (gastos)**: Você exporta o relatório CSV do Gerenciador de Anúncios do Facebook e importa aqui via botão "Importar CSV". Os dados não são puxados automaticamente — é necessário importar periodicamente.
-> 
-> **Vendas**: Chegam automaticamente via webhook de pagamento (Hotmart/Kiwify/Ticto). Quando um cliente compra, o webhook registra a venda com produto, valor e data.
-> 
-> **Performance**: Cruza os dados de Ads importados com as vendas recebidas via webhook para calcular ROAS, CPA e lucro.
-
-Adicionar um card/banner compacto com ícone de info, colapsável, no topo da aba Ads e na Performance.
-
-**Arquivos**: `src/components/projeto/ProjetoFinancas.tsx`, `src/components/financas/FinancasPerformance.tsx`
+**Arquivo**: `src/pages/Leads.tsx`
 
 ---
 
@@ -56,8 +77,9 @@ Adicionar um card/banner compacto com ícone de info, colapsável, no topo da ab
 
 | Arquivo | Ação |
 |---|---|
-| SQL migration | Adicionar `quantidade` (int default 1) e `custo_produto` (numeric default 0) em `imphq_project_revenue` |
-| `src/components/financas/FinancasProdutos.tsx` | Receber prop `ads`, incluir custos ads no cálculo por produto |
-| `src/components/financas/FinancasPerformance.tsx` | Custos e lucro no breakdown por produto + banner explicativo |
-| `src/components/projeto/ProjetoFinancas.tsx` | Campos quantidade/custo no form receita, colunas na tabela, passar ads para Produtos, banner explicativo na aba Ads |
+| `supabase/functions/facebook-ads-sync/index.ts` | Nova Edge Function para ler campaigns/insights/criativos do Facebook |
+| `src/pages/ProjetoDetalhe.tsx` | Campo `facebook_ad_account_id` no briefing |
+| `src/components/projeto/ProjetoFinancas.tsx` | Botão "Sincronizar Facebook" na aba Ads |
+| `src/components/financas/FinancasPerformance.tsx` | Atualizar banner quando Facebook conectado |
+| `src/pages/Leads.tsx` | Fix status filter para incluir "aprovado" + filtrar vendas aprovadas em leadsByProduct |
 
