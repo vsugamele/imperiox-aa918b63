@@ -1,47 +1,37 @@
 
 
-# Plano: Fix Upload Múltiplo + Passo a Passo Token CAPI
+# Plano: Corrigir data de compra usando a data real do webhook
 
 ---
 
-## 1. Bug: Upload múltiplo só salva 1 arquivo
+## Problema
 
-**Causa raiz**: `FileUpload.tsx` chama `onUpload(url)` uma vez por arquivo no loop. No Expert, `addFoto` lê `fotos` do closure atual (stale). Ao subir 3 fotos, as 3 chamadas leem o MESMO array original, e cada PATCH sobrescreve o anterior. Resultado: só a última foto aparece.
+Quando o webhook da Hotmart (ou outra plataforma) chega, o sistema insere a venda (`imphq_vendas`) e o lead (`imphq_leads`) usando `now()` do banco como `created_at`. Se 3 vendas dos dias 24/03 e 01/04 chegam todas no dia 01/04, todas ficam com data 01/04.
 
-Mesmo problema acontece em `ProjetoMidia.tsx` com `addImage`.
-
-**Solução**: Adicionar prop `onUploadMultiple?: (urls: string[]) => void` no `FileUpload`. Quando `multiple=true` e `onUploadMultiple` existe, coletar todas as URLs e chamar uma única vez no final. Fallback para `onUpload` individual se `onUploadMultiple` não for fornecido.
-
-**Arquivos**:
-- `src/components/FileUpload.tsx` — adicionar `onUploadMultiple` prop, coletar URLs em array, chamar no final
-- `src/components/projeto/ProjetoExpert.tsx` — trocar `onUpload` por `onUploadMultiple` que faz `setFotos([...fotos, ...newUrls])` de uma vez
-- `src/components/projeto/ProjetoMidia.tsx` — mesma correção para `addImage` em batch
+O payload da Hotmart traz a data real em `body.data.purchase.approved_date` ou `body.data.purchase.order_date`. O código atual ignora esses campos.
 
 ---
 
-## 2. Passo a passo do Access Token CAPI salvo no sistema
+## Solução
 
-Adicionar um Dialog "Como obter o Token CAPI" acessível no card de integração Facebook Pixel/CAPI dentro do Briefing (`ProjetoBriefing.tsx`). Conteúdo:
+No `parseWebhookBody`, extrair um campo `data_compra` (data real da transacao) de cada plataforma:
 
-1. Acesse business.facebook.com → Configurações do Negócio → Usuários do Sistema
-2. Crie um Usuário do Sistema (tipo Admin)
-3. Clique em "Gerar Token" → selecione o App
-4. Marque permissões: `ads_management`, `ads_read`, `business_management`, `pages_read_engagement`
-5. Gere e copie o token
-6. Cole no campo "Access Token CAPI" do projeto
+- **Hotmart**: `body.data.purchase.approved_date` ou `body.data.purchase.order_date`
+- **Kiwify**: `body.sale_date` ou `body.created_at`
+- **Ticto**: `body.order.created_at` ou `body.order.approved_at`
+- **Generico**: `body.data_compra` ou `body.created_at`
 
-Botão "Como obter?" ao lado do campo `access_token` no card Facebook Pixel.
+Ao inserir em `imphq_vendas`, usar `created_at: data_compra || new Date().toISOString()`.
 
-**Arquivo**: `src/components/projeto/ProjetoBriefing.tsx`
+Ao inserir em `imphq_leads` (novo lead), usar `criado_em: data_compra || undefined` (para que leads antigos tenham a data correta).
+
+Ao inserir em `imphq_events` (jornada), usar `created_at: data_compra` para que a timeline reflita quando o evento realmente aconteceu.
 
 ---
 
-## Arquivos alterados
+## Arquivo alterado
 
-| Arquivo | Ação |
+| Arquivo | Acao |
 |---|---|
-| `src/components/FileUpload.tsx` | Nova prop `onUploadMultiple`, batch de URLs |
-| `src/components/projeto/ProjetoExpert.tsx` | Usar `onUploadMultiple` para adicionar todas as fotos de uma vez |
-| `src/components/projeto/ProjetoMidia.tsx` | Usar `onUploadMultiple` para adicionar todas as imagens de uma vez |
-| `src/components/projeto/ProjetoBriefing.tsx` | Dialog com passo a passo do token CAPI |
+| `supabase/functions/webhook-pagamento/index.ts` | Extrair `data_compra` do payload e usar nos inserts de vendas, leads e eventos |
 
