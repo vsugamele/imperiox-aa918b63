@@ -505,7 +505,9 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <TableHead>Produto</TableHead>
                       <TableHead>Plataforma</TableHead>
                       <TableHead>Data Pgto</TableHead>
+                      <TableHead className="text-right">Qtd</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="text-right">Lucro</TableHead>
                       <TableHead className="w-8"></TableHead>
                       <TableHead className="w-20"></TableHead>
                     </TableRow>
