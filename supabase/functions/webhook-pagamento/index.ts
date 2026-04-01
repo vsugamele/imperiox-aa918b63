@@ -160,9 +160,10 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = body.phone || body.customer?.phone || "";
     valor = parseFloat(body.valor || body.amount || "0");
     produto = body.produto || body.product || "";
+    data_compra = body.data_compra || body.created_at || null;
   }
 
-  return { plataforma, evento, email, nome, phone, valor, produto };
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra };
 }
 
 Deno.serve(async (req) => {
