@@ -322,14 +322,16 @@ Deno.serve(async (req) => {
     const journeyEventName = JOURNEY_EVENT_MAP[evento];
     if (journeyEventName && leadId) {
       try {
-        await supabase.from("imphq_events").insert({
+        const eventInsert: any = {
           event_name: journeyEventName,
           project_id: projectId,
           visitor_id: leadId,
           page_url: `webhook://${plataforma}`,
           event_data: { produto, valor, plataforma, evento },
           utm_source: email?.toLowerCase() || null,
-        });
+        };
+        if (data_compra) eventInsert.created_at = data_compra;
+        await supabase.from("imphq_events").insert(eventInsert);
         // Update ultimo_evento on lead
         const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
         const currentData = (leadData?.data as Record<string, any>) || {};
