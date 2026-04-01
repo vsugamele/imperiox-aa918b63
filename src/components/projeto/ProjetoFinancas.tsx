@@ -675,7 +675,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
         {/* Produtos Tab */}
         <TabsContent value="produtos">
-          <FinancasProdutos vendas={vendas} briefingProdutos={briefingProdutos} revenues={revenues} costs={costs} />
+          <FinancasProdutos vendas={vendas} briefingProdutos={briefingProdutos} revenues={revenues} costs={costs} ads={ads} />
         </TabsContent>
       </Tabs>
 
