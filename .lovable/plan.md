@@ -1,65 +1,38 @@
 
 
-# Plano: Imposto % por Produto + Passo a Passo do Facebook Token
+# Plano: Fix Upload Múltiplo + Passo a Passo Token CAPI
 
 ---
 
-## 1. Campo de % de imposto no Briefing (por produto) e no cálculo financeiro
+## 1. Bug: Upload múltiplo só salva 1 arquivo
 
-**Onde**: No briefing do projeto, cada produto já tem `nome`, `tipo`, `preco`. Adicionar um campo `imposto_pct` (percentual de imposto, ex: 6.49 para Hotmart) no JSONB do produto.
+**Causa raiz**: `FileUpload.tsx` chama `onUpload(url)` uma vez por arquivo no loop. No Expert, `addFoto` lê `fotos` do closure atual (stale). Ao subir 3 fotos, as 3 chamadas leem o MESMO array original, e cada PATCH sobrescreve o anterior. Resultado: só a última foto aparece.
 
-**Briefing** (`ProjetoBriefing.tsx`):
-- No grid de campos do produto (linha ~408), adicionar um 4o campo: **"% Imposto"** com Input type="number" step="0.01", placeholder "Ex: 6.49"
-- Salva como `imposto_pct` no objeto do produto via `updateProduto(i, "imposto_pct", val)`
+Mesmo problema acontece em `ProjetoMidia.tsx` com `addImage`.
 
-**Form de Receita** (`ProjetoFinancas.tsx`):
-- No revForm, adicionar campo `imposto_pct` (default: preenche automaticamente do produto selecionado)
-- Quando o usuário seleciona um produto no form, buscar o `imposto_pct` do briefingProdutos correspondente e preencher
-- No resumo calculado (linhas 815-831), adicionar:
-  - **Imposto**: valor × quantidade × (imposto_pct / 100)
-  - **Lucro Líquido**: Receita Total - Custo Produto - Imposto
-- Na tabela de receitas, adicionar coluna "Imposto" e "Líquido"
+**Solução**: Adicionar prop `onUploadMultiple?: (urls: string[]) => void` no `FileUpload`. Quando `multiple=true` e `onUploadMultiple` existe, coletar todas as URLs e chamar uma única vez no final. Fallback para `onUpload` individual se `onUploadMultiple` não for fornecido.
 
-**FinancasProdutos** (`FinancasProdutos.tsx`):
-- Receber `briefingProdutos` (já recebe) e pegar `imposto_pct` de cada produto
-- Calcular imposto = receita × (imposto_pct / 100) por produto
-- Adicionar coluna "Imposto" e ajustar "Lucro" para deduzir o imposto
-- No KPI geral, mostrar "Lucro Líquido" (receita - custos - ads - impostos)
-
-**Sem migration**: Tudo fica no JSONB do produto (briefing) e nos cálculos frontend.
-
-**Arquivos**: `src/components/projeto/ProjetoBriefing.tsx`, `src/components/projeto/ProjetoFinancas.tsx`, `src/components/financas/FinancasProdutos.tsx`
+**Arquivos**:
+- `src/components/FileUpload.tsx` — adicionar `onUploadMultiple` prop, coletar URLs em array, chamar no final
+- `src/components/projeto/ProjetoExpert.tsx` — trocar `onUpload` por `onUploadMultiple` que faz `setFotos([...fotos, ...newUrls])` de uma vez
+- `src/components/projeto/ProjetoMidia.tsx` — mesma correção para `addImage` em batch
 
 ---
 
-## 2. Passo a passo para configurar o Facebook Token
+## 2. Passo a passo do Access Token CAPI salvo no sistema
 
-Adicionar um Dialog/Guia acessível via botão "Como configurar?" na aba Ads e na integração do Facebook Pixel no Briefing. Conteúdo:
+Adicionar um Dialog "Como obter o Token CAPI" acessível no card de integração Facebook Pixel/CAPI dentro do Briefing (`ProjetoBriefing.tsx`). Conteúdo:
 
-**Passo 1 — Criar App no Meta for Developers**
-1. Acessar https://developers.facebook.com/apps/
-2. Clicar em "Criar App" → tipo "Negócios"
-3. Vincular ao Business Manager
+1. Acesse business.facebook.com → Configurações do Negócio → Usuários do Sistema
+2. Crie um Usuário do Sistema (tipo Admin)
+3. Clique em "Gerar Token" → selecione o App
+4. Marque permissões: `ads_management`, `ads_read`, `business_management`, `pages_read_engagement`
+5. Gere e copie o token
+6. Cole no campo "Access Token CAPI" do projeto
 
-**Passo 2 — Obter o Ad Account ID**
-1. Acessar https://business.facebook.com/settings/ad-accounts
-2. Copiar o número da conta (ex: 123456789)
-3. Colar no campo "Ad Account ID" com prefixo `act_`
+Botão "Como obter?" ao lado do campo `access_token` no card Facebook Pixel.
 
-**Passo 3 — Gerar Access Token de longa duração**
-1. No Meta for Developers → App → Tools → Graph API Explorer
-2. Selecionar permissões: `ads_read`, `ads_management`, `read_insights`
-3. Gerar token de curta duração
-4. Trocar por token de longa duração via URL: `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id={APP_ID}&client_secret={APP_SECRET}&fb_exchange_token={SHORT_TOKEN}`
-5. Colar o token no campo "Access Token CAPI"
-
-**Passo 4 — Testar**
-1. Clicar em "Sincronizar Facebook"
-2. Verificar se os dados aparecem na aba Ads
-
-**Implementação**: Dialog com stepper visual, texto claro e links diretos para cada página do Facebook. Botão "Como configurar?" ao lado do banner de info na aba Ads.
-
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx` (Dialog inline)
+**Arquivo**: `src/components/projeto/ProjetoBriefing.tsx`
 
 ---
 
@@ -67,7 +40,8 @@ Adicionar um Dialog/Guia acessível via botão "Como configurar?" na aba Ads e n
 
 | Arquivo | Ação |
 |---|---|
-| `src/components/projeto/ProjetoBriefing.tsx` | Campo `imposto_pct` por produto |
-| `src/components/projeto/ProjetoFinancas.tsx` | Imposto no form receita + cálculo líquido + Dialog passo a passo Facebook |
-| `src/components/financas/FinancasProdutos.tsx` | Coluna imposto + lucro líquido por produto |
+| `src/components/FileUpload.tsx` | Nova prop `onUploadMultiple`, batch de URLs |
+| `src/components/projeto/ProjetoExpert.tsx` | Usar `onUploadMultiple` para adicionar todas as fotos de uma vez |
+| `src/components/projeto/ProjetoMidia.tsx` | Usar `onUploadMultiple` para adicionar todas as imagens de uma vez |
+| `src/components/projeto/ProjetoBriefing.tsx` | Dialog com passo a passo do token CAPI |
 
