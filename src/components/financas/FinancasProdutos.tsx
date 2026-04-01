@@ -49,21 +49,21 @@ const COLORS = [
   "hsl(280 67% 51%)",
 ];
 
-export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [] }: Props) {
+export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [] }: Props) {
   // Build unified product map from briefing + vendas + revenues
-  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; preco?: string; tipo?: string }>();
+  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string }>();
 
   // Seed from briefing products
   briefingProdutos.forEach(p => {
     if (p.nome) {
-      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, preco: p.preco, tipo: p.tipo });
+      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo });
     }
   });
 
   // Add vendas
   vendas.forEach(v => {
     const name = v.produto_nome || "Sem produto";
-    const cur = productMap.get(name) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0 };
+    const cur = productMap.get(name) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
     cur.qtd += 1;
     cur.receita += v.valor;
     productMap.set(name, cur);
@@ -72,7 +72,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   // Add manual revenues
   revenues.forEach(r => {
     if (r.produto_nome) {
-      const cur = productMap.get(r.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0 };
+      const cur = productMap.get(r.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.receitaManual += r.valor;
       productMap.set(r.produto_nome, cur);
     }
@@ -81,11 +81,27 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   // Add costs
   costs.forEach(c => {
     if (c.produto_nome) {
-      const cur = productMap.get(c.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0 };
+      const cur = productMap.get(c.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.custos += c.valor;
       productMap.set(c.produto_nome, cur);
     }
   });
+
+  // Distribute ads cost proportionally across products by revenue share
+  const totalAdsSpend = ads.reduce((s, a) => s + a.valor, 0);
+  if (totalAdsSpend > 0 && productMap.size > 0) {
+    const totalRevAll = Array.from(productMap.values()).reduce((s, p) => s + p.receita + p.receitaManual, 0);
+    if (totalRevAll > 0) {
+      productMap.forEach((data) => {
+        const share = (data.receita + data.receitaManual) / totalRevAll;
+        data.custosAds = totalAdsSpend * share;
+      });
+    } else {
+      // Distribute equally if no revenue
+      const perProduct = totalAdsSpend / productMap.size;
+      productMap.forEach((data) => { data.custosAds = perProduct; });
+    }
+  }
 
   const products = Array.from(productMap.entries())
     .map(([nome, data]) => ({
@@ -95,7 +111,9 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
       receitaVendas: data.receita,
       receitaManual: data.receitaManual,
       custos: data.custos,
-      lucro: (data.receita + data.receitaManual) - data.custos,
+      custosAds: data.custosAds,
+      custoTotal: data.custos + data.custosAds,
+      lucro: (data.receita + data.receitaManual) - data.custos - data.custosAds,
       ticket: data.qtd > 0 ? data.receita / data.qtd : 0,
       preco: data.preco,
       tipo: data.tipo,
@@ -104,7 +122,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
 
   const totalReceita = products.reduce((a, p) => a + p.receita, 0);
   const totalVendas = products.reduce((a, p) => a + p.qtd, 0);
-  const totalCustos = products.reduce((a, p) => a + p.custos, 0);
+  const totalCustos = products.reduce((a, p) => a + p.custoTotal, 0);
 
   const chartData = products.slice(0, 8).map(p => ({
     name: p.nome.length > 20 ? p.nome.slice(0, 20) + "…" : p.nome,
