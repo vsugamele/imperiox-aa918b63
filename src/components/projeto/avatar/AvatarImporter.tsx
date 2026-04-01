@@ -34,6 +34,21 @@ function parseDesireItems(container: Element | null): any[] {
     }).filter(item => item.nome);
   }
 
+  // V2: .desire-card format (Código da Pele HTML)
+  const desireCards = container.querySelectorAll(".desire-card");
+  if (desireCards.length) {
+    return Array.from(desireCards).map((el, i) => {
+      const nome = extractText(el.querySelector(".desire-name"));
+      const scoreText = extractText(el.querySelector(".desire-score-badge"));
+      const score = parseFloat(scoreText) || 0;
+      const miniScores = Array.from(el.querySelectorAll(".mini-score")).map(m => extractText(m));
+      const justificativa = miniScores.filter(Boolean).join(" · ");
+      const bodyText = extractText(el.querySelector(".desire-body > p"));
+      const tags = Array.from(el.querySelectorAll(".desire-meta .tag")).map(t => extractText(t));
+      return { rank: String(i + 1), nome, score, justificativa, descricao: bodyText, tags };
+    }).filter(item => item.nome);
+  }
+
   // Fallback: .desire-item format
   return Array.from(container.querySelectorAll(".desire-item")).map(el => {
     const rank = extractText(el.querySelector(".desire-rank"));
@@ -129,9 +144,9 @@ function parseAvatarHTML(html: string): any {
   const desejosB3 = doc.querySelector("#desejos-b3, [id*='desejos-b3']");
   const desejosB4 = doc.querySelector("#desejos-b4, [id*='desejos-b4']");
 
-  const externos = parseDesireItems(desejosB2);
-  const internos = parseDesireItems(desejosB3);
-  const proibidos = parseDesireItems(desejosB4);
+  let externos = parseDesireItems(desejosB2);
+  let internos = parseDesireItems(desejosB3);
+  let proibidos = parseDesireItems(desejosB4);
 
   // Fallback with B1
   if (!externos.length && !internos.length && !proibidos.length) {
@@ -150,6 +165,70 @@ function parseAvatarHTML(html: string): any {
       else if (pills.some(p => p.toLowerCase().includes("interno"))) internos.push(item);
       else externos.push(item);
     });
+  }
+
+  // V2 Fallback: .desire-card grouped by <h4> headings (Código da Pele format)
+  if (!externos.length && !internos.length && !proibidos.length) {
+    // Find sections with desire cards and classify by nearest h4/h3 heading
+    const allDesireCards = doc.querySelectorAll(".desire-card");
+    if (allDesireCards.length) {
+      let currentCategory = "externo";
+      // Walk through sibling elements to detect category changes
+      const desireSection = doc.querySelector("#m6, section:has(.desire-card)");
+      if (desireSection) {
+        const children = desireSection.querySelectorAll("h4, .desire-card");
+        children.forEach(el => {
+          if (el.tagName === "H4") {
+            const text = extractText(el).toLowerCase();
+            if (text.includes("interno") || text.includes("proibido")) {
+              currentCategory = text.includes("proibido") ? "proibido" : "interno";
+            } else {
+              currentCategory = "externo";
+            }
+          } else if (el.classList.contains("desire-card")) {
+            const nome = extractText(el.querySelector(".desire-name"));
+            const scoreText = extractText(el.querySelector(".desire-score-badge"));
+            const score = parseFloat(scoreText) || 0;
+            const miniScores = Array.from(el.querySelectorAll(".mini-score")).map(m => extractText(m));
+            const justificativa = miniScores.filter(Boolean).join(" · ");
+            const bodyText = extractText(el.querySelector(".desire-body > p"));
+            const tags = Array.from(el.querySelectorAll(".desire-meta .tag")).map(t => extractText(t).toLowerCase());
+            const item: any = { rank: "", nome, score, justificativa, descricao: bodyText };
+
+            // Check tags for category override
+            if (tags.some(t => t.includes("proibido"))) {
+              proibidos.push(item);
+            } else if (tags.some(t => t.includes("interno")) || currentCategory === "interno") {
+              internos.push(item);
+            } else if (currentCategory === "proibido") {
+              proibidos.push(item);
+            } else {
+              externos.push(item);
+            }
+          }
+        });
+      }
+      // If section traversal didn't work, just parse all
+      if (!externos.length && !internos.length && !proibidos.length) {
+        allDesireCards.forEach((el, i) => {
+          const nome = extractText(el.querySelector(".desire-name"));
+          const scoreText = extractText(el.querySelector(".desire-score-badge"));
+          const score = parseFloat(scoreText) || 0;
+          const miniScores = Array.from(el.querySelectorAll(".mini-score")).map(m => extractText(m));
+          const justificativa = miniScores.filter(Boolean).join(" · ");
+          const bodyText = extractText(el.querySelector(".desire-body > p"));
+          const tags = Array.from(el.querySelectorAll(".desire-meta .tag")).map(t => extractText(t).toLowerCase());
+          const item: any = { rank: String(i + 1), nome, score, justificativa, descricao: bodyText };
+          if (tags.some(t => t.includes("proibido")) || nome.includes("[PROIBIDO]")) {
+            proibidos.push(item);
+          } else if (tags.some(t => t.includes("interno"))) {
+            internos.push(item);
+          } else {
+            externos.push(item);
+          }
+        });
+      }
+    }
   }
 
   if (externos.length) result.desejos_externos = externos;
@@ -202,6 +281,31 @@ function parseAvatarHTML(html: string): any {
     });
   }
 
+  // V2 Voyeurism: .voyeur-card format
+  if (!result.voyerismos?.length) {
+    const voyeurCards = doc.querySelectorAll(".voyeur-card");
+    if (voyeurCards.length) {
+      result.voyerismos = Array.from(voyeurCards).map(card => {
+        const nome = extractText(card.querySelector(".voyeur-title"));
+        const intensidadeBadge = card.querySelector(".intensity-badge");
+        const intensidade = intensidadeBadge ? extractText(intensidadeBadge) : "";
+        const data: any = { nome, intensidade };
+        const rows = card.querySelectorAll(".voyeur-row");
+        rows.forEach(row => {
+          const key = extractText(row.querySelector(".voyeur-key")).toLowerCase();
+          const val = extractText(row.querySelector(".voyeur-val"));
+          if (key.includes("situação") || key.includes("situacao") || key.includes("situaç")) data.situacao = val;
+          if (key.includes("sintoma")) data.sintoma_fisico = val;
+          if (key.includes("pensamento") || key.includes("diz") || key.includes("o que diz")) data.pensamento = val;
+          if (key.includes("comportamento") || key.includes("faz") || key.includes("o que faz") || key.includes("ação") || key.includes("acao")) data.comportamento = val;
+        });
+        const quote = extractText(card.querySelector(".voyeur-quote"));
+        if (quote) data.pensamento = data.pensamento || quote;
+        return data;
+      });
+    }
+  }
+
   // ── Camadas da Psique (C1-C4) — from .card or .acc-card ──
   const camadas: any = {};
 
@@ -231,6 +335,107 @@ function parseAvatarHTML(html: string): any {
     else if (num === "C4" || id.includes("-c4")) camadas.c4_trauma = bodyText || camadas.c4_trauma;
   });
   if (Object.keys(camadas).length) result.camadas_psique = camadas;
+
+  // V2 Camadas: <h3> with "Camada N" text + following .card ul.styled
+  if (!result.camadas_psique || !Object.keys(result.camadas_psique).length) {
+    const v2Camadas: any = {};
+    const m3Section = doc.querySelector("#m3");
+    if (m3Section) {
+      const h3s = m3Section.querySelectorAll("h3");
+      h3s.forEach(h3 => {
+        const text = extractText(h3).toLowerCase();
+        let camadaKey = "";
+        if (text.includes("camada 1") || text.includes("observáveis") || text.includes("observaveis")) camadaKey = "c1_observaveis";
+        else if (text.includes("camada 2") || text.includes("conscientes")) camadaKey = "c2_conscientes";
+        else if (text.includes("camada 3") || text.includes("semiconscientes") || text.includes("subconscientes")) camadaKey = "c3_subconscientes";
+        else if (text.includes("camada 4") || text.includes("profundas") || text.includes("motivações")) camadaKey = "c4_trauma";
+        if (camadaKey) {
+          // Get next .card sibling(s) with ul.styled
+          let sibling = h3.nextElementSibling;
+          const items: string[] = [];
+          while (sibling) {
+            if (sibling.tagName === "H3" || sibling.tagName === "H2") break;
+            if (sibling.classList.contains("card")) {
+              const lis = sibling.querySelectorAll("ul.styled li");
+              lis.forEach(li => {
+                const t = extractText(li);
+                if (t) items.push(t);
+              });
+            }
+            sibling = sibling.nextElementSibling;
+          }
+          if (items.length) v2Camadas[camadaKey] = items.join(" • ");
+        }
+      });
+    }
+    if (Object.keys(v2Camadas).length) result.camadas_psique = v2Camadas;
+  }
+
+  // V2: Extract dores from Camada 2 h4 headings in #m3
+  if (!result.dores_superficiais?.length) {
+    const m3Section = doc.querySelector("#m3");
+    if (m3Section) {
+      const h4s = m3Section.querySelectorAll("h4");
+      h4s.forEach(h4 => {
+        const text = extractText(h4).toLowerCase();
+        if (text.includes("frustr")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length) result.dores_superficiais = items;
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("contradições") || text.includes("contradicoes") || text.includes("rituais") || text.includes("sabotagem")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length && !result.dores_profundas?.length) result.dores_profundas = items.slice(0, 8);
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("vergonha") || text.includes("silenciosas")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length && !result.medos?.length) result.medos = items.slice(0, 5);
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("fantasia")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length) result.fantasias = items;
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("autoengano")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length) result.autoenganos = items;
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+      });
+    }
+  }
 
   // ── Dores de C2 (Frustrações verbalizadas) ──
   const c2El = doc.querySelector("#avatar-c2, [id='avatar-c2']");
@@ -287,6 +492,33 @@ function parseAvatarHTML(html: string): any {
     else if (typeText.includes("epifania")) result.epifania_central = content;
   });
 
+  // V2 Beliefs: from #m5 .sub-field-label + .highlight p
+  if (!result.crenca_bloqueadora) {
+    const m5 = doc.querySelector("#m5");
+    if (m5) {
+      const labels = m5.querySelectorAll(".sub-field-label");
+      labels.forEach(label => {
+        const text = extractText(label).toLowerCase();
+        const nextHighlight = label.nextElementSibling;
+        if (nextHighlight?.classList.contains("highlight")) {
+          const content = extractText(nextHighlight.querySelector("p"));
+          if (text.includes("bloqueadora") && content) result.crenca_bloqueadora = content;
+          else if ((text.includes("necessária") || text.includes("necessaria")) && content) result.crenca_necessaria = content;
+          else if (text.includes("gap") && content) result.gap_ressignificacao = content;
+        }
+      });
+    }
+    // Also from handoff section
+    const handoffRows = doc.querySelectorAll(".handoff-row");
+    handoffRows.forEach(row => {
+      const key = extractText(row.querySelector(".handoff-key")).toLowerCase();
+      const val = extractText(row.querySelector(".handoff-val"));
+      if (key.includes("epifania") && val) result.epifania_central = val;
+      if (key.includes("bloqueadora") && val && !result.crenca_bloqueadora) result.crenca_bloqueadora = val;
+      if (key.includes("necessária") && val && !result.crenca_necessaria) result.crenca_necessaria = val;
+    });
+  }
+
   // ── Ciclo de Sabotagem ──
   const cycleItems = doc.querySelectorAll(".cycle-item");
   if (cycleItems.length) {
@@ -294,6 +526,19 @@ function parseAvatarHTML(html: string): any {
       etapa: extractText(item.querySelector(".cycle-step, .cycle-num, .cycle-label, strong")),
       descricao: extractText(item.querySelector(".cycle-text, .cycle-desc, .cycle-content, p")),
     }));
+  }
+
+  // V2 Ciclo: .cycle-box with .cycle-arrow
+  if (!result.ciclo_sabotagem?.length) {
+    const cycleBoxes = doc.querySelectorAll(".cycle-box");
+    if (cycleBoxes.length) {
+      result.ciclo_sabotagem = Array.from(cycleBoxes).map(box => {
+        const arrows = box.querySelectorAll(".cycle-arrow");
+        const steps = Array.from(arrows).map(a => extractText(a).replace(/^↓\s*/, ""));
+        const firstLine = box.childNodes[0]?.textContent?.trim() || "";
+        return { etapa: firstLine, descricao: steps.join(" → ") };
+      });
+    }
   }
 
   // ── Emotion Flow (.em-step) ──
@@ -304,6 +549,18 @@ function parseAvatarHTML(html: string): any {
       nome: extractText(step.querySelector(".em-name")),
       descricao: extractText(step.querySelector(".em-desc")),
     })).filter(e => e.nome);
+  }
+
+  // V2 Emotion: .emotion-step
+  if (!result.emocoes_sequencia?.length) {
+    const emotionSteps = doc.querySelectorAll(".emotion-step");
+    if (emotionSteps.length) {
+      result.emocoes_sequencia = Array.from(emotionSteps).map(step => ({
+        numero: extractText(step.querySelector(".emotion-num")),
+        nome: extractText(step.querySelector(".emotion-name")),
+        descricao: extractText(step.querySelector(".emotion-quote")),
+      })).filter(e => e.nome);
+    }
   }
 
   // ── Movimentos ──
@@ -358,6 +615,27 @@ function parseAvatarHTML(html: string): any {
     });
   }
 
+  // V2 Handoff: .handoff .handoff-row
+  if (!result.gatilho_nuclear && !result.handoff?.length) {
+    const handoffRows = doc.querySelectorAll(".handoff .handoff-row");
+    if (handoffRows.length) {
+      const handoffList: any[] = [];
+      handoffRows.forEach(row => {
+        const key = extractText(row.querySelector(".handoff-key"));
+        const val = extractText(row.querySelector(".handoff-val"));
+        const keyLower = key.toLowerCase();
+        if (keyLower.includes("nuclear")) result.gatilho_nuclear = val;
+        else if (keyLower.includes("high")) result.the_high = val;
+        else if (keyLower.includes("hell")) result.the_hell = val;
+        else if (keyLower.includes("segredo")) result.segredo_final = val;
+        else if (keyLower.includes("epifania")) result.epifania_central = val;
+        else if (keyLower.includes("diferenciação") || keyLower.includes("diferenciacao")) result.angulo_diferenciacao = val;
+        handoffList.push({ numero: key, texto: val });
+      });
+      if (handoffList.length) result.handoff = handoffList;
+    }
+  }
+
   // ── Headlines (.hl-card) — Copy Arsenal ──
   const hlCards = doc.querySelectorAll(".hl-card");
   if (hlCards.length) {
@@ -375,6 +653,8 @@ function parseAvatarHTML(html: string): any {
       const avatar = extractText(card.querySelector(".ad-avatar"));
       const sections = card.querySelectorAll(".ad-section");
       const data: any = { angulo, avatar_alvo: avatar };
+      
+      // V1: .ad-section with .ad-key/.ad-text
       sections.forEach(s => {
         const key = extractText(s.querySelector(".ad-key")).toLowerCase();
         const text = extractText(s.querySelector(".ad-text, .ad-hook"));
@@ -383,6 +663,31 @@ function parseAvatarHTML(html: string): any {
         else if (key.includes("cta")) data.cta = text;
         else data[key.replace(/\s+/g, "_")] = text;
       });
+
+      // V2: .ad-label + .ad-body with <p><strong>Hook/Corpo/CTA:</strong>
+      if (!data.hook) {
+        const adLabel = extractText(card.querySelector(".ad-label"));
+        if (adLabel) data.angulo = adLabel;
+        const adTag = extractText(card.querySelector(".ad-tag"));
+        if (adTag) data.categoria = adTag;
+        const adBody = card.querySelector(".ad-body");
+        if (adBody) {
+          const paragraphs = adBody.querySelectorAll("p");
+          paragraphs.forEach(p => {
+            const pText = extractText(p);
+            const strongEl = p.querySelector("strong");
+            const strongText = strongEl ? extractText(strongEl).toLowerCase() : "";
+            if (strongText.includes("hook")) {
+              data.hook = pText.replace(/^.*?Hook:\s*/i, "");
+            } else if (strongText.includes("corpo")) {
+              data.corpo = pText.replace(/^.*?Corpo:\s*/i, "");
+            } else if (strongText.includes("cta")) {
+              data.cta = pText.replace(/^.*?CTA:\s*/i, "");
+            }
+          });
+        }
+      }
+
       const cta = extractText(card.querySelector(".ad-cta"));
       if (cta && !data.cta) data.cta = cta;
       return data;
@@ -413,9 +718,34 @@ function parseAvatarHTML(html: string): any {
   // ── Objeções (.obj-card) ──
   const objCards = doc.querySelectorAll(".obj-card");
   if (objCards.length) {
-    result.objecoes = Array.from(objCards)
+    // V1: .obj-q
+    const v1Objs = Array.from(objCards)
       .map(card => extractText(card.querySelector(".obj-q")))
       .filter(Boolean);
+    
+    if (v1Objs.length) {
+      result.objecoes = v1Objs;
+    } else {
+      // V2: .obj-header + .obj-col
+      result.objecoes = Array.from(objCards).map(card => {
+        const pergunta = extractText(card.querySelector(".obj-header"));
+        const cols = card.querySelectorAll(".obj-col");
+        const data: any = { pergunta };
+        cols.forEach(col => {
+          const labels = col.querySelectorAll(".obj-col-label");
+          labels.forEach(label => {
+            const labelText = extractText(label).toLowerCase();
+            const nextP = label.nextElementSibling;
+            const val = nextP ? extractText(nextP) : "";
+            if (labelText.includes("camada") || labelText.includes("significa")) data.camada_real = val;
+            else if (labelText.includes("nunca")) data.nunca_dizer = val;
+            else if (labelText.includes("sempre")) data.sempre_dizer = val;
+            else if (labelText.includes("virada")) data.frase_virada = val;
+          });
+        });
+        return data;
+      }).filter((o: any) => o.pergunta);
+    }
   }
 
   // ── Value Stack (.vs-item) ──
@@ -483,6 +813,23 @@ function parseAvatarHTML(html: string): any {
     });
   }
 
+  // V2 Content Plan: .week-card
+  if (!result.plano_conteudo?.length) {
+    const weekCards = doc.querySelectorAll(".week-card");
+    if (weekCards.length) {
+      result.plano_conteudo = Array.from(weekCards).map(week => {
+        const weekTitle = extractText(week.querySelector(".week-header"));
+        const pieces = Array.from(week.querySelectorAll(".week-piece")).map(piece => ({
+          numero: extractText(piece.querySelector(".week-day")),
+          titulo: extractText(piece.querySelector("span:last-child")) || extractText(piece),
+          hook: "",
+          formato: "",
+        }));
+        return { semana: "", titulo: weekTitle, pecas: pieces };
+      });
+    }
+  }
+
   // ── Word clouds (.word-list .word + .wpill) ──
   // Primary: .wpill elements (classes: .dor, .desejo, .solucao, .validacao)
   const wpillItems = doc.querySelectorAll(".wpill");
@@ -527,6 +874,29 @@ function parseAvatarHTML(html: string): any {
     }
   }
 
+  // V2 Words: .word.pain / .word.desire / .word.solution / .word.validation
+  if (!result.palavras_dor && !result.palavras_desejo) {
+    const v2Words = doc.querySelectorAll(".words .word, .word-section .word");
+    if (v2Words.length) {
+      const palavras_dor: string[] = [];
+      const palavras_desejo: string[] = [];
+      const palavras_solucao: string[] = [];
+      const palavras_valor: string[] = [];
+      v2Words.forEach(w => {
+        const text = extractText(w);
+        if (!text) return;
+        if (w.classList.contains("pain")) palavras_dor.push(text);
+        else if (w.classList.contains("desire")) palavras_desejo.push(text);
+        else if (w.classList.contains("solution")) palavras_solucao.push(text);
+        else if (w.classList.contains("validation")) palavras_valor.push(text);
+      });
+      if (palavras_dor.length) result.palavras_dor = palavras_dor;
+      if (palavras_desejo.length) result.palavras_desejo = palavras_desejo;
+      if (palavras_solucao.length) result.palavras_solucao = palavras_solucao;
+      if (palavras_valor.length) result.palavras_valor = palavras_valor;
+    }
+  }
+
   // ── Frases-gatilho ──
   const frasesGatilho = doc.querySelectorAll(".frase-gatilho");
   if (frasesGatilho.length) {
@@ -544,6 +914,27 @@ function parseAvatarHTML(html: string): any {
     if (frases_decisao.length) result.frases_gatilho_decisao = frases_decisao;
   }
 
+  // V2 Phrases: .phrase-trigger with .phrase-type + .phrase-text
+  if (!result.frases_gatilho_dor?.length && !result.frases_gatilho_desejo?.length) {
+    const phraseTriggers = doc.querySelectorAll(".phrase-trigger");
+    if (phraseTriggers.length) {
+      const frases_dor: string[] = [];
+      const frases_desejo: string[] = [];
+      const frases_decisao: string[] = [];
+      phraseTriggers.forEach(f => {
+        const typeEl = f.querySelector(".phrase-type");
+        const text = extractText(f.querySelector(".phrase-text"));
+        if (!text) return;
+        if (typeEl?.classList.contains("pain")) frases_dor.push(text);
+        else if (typeEl?.classList.contains("desire")) frases_desejo.push(text);
+        else if (typeEl?.classList.contains("decision")) frases_decisao.push(text);
+      });
+      if (frases_dor.length) result.frases_gatilho_dor = frases_dor;
+      if (frases_desejo.length) result.frases_gatilho_desejo = frases_desejo;
+      if (frases_decisao.length) result.frases_gatilho_decisao = frases_decisao;
+    }
+  }
+
   // ── Síntese Final ──
   const sintCards = doc.querySelectorAll(".sint-card");
   if (sintCards.length) {
@@ -553,6 +944,17 @@ function parseAvatarHTML(html: string): any {
     }));
   }
 
+  // V2 Síntese: .strategy-box
+  if (!result.sintese?.length) {
+    const strategyBoxes = doc.querySelectorAll(".strategy-box");
+    if (strategyBoxes.length) {
+      result.sintese = Array.from(strategyBoxes).map(box => ({
+        titulo: extractText(box.querySelector(".strategy-title")),
+        conteudo: extractText(box.querySelector(".strategy-text")),
+      }));
+    }
+  }
+
   // ── Guarantee ──
   const guarantee = doc.querySelector(".guarantee-box");
   if (guarantee) {
@@ -560,6 +962,28 @@ function parseAvatarHTML(html: string): any {
       titulo: extractText(guarantee.querySelector(".gb-title")),
       corpo: extractText(guarantee.querySelector(".gb-body")),
     };
+  }
+
+  // ── Trauma Framework (V2: .trauma-step) ──
+  if (!result.trauma_framework) {
+    const traumaSteps = doc.querySelectorAll(".trauma-step");
+    if (traumaSteps.length) {
+      result.trauma_framework = Array.from(traumaSteps).map(step => {
+        const numero = extractText(step.querySelector(".trauma-circle"));
+        const titulo = extractText(step.querySelector(".trauma-step-title"));
+        const content = step.querySelector(".trauma-content");
+        const paragraphs = content ? Array.from(content.querySelectorAll("p")).map(p => extractText(p)).filter(Boolean) : [];
+        const listItems = content ? Array.from(content.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean) : [];
+        const highlights = content ? Array.from(content.querySelectorAll(".highlight p")).map(p => extractText(p)).filter(Boolean) : [];
+        return {
+          numero,
+          titulo,
+          conteudo: paragraphs.join("\n"),
+          itens: listItems,
+          destaques: highlights,
+        };
+      }).filter(s => s.titulo);
+    }
   }
 
   // ── Sub-avatares completos ──
@@ -607,6 +1031,36 @@ function parseAvatarHTML(html: string): any {
 
     subAvatares.push(sub);
   });
+
+  // V2 Sub-avatares: .sub-card format
+  if (!subAvatares.length) {
+    const subCards = doc.querySelectorAll(".sub-card");
+    subCards.forEach(card => {
+      const nome = extractText(card.querySelector(".sub-card-name"));
+      if (!nome) return;
+      const sub: any = { nome, urgencia: 3, dinheiro: 3 };
+
+      const fields = card.querySelectorAll(".sub-field");
+      fields.forEach(field => {
+        const label = extractText(field.querySelector(".sub-field-label")).toLowerCase();
+        const val = extractText(field.querySelector(".sub-field-value"));
+        if (!val) return;
+        if (label.includes("situação") || label.includes("situacao")) sub.descricao = val;
+        else if (label.includes("dor")) sub.dor_principal = val;
+        else if (label.includes("hook")) sub.hook = val;
+        else if (label.includes("crença bloqueadora") || label.includes("crenca bloqueadora")) sub.crenca_bloqueadora = val;
+        else if (label.includes("crença necessária") || label.includes("crenca necessaria")) sub.crenca_necessaria = val;
+        else if (label.includes("tom")) sub.tom = val;
+        else if (label.includes("asset")) sub.asset_primario = val;
+        else if (label.includes("objeção") || label.includes("objecao")) sub.objecao = val;
+        else if (label.includes("diferença") || label.includes("diferenca")) sub.diferenca_chave = val;
+        else sub[label.replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "")] = val;
+      });
+
+      subAvatares.push(sub);
+    });
+  }
+
   if (subAvatares.length) result.sub_avatares = subAvatares;
 
   if (subAvatares.length && !result.objecoes?.length) {
@@ -692,6 +1146,9 @@ function getImportSummary(data: any): { label: string; count: number; emoji: str
   const singles = ["crenca_bloqueadora", "crenca_necessaria", "epifania_central", "gatilho_nuclear", "the_high", "the_hell"];
   const foundSingles = singles.filter(k => data[k]);
   if (foundSingles.length) items.push({ label: "Crenças & Gatilhos", count: foundSingles.length, emoji: "💡" });
+  if (data.trauma_framework?.length) items.push({ label: "Framework de Trauma", count: data.trauma_framework.length, emoji: "🔥" });
+  if (data.fantasias?.length) items.push({ label: "Fantasias", count: data.fantasias.length, emoji: "🌟" });
+  if (data.autoenganos?.length) items.push({ label: "Autoenganos", count: data.autoenganos.length, emoji: "🎭" });
   return items;
 }
 
