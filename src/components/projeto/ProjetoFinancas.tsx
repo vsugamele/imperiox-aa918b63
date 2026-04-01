@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target, Pencil, Paperclip, ExternalLink, Package, CalendarIcon, Globe, Eye, Users } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { DollarSign, TrendingUp, TrendingDown, Percent, Plus, Trash2, Receipt, Wallet, Megaphone, ShoppingCart, Upload, Target, Pencil, Paperclip, ExternalLink, Package, CalendarIcon, Globe, Eye, Users, Sparkles, Brain, BarChart3, Image, Copy, Loader2, AlertTriangle, CheckCircle, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "@/components/financas/AdsImportDialog";
 import { FileUpload } from "@/components/FileUpload";
@@ -72,6 +75,16 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
   const [events, setEvents] = useState<any[]>([]);
+  // AI Campaign & Analysis states
+  const [showCampaignGen, setShowCampaignGen] = useState(false);
+  const [campaignPrompt, setCampaignPrompt] = useState("");
+  const [campaignModel, setCampaignModel] = useState("google/gemini-3-flash-preview");
+  const [generatingCampaigns, setGeneratingCampaigns] = useState(false);
+  const [campaignDrafts, setCampaignDrafts] = useState<any>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analyzingAds, setAnalyzingAds] = useState(false);
+  const [adsAnalysis, setAdsAnalysis] = useState<any>(null);
+  const [adsSubTab, setAdsSubTab] = useState("dados");
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
@@ -284,6 +297,51 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   };
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const AI_MODELS = [
+    { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
+    { id: "google/gemini-2.5-pro", label: "Gemini Pro" },
+    { id: "openai/gpt-5-mini", label: "GPT-5 Mini" },
+    { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet" },
+  ];
+
+  const handleGenerateCampaigns = async () => {
+    setGeneratingCampaigns(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: projectId, action: "generate_campaign_drafts", model: campaignModel, user_prompt: campaignPrompt || undefined },
+      });
+      if (error) throw error;
+      setCampaignDrafts(data.campaigns);
+      setShowCampaignGen(false);
+      toast.success("Campanhas geradas com sucesso!");
+    } catch (err: any) {
+      if (err?.message?.includes("429")) toast.error("Rate limit excedido. Tente novamente.");
+      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(err.message || "Erro ao gerar campanhas");
+    } finally { setGeneratingCampaigns(false); }
+  };
+
+  const handleAnalyzePerformance = async () => {
+    setAnalyzingAds(true);
+    setShowAnalysis(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: projectId, action: "analyze_ads_performance", model: campaignModel },
+      });
+      if (error) throw error;
+      setAdsAnalysis(data.analysis);
+      toast.success("Análise concluída!");
+    } catch (err: any) {
+      if (err?.message?.includes("429")) toast.error("Rate limit excedido.");
+      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(err.message || "Erro ao analisar");
+      setShowAnalysis(false);
+    } finally { setAnalyzingAds(false); }
+  };
+
+  // Creatives from project data
+  const creatives: any[] = (project?.data?.facebook_creatives || []);
 
   const kpis = [
     { label: "Receita Total", value: fmt(totalReceita), icon: TrendingUp, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
@@ -559,102 +617,251 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">
                   {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? (
-                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Clique em "Sincronizar Facebook" para puxar dados automaticamente, ou importe manualmente via CSV.</>
+                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Sincronize ou importe CSV. Use IA para gerar campanhas e analisar performance.</>
                   ) : (
-                    <><strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Para sincronizar automaticamente, configure o <strong>Access Token</strong> e o <strong>Ad Account ID</strong> na aba de integrações do projeto.</>
+                    <><strong className="text-foreground">Como importar?</strong> Configure Access Token e Ad Account ID nas integrações, ou importe CSV manualmente.</>
                   )}
                 </p>
               </div>
-              <Button size="sm" variant="ghost" className="shrink-0 text-xs text-primary" onClick={() => setShowFbGuide(true)}>Como configurar?</Button>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm uppercase tracking-wider text-blue-400 font-sans flex items-center gap-2">
-                <Megaphone className="h-4 w-4" /> Investimento em Ads
-              </CardTitle>
-              <div className="flex gap-2">
-                {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token && (
-                  <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
-                    toast.info("Sincronizando com Facebook...");
-                    try {
-                      const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: { project_id: projectId } });
-                      if (error) throw error;
-                      if (data?.error) { toast.error(data.error); return; }
-                      toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
-                      loadData();
-                    } catch (e: any) { toast.error("Erro ao sincronizar: " + (e.message || e)); }
-                  }}>
-                    <Globe className="h-3.5 w-3.5 mr-1" /> Sincronizar Facebook
-                  </Button>
-                )}
-                <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
-                  <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
-                </Button>
+              <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="ghost" className="text-xs text-primary" onClick={() => setShowFbGuide(true)}>Como configurar?</Button>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {ads.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
-                    { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
-                    { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
-                    { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
-                  ].map(k => (
-                    <div key={k.label} className="rounded-lg border border-border p-3 bg-secondary/20">
-                      <p className="text-[10px] text-muted-foreground uppercase">{k.label}</p>
-                      <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {ads.length === 0 ? (
-                <div className="text-center py-8 space-y-2">
-                  <Megaphone className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                  <p className="text-sm text-muted-foreground">Nenhum dado de Ads importado</p>
-                  <p className="text-xs text-muted-foreground/70">Importe um relatório CSV do Facebook Ads para começar</p>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Campanha</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Impr.</TableHead>
-                        <TableHead>Cliques</TableHead>
-                        <TableHead>CTR</TableHead>
-                        <TableHead>Compras</TableHead>
-                        <TableHead className="w-8"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {ads.slice(0, 50).map(a => (
-                        <TableRow key={a.id}>
-                          <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
-                          <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
-                          <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
-                          <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
-                          <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
-                          <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
-                          <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
-                          <TableCell>
-                            <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {ads.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {ads.length - 50} registros</p>}
-                </div>
-              )}
             </CardContent>
           </Card>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token && (
+              <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
+                toast.info("Sincronizando com Facebook...");
+                try {
+                  const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: { project_id: projectId } });
+                  if (error) throw error;
+                  if (data?.error) { toast.error(data.error); return; }
+                  toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
+                  loadData();
+                } catch (e: any) { toast.error("Erro ao sincronizar: " + (e.message || e)); }
+              }}>
+                <Globe className="h-3.5 w-3.5 mr-1" /> Sincronizar Facebook
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
+            </Button>
+            <Button size="sm" variant="outline" className="border-primary/30 text-primary hover:bg-primary/10" onClick={() => setShowCampaignGen(true)} disabled={generatingCampaigns}>
+              {generatingCampaigns ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+              Gerar Campanha IA
+            </Button>
+            <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10" onClick={handleAnalyzePerformance} disabled={analyzingAds || ads.length === 0}>
+              {analyzingAds ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5 mr-1" />}
+              Analisar Performance
+            </Button>
+          </div>
+
+          {/* Ads Sub-tabs */}
+          <Tabs value={adsSubTab} onValueChange={setAdsSubTab}>
+            <TabsList className="mb-3">
+              <TabsTrigger value="dados" className="gap-1 text-xs"><Megaphone className="h-3 w-3" /> Dados</TabsTrigger>
+              <TabsTrigger value="criativos" className="gap-1 text-xs"><Image className="h-3 w-3" /> Criativos ({creatives.length})</TabsTrigger>
+              {campaignDrafts && <TabsTrigger value="drafts" className="gap-1 text-xs"><Sparkles className="h-3 w-3" /> Drafts IA</TabsTrigger>}
+            </TabsList>
+
+            {/* Dados sub-tab */}
+            <TabsContent value="dados">
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm uppercase tracking-wider text-blue-400 font-sans flex items-center gap-2">
+                    <Megaphone className="h-4 w-4" /> Investimento em Ads
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {ads.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
+                        { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
+                        { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
+                        { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
+                      ].map(k => (
+                        <div key={k.label} className="rounded-lg border border-border p-3 bg-secondary/20">
+                          <p className="text-[10px] text-muted-foreground uppercase">{k.label}</p>
+                          <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {ads.length === 0 ? (
+                    <div className="text-center py-8 space-y-2">
+                      <Megaphone className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                      <p className="text-sm text-muted-foreground">Nenhum dado de Ads importado</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Campanha</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead>
+                            <TableHead>Impr.</TableHead><TableHead>Cliques</TableHead><TableHead>CTR</TableHead>
+                            <TableHead>Compras</TableHead><TableHead className="w-8"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ads.slice(0, 50).map(a => (
+                            <TableRow key={a.id}>
+                              <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
+                              <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
+                              <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
+                              <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
+                              <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
+                              <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
+                              <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
+                              <TableCell>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {ads.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {ads.length - 50} registros</p>}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Criativos sub-tab */}
+            <TabsContent value="criativos">
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm uppercase tracking-wider text-violet-400 font-sans flex items-center gap-2">
+                    <Image className="h-4 w-4" /> Galeria de Criativos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {creatives.length === 0 ? (
+                    <div className="text-center py-8 space-y-2">
+                      <Image className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                      <p className="text-sm text-muted-foreground">Nenhum criativo sincronizado</p>
+                      <p className="text-xs text-muted-foreground/70">Sincronize com o Facebook para ver os criativos aqui</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {creatives.map((c: any, i: number) => (
+                        <Card key={i} className="bg-secondary/20 border-border overflow-hidden">
+                          {c.thumbnail_url && (
+                            <div className="aspect-video bg-secondary/50 overflow-hidden">
+                              <img src={c.thumbnail_url} alt={c.name || "Criativo"} className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <CardContent className="p-3 space-y-2">
+                            <p className="text-xs font-medium truncate">{c.name || `Criativo ${i + 1}`}</p>
+                            {c.body && (
+                              <p className="text-[10px] text-muted-foreground line-clamp-3">{c.body}</p>
+                            )}
+                            {c.title && (
+                              <Badge variant="outline" className="text-[9px]">{c.title}</Badge>
+                            )}
+                            <div className="flex gap-1">
+                              {c.status && <Badge variant={c.status === "ACTIVE" ? "default" : "secondary"} className="text-[9px]">{c.status}</Badge>}
+                              {(c.body || c.title) && (
+                                <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]" onClick={() => {
+                                  navigator.clipboard.writeText([c.title, c.body].filter(Boolean).join("\n\n"));
+                                  toast.success("Texto copiado!");
+                                }}>
+                                  <Copy className="h-2.5 w-2.5 mr-0.5" /> Copiar
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Drafts IA sub-tab */}
+            {campaignDrafts && (
+              <TabsContent value="drafts">
+                <Card className="bg-card border-border">
+                  <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" /> Campanhas Geradas por IA
+                    </CardTitle>
+                    <Button size="sm" variant="ghost" onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(campaignDrafts, null, 2));
+                      toast.success("Drafts copiados!");
+                    }}>
+                      <Copy className="h-3.5 w-3.5 mr-1" /> Copiar JSON
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {campaignDrafts.resumo_estrategico && (
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 mb-4">
+                        <p className="text-xs font-semibold text-primary mb-1">📋 Resumo Estratégico</p>
+                        <p className="text-xs text-muted-foreground">{campaignDrafts.resumo_estrategico}</p>
+                      </div>
+                    )}
+                    <Accordion type="multiple" className="space-y-2">
+                      {(campaignDrafts.campaigns || []).map((camp: any, i: number) => (
+                        <AccordionItem key={i} value={`camp-${i}`} className="border border-border rounded-lg px-4">
+                          <AccordionTrigger className="text-sm hover:no-underline">
+                            <div className="flex items-center gap-2 text-left">
+                              <Badge variant="outline" className="text-[9px] shrink-0">{camp.objetivo}</Badge>
+                              <span className="font-medium">{camp.nome}</span>
+                              <Badge variant="secondary" className="text-[9px] ml-auto shrink-0">{fmt(camp.budget_diario)}/dia</Badge>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="space-y-3 pt-2">
+                            {/* Público */}
+                            {camp.publico && (
+                              <div className="rounded-lg bg-secondary/30 p-3 space-y-1">
+                                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Público-alvo</p>
+                                <p className="text-xs">📍 {camp.publico.genero} | {camp.publico.idade_min}-{camp.publico.idade_max} anos</p>
+                                {camp.publico.interesses?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {camp.publico.interesses.map((int: string, j: number) => (
+                                      <Badge key={j} variant="outline" className="text-[9px]">{int}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {/* Copies */}
+                            {camp.copies?.map((copy: any, j: number) => (
+                              <div key={j} className="rounded-lg border border-border p-3 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-semibold text-muted-foreground uppercase">Variação {j + 1}</p>
+                                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]" onClick={() => {
+                                    navigator.clipboard.writeText(`${copy.headline}\n\n${copy.texto_primario}\n\nCTA: ${copy.cta}`);
+                                    toast.success("Copy copiada!");
+                                  }}>
+                                    <Copy className="h-2.5 w-2.5 mr-0.5" /> Copiar
+                                  </Button>
+                                </div>
+                                <p className="text-xs font-bold text-foreground">{copy.headline}</p>
+                                <p className="text-xs text-muted-foreground">{copy.texto_primario}</p>
+                                <Badge className="text-[9px]">{copy.cta}</Badge>
+                              </div>
+                            ))}
+                            {camp.sugestao_criativo && (
+                              <p className="text-xs text-muted-foreground"><strong>Criativo sugerido:</strong> {camp.sugestao_criativo}</p>
+                            )}
+                            {camp.justificativa && (
+                              <p className="text-xs text-muted-foreground italic">💡 {camp.justificativa}</p>
+                            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+          </Tabs>
         </TabsContent>
 
         {/* Vendas Tab */}
@@ -959,6 +1166,118 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               <p className="text-xs text-amber-400"><strong>⚠️ Importante:</strong> O token de longa duração dura ~60 dias. Após expirar, será necessário gerar um novo. O token <strong>nunca</strong> é exposto publicamente — é armazenado apenas no JSONB do projeto.</p>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Campaign Generation Dialog */}
+      <Dialog open={showCampaignGen} onOpenChange={setShowCampaignGen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Brain className="h-5 w-5 text-primary" /> Gerar Campanhas com IA</DialogTitle>
+            <DialogDescription>Descreva o que você quer ou deixe a IA decidir com base no contexto do projeto.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
+              <Select value={campaignModel} onValueChange={setCampaignModel}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {AI_MODELS.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Descrição (opcional)</Label>
+              <Textarea value={campaignPrompt} onChange={e => setCampaignPrompt(e.target.value)} placeholder="Ex: 3 campanhas de conversão para mulheres 25-45 interessadas em skincare..." className="bg-secondary min-h-[80px]" />
+            </div>
+            <p className="text-[10px] text-muted-foreground">A IA usará avatar, produtos, copy arsenal e dados de ads como contexto.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setShowCampaignGen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleGenerateCampaigns} disabled={generatingCampaigns} className="gap-1.5">
+              {generatingCampaigns ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {generatingCampaigns ? "Gerando..." : "Gerar Campanhas"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analysis Dialog */}
+      <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-amber-400" /> Análise de Performance</DialogTitle>
+            <DialogDescription>Relatório gerado por IA com base nos dados reais de ads e vendas.</DialogDescription>
+          </DialogHeader>
+          {analyzingAds ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Analisando dados...</p>
+            </div>
+          ) : adsAnalysis ? (
+            <div className="space-y-4">
+              {adsAnalysis.resumo_geral && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-xs font-semibold text-primary mb-1">📊 Resumo Geral</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.resumo_geral}</p>
+                </div>
+              )}
+              {adsAnalysis.melhor_campanha && (
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                  <p className="text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Melhor: {adsAnalysis.melhor_campanha.nome}</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.melhor_campanha.motivo}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 font-mono">{adsAnalysis.melhor_campanha.metricas}</p>
+                </div>
+              )}
+              {adsAnalysis.pior_campanha && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                  <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Pior: {adsAnalysis.pior_campanha.nome}</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.pior_campanha.motivo}</p>
+                  <p className="text-[10px] text-primary mt-1">💡 {adsAnalysis.pior_campanha.sugestao}</p>
+                </div>
+              )}
+              {adsAnalysis.alertas?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Alertas</p>
+                  <div className="space-y-2">
+                    {adsAnalysis.alertas.map((a: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
+                        <Badge variant="outline" className="text-[9px] mb-1">{a.tipo}</Badge>
+                        <p className="text-xs text-muted-foreground">{a.mensagem}</p>
+                        <p className="text-[10px] text-primary mt-1">→ {a.acao_sugerida}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {adsAnalysis.otimizacoes?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1"><Lightbulb className="h-3 w-3" /> Otimizações</p>
+                  <div className="space-y-2">
+                    {adsAnalysis.otimizacoes.map((o: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border p-2">
+                        <p className="text-xs font-medium">{o.area}</p>
+                        <p className="text-xs text-muted-foreground">{o.recomendacao}</p>
+                        <p className="text-[10px] text-emerald-400 mt-1">Impacto: {o.impacto_esperado}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {adsAnalysis.redistribuicao_budget && (
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">💰 Redistribuição de Budget</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.redistribuicao_budget}</p>
+                </div>
+              )}
+              <Button size="sm" variant="outline" className="w-full" onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(adsAnalysis, null, 2));
+                toast.success("Análise copiada!");
+              }}>
+                <Copy className="h-3.5 w-3.5 mr-1" /> Copiar Relatório
+              </Button>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
