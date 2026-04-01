@@ -107,16 +107,26 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
 
   // Product breakdown
   const productBreakdown = useMemo(() => {
-    const map = new Map<string, { produto: string; receita: number; vendas: number }>();
+    const map = new Map<string, { produto: string; receita: number; vendas: number; custos: number }>();
     fVendas.forEach(v => {
       const key = v.produto_nome || "Sem nome";
-      const cur = map.get(key) || { produto: key, receita: 0, vendas: 0 };
+      const cur = map.get(key) || { produto: key, receita: 0, vendas: 0, custos: 0 };
       cur.receita += v.valor;
       cur.vendas += 1;
       map.set(key, cur);
     });
+    // Distribute ads proportionally
+    if (totalAds > 0) {
+      const totalRev = Array.from(map.values()).reduce((s, p) => s + p.receita, 0);
+      if (totalRev > 0) {
+        map.forEach(p => { p.custos = totalAds * (p.receita / totalRev); });
+      } else if (map.size > 0) {
+        const perP = totalAds / map.size;
+        map.forEach(p => { p.custos = perP; });
+      }
+    }
     return Array.from(map.values()).sort((a, b) => b.receita - a.receita);
-  }, [fVendas]);
+  }, [fVendas, totalAds]);
 
   const kpis = [
     { label: "Investido Ads", value: `R$ ${totalAds.toFixed(2)}`, icon: BarChart3, color: "text-red-400" },
