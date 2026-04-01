@@ -98,6 +98,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
 
     const item = body.item || {};
     produto = item.product_name || "";
+    data_compra = order.approved_at || order.created_at || body.created_at || null;
   }
   // ── Ticto v1 (legacy) ──
   else if (body?.tipo_evento || body?.dados) {
