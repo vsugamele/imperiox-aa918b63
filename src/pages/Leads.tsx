@@ -574,7 +574,7 @@ export default function Leads() {
   // Revenue by Product (period)
   const revenueByProduct = useMemo(() => {
     const map = new Map<string, number>();
-    periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").forEach(v => {
+    periodVendas.filter(v => ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"].includes(v.status)).forEach(v => {
       if (!v.produto_nome) return;
       map.set(v.produto_nome, (map.get(v.produto_nome) || 0) + (parseFloat(v.valor) || 0));
     });
