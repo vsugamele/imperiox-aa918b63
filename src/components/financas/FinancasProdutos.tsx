@@ -229,7 +229,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
                 <TableCell className="text-right font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-red-400">{p.custos > 0 ? `R$ ${p.custos.toFixed(2)}` : "—"}</TableCell>
                 <TableCell className="text-right font-mono text-blue-400">{p.custosAds > 0 ? `R$ ${p.custosAds.toFixed(2)}` : "—"}</TableCell>
-                <TableCell className={`text-right font-mono ${p.lucro >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucro.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono text-orange-400">{p.imposto > 0 ? `R$ ${p.imposto.toFixed(2)}` : "—"}{p.imposto_pct > 0 && <span className="text-[9px] text-muted-foreground ml-1">({p.imposto_pct}%)</span>}</TableCell>
+                <TableCell className={`text-right font-mono ${p.lucroLiquido >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucroLiquido.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">R$ {p.ticket.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">
                   {totalReceita > 0 ? ((p.receita / totalReceita) * 100).toFixed(1) : 0}%
