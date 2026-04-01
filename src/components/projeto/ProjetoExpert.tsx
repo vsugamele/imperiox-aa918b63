@@ -103,6 +103,7 @@ export function ProjetoExpert({ project, onUpdateData }: Props) {
                   bucket="project-media"
                   path={`${project.id}/expert`}
                   onUpload={(url) => addFoto(url)}
+                  onUploadMultiple={(urls) => addFotosMultiple(urls)}
                   multiple={true}
                 />
               </div>
