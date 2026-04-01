@@ -209,7 +209,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   const openRevFormForNew = () => {
     setEditingRevenue(null);
-    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
+    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0" });
     setShowRevForm(true);
   };
 
