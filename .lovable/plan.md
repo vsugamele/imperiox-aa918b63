@@ -1,37 +1,23 @@
 
 
-# Plano: Corrigir data de compra usando a data real do webhook
-
----
+# Plano: Corrigir cores não aparecendo na paleta
 
 ## Problema
 
-Quando o webhook da Hotmart (ou outra plataforma) chega, o sistema insere a venda (`imphq_vendas`) e o lead (`imphq_leads`) usando `now()` do banco como `created_at`. Se 3 vendas dos dias 24/03 e 01/04 chegam todas no dia 01/04, todas ficam com data 01/04.
-
-O payload da Hotmart traz a data real em `body.data.purchase.approved_date` ou `body.data.purchase.order_date`. O código atual ignora esses campos.
-
----
+Os valores das cores estão salvos sem o prefixo `#` (ex: `ff4400` em vez de `#ff4400`). O CSS `backgroundColor` precisa do `#` para interpretar como hex. Os swatches ficam sem cor porque `ff4400` não é uma cor CSS válida.
 
 ## Solução
 
-No `parseWebhookBody`, extrair um campo `data_compra` (data real da transacao) de cada plataforma:
+No `ProjetoBranding.tsx`, garantir que o `backgroundColor` sempre inclua o `#`:
 
-- **Hotmart**: `body.data.purchase.approved_date` ou `body.data.purchase.order_date`
-- **Kiwify**: `body.sale_date` ou `body.created_at`
-- **Ticto**: `body.order.created_at` ou `body.order.approved_at`
-- **Generico**: `body.data_compra` ou `body.created_at`
+- Na linha 104, trocar `style={{ backgroundColor: c }}` por `style={{ backgroundColor: c.startsWith('#') ? c : '#' + c }}`
+- Na linha 109, aplicar a mesma normalização no `input.value` para o color picker funcionar
 
-Ao inserir em `imphq_vendas`, usar `created_at: data_compra || new Date().toISOString()`.
-
-Ao inserir em `imphq_leads` (novo lead), usar `criado_em: data_compra || undefined` (para que leads antigos tenham a data correta).
-
-Ao inserir em `imphq_events` (jornada), usar `created_at: data_compra` para que a timeline reflita quando o evento realmente aconteceu.
-
----
+Também normalizar o valor ao salvar (na função `addColorFromPicker` e `editColorSwatch`), para que novos valores sempre incluam `#`.
 
 ## Arquivo alterado
 
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---|---|
-| `supabase/functions/webhook-pagamento/index.ts` | Extrair `data_compra` do payload e usar nos inserts de vendas, leads e eventos |
+| `src/components/projeto/ProjetoBranding.tsx` | Normalizar hex com `#` no render dos swatches e ao salvar |
 
