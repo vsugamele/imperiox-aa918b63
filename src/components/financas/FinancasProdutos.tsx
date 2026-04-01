@@ -51,12 +51,12 @@ const COLORS = [
 
 export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [] }: Props) {
   // Build unified product map from briefing + vendas + revenues
-  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string }>();
+  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string; imposto_pct?: number }>();
 
   // Seed from briefing products
   briefingProdutos.forEach(p => {
     if (p.nome) {
-      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo });
+      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo, imposto_pct: parseFloat(p.imposto_pct) || 0 });
     }
   });
 
@@ -104,25 +104,36 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   }
 
   const products = Array.from(productMap.entries())
-    .map(([nome, data]) => ({
-      nome,
-      qtd: data.qtd,
-      receita: data.receita + data.receitaManual,
-      receitaVendas: data.receita,
-      receitaManual: data.receitaManual,
-      custos: data.custos,
-      custosAds: data.custosAds,
-      custoTotal: data.custos + data.custosAds,
-      lucro: (data.receita + data.receitaManual) - data.custos - data.custosAds,
-      ticket: data.qtd > 0 ? data.receita / data.qtd : 0,
-      preco: data.preco,
-      tipo: data.tipo,
-    }))
+    .map(([nome, data]) => {
+      const receita = data.receita + data.receitaManual;
+      const impPct = data.imposto_pct || 0;
+      const imposto = receita * (impPct / 100);
+      const custoTotal = data.custos + data.custosAds;
+      return {
+        nome,
+        qtd: data.qtd,
+        receita,
+        receitaVendas: data.receita,
+        receitaManual: data.receitaManual,
+        custos: data.custos,
+        custosAds: data.custosAds,
+        custoTotal,
+        imposto,
+        imposto_pct: impPct,
+        lucroBruto: receita - custoTotal,
+        lucroLiquido: receita - custoTotal - imposto,
+        ticket: data.qtd > 0 ? data.receita / data.qtd : 0,
+        preco: data.preco,
+        tipo: data.tipo,
+      };
+    })
     .sort((a, b) => b.receita - a.receita);
 
   const totalReceita = products.reduce((a, p) => a + p.receita, 0);
   const totalVendas = products.reduce((a, p) => a + p.qtd, 0);
   const totalCustos = products.reduce((a, p) => a + p.custoTotal, 0);
+  const totalImpostos = products.reduce((a, p) => a + p.imposto, 0);
+  const totalLiquidoGeral = totalReceita - totalCustos - totalImpostos;
 
   const chartData = products.slice(0, 8).map(p => ({
     name: p.nome.length > 20 ? p.nome.slice(0, 20) + "…" : p.nome,
@@ -132,7 +143,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   return (
     <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Produtos</p>
@@ -153,9 +164,15 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
         </Card>
         <Card className="border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Lucro (Receita - Custos)</p>
-            <p className={`text-2xl font-mono font-bold ${(totalReceita - totalCustos) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              R$ {(totalReceita - totalCustos).toFixed(2)}
+            <p className="text-xs text-muted-foreground">Impostos</p>
+            <p className="text-2xl font-mono font-bold text-orange-400">R$ {totalImpostos.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Lucro Líquido</p>
+            <p className={`text-2xl font-mono font-bold ${totalLiquidoGeral >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              R$ {totalLiquidoGeral.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -195,7 +212,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               <TableHead className="text-right">Receita</TableHead>
               <TableHead className="text-right">Custos Op.</TableHead>
               <TableHead className="text-right">Custos Ads</TableHead>
-              <TableHead className="text-right">Lucro</TableHead>
+              <TableHead className="text-right">Imposto</TableHead>
+              <TableHead className="text-right">Lucro Líq.</TableHead>
               <TableHead className="text-right">Ticket Médio</TableHead>
               <TableHead className="text-right">%</TableHead>
             </TableRow>
@@ -211,7 +229,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
                 <TableCell className="text-right font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-red-400">{p.custos > 0 ? `R$ ${p.custos.toFixed(2)}` : "—"}</TableCell>
                 <TableCell className="text-right font-mono text-blue-400">{p.custosAds > 0 ? `R$ ${p.custosAds.toFixed(2)}` : "—"}</TableCell>
-                <TableCell className={`text-right font-mono ${p.lucro >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucro.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono text-orange-400">{p.imposto > 0 ? `R$ ${p.imposto.toFixed(2)}` : "—"}{p.imposto_pct > 0 && <span className="text-[9px] text-muted-foreground ml-1">({p.imposto_pct}%)</span>}</TableCell>
+                <TableCell className={`text-right font-mono ${p.lucroLiquido >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucroLiquido.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">R$ {p.ticket.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">
                   {totalReceita > 0 ? ((p.receita / totalReceita) * 100).toFixed(1) : 0}%
@@ -219,7 +238,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               </TableRow>
             ))}
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
+              <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

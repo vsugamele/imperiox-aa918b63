@@ -65,7 +65,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [editingCost, setEditingCost] = useState<Cost | null>(null);
   const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
   const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
-  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0" });
+  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0", imposto_pct: "" });
+  const [showFbGuide, setShowFbGuide] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
@@ -209,7 +210,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   const openRevFormForNew = () => {
     setEditingRevenue(null);
-    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0" });
+    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0", imposto_pct: "" });
     setShowRevForm(true);
   };
 
@@ -227,6 +228,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       plataforma: rev.plataforma || "",
       quantidade: String((rev as any).quantidade || 1),
       custo_produto: String((rev as any).custo_produto || 0),
+      imposto_pct: String((rev as any).imposto_pct || ""),
     });
     setShowRevForm(true);
   };
@@ -554,13 +556,16 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
           <Card className={`mb-4 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "border-emerald-500/30 bg-emerald-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
             <CardContent className="p-3 flex items-start gap-3">
               <Megaphone className={`h-4 w-4 mt-0.5 shrink-0 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "text-emerald-400" : "text-blue-400"}`} />
-              <p className="text-xs text-muted-foreground">
-                {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? (
-                  <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Clique em "Sincronizar Facebook" para puxar dados automaticamente, ou importe manualmente via CSV.</>
-                ) : (
-                  <><strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Para sincronizar automaticamente, configure o <strong>Access Token</strong> e o <strong>Ad Account ID</strong> na aba de integrações do projeto.</>
-                )}
-              </p>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">
+                  {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? (
+                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Clique em "Sincronizar Facebook" para puxar dados automaticamente, ou importe manualmente via CSV.</>
+                  ) : (
+                    <><strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Para sincronizar automaticamente, configure o <strong>Access Token</strong> e o <strong>Ad Account ID</strong> na aba de integrações do projeto.</>
+                  )}
+                </p>
+              </div>
+              <Button size="sm" variant="ghost" className="shrink-0 text-xs text-primary" onClick={() => setShowFbGuide(true)}>Como configurar?</Button>
             </CardContent>
           </Card>
           <Card className="bg-card border-border">
@@ -806,30 +811,50 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                 </Select>
               </div>
             </div>
-            <ProductSelect value={revForm.produto_nome} onChange={v => setRevForm({ ...revForm, produto_nome: v })} />
-            <div className="grid grid-cols-2 gap-3">
+            <ProductSelect value={revForm.produto_nome} onChange={v => {
+              const prod = briefingProdutos.find((p: any) => p.nome === v);
+              setRevForm({ ...revForm, produto_nome: v, imposto_pct: prod?.imposto_pct ? String(prod.imposto_pct) : revForm.imposto_pct });
+            }} />
+            <div className="grid grid-cols-3 gap-3">
               <div><Label>Quantidade de Vendas</Label><Input type="number" min="1" value={revForm.quantidade} onChange={e => setRevForm({ ...revForm, quantidade: e.target.value })} placeholder="1" /></div>
               <div><Label>Custo do Produto (R$)</Label><Input type="number" step="0.01" value={revForm.custo_produto} onChange={e => setRevForm({ ...revForm, custo_produto: e.target.value })} placeholder="0.00" /></div>
+              <div><Label>% Imposto</Label><Input type="number" step="0.01" value={revForm.imposto_pct} onChange={e => setRevForm({ ...revForm, imposto_pct: e.target.value })} placeholder="Ex: 6.49" /></div>
             </div>
             {/* Calculated summary */}
-            {(parseFloat(revForm.valor) > 0) && (
-              <div className="rounded-lg border border-border p-3 bg-secondary/20 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Receita Total</span>
-                  <span className="font-mono text-emerald-400">{fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1))}</span>
+            {(parseFloat(revForm.valor) > 0) && (() => {
+              const recTotal = parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1);
+              const custo = parseFloat(revForm.custo_produto) || 0;
+              const impPct = parseFloat(revForm.imposto_pct) || 0;
+              const imposto = recTotal * (impPct / 100);
+              const lucroBruto = recTotal - custo;
+              const lucroLiquido = lucroBruto - imposto;
+              return (
+                <div className="rounded-lg border border-border p-3 bg-secondary/20 space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Receita Total</span>
+                    <span className="font-mono text-emerald-400">{fmt(recTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Lucro Bruto</span>
+                    <span className={`font-mono ${lucroBruto >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmt(lucroBruto)}</span>
+                  </div>
+                  {impPct > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Imposto ({impPct}%)</span>
+                      <span className="font-mono text-orange-400">-{fmt(imposto)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-xs border-t border-border pt-1">
+                    <span className="text-muted-foreground font-semibold">Lucro Líquido</span>
+                    <span className={`font-mono font-semibold ${lucroLiquido >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmt(lucroLiquido)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Ticket Médio</span>
+                    <span className="font-mono text-amber-400">{fmt(parseFloat(revForm.valor))}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Lucro Bruto</span>
-                  <span className={`font-mono ${(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0))}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Ticket Médio</span>
-                  <span className="font-mono text-amber-400">{fmt(parseFloat(revForm.valor))}</span>
-                </div>
-              </div>
-            )}
+              );
+            })()}
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Data Pagamento</Label><Input type="date" value={revForm.data_pagamento} onChange={e => setRevForm({ ...revForm, data_pagamento: e.target.value })} /></div>
               <div><Label>PIX Info (chave/comprovante)</Label><Input value={revForm.pix_info} onChange={e => setRevForm({ ...revForm, pix_info: e.target.value })} placeholder="Chave PIX, nº comprovante..." /></div>
@@ -864,6 +889,78 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
         projects={projects}
         onImported={loadData}
       />
+
+      {/* Facebook Setup Guide Dialog */}
+      <Dialog open={showFbGuide} onOpenChange={setShowFbGuide}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>🔧 Como configurar o Facebook Ads</DialogTitle></DialogHeader>
+          <div className="space-y-6 text-sm">
+            {/* Step 1 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">1</span>
+                <h3 className="font-semibold text-foreground">Criar App no Meta for Developers</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>Acesse <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">developers.facebook.com/apps</a></li>
+                <li>Clique em <strong>"Criar App"</strong> → tipo <strong>"Negócios"</strong></li>
+                <li>Vincule ao seu <strong>Business Manager</strong></li>
+                <li>Na seção "Adicionar Produtos", ative <strong>"Marketing API"</strong></li>
+              </ol>
+            </div>
+
+            {/* Step 2 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
+                <h3 className="font-semibold text-foreground">Obter o Ad Account ID</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>Acesse <a href="https://business.facebook.com/settings/ad-accounts" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Business Settings → Ad Accounts</a></li>
+                <li>Copie o número da conta (ex: <code className="bg-secondary px-1 rounded text-xs">123456789</code>)</li>
+                <li>Cole no campo <strong>"Ad Account ID"</strong> com prefixo <code className="bg-secondary px-1 rounded text-xs">act_</code></li>
+                <li>Resultado: <code className="bg-secondary px-1 rounded text-xs">act_123456789</code></li>
+              </ol>
+            </div>
+
+            {/* Step 3 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">3</span>
+                <h3 className="font-semibold text-foreground">Gerar Access Token de longa duração</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>No Meta for Developers → seu App → <strong>Tools → Graph API Explorer</strong></li>
+                <li>Selecione permissões: <code className="bg-secondary px-1 rounded text-xs">ads_read</code>, <code className="bg-secondary px-1 rounded text-xs">ads_management</code>, <code className="bg-secondary px-1 rounded text-xs">read_insights</code></li>
+                <li>Clique em <strong>"Generate Access Token"</strong> (token de curta duração)</li>
+                <li>Para trocar por token de <strong>longa duração</strong> (60 dias), acesse no navegador:</li>
+              </ol>
+              <div className="bg-secondary/50 rounded-lg p-3 ml-8 text-xs font-mono text-muted-foreground break-all">
+                https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=<span className="text-primary">SEU_APP_ID</span>&client_secret=<span className="text-primary">SEU_APP_SECRET</span>&fb_exchange_token=<span className="text-primary">TOKEN_CURTO</span>
+              </div>
+              <p className="text-xs text-muted-foreground ml-8">O <strong>App ID</strong> e <strong>App Secret</strong> estão em Settings → Basic no painel do app.</p>
+              <p className="text-xs text-muted-foreground ml-8">Cole o token retornado no campo <strong>"Access Token CAPI"</strong> na aba de integrações do projeto.</p>
+            </div>
+
+            {/* Step 4 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">4</span>
+                <h3 className="font-semibold text-foreground">Testar a sincronização</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>Volte para a aba <strong>Ads</strong> neste projeto</li>
+                <li>Clique em <strong>"Sincronizar Facebook"</strong></li>
+                <li>Verifique se os dados de campanhas aparecem na tabela</li>
+              </ol>
+            </div>
+
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-xs text-amber-400"><strong>⚠️ Importante:</strong> O token de longa duração dura ~60 dias. Após expirar, será necessário gerar um novo. O token <strong>nunca</strong> é exposto publicamente — é armazenado apenas no JSONB do projeto.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
