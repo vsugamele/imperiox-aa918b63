@@ -519,7 +519,11 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                         <TableCell>{r.produto_nome && <Badge variant="outline" className="text-[10px]">{r.produto_nome}</Badge>}</TableCell>
                         <TableCell>{r.plataforma && <Badge variant="secondary" className="text-[10px]">{r.plataforma}</Badge>}</TableCell>
                         <TableCell className="text-xs font-mono">{r.data_pagamento ? new Date(r.data_pagamento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{(r as any).quantidade || 1}</TableCell>
                         <TableCell className="text-right font-mono text-sm text-emerald-400">{fmt(r.valor)}</TableCell>
+                        <TableCell className={`text-right font-mono text-xs ${(r.valor * ((r as any).quantidade || 1) - ((r as any).custo_produto || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {fmt(r.valor * ((r as any).quantidade || 1) - ((r as any).custo_produto || 0))}
+                        </TableCell>
                         <TableCell>
                           {r.documento_url && (
                             <a href={r.documento_url} target="_blank" rel="noopener noreferrer" title="Ver documento">
