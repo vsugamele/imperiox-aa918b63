@@ -225,7 +225,7 @@ Deno.serve(async (req) => {
         leadId = lead.id;
       } else {
         const newId = crypto.randomUUID();
-        await supabase.from("imphq_leads").insert({
+        const leadInsert: any = {
           id: newId,
           nome: nome || email,
           email: email.toLowerCase(),
@@ -233,7 +233,9 @@ Deno.serve(async (req) => {
           plataforma,
           status: evento === "compra_aprovada" ? "cliente" : "lead",
           project_id: projectId,
-        });
+        };
+        if (data_compra) leadInsert.criado_em = data_compra;
+        await supabase.from("imphq_leads").insert(leadInsert);
         leadId = newId;
       }
     }
