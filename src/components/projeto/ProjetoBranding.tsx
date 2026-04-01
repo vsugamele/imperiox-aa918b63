@@ -109,7 +109,7 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
                   onClick={() => {
                     const input = document.createElement("input");
                     input.type = "color";
-                    input.value = c;
+                    input.value = normHex(c);
                     input.addEventListener("input", (e) => editColorSwatch(i, (e.target as HTMLInputElement).value));
                     input.click();
                   }}
