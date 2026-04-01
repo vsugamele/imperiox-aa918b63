@@ -112,6 +112,11 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
     if (!url) setNewUrl({ ...newUrl, [cat]: "" });
   };
 
+  const addImagesMultiple = (cat: string, urls: string[]) => {
+    const current = midia[cat] || [];
+    onUpdateData({ ...data, midia: { ...midia, [cat]: [...current, ...urls] } });
+  };
+
   const removeImage = (cat: string, i: number) => {
     const current = midia[cat] || [];
     onUpdateData({ ...data, midia: { ...midia, [cat]: current.filter((_: string, j: number) => j !== i) } });
@@ -265,6 +270,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                     bucket="project-media"
                     path={`${project.id}/${c.key}`}
                     onUpload={(url) => addImage(c.key, url)}
+                    onUploadMultiple={(urls) => addImagesMultiple(c.key, urls)}
                     multiple
                   />
                 </div>

@@ -7,14 +7,15 @@ import { toast } from "sonner";
 interface FileUploadProps {
   bucket: string;
   path: string;
-  onUpload: (url: string) => void;
+  onUpload?: (url: string) => void;
+  onUploadMultiple?: (urls: string[]) => void;
   accept?: string;
   label?: string;
   className?: string;
   multiple?: boolean;
 }
 
-export function FileUpload({ bucket, path, onUpload, accept = "image/*", label, className, multiple = false }: FileUploadProps) {
+export function FileUpload({ bucket, path, onUpload, onUploadMultiple, accept = "image/*", label, className, multiple = false }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadCount, setUploadCount] = useState(0);
@@ -26,6 +27,7 @@ export function FileUpload({ bucket, path, onUpload, accept = "image/*", label, 
     setUploading(true);
     const total = files.length;
     let uploaded = 0;
+    const collectedUrls: string[] = [];
 
     for (let i = 0; i < total; i++) {
       const file = files[i];
@@ -39,9 +41,18 @@ export function FileUpload({ bucket, path, onUpload, accept = "image/*", label, 
       }
 
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      onUpload(urlData.publicUrl);
+      collectedUrls.push(urlData.publicUrl);
       uploaded++;
       setUploadCount(uploaded);
+    }
+
+    // Batch callback for multiple uploads to avoid stale closure issues
+    if (collectedUrls.length > 0) {
+      if (multiple && onUploadMultiple) {
+        onUploadMultiple(collectedUrls);
+      } else {
+        collectedUrls.forEach((url) => onUpload?.(url));
+      }
     }
 
     setUploading(false);

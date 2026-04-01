@@ -31,6 +31,11 @@ export function ProjetoExpert({ project, onUpdateData }: Props) {
     onUpdateData({ ...data, expert: { ...expert, fotos: updated, foto: updated[0] } });
   };
 
+  const addFotosMultiple = (urls: string[]) => {
+    const updated = [...fotos, ...urls];
+    onUpdateData({ ...data, expert: { ...expert, fotos: updated, foto: updated[0] } });
+  };
+
   const removeFoto = (idx: number) => {
     const updated = fotos.filter((_, i) => i !== idx);
     onUpdateData({ ...data, expert: { ...expert, fotos: updated, foto: updated[0] || "" } });
@@ -98,6 +103,7 @@ export function ProjetoExpert({ project, onUpdateData }: Props) {
                   bucket="project-media"
                   path={`${project.id}/expert`}
                   onUpload={(url) => addFoto(url)}
+                  onUploadMultiple={(urls) => addFotosMultiple(urls)}
                   multiple={true}
                 />
               </div>
