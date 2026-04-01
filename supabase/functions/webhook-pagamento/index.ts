@@ -69,6 +69,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   let phone = "";
   let valor = 0;
   let produto = "";
+  let data_compra: string | null = null;
 
   // ── Ticto v2 detection (version field or token in body) ──
   if (body?.version === "2.0" || (body?.token && body?.item && body?.customer)) {
