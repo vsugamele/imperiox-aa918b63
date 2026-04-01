@@ -132,6 +132,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   const totalReceita = products.reduce((a, p) => a + p.receita, 0);
   const totalVendas = products.reduce((a, p) => a + p.qtd, 0);
   const totalCustos = products.reduce((a, p) => a + p.custoTotal, 0);
+  const totalImpostos = products.reduce((a, p) => a + p.imposto, 0);
+  const totalLiquidoGeral = totalReceita - totalCustos - totalImpostos;
 
   const chartData = products.slice(0, 8).map(p => ({
     name: p.nome.length > 20 ? p.nome.slice(0, 20) + "…" : p.nome,
