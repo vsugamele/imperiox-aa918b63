@@ -243,6 +243,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       pix_info: revForm.pix_info || null,
       data_pagamento: revForm.data_pagamento || null,
       plataforma: revForm.plataforma || null,
+      quantidade: parseInt(revForm.quantidade) || 1,
+      custo_produto: parseFloat(revForm.custo_produto) || 0,
     } as any;
 
     if (editingRevenue) {
