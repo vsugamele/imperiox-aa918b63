@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
 
     // Handle purchase
     if (evento === "compra_aprovada" && leadId && valor > 0) {
-      await supabase.from("imphq_vendas").insert({
+      const vendaInsert: any = {
         id: crypto.randomUUID(),
         lead_id: leadId,
         project_id: projectId,
@@ -299,7 +299,9 @@ Deno.serve(async (req) => {
         valor,
         plataforma,
         status: "aprovado",
-      });
+      };
+      if (data_compra) vendaInsert.created_at = data_compra;
+      await supabase.from("imphq_vendas").insert(vendaInsert);
 
       await supabase
         .from("imphq_leads")
