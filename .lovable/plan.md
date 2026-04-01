@@ -1,85 +1,73 @@
 
 
-# Plano: Integração Facebook Marketing API + Bug Vendas Duplicadas
+# Plano: Imposto % por Produto + Passo a Passo do Facebook Token
 
 ---
 
-## 1. Integração automática com Facebook Marketing API
+## 1. Campo de % de imposto no Briefing (por produto) e no cálculo financeiro
 
-**Objetivo**: Ler campanhas, conjuntos de anúncios, criativos, métricas e enviar eventos de conversão (CAPI) — tudo automaticamente, sem CSV manual.
+**Onde**: No briefing do projeto, cada produto já tem `nome`, `tipo`, `preco`. Adicionar um campo `imposto_pct` (percentual de imposto, ex: 6.49 para Hotmart) no JSONB do produto.
 
-**Requisitos**: O Facebook Marketing API exige um **Access Token de longa duração** com permissões `ads_read`, `ads_management`, e o **Ad Account ID** (formato `act_XXXXXXX`). Esses dados já existem parcialmente no projeto (o `facebook_access_token` e `facebook_pixel_id` são salvos por projeto no briefing).
+**Briefing** (`ProjetoBriefing.tsx`):
+- No grid de campos do produto (linha ~408), adicionar um 4o campo: **"% Imposto"** com Input type="number" step="0.01", placeholder "Ex: 6.49"
+- Salva como `imposto_pct` no objeto do produto via `updateProduto(i, "imposto_pct", val)`
 
-### Arquitetura
+**Form de Receita** (`ProjetoFinancas.tsx`):
+- No revForm, adicionar campo `imposto_pct` (default: preenche automaticamente do produto selecionado)
+- Quando o usuário seleciona um produto no form, buscar o `imposto_pct` do briefingProdutos correspondente e preencher
+- No resumo calculado (linhas 815-831), adicionar:
+  - **Imposto**: valor × quantidade × (imposto_pct / 100)
+  - **Lucro Líquido**: Receita Total - Custo Produto - Imposto
+- Na tabela de receitas, adicionar coluna "Imposto" e "Líquido"
 
-Nova Edge Function `facebook-ads-sync` que:
+**FinancasProdutos** (`FinancasProdutos.tsx`):
+- Receber `briefingProdutos` (já recebe) e pegar `imposto_pct` de cada produto
+- Calcular imposto = receita × (imposto_pct / 100) por produto
+- Adicionar coluna "Imposto" e ajustar "Lucro" para deduzir o imposto
+- No KPI geral, mostrar "Lucro Líquido" (receita - custos - ads - impostos)
 
-1. **Lê campanhas e métricas** do Facebook Marketing API:
-   - `GET /act_{ad_account_id}/campaigns?fields=name,status,objective`
-   - `GET /act_{ad_account_id}/insights?fields=campaign_name,adset_name,ad_name,spend,impressions,reach,clicks,actions&time_range={...}&level=ad&time_increment=1`
-   - Mapeia `actions` do Facebook (onde `action_type=offsite_conversion.fb_pixel_purchase` conta como compras, `lead` como leads, etc.)
-   - Insere/atualiza em `imphq_ads_spend` com os dados do dia
+**Sem migration**: Tudo fica no JSONB do produto (briefing) e nos cálculos frontend.
 
-2. **Lê criativos**:
-   - `GET /act_{ad_account_id}/adcreatives?fields=name,thumbnail_url,body,title,image_url,video_id`
-   - Salva no JSONB do projeto ou em nova tabela
-
-3. **Envia eventos CAPI** (já existe parcialmente no `webhook-pagamento`, apenas expor de forma mais acessível)
-
-### Configuração por projeto
-
-Adicionar campos no briefing do projeto (`ProjetoDetalhe.tsx`):
-- `facebook_ad_account_id` (act_XXXXX) — novo campo
-- `facebook_access_token` — já existe
-- Botão "Sincronizar Ads Agora" que chama a Edge Function
-- Toggle "Sincronização automática" (para futuro cron job)
-
-### Novo secret necessário
-
-O token do Facebook já é salvo por projeto no JSONB `data`. Para a Edge Function ler, ela busca o `facebook_access_token` e `facebook_ad_account_id` do projeto.
-
-### Edge Function `facebook-ads-sync`
-
-- Input: `{ project_id, date_from?, date_to? }`
-- Busca o token e ad_account_id do projeto
-- Chama a API do Facebook para insights diários
-- Faz upsert em `imphq_ads_spend` (evita duplicatas por campanha+data)
-- Retorna resumo do que foi importado
-
-### UI no Frontend
-
-- Em `ProjetoFinancas.tsx` (aba Ads): botão "Sincronizar Facebook" ao lado do "Importar CSV"
-- Em `FinancasPerformance.tsx`: substituir o banner de "importar CSV" por "conectado ao Facebook" quando o token estiver configurado
-- Em `ProjetoDetalhe.tsx`: campo `facebook_ad_account_id`
-
-**Arquivos**: `supabase/functions/facebook-ads-sync/index.ts` (novo), `src/pages/ProjetoDetalhe.tsx`, `src/components/projeto/ProjetoFinancas.tsx`, `src/components/financas/FinancasPerformance.tsx`
+**Arquivos**: `src/components/projeto/ProjetoBriefing.tsx`, `src/components/projeto/ProjetoFinancas.tsx`, `src/components/financas/FinancasProdutos.tsx`
 
 ---
 
-## 2. Bug: Vendas contando mais do que deveria
+## 2. Passo a passo para configurar o Facebook Token
 
-**Causa raiz**: Dois problemas identificados:
+Adicionar um Dialog/Guia acessível via botão "Como configurar?" na aba Ads e na integração do Facebook Pixel no Briefing. Conteúdo:
 
-**a) Status inconsistente**: O webhook insere vendas com `status: "aprovado"`, mas os KPIs em Leads.tsx filtram por `"Aprovada" || "aprovada" || "approved"` — nenhum bate com `"aprovado"`. Resultado: as conversões aparecem como 0 nos KPIs de analytics, mas o count total (sem filtro de status) mostra todas.
+**Passo 1 — Criar App no Meta for Developers**
+1. Acessar https://developers.facebook.com/apps/
+2. Clicar em "Criar App" → tipo "Negócios"
+3. Vincular ao Business Manager
 
-**b) `leadsByProduct` conta todas as vendas**: Na linha 563, o cálculo de "Leads por Produto" conta TODAS as vendas (incluindo pendentes, pix_gerado, etc.), não apenas aprovadas.
+**Passo 2 — Obter o Ad Account ID**
+1. Acessar https://business.facebook.com/settings/ad-accounts
+2. Copiar o número da conta (ex: 123456789)
+3. Colar no campo "Ad Account ID" com prefixo `act_`
 
-**Solução**:
-- Normalizar o filtro de status para incluir `"aprovado"` em todos os cálculos de KPIs (adicionar ao array de checks)
-- Em `leadsByProduct`, filtrar apenas vendas aprovadas
-- No webhook, manter `"aprovado"` como padrão, mas adicionar ao array de verificação no frontend
+**Passo 3 — Gerar Access Token de longa duração**
+1. No Meta for Developers → App → Tools → Graph API Explorer
+2. Selecionar permissões: `ads_read`, `ads_management`, `read_insights`
+3. Gerar token de curta duração
+4. Trocar por token de longa duração via URL: `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id={APP_ID}&client_secret={APP_SECRET}&fb_exchange_token={SHORT_TOKEN}`
+5. Colar o token no campo "Access Token CAPI"
 
-**Arquivo**: `src/pages/Leads.tsx`
+**Passo 4 — Testar**
+1. Clicar em "Sincronizar Facebook"
+2. Verificar se os dados aparecem na aba Ads
+
+**Implementação**: Dialog com stepper visual, texto claro e links diretos para cada página do Facebook. Botão "Como configurar?" ao lado do banner de info na aba Ads.
+
+**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx` (Dialog inline)
 
 ---
 
-## Arquivos alterados/criados
+## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| `supabase/functions/facebook-ads-sync/index.ts` | Nova Edge Function para ler campaigns/insights/criativos do Facebook |
-| `src/pages/ProjetoDetalhe.tsx` | Campo `facebook_ad_account_id` no briefing |
-| `src/components/projeto/ProjetoFinancas.tsx` | Botão "Sincronizar Facebook" na aba Ads |
-| `src/components/financas/FinancasPerformance.tsx` | Atualizar banner quando Facebook conectado |
-| `src/pages/Leads.tsx` | Fix status filter para incluir "aprovado" + filtrar vendas aprovadas em leadsByProduct |
+| `src/components/projeto/ProjetoBriefing.tsx` | Campo `imposto_pct` por produto |
+| `src/components/projeto/ProjetoFinancas.tsx` | Imposto no form receita + cálculo líquido + Dialog passo a passo Facebook |
+| `src/components/financas/FinancasProdutos.tsx` | Coluna imposto + lucro líquido por produto |
 
