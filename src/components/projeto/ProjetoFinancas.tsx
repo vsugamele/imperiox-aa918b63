@@ -779,6 +779,29 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             </div>
             <ProductSelect value={revForm.produto_nome} onChange={v => setRevForm({ ...revForm, produto_nome: v })} />
             <div className="grid grid-cols-2 gap-3">
+              <div><Label>Quantidade de Vendas</Label><Input type="number" min="1" value={revForm.quantidade} onChange={e => setRevForm({ ...revForm, quantidade: e.target.value })} placeholder="1" /></div>
+              <div><Label>Custo do Produto (R$)</Label><Input type="number" step="0.01" value={revForm.custo_produto} onChange={e => setRevForm({ ...revForm, custo_produto: e.target.value })} placeholder="0.00" /></div>
+            </div>
+            {/* Calculated summary */}
+            {(parseFloat(revForm.valor) > 0) && (
+              <div className="rounded-lg border border-border p-3 bg-secondary/20 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Receita Total</span>
+                  <span className="font-mono text-emerald-400">{fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1))}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Lucro Bruto</span>
+                  <span className={`font-mono ${(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Ticket Médio</span>
+                  <span className="font-mono text-amber-400">{fmt(parseFloat(revForm.valor))}</span>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
               <div><Label>Data Pagamento</Label><Input type="date" value={revForm.data_pagamento} onChange={e => setRevForm({ ...revForm, data_pagamento: e.target.value })} /></div>
               <div><Label>PIX Info (chave/comprovante)</Label><Input value={revForm.pix_info} onChange={e => setRevForm({ ...revForm, pix_info: e.target.value })} placeholder="Chave PIX, nº comprovante..." /></div>
             </div>
