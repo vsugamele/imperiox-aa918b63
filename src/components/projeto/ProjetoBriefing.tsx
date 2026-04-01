@@ -106,6 +106,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   const checklist = data.integrations_checklist || {};
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [behaviorDialog, setBehaviorDialog] = useState<{ open: boolean; prodIndex: number; loading: boolean; results: any[] }>({ open: false, prodIndex: -1, loading: false, results: [] });
+  const [capiGuideOpen, setCapiGuideOpen] = useState(false);
 
   const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
 
