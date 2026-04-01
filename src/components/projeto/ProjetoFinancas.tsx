@@ -1168,6 +1168,118 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Campaign Generation Dialog */}
+      <Dialog open={showCampaignGen} onOpenChange={setShowCampaignGen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Brain className="h-5 w-5 text-primary" /> Gerar Campanhas com IA</DialogTitle>
+            <DialogDescription>Descreva o que você quer ou deixe a IA decidir com base no contexto do projeto.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
+              <Select value={campaignModel} onValueChange={setCampaignModel}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {AI_MODELS.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Descrição (opcional)</Label>
+              <Textarea value={campaignPrompt} onChange={e => setCampaignPrompt(e.target.value)} placeholder="Ex: 3 campanhas de conversão para mulheres 25-45 interessadas em skincare..." className="bg-secondary min-h-[80px]" />
+            </div>
+            <p className="text-[10px] text-muted-foreground">A IA usará avatar, produtos, copy arsenal e dados de ads como contexto.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setShowCampaignGen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleGenerateCampaigns} disabled={generatingCampaigns} className="gap-1.5">
+              {generatingCampaigns ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {generatingCampaigns ? "Gerando..." : "Gerar Campanhas"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analysis Dialog */}
+      <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-amber-400" /> Análise de Performance</DialogTitle>
+            <DialogDescription>Relatório gerado por IA com base nos dados reais de ads e vendas.</DialogDescription>
+          </DialogHeader>
+          {analyzingAds ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Analisando dados...</p>
+            </div>
+          ) : adsAnalysis ? (
+            <div className="space-y-4">
+              {adsAnalysis.resumo_geral && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-xs font-semibold text-primary mb-1">📊 Resumo Geral</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.resumo_geral}</p>
+                </div>
+              )}
+              {adsAnalysis.melhor_campanha && (
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                  <p className="text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Melhor: {adsAnalysis.melhor_campanha.nome}</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.melhor_campanha.motivo}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 font-mono">{adsAnalysis.melhor_campanha.metricas}</p>
+                </div>
+              )}
+              {adsAnalysis.pior_campanha && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                  <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Pior: {adsAnalysis.pior_campanha.nome}</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.pior_campanha.motivo}</p>
+                  <p className="text-[10px] text-primary mt-1">💡 {adsAnalysis.pior_campanha.sugestao}</p>
+                </div>
+              )}
+              {adsAnalysis.alertas?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Alertas</p>
+                  <div className="space-y-2">
+                    {adsAnalysis.alertas.map((a: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
+                        <Badge variant="outline" className="text-[9px] mb-1">{a.tipo}</Badge>
+                        <p className="text-xs text-muted-foreground">{a.mensagem}</p>
+                        <p className="text-[10px] text-primary mt-1">→ {a.acao_sugerida}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {adsAnalysis.otimizacoes?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1"><Lightbulb className="h-3 w-3" /> Otimizações</p>
+                  <div className="space-y-2">
+                    {adsAnalysis.otimizacoes.map((o: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border p-2">
+                        <p className="text-xs font-medium">{o.area}</p>
+                        <p className="text-xs text-muted-foreground">{o.recomendacao}</p>
+                        <p className="text-[10px] text-emerald-400 mt-1">Impacto: {o.impacto_esperado}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {adsAnalysis.redistribuicao_budget && (
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">💰 Redistribuição de Budget</p>
+                  <p className="text-xs text-muted-foreground">{adsAnalysis.redistribuicao_budget}</p>
+                </div>
+              )}
+              <Button size="sm" variant="outline" className="w-full" onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(adsAnalysis, null, 2));
+                toast.success("Análise copiada!");
+              }}>
+                <Copy className="h-3.5 w-3.5 mr-1" /> Copiar Relatório
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
