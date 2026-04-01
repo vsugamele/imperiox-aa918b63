@@ -34,6 +34,21 @@ function parseDesireItems(container: Element | null): any[] {
     }).filter(item => item.nome);
   }
 
+  // V2: .desire-card format (Código da Pele HTML)
+  const desireCards = container.querySelectorAll(".desire-card");
+  if (desireCards.length) {
+    return Array.from(desireCards).map((el, i) => {
+      const nome = extractText(el.querySelector(".desire-name"));
+      const scoreText = extractText(el.querySelector(".desire-score-badge"));
+      const score = parseFloat(scoreText) || 0;
+      const miniScores = Array.from(el.querySelectorAll(".mini-score")).map(m => extractText(m));
+      const justificativa = miniScores.filter(Boolean).join(" · ");
+      const bodyText = extractText(el.querySelector(".desire-body > p"));
+      const tags = Array.from(el.querySelectorAll(".desire-meta .tag")).map(t => extractText(t));
+      return { rank: String(i + 1), nome, score, justificativa, descricao: bodyText, tags };
+    }).filter(item => item.nome);
+  }
+
   // Fallback: .desire-item format
   return Array.from(container.querySelectorAll(".desire-item")).map(el => {
     const rank = extractText(el.querySelector(".desire-rank"));
