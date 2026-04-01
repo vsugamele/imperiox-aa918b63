@@ -1,71 +1,60 @@
 
 
-# Plano: Funcionalidades inspiradas no Mira Ads para o Imperio HQ
+# Plano: Corrigir parser do Avatar para HTML V2 ("Código da Pele")
 
----
+## Problema
 
-## O que o Mira Ads oferece
+O HTML "Código da Pele" usa uma estrutura CSS completamente diferente do HTML que o parser foi construído para ler (formato JP Freitas). Nenhum seletor bate, então o import resulta em objeto vazio.
 
-O Mira Ads automatiza Meta Ads com: criação de campanhas por linguagem natural, templates reutilizáveis, publicação em lote, otimização de budget com IA, galeria de criativos e dashboard multi-conta.
+## Mapeamento de diferenças (V1 vs V2)
 
-## O que podemos adaptar (3 funcionalidades viáveis)
+```text
+Seção            | Parser espera               | HTML V2 usa
+─────────────────┼─────────────────────────────┼──────────────────────────
+Sub-avatares     | .avatar-card .av-name       | .sub-card .sub-card-name
+                 | .av-row .av-key .av-val     | .sub-field .sub-field-label .sub-field-value
+Voyerismos       | .scene .scene-title         | .voyeur-card .voyeur-title
+                 | .scene-key .scene-val       | .voyeur-key .voyeur-val
+                 | .scene-quote                | .voyeur-quote
+                 | .scene-intensity            | .intensity-badge
+Camadas C1-C4    | .acc-card .acc-num          | <h3>Camada N — ...</h3> + .card ul.styled
+                 | .card .card-label C1/C2     | (sem label, inferido do heading)
+Desejos          | .desejo-card .dc-name       | .desire-card .desire-name
+                 | .dc-score-pill .dc-tag      | .desire-score-badge .mini-score
+                 | #desejos-b2/b3/b4          | <h4> headings (Externos/Internos/Proibidos)
+Ads              | .ad-angle .ad-section       | .ad-label .ad-body p>strong
+                 | .ad-key .ad-text            | (inline bold: Hook/Corpo/CTA)
+Problemas        | #problemas-tabela           | #m7 .score-table (sem ID especial)
+Emoções          | .em-step .em-num .em-name   | .emotion-step .emotion-num .emotion-name
+Palavras         | .wpill .dor/.desejo         | .word .pain/.desire/.solution
+Frases-gatilho   | .frase-gatilho .dor/.des    | .phrase-trigger .phrase-type.pain/.desire
+Crenças          | .belief-box .belief-type     | .sub-field-label + .highlight (inline)
+Síntese          | .sint-card .sint-title       | .strategy-box .strategy-title .strategy-text
+Trauma           | (não suportado)              | .trauma-step .trauma-circle .trauma-content
+Ciclo sabotagem  | .cycle-item .cycle-step      | .cycle-box + .cycle-arrow
+```
 
-Criar campanhas diretamente via API do Facebook exige App Review avançado. Porém, podemos usar IA para **planejar e gerar drafts** de campanhas, otimizar o que já existe e organizar criativos — tudo isso usando o que já temos (OpenRouter, facebook-ads-sync, dados do projeto).
+## Solução
 
----
+Atualizar `parseAvatarHTML()` em `AvatarImporter.tsx` para detectar ambos os formatos. Para cada seção, adicionar seletores fallback para as classes V2:
 
-## 1. Gerador de Campanhas com IA (Drafts)
+1. **Sub-avatares**: Adicionar fallback `.sub-card` → `.sub-card-name` para nome, `.sub-field-label` / `.sub-field-value` para campos
+2. **Voyerismos**: Adicionar fallback `.voyeur-card` → `.voyeur-title`, `.voyeur-key`/`.voyeur-val`, `.voyeur-quote`, `.intensity-badge`
+3. **Camadas C1-C4**: Buscar `<h3>` com texto "Camada N" e coletar os `<li>` dos `.card ul.styled` seguintes
+4. **Desejos**: Adicionar fallback `.desire-card` → `.desire-name`, `.desire-score-badge`, `.mini-score`, classificar por heading `<h4>` (Externos vs Internos vs Proibidos)
+5. **Ads**: Adicionar fallback para `.ad-card .ad-label` + parsear `<p><strong>Hook:</strong>` / `Corpo:` / `CTA:` do `.ad-body`
+6. **Problemas**: Adicionar fallback `#m7 .score-table` ou qualquer `.score-table` dentro de seção com título "Problemas"
+7. **Emoções**: Adicionar `.emotion-step` / `.emotion-num` / `.emotion-name` / `.emotion-quote`
+8. **Palavras**: Adicionar `.word.pain` / `.word.desire` / `.word.solution` / `.word.validation`
+9. **Frases-gatilho**: Adicionar `.phrase-trigger` → `.phrase-type` (pain/desire/decision) + `.phrase-text`
+10. **Crenças**: Buscar `.sub-field-label` com texto "Crença Bloqueadora/Necessária" + próximo `.highlight p`
+11. **Síntese**: Adicionar `.strategy-box` → `.strategy-title` / `.strategy-text`
+12. **Trauma (novo)**: Parsear `.trauma-step` → `.trauma-circle` (número) + `.trauma-step-title` + conteúdo
+13. **Ciclo sabotagem**: Adicionar `.cycle-box` com `.cycle-arrow` como etapas
 
-Botão "Gerar Campanha com IA" na aba Ads do projeto. Abre um Dialog onde o usuário descreve em linguagem natural o que quer (ex: "5 campanhas de conversão para mulheres 25-45 interessadas em skincare"). A IA usa o contexto completo do projeto (avatar, produtos, copy arsenal, dados de ads anteriores) para gerar drafts estruturados com:
+## Arquivo alterado
 
-- Nome da campanha
-- Objetivo (conversão, tráfego, leads)
-- Público-alvo sugerido (interesses, idade, gênero)
-- Budget diário sugerido
-- 2-3 variações de copy (headline + texto primário + CTA)
-- Sugestão de criativos baseada nos criativos do Facebook já sincronizados
-
-Os drafts ficam salvos no JSONB do projeto (`data.campaign_drafts`) para consulta futura. Não publica nada automaticamente — é um planejador.
-
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx` (novo Dialog + botão na aba Ads)
-**Edge Function**: `supabase/functions/openflow-ai/index.ts` (nova action `generate_campaign_drafts`)
-
----
-
-## 2. Consultor de Otimização com IA
-
-Botão "Analisar Performance" na aba Ads. A IA recebe os dados reais de ads sincronizados (spend, CTR, CPC, frequência, conversões) e gera um relatório com:
-
-- Campanhas com melhor e pior ROI
-- Alertas de frequência alta (saturação de público)
-- Sugestões de redistribuição de budget
-- Criativos com melhor CTR vs piores
-- Recomendações de novos públicos baseadas no avatar
-
-Resultado exibido em Dialog com seções colapsáveis e botão copiar.
-
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx` (botão + Dialog de análise)
-**Edge Function**: `supabase/functions/openflow-ai/index.ts` (nova action `analyze_ads_performance`)
-
----
-
-## 3. Galeria de Criativos com métricas
-
-Os criativos já são sincronizados do Facebook (`facebook_creatives` no JSONB do projeto), mas não são exibidos em nenhum lugar. Criar uma sub-aba "Criativos" dentro de Ads que mostra:
-
-- Grid de cards com thumbnail, título e body text de cada criativo
-- Se possível cruzar com dados de ads para mostrar qual criativo performou melhor
-- Botão para copiar o texto do criativo
-- Filtro por status (ativo/pausado) se disponível
-
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx` (nova sub-seção na aba Ads)
-
----
-
-## Resumo de alterações
-
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---|---|
-| `src/components/projeto/ProjetoFinancas.tsx` | Botão "Gerar Campanha IA" + "Analisar Performance" + Galeria de Criativos na aba Ads |
-| `supabase/functions/openflow-ai/index.ts` | Actions `generate_campaign_drafts` e `analyze_ads_performance` com contexto completo |
+| `src/components/projeto/avatar/AvatarImporter.tsx` | Adicionar seletores V2 como fallback em `parseAvatarHTML()` para todas as seções |
 
