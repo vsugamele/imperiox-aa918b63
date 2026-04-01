@@ -75,6 +75,16 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
   const [events, setEvents] = useState<any[]>([]);
+  // AI Campaign & Analysis states
+  const [showCampaignGen, setShowCampaignGen] = useState(false);
+  const [campaignPrompt, setCampaignPrompt] = useState("");
+  const [campaignModel, setCampaignModel] = useState("google/gemini-3-flash-preview");
+  const [generatingCampaigns, setGeneratingCampaigns] = useState(false);
+  const [campaignDrafts, setCampaignDrafts] = useState<any>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analyzingAds, setAnalyzingAds] = useState(false);
+  const [adsAnalysis, setAdsAnalysis] = useState<any>(null);
+  const [adsSubTab, setAdsSubTab] = useState("dados");
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
