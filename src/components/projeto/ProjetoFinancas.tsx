@@ -812,9 +812,10 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               const prod = briefingProdutos.find((p: any) => p.nome === v);
               setRevForm({ ...revForm, produto_nome: v, imposto_pct: prod?.imposto_pct ? String(prod.imposto_pct) : revForm.imposto_pct });
             }} />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div><Label>Quantidade de Vendas</Label><Input type="number" min="1" value={revForm.quantidade} onChange={e => setRevForm({ ...revForm, quantidade: e.target.value })} placeholder="1" /></div>
               <div><Label>Custo do Produto (R$)</Label><Input type="number" step="0.01" value={revForm.custo_produto} onChange={e => setRevForm({ ...revForm, custo_produto: e.target.value })} placeholder="0.00" /></div>
+              <div><Label>% Imposto</Label><Input type="number" step="0.01" value={revForm.imposto_pct} onChange={e => setRevForm({ ...revForm, imposto_pct: e.target.value })} placeholder="Ex: 6.49" /></div>
             </div>
             {/* Calculated summary */}
             {(parseFloat(revForm.valor) > 0) && (
