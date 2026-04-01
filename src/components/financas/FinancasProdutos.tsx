@@ -193,7 +193,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               <TableHead className="text-right">Preço</TableHead>
               <TableHead className="text-right">Vendas</TableHead>
               <TableHead className="text-right">Receita</TableHead>
-              <TableHead className="text-right">Custos</TableHead>
+              <TableHead className="text-right">Custos Op.</TableHead>
+              <TableHead className="text-right">Custos Ads</TableHead>
               <TableHead className="text-right">Lucro</TableHead>
               <TableHead className="text-right">Ticket Médio</TableHead>
               <TableHead className="text-right">%</TableHead>
