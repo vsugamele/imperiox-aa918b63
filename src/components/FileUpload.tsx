@@ -7,7 +7,8 @@ import { toast } from "sonner";
 interface FileUploadProps {
   bucket: string;
   path: string;
-  onUpload: (url: string) => void;
+  onUpload?: (url: string) => void;
+  onUploadMultiple?: (urls: string[]) => void;
   accept?: string;
   label?: string;
   className?: string;
