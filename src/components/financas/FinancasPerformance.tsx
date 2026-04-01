@@ -262,25 +262,36 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {productBreakdown.map(p => (
-                <Card key={p.produto} className="border-border bg-muted/30">
-                  <CardContent className="p-4 space-y-1">
-                    <p className="font-medium text-sm truncate">{p.produto}</p>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Receita</span>
-                      <span className="font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Vendas</span>
-                      <span className="font-mono">{p.vendas}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Ticket Médio</span>
-                      <span className="font-mono">R$ {(p.vendas > 0 ? p.receita / p.vendas : 0).toFixed(2)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {productBreakdown.map(p => {
+                const lucro = p.receita - p.custos;
+                return (
+                  <Card key={p.produto} className="border-border bg-muted/30">
+                    <CardContent className="p-4 space-y-1">
+                      <p className="font-medium text-sm truncate">{p.produto}</p>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Receita</span>
+                        <span className="font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Vendas</span>
+                        <span className="font-mono">{p.vendas}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Custos Ads (proporcional)</span>
+                        <span className="font-mono text-red-400">R$ {p.custos.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Lucro</span>
+                        <span className={`font-mono ${lucro >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {lucro.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Ticket Médio</span>
+                        <span className="font-mono">R$ {(p.vendas > 0 ? p.receita / p.vendas : 0).toFixed(2)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
