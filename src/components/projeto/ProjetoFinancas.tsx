@@ -556,13 +556,16 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
           <Card className={`mb-4 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "border-emerald-500/30 bg-emerald-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
             <CardContent className="p-3 flex items-start gap-3">
               <Megaphone className={`h-4 w-4 mt-0.5 shrink-0 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "text-emerald-400" : "text-blue-400"}`} />
-              <p className="text-xs text-muted-foreground">
-                {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? (
-                  <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Clique em "Sincronizar Facebook" para puxar dados automaticamente, ou importe manualmente via CSV.</>
-                ) : (
-                  <><strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Para sincronizar automaticamente, configure o <strong>Access Token</strong> e o <strong>Ad Account ID</strong> na aba de integrações do projeto.</>
-                )}
-              </p>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">
+                  {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? (
+                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Clique em "Sincronizar Facebook" para puxar dados automaticamente, ou importe manualmente via CSV.</>
+                  ) : (
+                    <><strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Para sincronizar automaticamente, configure o <strong>Access Token</strong> e o <strong>Ad Account ID</strong> na aba de integrações do projeto.</>
+                  )}
+                </p>
+              </div>
+              <Button size="sm" variant="ghost" className="shrink-0 text-xs text-primary" onClick={() => setShowFbGuide(true)}>Como configurar?</Button>
             </CardContent>
           </Card>
           <Card className="bg-card border-border">
