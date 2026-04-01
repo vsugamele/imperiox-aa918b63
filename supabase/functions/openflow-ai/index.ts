@@ -306,3 +306,107 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
   const text = result.choices?.[0]?.message?.content || "";
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
+
+async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string) {
+  const { project_id, user_prompt } = body;
+
+  // Fetch existing ads data for context
+  let adsContext = "";
+  try {
+    const { data: adsData } = await sb.from("imphq_ads_spend").select("campanha, conjunto_anuncios, valor, cliques, leads, compras, ctr, data_ref").eq("project_id", project_id).order("data_ref", { ascending: false }).limit(30);
+    if (adsData?.length) {
+      adsContext = "\n## Dados de Ads recentes:\n" + JSON.stringify(adsData.slice(0, 15), null, 2);
+    }
+  } catch (e) { console.error("Error fetching ads:", e); }
+
+  // Fetch creatives
+  let creativesContext = "";
+  const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+  if (d.facebook_creatives?.length) {
+    creativesContext = "\n## Criativos sincronizados do Facebook:\n" + JSON.stringify(d.facebook_creatives.slice(0, 10), null, 2);
+  }
+
+  // Copy arsenal
+  let copyContext = "";
+  if (d.copy_arsenal) copyContext = "\n## Arsenal de Copy:\n" + JSON.stringify(d.copy_arsenal).slice(0, 1000);
+
+  const systemPrompt = `Você é um media buyer brasileiro de alto nível, especialista em Meta Ads (Facebook/Instagram).
+Analise o contexto completo do projeto, incluindo avatar, produtos, copy arsenal e dados históricos de ads.
+Gere drafts de campanhas prontos para serem criados no Gerenciador de Anúncios.
+${projectContext}${adsContext}${creativesContext}${copyContext}
+REGRAS:
+- Gere campanhas realistas e específicas para este projeto
+- Use a linguagem e tom do projeto
+- Sugira públicos baseados no avatar
+- Considere dados históricos para otimizar`;
+
+  const userMsg = user_prompt || "Gere 3 campanhas de conversão otimizadas para este projeto.";
+
+  const campaigns = await callAI(systemPrompt, userMsg, apiKey, model,
+    [{ type: "function", function: { name: "generate_campaign_drafts", description: "Generate campaign drafts", parameters: { type: "object", properties: {
+      campaigns: { type: "array", items: { type: "object", properties: {
+        nome: { type: "string" },
+        objetivo: { type: "string", enum: ["conversao", "trafego", "leads", "alcance", "engajamento"] },
+        budget_diario: { type: "number" },
+        publico: { type: "object", properties: {
+          idade_min: { type: "number" }, idade_max: { type: "number" },
+          genero: { type: "string", enum: ["todos", "masculino", "feminino"] },
+          interesses: { type: "array", items: { type: "string" } },
+          exclusoes: { type: "array", items: { type: "string" } },
+        }, required: ["idade_min", "idade_max", "genero", "interesses"], additionalProperties: false },
+        copies: { type: "array", items: { type: "object", properties: {
+          headline: { type: "string" }, texto_primario: { type: "string" }, cta: { type: "string" },
+        }, required: ["headline", "texto_primario", "cta"], additionalProperties: false } },
+        sugestao_criativo: { type: "string" },
+        justificativa: { type: "string" },
+      }, required: ["nome", "objetivo", "budget_diario", "publico", "copies", "justificativa"], additionalProperties: false } },
+      resumo_estrategico: { type: "string" },
+    }, required: ["campaigns", "resumo_estrategico"], additionalProperties: false } } }],
+    "generate_campaign_drafts"
+  );
+  if (campaigns instanceof Response) return campaigns;
+  return new Response(JSON.stringify({ campaigns }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function handleAnalyzeAds(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string) {
+  const { project_id } = body;
+
+  // Fetch all ads data
+  const { data: adsData } = await sb.from("imphq_ads_spend").select("*").eq("project_id", project_id).order("data_ref", { ascending: false }).limit(100);
+  const { data: vendasData } = await sb.from("imphq_vendas").select("produto_nome, valor, status, data_venda").eq("project_id", project_id).eq("status", "aprovado").limit(100);
+
+  const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+  let creativesInfo = "";
+  if (d.facebook_creatives?.length) creativesInfo = "\n## Criativos:\n" + JSON.stringify(d.facebook_creatives.slice(0, 10), null, 2);
+
+  const systemPrompt = `Você é um analista de performance de anúncios brasileiro especialista em Meta Ads.
+Analise os dados REAIS de ads e vendas deste projeto e gere um relatório completo de otimização.
+${projectContext}
+## Dados de Ads:
+${JSON.stringify(adsData || [], null, 2)}
+## Vendas aprovadas:
+${JSON.stringify(vendasData || [], null, 2)}
+${creativesInfo}
+REGRAS:
+- Use dados reais, não invente números
+- Identifique padrões claros
+- Dê recomendações acionáveis e específicas
+- Compare métricas com benchmarks do mercado brasileiro`;
+
+  const analysis = await callAI(systemPrompt,
+    "Analise a performance completa dos anúncios e gere recomendações de otimização.",
+    apiKey, model,
+    [{ type: "function", function: { name: "analyze_ads_performance", description: "Analyze ads performance", parameters: { type: "object", properties: {
+      resumo_geral: { type: "string" },
+      melhor_campanha: { type: "object", properties: { nome: { type: "string" }, motivo: { type: "string" }, metricas: { type: "string" } }, required: ["nome", "motivo", "metricas"], additionalProperties: false },
+      pior_campanha: { type: "object", properties: { nome: { type: "string" }, motivo: { type: "string" }, sugestao: { type: "string" } }, required: ["nome", "motivo", "sugestao"], additionalProperties: false },
+      alertas: { type: "array", items: { type: "object", properties: { tipo: { type: "string", enum: ["frequencia_alta", "ctr_baixo", "cpc_alto", "budget_mal_distribuido", "criativo_saturado", "outro"] }, mensagem: { type: "string" }, acao_sugerida: { type: "string" } }, required: ["tipo", "mensagem", "acao_sugerida"], additionalProperties: false } },
+      otimizacoes: { type: "array", items: { type: "object", properties: { area: { type: "string" }, recomendacao: { type: "string" }, impacto_esperado: { type: "string" } }, required: ["area", "recomendacao", "impacto_esperado"], additionalProperties: false } },
+      novos_publicos: { type: "array", items: { type: "object", properties: { nome: { type: "string" }, descricao: { type: "string" }, interesses: { type: "array", items: { type: "string" } } }, required: ["nome", "descricao", "interesses"], additionalProperties: false } },
+      redistribuicao_budget: { type: "string" },
+    }, required: ["resumo_geral", "alertas", "otimizacoes"], additionalProperties: false } } }],
+    "analyze_ads_performance"
+  );
+  if (analysis instanceof Response) return analysis;
+  return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
