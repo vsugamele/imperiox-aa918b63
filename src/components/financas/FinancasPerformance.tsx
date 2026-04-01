@@ -139,6 +139,18 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Info banner */}
+      <Card className="border-blue-500/30 bg-blue-500/5">
+        <CardContent className="p-4 flex items-start gap-3">
+          <BarChart3 className="h-5 w-5 text-blue-400 mt-0.5 shrink-0" />
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground text-sm">Como os dados chegam aqui?</p>
+            <p><strong className="text-blue-400">Ads (gastos):</strong> Exporta o CSV do Gerenciador de Anúncios e importa via "Importar CSV" na aba Ads do projeto.</p>
+            <p><strong className="text-emerald-400">Vendas:</strong> Chegam automaticamente via webhook de pagamento (Hotmart/Kiwify/Ticto).</p>
+            <p><strong className="text-amber-400">Performance:</strong> Cruza Ads importados com vendas recebidas para calcular ROAS, CPA e lucro.</p>
+          </div>
+        </CardContent>
+      </Card>
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Select value={filterProject} onValueChange={setFilterProject}>

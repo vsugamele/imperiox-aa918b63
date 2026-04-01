@@ -210,6 +210,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
                 <TableCell className="text-right font-mono">{p.qtd}</TableCell>
                 <TableCell className="text-right font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-red-400">{p.custos > 0 ? `R$ ${p.custos.toFixed(2)}` : "—"}</TableCell>
+                <TableCell className="text-right font-mono text-blue-400">{p.custosAds > 0 ? `R$ ${p.custosAds.toFixed(2)}` : "—"}</TableCell>
                 <TableCell className={`text-right font-mono ${p.lucro >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucro.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">R$ {p.ticket.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">
@@ -218,7 +219,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               </TableRow>
             ))}
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

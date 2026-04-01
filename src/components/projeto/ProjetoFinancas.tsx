@@ -550,6 +550,15 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
         {/* Ads Tab */}
         <TabsContent value="ads">
+          {/* Info banner */}
+          <Card className="border-blue-500/30 bg-blue-500/5 mb-4">
+            <CardContent className="p-3 flex items-start gap-3">
+              <Megaphone className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Os dados não são puxados automaticamente.
+              </p>
+            </CardContent>
+          </Card>
           <Card className="bg-card border-border">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-sm uppercase tracking-wider text-blue-400 font-sans flex items-center gap-2">
