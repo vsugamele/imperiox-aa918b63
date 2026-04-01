@@ -539,8 +539,9 @@ export default function Leads() {
   // KPIs for period
   const periodKPIs = useMemo(() => {
     const newLeads = periodLeads.length;
-    const conversions = periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").length;
-    const revenue = periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved")
+    const isApproved = (s: string) => ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"].includes(s);
+    const conversions = periodVendas.filter(v => isApproved(v.status)).length;
+    const revenue = periodVendas.filter(v => isApproved(v.status))
       .reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
     const avgTicket = conversions > 0 ? revenue / conversions : 0;
     const convRate = newLeads > 0 ? (conversions / newLeads * 100) : 0;
