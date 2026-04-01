@@ -1146,6 +1146,9 @@ function getImportSummary(data: any): { label: string; count: number; emoji: str
   const singles = ["crenca_bloqueadora", "crenca_necessaria", "epifania_central", "gatilho_nuclear", "the_high", "the_hell"];
   const foundSingles = singles.filter(k => data[k]);
   if (foundSingles.length) items.push({ label: "Crenças & Gatilhos", count: foundSingles.length, emoji: "💡" });
+  if (data.trauma_framework?.length) items.push({ label: "Framework de Trauma", count: data.trauma_framework.length, emoji: "🔥" });
+  if (data.fantasias?.length) items.push({ label: "Fantasias", count: data.fantasias.length, emoji: "🌟" });
+  if (data.autoenganos?.length) items.push({ label: "Autoenganos", count: data.autoenganos.length, emoji: "🎭" });
   return items;
 }
 
