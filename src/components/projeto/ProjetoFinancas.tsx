@@ -298,6 +298,51 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  const AI_MODELS = [
+    { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
+    { id: "google/gemini-2.5-pro", label: "Gemini Pro" },
+    { id: "openai/gpt-5-mini", label: "GPT-5 Mini" },
+    { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet" },
+  ];
+
+  const handleGenerateCampaigns = async () => {
+    setGeneratingCampaigns(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: projectId, action: "generate_campaign_drafts", model: campaignModel, user_prompt: campaignPrompt || undefined },
+      });
+      if (error) throw error;
+      setCampaignDrafts(data.campaigns);
+      setShowCampaignGen(false);
+      toast.success("Campanhas geradas com sucesso!");
+    } catch (err: any) {
+      if (err?.message?.includes("429")) toast.error("Rate limit excedido. Tente novamente.");
+      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(err.message || "Erro ao gerar campanhas");
+    } finally { setGeneratingCampaigns(false); }
+  };
+
+  const handleAnalyzePerformance = async () => {
+    setAnalyzingAds(true);
+    setShowAnalysis(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: projectId, action: "analyze_ads_performance", model: campaignModel },
+      });
+      if (error) throw error;
+      setAdsAnalysis(data.analysis);
+      toast.success("Análise concluída!");
+    } catch (err: any) {
+      if (err?.message?.includes("429")) toast.error("Rate limit excedido.");
+      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(err.message || "Erro ao analisar");
+      setShowAnalysis(false);
+    } finally { setAnalyzingAds(false); }
+  };
+
+  // Creatives from project data
+  const creatives: any[] = (project?.data?.facebook_creatives || []);
+
   const kpis = [
     { label: "Receita Total", value: fmt(totalReceita), icon: TrendingUp, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
     { label: "Custo Total", value: fmt(totalCusto), icon: TrendingDown, color: "text-red-400", bg: "from-red-500/15 to-red-500/5" },
