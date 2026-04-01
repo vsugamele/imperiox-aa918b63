@@ -889,6 +889,78 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
         projects={projects}
         onImported={loadData}
       />
+
+      {/* Facebook Setup Guide Dialog */}
+      <Dialog open={showFbGuide} onOpenChange={setShowFbGuide}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>🔧 Como configurar o Facebook Ads</DialogTitle></DialogHeader>
+          <div className="space-y-6 text-sm">
+            {/* Step 1 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">1</span>
+                <h3 className="font-semibold text-foreground">Criar App no Meta for Developers</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>Acesse <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">developers.facebook.com/apps</a></li>
+                <li>Clique em <strong>"Criar App"</strong> → tipo <strong>"Negócios"</strong></li>
+                <li>Vincule ao seu <strong>Business Manager</strong></li>
+                <li>Na seção "Adicionar Produtos", ative <strong>"Marketing API"</strong></li>
+              </ol>
+            </div>
+
+            {/* Step 2 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
+                <h3 className="font-semibold text-foreground">Obter o Ad Account ID</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>Acesse <a href="https://business.facebook.com/settings/ad-accounts" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Business Settings → Ad Accounts</a></li>
+                <li>Copie o número da conta (ex: <code className="bg-secondary px-1 rounded text-xs">123456789</code>)</li>
+                <li>Cole no campo <strong>"Ad Account ID"</strong> com prefixo <code className="bg-secondary px-1 rounded text-xs">act_</code></li>
+                <li>Resultado: <code className="bg-secondary px-1 rounded text-xs">act_123456789</code></li>
+              </ol>
+            </div>
+
+            {/* Step 3 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">3</span>
+                <h3 className="font-semibold text-foreground">Gerar Access Token de longa duração</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>No Meta for Developers → seu App → <strong>Tools → Graph API Explorer</strong></li>
+                <li>Selecione permissões: <code className="bg-secondary px-1 rounded text-xs">ads_read</code>, <code className="bg-secondary px-1 rounded text-xs">ads_management</code>, <code className="bg-secondary px-1 rounded text-xs">read_insights</code></li>
+                <li>Clique em <strong>"Generate Access Token"</strong> (token de curta duração)</li>
+                <li>Para trocar por token de <strong>longa duração</strong> (60 dias), acesse no navegador:</li>
+              </ol>
+              <div className="bg-secondary/50 rounded-lg p-3 ml-8 text-xs font-mono text-muted-foreground break-all">
+                https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=<span className="text-primary">SEU_APP_ID</span>&client_secret=<span className="text-primary">SEU_APP_SECRET</span>&fb_exchange_token=<span className="text-primary">TOKEN_CURTO</span>
+              </div>
+              <p className="text-xs text-muted-foreground ml-8">O <strong>App ID</strong> e <strong>App Secret</strong> estão em Settings → Basic no painel do app.</p>
+              <p className="text-xs text-muted-foreground ml-8">Cole o token retornado no campo <strong>"Access Token CAPI"</strong> na aba de integrações do projeto.</p>
+            </div>
+
+            {/* Step 4 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">4</span>
+                <h3 className="font-semibold text-foreground">Testar a sincronização</h3>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-8">
+                <li>Volte para a aba <strong>Ads</strong> neste projeto</li>
+                <li>Clique em <strong>"Sincronizar Facebook"</strong></li>
+                <li>Verifique se os dados de campanhas aparecem na tabela</li>
+              </ol>
+            </div>
+
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-xs text-amber-400"><strong>⚠️ Importante:</strong> O token de longa duração dura ~60 dias. Após expirar, será necessário gerar um novo. O token <strong>nunca</strong> é exposto publicamente — é armazenado apenas no JSONB do projeto.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

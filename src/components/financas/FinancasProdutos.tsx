@@ -238,7 +238,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               </TableRow>
             ))}
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
+              <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

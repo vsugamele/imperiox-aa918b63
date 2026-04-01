@@ -405,7 +405,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
             const ofertas = getOffers(p);
             return (
               <div key={i} className="p-4 rounded-lg bg-secondary/50 border border-border space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">Nome</Label>
                     <Input value={p.nome || ""} onChange={(e) => updateProduto(i, "nome", e.target.value)} className="bg-secondary h-8 text-sm" />
@@ -417,6 +417,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   <div>
                     <Label className="text-xs text-muted-foreground">Preço</Label>
                     <Input value={p.preco || ""} onChange={(e) => updateProduto(i, "preco", e.target.value)} className="bg-secondary h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">% Imposto</Label>
+                    <Input type="number" step="0.01" value={p.imposto_pct || ""} onChange={(e) => updateProduto(i, "imposto_pct", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="Ex: 6.49" />
                   </div>
                   <div className="flex items-end gap-1">
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeProduto(i)}><Trash2 className="h-3 w-3" /></Button>
