@@ -492,6 +492,33 @@ function parseAvatarHTML(html: string): any {
     else if (typeText.includes("epifania")) result.epifania_central = content;
   });
 
+  // V2 Beliefs: from #m5 .sub-field-label + .highlight p
+  if (!result.crenca_bloqueadora) {
+    const m5 = doc.querySelector("#m5");
+    if (m5) {
+      const labels = m5.querySelectorAll(".sub-field-label");
+      labels.forEach(label => {
+        const text = extractText(label).toLowerCase();
+        const nextHighlight = label.nextElementSibling;
+        if (nextHighlight?.classList.contains("highlight")) {
+          const content = extractText(nextHighlight.querySelector("p"));
+          if (text.includes("bloqueadora") && content) result.crenca_bloqueadora = content;
+          else if ((text.includes("necessária") || text.includes("necessaria")) && content) result.crenca_necessaria = content;
+          else if (text.includes("gap") && content) result.gap_ressignificacao = content;
+        }
+      });
+    }
+    // Also from handoff section
+    const handoffRows = doc.querySelectorAll(".handoff-row");
+    handoffRows.forEach(row => {
+      const key = extractText(row.querySelector(".handoff-key")).toLowerCase();
+      const val = extractText(row.querySelector(".handoff-val"));
+      if (key.includes("epifania") && val) result.epifania_central = val;
+      if (key.includes("bloqueadora") && val && !result.crenca_bloqueadora) result.crenca_bloqueadora = val;
+      if (key.includes("necessária") && val && !result.crenca_necessaria) result.crenca_necessaria = val;
+    });
+  }
+
   // ── Ciclo de Sabotagem ──
   const cycleItems = doc.querySelectorAll(".cycle-item");
   if (cycleItems.length) {
@@ -499,6 +526,19 @@ function parseAvatarHTML(html: string): any {
       etapa: extractText(item.querySelector(".cycle-step, .cycle-num, .cycle-label, strong")),
       descricao: extractText(item.querySelector(".cycle-text, .cycle-desc, .cycle-content, p")),
     }));
+  }
+
+  // V2 Ciclo: .cycle-box with .cycle-arrow
+  if (!result.ciclo_sabotagem?.length) {
+    const cycleBoxes = doc.querySelectorAll(".cycle-box");
+    if (cycleBoxes.length) {
+      result.ciclo_sabotagem = Array.from(cycleBoxes).map(box => {
+        const arrows = box.querySelectorAll(".cycle-arrow");
+        const steps = Array.from(arrows).map(a => extractText(a).replace(/^↓\s*/, ""));
+        const firstLine = box.childNodes[0]?.textContent?.trim() || "";
+        return { etapa: firstLine, descricao: steps.join(" → ") };
+      });
+    }
   }
 
   // ── Emotion Flow (.em-step) ──
@@ -509,6 +549,18 @@ function parseAvatarHTML(html: string): any {
       nome: extractText(step.querySelector(".em-name")),
       descricao: extractText(step.querySelector(".em-desc")),
     })).filter(e => e.nome);
+  }
+
+  // V2 Emotion: .emotion-step
+  if (!result.emocoes_sequencia?.length) {
+    const emotionSteps = doc.querySelectorAll(".emotion-step");
+    if (emotionSteps.length) {
+      result.emocoes_sequencia = Array.from(emotionSteps).map(step => ({
+        numero: extractText(step.querySelector(".emotion-num")),
+        nome: extractText(step.querySelector(".emotion-name")),
+        descricao: extractText(step.querySelector(".emotion-quote")),
+      })).filter(e => e.nome);
+    }
   }
 
   // ── Movimentos ──
