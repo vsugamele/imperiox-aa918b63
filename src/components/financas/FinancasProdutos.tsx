@@ -24,11 +24,18 @@ interface Cost {
   produto_nome?: string | null;
 }
 
+interface AdsSpend {
+  id: string;
+  valor: number;
+  campanha?: string | null;
+}
+
 interface Props {
   vendas: Venda[];
   briefingProdutos?: any[];
   revenues?: Revenue[];
   costs?: Cost[];
+  ads?: AdsSpend[];
 }
 
 const COLORS = [
@@ -42,21 +49,21 @@ const COLORS = [
   "hsl(280 67% 51%)",
 ];
 
-export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [] }: Props) {
+export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [] }: Props) {
   // Build unified product map from briefing + vendas + revenues
-  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; preco?: string; tipo?: string }>();
+  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string }>();
 
   // Seed from briefing products
   briefingProdutos.forEach(p => {
     if (p.nome) {
-      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, preco: p.preco, tipo: p.tipo });
+      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo });
     }
   });
 
   // Add vendas
   vendas.forEach(v => {
     const name = v.produto_nome || "Sem produto";
-    const cur = productMap.get(name) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0 };
+    const cur = productMap.get(name) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
     cur.qtd += 1;
     cur.receita += v.valor;
     productMap.set(name, cur);
@@ -65,7 +72,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   // Add manual revenues
   revenues.forEach(r => {
     if (r.produto_nome) {
-      const cur = productMap.get(r.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0 };
+      const cur = productMap.get(r.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.receitaManual += r.valor;
       productMap.set(r.produto_nome, cur);
     }
@@ -74,11 +81,27 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   // Add costs
   costs.forEach(c => {
     if (c.produto_nome) {
-      const cur = productMap.get(c.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0 };
+      const cur = productMap.get(c.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.custos += c.valor;
       productMap.set(c.produto_nome, cur);
     }
   });
+
+  // Distribute ads cost proportionally across products by revenue share
+  const totalAdsSpend = ads.reduce((s, a) => s + a.valor, 0);
+  if (totalAdsSpend > 0 && productMap.size > 0) {
+    const totalRevAll = Array.from(productMap.values()).reduce((s, p) => s + p.receita + p.receitaManual, 0);
+    if (totalRevAll > 0) {
+      productMap.forEach((data) => {
+        const share = (data.receita + data.receitaManual) / totalRevAll;
+        data.custosAds = totalAdsSpend * share;
+      });
+    } else {
+      // Distribute equally if no revenue
+      const perProduct = totalAdsSpend / productMap.size;
+      productMap.forEach((data) => { data.custosAds = perProduct; });
+    }
+  }
 
   const products = Array.from(productMap.entries())
     .map(([nome, data]) => ({
@@ -88,7 +111,9 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
       receitaVendas: data.receita,
       receitaManual: data.receitaManual,
       custos: data.custos,
-      lucro: (data.receita + data.receitaManual) - data.custos,
+      custosAds: data.custosAds,
+      custoTotal: data.custos + data.custosAds,
+      lucro: (data.receita + data.receitaManual) - data.custos - data.custosAds,
       ticket: data.qtd > 0 ? data.receita / data.qtd : 0,
       preco: data.preco,
       tipo: data.tipo,
@@ -97,7 +122,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
 
   const totalReceita = products.reduce((a, p) => a + p.receita, 0);
   const totalVendas = products.reduce((a, p) => a + p.qtd, 0);
-  const totalCustos = products.reduce((a, p) => a + p.custos, 0);
+  const totalCustos = products.reduce((a, p) => a + p.custoTotal, 0);
 
   const chartData = products.slice(0, 8).map(p => ({
     name: p.nome.length > 20 ? p.nome.slice(0, 20) + "…" : p.nome,
@@ -168,7 +193,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               <TableHead className="text-right">Preço</TableHead>
               <TableHead className="text-right">Vendas</TableHead>
               <TableHead className="text-right">Receita</TableHead>
-              <TableHead className="text-right">Custos</TableHead>
+              <TableHead className="text-right">Custos Op.</TableHead>
+              <TableHead className="text-right">Custos Ads</TableHead>
               <TableHead className="text-right">Lucro</TableHead>
               <TableHead className="text-right">Ticket Médio</TableHead>
               <TableHead className="text-right">%</TableHead>
@@ -184,6 +210,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
                 <TableCell className="text-right font-mono">{p.qtd}</TableCell>
                 <TableCell className="text-right font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-red-400">{p.custos > 0 ? `R$ ${p.custos.toFixed(2)}` : "—"}</TableCell>
+                <TableCell className="text-right font-mono text-blue-400">{p.custosAds > 0 ? `R$ ${p.custosAds.toFixed(2)}` : "—"}</TableCell>
                 <TableCell className={`text-right font-mono ${p.lucro >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucro.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">R$ {p.ticket.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">
@@ -192,7 +219,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               </TableRow>
             ))}
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nenhum produto cadastrado ou venda registrada</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

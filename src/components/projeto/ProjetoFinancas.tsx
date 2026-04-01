@@ -65,7 +65,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [editingCost, setEditingCost] = useState<Cost | null>(null);
   const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
   const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
-  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
+  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0" });
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
@@ -209,7 +209,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   const openRevFormForNew = () => {
     setEditingRevenue(null);
-    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "" });
+    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0" });
     setShowRevForm(true);
   };
 
@@ -225,6 +225,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       pix_info: rev.pix_info || "",
       data_pagamento: rev.data_pagamento || "",
       plataforma: rev.plataforma || "",
+      quantidade: String((rev as any).quantidade || 1),
+      custo_produto: String((rev as any).custo_produto || 0),
     });
     setShowRevForm(true);
   };
@@ -241,6 +243,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       pix_info: revForm.pix_info || null,
       data_pagamento: revForm.data_pagamento || null,
       plataforma: revForm.plataforma || null,
+      quantidade: parseInt(revForm.quantidade) || 1,
+      custo_produto: parseFloat(revForm.custo_produto) || 0,
     } as any;
 
     if (editingRevenue) {
@@ -501,7 +505,9 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <TableHead>Produto</TableHead>
                       <TableHead>Plataforma</TableHead>
                       <TableHead>Data Pgto</TableHead>
+                      <TableHead className="text-right">Qtd</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="text-right">Lucro</TableHead>
                       <TableHead className="w-8"></TableHead>
                       <TableHead className="w-20"></TableHead>
                     </TableRow>
@@ -513,7 +519,11 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                         <TableCell>{r.produto_nome && <Badge variant="outline" className="text-[10px]">{r.produto_nome}</Badge>}</TableCell>
                         <TableCell>{r.plataforma && <Badge variant="secondary" className="text-[10px]">{r.plataforma}</Badge>}</TableCell>
                         <TableCell className="text-xs font-mono">{r.data_pagamento ? new Date(r.data_pagamento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{(r as any).quantidade || 1}</TableCell>
                         <TableCell className="text-right font-mono text-sm text-emerald-400">{fmt(r.valor)}</TableCell>
+                        <TableCell className={`text-right font-mono text-xs ${(r.valor * ((r as any).quantidade || 1) - ((r as any).custo_produto || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {fmt(r.valor * ((r as any).quantidade || 1) - ((r as any).custo_produto || 0))}
+                        </TableCell>
                         <TableCell>
                           {r.documento_url && (
                             <a href={r.documento_url} target="_blank" rel="noopener noreferrer" title="Ver documento">
@@ -540,6 +550,15 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
         {/* Ads Tab */}
         <TabsContent value="ads">
+          {/* Info banner */}
+          <Card className="border-blue-500/30 bg-blue-500/5 mb-4">
+            <CardContent className="p-3 flex items-start gap-3">
+              <Megaphone className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Os dados não são puxados automaticamente.
+              </p>
+            </CardContent>
+          </Card>
           <Card className="bg-card border-border">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-sm uppercase tracking-wider text-blue-400 font-sans flex items-center gap-2">
@@ -675,7 +694,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
         {/* Produtos Tab */}
         <TabsContent value="produtos">
-          <FinancasProdutos vendas={vendas} briefingProdutos={briefingProdutos} revenues={revenues} costs={costs} />
+          <FinancasProdutos vendas={vendas} briefingProdutos={briefingProdutos} revenues={revenues} costs={costs} ads={ads} />
         </TabsContent>
       </Tabs>
 
@@ -768,6 +787,29 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               </div>
             </div>
             <ProductSelect value={revForm.produto_nome} onChange={v => setRevForm({ ...revForm, produto_nome: v })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Quantidade de Vendas</Label><Input type="number" min="1" value={revForm.quantidade} onChange={e => setRevForm({ ...revForm, quantidade: e.target.value })} placeholder="1" /></div>
+              <div><Label>Custo do Produto (R$)</Label><Input type="number" step="0.01" value={revForm.custo_produto} onChange={e => setRevForm({ ...revForm, custo_produto: e.target.value })} placeholder="0.00" /></div>
+            </div>
+            {/* Calculated summary */}
+            {(parseFloat(revForm.valor) > 0) && (
+              <div className="rounded-lg border border-border p-3 bg-secondary/20 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Receita Total</span>
+                  <span className="font-mono text-emerald-400">{fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1))}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Lucro Bruto</span>
+                  <span className={`font-mono ${(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Ticket Médio</span>
+                  <span className="font-mono text-amber-400">{fmt(parseFloat(revForm.valor))}</span>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Data Pagamento</Label><Input type="date" value={revForm.data_pagamento} onChange={e => setRevForm({ ...revForm, data_pagamento: e.target.value })} /></div>
               <div><Label>PIX Info (chave/comprovante)</Label><Input value={revForm.pix_info} onChange={e => setRevForm({ ...revForm, pix_info: e.target.value })} placeholder="Chave PIX, nº comprovante..." /></div>

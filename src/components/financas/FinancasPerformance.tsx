@@ -107,16 +107,26 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
 
   // Product breakdown
   const productBreakdown = useMemo(() => {
-    const map = new Map<string, { produto: string; receita: number; vendas: number }>();
+    const map = new Map<string, { produto: string; receita: number; vendas: number; custos: number }>();
     fVendas.forEach(v => {
       const key = v.produto_nome || "Sem nome";
-      const cur = map.get(key) || { produto: key, receita: 0, vendas: 0 };
+      const cur = map.get(key) || { produto: key, receita: 0, vendas: 0, custos: 0 };
       cur.receita += v.valor;
       cur.vendas += 1;
       map.set(key, cur);
     });
+    // Distribute ads proportionally
+    if (totalAds > 0) {
+      const totalRev = Array.from(map.values()).reduce((s, p) => s + p.receita, 0);
+      if (totalRev > 0) {
+        map.forEach(p => { p.custos = totalAds * (p.receita / totalRev); });
+      } else if (map.size > 0) {
+        const perP = totalAds / map.size;
+        map.forEach(p => { p.custos = perP; });
+      }
+    }
     return Array.from(map.values()).sort((a, b) => b.receita - a.receita);
-  }, [fVendas]);
+  }, [fVendas, totalAds]);
 
   const kpis = [
     { label: "Investido Ads", value: `R$ ${totalAds.toFixed(2)}`, icon: BarChart3, color: "text-red-400" },
@@ -129,6 +139,18 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Info banner */}
+      <Card className="border-blue-500/30 bg-blue-500/5">
+        <CardContent className="p-4 flex items-start gap-3">
+          <BarChart3 className="h-5 w-5 text-blue-400 mt-0.5 shrink-0" />
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground text-sm">Como os dados chegam aqui?</p>
+            <p><strong className="text-blue-400">Ads (gastos):</strong> Exporta o CSV do Gerenciador de Anúncios e importa via "Importar CSV" na aba Ads do projeto.</p>
+            <p><strong className="text-emerald-400">Vendas:</strong> Chegam automaticamente via webhook de pagamento (Hotmart/Kiwify/Ticto).</p>
+            <p><strong className="text-amber-400">Performance:</strong> Cruza Ads importados com vendas recebidas para calcular ROAS, CPA e lucro.</p>
+          </div>
+        </CardContent>
+      </Card>
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Select value={filterProject} onValueChange={setFilterProject}>
@@ -252,25 +274,36 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {productBreakdown.map(p => (
-                <Card key={p.produto} className="border-border bg-muted/30">
-                  <CardContent className="p-4 space-y-1">
-                    <p className="font-medium text-sm truncate">{p.produto}</p>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Receita</span>
-                      <span className="font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Vendas</span>
-                      <span className="font-mono">{p.vendas}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Ticket Médio</span>
-                      <span className="font-mono">R$ {(p.vendas > 0 ? p.receita / p.vendas : 0).toFixed(2)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {productBreakdown.map(p => {
+                const lucro = p.receita - p.custos;
+                return (
+                  <Card key={p.produto} className="border-border bg-muted/30">
+                    <CardContent className="p-4 space-y-1">
+                      <p className="font-medium text-sm truncate">{p.produto}</p>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Receita</span>
+                        <span className="font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Vendas</span>
+                        <span className="font-mono">{p.vendas}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Custos Ads (proporcional)</span>
+                        <span className="font-mono text-red-400">R$ {p.custos.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Lucro</span>
+                        <span className={`font-mono ${lucro >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {lucro.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Ticket Médio</span>
+                        <span className="font-mono">R$ {(p.vendas > 0 ? p.receita / p.vendas : 0).toFixed(2)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

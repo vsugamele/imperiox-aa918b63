@@ -11352,6 +11352,7 @@ export type Database = {
       imphq_project_revenue: {
         Row: {
           created_at: string | null
+          custo_produto: number
           data_pagamento: string | null
           data_ref: string | null
           descricao: string
@@ -11362,11 +11363,13 @@ export type Database = {
           plataforma: string | null
           produto_nome: string | null
           project_id: string
+          quantidade: number
           user_id: string
           valor: number | null
         }
         Insert: {
           created_at?: string | null
+          custo_produto?: number
           data_pagamento?: string | null
           data_ref?: string | null
           descricao: string
@@ -11377,11 +11380,13 @@ export type Database = {
           plataforma?: string | null
           produto_nome?: string | null
           project_id: string
+          quantidade?: number
           user_id: string
           valor?: number | null
         }
         Update: {
           created_at?: string | null
+          custo_produto?: number
           data_pagamento?: string | null
           data_ref?: string | null
           descricao?: string
@@ -11392,6 +11397,7 @@ export type Database = {
           plataforma?: string | null
           produto_nome?: string | null
           project_id?: string
+          quantidade?: number
           user_id?: string
           valor?: number | null
         }
