@@ -46,16 +46,19 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
     }
   };
 
+  const normHex = (c = "") => (c.startsWith("#") ? c : `#${c.replace(/^#+/, "")}`);
+
   const addColorFromPicker = (hex: string) => {
-    const cores = bk.cores || [];
-    if (!cores.includes(hex)) {
-      update("cores", [...cores, hex]);
+    const normalized = normHex(hex);
+    const cores = (bk.cores || []).map(normHex);
+    if (!cores.includes(normalized)) {
+      update("cores", [...cores, normalized]);
     }
   };
 
   const editColorSwatch = (index: number, newColor: string) => {
-    const cores = [...(bk.cores || [])];
-    cores[index] = newColor;
+    const cores = [...(bk.cores || [])].map(normHex);
+    cores[index] = normHex(newColor);
     update("cores", cores);
   };
 
@@ -101,17 +104,17 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
               <div key={i} className="relative group">
                 <div
                   className="h-10 w-10 rounded-md border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                  style={{ backgroundColor: c }}
-                  title={c}
+                  style={{ backgroundColor: normHex(c) }}
+                  title={normHex(c)}
                   onClick={() => {
                     const input = document.createElement("input");
                     input.type = "color";
-                    input.value = c;
+                    input.value = normHex(c);
                     input.addEventListener("input", (e) => editColorSwatch(i, (e.target as HTMLInputElement).value));
                     input.click();
                   }}
                 />
-                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{c}</span>
+                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{normHex(c)}</span>
               </div>
             ))}
           </div>
