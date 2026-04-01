@@ -164,9 +164,15 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
         </Card>
         <Card className="border-border">
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Lucro (Receita - Custos)</p>
-            <p className={`text-2xl font-mono font-bold ${(totalReceita - totalCustos) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              R$ {(totalReceita - totalCustos).toFixed(2)}
+            <p className="text-xs text-muted-foreground">Impostos</p>
+            <p className="text-2xl font-mono font-bold text-orange-400">R$ {totalImpostos.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Lucro Líquido</p>
+            <p className={`text-2xl font-mono font-bold ${totalLiquidoGeral >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              R$ {totalLiquidoGeral.toFixed(2)}
             </p>
           </CardContent>
         </Card>
