@@ -145,9 +145,9 @@ export function FinancasPerformance({ ads, vendas, projects }: Props) {
           <BarChart3 className="h-5 w-5 text-blue-400 mt-0.5 shrink-0" />
           <div className="text-xs text-muted-foreground space-y-1">
             <p className="font-semibold text-foreground text-sm">Como os dados chegam aqui?</p>
-            <p><strong className="text-blue-400">Ads (gastos):</strong> Exporta o CSV do Gerenciador de Anúncios e importa via "Importar CSV" na aba Ads do projeto.</p>
+            <p><strong className="text-blue-400">Ads (gastos):</strong> Sincronize automaticamente via botão "Sincronizar Facebook" na aba Ads do projeto (requer Access Token + Ad Account ID configurados), ou importe manualmente via CSV.</p>
             <p><strong className="text-emerald-400">Vendas:</strong> Chegam automaticamente via webhook de pagamento (Hotmart/Kiwify/Ticto).</p>
-            <p><strong className="text-amber-400">Performance:</strong> Cruza Ads importados com vendas recebidas para calcular ROAS, CPA e lucro.</p>
+            <p><strong className="text-amber-400">Performance:</strong> Cruza Ads com vendas recebidas para calcular ROAS, CPA e lucro.</p>
           </div>
         </CardContent>
       </Card>

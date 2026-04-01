@@ -539,8 +539,9 @@ export default function Leads() {
   // KPIs for period
   const periodKPIs = useMemo(() => {
     const newLeads = periodLeads.length;
-    const conversions = periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").length;
-    const revenue = periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved")
+    const isApproved = (s: string) => ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"].includes(s);
+    const conversions = periodVendas.filter(v => isApproved(v.status)).length;
+    const revenue = periodVendas.filter(v => isApproved(v.status))
       .reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
     const avgTicket = conversions > 0 ? revenue / conversions : 0;
     const convRate = newLeads > 0 ? (conversions / newLeads * 100) : 0;
@@ -561,8 +562,9 @@ export default function Leads() {
 
   // Leads by Product (period)
   const leadsByProduct = useMemo(() => {
+    const isApproved = (s: string) => ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"].includes(s);
     const map = new Map<string, number>();
-    periodVendas.forEach(v => {
+    periodVendas.filter(v => isApproved(v.status)).forEach(v => {
       if (!v.produto_nome) return;
       map.set(v.produto_nome, (map.get(v.produto_nome) || 0) + 1);
     });
@@ -572,7 +574,7 @@ export default function Leads() {
   // Revenue by Product (period)
   const revenueByProduct = useMemo(() => {
     const map = new Map<string, number>();
-    periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").forEach(v => {
+    periodVendas.filter(v => ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"].includes(v.status)).forEach(v => {
       if (!v.produto_nome) return;
       map.set(v.produto_nome, (map.get(v.produto_nome) || 0) + (parseFloat(v.valor) || 0));
     });

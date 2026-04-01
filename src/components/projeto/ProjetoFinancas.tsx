@@ -551,11 +551,15 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
         {/* Ads Tab */}
         <TabsContent value="ads">
           {/* Info banner */}
-          <Card className="border-blue-500/30 bg-blue-500/5 mb-4">
+          <Card className={`mb-4 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "border-emerald-500/30 bg-emerald-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
             <CardContent className="p-3 flex items-start gap-3">
-              <Megaphone className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+              <Megaphone className={`h-4 w-4 mt-0.5 shrink-0 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "text-emerald-400" : "text-blue-400"}`} />
               <p className="text-xs text-muted-foreground">
-                <strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Os dados não são puxados automaticamente.
+                {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? (
+                  <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Clique em "Sincronizar Facebook" para puxar dados automaticamente, ou importe manualmente via CSV.</>
+                ) : (
+                  <><strong className="text-foreground">Como importar?</strong> Exporte o relatório CSV do Gerenciador de Anúncios do Facebook e clique em "Importar CSV". Para sincronizar automaticamente, configure o <strong>Access Token</strong> e o <strong>Ad Account ID</strong> na aba de integrações do projeto.</>
+                )}
               </p>
             </CardContent>
           </Card>
@@ -564,9 +568,25 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               <CardTitle className="text-sm uppercase tracking-wider text-blue-400 font-sans flex items-center gap-2">
                 <Megaphone className="h-4 w-4" /> Investimento em Ads
               </CardTitle>
-              <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
-                <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
-              </Button>
+              <div className="flex gap-2">
+                {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token && (
+                  <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
+                    toast.info("Sincronizando com Facebook...");
+                    try {
+                      const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: { project_id: projectId } });
+                      if (error) throw error;
+                      if (data?.error) { toast.error(data.error); return; }
+                      toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
+                      loadData();
+                    } catch (e: any) { toast.error("Erro ao sincronizar: " + (e.message || e)); }
+                  }}>
+                    <Globe className="h-3.5 w-3.5 mr-1" /> Sincronizar Facebook
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
+                  <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {ads.length > 0 && (

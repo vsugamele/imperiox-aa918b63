@@ -361,7 +361,7 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground">Pixel ID</Label>
             <Input
@@ -375,6 +375,20 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
               placeholder="Ex: 123456789012345"
             />
             <p className="text-[10px] text-muted-foreground mt-1">Encontre em Events Manager → Fontes de Dados → Pixel → ID do Pixel</p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Ad Account ID</Label>
+            <Input
+              value={project.data?.facebook_ad_account_id || ""}
+              onChange={e => {
+                const newData = { ...(project.data || {}), facebook_ad_account_id: e.target.value };
+                setProject((p: any) => ({ ...p, data: newData }));
+              }}
+              onBlur={() => updateDataField("facebook_ad_account_id", project.data?.facebook_ad_account_id || "")}
+              className="bg-secondary"
+              placeholder="act_123456789"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Encontre em Gerenciador de Negócios → Configurações → Contas de Anúncios → ID</p>
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Access Token (CAPI)</Label>
