@@ -144,9 +144,9 @@ function parseAvatarHTML(html: string): any {
   const desejosB3 = doc.querySelector("#desejos-b3, [id*='desejos-b3']");
   const desejosB4 = doc.querySelector("#desejos-b4, [id*='desejos-b4']");
 
-  const externos = parseDesireItems(desejosB2);
-  const internos = parseDesireItems(desejosB3);
-  const proibidos = parseDesireItems(desejosB4);
+  let externos = parseDesireItems(desejosB2);
+  let internos = parseDesireItems(desejosB3);
+  let proibidos = parseDesireItems(desejosB4);
 
   // Fallback with B1
   if (!externos.length && !internos.length && !proibidos.length) {
@@ -165,6 +165,70 @@ function parseAvatarHTML(html: string): any {
       else if (pills.some(p => p.toLowerCase().includes("interno"))) internos.push(item);
       else externos.push(item);
     });
+  }
+
+  // V2 Fallback: .desire-card grouped by <h4> headings (Código da Pele format)
+  if (!externos.length && !internos.length && !proibidos.length) {
+    // Find sections with desire cards and classify by nearest h4/h3 heading
+    const allDesireCards = doc.querySelectorAll(".desire-card");
+    if (allDesireCards.length) {
+      let currentCategory = "externo";
+      // Walk through sibling elements to detect category changes
+      const desireSection = doc.querySelector("#m6, section:has(.desire-card)");
+      if (desireSection) {
+        const children = desireSection.querySelectorAll("h4, .desire-card");
+        children.forEach(el => {
+          if (el.tagName === "H4") {
+            const text = extractText(el).toLowerCase();
+            if (text.includes("interno") || text.includes("proibido")) {
+              currentCategory = text.includes("proibido") ? "proibido" : "interno";
+            } else {
+              currentCategory = "externo";
+            }
+          } else if (el.classList.contains("desire-card")) {
+            const nome = extractText(el.querySelector(".desire-name"));
+            const scoreText = extractText(el.querySelector(".desire-score-badge"));
+            const score = parseFloat(scoreText) || 0;
+            const miniScores = Array.from(el.querySelectorAll(".mini-score")).map(m => extractText(m));
+            const justificativa = miniScores.filter(Boolean).join(" · ");
+            const bodyText = extractText(el.querySelector(".desire-body > p"));
+            const tags = Array.from(el.querySelectorAll(".desire-meta .tag")).map(t => extractText(t).toLowerCase());
+            const item: any = { rank: "", nome, score, justificativa, descricao: bodyText };
+
+            // Check tags for category override
+            if (tags.some(t => t.includes("proibido"))) {
+              proibidos.push(item);
+            } else if (tags.some(t => t.includes("interno")) || currentCategory === "interno") {
+              internos.push(item);
+            } else if (currentCategory === "proibido") {
+              proibidos.push(item);
+            } else {
+              externos.push(item);
+            }
+          }
+        });
+      }
+      // If section traversal didn't work, just parse all
+      if (!externos.length && !internos.length && !proibidos.length) {
+        allDesireCards.forEach((el, i) => {
+          const nome = extractText(el.querySelector(".desire-name"));
+          const scoreText = extractText(el.querySelector(".desire-score-badge"));
+          const score = parseFloat(scoreText) || 0;
+          const miniScores = Array.from(el.querySelectorAll(".mini-score")).map(m => extractText(m));
+          const justificativa = miniScores.filter(Boolean).join(" · ");
+          const bodyText = extractText(el.querySelector(".desire-body > p"));
+          const tags = Array.from(el.querySelectorAll(".desire-meta .tag")).map(t => extractText(t).toLowerCase());
+          const item: any = { rank: String(i + 1), nome, score, justificativa, descricao: bodyText };
+          if (tags.some(t => t.includes("proibido")) || nome.includes("[PROIBIDO]")) {
+            proibidos.push(item);
+          } else if (tags.some(t => t.includes("interno"))) {
+            internos.push(item);
+          } else {
+            externos.push(item);
+          }
+        });
+      }
+    }
   }
 
   if (externos.length) result.desejos_externos = externos;
