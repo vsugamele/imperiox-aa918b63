@@ -143,7 +143,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   return (
     <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Produtos</p>
