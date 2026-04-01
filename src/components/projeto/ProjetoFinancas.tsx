@@ -818,24 +818,40 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               <div><Label>% Imposto</Label><Input type="number" step="0.01" value={revForm.imposto_pct} onChange={e => setRevForm({ ...revForm, imposto_pct: e.target.value })} placeholder="Ex: 6.49" /></div>
             </div>
             {/* Calculated summary */}
-            {(parseFloat(revForm.valor) > 0) && (
-              <div className="rounded-lg border border-border p-3 bg-secondary/20 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Receita Total</span>
-                  <span className="font-mono text-emerald-400">{fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1))}</span>
+            {(parseFloat(revForm.valor) > 0) && (() => {
+              const recTotal = parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1);
+              const custo = parseFloat(revForm.custo_produto) || 0;
+              const impPct = parseFloat(revForm.imposto_pct) || 0;
+              const imposto = recTotal * (impPct / 100);
+              const lucroBruto = recTotal - custo;
+              const lucroLiquido = lucroBruto - imposto;
+              return (
+                <div className="rounded-lg border border-border p-3 bg-secondary/20 space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Receita Total</span>
+                    <span className="font-mono text-emerald-400">{fmt(recTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Lucro Bruto</span>
+                    <span className={`font-mono ${lucroBruto >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmt(lucroBruto)}</span>
+                  </div>
+                  {impPct > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Imposto ({impPct}%)</span>
+                      <span className="font-mono text-orange-400">-{fmt(imposto)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-xs border-t border-border pt-1">
+                    <span className="text-muted-foreground font-semibold">Lucro Líquido</span>
+                    <span className={`font-mono font-semibold ${lucroLiquido >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmt(lucroLiquido)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Ticket Médio</span>
+                    <span className="font-mono text-amber-400">{fmt(parseFloat(revForm.valor))}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Lucro Bruto</span>
-                  <span className={`font-mono ${(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {fmt(parseFloat(revForm.valor) * (parseInt(revForm.quantidade) || 1) - (parseFloat(revForm.custo_produto) || 0))}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Ticket Médio</span>
-                  <span className="font-mono text-amber-400">{fmt(parseFloat(revForm.valor))}</span>
-                </div>
-              </div>
-            )}
+              );
+            })()}
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Data Pagamento</Label><Input type="date" value={revForm.data_pagamento} onChange={e => setRevForm({ ...revForm, data_pagamento: e.target.value })} /></div>
               <div><Label>PIX Info (chave/comprovante)</Label><Input value={revForm.pix_info} onChange={e => setRevForm({ ...revForm, pix_info: e.target.value })} placeholder="Chave PIX, nº comprovante..." /></div>
