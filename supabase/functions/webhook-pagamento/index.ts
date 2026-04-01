@@ -127,6 +127,12 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = buyer.checkout_phone || "";
     valor = body.data?.purchase?.price?.value || 0;
     produto = body.data?.product?.name || "";
+    // Hotmart envia approved_date/order_date em ms (number) ou ISO string
+    const purchase = body.data?.purchase || {};
+    const rawDate = purchase.approved_date || purchase.order_date || purchase.date || null;
+    if (rawDate) {
+      data_compra = typeof rawDate === "number" ? new Date(rawDate).toISOString() : rawDate;
+    }
   }
   // ── Kiwify ──
   else if (body?.webhook_event_type || body?.order_status) {
