@@ -149,6 +149,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = customer.mobile || "";
     valor = parseFloat(body.sale_amount || body.order_value || "0");
     produto = body.product_name || body.Product?.name || "";
+    data_compra = body.sale_date || body.approved_date || body.created_at || null;
   }
   // ── Generic fallback ──
   else {
