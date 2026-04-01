@@ -281,6 +281,31 @@ function parseAvatarHTML(html: string): any {
     });
   }
 
+  // V2 Voyeurism: .voyeur-card format
+  if (!result.voyerismos?.length) {
+    const voyeurCards = doc.querySelectorAll(".voyeur-card");
+    if (voyeurCards.length) {
+      result.voyerismos = Array.from(voyeurCards).map(card => {
+        const nome = extractText(card.querySelector(".voyeur-title"));
+        const intensidadeBadge = card.querySelector(".intensity-badge");
+        const intensidade = intensidadeBadge ? extractText(intensidadeBadge) : "";
+        const data: any = { nome, intensidade };
+        const rows = card.querySelectorAll(".voyeur-row");
+        rows.forEach(row => {
+          const key = extractText(row.querySelector(".voyeur-key")).toLowerCase();
+          const val = extractText(row.querySelector(".voyeur-val"));
+          if (key.includes("situação") || key.includes("situacao") || key.includes("situaç")) data.situacao = val;
+          if (key.includes("sintoma")) data.sintoma_fisico = val;
+          if (key.includes("pensamento") || key.includes("diz") || key.includes("o que diz")) data.pensamento = val;
+          if (key.includes("comportamento") || key.includes("faz") || key.includes("o que faz") || key.includes("ação") || key.includes("acao")) data.comportamento = val;
+        });
+        const quote = extractText(card.querySelector(".voyeur-quote"));
+        if (quote) data.pensamento = data.pensamento || quote;
+        return data;
+      });
+    }
+  }
+
   // ── Camadas da Psique (C1-C4) — from .card or .acc-card ──
   const camadas: any = {};
 
