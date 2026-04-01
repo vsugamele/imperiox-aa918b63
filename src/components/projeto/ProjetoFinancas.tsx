@@ -228,6 +228,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       plataforma: rev.plataforma || "",
       quantidade: String((rev as any).quantidade || 1),
       custo_produto: String((rev as any).custo_produto || 0),
+      imposto_pct: String((rev as any).imposto_pct || ""),
     });
     setShowRevForm(true);
   };
