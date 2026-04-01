@@ -615,6 +615,27 @@ function parseAvatarHTML(html: string): any {
     });
   }
 
+  // V2 Handoff: .handoff .handoff-row
+  if (!result.gatilho_nuclear && !result.handoff?.length) {
+    const handoffRows = doc.querySelectorAll(".handoff .handoff-row");
+    if (handoffRows.length) {
+      const handoffList: any[] = [];
+      handoffRows.forEach(row => {
+        const key = extractText(row.querySelector(".handoff-key"));
+        const val = extractText(row.querySelector(".handoff-val"));
+        const keyLower = key.toLowerCase();
+        if (keyLower.includes("nuclear")) result.gatilho_nuclear = val;
+        else if (keyLower.includes("high")) result.the_high = val;
+        else if (keyLower.includes("hell")) result.the_hell = val;
+        else if (keyLower.includes("segredo")) result.segredo_final = val;
+        else if (keyLower.includes("epifania")) result.epifania_central = val;
+        else if (keyLower.includes("diferenciação") || keyLower.includes("diferenciacao")) result.angulo_diferenciacao = val;
+        handoffList.push({ numero: key, texto: val });
+      });
+      if (handoffList.length) result.handoff = handoffList;
+    }
+  }
+
   // ── Headlines (.hl-card) — Copy Arsenal ──
   const hlCards = doc.querySelectorAll(".hl-card");
   if (hlCards.length) {
@@ -632,6 +653,8 @@ function parseAvatarHTML(html: string): any {
       const avatar = extractText(card.querySelector(".ad-avatar"));
       const sections = card.querySelectorAll(".ad-section");
       const data: any = { angulo, avatar_alvo: avatar };
+      
+      // V1: .ad-section with .ad-key/.ad-text
       sections.forEach(s => {
         const key = extractText(s.querySelector(".ad-key")).toLowerCase();
         const text = extractText(s.querySelector(".ad-text, .ad-hook"));
@@ -640,6 +663,31 @@ function parseAvatarHTML(html: string): any {
         else if (key.includes("cta")) data.cta = text;
         else data[key.replace(/\s+/g, "_")] = text;
       });
+
+      // V2: .ad-label + .ad-body with <p><strong>Hook/Corpo/CTA:</strong>
+      if (!data.hook) {
+        const adLabel = extractText(card.querySelector(".ad-label"));
+        if (adLabel) data.angulo = adLabel;
+        const adTag = extractText(card.querySelector(".ad-tag"));
+        if (adTag) data.categoria = adTag;
+        const adBody = card.querySelector(".ad-body");
+        if (adBody) {
+          const paragraphs = adBody.querySelectorAll("p");
+          paragraphs.forEach(p => {
+            const pText = extractText(p);
+            const strongEl = p.querySelector("strong");
+            const strongText = strongEl ? extractText(strongEl).toLowerCase() : "";
+            if (strongText.includes("hook")) {
+              data.hook = pText.replace(/^.*?Hook:\s*/i, "");
+            } else if (strongText.includes("corpo")) {
+              data.corpo = pText.replace(/^.*?Corpo:\s*/i, "");
+            } else if (strongText.includes("cta")) {
+              data.cta = pText.replace(/^.*?CTA:\s*/i, "");
+            }
+          });
+        }
+      }
+
       const cta = extractText(card.querySelector(".ad-cta"));
       if (cta && !data.cta) data.cta = cta;
       return data;
@@ -670,9 +718,34 @@ function parseAvatarHTML(html: string): any {
   // ── Objeções (.obj-card) ──
   const objCards = doc.querySelectorAll(".obj-card");
   if (objCards.length) {
-    result.objecoes = Array.from(objCards)
+    // V1: .obj-q
+    const v1Objs = Array.from(objCards)
       .map(card => extractText(card.querySelector(".obj-q")))
       .filter(Boolean);
+    
+    if (v1Objs.length) {
+      result.objecoes = v1Objs;
+    } else {
+      // V2: .obj-header + .obj-col
+      result.objecoes = Array.from(objCards).map(card => {
+        const pergunta = extractText(card.querySelector(".obj-header"));
+        const cols = card.querySelectorAll(".obj-col");
+        const data: any = { pergunta };
+        cols.forEach(col => {
+          const labels = col.querySelectorAll(".obj-col-label");
+          labels.forEach(label => {
+            const labelText = extractText(label).toLowerCase();
+            const nextP = label.nextElementSibling;
+            const val = nextP ? extractText(nextP) : "";
+            if (labelText.includes("camada") || labelText.includes("significa")) data.camada_real = val;
+            else if (labelText.includes("nunca")) data.nunca_dizer = val;
+            else if (labelText.includes("sempre")) data.sempre_dizer = val;
+            else if (labelText.includes("virada")) data.frase_virada = val;
+          });
+        });
+        return data;
+      }).filter((o: any) => o.pergunta);
+    }
   }
 
   // ── Value Stack (.vs-item) ──
@@ -740,6 +813,23 @@ function parseAvatarHTML(html: string): any {
     });
   }
 
+  // V2 Content Plan: .week-card
+  if (!result.plano_conteudo?.length) {
+    const weekCards = doc.querySelectorAll(".week-card");
+    if (weekCards.length) {
+      result.plano_conteudo = Array.from(weekCards).map(week => {
+        const weekTitle = extractText(week.querySelector(".week-header"));
+        const pieces = Array.from(week.querySelectorAll(".week-piece")).map(piece => ({
+          numero: extractText(piece.querySelector(".week-day")),
+          titulo: extractText(piece.querySelector("span:last-child")) || extractText(piece),
+          hook: "",
+          formato: "",
+        }));
+        return { semana: "", titulo: weekTitle, pecas: pieces };
+      });
+    }
+  }
+
   // ── Word clouds (.word-list .word + .wpill) ──
   // Primary: .wpill elements (classes: .dor, .desejo, .solucao, .validacao)
   const wpillItems = doc.querySelectorAll(".wpill");
@@ -784,6 +874,29 @@ function parseAvatarHTML(html: string): any {
     }
   }
 
+  // V2 Words: .word.pain / .word.desire / .word.solution / .word.validation
+  if (!result.palavras_dor && !result.palavras_desejo) {
+    const v2Words = doc.querySelectorAll(".words .word, .word-section .word");
+    if (v2Words.length) {
+      const palavras_dor: string[] = [];
+      const palavras_desejo: string[] = [];
+      const palavras_solucao: string[] = [];
+      const palavras_valor: string[] = [];
+      v2Words.forEach(w => {
+        const text = extractText(w);
+        if (!text) return;
+        if (w.classList.contains("pain")) palavras_dor.push(text);
+        else if (w.classList.contains("desire")) palavras_desejo.push(text);
+        else if (w.classList.contains("solution")) palavras_solucao.push(text);
+        else if (w.classList.contains("validation")) palavras_valor.push(text);
+      });
+      if (palavras_dor.length) result.palavras_dor = palavras_dor;
+      if (palavras_desejo.length) result.palavras_desejo = palavras_desejo;
+      if (palavras_solucao.length) result.palavras_solucao = palavras_solucao;
+      if (palavras_valor.length) result.palavras_valor = palavras_valor;
+    }
+  }
+
   // ── Frases-gatilho ──
   const frasesGatilho = doc.querySelectorAll(".frase-gatilho");
   if (frasesGatilho.length) {
@@ -801,6 +914,27 @@ function parseAvatarHTML(html: string): any {
     if (frases_decisao.length) result.frases_gatilho_decisao = frases_decisao;
   }
 
+  // V2 Phrases: .phrase-trigger with .phrase-type + .phrase-text
+  if (!result.frases_gatilho_dor?.length && !result.frases_gatilho_desejo?.length) {
+    const phraseTriggers = doc.querySelectorAll(".phrase-trigger");
+    if (phraseTriggers.length) {
+      const frases_dor: string[] = [];
+      const frases_desejo: string[] = [];
+      const frases_decisao: string[] = [];
+      phraseTriggers.forEach(f => {
+        const typeEl = f.querySelector(".phrase-type");
+        const text = extractText(f.querySelector(".phrase-text"));
+        if (!text) return;
+        if (typeEl?.classList.contains("pain")) frases_dor.push(text);
+        else if (typeEl?.classList.contains("desire")) frases_desejo.push(text);
+        else if (typeEl?.classList.contains("decision")) frases_decisao.push(text);
+      });
+      if (frases_dor.length) result.frases_gatilho_dor = frases_dor;
+      if (frases_desejo.length) result.frases_gatilho_desejo = frases_desejo;
+      if (frases_decisao.length) result.frases_gatilho_decisao = frases_decisao;
+    }
+  }
+
   // ── Síntese Final ──
   const sintCards = doc.querySelectorAll(".sint-card");
   if (sintCards.length) {
@@ -810,6 +944,17 @@ function parseAvatarHTML(html: string): any {
     }));
   }
 
+  // V2 Síntese: .strategy-box
+  if (!result.sintese?.length) {
+    const strategyBoxes = doc.querySelectorAll(".strategy-box");
+    if (strategyBoxes.length) {
+      result.sintese = Array.from(strategyBoxes).map(box => ({
+        titulo: extractText(box.querySelector(".strategy-title")),
+        conteudo: extractText(box.querySelector(".strategy-text")),
+      }));
+    }
+  }
+
   // ── Guarantee ──
   const guarantee = doc.querySelector(".guarantee-box");
   if (guarantee) {
@@ -817,6 +962,28 @@ function parseAvatarHTML(html: string): any {
       titulo: extractText(guarantee.querySelector(".gb-title")),
       corpo: extractText(guarantee.querySelector(".gb-body")),
     };
+  }
+
+  // ── Trauma Framework (V2: .trauma-step) ──
+  if (!result.trauma_framework) {
+    const traumaSteps = doc.querySelectorAll(".trauma-step");
+    if (traumaSteps.length) {
+      result.trauma_framework = Array.from(traumaSteps).map(step => {
+        const numero = extractText(step.querySelector(".trauma-circle"));
+        const titulo = extractText(step.querySelector(".trauma-step-title"));
+        const content = step.querySelector(".trauma-content");
+        const paragraphs = content ? Array.from(content.querySelectorAll("p")).map(p => extractText(p)).filter(Boolean) : [];
+        const listItems = content ? Array.from(content.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean) : [];
+        const highlights = content ? Array.from(content.querySelectorAll(".highlight p")).map(p => extractText(p)).filter(Boolean) : [];
+        return {
+          numero,
+          titulo,
+          conteudo: paragraphs.join("\n"),
+          itens: listItems,
+          destaques: highlights,
+        };
+      }).filter(s => s.titulo);
+    }
   }
 
   // ── Sub-avatares completos ──
@@ -864,6 +1031,36 @@ function parseAvatarHTML(html: string): any {
 
     subAvatares.push(sub);
   });
+
+  // V2 Sub-avatares: .sub-card format
+  if (!subAvatares.length) {
+    const subCards = doc.querySelectorAll(".sub-card");
+    subCards.forEach(card => {
+      const nome = extractText(card.querySelector(".sub-card-name"));
+      if (!nome) return;
+      const sub: any = { nome, urgencia: 3, dinheiro: 3 };
+
+      const fields = card.querySelectorAll(".sub-field");
+      fields.forEach(field => {
+        const label = extractText(field.querySelector(".sub-field-label")).toLowerCase();
+        const val = extractText(field.querySelector(".sub-field-value"));
+        if (!val) return;
+        if (label.includes("situação") || label.includes("situacao")) sub.descricao = val;
+        else if (label.includes("dor")) sub.dor_principal = val;
+        else if (label.includes("hook")) sub.hook = val;
+        else if (label.includes("crença bloqueadora") || label.includes("crenca bloqueadora")) sub.crenca_bloqueadora = val;
+        else if (label.includes("crença necessária") || label.includes("crenca necessaria")) sub.crenca_necessaria = val;
+        else if (label.includes("tom")) sub.tom = val;
+        else if (label.includes("asset")) sub.asset_primario = val;
+        else if (label.includes("objeção") || label.includes("objecao")) sub.objecao = val;
+        else if (label.includes("diferença") || label.includes("diferenca")) sub.diferenca_chave = val;
+        else sub[label.replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "")] = val;
+      });
+
+      subAvatares.push(sub);
+    });
+  }
+
   if (subAvatares.length) result.sub_avatares = subAvatares;
 
   if (subAvatares.length && !result.objecoes?.length) {
