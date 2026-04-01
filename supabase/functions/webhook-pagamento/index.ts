@@ -69,6 +69,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   let phone = "";
   let valor = 0;
   let produto = "";
+  let data_compra: string | null = null;
 
   // ── Ticto v2 detection (version field or token in body) ──
   if (body?.version === "2.0" || (body?.token && body?.item && body?.customer)) {
@@ -97,6 +98,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
 
     const item = body.item || {};
     produto = item.product_name || "";
+    data_compra = order.approved_at || order.created_at || body.created_at || null;
   }
   // ── Ticto v1 (legacy) ──
   else if (body?.tipo_evento || body?.dados) {
@@ -108,6 +110,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = dados.telefone_comprador || "";
     valor = parseFloat(dados.valor || "0");
     produto = dados.nome_produto || "";
+    data_compra = dados.data_compra || dados.criado_em || null;
   }
   // ── Hotmart ──
   else if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
@@ -124,6 +127,12 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = buyer.checkout_phone || "";
     valor = body.data?.purchase?.price?.value || 0;
     produto = body.data?.product?.name || "";
+    // Hotmart envia approved_date/order_date em ms (number) ou ISO string
+    const purchase = body.data?.purchase || {};
+    const rawDate = purchase.approved_date || purchase.order_date || purchase.date || null;
+    if (rawDate) {
+      data_compra = typeof rawDate === "number" ? new Date(rawDate).toISOString() : rawDate;
+    }
   }
   // ── Kiwify ──
   else if (body?.webhook_event_type || body?.order_status) {
@@ -140,6 +149,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = customer.mobile || "";
     valor = parseFloat(body.sale_amount || body.order_value || "0");
     produto = body.product_name || body.Product?.name || "";
+    data_compra = body.sale_date || body.approved_date || body.created_at || null;
   }
   // ── Generic fallback ──
   else {
@@ -150,9 +160,10 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = body.phone || body.customer?.phone || "";
     valor = parseFloat(body.valor || body.amount || "0");
     produto = body.produto || body.product || "";
+    data_compra = body.data_compra || body.created_at || null;
   }
 
-  return { plataforma, evento, email, nome, phone, valor, produto };
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra };
 }
 
 Deno.serve(async (req) => {
@@ -174,7 +185,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    let { plataforma, evento, email, nome, phone, valor, produto } = parseWebhookBody(body, hotmartToken);
+    let { plataforma, evento, email, nome, phone, valor, produto, data_compra } = parseWebhookBody(body, hotmartToken);
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
@@ -214,7 +225,7 @@ Deno.serve(async (req) => {
         leadId = lead.id;
       } else {
         const newId = crypto.randomUUID();
-        await supabase.from("imphq_leads").insert({
+        const leadInsert: any = {
           id: newId,
           nome: nome || email,
           email: email.toLowerCase(),
@@ -222,7 +233,9 @@ Deno.serve(async (req) => {
           plataforma,
           status: evento === "compra_aprovada" ? "cliente" : "lead",
           project_id: projectId,
-        });
+        };
+        if (data_compra) leadInsert.criado_em = data_compra;
+        await supabase.from("imphq_leads").insert(leadInsert);
         leadId = newId;
       }
     }
@@ -278,7 +291,7 @@ Deno.serve(async (req) => {
 
     // Handle purchase
     if (evento === "compra_aprovada" && leadId && valor > 0) {
-      await supabase.from("imphq_vendas").insert({
+      const vendaInsert: any = {
         id: crypto.randomUUID(),
         lead_id: leadId,
         project_id: projectId,
@@ -286,7 +299,9 @@ Deno.serve(async (req) => {
         valor,
         plataforma,
         status: "aprovado",
-      });
+      };
+      if (data_compra) vendaInsert.created_at = data_compra;
+      await supabase.from("imphq_vendas").insert(vendaInsert);
 
       await supabase
         .from("imphq_leads")
@@ -307,14 +322,16 @@ Deno.serve(async (req) => {
     const journeyEventName = JOURNEY_EVENT_MAP[evento];
     if (journeyEventName && leadId) {
       try {
-        await supabase.from("imphq_events").insert({
+        const eventInsert: any = {
           event_name: journeyEventName,
           project_id: projectId,
           visitor_id: leadId,
           page_url: `webhook://${plataforma}`,
           event_data: { produto, valor, plataforma, evento },
           utm_source: email?.toLowerCase() || null,
-        });
+        };
+        if (data_compra) eventInsert.created_at = data_compra;
+        await supabase.from("imphq_events").insert(eventInsert);
         // Update ultimo_evento on lead
         const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
         const currentData = (leadData?.data as Record<string, any>) || {};
