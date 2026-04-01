@@ -24,11 +24,18 @@ interface Cost {
   produto_nome?: string | null;
 }
 
+interface AdsSpend {
+  id: string;
+  valor: number;
+  campanha?: string | null;
+}
+
 interface Props {
   vendas: Venda[];
   briefingProdutos?: any[];
   revenues?: Revenue[];
   costs?: Cost[];
+  ads?: AdsSpend[];
 }
 
 const COLORS = [
