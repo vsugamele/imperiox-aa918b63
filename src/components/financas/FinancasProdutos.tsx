@@ -104,20 +104,29 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   }
 
   const products = Array.from(productMap.entries())
-    .map(([nome, data]) => ({
-      nome,
-      qtd: data.qtd,
-      receita: data.receita + data.receitaManual,
-      receitaVendas: data.receita,
-      receitaManual: data.receitaManual,
-      custos: data.custos,
-      custosAds: data.custosAds,
-      custoTotal: data.custos + data.custosAds,
-      lucro: (data.receita + data.receitaManual) - data.custos - data.custosAds,
-      ticket: data.qtd > 0 ? data.receita / data.qtd : 0,
-      preco: data.preco,
-      tipo: data.tipo,
-    }))
+    .map(([nome, data]) => {
+      const receita = data.receita + data.receitaManual;
+      const impPct = data.imposto_pct || 0;
+      const imposto = receita * (impPct / 100);
+      const custoTotal = data.custos + data.custosAds;
+      return {
+        nome,
+        qtd: data.qtd,
+        receita,
+        receitaVendas: data.receita,
+        receitaManual: data.receitaManual,
+        custos: data.custos,
+        custosAds: data.custosAds,
+        custoTotal,
+        imposto,
+        imposto_pct: impPct,
+        lucroBruto: receita - custoTotal,
+        lucroLiquido: receita - custoTotal - imposto,
+        ticket: data.qtd > 0 ? data.receita / data.qtd : 0,
+        preco: data.preco,
+        tipo: data.tipo,
+      };
+    })
     .sort((a, b) => b.receita - a.receita);
 
   const totalReceita = products.reduce((a, p) => a + p.receita, 0);
