@@ -643,6 +643,12 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                       );
                     })}
 
+                    {/* CAPI guide button for facebook_pixel */}
+                    {item.key === "facebook_pixel" && (
+                      <Button size="sm" variant="link" className="h-6 text-[10px] px-0 gap-1 text-primary" onClick={() => setCapiGuideOpen(true)}>
+                        <HelpCircle className="h-3 w-3" /> Como obter o Token CAPI?
+                      </Button>
+                    )}
                     {/* Multiple webhooks for webhook_pagamento */}
                     {item.key === "webhook_pagamento" && (() => {
                       const webhooks: Array<{ nome: string; token: string }> = data.webhooks || [];
