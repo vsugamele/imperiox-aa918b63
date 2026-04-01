@@ -46,16 +46,19 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
     }
   };
 
+  const normHex = (c = "") => (c.startsWith("#") ? c : `#${c.replace(/^#+/, "")}`);
+
   const addColorFromPicker = (hex: string) => {
-    const cores = bk.cores || [];
-    if (!cores.includes(hex)) {
-      update("cores", [...cores, hex]);
+    const normalized = normHex(hex);
+    const cores = (bk.cores || []).map(normHex);
+    if (!cores.includes(normalized)) {
+      update("cores", [...cores, normalized]);
     }
   };
 
   const editColorSwatch = (index: number, newColor: string) => {
-    const cores = [...(bk.cores || [])];
-    cores[index] = newColor;
+    const cores = [...(bk.cores || [])].map(normHex);
+    cores[index] = normHex(newColor);
     update("cores", cores);
   };
 
