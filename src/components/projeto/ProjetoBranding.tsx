@@ -114,7 +114,7 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
                     input.click();
                   }}
                 />
-                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{c}</span>
+                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{normHex(c)}</span>
               </div>
             ))}
           </div>
