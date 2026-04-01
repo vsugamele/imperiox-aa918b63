@@ -110,6 +110,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = dados.telefone_comprador || "";
     valor = parseFloat(dados.valor || "0");
     produto = dados.nome_produto || "";
+    data_compra = dados.data_compra || dados.criado_em || null;
   }
   // ── Hotmart ──
   else if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
