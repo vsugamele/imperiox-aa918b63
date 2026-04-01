@@ -336,6 +336,107 @@ function parseAvatarHTML(html: string): any {
   });
   if (Object.keys(camadas).length) result.camadas_psique = camadas;
 
+  // V2 Camadas: <h3> with "Camada N" text + following .card ul.styled
+  if (!result.camadas_psique || !Object.keys(result.camadas_psique).length) {
+    const v2Camadas: any = {};
+    const m3Section = doc.querySelector("#m3");
+    if (m3Section) {
+      const h3s = m3Section.querySelectorAll("h3");
+      h3s.forEach(h3 => {
+        const text = extractText(h3).toLowerCase();
+        let camadaKey = "";
+        if (text.includes("camada 1") || text.includes("observáveis") || text.includes("observaveis")) camadaKey = "c1_observaveis";
+        else if (text.includes("camada 2") || text.includes("conscientes")) camadaKey = "c2_conscientes";
+        else if (text.includes("camada 3") || text.includes("semiconscientes") || text.includes("subconscientes")) camadaKey = "c3_subconscientes";
+        else if (text.includes("camada 4") || text.includes("profundas") || text.includes("motivações")) camadaKey = "c4_trauma";
+        if (camadaKey) {
+          // Get next .card sibling(s) with ul.styled
+          let sibling = h3.nextElementSibling;
+          const items: string[] = [];
+          while (sibling) {
+            if (sibling.tagName === "H3" || sibling.tagName === "H2") break;
+            if (sibling.classList.contains("card")) {
+              const lis = sibling.querySelectorAll("ul.styled li");
+              lis.forEach(li => {
+                const t = extractText(li);
+                if (t) items.push(t);
+              });
+            }
+            sibling = sibling.nextElementSibling;
+          }
+          if (items.length) v2Camadas[camadaKey] = items.join(" • ");
+        }
+      });
+    }
+    if (Object.keys(v2Camadas).length) result.camadas_psique = v2Camadas;
+  }
+
+  // V2: Extract dores from Camada 2 h4 headings in #m3
+  if (!result.dores_superficiais?.length) {
+    const m3Section = doc.querySelector("#m3");
+    if (m3Section) {
+      const h4s = m3Section.querySelectorAll("h4");
+      h4s.forEach(h4 => {
+        const text = extractText(h4).toLowerCase();
+        if (text.includes("frustr")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length) result.dores_superficiais = items;
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("contradições") || text.includes("contradicoes") || text.includes("rituais") || text.includes("sabotagem")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length && !result.dores_profundas?.length) result.dores_profundas = items.slice(0, 8);
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("vergonha") || text.includes("silenciosas")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length && !result.medos?.length) result.medos = items.slice(0, 5);
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("fantasia")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length) result.fantasias = items;
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (text.includes("autoengano")) {
+          let sibling = h4.nextElementSibling;
+          while (sibling) {
+            if (sibling.tagName === "H4" || sibling.tagName === "H3") break;
+            if (sibling.classList.contains("card")) {
+              const items = Array.from(sibling.querySelectorAll("ul.styled li")).map(li => extractText(li)).filter(Boolean);
+              if (items.length) result.autoenganos = items;
+            }
+            sibling = sibling.nextElementSibling;
+          }
+        }
+      });
+    }
+  }
+
   // ── Dores de C2 (Frustrações verbalizadas) ──
   const c2El = doc.querySelector("#avatar-c2, [id='avatar-c2']");
   if (c2El && !result.dores_superficiais?.length) {
