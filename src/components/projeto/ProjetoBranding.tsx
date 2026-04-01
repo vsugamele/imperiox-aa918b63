@@ -104,8 +104,8 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
               <div key={i} className="relative group">
                 <div
                   className="h-10 w-10 rounded-md border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                  style={{ backgroundColor: c }}
-                  title={c}
+                  style={{ backgroundColor: normHex(c) }}
+                  title={normHex(c)}
                   onClick={() => {
                     const input = document.createElement("input");
                     input.type = "color";
