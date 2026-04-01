@@ -51,12 +51,12 @@ const COLORS = [
 
 export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [] }: Props) {
   // Build unified product map from briefing + vendas + revenues
-  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string }>();
+  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string; imposto_pct?: number }>();
 
   // Seed from briefing products
   briefingProdutos.forEach(p => {
     if (p.nome) {
-      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo });
+      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo, imposto_pct: parseFloat(p.imposto_pct) || 0 });
     }
   });
 
