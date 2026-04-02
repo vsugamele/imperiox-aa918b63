@@ -11,11 +11,19 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
+    // Hybrid routing: determine which gateway to use based on model prefix
+    const isLovableModel = model.startsWith("google/") || model.startsWith("openai/");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const OPENROUTER_API_KEY = openrouter_key || Deno.env.get("OPENROUTER_API_KEY");
+    
+    if (isLovableModel && !LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!isLovableModel && !OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY não configurada. Adicione nas Configurações ou nos secrets do Supabase.");
+    
+    const aiBaseUrl = isLovableModel ? "https://ai.gateway.lovable.dev/v1" : "https://openrouter.ai/api/v1";
+    const aiApiKey = isLovableModel ? LOVABLE_API_KEY! : OPENROUTER_API_KEY!;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -85,15 +93,15 @@ serve(async (req) => {
     }
 
     // Route by action
-    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, LOVABLE_API_KEY, model);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_branding") return await handleBranding(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_gatilhos") return await handleGatilhos(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_kpis") return await handleKPIs(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_expert") return await handleExpert(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_avatar_perfil") return await handleAvatarPerfil(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, LOVABLE_API_KEY, model);
-    if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, LOVABLE_API_KEY, model);
+    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_kpis") return await handleKPIs(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_expert") return await handleExpert(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_avatar_perfil") return await handleAvatarPerfil(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
+    if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
 
     // Default: automation flow generation
     const triggerLabels: Record<string, string> = {
@@ -118,9 +126,12 @@ REGRAS:
     const userPrompt = `Gere uma sequência de ${num_etapas} ações para o trigger "${trigger_tipo}".
 Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template": "texto", "delay_min": número }]`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const fetchHeaders: Record<string, string> = { Authorization: `Bearer ${aiApiKey}`, "Content-Type": "application/json" };
+    if (!isLovableModel) { fetchHeaders["HTTP-Referer"] = "https://imperiox.lovable.app"; fetchHeaders["X-Title"] = "ImperioHQ"; }
+
+    const response = await fetch(`${aiBaseUrl}/chat/completions`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: fetchHeaders,
       body: JSON.stringify({
         model,
         messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
@@ -163,10 +174,14 @@ async function handleAIError(response: Response) {
   throw new Error("AI gateway error: " + status);
 }
 
-async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, model: string, tools: any[], toolName: string) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, model: string, tools: any[], toolName: string, baseUrl = "https://ai.gateway.lovable.dev/v1") {
+  const isOpenRouter = baseUrl.includes("openrouter.ai");
+  const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
+  if (isOpenRouter) { headers["HTTP-Referer"] = "https://imperiox.lovable.app"; headers["X-Title"] = "ImperioHQ"; }
+  
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], tools, tool_choice: { type: "function", function: { name: toolName } } }),
   });
   if (!response.ok) return handleAIError(response);
@@ -175,79 +190,79 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string) {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const arsenal = await callAI(
     `Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.\n${ctx}\nREGRAS: Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.`,
     "Gere o Arsenal de Copy completo.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_copy_arsenal", description: "Generate copy arsenal", parameters: { type: "object", properties: { promessa: { type: "array", items: { type: "string" } }, inimigo_comum: { type: "array", items: { type: "string" } }, efeito_colateral: { type: "array", items: { type: "string" } }, oportunidade: { type: "array", items: { type: "string" } }, metodo_simplificado: { type: "array", items: { type: "string" } }, hora_do_show: { type: "array", items: { type: "string" } } }, required: ["promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo_simplificado", "hora_do_show"], additionalProperties: false } } }],
-    "generate_copy_arsenal"
+    "generate_copy_arsenal", baseUrl
   );
   if (arsenal instanceof Response) return arsenal;
   return new Response(JSON.stringify({ arsenal }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleBranding(ctx: string, apiKey: string, model: string) {
+async function handleBranding(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const branding = await callAI(
     `Você é um estrategista de marca brasileiro. Analise o contexto e sugira branding.\n${ctx}\nEscolha arquétipo dentre: heroi, mentor, fora_da_lei, explorador, criador, cuidador, rei, mago, bobo`,
     "Analise e gere sugestões de branding completas.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_branding", description: "Generate branding", parameters: { type: "object", properties: { arquetipo: { type: "string" }, inimigo_comum: { type: "string" }, mecanismo_chave: { type: "string" }, personalidade: { type: "string" }, manifesto: { type: "string" }, palavras_usa: { type: "array", items: { type: "string" } }, palavras_evita: { type: "array", items: { type: "string" } } }, required: ["arquetipo", "inimigo_comum", "mecanismo_chave", "personalidade", "manifesto", "palavras_usa", "palavras_evita"], additionalProperties: false } } }],
-    "generate_branding"
+    "generate_branding", baseUrl
   );
   if (branding instanceof Response) return branding;
   return new Response(JSON.stringify({ branding }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleGatilhos(ctx: string, apiKey: string, model: string) {
+async function handleGatilhos(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const gatilhos = await callAI(
     `Você é um especialista em psicologia do consumo e copywriting emocional brasileiro.\n${ctx}\nGere 5-7 gatilhos emocionais específicos com storyboard narrativo.`,
     "Gere gatilhos emocionais + storyboard narrativo completo.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_gatilhos", description: "Generate triggers", parameters: { type: "object", properties: { gatilhos: { type: "array", items: { type: "object", properties: { nome: { type: "string" }, categoria: { type: "string" }, intensidade: { type: "string" }, situacao: { type: "string" }, copy_sugerido: { type: "string" } }, required: ["nome", "categoria", "intensidade", "situacao", "copy_sugerido"], additionalProperties: false } }, storyboard: { type: "object", properties: { antes: { type: "string" }, trigger: { type: "string" }, busca: { type: "string" }, objecao: { type: "string" }, decisao: { type: "string" } }, required: ["antes", "trigger", "busca", "objecao", "decisao"], additionalProperties: false }, gatilho_nuclear: { type: "string" }, the_high: { type: "string" }, the_hell: { type: "string" }, segredo_final: { type: "string" } }, required: ["gatilhos", "storyboard", "gatilho_nuclear", "the_high", "the_hell", "segredo_final"], additionalProperties: false } } }],
-    "generate_gatilhos"
+    "generate_gatilhos", baseUrl
   );
   if (gatilhos instanceof Response) return gatilhos;
   return new Response(JSON.stringify({ gatilhos }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleKPIs(ctx: string, apiKey: string, model: string) {
+async function handleKPIs(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const kpis = await callAI(
     `Você é um analista de marketing digital brasileiro. Com base nos dados reais do projeto, calcule ou estime os KPIs.\n${ctx}\nUse os dados de vendas, leads, custos e ads para calcular valores reais. Se não houver dados suficientes, estime com base no mercado.`,
     "Calcule os KPIs do projeto com base nos dados disponíveis.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_kpis", description: "Calculate KPIs", parameters: { type: "object", properties: { cpl: { type: "string" }, cac: { type: "string" }, roi: { type: "string" }, roas: { type: "string" }, ticket_medio: { type: "string" }, ltv: { type: "string" }, taxa_conversao: { type: "string" }, leads_mes: { type: "string" } }, required: ["cpl", "cac", "roi", "roas", "ticket_medio", "ltv", "taxa_conversao", "leads_mes"], additionalProperties: false } } }],
-    "generate_kpis"
+    "generate_kpis", baseUrl
   );
   if (kpis instanceof Response) return kpis;
   return new Response(JSON.stringify({ kpis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleExpert(ctx: string, apiKey: string, model: string) {
+async function handleExpert(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const expert = await callAI(
     `Você é um consultor de posicionamento de experts e infoprodutores brasileiro.\n${ctx}\nCom base no contexto do projeto, preencha os dados do expert de forma coerente.`,
     "Preencha os dados do expert com base no contexto disponível.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_expert", description: "Generate expert profile", parameters: { type: "object", properties: { bio: { type: "string" }, tom_voz: { type: "string" }, metodo: { type: "string" }, pilares: { type: "array", items: { type: "string" } }, transformacao: { type: "string" }, temas: { type: "array", items: { type: "string" } }, palavras_usa: { type: "array", items: { type: "string" } }, palavras_evita: { type: "array", items: { type: "string" } } }, required: ["bio", "tom_voz", "metodo", "pilares", "transformacao", "temas"], additionalProperties: false } } }],
-    "generate_expert"
+    "generate_expert", baseUrl
   );
   if (expert instanceof Response) return expert;
   return new Response(JSON.stringify({ expert }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleAvatarPerfil(ctx: string, apiKey: string, model: string) {
+async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const avatar_perfil = await callAI(
     `Você é um psicólogo de consumo e especialista em avatar de marketing brasileiro.\n${ctx}\nCom base nas pesquisas, dores, desejos e concorrentes, preencha o perfil psicológico completo do avatar.`,
     "Preencha o perfil psicológico e desejos do avatar.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_avatar_perfil", description: "Generate avatar profile", parameters: { type: "object", properties: { perfil_psicologico: { type: "object", properties: { retrato: { type: "string" }, arquetipo: { type: "string" }, ferida_central: { type: "string" }, padrao: { type: "string" }, contradicao: { type: "string" } }, required: ["retrato", "arquetipo", "ferida_central", "padrao", "contradicao"], additionalProperties: false }, desejo_externo: { type: "string" }, desejo_interno: { type: "string" }, inimigo: { type: "string" }, resultado_sonhado: { type: "string" }, trigger_event: { type: "string" }, fase_consciencia: { type: "string" }, crenca_bloqueadora: { type: "string" }, crenca_necessaria: { type: "string" }, epifania_central: { type: "string" }, camadas_psique: { type: "object", properties: { c1_observaveis: { type: "string" }, c2_conscientes: { type: "string" }, c3_subconscientes: { type: "string" }, c4_trauma: { type: "string" } }, required: ["c1_observaveis", "c2_conscientes", "c3_subconscientes", "c4_trauma"], additionalProperties: false } }, required: ["perfil_psicologico", "desejo_externo", "desejo_interno", "camadas_psique"], additionalProperties: false } } }],
-    "generate_avatar_perfil"
+    "generate_avatar_perfil", baseUrl
   );
   if (avatar_perfil instanceof Response) return avatar_perfil;
   return new Response(JSON.stringify({ avatar_perfil }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string) {
+async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string) {
   const { skill_id, skill_system_prompt, produto, extra_instructions } = body;
 
   // Get skill system prompt - prefer passed prompt, fallback to DB
@@ -295,9 +310,13 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
     ? `Execute a skill com base no contexto completo do projeto. Instruções adicionais: ${extra_instructions}`
     : "Execute a skill com base no contexto completo do projeto. Gere o resultado mais completo e detalhado possível.";
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const isOpenRouter = baseUrl.includes("openrouter.ai");
+  const fetchHeaders: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
+  if (isOpenRouter) { fetchHeaders["HTTP-Referer"] = "https://imperiox.lovable.app"; fetchHeaders["X-Title"] = "ImperioHQ"; }
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: fetchHeaders,
     body: JSON.stringify({ model, messages: [{ role: "system", content: fullSystem }, { role: "user", content: userMsg }] }),
   });
 
@@ -307,7 +326,7 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string) {
+async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
   const { project_id, user_prompt } = body;
 
   // Fetch existing ads data for context
@@ -362,13 +381,13 @@ REGRAS:
       }, required: ["nome", "objetivo", "budget_diario", "publico", "copies", "justificativa"], additionalProperties: false } },
       resumo_estrategico: { type: "string" },
     }, required: ["campaigns", "resumo_estrategico"], additionalProperties: false } } }],
-    "generate_campaign_drafts"
+    "generate_campaign_drafts", baseUrl
   );
   if (campaigns instanceof Response) return campaigns;
   return new Response(JSON.stringify({ campaigns }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleAnalyzeAds(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string) {
+async function handleAnalyzeAds(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
   const { project_id } = body;
 
   // Fetch all ads data
@@ -405,7 +424,7 @@ REGRAS:
       novos_publicos: { type: "array", items: { type: "object", properties: { nome: { type: "string" }, descricao: { type: "string" }, interesses: { type: "array", items: { type: "string" } } }, required: ["nome", "descricao", "interesses"], additionalProperties: false } },
       redistribuicao_budget: { type: "string" },
     }, required: ["resumo_geral", "alertas", "otimizacoes"], additionalProperties: false } } }],
-    "analyze_ads_performance"
+    "analyze_ads_performance", baseUrl
   );
   if (analysis instanceof Response) return analysis;
   return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
