@@ -34,6 +34,7 @@ const COMMANDS = [
   { cmd: "/evento", desc: "Criar evento", icon: CalendarIcon, example: "/evento Live de vendas 2024-04-01" },
   { cmd: "/projeto", desc: "Vincular a projeto", icon: FolderKanban, example: "/projeto Nome do Projeto" },
   { cmd: "/lead", desc: "Criar lead rápido", icon: Users, example: "/lead João 11999999999" },
+  { cmd: "/ia", desc: "Perguntar à IA com contexto do projeto", icon: Brain, example: "/ia Crie 3 headlines para o produto" },
 ];
 
 export default function Chat() {
