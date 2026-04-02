@@ -262,7 +262,7 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, ba
   return new Response(JSON.stringify({ avatar_perfil }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string) {
+async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string) {
   const { skill_id, skill_system_prompt, produto, extra_instructions } = body;
 
   // Get skill system prompt - prefer passed prompt, fallback to DB
