@@ -637,7 +637,8 @@ export default function Skills() {
                 <SelectContent>
                   <SelectItem value="google/gemini-3-flash-preview">Gemini Flash</SelectItem>
                   <SelectItem value="openai/gpt-4.1-mini">GPT-4.1 Mini</SelectItem>
-                  <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet</SelectItem>
+                  <SelectItem value="anthropic/claude-opus-4">Claude Opus 4</SelectItem>
+                  <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet 4</SelectItem>
                   <SelectItem value="moonshotai/kimi-k2">Kimi K2</SelectItem>
                 </SelectContent>
               </Select>

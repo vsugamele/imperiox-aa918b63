@@ -302,7 +302,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
     { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
     { id: "google/gemini-2.5-pro", label: "Gemini Pro" },
     { id: "openai/gpt-5-mini", label: "GPT-5 Mini" },
-    { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet" },
+    { id: "anthropic/claude-opus-4", label: "Claude Opus 4" },
+    { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
   ];
 
   const handleGenerateCampaigns = async () => {

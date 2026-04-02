@@ -825,7 +825,7 @@ export default function Leads() {
             {/* Period Filter */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs text-muted-foreground mr-1">Período:</span>
-              {PERIOD_OPTIONS.filter(p => p.key !== "custom").map(p => (
+              {PERIOD_OPTIONS.map(p => (
                 <Button key={p.key} size="sm" variant={analyticsPeriod === p.key ? "default" : "outline"} className="h-7 text-[11px] px-2.5" onClick={() => setAnalyticsPeriod(p.key)}>{p.label}</Button>
               ))}
             </div>
