@@ -167,6 +167,76 @@ export default function Chat() {
       return { type: "lead_created", nome, telefone, id: data.id };
     }
 
+    if (cmd === "/ia" && args) {
+      // Build project context
+      let contextStr = "";
+      if (activeProject) {
+        const proj = projects.find(p => p.id === activeProject);
+        if (proj) {
+          const { data: fullProj } = await supabase.from("imphq_projects").select("*").eq("id", activeProject).maybeSingle();
+          if (fullProj) {
+            contextStr += `\nProjeto: ${fullProj.name}\nProduto: ${fullProj.produto || "—"}\nCategoria: ${fullProj.categoria || "—"}\nObjetivo: ${fullProj.objetivo || "—"}\nContexto: ${fullProj.contexto || "—"}\n`;
+            const av = fullProj.avatar as any;
+            if (av) {
+              contextStr += `\n── AVATAR ──\n`;
+              if (av.desejo_externo) contextStr += `Desejo externo: ${av.desejo_externo}\n`;
+              if (av.desejo_interno) contextStr += `Desejo interno: ${av.desejo_interno}\n`;
+              if (av.dores_superficiais?.length) contextStr += `Dores: ${av.dores_superficiais.join(", ")}\n`;
+              if (av.problemas?.length) contextStr += `Problemas: ${av.problemas.join(", ")}\n`;
+              if (av.gatilhos?.length) contextStr += `Gatilhos: ${av.gatilhos.join(", ")}\n`;
+            }
+            const d = fullProj.data as any;
+            if (d?.branding) {
+              contextStr += `\n── BRANDING ──\nTom: ${d.branding.tom_de_voz || "—"}\nArquétipo: ${d.branding.arquetipo || "—"}\n`;
+            }
+            if (d?.copy_arsenal) {
+              contextStr += `\n── COPY ARSENAL ──\n`;
+              for (const b of ["promessa", "inimigo_comum", "metodo"]) {
+                if (d.copy_arsenal[b]?.length) contextStr += `${b}: ${d.copy_arsenal[b].join(" | ")}\n`;
+              }
+            }
+          }
+          // Competitors
+          const { data: comps } = await supabase.from("imphq_competitors").select("nome,ponto_forte").eq("project_id", activeProject).limit(5);
+          if (comps?.length) {
+            contextStr += `\n── CONCORRENTES ──\n`;
+            comps.forEach((c: any) => { contextStr += `- ${c.nome}: ${c.ponto_forte || ""}\n`; });
+          }
+        }
+      }
+
+      // Call AI
+      setAiLoading(true);
+      try {
+        const systemPrompt = `Você é um assistente estratégico de marketing digital e copywriting. Responda de forma direta, prática e em português do Brasil.${contextStr ? `\n\n═══ CONTEXTO DO PROJETO ═══\n${contextStr}` : ""}`;
+        const { data: aiData, error: aiErr } = await supabase.functions.invoke("openflow-ai", {
+          body: {
+            action: "generate",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: args },
+            ],
+            model: "google/gemini-2.5-flash",
+          },
+        });
+        if (aiErr) throw aiErr;
+        const reply = aiData?.result || aiData?.choices?.[0]?.message?.content || "Sem resposta da IA.";
+        
+        // Post AI response as a separate message
+        await supabase.from("imphq_chat_messages").insert({
+          user_id: user.id, content: reply, message_type: "ai_response",
+          metadata: { type: "ai_response", prompt: args, project: activeProject },
+          project_id: activeProject,
+        });
+        await loadMessages();
+      } catch (err: any) {
+        toast.error("Erro IA: " + (err.message || "Verifique a edge function"));
+      } finally {
+        setAiLoading(false);
+      }
+      return { type: "ai_query", prompt: args };
+    }
+
     return null;
   }
 
