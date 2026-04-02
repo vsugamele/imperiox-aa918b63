@@ -174,10 +174,14 @@ async function handleAIError(response: Response) {
   throw new Error("AI gateway error: " + status);
 }
 
-async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, model: string, tools: any[], toolName: string) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, model: string, tools: any[], toolName: string, baseUrl = "https://ai.gateway.lovable.dev/v1") {
+  const isOpenRouter = baseUrl.includes("openrouter.ai");
+  const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
+  if (isOpenRouter) { headers["HTTP-Referer"] = "https://imperiox.lovable.app"; headers["X-Title"] = "ImperioHQ"; }
+  
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], tools, tool_choice: { type: "function", function: { name: toolName } } }),
   });
   if (!response.ok) return handleAIError(response);
