@@ -186,8 +186,7 @@ export default function Chat() {
               if (av.problemas?.length) contextStr += `Problemas: ${av.problemas.join(", ")}\n`;
               if (av.gatilhos?.length) contextStr += `Gatilhos: ${av.gatilhos.join(", ")}\n`;
             }
-            const d = fullProj.data as any;
-            if (d?.branding) {
+            const d = fp.data as any;
               contextStr += `\n── BRANDING ──\nTom: ${d.branding.tom_de_voz || "—"}\nArquétipo: ${d.branding.arquetipo || "—"}\n`;
             }
             if (d?.copy_arsenal) {
