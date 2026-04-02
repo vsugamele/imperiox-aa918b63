@@ -154,13 +154,30 @@ export default function Financas() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="font-display text-3xl font-bold text-primary">💰 Finanças</h1>
-        <Select value={filterProject} onValueChange={setFilterProject}>
-          <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Projetos</SelectItem>
-            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => {
+            const headers = ["Tipo","Projeto","Descrição","Valor","Data"];
+            const rows = [
+              ...fVendas.map(v => ["Venda", projects.find(p=>p.id===v.project_id)?.name||"", v.produto_nome, `R$ ${v.valor.toFixed(2)}`, v.data_venda?.split("T")[0]||""]),
+              ...fProjectRevenues.map(r => ["Receita Manual", projects.find(p=>p.id===r.project_id)?.name||"", r.descricao, `R$ ${r.valor.toFixed(2)}`, r.data_ref||""]),
+              ...fProjectCosts.map(c => ["Custo Projeto", projects.find(p=>p.id===c.project_id)?.name||"", c.nome, `R$ ${c.valor.toFixed(2)}`, ""]),
+              ...fAds.map(a => ["Ads", projects.find(p=>p.id===a.project_id)?.name||"", a.campanha||a.plataforma, `R$ ${a.valor.toFixed(2)}`, a.data_ref||""]),
+            ];
+            const csv = [headers,...rows].map(r => r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+            const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href=url; a.download=`financas_${new Date().toISOString().split("T")[0]}.csv`; a.click();
+            URL.revokeObjectURL(url);
+            toast.success("Relatório financeiro exportado");
+          }}>📥 Export CSV</Button>
+          <Select value={filterProject} onValueChange={setFilterProject}>
+            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Projetos</SelectItem>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* KPIs */}

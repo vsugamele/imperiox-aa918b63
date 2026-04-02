@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2, Search, X } from "lucide-react";
+import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2, Search, X, Brain, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -34,6 +34,7 @@ const COMMANDS = [
   { cmd: "/evento", desc: "Criar evento", icon: CalendarIcon, example: "/evento Live de vendas 2024-04-01" },
   { cmd: "/projeto", desc: "Vincular a projeto", icon: FolderKanban, example: "/projeto Nome do Projeto" },
   { cmd: "/lead", desc: "Criar lead rápido", icon: Users, example: "/lead João 11999999999" },
+  { cmd: "/ia", desc: "Perguntar à IA com contexto do projeto", icon: Brain, example: "/ia Crie 3 headlines para o produto" },
 ];
 
 export default function Chat() {
@@ -46,6 +47,7 @@ export default function Chat() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [sending, setSending] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +165,77 @@ export default function Chat() {
       if (error) { toast.error("Erro ao criar lead"); return null; }
       await logActivity("lead_created", "lead", data.id, nome);
       return { type: "lead_created", nome, telefone, id: data.id };
+    }
+
+    if (cmd === "/ia" && args) {
+      // Build project context
+      let contextStr = "";
+      if (activeProject) {
+        const proj = projects.find(p => p.id === activeProject);
+        if (proj) {
+          const { data: fullProj } = await supabase.from("imphq_projects").select("*").eq("id", activeProject).maybeSingle();
+          if (fullProj) {
+            const fp = fullProj as any;
+            contextStr += `\nProjeto: ${fp.name}\nProduto: ${fp.produto || "—"}\nCategoria: ${fp.category || fp.categoria || "—"}\nObjetivo: ${fp.objetivo || "—"}\nContexto: ${fp.contexto || "—"}\n`;
+            const av = fp.avatar as any;
+            if (av) {
+              contextStr += `\n── AVATAR ──\n`;
+              if (av.desejo_externo) contextStr += `Desejo externo: ${av.desejo_externo}\n`;
+              if (av.desejo_interno) contextStr += `Desejo interno: ${av.desejo_interno}\n`;
+              if (av.dores_superficiais?.length) contextStr += `Dores: ${av.dores_superficiais.join(", ")}\n`;
+              if (av.problemas?.length) contextStr += `Problemas: ${av.problemas.join(", ")}\n`;
+              if (av.gatilhos?.length) contextStr += `Gatilhos: ${av.gatilhos.join(", ")}\n`;
+            }
+            const d = fp.data as any;
+            if (d?.branding) {
+              contextStr += `\n── BRANDING ──\nTom: ${d.branding.tom_de_voz || "—"}\nArquétipo: ${d.branding.arquetipo || "—"}\n`;
+            }
+            if (d?.copy_arsenal) {
+              contextStr += `\n── COPY ARSENAL ──\n`;
+              for (const b of ["promessa", "inimigo_comum", "metodo"]) {
+                if (d.copy_arsenal[b]?.length) contextStr += `${b}: ${d.copy_arsenal[b].join(" | ")}\n`;
+              }
+            }
+          }
+          // Competitors
+          const { data: comps } = await supabase.from("imphq_competitors").select("nome,ponto_forte").eq("project_id", activeProject).limit(5);
+          if (comps?.length) {
+            contextStr += `\n── CONCORRENTES ──\n`;
+            comps.forEach((c: any) => { contextStr += `- ${c.nome}: ${c.ponto_forte || ""}\n`; });
+          }
+        }
+      }
+
+      // Call AI
+      setAiLoading(true);
+      try {
+        const systemPrompt = `Você é um assistente estratégico de marketing digital e copywriting. Responda de forma direta, prática e em português do Brasil.${contextStr ? `\n\n═══ CONTEXTO DO PROJETO ═══\n${contextStr}` : ""}`;
+        const { data: aiData, error: aiErr } = await supabase.functions.invoke("openflow-ai", {
+          body: {
+            action: "generate",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: args },
+            ],
+            model: "google/gemini-2.5-flash",
+          },
+        });
+        if (aiErr) throw aiErr;
+        const reply = aiData?.result || aiData?.choices?.[0]?.message?.content || "Sem resposta da IA.";
+        
+        // Post AI response as a separate message
+        await supabase.from("imphq_chat_messages").insert({
+          user_id: user.id, content: reply, message_type: "ai_response",
+          metadata: { type: "ai_response", prompt: args, project: activeProject },
+          project_id: activeProject,
+        });
+        await loadMessages();
+      } catch (err: any) {
+        toast.error("Erro IA: " + (err.message || "Verifique a edge function"));
+      } finally {
+        setAiLoading(false);
+      }
+      return { type: "ai_query", prompt: args };
     }
 
     return null;
@@ -306,6 +379,16 @@ export default function Chat() {
                       <p className="text-xs text-muted-foreground font-mono">{msg.content}</p>
                       {msg.metadata && <CommandResult metadata={msg.metadata} />}
                     </div>
+                  ) : msg.message_type === "ai_response" ? (
+                    <div className="mt-1 p-3 rounded-lg bg-primary/5 border border-primary/15">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Brain className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] font-semibold text-primary">Resposta da IA</span>
+                      </div>
+                      <div className="text-sm prose prose-sm prose-invert max-w-none">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    </div>
                   ) : (
                     <div className="text-sm prose prose-sm prose-invert max-w-none">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -314,6 +397,12 @@ export default function Chat() {
                 </div>
               </div>
             ))}
+          {aiLoading && (
+            <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span>IA processando...</span>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -376,12 +465,14 @@ function CommandResult({ metadata }: { metadata: any }) {
     event_created: CalendarIcon,
     project_linked: FolderKanban,
     lead_created: Users,
+    ai_query: Brain,
   };
   const colors: Record<string, string> = {
     task_created: "border-amber-500/30 bg-amber-500/5",
     event_created: "border-primary/30 bg-primary/5",
     project_linked: "border-violet-500/30 bg-violet-500/5",
     lead_created: "border-emerald-500/30 bg-emerald-500/5",
+    ai_query: "border-primary/30 bg-primary/5",
   };
   const Icon = icons[metadata.type] || MessageSquare;
   const color = colors[metadata.type] || "border-border";
@@ -391,6 +482,7 @@ function CommandResult({ metadata }: { metadata: any }) {
     event_created: "Evento criado",
     project_linked: "Projeto vinculado",
     lead_created: "Lead criado",
+    ai_query: "Consultando IA...",
   };
 
   return (
