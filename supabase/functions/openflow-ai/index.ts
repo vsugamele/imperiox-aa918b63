@@ -202,13 +202,13 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
   return new Response(JSON.stringify({ arsenal }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleBranding(ctx: string, apiKey: string, model: string) {
+async function handleBranding(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const branding = await callAI(
     `Você é um estrategista de marca brasileiro. Analise o contexto e sugira branding.\n${ctx}\nEscolha arquétipo dentre: heroi, mentor, fora_da_lei, explorador, criador, cuidador, rei, mago, bobo`,
     "Analise e gere sugestões de branding completas.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_branding", description: "Generate branding", parameters: { type: "object", properties: { arquetipo: { type: "string" }, inimigo_comum: { type: "string" }, mecanismo_chave: { type: "string" }, personalidade: { type: "string" }, manifesto: { type: "string" }, palavras_usa: { type: "array", items: { type: "string" } }, palavras_evita: { type: "array", items: { type: "string" } } }, required: ["arquetipo", "inimigo_comum", "mecanismo_chave", "personalidade", "manifesto", "palavras_usa", "palavras_evita"], additionalProperties: false } } }],
-    "generate_branding"
+    "generate_branding", baseUrl
   );
   if (branding instanceof Response) return branding;
   return new Response(JSON.stringify({ branding }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
