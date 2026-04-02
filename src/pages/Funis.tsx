@@ -156,7 +156,7 @@ export default function Funis() {
         supabase.from("imphq_events").select("page_url, event_name").eq("project_id", pid),
         supabase.from("imphq_leads").select("id").eq("project_id", pid),
         supabase.from("imphq_vendas").select("id, valor, status").eq("project_id", pid).eq("status", "aprovado"),
-        supabase.from("imphq_ads_data").select("spend").eq("project_id", pid),
+        supabase.from("imphq_ads_spend" as any).select("valor").eq("project_id", pid),
       ]);
       // Pixel metrics
       const metrics: Record<string, { pageviews: number; conversions: number }> = {};
