@@ -106,6 +106,8 @@ export default function Funis() {
   const [usePixelData, setUsePixelData] = useState(false);
   const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
   const [showProjectPanel, setShowProjectPanel] = useState(false);
+  const [realMetrics, setRealMetrics] = useState<{ leads: number; vendas: number; totalVendas: number; cpl: number; cpa: number }>({ leads: 0, vendas: 0, totalVendas: 0, cpl: 0, cpa: 0 });
+  const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
