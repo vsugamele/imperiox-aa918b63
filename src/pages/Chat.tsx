@@ -175,8 +175,9 @@ export default function Chat() {
         if (proj) {
           const { data: fullProj } = await supabase.from("imphq_projects").select("*").eq("id", activeProject).maybeSingle();
           if (fullProj) {
-            contextStr += `\nProjeto: ${fullProj.name}\nProduto: ${fullProj.produto || "—"}\nCategoria: ${fullProj.categoria || "—"}\nObjetivo: ${fullProj.objetivo || "—"}\nContexto: ${fullProj.contexto || "—"}\n`;
-            const av = fullProj.avatar as any;
+            const fp = fullProj as any;
+            contextStr += `\nProjeto: ${fp.name}\nProduto: ${fp.produto || "—"}\nCategoria: ${fp.category || fp.categoria || "—"}\nObjetivo: ${fp.objetivo || "—"}\nContexto: ${fp.contexto || "—"}\n`;
+            const av = fp.avatar as any;
             if (av) {
               contextStr += `\n── AVATAR ──\n`;
               if (av.desejo_externo) contextStr += `Desejo externo: ${av.desejo_externo}\n`;
