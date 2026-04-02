@@ -190,13 +190,13 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string) {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const arsenal = await callAI(
     `Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.\n${ctx}\nREGRAS: Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.`,
     "Gere o Arsenal de Copy completo.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_copy_arsenal", description: "Generate copy arsenal", parameters: { type: "object", properties: { promessa: { type: "array", items: { type: "string" } }, inimigo_comum: { type: "array", items: { type: "string" } }, efeito_colateral: { type: "array", items: { type: "string" } }, oportunidade: { type: "array", items: { type: "string" } }, metodo_simplificado: { type: "array", items: { type: "string" } }, hora_do_show: { type: "array", items: { type: "string" } } }, required: ["promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo_simplificado", "hora_do_show"], additionalProperties: false } } }],
-    "generate_copy_arsenal"
+    "generate_copy_arsenal", baseUrl
   );
   if (arsenal instanceof Response) return arsenal;
   return new Response(JSON.stringify({ arsenal }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
