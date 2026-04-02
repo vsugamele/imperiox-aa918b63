@@ -381,7 +381,7 @@ REGRAS:
       }, required: ["nome", "objetivo", "budget_diario", "publico", "copies", "justificativa"], additionalProperties: false } },
       resumo_estrategico: { type: "string" },
     }, required: ["campaigns", "resumo_estrategico"], additionalProperties: false } } }],
-    "generate_campaign_drafts"
+    "generate_campaign_drafts", baseUrl
   );
   if (campaigns instanceof Response) return campaigns;
   return new Response(JSON.stringify({ campaigns }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
