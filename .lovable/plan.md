@@ -1,115 +1,88 @@
 
 
-# Imperio HQ — Diagnóstico Completo: O que falta, melhorar e integrar
+# Plano: Google Calendar Sync + Funis com Métricas Reais
 
 ---
 
-## Estado Atual
+## 1. Google Calendar — Sincronização Bidirecional
 
-O sistema já possui uma base robusta com: Dashboard, Projetos (Avatar, Concorrentes, Briefing, Branding, Expert, Copy Arsenal, Calendário, Emails, Finanças, KPIs, Mídia, Docs, Pipeline), Leads com CRM, Finanças com Ads, Kanban, Tarefas, Chat, Mentes IA, OpenFlow (automações), Skills, WhatsApp, Funis visuais, Tracker UTM, Market Intel, Referências, Equipe, Cofre e Configurações.
+### Situação
+Não existe conector Google Calendar disponível nos connectors do Lovable. A integração precisa ser feita via **Google Calendar API** diretamente, usando OAuth ou Service Account.
 
----
+### Abordagem: Edge Function com Google Calendar API
 
-## 1. FUNCIONALIDADES QUE FALTAM
+**Pré-requisito**: O usuário precisa criar credenciais no Google Cloud Console (OAuth 2.0) e fornecer `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN` como secrets no Supabase.
 
-### 1.1 Relatórios Exportáveis (PDF/Excel)
-Hoje os dados vivem apenas na tela. Falta a capacidade de gerar:
-- Relatório mensal de performance por projeto (PDF)
-- Export de leads filtrados (CSV/Excel)
-- Relatório financeiro consolidado para cliente/sócio
+**Implementação:**
 
-### 1.2 Notificações Push / Email Automáticas
-O `NotificationBell` existe mas não há sistema de notificações reais. Falta:
-- Alerta quando um lead compra (webhook → notificação)
-- Lembrete de tarefas vencendo
-- Resumo diário/semanal por email (já tem `notify-scheduler` mas parece incompleto)
+1. **Nova edge function `google-calendar-sync/index.ts`**
+   - Actions: `sync_to_google` (envia evento do Supabase → Google) e `sync_from_google` (puxa eventos Google → Supabase)
+   - Usa refresh token para obter access token automaticamente
+   - Mapeia campos: `title` → `summary`, `description`, `event_date` → `start`, `end_date` → `end`
+   - Salva `google_event_id` no campo `color` (ou nova coluna) para rastreamento
 
-### 1.3 Logs e Auditoria
-Não há registro de "quem fez o quê". Útil para equipe:
-- Log de alterações em projetos
-- Histórico de ações por membro
+2. **Migração: adicionar coluna `google_event_id`** na tabela `imphq_calendar_events`
+   - `ALTER TABLE imphq_calendar_events ADD COLUMN google_event_id TEXT;`
 
-### 1.4 Templates de Projeto
-Ao criar um projeto novo, começar do zero. Falta:
-- Templates pré-configurados (Lançamento, Perpétuo, High Ticket)
-- Clonar projeto existente como base
+3. **UI no `ProjetoCalendario.tsx`**
+   - Botão "Sincronizar Google Calendar" no header do calendário
+   - Toggle "Auto-sync" que envia para o Google ao criar/editar evento
+   - Badge "🔗 Google" nos eventos sincronizados
+   - Botão "Importar do Google" para puxar eventos do Google Calendar
 
 ---
 
-## 2. MELHORIAS NAS FUNCIONALIDADES EXISTENTES
+## 2. Funis — Métricas Reais via Tracker/Leads/Vendas
 
-### 2.1 Dashboard — Mais Inteligente
-- Alertas automáticos baseados em regras (ex: "ROAS caiu abaixo de 2x no projeto X")
-- Widget de "Próximas ações sugeridas pela IA" baseado nos dados atuais
-- Comparação mês-a-mês com setas de tendência
+### Situação atual
+O funil já tem integração com `imphq_events` (pixel data) via toggle "Usar dados do Pixel". Porém falta:
+- Cruzar com dados de **leads** (`imphq_leads`) e **vendas** (`imphq_vendas`) por URL/projeto
+- Calcular **taxa de conversão real** entre etapas conectadas
+- Mostrar **benchmarks** de mercado
 
-### 2.2 Leads — Automação de Follow-up
-- Sequência automática: lead entrou → dispara email/WhatsApp após X horas
-- Lead scoring automático baseado em comportamento (abriu email, clicou, visitou)
-- Integração direta do OpenFlow com o CRM de leads
+### Implementação:
 
-### 2.3 Funis — Métricas Reais
-- Conectar etapas do funil com dados reais do Tracker UTM (cliques por etapa)
-- Calcular taxa de conversão real entre etapas usando dados de leads/vendas
-- Benchmark: comparar conversão do funil com médias do mercado
+1. **Enriquecer dados no `Funis.tsx`** — ao ativar pixel data, também buscar:
+   - `imphq_leads` filtrado por `project_id` → contar leads por `utm_source`/`utm_campaign` para mapear a etapas
+   - `imphq_vendas` filtrado por `project_id` e `status = 'aprovado'` → mapear vendas às etapas de checkout/upsell
+   - Cruzar URLs das etapas com `page_url` dos eventos para matching automático
 
-### 2.4 Chat IA — Contexto do Projeto
-- Permitir selecionar um projeto no chat e injetar todo o contexto (avatar, concorrentes, briefing) automaticamente
-- Histórico de conversas salvo por projeto
-- Sugestões de prompts baseadas na fase do projeto
+2. **Calcular conversão entre etapas conectadas**
+   - Para cada conexão `A → B`, calcular: `taxa = (visitantes_B / visitantes_A) * 100`
+   - Exibir a taxa na linha SVG de conexão como label flutuante
+   - Cor dinâmica: verde (>30%), amarelo (10-30%), vermelho (<10%)
 
-### 2.5 Finanças — Previsão e Projeção
-- Projeção de faturamento baseada na tendência dos últimos 30/60/90 dias
-- Alertas de ROI negativo
-- Comparação de CPL e CPA entre campanhas
+3. **Painel de Métricas do Funil** — novo componente abaixo do canvas:
+   - Tabela resumo: Etapa | Visitas | Conversões | Taxa | Benchmark
+   - Conversão geral do funil (primeira etapa → última etapa)
+   - CPL e CPA calculados se dados de ads estiverem disponíveis (`imphq_ads_data`)
 
----
-
-## 3. INTEGRAÇÕES POSSÍVEIS
-
-### 3.1 Google Analytics 4 (já tem campo GA4 no briefing)
-- Puxar métricas reais (sessões, conversões) via API do GA4
-- Alimentar automaticamente os KPIs do projeto
-
-### 3.2 Hotmart/Kiwify API (além do webhook)
-- Puxar lista de produtos, afiliados e vendas históricas
-- Sincronizar estoque de cursos/mentorias
-
-### 3.3 Calendário Externo (Google Calendar)
-- Sincronizar eventos do ProjetoCalendario com Google Calendar
-- Criar eventos de lançamento com lembretes automáticos
-
-### 3.4 Notion/Google Docs
-- Importar briefings e documentos de clientes diretamente
-- Exportar avatar/concorrentes como documento formatado
-
-### 3.5 N8N / Make (Webhooks genéricos)
-- Endpoint genérico para receber dados de qualquer automação
-- Já tem `imperio-api` mas falta documentação de webhooks de entrada
+4. **Benchmarks de mercado** — dados estáticos baseados em médias conhecidas:
+   - Anúncio → LP: 1-3% CTR
+   - LP → Checkout: 5-15%
+   - Checkout → Compra: 30-60%
+   - Upsell acceptance: 10-25%
+   - Exibir como "Média do mercado" ao lado da taxa real, com seta indicando acima/abaixo
 
 ---
 
-## 4. QUICK WINS (Implementação Rápida)
+## Resumo de alterações
 
-| Melhoria | Esforço | Impacto |
-|---|---|---|
-| Export CSV dos leads | Baixo | Alto |
-| Template de projeto ao criar | Baixo | Alto |
-| Alerta IA no dashboard ("ROAS caiu") | Médio | Alto |
-| Clonar projeto existente | Baixo | Médio |
-| Notificação real no sino quando webhook chega | Médio | Alto |
-| Chat IA com contexto de projeto selecionado | Médio | Alto |
+| Arquivo | Ação |
+|---|---|
+| `supabase/functions/google-calendar-sync/index.ts` | Nova edge function para sync bidirecional Google Calendar |
+| Migração SQL | Adicionar `google_event_id` em `imphq_calendar_events` |
+| `src/components/projeto/ProjetoCalendario.tsx` | Botões sync Google, badge, auto-sync toggle |
+| `src/pages/Funis.tsx` | Buscar leads/vendas, taxa entre conexões, painel de métricas, benchmarks |
 
 ---
 
-## Recomendação
+## Ordem de execução
 
-Sugiro priorizar por impacto imediato no dia a dia:
+1. Migração SQL (coluna `google_event_id`)
+2. Edge function `google-calendar-sync`
+3. UI do Google Calendar no `ProjetoCalendario`
+4. Métricas reais + benchmarks no `Funis.tsx`
 
-1. **Export CSV/PDF** dos leads e finanças (você precisa disso para reuniões)
-2. **Templates de projeto** (economiza tempo ao criar novos clientes)
-3. **Dashboard com alertas IA** (proativo em vez de reativo)
-4. **Chat IA contextual** (já tem a infra, falta conectar o contexto do projeto)
-
-Qual dessas direções quer que eu implemente primeiro?
+**Nota**: Para o Google Calendar funcionar, será necessário adicionar 3 secrets no Supabase: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`. Vou guiar o processo de obtenção após aprovação.
 
