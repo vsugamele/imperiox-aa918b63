@@ -1,58 +1,74 @@
 
 
-# Plano: Corrigir tela branca + Separar tokens Facebook (CAPI vs Marketing API)
+# Plano: Página de Privacidade + Guia Facebook Business Manager
 
 ---
 
-## Problema 1: Tela branca
+## 1. Página de Política de Privacidade (`/privacy`)
 
-A tela branca no preview é causada pelo proxy de autenticação do ambiente de preview do Lovable. **Teste na URL publicada** (https://imperiox.lovable.app) — lá funciona normalmente. Isso não é um bug do código.
+Criar uma página pública (sem autenticação) com política de privacidade compatível com os requisitos do Facebook para aprovação de apps. Inclui:
 
-## Problema 2: Onde colocar o token do Graph API Explorer?
+- Coleta de dados (nome, email, dados de anúncios via Marketing API)
+- Uso dos dados (sincronização de métricas, otimização de campanhas)
+- Compartilhamento (não compartilha com terceiros)
+- Retenção e exclusão de dados
+- Contato do responsável
+- Branding "Imperio HQ"
 
-Atualmente o sistema usa **um único campo** `facebook_access_token` para tudo (CAPI e Ads Sync). Mas são **tokens diferentes**:
+### Arquivos
 
-- **Token CAPI**: gerado no Events Manager → Conversions API (envia eventos de conversão)
-- **Token Marketing API**: gerado no Graph API Explorer com permissões `ads_read` (puxa gastos, criativos, métricas)
-
-O plano é separar em dois campos distintos.
-
----
-
-## Alterações
-
-### 1. `src/pages/ProjetoDetalhe.tsx` — FacebookCAPICard
-
-Adicionar um novo campo **"Access Token (Marketing API)"** salvo como `facebook_marketing_token` no `project.data`. O campo existente `facebook_access_token` continua sendo o token CAPI. Inclui:
-- Input com toggle de visibilidade (eye/eye-off)
-- Helper text: "Gere no Graph API Explorer com permissão ads_read. Usado para puxar gastos e criativos."
-- Link direto para o Graph API Explorer
-
-Também corrigir o warning de `forwardRef` envolvendo `FacebookCAPICard` e `WebhooksPagamentoCard` com `React.forwardRef`.
-
-### 2. `supabase/functions/facebook-ads-sync/index.ts` — Usar novo token
-
-Alterar a leitura do token para priorizar `facebook_marketing_token`, com fallback para `facebook_access_token`:
-
-```typescript
-const rawToken = project.data?.facebook_marketing_token || project.data?.facebook_access_token || "";
-```
-
-### 3. `src/components/projeto/ProjetoFinancas.tsx` — Botão de sync
-
-Atualizar a validação do botão "Sincronizar Facebook" para verificar `facebook_marketing_token` OU `facebook_access_token`, e mostrar mensagem orientando o usuário caso falte o token de Marketing API.
-
-### 4. Indicador de status
-
-No card "Integrações Ativas" (linha 284), adicionar um item "Marketing API" que verifica `facebook_marketing_token`.
+| Arquivo | Ação |
+|---|---|
+| `src/pages/Privacy.tsx` | Nova página pública com a política completa |
+| `src/App.tsx` | Rota `/privacy` fora do ProtectedRoute (pública) |
 
 ---
 
-## Resumo de arquivos
+## 2. Passo a passo para Facebook Business Manager + Token
+
+Após implementar, vou incluir o guia completo no chat. Resumo:
+
+### Criar o App no Facebook
+
+1. Acesse [developers.facebook.com/apps](https://developers.facebook.com/apps) → **Criar App**
+2. Tipo: **Business** → Selecione sua Business Manager
+3. Em **Configurações > Básico**: cole a URL da privacy page (`https://imperiox.lovable.app/privacy`) no campo **URL da Política de Privacidade**
+4. Preencha os campos obrigatórios (ícone, domínio, email de contato)
+
+### Adicionar o produto Marketing API
+
+5. No painel do app → **Adicionar Produto** → **Marketing API**
+6. Em **Configurações do App** → solicite as permissões: `ads_read`, `ads_management`, `business_management`
+
+### Conectar sua BM e Ad Accounts
+
+7. Vá em [business.facebook.com/settings](https://business.facebook.com/settings)
+8. **Contas de Anúncios** → verifique que as contas que quer acessar estão na BM
+9. **Apps** → adicione seu app à BM → dê permissão às contas de anúncios
+
+### Gerar o Token no Graph API Explorer
+
+10. Acesse [developers.facebook.com/tools/explorer](https://developers.facebook.com/tools/explorer/)
+11. Selecione seu **App** no dropdown
+12. Clique **Gerar Token de Acesso** → faça login e autorize
+13. Adicione as permissões: `ads_read`, `ads_management`
+14. Copie o token gerado
+15. Cole no campo **Access Token (Marketing API)** dentro do projeto no Imperio HQ
+
+### Token de Longa Duração (60 dias)
+
+16. No Graph Explorer, troque o token curto por um de longa duração:
+    ```
+    GET /oauth/access_token?grant_type=fb_exchange_token&client_id={APP_ID}&client_secret={APP_SECRET}&fb_exchange_token={TOKEN_CURTO}
+    ```
+17. Use o token retornado — dura 60 dias
+
+---
+
+## Resumo
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/ProjetoDetalhe.tsx` | Novo campo `facebook_marketing_token` no card CAPI, forwardRef fix, indicador no status |
-| `supabase/functions/facebook-ads-sync/index.ts` | Priorizar `facebook_marketing_token` |
-| `src/components/projeto/ProjetoFinancas.tsx` | Validação do novo token no botão sync |
+| `src/pages/Privacy.tsx` | Página pública de política de privacidade |
+| `src/App.tsx` | Rota `/privacy` pública |
 
