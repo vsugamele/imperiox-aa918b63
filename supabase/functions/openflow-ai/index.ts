@@ -93,15 +93,15 @@ serve(async (req) => {
     }
 
     // Route by action
-    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, LOVABLE_API_KEY, model);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_branding") return await handleBranding(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_gatilhos") return await handleGatilhos(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_kpis") return await handleKPIs(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_expert") return await handleExpert(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_avatar_perfil") return await handleAvatarPerfil(projectContext, LOVABLE_API_KEY, model);
-    if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, LOVABLE_API_KEY, model);
-    if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, LOVABLE_API_KEY, model);
+    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_kpis") return await handleKPIs(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_expert") return await handleExpert(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_avatar_perfil") return await handleAvatarPerfil(projectContext, aiApiKey, model, aiBaseUrl);
+    if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
+    if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
 
     // Default: automation flow generation
     const triggerLabels: Record<string, string> = {
