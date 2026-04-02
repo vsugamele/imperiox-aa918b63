@@ -465,12 +465,14 @@ function CommandResult({ metadata }: { metadata: any }) {
     event_created: CalendarIcon,
     project_linked: FolderKanban,
     lead_created: Users,
+    ai_query: Brain,
   };
   const colors: Record<string, string> = {
     task_created: "border-amber-500/30 bg-amber-500/5",
     event_created: "border-primary/30 bg-primary/5",
     project_linked: "border-violet-500/30 bg-violet-500/5",
     lead_created: "border-emerald-500/30 bg-emerald-500/5",
+    ai_query: "border-primary/30 bg-primary/5",
   };
   const Icon = icons[metadata.type] || MessageSquare;
   const color = colors[metadata.type] || "border-border";
@@ -480,6 +482,7 @@ function CommandResult({ metadata }: { metadata: any }) {
     event_created: "Evento criado",
     project_linked: "Projeto vinculado",
     lead_created: "Lead criado",
+    ai_query: "Consultando IA...",
   };
 
   return (
