@@ -69,9 +69,7 @@ export default function Chat() {
       })
       .subscribe();
 
-    // Polling backup a cada 5s
-    const poll = setInterval(loadMessages, 5000);
-    return () => { supabase.removeChannel(channel); clearInterval(poll); };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {

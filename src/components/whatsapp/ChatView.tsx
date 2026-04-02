@@ -97,7 +97,7 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
   }, [conversationId, phone, loadInitial]);
 
   useEffect(() => {
-    const interval = setInterval(pollNew, 8000);
+    const interval = setInterval(pollNew, 30000);
     return () => clearInterval(interval);
   }, [pollNew]);
 
