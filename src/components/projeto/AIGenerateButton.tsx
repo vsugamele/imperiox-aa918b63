@@ -18,8 +18,9 @@ const MODELS = [
   { id: "openai/gpt-5", label: "💪 GPT-5", desc: "Poderoso e preciso", via: "gateway" },
   { id: "openai/gpt-5-mini", label: "⚡ GPT-5 Mini", desc: "Rápido e econômico", via: "gateway" },
   // --- OpenRouter (Claude, DeepSeek, Llama) ---
-  { id: "anthropic/claude-sonnet-4", label: "🟣 Claude Sonnet 4", desc: "Último Anthropic, excelente raciocínio", via: "openrouter" },
-  { id: "anthropic/claude-3.5-sonnet", label: "🟣 Claude 3.5 Sonnet", desc: "Rápido e inteligente", via: "openrouter" },
+  { id: "anthropic/claude-opus-4", label: "🟣 Claude Opus 4", desc: "Mais poderoso Anthropic", via: "openrouter" },
+  { id: "anthropic/claude-sonnet-4", label: "🟣 Claude Sonnet 4", desc: "Rápido e inteligente", via: "openrouter" },
+  { id: "anthropic/claude-3.5-sonnet", label: "🟣 Claude 3.5 Sonnet", desc: "Versão estável anterior", via: "openrouter" },
   { id: "deepseek/deepseek-r1", label: "🔵 DeepSeek R1", desc: "Raciocínio profundo, custo baixo", via: "openrouter" },
   { id: "meta-llama/llama-4-maverick", label: "🦙 Llama 4 Maverick", desc: "Meta open-source, rápido", via: "openrouter" },
   // --- Lite ---
