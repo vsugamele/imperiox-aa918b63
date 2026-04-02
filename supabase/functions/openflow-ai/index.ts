@@ -176,14 +176,32 @@ async function handleAIError(response: Response) {
 
 async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, model: string, tools: any[], toolName: string, baseUrl = "https://ai.gateway.lovable.dev/v1") {
   const isOpenRouter = baseUrl.includes("openrouter.ai");
-  const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
-  if (isOpenRouter) { headers["HTTP-Referer"] = "https://imperiox.lovable.app"; headers["X-Title"] = "ImperioHQ"; }
+  const makeHeaders = (key: string, openRouter: boolean): Record<string, string> => {
+    const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    if (openRouter) { h["HTTP-Referer"] = "https://imperiox.lovable.app"; h["X-Title"] = "ImperioHQ"; }
+    return h;
+  };
+  const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], tools, tool_choice: { type: "function", function: { name: toolName } } });
   
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  let response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers,
-    body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], tools, tool_choice: { type: "function", function: { name: toolName } } }),
+    headers: makeHeaders(apiKey, isOpenRouter),
+    body: payload,
   });
+
+  // Fallback: if Lovable gateway returns 402 (no credits), retry via OpenRouter
+  if (!isOpenRouter && response.status === 402) {
+    const orKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (orKey) {
+      console.log("Lovable gateway 402, falling back to OpenRouter for model:", model);
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: makeHeaders(orKey, true),
+        body: payload,
+      });
+    }
+  }
+
   if (!response.ok) return handleAIError(response);
   const result = await response.json();
   const tc = result.choices?.[0]?.message?.tool_calls?.[0];
