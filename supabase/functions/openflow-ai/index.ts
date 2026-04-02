@@ -238,13 +238,13 @@ async function handleKPIs(ctx: string, apiKey: string, model: string, baseUrl: s
   return new Response(JSON.stringify({ kpis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleExpert(ctx: string, apiKey: string, model: string) {
+async function handleExpert(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const expert = await callAI(
     `Você é um consultor de posicionamento de experts e infoprodutores brasileiro.\n${ctx}\nCom base no contexto do projeto, preencha os dados do expert de forma coerente.`,
     "Preencha os dados do expert com base no contexto disponível.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_expert", description: "Generate expert profile", parameters: { type: "object", properties: { bio: { type: "string" }, tom_voz: { type: "string" }, metodo: { type: "string" }, pilares: { type: "array", items: { type: "string" } }, transformacao: { type: "string" }, temas: { type: "array", items: { type: "string" } }, palavras_usa: { type: "array", items: { type: "string" } }, palavras_evita: { type: "array", items: { type: "string" } } }, required: ["bio", "tom_voz", "metodo", "pilares", "transformacao", "temas"], additionalProperties: false } } }],
-    "generate_expert"
+    "generate_expert", baseUrl
   );
   if (expert instanceof Response) return expert;
   return new Response(JSON.stringify({ expert }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
