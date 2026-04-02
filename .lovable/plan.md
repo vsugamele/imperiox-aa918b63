@@ -1,60 +1,59 @@
 
 
-# Plano: Corrigir parser do Avatar para HTML V2 ("Código da Pele")
+# Plano: OpenRouter + Claude + Gateway Lovable Híbrido
 
-## Problema
+## Situação atual
 
-O HTML "Código da Pele" usa uma estrutura CSS completamente diferente do HTML que o parser foi construído para ler (formato JP Freitas). Nenhum seletor bate, então o import resulta em objeto vazio.
+- As API keys (incluindo OpenRouter) são salvas apenas no **localStorage** do navegador (página Configurações)
+- A edge function `openflow-ai` usa **apenas** o `LOVABLE_API_KEY` com o gateway `ai.gateway.lovable.dev`
+- O gateway Lovable suporta apenas Gemini e GPT — Claude e outros modelos não funcionam
+- Não existe secret `OPENROUTER_API_KEY` no Supabase
 
-## Mapeamento de diferenças (V1 vs V2)
+## Solução: Roteamento híbrido automático
+
+O frontend envia a key OpenRouter junto na request. A edge function decide qual API usar baseado no modelo escolhido:
+
+- Modelos `google/*` e `openai/*` → Gateway Lovable (usa `LOVABLE_API_KEY`)
+- Modelos `anthropic/*`, `meta-llama/*`, `deepseek/*`, qualquer outro → OpenRouter direto (usa a key enviada pelo frontend)
+
+## Passo 1: Adicionar OPENROUTER_API_KEY como secret no Supabase
+
+Usar a tool `add_secret` para criar o secret `OPENROUTER_API_KEY`. Assim a edge function pode ler de `Deno.env.get("OPENROUTER_API_KEY")` como fallback caso o frontend não envie.
+
+## Passo 2: Atualizar a edge function `openflow-ai`
+
+Na função `callAI()` e no trecho default:
 
 ```text
-Seção            | Parser espera               | HTML V2 usa
-─────────────────┼─────────────────────────────┼──────────────────────────
-Sub-avatares     | .avatar-card .av-name       | .sub-card .sub-card-name
-                 | .av-row .av-key .av-val     | .sub-field .sub-field-label .sub-field-value
-Voyerismos       | .scene .scene-title         | .voyeur-card .voyeur-title
-                 | .scene-key .scene-val       | .voyeur-key .voyeur-val
-                 | .scene-quote                | .voyeur-quote
-                 | .scene-intensity            | .intensity-badge
-Camadas C1-C4    | .acc-card .acc-num          | <h3>Camada N — ...</h3> + .card ul.styled
-                 | .card .card-label C1/C2     | (sem label, inferido do heading)
-Desejos          | .desejo-card .dc-name       | .desire-card .desire-name
-                 | .dc-score-pill .dc-tag      | .desire-score-badge .mini-score
-                 | #desejos-b2/b3/b4          | <h4> headings (Externos/Internos/Proibidos)
-Ads              | .ad-angle .ad-section       | .ad-label .ad-body p>strong
-                 | .ad-key .ad-text            | (inline bold: Hook/Corpo/CTA)
-Problemas        | #problemas-tabela           | #m7 .score-table (sem ID especial)
-Emoções          | .em-step .em-num .em-name   | .emotion-step .emotion-num .emotion-name
-Palavras         | .wpill .dor/.desejo         | .word .pain/.desire/.solution
-Frases-gatilho   | .frase-gatilho .dor/.des    | .phrase-trigger .phrase-type.pain/.desire
-Crenças          | .belief-box .belief-type     | .sub-field-label + .highlight (inline)
-Síntese          | .sint-card .sint-title       | .strategy-box .strategy-title .strategy-text
-Trauma           | (não suportado)              | .trauma-step .trauma-circle .trauma-content
-Ciclo sabotagem  | .cycle-item .cycle-step      | .cycle-box + .cycle-arrow
+Se modelo começa com "google/" ou "openai/" → 
+  URL: https://ai.gateway.lovable.dev/v1/chat/completions
+  Auth: Bearer LOVABLE_API_KEY
+
+Senão →
+  URL: https://openrouter.ai/api/v1/chat/completions
+  Auth: Bearer OPENROUTER_API_KEY
+  Header extra: X-Title: ImperioHQ
 ```
 
-## Solução
+## Passo 3: Atualizar lista de modelos no frontend
 
-Atualizar `parseAvatarHTML()` em `AvatarImporter.tsx` para detectar ambos os formatos. Para cada seção, adicionar seletores fallback para as classes V2:
+Adicionar modelos Claude e outros ao `AIGenerateButton.tsx`:
 
-1. **Sub-avatares**: Adicionar fallback `.sub-card` → `.sub-card-name` para nome, `.sub-field-label` / `.sub-field-value` para campos
-2. **Voyerismos**: Adicionar fallback `.voyeur-card` → `.voyeur-title`, `.voyeur-key`/`.voyeur-val`, `.voyeur-quote`, `.intensity-badge`
-3. **Camadas C1-C4**: Buscar `<h3>` com texto "Camada N" e coletar os `<li>` dos `.card ul.styled` seguintes
-4. **Desejos**: Adicionar fallback `.desire-card` → `.desire-name`, `.desire-score-badge`, `.mini-score`, classificar por heading `<h4>` (Externos vs Internos vs Proibidos)
-5. **Ads**: Adicionar fallback para `.ad-card .ad-label` + parsear `<p><strong>Hook:</strong>` / `Corpo:` / `CTA:` do `.ad-body`
-6. **Problemas**: Adicionar fallback `#m7 .score-table` ou qualquer `.score-table` dentro de seção com título "Problemas"
-7. **Emoções**: Adicionar `.emotion-step` / `.emotion-num` / `.emotion-name` / `.emotion-quote`
-8. **Palavras**: Adicionar `.word.pain` / `.word.desire` / `.word.solution` / `.word.validation`
-9. **Frases-gatilho**: Adicionar `.phrase-trigger` → `.phrase-type` (pain/desire/decision) + `.phrase-text`
-10. **Crenças**: Buscar `.sub-field-label` com texto "Crença Bloqueadora/Necessária" + próximo `.highlight p`
-11. **Síntese**: Adicionar `.strategy-box` → `.strategy-title` / `.strategy-text`
-12. **Trauma (novo)**: Parsear `.trauma-step` → `.trauma-circle` (número) + `.trauma-step-title` + conteúdo
-13. **Ciclo sabotagem**: Adicionar `.cycle-box` com `.cycle-arrow` como etapas
+- `anthropic/claude-sonnet-4` — Claude Sonnet 4
+- `anthropic/claude-3.5-sonnet` — Claude 3.5 Sonnet
+- `deepseek/deepseek-r1` — DeepSeek R1
+- `meta-llama/llama-4-maverick` — Llama 4 Maverick
 
-## Arquivo alterado
+Cada modelo terá um badge visual indicando se usa "Gateway" ou "OpenRouter".
+
+## Passo 4: Passar a key do frontend para a edge function
+
+O `AIGenerateButton` lê a key OpenRouter do localStorage (`imphq_api_keys → openrouter`) e envia no body da request como `openrouter_key`. A edge function usa essa key OU o secret do Supabase como fallback.
+
+## Arquivos alterados
 
 | Arquivo | Ação |
 |---|---|
-| `src/components/projeto/avatar/AvatarImporter.tsx` | Adicionar seletores V2 como fallback em `parseAvatarHTML()` para todas as seções |
+| `supabase/functions/openflow-ai/index.ts` | Roteamento híbrido: Lovable gateway vs OpenRouter baseado no modelo |
+| `src/components/projeto/AIGenerateButton.tsx` | Adicionar modelos Claude/DeepSeek/Llama + enviar openrouter_key no body |
 
