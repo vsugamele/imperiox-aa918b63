@@ -11,7 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLab
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 
 interface Etapa {
@@ -105,6 +106,8 @@ export default function Funis() {
   const [usePixelData, setUsePixelData] = useState(false);
   const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
   const [showProjectPanel, setShowProjectPanel] = useState(false);
+  const [realMetrics, setRealMetrics] = useState<{ leads: number; vendas: number; totalVendas: number; cpl: number; cpa: number }>({ leads: 0, vendas: 0, totalVendas: 0, cpl: 0, cpa: 0 });
+  const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
@@ -144,17 +147,20 @@ export default function Funis() {
     }
   }, [selectedFunil?.project_id, projects]);
 
-  // Load pixel data for funnel project
+  // Load pixel data + real metrics for funnel project
   useEffect(() => {
-    if (!selectedFunil?.project_id || !usePixelData) { setPixelMetrics({}); return; }
-    const fetchPixel = async () => {
-      const { data } = await supabase
-        .from("imphq_events")
-        .select("page_url, event_name")
-        .eq("project_id", selectedFunil.project_id!);
-      if (!data) return;
+    if (!selectedFunil?.project_id || !usePixelData) { setPixelMetrics({}); setRealMetrics({ leads: 0, vendas: 0, totalVendas: 0, cpl: 0, cpa: 0 }); return; }
+    const fetchData = async () => {
+      const pid = selectedFunil.project_id!;
+      const [evRes, leadsRes, vendasRes, adsRes] = await Promise.all([
+        supabase.from("imphq_events").select("page_url, event_name").eq("project_id", pid),
+        supabase.from("imphq_leads").select("id").eq("project_id", pid),
+        supabase.from("imphq_vendas").select("id, valor, status").eq("project_id", pid).eq("status", "aprovado"),
+        supabase.from("imphq_ads_data").select("spend").eq("project_id", pid),
+      ]);
+      // Pixel metrics
       const metrics: Record<string, { pageviews: number; conversions: number }> = {};
-      for (const ev of data) {
+      for (const ev of (evRes.data || [])) {
         const url = (ev.page_url || "").replace(/\/$/, "").toLowerCase();
         if (!url) continue;
         if (!metrics[url]) metrics[url] = { pageviews: 0, conversions: 0 };
@@ -162,8 +168,20 @@ export default function Funis() {
         else metrics[url].conversions++;
       }
       setPixelMetrics(metrics);
+      // Real metrics
+      const totalLeads = leadsRes.data?.length || 0;
+      const totalVendasCount = vendasRes.data?.length || 0;
+      const totalVendasValor = vendasRes.data?.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0) || 0;
+      const totalSpend = adsRes.data?.reduce((s: number, a: any) => s + (Number(a.spend) || 0), 0) || 0;
+      setRealMetrics({
+        leads: totalLeads,
+        vendas: totalVendasCount,
+        totalVendas: totalVendasValor,
+        cpl: totalLeads > 0 ? totalSpend / totalLeads : 0,
+        cpa: totalVendasCount > 0 ? totalSpend / totalVendasCount : 0,
+      });
     };
-    fetchPixel();
+    fetchData();
   }, [selectedFunil?.project_id, usePixelData]);
 
   const filtered = funis.filter(f => {

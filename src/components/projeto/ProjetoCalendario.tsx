@@ -9,11 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Pencil, CalendarIcon, Clock } from "lucide-react";
+import { Plus, Trash2, Pencil, Clock, RefreshCw, Download, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth, isAfter } from "date-fns";
+import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +29,7 @@ interface CalendarEvent {
   all_day: boolean;
   reminder: boolean;
   created_at: string;
+  google_event_id?: string | null;
 }
 
 const EVENT_TYPES = [
@@ -54,8 +54,9 @@ export function ProjetoCalendario({ projectId }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
+  const [autoSync, setAutoSync] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  // Form state
   const [form, setForm] = useState({ title: "", description: "", event_type: "general", event_date: "", end_date: "", all_day: false, reminder: false, color: "" });
 
   const loadEvents = useCallback(async () => {
@@ -91,6 +92,19 @@ export function ProjetoCalendario({ projectId }: Props) {
     setDialogOpen(true);
   };
 
+  const syncToGoogle = async (eventData: any) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("google-calendar-sync", {
+        body: { action: "sync_to_google", event: eventData },
+      });
+      if (error) throw error;
+      return data?.google_event_id;
+    } catch (err: any) {
+      console.warn("Google sync failed:", err.message);
+      return null;
+    }
+  };
+
   const saveEvent = async () => {
     if (!form.title || !form.event_date) { toast.error("Título e data são obrigatórios"); return; }
     const { data: { user } } = await supabase.auth.getUser();
@@ -112,36 +126,62 @@ export function ProjetoCalendario({ projectId }: Props) {
     if (editingEvent) {
       const { error } = await supabase.from("imphq_calendar_events").update(payload).eq("id", editingEvent.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
+      if (autoSync) await syncToGoogle({ ...payload, id: editingEvent.id, google_event_id: editingEvent.google_event_id });
       toast.success("Evento atualizado");
     } else {
-      const { error } = await supabase.from("imphq_calendar_events").insert(payload);
+      const { data: inserted, error } = await supabase.from("imphq_calendar_events").insert(payload).select().single();
       if (error) { toast.error("Erro ao criar"); return; }
+      if (autoSync && inserted) await syncToGoogle({ ...payload, id: inserted.id });
       toast.success("Evento criado");
     }
     setDialogOpen(false);
     loadEvents();
   };
 
-  const deleteEvent = async (id: string) => {
+  const deleteEvent = async (id: string, googleEventId?: string | null) => {
+    if (googleEventId) {
+      try {
+        await supabase.functions.invoke("google-calendar-sync", {
+          body: { action: "delete_from_google", event: { google_event_id: googleEventId } },
+        });
+      } catch {}
+    }
     await supabase.from("imphq_calendar_events").delete().eq("id", id);
     toast.success("Evento removido");
     loadEvents();
   };
 
-  // Days with events for calendar highlighting
+  const syncAllToGoogle = async () => {
+    setSyncing(true);
+    let synced = 0;
+    for (const ev of events) {
+      const gid = await syncToGoogle(ev);
+      if (gid) synced++;
+    }
+    toast.success(`${synced} eventos sincronizados com Google Calendar`);
+    setSyncing(false);
+    loadEvents();
+  };
+
+  const importFromGoogle = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-calendar-sync", {
+        body: { action: "sync_from_google", project_id: projectId },
+      });
+      if (error) throw error;
+      toast.success(`${data?.imported || 0} eventos importados do Google Calendar`);
+      loadEvents();
+    } catch (err: any) {
+      toast.error("Erro ao importar: " + (err.message || "Verifique as credenciais Google"));
+    }
+    setSyncing(false);
+  };
+
   const eventDates = events.map(e => new Date(e.event_date));
   const filteredEvents = events.filter(e => filterType === "all" || e.event_type === filterType);
-
-  // Events for selected date
   const dayEvents = filteredEvents.filter(e => isSameDay(new Date(e.event_date), selectedDate));
-
-  // Events for selected month
-  const monthStart = startOfMonth(month);
-  const monthEnd = endOfMonth(month);
-  const monthEvents = filteredEvents.filter(e => {
-    const d = new Date(e.event_date);
-    return isSameMonth(d, month);
-  });
+  const monthEvents = filteredEvents.filter(e => isSameMonth(new Date(e.event_date), month));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -153,6 +193,19 @@ export function ProjetoCalendario({ projectId }: Props) {
             <Button size="sm" onClick={() => openNew()} className="h-7 text-xs gap-1">
               <Plus className="h-3 w-3" /> Evento
             </Button>
+          </div>
+          {/* Google Calendar Controls */}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1" onClick={syncAllToGoogle} disabled={syncing}>
+              <RefreshCw className={cn("h-2.5 w-2.5", syncing && "animate-spin")} /> Sync Google
+            </Button>
+            <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1" onClick={importFromGoogle} disabled={syncing}>
+              <Download className="h-2.5 w-2.5" /> Importar
+            </Button>
+            <div className="flex items-center gap-1 ml-auto">
+              <Switch checked={autoSync} onCheckedChange={setAutoSync} className="scale-[0.6]" />
+              <span className="text-[9px] text-muted-foreground">Auto-sync</span>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -167,22 +220,10 @@ export function ProjetoCalendario({ projectId }: Props) {
             modifiers={{ hasEvent: eventDates }}
             modifiersClassNames={{ hasEvent: "bg-primary/20 font-bold text-primary rounded-full" }}
           />
-          {/* Filter */}
           <div className="mt-3 flex flex-wrap gap-1">
-            <Badge
-              variant={filterType === "all" ? "default" : "outline"}
-              className="cursor-pointer text-[10px]"
-              onClick={() => setFilterType("all")}
-            >
-              Todos
-            </Badge>
+            <Badge variant={filterType === "all" ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => setFilterType("all")}>Todos</Badge>
             {EVENT_TYPES.map(t => (
-              <Badge
-                key={t.value}
-                variant={filterType === t.value ? "default" : "outline"}
-                className="cursor-pointer text-[10px]"
-                onClick={() => setFilterType(t.value)}
-              >
+              <Badge key={t.value} variant={filterType === t.value ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => setFilterType(t.value)}>
                 {t.icon} {t.label}
               </Badge>
             ))}
@@ -216,7 +257,14 @@ export function ProjetoCalendario({ projectId }: Props) {
                 <div className="flex items-start gap-3">
                   <span className="text-lg mt-0.5">{type.icon}</span>
                   <div>
-                    <p className="text-sm font-medium">{ev.title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium">{ev.title}</p>
+                      {ev.google_event_id && (
+                        <Badge variant="outline" className="text-[8px] gap-0.5 px-1 py-0 border-blue-400/30 text-blue-400">
+                          <Link2 className="h-2 w-2" /> Google
+                        </Badge>
+                      )}
+                    </div>
                     {ev.description && <p className="text-xs text-muted-foreground mt-0.5">{ev.description}</p>}
                     <div className="flex items-center gap-2 mt-1">
                       <Badge className={cn("text-[10px]", type.color)}>{type.label}</Badge>
@@ -235,7 +283,7 @@ export function ProjetoCalendario({ projectId }: Props) {
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(ev)}>
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteEvent(ev.id)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteEvent(ev.id, ev.google_event_id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -243,7 +291,6 @@ export function ProjetoCalendario({ projectId }: Props) {
             );
           })}
 
-          {/* Month overview */}
           {monthEvents.length > 0 && dayEvents.length === 0 && (
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Outros eventos em {format(month, "MMMM", { locale: ptBR })}</p>
@@ -254,6 +301,7 @@ export function ProjetoCalendario({ projectId }: Props) {
                     <div className="flex items-center gap-2">
                       <span className="text-sm">{type.icon}</span>
                       <span className="text-xs">{ev.title}</span>
+                      {ev.google_event_id && <Link2 className="h-2 w-2 text-blue-400" />}
                     </div>
                     <span className="text-[10px] text-muted-foreground font-mono">{format(new Date(ev.event_date), "dd/MM")}</span>
                   </div>
