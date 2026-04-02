@@ -9768,6 +9768,7 @@ export type Database = {
           end_date: string | null
           event_date: string
           event_type: string | null
+          google_event_id: string | null
           id: string
           project_id: string | null
           reminder: boolean | null
@@ -9783,6 +9784,7 @@ export type Database = {
           end_date?: string | null
           event_date: string
           event_type?: string | null
+          google_event_id?: string | null
           id?: string
           project_id?: string | null
           reminder?: boolean | null
@@ -9798,6 +9800,7 @@ export type Database = {
           end_date?: string | null
           event_date?: string
           event_type?: string | null
+          google_event_id?: string | null
           id?: string
           project_id?: string | null
           reminder?: boolean | null
