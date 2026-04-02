@@ -126,13 +126,12 @@ REGRAS:
     const userPrompt = `Gere uma sequência de ${num_etapas} ações para o trigger "${trigger_tipo}".
 Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template": "texto", "delay_min": número }]`;
 
-    const fetchHeaders: Record<string, string> = { Authorization: `Bearer ${aiApiKey}`, "Content-Type": "application/json" };
-    if (!isLovableModel) { fetchHeaders["HTTP-Referer"] = "https://imperiox.lovable.app"; fetchHeaders["X-Title"] = "ImperioHQ"; }
-
-    const response = await fetch(`${aiBaseUrl}/chat/completions`, {
-      method: "POST",
-      headers: fetchHeaders,
-      body: JSON.stringify({
+    const makeH = (key: string, or: boolean): Record<string, string> => {
+      const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+      if (or) { h["HTTP-Referer"] = "https://imperiox.lovable.app"; h["X-Title"] = "ImperioHQ"; }
+      return h;
+    };
+    const flowPayload = JSON.stringify({
         model,
         messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
         tools: [{
@@ -150,8 +149,18 @@ Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template"
           },
         }],
         tool_choice: { type: "function", function: { name: "generate_flow" } },
-      }),
     });
+
+    let response = await fetch(`${aiBaseUrl}/chat/completions`, { method: "POST", headers: makeH(aiApiKey, !isLovableModel), body: flowPayload });
+
+    // Fallback: if Lovable gateway returns 402, retry via OpenRouter
+    if (isLovableModel && response.status === 402) {
+      const orKey = Deno.env.get("OPENROUTER_API_KEY");
+      if (orKey) {
+        console.log("Lovable gateway 402, falling back to OpenRouter (default flow)");
+        response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: makeH(orKey, true), body: flowPayload });
+      }
+    }
 
     if (!response.ok) return handleAIError(response);
     const result = await response.json();
