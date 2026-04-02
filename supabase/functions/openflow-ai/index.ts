@@ -326,7 +326,7 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string) {
+async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
   const { project_id, user_prompt } = body;
 
   // Fetch existing ads data for context
