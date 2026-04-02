@@ -142,17 +142,40 @@ export default function Dashboard() {
         month: month.slice(5), receita: v.receita, custo: v.custo + v.ads
       })));
 
-      // Alerts
+      // Alerts — smarter
       const alertList: string[] = [];
       const today = new Date().toISOString().split("T")[0];
       const { count: pixToday } = await supabase.from("imphq_leads").select("id", { count: "exact", head: true })
         .not("data->ultimo_evento", "is", null)
         .neq("status", "cliente")
         .gte("updated_at", today);
-      if ((pixToday || 0) > 0) alertList.push(`${pixToday} lead(s) geraram pix hoje e não compraram`);
+      if ((pixToday || 0) > 0) alertList.push(`💳 ${pixToday} lead(s) geraram pix hoje e não compraram`);
       
       const overdueTasks = (urgentRes.data || []).filter((t: any) => t.due_date && new Date(t.due_date) < new Date());
-      if (overdueTasks.length > 0) alertList.push(`${overdueTasks.length} tarefa(s) atrasada(s)`);
+      if (overdueTasks.length > 0) alertList.push(`⏰ ${overdueTasks.length} tarefa(s) atrasada(s)`);
+
+      // ROAS alert
+      const monthKeys = Object.keys(monthMap);
+      if (monthKeys.length >= 2) {
+        const curr = monthMap[monthKeys[monthKeys.length - 1]];
+        const prev = monthMap[monthKeys[monthKeys.length - 2]];
+        const currTotal = curr.custo + curr.ads;
+        const prevTotal = prev.custo + prev.ads;
+        const currRoas = currTotal > 0 ? curr.receita / currTotal : 0;
+        const prevRoas = prevTotal > 0 ? prev.receita / prevTotal : 0;
+        if (prevRoas > 1 && currRoas < prevRoas * 0.7) alertList.push(`📉 ROAS caiu de ${prevRoas.toFixed(1)}x para ${currRoas.toFixed(1)}x este mês`);
+        if (currRoas > 0 && currRoas < 1) alertList.push(`🚨 ROAS abaixo de 1x (${currRoas.toFixed(2)}x) — prejuízo em Ads`);
+        
+        // Revenue trend
+        if (prev.receita > 0 && curr.receita < prev.receita * 0.5) alertList.push(`📊 Receita caiu ${((1 - curr.receita / prev.receita) * 100).toFixed(0)}% vs mês anterior`);
+        if (prev.receita > 0 && curr.receita > prev.receita * 1.3) alertList.push(`🚀 Receita subiu ${(((curr.receita / prev.receita) - 1) * 100).toFixed(0)}% vs mês anterior`);
+      }
+
+      // CPL alert
+      const totalAdsSpend = (adsRes.data || []).reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
+      const totalAdsLeads = (adsRes.data || []).reduce((s: number, a: any) => s + (a.leads || 0), 0);
+      if (totalAdsLeads > 0 && totalAdsSpend / totalAdsLeads > 50) alertList.push(`💰 CPL médio alto: R$ ${(totalAdsSpend / totalAdsLeads).toFixed(2)} por lead`);
+
       setAlerts(alertList);
 
       // Automations executed count
