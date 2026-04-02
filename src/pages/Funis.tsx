@@ -172,7 +172,7 @@ export default function Funis() {
       const totalLeads = leadsRes.data?.length || 0;
       const totalVendasCount = vendasRes.data?.length || 0;
       const totalVendasValor = vendasRes.data?.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0) || 0;
-      const totalSpend = adsRes.data?.reduce((s: number, a: any) => s + (Number(a.spend) || 0), 0) || 0;
+      const totalSpend = adsRes.data?.reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0) || 0;
       setRealMetrics({
         leads: totalLeads,
         vendas: totalVendasCount,
