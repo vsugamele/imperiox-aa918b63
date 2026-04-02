@@ -283,6 +283,7 @@ export default function ProjetoDetalhe() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 {[
                   { label: "Facebook CAPI", ok: !!project.data?.facebook_access_token, icon: "📘" },
+                  { label: "Marketing API", ok: !!project.data?.facebook_marketing_token, icon: "📊" },
                   { label: "Pixel", ok: !!project.data?.facebook_pixel_id, icon: "🎯" },
                   { label: "Clarity", ok: !!project.clarity_id, icon: "🔍" },
                   { label: "Hotmart", ok: !!project.data?.hotmart_token, icon: "🟧" },

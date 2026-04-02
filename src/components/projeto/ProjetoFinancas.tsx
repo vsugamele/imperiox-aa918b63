@@ -632,7 +632,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token && (
+            {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) && (
               <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
                 toast.info("Sincronizando com Facebook...");
                 try {
