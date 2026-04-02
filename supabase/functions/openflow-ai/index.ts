@@ -226,13 +226,13 @@ async function handleGatilhos(ctx: string, apiKey: string, model: string, baseUr
   return new Response(JSON.stringify({ gatilhos }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleKPIs(ctx: string, apiKey: string, model: string) {
+async function handleKPIs(ctx: string, apiKey: string, model: string, baseUrl: string) {
   const kpis = await callAI(
     `Você é um analista de marketing digital brasileiro. Com base nos dados reais do projeto, calcule ou estime os KPIs.\n${ctx}\nUse os dados de vendas, leads, custos e ads para calcular valores reais. Se não houver dados suficientes, estime com base no mercado.`,
     "Calcule os KPIs do projeto com base nos dados disponíveis.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_kpis", description: "Calculate KPIs", parameters: { type: "object", properties: { cpl: { type: "string" }, cac: { type: "string" }, roi: { type: "string" }, roas: { type: "string" }, ticket_medio: { type: "string" }, ltv: { type: "string" }, taxa_conversao: { type: "string" }, leads_mes: { type: "string" } }, required: ["cpl", "cac", "roi", "roas", "ticket_medio", "ltv", "taxa_conversao", "leads_mes"], additionalProperties: false } } }],
-    "generate_kpis"
+    "generate_kpis", baseUrl
   );
   if (kpis instanceof Response) return kpis;
   return new Response(JSON.stringify({ kpis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
