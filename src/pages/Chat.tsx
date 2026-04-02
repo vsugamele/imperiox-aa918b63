@@ -47,6 +47,7 @@ export default function Chat() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [sending, setSending] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
