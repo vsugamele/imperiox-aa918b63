@@ -379,6 +379,16 @@ export default function Chat() {
                       <p className="text-xs text-muted-foreground font-mono">{msg.content}</p>
                       {msg.metadata && <CommandResult metadata={msg.metadata} />}
                     </div>
+                  ) : msg.message_type === "ai_response" ? (
+                    <div className="mt-1 p-3 rounded-lg bg-primary/5 border border-primary/15">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Brain className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] font-semibold text-primary">Resposta da IA</span>
+                      </div>
+                      <div className="text-sm prose prose-sm prose-invert max-w-none">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    </div>
                   ) : (
                     <div className="text-sm prose prose-sm prose-invert max-w-none">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -387,6 +397,12 @@ export default function Chat() {
                 </div>
               </div>
             ))}
+          {aiLoading && (
+            <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span>IA processando...</span>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
