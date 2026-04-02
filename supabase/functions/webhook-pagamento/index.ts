@@ -262,7 +262,7 @@ Deno.serve(async (req) => {
         .eq("id", projectId)
         .single();
 
-      fbToken = proj?.data?.facebook_access_token;
+      fbToken = (proj?.data?.facebook_access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
       fbPixelId = proj?.data?.facebook_pixel_id;
       fbTestCode = proj?.data?.facebook_test_event_code;
 
