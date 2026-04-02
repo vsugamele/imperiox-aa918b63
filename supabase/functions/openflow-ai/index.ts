@@ -126,9 +126,12 @@ REGRAS:
     const userPrompt = `Gere uma sequência de ${num_etapas} ações para o trigger "${trigger_tipo}".
 Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template": "texto", "delay_min": número }]`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const fetchHeaders: Record<string, string> = { Authorization: `Bearer ${aiApiKey}`, "Content-Type": "application/json" };
+    if (!isLovableModel) { fetchHeaders["HTTP-Referer"] = "https://imperiox.lovable.app"; fetchHeaders["X-Title"] = "ImperioHQ"; }
+
+    const response = await fetch(`${aiBaseUrl}/chat/completions`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: fetchHeaders,
       body: JSON.stringify({
         model,
         messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
