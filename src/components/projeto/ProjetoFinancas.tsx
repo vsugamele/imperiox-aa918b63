@@ -612,15 +612,15 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
         {/* Ads Tab */}
         <TabsContent value="ads">
           {/* Info banner */}
-          <Card className={`mb-4 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "border-emerald-500/30 bg-emerald-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
+          <Card className={`mb-4 ${project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) ? "border-emerald-500/30 bg-emerald-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
             <CardContent className="p-3 flex items-start gap-3">
-              <Megaphone className={`h-4 w-4 mt-0.5 shrink-0 ${project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? "text-emerald-400" : "text-blue-400"}`} />
+              <Megaphone className={`h-4 w-4 mt-0.5 shrink-0 ${project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) ? "text-emerald-400" : "text-blue-400"}`} />
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">
-                  {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token ? (
-                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Sincronize ou importe CSV. Use IA para gerar campanhas e analisar performance.</>
+                  {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) ? (
+                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Sincronize ou importe CSV. Use IA para gerar campanhas e analisar performance.{!project?.data?.facebook_marketing_token && <span className="text-amber-400 ml-1">⚠ Usando token CAPI — recomendado usar token Marketing API (Graph Explorer).</span>}</>
                   ) : (
-                    <><strong className="text-foreground">Como importar?</strong> Configure Access Token e Ad Account ID nas integrações, ou importe CSV manualmente.</>
+                    <><strong className="text-foreground">Como importar?</strong> Configure o Token Marketing API (Graph Explorer) e Ad Account ID nas integrações, ou importe CSV manualmente.</>
                   )}
                 </p>
               </div>
@@ -632,7 +632,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {project?.data?.facebook_ad_account_id && project?.data?.facebook_access_token && (
+            {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) && (
               <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
                 toast.info("Sincronizando com Facebook...");
                 try {

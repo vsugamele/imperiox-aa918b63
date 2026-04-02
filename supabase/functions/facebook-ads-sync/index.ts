@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Projeto não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const rawToken = project.data?.facebook_access_token || "";
+    const rawToken = project.data?.facebook_marketing_token || project.data?.facebook_access_token || "";
     const accessToken = rawToken.replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
     const adAccountId = project.data?.facebook_ad_account_id;
 

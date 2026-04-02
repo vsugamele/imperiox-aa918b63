@@ -283,6 +283,7 @@ export default function ProjetoDetalhe() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 {[
                   { label: "Facebook CAPI", ok: !!project.data?.facebook_access_token, icon: "📘" },
+                  { label: "Marketing API", ok: !!project.data?.facebook_marketing_token, icon: "📊" },
                   { label: "Pixel", ok: !!project.data?.facebook_pixel_id, icon: "🎯" },
                   { label: "Clarity", ok: !!project.clarity_id, icon: "🔍" },
                   { label: "Hotmart", ok: !!project.data?.hotmart_token, icon: "🟧" },
@@ -426,9 +427,36 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           </div>
         </div>
 
-        <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-          <ExternalLink className="h-3 w-3" /> Abrir Facebook Events Manager
-        </a>
+        {/* Marketing API Token - separado do CAPI */}
+        <div className="border-t border-border pt-4 mt-2">
+          <Label className="text-xs text-muted-foreground font-semibold">🔑 Access Token (Marketing API)</Label>
+          <p className="text-[10px] text-muted-foreground mb-2">Usado para puxar gastos, criativos e métricas dos anúncios. Gere no Graph API Explorer com permissão <code className="bg-secondary px-1 rounded">ads_read</code>.</p>
+          <div className="relative">
+            <Input
+              type={visibleSecrets["fb_marketing"] ? "text" : "password"}
+              value={project.data?.facebook_marketing_token || ""}
+              onChange={e => {
+                const newData = { ...(project.data || {}), facebook_marketing_token: e.target.value };
+                setProject((p: any) => ({ ...p, data: newData }));
+              }}
+              onBlur={() => updateDataField("facebook_marketing_token", project.data?.facebook_marketing_token || "")}
+              className="bg-secondary pr-10"
+              placeholder="EAAxxxxxxx... (Graph API Explorer)"
+            />
+            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => toggleSecret("fb_marketing")}>
+              {visibleSecrets["fb_marketing"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+          </div>
+          <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
+            <ExternalLink className="h-3 w-3" /> Abrir Graph API Explorer
+          </a>
+        </div>
+
+        <div className="flex gap-2">
+          <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            <ExternalLink className="h-3 w-3" /> Abrir Facebook Events Manager
+          </a>
+        </div>
 
         <Collapsible open={guideOpen} onOpenChange={setGuideOpen}>
           <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-primary hover:underline w-full">
