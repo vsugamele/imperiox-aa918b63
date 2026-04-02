@@ -337,15 +337,23 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
     ? `Execute a skill com base no contexto completo do projeto. Instruções adicionais: ${extra_instructions}`
     : "Execute a skill com base no contexto completo do projeto. Gere o resultado mais completo e detalhado possível.";
 
-  const isOpenRouter = baseUrl.includes("openrouter.ai");
-  const fetchHeaders: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
-  if (isOpenRouter) { fetchHeaders["HTTP-Referer"] = "https://imperiox.lovable.app"; fetchHeaders["X-Title"] = "ImperioHQ"; }
+  const isOR = baseUrl.includes("openrouter.ai");
+  const mkH = (key: string, or: boolean): Record<string, string> => {
+    const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    if (or) { h["HTTP-Referer"] = "https://imperiox.lovable.app"; h["X-Title"] = "ImperioHQ"; }
+    return h;
+  };
+  const skillPayload = JSON.stringify({ model, messages: [{ role: "system", content: fullSystem }, { role: "user", content: userMsg }] });
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: fetchHeaders,
-    body: JSON.stringify({ model, messages: [{ role: "system", content: fullSystem }, { role: "user", content: userMsg }] }),
-  });
+  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: skillPayload });
+
+  if (!isOR && response.status === 402) {
+    const orKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (orKey) {
+      console.log("Lovable gateway 402, falling back to OpenRouter (skill)");
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: skillPayload });
+    }
+  }
 
   if (!response.ok) return handleAIError(response);
   const result = await response.json();
