@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2, Search, X } from "lucide-react";
+import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2, Search, X, Brain, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
