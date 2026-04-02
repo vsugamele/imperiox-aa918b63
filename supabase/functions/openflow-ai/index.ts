@@ -424,7 +424,7 @@ REGRAS:
       novos_publicos: { type: "array", items: { type: "object", properties: { nome: { type: "string" }, descricao: { type: "string" }, interesses: { type: "array", items: { type: "string" } } }, required: ["nome", "descricao", "interesses"], additionalProperties: false } },
       redistribuicao_budget: { type: "string" },
     }, required: ["resumo_geral", "alertas", "otimizacoes"], additionalProperties: false } } }],
-    "analyze_ads_performance"
+    "analyze_ads_performance", baseUrl
   );
   if (analysis instanceof Response) return analysis;
   return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

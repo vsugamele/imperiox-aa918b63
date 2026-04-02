@@ -9,15 +9,22 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const MODELS = [
-  { id: "google/gemini-3-flash-preview", label: "⚡ Gemini 3 Flash", desc: "Rápido e eficiente" },
-  { id: "google/gemini-3.1-pro-preview", label: "🧠 Gemini 3.1 Pro", desc: "Raciocínio avançado (mais recente)" },
-  { id: "google/gemini-2.5-pro", label: "🔬 Gemini 2.5 Pro", desc: "Contexto grande + multimodal" },
-  { id: "google/gemini-2.5-flash", label: "⚡ Gemini 2.5 Flash", desc: "Bom custo-benefício" },
-  { id: "openai/gpt-5.2", label: "🚀 GPT-5.2", desc: "Último e mais poderoso OpenAI" },
-  { id: "openai/gpt-5", label: "💪 GPT-5", desc: "Poderoso e preciso" },
-  { id: "openai/gpt-5-mini", label: "⚡ GPT-5 Mini", desc: "Rápido e econômico" },
-  { id: "openai/gpt-5-nano", label: "💨 GPT-5 Nano", desc: "Ultra rápido, tarefas simples" },
-  { id: "google/gemini-2.5-flash-lite", label: "💨 Gemini Flash Lite", desc: "Mais barato, tarefas simples" },
+  // --- Lovable Gateway (Gemini + GPT) ---
+  { id: "google/gemini-3-flash-preview", label: "⚡ Gemini 3 Flash", desc: "Rápido e eficiente", via: "gateway" },
+  { id: "google/gemini-3.1-pro-preview", label: "🧠 Gemini 3.1 Pro", desc: "Raciocínio avançado", via: "gateway" },
+  { id: "google/gemini-2.5-pro", label: "🔬 Gemini 2.5 Pro", desc: "Contexto grande + multimodal", via: "gateway" },
+  { id: "google/gemini-2.5-flash", label: "⚡ Gemini 2.5 Flash", desc: "Bom custo-benefício", via: "gateway" },
+  { id: "openai/gpt-5.2", label: "🚀 GPT-5.2", desc: "Mais poderoso OpenAI", via: "gateway" },
+  { id: "openai/gpt-5", label: "💪 GPT-5", desc: "Poderoso e preciso", via: "gateway" },
+  { id: "openai/gpt-5-mini", label: "⚡ GPT-5 Mini", desc: "Rápido e econômico", via: "gateway" },
+  // --- OpenRouter (Claude, DeepSeek, Llama) ---
+  { id: "anthropic/claude-sonnet-4", label: "🟣 Claude Sonnet 4", desc: "Último Anthropic, excelente raciocínio", via: "openrouter" },
+  { id: "anthropic/claude-3.5-sonnet", label: "🟣 Claude 3.5 Sonnet", desc: "Rápido e inteligente", via: "openrouter" },
+  { id: "deepseek/deepseek-r1", label: "🔵 DeepSeek R1", desc: "Raciocínio profundo, custo baixo", via: "openrouter" },
+  { id: "meta-llama/llama-4-maverick", label: "🦙 Llama 4 Maverick", desc: "Meta open-source, rápido", via: "openrouter" },
+  // --- Lite ---
+  { id: "openai/gpt-5-nano", label: "💨 GPT-5 Nano", desc: "Ultra rápido, tarefas simples", via: "gateway" },
+  { id: "google/gemini-2.5-flash-lite", label: "💨 Gemini Flash Lite", desc: "Mais barato", via: "gateway" },
 ];
 
 interface AIGenerateButtonProps {
@@ -49,12 +56,40 @@ export function AIGenerateButton({
   const [model, setModel] = useState(MODELS[0].id);
   const [generating, setGenerating] = useState(false);
 
+  const getOpenRouterKey = (): string | null => {
+    try {
+      const raw = localStorage.getItem("imphq_api_keys");
+      if (!raw) return null;
+      const keys = JSON.parse(raw);
+      return keys.openrouter || null;
+    } catch { return null; }
+  };
+
   const handleGenerate = async () => {
+    const selectedModel = MODELS.find(m => m.id === model);
+    const isOpenRouter = selectedModel?.via === "openrouter";
+    
+    // Check if OpenRouter key exists for OpenRouter models
+    if (isOpenRouter) {
+      const orKey = getOpenRouterKey();
+      if (!orKey) {
+        toast.error("Chave OpenRouter não configurada. Vá em Configurações → APIs & Keys e adicione sua API Key do OpenRouter.");
+        return;
+      }
+    }
+
     setGenerating(true);
     setOpen(false);
     try {
+      const bodyPayload: Record<string, any> = { project_id: projectId, action, model, ...extraBody };
+      
+      // Send OpenRouter key for non-gateway models
+      if (isOpenRouter) {
+        bodyPayload.openrouter_key = getOpenRouterKey();
+      }
+
       const { data, error } = await supabase.functions.invoke("openflow-ai", {
-        body: { project_id: projectId, action, model, ...extraBody },
+        body: bodyPayload,
       });
       if (error) throw error;
       onResult(data);
@@ -104,7 +139,10 @@ export function AIGenerateButton({
                   {MODELS.map(m => (
                     <SelectItem key={m.id} value={m.id}>
                       <span className="font-medium">{m.label}</span>
-                      <span className="text-muted-foreground ml-2 text-xs">— {m.desc}</span>
+                      <Badge variant={m.via === "gateway" ? "secondary" : "outline"} className="ml-2 text-[9px] px-1 py-0">
+                        {m.via === "gateway" ? "Gateway" : "OpenRouter"}
+                      </Badge>
+                      <span className="text-muted-foreground ml-1 text-xs">— {m.desc}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
