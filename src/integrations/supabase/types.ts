@@ -22917,6 +22917,7 @@ export type Database = {
           chat_names: Json | null
           created_at: string | null
           description: string | null
+          display_name: string | null
           duration_seconds: number | null
           evergreen_offset_seconds: number | null
           form_fields: Json | null
@@ -22947,6 +22948,7 @@ export type Database = {
           chat_names?: Json | null
           created_at?: string | null
           description?: string | null
+          display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
           form_fields?: Json | null
@@ -22977,6 +22979,7 @@ export type Database = {
           chat_names?: Json | null
           created_at?: string | null
           description?: string | null
+          display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
           form_fields?: Json | null
