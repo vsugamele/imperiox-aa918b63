@@ -11,11 +11,19 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
+    // Hybrid routing: determine which gateway to use based on model prefix
+    const isLovableModel = model.startsWith("google/") || model.startsWith("openai/");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const OPENROUTER_API_KEY = openrouter_key || Deno.env.get("OPENROUTER_API_KEY");
+    
+    if (isLovableModel && !LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!isLovableModel && !OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY não configurada. Adicione nas Configurações ou nos secrets do Supabase.");
+    
+    const aiBaseUrl = isLovableModel ? "https://ai.gateway.lovable.dev/v1" : "https://openrouter.ai/api/v1";
+    const aiApiKey = isLovableModel ? LOVABLE_API_KEY! : OPENROUTER_API_KEY!;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
