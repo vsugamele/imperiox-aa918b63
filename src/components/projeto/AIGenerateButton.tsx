@@ -9,12 +9,15 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const MODELS = [
-  { id: "google/gemini-3-flash-preview", label: "Gemini Flash", desc: "Rápido e eficiente" },
-  { id: "google/gemini-2.5-pro", label: "Gemini Pro", desc: "Máxima qualidade" },
-  { id: "openai/gpt-5-mini", label: "GPT-5 Mini", desc: "Equilibrado" },
-  { id: "openai/gpt-5", label: "GPT-5", desc: "Mais poderoso" },
-  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", desc: "Raciocínio avançado" },
-  { id: "openai/gpt-5.2", label: "GPT-5.2", desc: "Último modelo OpenAI" },
+  { id: "google/gemini-3-flash-preview", label: "⚡ Gemini 3 Flash", desc: "Rápido e eficiente" },
+  { id: "google/gemini-3.1-pro-preview", label: "🧠 Gemini 3.1 Pro", desc: "Raciocínio avançado (mais recente)" },
+  { id: "google/gemini-2.5-pro", label: "🔬 Gemini 2.5 Pro", desc: "Contexto grande + multimodal" },
+  { id: "google/gemini-2.5-flash", label: "⚡ Gemini 2.5 Flash", desc: "Bom custo-benefício" },
+  { id: "openai/gpt-5.2", label: "🚀 GPT-5.2", desc: "Último e mais poderoso OpenAI" },
+  { id: "openai/gpt-5", label: "💪 GPT-5", desc: "Poderoso e preciso" },
+  { id: "openai/gpt-5-mini", label: "⚡ GPT-5 Mini", desc: "Rápido e econômico" },
+  { id: "openai/gpt-5-nano", label: "💨 GPT-5 Nano", desc: "Ultra rápido, tarefas simples" },
+  { id: "google/gemini-2.5-flash-lite", label: "💨 Gemini Flash Lite", desc: "Mais barato, tarefas simples" },
 ];
 
 interface AIGenerateButtonProps {
