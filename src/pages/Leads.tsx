@@ -89,9 +89,10 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];
 
-type PeriodKey = "today" | "7d" | "30d" | "90d" | "this_month" | "last_month" | "custom";
+type PeriodKey = "today" | "yesterday" | "7d" | "30d" | "90d" | "this_month" | "last_month" | "custom";
 const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
   { key: "today", label: "Hoje" },
+  { key: "yesterday", label: "Ontem" },
   { key: "7d", label: "7 dias" },
   { key: "30d", label: "30 dias" },
   { key: "90d", label: "90 dias" },
@@ -104,6 +105,7 @@ function getPeriodRange(key: PeriodKey, customFrom?: Date, customTo?: Date): { f
   const now = new Date();
   switch (key) {
     case "today": return { from: startOfDay(now), to: endOfDay(now) };
+    case "yesterday": { const y = subDays(now, 1); return { from: startOfDay(y), to: endOfDay(y) }; }
     case "7d": return { from: startOfDay(subDays(now, 7)), to: endOfDay(now) };
     case "30d": return { from: startOfDay(subDays(now, 30)), to: endOfDay(now) };
     case "90d": return { from: startOfDay(subDays(now, 90)), to: endOfDay(now) };
