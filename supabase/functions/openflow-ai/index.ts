@@ -310,9 +310,13 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
     ? `Execute a skill com base no contexto completo do projeto. Instruções adicionais: ${extra_instructions}`
     : "Execute a skill com base no contexto completo do projeto. Gere o resultado mais completo e detalhado possível.";
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const isOpenRouter = baseUrl.includes("openrouter.ai");
+  const fetchHeaders: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
+  if (isOpenRouter) { fetchHeaders["HTTP-Referer"] = "https://imperiox.lovable.app"; fetchHeaders["X-Title"] = "ImperioHQ"; }
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: fetchHeaders,
     body: JSON.stringify({ model, messages: [{ role: "system", content: fullSystem }, { role: "user", content: userMsg }] }),
   });
 
