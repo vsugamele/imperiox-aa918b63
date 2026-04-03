@@ -808,6 +808,42 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               </Card>
             </TabsContent>
 
+            {/* Relatórios sub-tab */}
+            <TabsContent value="relatorios">
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  {savedReports.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">Nenhum relatório salvo</p>
+                      <p className="text-xs">Use "Analisar Performance" e salve o resultado</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {savedReports.map((r: any) => (
+                        <div key={r.id} className="rounded-lg border border-border p-3 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                          <div>
+                            <p className="text-sm font-medium">{r.titulo}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(r.created_at).toLocaleDateString("pt-BR")} · {r.model_used || "IA"}
+                              {r.period_start && ` · ${r.period_start} → ${r.period_end}`}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => setViewingReport(r)}>Ver</Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={async () => {
+                              await supabase.from("imphq_ads_reports").delete().eq("id", r.id);
+                              toast.success("Removido");
+                              loadReports();
+                            }}><Trash2 className="h-3 w-3" /></Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
             {/* Drafts IA sub-tab */}
             {campaignDrafts && (
               <TabsContent value="drafts">
