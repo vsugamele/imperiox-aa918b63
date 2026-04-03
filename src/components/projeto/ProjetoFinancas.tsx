@@ -849,35 +849,65 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {creatives.map((c: any, i: number) => (
-                        <Card key={i} className="bg-secondary/20 border-border overflow-hidden">
-                          {c.thumbnail_url && (
-                            <div className="aspect-video bg-secondary/50 overflow-hidden">
-                              <img src={c.thumbnail_url} alt={c.name || "Criativo"} className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <CardContent className="p-3 space-y-2">
-                            <p className="text-xs font-medium truncate">{c.name || `Criativo ${i + 1}`}</p>
-                            {c.body && (
-                              <p className="text-[10px] text-muted-foreground line-clamp-3">{c.body}</p>
+                      {creatives.map((c: any, i: number) => {
+                        // Cross-reference with ads data by ad name
+                        const adMatch = fAds.filter(a => a.anuncio && c.name && a.anuncio.includes(c.name));
+                        const cImpr = adMatch.reduce((s, a) => s + a.impressoes, 0);
+                        const cClicks = adMatch.reduce((s, a) => s + a.cliques, 0);
+                        const cSpend = adMatch.reduce((s, a) => s + a.valor, 0);
+                        const cCTR = cImpr > 0 ? (cClicks / cImpr) * 100 : 0;
+                        const perfBadge = cCTR > 2 ? { label: "Top", color: "bg-emerald-500/20 text-emerald-400" } : cCTR >= 1 ? { label: "Médio", color: "bg-amber-500/20 text-amber-400" } : cImpr > 0 ? { label: "Baixo", color: "bg-red-500/20 text-red-400" } : null;
+                        
+                        return (
+                          <Card key={i} className="bg-secondary/20 border-border overflow-hidden">
+                            {c.thumbnail_url && (
+                              <div className="aspect-video bg-secondary/50 overflow-hidden relative">
+                                <img src={c.thumbnail_url} alt={c.name || "Criativo"} className="w-full h-full object-cover" />
+                                {perfBadge && (
+                                  <span className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold ${perfBadge.color}`}>{perfBadge.label}</span>
+                                )}
+                              </div>
                             )}
-                            {c.title && (
-                              <Badge variant="outline" className="text-[9px]">{c.title}</Badge>
-                            )}
-                            <div className="flex gap-1">
-                              {c.status && <Badge variant={c.status === "ACTIVE" ? "default" : "secondary"} className="text-[9px]">{c.status}</Badge>}
-                              {(c.body || c.title) && (
-                                <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]" onClick={() => {
-                                  navigator.clipboard.writeText([c.title, c.body].filter(Boolean).join("\n\n"));
-                                  toast.success("Texto copiado!");
-                                }}>
-                                  <Copy className="h-2.5 w-2.5 mr-0.5" /> Copiar
-                                </Button>
+                            <CardContent className="p-3 space-y-2">
+                              <p className="text-xs font-medium truncate">{c.name || `Criativo ${i + 1}`}</p>
+                              {c.body && <p className="text-[10px] text-muted-foreground line-clamp-3">{c.body}</p>}
+                              {/* Metrics from ads data */}
+                              {cImpr > 0 && (
+                                <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">Impr.</span>
+                                    <span className="ml-1 text-foreground">{cImpr.toLocaleString()}</span>
+                                  </div>
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">Cliques</span>
+                                    <span className="ml-1 text-foreground">{cClicks}</span>
+                                  </div>
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">Gasto</span>
+                                    <span className="ml-1 text-blue-400">{fmt(cSpend)}</span>
+                                  </div>
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">CTR</span>
+                                    <span className="ml-1 text-primary">{cCTR.toFixed(2)}%</span>
+                                  </div>
+                                </div>
                               )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                              <div className="flex gap-1 flex-wrap">
+                                {c.status && <Badge variant={c.status === "ACTIVE" ? "default" : "secondary"} className="text-[9px]">{c.status}</Badge>}
+                                {c.title && <Badge variant="outline" className="text-[9px]">{c.title}</Badge>}
+                                {(c.body || c.title) && (
+                                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]" onClick={() => {
+                                    navigator.clipboard.writeText([c.title, c.body].filter(Boolean).join("\n\n"));
+                                    toast.success("Texto copiado!");
+                                  }}>
+                                    <Copy className="h-2.5 w-2.5 mr-0.5" /> Copiar
+                                  </Button>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
