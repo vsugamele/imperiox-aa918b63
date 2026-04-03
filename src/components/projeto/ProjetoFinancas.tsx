@@ -85,11 +85,34 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [analyzingAds, setAnalyzingAds] = useState(false);
   const [adsAnalysis, setAdsAnalysis] = useState<any>(null);
   const [adsSubTab, setAdsSubTab] = useState("dados");
+  const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [viewingReport, setViewingReport] = useState<any>(null);
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
 
-  useEffect(() => { loadData(); }, [projectId]);
+  useEffect(() => { loadData(); loadReports(); }, [projectId]);
+
+  const loadReports = async () => {
+    const { data } = await supabase.from("imphq_ads_reports").select("*").eq("project_id", projectId).order("created_at", { ascending: false });
+    setSavedReports((data || []) as any[]);
+  };
+
+  const saveReport = async () => {
+    if (!adsAnalysis) return;
+    const { error } = await supabase.from("imphq_ads_reports").insert({
+      project_id: projectId,
+      user_id: user?.id,
+      titulo: `Análise ${new Date().toLocaleDateString("pt-BR")}`,
+      report_data: adsAnalysis,
+      model_used: campaignModel,
+      period_start: dateRange?.start ? format(dateRange.start, "yyyy-MM-dd") : null,
+      period_end: dateRange?.end ? format(dateRange.end, "yyyy-MM-dd") : null,
+    } as any);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Relatório salvo!");
+    loadReports();
+  };
 
   const loadData = async () => {
     const [c, r, a, v, p, ev] = await Promise.all([
@@ -664,6 +687,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             <TabsList className="mb-3">
               <TabsTrigger value="dados" className="gap-1 text-xs"><Megaphone className="h-3 w-3" /> Dados</TabsTrigger>
               <TabsTrigger value="criativos" className="gap-1 text-xs"><Image className="h-3 w-3" /> Criativos ({creatives.length})</TabsTrigger>
+              <TabsTrigger value="relatorios" className="gap-1 text-xs"><BarChart3 className="h-3 w-3" /> Relatórios ({savedReports.length})</TabsTrigger>
               {campaignDrafts && <TabsTrigger value="drafts" className="gap-1 text-xs"><Sparkles className="h-3 w-3" /> Drafts IA</TabsTrigger>}
             </TabsList>
 
@@ -784,6 +808,42 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               </Card>
             </TabsContent>
 
+            {/* Relatórios sub-tab */}
+            <TabsContent value="relatorios">
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  {savedReports.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">Nenhum relatório salvo</p>
+                      <p className="text-xs">Use "Analisar Performance" e salve o resultado</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {savedReports.map((r: any) => (
+                        <div key={r.id} className="rounded-lg border border-border p-3 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                          <div>
+                            <p className="text-sm font-medium">{r.titulo}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(r.created_at).toLocaleDateString("pt-BR")} · {r.model_used || "IA"}
+                              {r.period_start && ` · ${r.period_start} → ${r.period_end}`}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => setViewingReport(r)}>Ver</Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={async () => {
+                              await supabase.from("imphq_ads_reports").delete().eq("id", r.id);
+                              toast.success("Removido");
+                              loadReports();
+                            }}><Trash2 className="h-3 w-3" /></Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
             {/* Drafts IA sub-tab */}
             {campaignDrafts && (
               <TabsContent value="drafts">
