@@ -91,7 +91,28 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
 
-  useEffect(() => { loadData(); }, [projectId]);
+  useEffect(() => { loadData(); loadReports(); }, [projectId]);
+
+  const loadReports = async () => {
+    const { data } = await supabase.from("imphq_ads_reports").select("*").eq("project_id", projectId).order("created_at", { ascending: false });
+    setSavedReports((data || []) as any[]);
+  };
+
+  const saveReport = async () => {
+    if (!adsAnalysis) return;
+    const { error } = await supabase.from("imphq_ads_reports").insert({
+      project_id: projectId,
+      user_id: user?.id,
+      titulo: `Análise ${new Date().toLocaleDateString("pt-BR")}`,
+      report_data: adsAnalysis,
+      model_used: campaignModel,
+      period_start: dateRange?.start ? format(dateRange.start, "yyyy-MM-dd") : null,
+      period_end: dateRange?.end ? format(dateRange.end, "yyyy-MM-dd") : null,
+    } as any);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Relatório salvo!");
+    loadReports();
+  };
 
   const loadData = async () => {
     const [c, r, a, v, p, ev] = await Promise.all([
