@@ -21,6 +21,8 @@ import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
+import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
+import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -196,6 +198,8 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
+          <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
+          <TabsTrigger value="pesquisa-intel">🔍 Pesquisa Intel</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
@@ -237,6 +241,12 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="emails" className="mt-4">
           <ProjetoEmails projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="central" className="mt-4">
+          <ProjetoCentralConteudo projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="pesquisa-intel" className="mt-4">
+          <ProjetoPesquisaInteligente projectId={id!} project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">
