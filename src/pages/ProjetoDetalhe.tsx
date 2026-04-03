@@ -198,6 +198,8 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
+          <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
+          <TabsTrigger value="pesquisa-intel">🔍 Pesquisa Intel</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
