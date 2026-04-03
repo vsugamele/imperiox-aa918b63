@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard } from "lucide-react";
+import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { toast } from "sonner";
 
 interface ContaEmpresa {
