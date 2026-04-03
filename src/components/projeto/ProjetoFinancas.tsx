@@ -687,6 +687,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             <TabsList className="mb-3">
               <TabsTrigger value="dados" className="gap-1 text-xs"><Megaphone className="h-3 w-3" /> Dados</TabsTrigger>
               <TabsTrigger value="criativos" className="gap-1 text-xs"><Image className="h-3 w-3" /> Criativos ({creatives.length})</TabsTrigger>
+              <TabsTrigger value="relatorios" className="gap-1 text-xs"><BarChart3 className="h-3 w-3" /> Relatórios ({savedReports.length})</TabsTrigger>
               {campaignDrafts && <TabsTrigger value="drafts" className="gap-1 text-xs"><Sparkles className="h-3 w-3" /> Drafts IA</TabsTrigger>}
             </TabsList>
 
