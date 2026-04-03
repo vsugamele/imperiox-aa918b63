@@ -60,6 +60,7 @@ export default function Empresa() {
           <TabsTrigger value="email"><Mail className="h-3.5 w-3.5 mr-1" /> Emails</TabsTrigger>
           <TabsTrigger value="instagram"><Instagram className="h-3.5 w-3.5 mr-1" /> Instagram</TabsTrigger>
           <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
+          <TabsTrigger value="ad_accounts"><CreditCard className="h-3.5 w-3.5 mr-1" /> Ad Accounts</TabsTrigger>
         </TabsList>
 
         <TabsContent value="email">
