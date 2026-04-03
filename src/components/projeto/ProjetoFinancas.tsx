@@ -1331,14 +1331,87 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                   <p className="text-xs text-muted-foreground">{adsAnalysis.redistribuicao_budget}</p>
                 </div>
               )}
-              <Button size="sm" variant="outline" className="w-full" onClick={() => {
-                navigator.clipboard.writeText(JSON.stringify(adsAnalysis, null, 2));
-                toast.success("Análise copiada!");
-              }}>
-                <Copy className="h-3.5 w-3.5 mr-1" /> Copiar Relatório
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(adsAnalysis, null, 2));
+                  toast.success("Análise copiada!");
+                }}>
+                  <Copy className="h-3.5 w-3.5 mr-1" /> Copiar Relatório
+                </Button>
+                <Button size="sm" className="flex-1" onClick={() => { saveReport(); setShowAnalysis(false); }}>
+                  💾 Salvar Relatório
+                </Button>
+              </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Saved Report Dialog */}
+      <Dialog open={!!viewingReport} onOpenChange={(open) => { if (!open) setViewingReport(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-amber-400" /> {viewingReport?.titulo}</DialogTitle>
+            <DialogDescription>
+              {viewingReport?.created_at && new Date(viewingReport.created_at).toLocaleDateString("pt-BR")} · {viewingReport?.model_used || "IA"}
+              {viewingReport?.period_start && ` · ${viewingReport.period_start} → ${viewingReport.period_end}`}
+            </DialogDescription>
+          </DialogHeader>
+          {viewingReport?.report_data && (() => {
+            const rd = viewingReport.report_data;
+            return (
+              <div className="space-y-4">
+                {rd.resumo_geral && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                    <p className="text-xs font-semibold text-primary mb-1">📊 Resumo Geral</p>
+                    <p className="text-xs text-muted-foreground">{rd.resumo_geral}</p>
+                  </div>
+                )}
+                {rd.melhor_campanha && (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <p className="text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Melhor: {rd.melhor_campanha.nome}</p>
+                    <p className="text-xs text-muted-foreground">{rd.melhor_campanha.motivo}</p>
+                  </div>
+                )}
+                {rd.pior_campanha && (
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                    <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Pior: {rd.pior_campanha.nome}</p>
+                    <p className="text-xs text-muted-foreground">{rd.pior_campanha.motivo}</p>
+                  </div>
+                )}
+                {rd.alertas?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-400 mb-2">⚠ Alertas</p>
+                    {rd.alertas.map((a: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 mb-2">
+                        <Badge variant="outline" className="text-[9px] mb-1">{a.tipo}</Badge>
+                        <p className="text-xs text-muted-foreground">{a.mensagem}</p>
+                        <p className="text-[10px] text-primary mt-1">→ {a.acao_sugerida}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {rd.otimizacoes?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-primary mb-2">💡 Otimizações</p>
+                    {rd.otimizacoes.map((o: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border p-2 mb-2">
+                        <p className="text-xs font-medium">{o.area}</p>
+                        <p className="text-xs text-muted-foreground">{o.recomendacao}</p>
+                        <p className="text-[10px] text-emerald-400 mt-1">Impacto: {o.impacto_esperado}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {rd.redistribuicao_budget && (
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">💰 Redistribuição de Budget</p>
+                    <p className="text-xs text-muted-foreground">{rd.redistribuicao_budget}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
