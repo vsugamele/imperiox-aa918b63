@@ -242,6 +242,12 @@ export default function ProjetoDetalhe() {
         <TabsContent value="emails" className="mt-4">
           <ProjetoEmails projectId={id!} project={project} onUpdateData={onUpdateData} />
         </TabsContent>
+        <TabsContent value="central" className="mt-4">
+          <ProjetoCentralConteudo projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="pesquisa-intel" className="mt-4">
+          <ProjetoPesquisaInteligente projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📈 Analytics & Tracking</CardTitle></CardHeader>
