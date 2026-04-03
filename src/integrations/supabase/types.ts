@@ -9511,6 +9511,150 @@ export type Database = {
           },
         ]
       }
+      imphq_ad_accounts: {
+        Row: {
+          ad_account_id: string
+          bm_id: string
+          created_at: string | null
+          id: string
+          nome: string
+          notas: string | null
+          plataforma: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          ad_account_id: string
+          bm_id: string
+          created_at?: string | null
+          id?: string
+          nome: string
+          notas?: string | null
+          plataforma?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          ad_account_id?: string
+          bm_id?: string
+          created_at?: string | null
+          id?: string
+          nome?: string
+          notas?: string | null
+          plataforma?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ad_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ad_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ad_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_ad_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ad_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ads_reports: {
+        Row: {
+          created_at: string | null
+          id: string
+          model_used: string | null
+          period_end: string | null
+          period_start: string | null
+          project_id: string
+          report_data: Json
+          titulo: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          model_used?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          project_id: string
+          report_data: Json
+          titulo?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          model_used?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          project_id?: string
+          report_data?: Json
+          titulo?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ads_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ads_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ads_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_ads_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ads_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_ads_spend: {
         Row: {
           alcance: number | null
