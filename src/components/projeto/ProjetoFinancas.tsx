@@ -700,58 +700,134 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {ads.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {[
-                        { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
-                        { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
-                        { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
-                        { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
-                      ].map(k => (
-                        <div key={k.label} className="rounded-lg border border-border p-3 bg-secondary/20">
-                          <p className="text-[10px] text-muted-foreground uppercase">{k.label}</p>
-                          <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {ads.length > 0 && (() => {
+                    const totalImpr = fAds.reduce((s, a) => s + a.impressoes, 0);
+                    const totalAlcance = fAds.reduce((s, a) => s + (a.alcance || 0), 0);
+                    const avgFreq = fAds.length > 0 ? fAds.reduce((s, a) => s + (a.frequencia || 0), 0) / fAds.length : 0;
+                    const cpm = totalImpr > 0 ? (totalAds / totalImpr) * 1000 : 0;
+                    const cpa = totalCompras > 0 ? totalAds / totalCompras : 0;
+                    const adsKpis = [
+                      { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
+                      { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
+                      { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
+                      { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
+                      { label: "CPM", value: fmt(cpm), color: "text-cyan-400" },
+                      { label: "Freq. Média", value: avgFreq.toFixed(2), color: "text-orange-400" },
+                      { label: "Alcance Total", value: totalAlcance.toLocaleString(), color: "text-pink-400" },
+                      { label: "CPA", value: totalCompras > 0 ? fmt(cpa) : "—", color: "text-red-400" },
+                    ];
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {adsKpis.map(k => (
+                          <div key={k.label} className="rounded-lg border border-border p-3 bg-secondary/20">
+                            <p className="text-[10px] text-muted-foreground uppercase">{k.label}</p>
+                            <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {ads.length === 0 ? (
                     <div className="text-center py-8 space-y-2">
                       <Megaphone className="h-8 w-8 text-muted-foreground/30 mx-auto" />
                       <p className="text-sm text-muted-foreground">Nenhum dado de Ads importado</p>
                     </div>
-                  ) : (
-                    <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Campanha</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead>
-                            <TableHead>Impr.</TableHead><TableHead>Cliques</TableHead><TableHead>CTR</TableHead>
-                            <TableHead>Compras</TableHead><TableHead className="w-8"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {ads.slice(0, 50).map(a => (
-                            <TableRow key={a.id}>
-                              <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
-                              <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
-                              <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
-                              <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
-                              <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
-                              <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
-                              <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
-                              <TableCell>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </TableCell>
+                  ) : (() => {
+                    // Group by conjunto_anuncios
+                    const groups = new Map<string, AdsSpend[]>();
+                    fAds.forEach(a => {
+                      const key = a.conjunto_anuncios || "Sem conjunto";
+                      if (!groups.has(key)) groups.set(key, []);
+                      groups.get(key)!.push(a);
+                    });
+                    const groupEntries = Array.from(groups.entries());
+                    
+                    if (groupEntries.length > 1) {
+                      return (
+                        <Accordion type="multiple" className="space-y-2">
+                          {groupEntries.map(([groupName, items]) => {
+                            const gTotal = items.reduce((s, a) => s + a.valor, 0);
+                            const gImpr = items.reduce((s, a) => s + a.impressoes, 0);
+                            const gClicks = items.reduce((s, a) => s + a.cliques, 0);
+                            const gCompras = items.reduce((s, a) => s + (a.compras || 0), 0);
+                            return (
+                              <AccordionItem key={groupName} value={groupName} className="border border-border rounded-lg px-3">
+                                <AccordionTrigger className="text-xs hover:no-underline py-3">
+                                  <div className="flex items-center gap-3 flex-1">
+                                    <span className="font-medium truncate max-w-[200px]">{groupName}</span>
+                                    <div className="flex gap-3 ml-auto text-[10px] font-mono text-muted-foreground">
+                                      <span className="text-blue-400">{fmt(gTotal)}</span>
+                                      <span>{gImpr.toLocaleString()} impr</span>
+                                      <span>{gClicks} cliques</span>
+                                      <span className="text-emerald-400">{gCompras} compras</span>
+                                    </div>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Campanha</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead>
+                                        <TableHead>Impr.</TableHead><TableHead>Cliques</TableHead><TableHead>CTR</TableHead>
+                                        <TableHead>Compras</TableHead><TableHead className="w-8"></TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {items.slice(0, 30).map(a => (
+                                        <TableRow key={a.id}>
+                                          <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
+                                          <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
+                                          <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
+                                          <TableCell>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}><Trash2 className="h-3 w-3" /></Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
+                        </Accordion>
+                      );
+                    }
+                    
+                    return (
+                      <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Campanha</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead>
+                              <TableHead>Impr.</TableHead><TableHead>Cliques</TableHead><TableHead>CTR</TableHead>
+                              <TableHead>Compras</TableHead><TableHead className="w-8"></TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      {ads.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {ads.length - 50} registros</p>}
-                    </div>
-                  )}
+                          </TableHeader>
+                          <TableBody>
+                            {fAds.slice(0, 50).map(a => (
+                              <TableRow key={a.id}>
+                                <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
+                                <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
+                                <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
+                                <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
+                                <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
+                                <TableCell>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}><Trash2 className="h-3 w-3" /></Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        {fAds.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {fAds.length - 50} registros</p>}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </TabsContent>
