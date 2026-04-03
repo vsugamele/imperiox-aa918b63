@@ -186,6 +186,50 @@ export default function Guia() {
         </CardContent>
       </Card>
 
+      {/* Guia de Captura de Leads */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📝 Captura de Leads — Como Usar</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-foreground">Passo a Passo</p>
+            {[
+              { step: "1", title: "Criar formulário", desc: "Vá em Leads → aba Formulários → Novo Formulário. Defina nome, etapa do funil e campos customizados (texto, select, radio, etc)." },
+              { step: "2", title: "Configurar campos", desc: "Adicione perguntas como faturamento, maior dor, nível de consciência. Defina tags automáticas para segmentação." },
+              { step: "3", title: "Copiar snippet", desc: "Clique em 'Embed HTML' ou 'Embed JS'. Cole na sua landing page externa." },
+              { step: "4", title: "Testar captura", desc: "Preencha o formulário na LP. O lead aparecerá em Leads com todas as respostas na timeline." },
+              { step: "5", title: "Analisar respostas", desc: "Vá em Leads → aba Insights para ver correlações entre respostas e conversão." },
+            ].map((item) => (
+              <div key={item.step} className="p-2 rounded bg-secondary/50 border border-border">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/30">{item.step}</Badge>
+                  <p className="text-xs font-medium">{item.title}</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-foreground">Opções de Integração</p>
+            <div className="p-2 rounded bg-secondary/50 border border-border">
+              <p className="text-xs font-medium text-primary">HTML Puro (qualquer LP)</p>
+              <pre className="text-[10px] text-muted-foreground font-mono mt-1 overflow-auto">{`<form action="https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/capture-lead?project=ID&form=FORM_ID" method="POST">
+  <input name="email" required />
+  <input name="nome" />
+  <button type="submit">Enviar</button>
+</form>`}</pre>
+            </div>
+            <div className="p-2 rounded bg-secondary/50 border border-border">
+              <p className="text-xs font-medium text-primary">JS Embed (sem redirect)</p>
+              <pre className="text-[10px] text-muted-foreground font-mono mt-1 overflow-auto">{`<div id="imp-form" data-form="FORM_ID" data-project="PROJECT_ID"></div>
+<script src="https://imperiox.lovable.app/embed/capture.js"></script>`}</pre>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Dicas */}
       <Card className="bg-card border-border">
         <CardHeader>
@@ -203,11 +247,15 @@ export default function Guia() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary mt-0.5">•</span>
-              <span>Configure o <strong className="text-foreground">Setup de Integração</strong> no briefing para garantir tracking completo antes de ativar tráfego.</span>
+              <span>Use a <strong className="text-foreground">Central de Conteúdo IA</strong> no projeto para gerar scripts de ads, roteiros VSL/webinar e LPs de vendas em HTML.</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary mt-0.5">•</span>
-              <span>O <strong className="text-foreground">OpenFlow</strong> gera sequências de copy automáticas usando o contexto completo do projeto.</span>
+              <span>A <strong className="text-foreground">Pesquisa Inteligente</strong> analisa concorrentes, produtos e experts usando IA + scraping para embasar suas criações.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary mt-0.5">•</span>
+              <span>Configure o <strong className="text-foreground">Setup de Integração</strong> no briefing para garantir tracking completo antes de ativar tráfego.</span>
             </li>
           </ul>
         </CardContent>
