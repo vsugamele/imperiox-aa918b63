@@ -560,7 +560,50 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Receita por Produto (Pie) */}
+        {/* Gasto em Ads por Projeto */}
+        {adsGlobal.adsByProject.length > 0 && (
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-display text-base flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-blue-400" /> Gasto Ads por Projeto
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={adsGlobal.adsByProject} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} width={100} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v: any) => `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                  <Bar dataKey="value" fill="hsl(217, 91%, 60%)" radius={[0, 4, 4, 0]} name="Gasto" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Top Campanhas */}
+        {adsGlobal.topCampanhas.length > 0 && (
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-base flex items-center gap-2">
+                <Target className="h-4 w-4 text-amber-400" /> Top Campanhas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {adsGlobal.topCampanhas.map((c: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{c.name}</p>
+                    <p className="text-[10px] text-muted-foreground">CTR: {c.ctr.toFixed(2)}% · {c.compras} compras</p>
+                  </div>
+                  <span className="text-sm font-mono font-bold text-blue-400 shrink-0 ml-2">R$ {c.gasto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {receitaPorProduto.length > 0 && (
           <Card className="bg-card border-border">
             <CardHeader className="pb-2">
