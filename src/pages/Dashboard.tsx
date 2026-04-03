@@ -343,6 +343,28 @@ export default function Dashboard() {
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
       </div>
 
+      {/* Period Filter */}
+      <div className="flex items-center gap-3">
+        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+        <Select value={dashPeriod} onValueChange={setDashPeriod}>
+          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7d">7 dias</SelectItem>
+            <SelectItem value="30d">30 dias</SelectItem>
+            <SelectItem value="90d">90 dias</SelectItem>
+            <SelectItem value="6m">6 meses</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Frequency Alerts */}
+      {adsGlobal.freqAlerts.length > 0 && adsGlobal.freqAlerts.map((a, i) => (
+        <div key={`freq-${i}`} className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
+          <Megaphone className="h-4 w-4 text-orange-400 shrink-0" />
+          <span className="text-sm text-orange-300">{a}</span>
+        </div>
+      ))}
+
       {/* Alerts */}
       {alerts.length > 0 && (
         <div className="space-y-2">
