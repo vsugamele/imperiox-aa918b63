@@ -85,6 +85,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [analyzingAds, setAnalyzingAds] = useState(false);
   const [adsAnalysis, setAdsAnalysis] = useState<any>(null);
   const [adsSubTab, setAdsSubTab] = useState("dados");
+  const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [viewingReport, setViewingReport] = useState<any>(null);
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
