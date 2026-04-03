@@ -700,58 +700,134 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {ads.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {[
-                        { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
-                        { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
-                        { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
-                        { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
-                      ].map(k => (
-                        <div key={k.label} className="rounded-lg border border-border p-3 bg-secondary/20">
-                          <p className="text-[10px] text-muted-foreground uppercase">{k.label}</p>
-                          <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {ads.length > 0 && (() => {
+                    const totalImpr = fAds.reduce((s, a) => s + a.impressoes, 0);
+                    const totalAlcance = fAds.reduce((s, a) => s + (a.alcance || 0), 0);
+                    const avgFreq = fAds.length > 0 ? fAds.reduce((s, a) => s + (a.frequencia || 0), 0) / fAds.length : 0;
+                    const cpm = totalImpr > 0 ? (totalAds / totalImpr) * 1000 : 0;
+                    const cpa = totalCompras > 0 ? totalAds / totalCompras : 0;
+                    const adsKpis = [
+                      { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
+                      { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
+                      { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
+                      { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
+                      { label: "CPM", value: fmt(cpm), color: "text-cyan-400" },
+                      { label: "Freq. Média", value: avgFreq.toFixed(2), color: "text-orange-400" },
+                      { label: "Alcance Total", value: totalAlcance.toLocaleString(), color: "text-pink-400" },
+                      { label: "CPA", value: totalCompras > 0 ? fmt(cpa) : "—", color: "text-red-400" },
+                    ];
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {adsKpis.map(k => (
+                          <div key={k.label} className="rounded-lg border border-border p-3 bg-secondary/20">
+                            <p className="text-[10px] text-muted-foreground uppercase">{k.label}</p>
+                            <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {ads.length === 0 ? (
                     <div className="text-center py-8 space-y-2">
                       <Megaphone className="h-8 w-8 text-muted-foreground/30 mx-auto" />
                       <p className="text-sm text-muted-foreground">Nenhum dado de Ads importado</p>
                     </div>
-                  ) : (
-                    <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Campanha</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead>
-                            <TableHead>Impr.</TableHead><TableHead>Cliques</TableHead><TableHead>CTR</TableHead>
-                            <TableHead>Compras</TableHead><TableHead className="w-8"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {ads.slice(0, 50).map(a => (
-                            <TableRow key={a.id}>
-                              <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
-                              <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
-                              <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
-                              <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
-                              <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
-                              <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
-                              <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
-                              <TableCell>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </TableCell>
+                  ) : (() => {
+                    // Group by conjunto_anuncios
+                    const groups = new Map<string, AdsSpend[]>();
+                    fAds.forEach(a => {
+                      const key = a.conjunto_anuncios || "Sem conjunto";
+                      if (!groups.has(key)) groups.set(key, []);
+                      groups.get(key)!.push(a);
+                    });
+                    const groupEntries = Array.from(groups.entries());
+                    
+                    if (groupEntries.length > 1) {
+                      return (
+                        <Accordion type="multiple" className="space-y-2">
+                          {groupEntries.map(([groupName, items]) => {
+                            const gTotal = items.reduce((s, a) => s + a.valor, 0);
+                            const gImpr = items.reduce((s, a) => s + a.impressoes, 0);
+                            const gClicks = items.reduce((s, a) => s + a.cliques, 0);
+                            const gCompras = items.reduce((s, a) => s + (a.compras || 0), 0);
+                            return (
+                              <AccordionItem key={groupName} value={groupName} className="border border-border rounded-lg px-3">
+                                <AccordionTrigger className="text-xs hover:no-underline py-3">
+                                  <div className="flex items-center gap-3 flex-1">
+                                    <span className="font-medium truncate max-w-[200px]">{groupName}</span>
+                                    <div className="flex gap-3 ml-auto text-[10px] font-mono text-muted-foreground">
+                                      <span className="text-blue-400">{fmt(gTotal)}</span>
+                                      <span>{gImpr.toLocaleString()} impr</span>
+                                      <span>{gClicks} cliques</span>
+                                      <span className="text-emerald-400">{gCompras} compras</span>
+                                    </div>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Campanha</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead>
+                                        <TableHead>Impr.</TableHead><TableHead>Cliques</TableHead><TableHead>CTR</TableHead>
+                                        <TableHead>Compras</TableHead><TableHead className="w-8"></TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {items.slice(0, 30).map(a => (
+                                        <TableRow key={a.id}>
+                                          <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
+                                          <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
+                                          <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
+                                          <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
+                                          <TableCell>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}><Trash2 className="h-3 w-3" /></Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
+                        </Accordion>
+                      );
+                    }
+                    
+                    return (
+                      <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Campanha</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead>
+                              <TableHead>Impr.</TableHead><TableHead>Cliques</TableHead><TableHead>CTR</TableHead>
+                              <TableHead>Compras</TableHead><TableHead className="w-8"></TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      {ads.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {ads.length - 50} registros</p>}
-                    </div>
-                  )}
+                          </TableHeader>
+                          <TableBody>
+                            {fAds.slice(0, 50).map(a => (
+                              <TableRow key={a.id}>
+                                <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
+                                <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
+                                <TableCell className="text-xs font-mono text-blue-400">{fmt(a.valor)}</TableCell>
+                                <TableCell className="text-xs font-mono">{a.impressoes.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs font-mono">{a.cliques}</TableCell>
+                                <TableCell className="text-xs font-mono">{(a.ctr || 0).toFixed(2)}%</TableCell>
+                                <TableCell className="text-xs font-mono">{a.compras || 0}</TableCell>
+                                <TableCell>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive" onClick={() => deleteAd(a.id)}><Trash2 className="h-3 w-3" /></Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        {fAds.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {fAds.length - 50} registros</p>}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -773,35 +849,65 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {creatives.map((c: any, i: number) => (
-                        <Card key={i} className="bg-secondary/20 border-border overflow-hidden">
-                          {c.thumbnail_url && (
-                            <div className="aspect-video bg-secondary/50 overflow-hidden">
-                              <img src={c.thumbnail_url} alt={c.name || "Criativo"} className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <CardContent className="p-3 space-y-2">
-                            <p className="text-xs font-medium truncate">{c.name || `Criativo ${i + 1}`}</p>
-                            {c.body && (
-                              <p className="text-[10px] text-muted-foreground line-clamp-3">{c.body}</p>
+                      {creatives.map((c: any, i: number) => {
+                        // Cross-reference with ads data by ad name
+                        const adMatch = fAds.filter(a => a.anuncio && c.name && a.anuncio.includes(c.name));
+                        const cImpr = adMatch.reduce((s, a) => s + a.impressoes, 0);
+                        const cClicks = adMatch.reduce((s, a) => s + a.cliques, 0);
+                        const cSpend = adMatch.reduce((s, a) => s + a.valor, 0);
+                        const cCTR = cImpr > 0 ? (cClicks / cImpr) * 100 : 0;
+                        const perfBadge = cCTR > 2 ? { label: "Top", color: "bg-emerald-500/20 text-emerald-400" } : cCTR >= 1 ? { label: "Médio", color: "bg-amber-500/20 text-amber-400" } : cImpr > 0 ? { label: "Baixo", color: "bg-red-500/20 text-red-400" } : null;
+                        
+                        return (
+                          <Card key={i} className="bg-secondary/20 border-border overflow-hidden">
+                            {c.thumbnail_url && (
+                              <div className="aspect-video bg-secondary/50 overflow-hidden relative">
+                                <img src={c.thumbnail_url} alt={c.name || "Criativo"} className="w-full h-full object-cover" />
+                                {perfBadge && (
+                                  <span className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold ${perfBadge.color}`}>{perfBadge.label}</span>
+                                )}
+                              </div>
                             )}
-                            {c.title && (
-                              <Badge variant="outline" className="text-[9px]">{c.title}</Badge>
-                            )}
-                            <div className="flex gap-1">
-                              {c.status && <Badge variant={c.status === "ACTIVE" ? "default" : "secondary"} className="text-[9px]">{c.status}</Badge>}
-                              {(c.body || c.title) && (
-                                <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]" onClick={() => {
-                                  navigator.clipboard.writeText([c.title, c.body].filter(Boolean).join("\n\n"));
-                                  toast.success("Texto copiado!");
-                                }}>
-                                  <Copy className="h-2.5 w-2.5 mr-0.5" /> Copiar
-                                </Button>
+                            <CardContent className="p-3 space-y-2">
+                              <p className="text-xs font-medium truncate">{c.name || `Criativo ${i + 1}`}</p>
+                              {c.body && <p className="text-[10px] text-muted-foreground line-clamp-3">{c.body}</p>}
+                              {/* Metrics from ads data */}
+                              {cImpr > 0 && (
+                                <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">Impr.</span>
+                                    <span className="ml-1 text-foreground">{cImpr.toLocaleString()}</span>
+                                  </div>
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">Cliques</span>
+                                    <span className="ml-1 text-foreground">{cClicks}</span>
+                                  </div>
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">Gasto</span>
+                                    <span className="ml-1 text-blue-400">{fmt(cSpend)}</span>
+                                  </div>
+                                  <div className="rounded bg-secondary/50 p-1.5">
+                                    <span className="text-muted-foreground">CTR</span>
+                                    <span className="ml-1 text-primary">{cCTR.toFixed(2)}%</span>
+                                  </div>
+                                </div>
                               )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                              <div className="flex gap-1 flex-wrap">
+                                {c.status && <Badge variant={c.status === "ACTIVE" ? "default" : "secondary"} className="text-[9px]">{c.status}</Badge>}
+                                {c.title && <Badge variant="outline" className="text-[9px]">{c.title}</Badge>}
+                                {(c.body || c.title) && (
+                                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]" onClick={() => {
+                                    navigator.clipboard.writeText([c.title, c.body].filter(Boolean).join("\n\n"));
+                                    toast.success("Texto copiado!");
+                                  }}>
+                                    <Copy className="h-2.5 w-2.5 mr-0.5" /> Copiar
+                                  </Button>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -1331,14 +1437,87 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                   <p className="text-xs text-muted-foreground">{adsAnalysis.redistribuicao_budget}</p>
                 </div>
               )}
-              <Button size="sm" variant="outline" className="w-full" onClick={() => {
-                navigator.clipboard.writeText(JSON.stringify(adsAnalysis, null, 2));
-                toast.success("Análise copiada!");
-              }}>
-                <Copy className="h-3.5 w-3.5 mr-1" /> Copiar Relatório
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(adsAnalysis, null, 2));
+                  toast.success("Análise copiada!");
+                }}>
+                  <Copy className="h-3.5 w-3.5 mr-1" /> Copiar Relatório
+                </Button>
+                <Button size="sm" className="flex-1" onClick={() => { saveReport(); setShowAnalysis(false); }}>
+                  💾 Salvar Relatório
+                </Button>
+              </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Saved Report Dialog */}
+      <Dialog open={!!viewingReport} onOpenChange={(open) => { if (!open) setViewingReport(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-amber-400" /> {viewingReport?.titulo}</DialogTitle>
+            <DialogDescription>
+              {viewingReport?.created_at && new Date(viewingReport.created_at).toLocaleDateString("pt-BR")} · {viewingReport?.model_used || "IA"}
+              {viewingReport?.period_start && ` · ${viewingReport.period_start} → ${viewingReport.period_end}`}
+            </DialogDescription>
+          </DialogHeader>
+          {viewingReport?.report_data && (() => {
+            const rd = viewingReport.report_data;
+            return (
+              <div className="space-y-4">
+                {rd.resumo_geral && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                    <p className="text-xs font-semibold text-primary mb-1">📊 Resumo Geral</p>
+                    <p className="text-xs text-muted-foreground">{rd.resumo_geral}</p>
+                  </div>
+                )}
+                {rd.melhor_campanha && (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <p className="text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Melhor: {rd.melhor_campanha.nome}</p>
+                    <p className="text-xs text-muted-foreground">{rd.melhor_campanha.motivo}</p>
+                  </div>
+                )}
+                {rd.pior_campanha && (
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                    <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Pior: {rd.pior_campanha.nome}</p>
+                    <p className="text-xs text-muted-foreground">{rd.pior_campanha.motivo}</p>
+                  </div>
+                )}
+                {rd.alertas?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-400 mb-2">⚠ Alertas</p>
+                    {rd.alertas.map((a: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 mb-2">
+                        <Badge variant="outline" className="text-[9px] mb-1">{a.tipo}</Badge>
+                        <p className="text-xs text-muted-foreground">{a.mensagem}</p>
+                        <p className="text-[10px] text-primary mt-1">→ {a.acao_sugerida}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {rd.otimizacoes?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-primary mb-2">💡 Otimizações</p>
+                    {rd.otimizacoes.map((o: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border p-2 mb-2">
+                        <p className="text-xs font-medium">{o.area}</p>
+                        <p className="text-xs text-muted-foreground">{o.recomendacao}</p>
+                        <p className="text-[10px] text-emerald-400 mt-1">Impacto: {o.impacto_esperado}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {rd.redistribuicao_budget && (
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">💰 Redistribuição de Budget</p>
+                    <p className="text-xs text-muted-foreground">{rd.redistribuicao_budget}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
