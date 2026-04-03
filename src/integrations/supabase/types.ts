@@ -9962,6 +9962,78 @@ export type Database = {
           },
         ]
       }
+      imphq_capture_forms: {
+        Row: {
+          created_at: string | null
+          fields: Json
+          id: string
+          is_active: boolean | null
+          nome: string
+          project_id: string | null
+          settings: Json | null
+          step: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          nome: string
+          project_id?: string | null
+          settings?: Json | null
+          step?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          nome?: string
+          project_id?: string | null
+          settings?: Json | null
+          step?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_capture_forms_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_capture_forms_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_capture_forms_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_capture_forms_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_capture_forms_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_card_attachments: {
         Row: {
           card_id: string
@@ -11118,6 +11190,42 @@ export type Database = {
           section_key?: string
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      imphq_lead_responses: {
+        Row: {
+          answer: string
+          created_at: string | null
+          field_key: string | null
+          form_id: string | null
+          id: string
+          lead_id: string
+          project_id: string | null
+          question: string
+          step: string | null
+        }
+        Insert: {
+          answer: string
+          created_at?: string | null
+          field_key?: string | null
+          form_id?: string | null
+          id?: string
+          lead_id: string
+          project_id?: string | null
+          question: string
+          step?: string | null
+        }
+        Update: {
+          answer?: string
+          created_at?: string | null
+          field_key?: string | null
+          form_id?: string | null
+          id?: string
+          lead_id?: string
+          project_id?: string | null
+          question?: string
+          step?: string | null
         }
         Relationships: []
       }
