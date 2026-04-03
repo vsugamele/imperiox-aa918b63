@@ -39,6 +39,8 @@ export default function Dashboard() {
   const [receitaPorProjeto, setReceitaPorProjeto] = useState<any[]>([]);
   const [receitaPorProduto, setReceitaPorProduto] = useState<any[]>([]);
   const [roasData, setRoasData] = useState<any[]>([]);
+  const [dashPeriod, setDashPeriod] = useState("30d");
+  const [adsGlobal, setAdsGlobal] = useState<{ gasto: number; cpl: number; roas: number; compras: number; topCampanhas: any[]; adsByProject: any[]; freqAlerts: string[] }>({ gasto: 0, cpl: 0, roas: 0, compras: 0, topCampanhas: [], adsByProject: [], freqAlerts: [] });
   const navigate = useNavigate();
 
   useEffect(() => {
