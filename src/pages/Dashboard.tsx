@@ -425,6 +425,28 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Ads Global Performance */}
+      {adsGlobal.gasto > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          {[
+            { label: "Gasto em Ads", value: `R$ ${adsGlobal.gasto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Megaphone, color: "text-blue-400", bg: "from-blue-500/15 to-blue-500/5" },
+            { label: "CPL Médio", value: `R$ ${adsGlobal.cpl.toFixed(2)}`, icon: Target, color: "text-violet-400", bg: "from-violet-500/15 to-violet-500/5" },
+            { label: "Compras", value: String(adsGlobal.compras), icon: ShoppingCart, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
+            { label: "Campanhas Top", value: String(adsGlobal.topCampanhas.length), icon: MousePointerClick, color: "text-amber-400", bg: "from-amber-500/15 to-amber-500/5" },
+          ].map((k, i) => (
+            <Card key={k.label} className={`bg-gradient-to-br ${k.bg} border-border`}>
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className={`p-3 rounded-xl bg-background/50 ${k.color}`}><k.icon className="h-5 w-5" /></div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{k.label}</p>
+                  <p className={`text-xl font-mono font-bold ${k.color}`}>{k.value}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Leads Trend */}
