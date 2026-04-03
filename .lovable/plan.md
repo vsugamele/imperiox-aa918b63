@@ -1,108 +1,84 @@
 
 
-# Plano: BMs/Ad Accounts Manager + Salvar Análise de Performance + Melhorias Ads
+# Plano: Completar Melhorias Ads + Criativos + Dashboard
 
 ---
 
-## 1. Gerenciador de BMs e Contas de Anúncios
+## Parte 1 — Completar pendências do ProjetoFinancas (Ads)
 
-Criar uma tabela `imphq_ad_accounts` para organizar Business Managers e contas de anúncio (como na planilha da imagem: BM ID, Ad Account ID, Nome).
+### 1.1 Botão "Salvar Relatório" no Dialog de Análise
 
-### Tabela SQL
+O `saveReport()` já existe mas o botão **nao aparece** no Dialog de análise. Adicionar botão "Salvar Relatório" no `DialogFooter` do dialog de análise de performance (onde `showAnalysis` é true).
 
-```sql
-create table public.imphq_ad_accounts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  bm_id text not null,
-  ad_account_id text not null,
-  nome text not null,
-  plataforma text default 'Facebook',
-  status text default 'ativo',
-  notas text,
-  created_at timestamptz default now()
-);
-alter table public.imphq_ad_accounts enable row level security;
-create policy "Users manage own ad accounts" on public.imphq_ad_accounts
-  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
-```
+### 1.2 Dialog para visualizar relatório salvo
 
-### UI: Nova aba em Empresa.tsx
+Quando o user clica "Ver" em um relatório salvo, `viewingReport` é setado mas **nao existe Dialog** para exibi-lo. Criar um Dialog que renderiza `viewingReport.report_data` no mesmo formato da análise (resumo, melhor/pior campanha, alertas, otimizações).
 
-Adicionar uma aba "Ad Accounts" na página Empresa (`src/pages/Empresa.tsx`) com:
-- Tabela listando BM ID, Ad Account ID, Nome, Status
-- Botão de adicionar/editar/remover
-- Badge de status (Ativo, Pausado, Banido)
-- Poder vincular uma conta ao projeto no momento da configuração do Facebook
+### 1.3 KPIs extras na aba Dados
 
----
+Adicionar segunda linha de KPI cards:
+- **CPM** (custo por mil impressões): `(totalAds / totalImpressions) * 1000`
+- **Frequência Média**: média de `frequencia` dos registros
+- **Alcance Total**: soma de `alcance`
+- **Custo por Compra**: `totalAds / totalCompras`
 
-## 2. Salvar Análise de Performance no Banco
+### 1.4 Criativos com métricas reais
 
-Atualmente a análise de performance gerada por IA (`handleAnalyzePerformance`) só aparece em um Dialog temporário. O usuário quer salvar e o time visualizar.
+Cruzar criativos (`project.data.facebook_creatives`) com dados de `fAds` pelo nome do anúncio:
+- Mostrar Impressões, Cliques, Gasto e CTR em cada card de criativo
+- Badge de performance: **Top** (CTR > 2%), **Médio** (1-2%), **Baixo** (< 1%)
+- Filtro de status (ACTIVE/PAUSED)
 
-### Tabela SQL
+### 1.5 Agrupamento por Conjunto de Anúncios
 
-```sql
-create table public.imphq_ads_reports (
-  id uuid primary key default gen_random_uuid(),
-  project_id text not null,
-  user_id uuid references auth.users(id) on delete set null,
-  titulo text not null default 'Análise de Performance',
-  report_data jsonb not null,
-  model_used text,
-  period_start date,
-  period_end date,
-  created_at timestamptz default now()
-);
-alter table public.imphq_ads_reports enable row level security;
-create policy "Auth users manage reports" on public.imphq_ads_reports
-  for all to authenticated using (true) with check (true);
-```
-
-### UI: Salvar + Histórico
-
-No `ProjetoFinancas.tsx`:
-- No Dialog de Análise, adicionar botão **"Salvar Relatório"** que persiste `adsAnalysis` na tabela `imphq_ads_reports`
-- Nova sub-aba **"Relatórios"** dentro de Ads, listando relatórios salvos com data e botão para abrir/visualizar
-- Cada relatório abre no mesmo layout formatado do Dialog (com resumo, melhor/pior campanha, alertas, otimizações)
+Na tabela de Dados, agrupar rows por `conjunto_anuncios` com:
+- Accordion/collapsible com subtotais (gasto, impressões, cliques, compras)
+- Expandir para ver anúncios individuais
 
 ---
 
-## 3. Melhorias na aba Ads/Criativos
+## Parte 2 — Melhorias no Dashboard
 
-### 3.1 Criativos com métricas
-Atualmente os criativos mostram apenas thumbnail, nome, body e status. Melhorar para incluir:
-- Métricas do criativo (impressões, cliques, CTR, gastos) cruzando com dados de `imphq_ads_spend` pelo nome do anúncio
-- Badge de performance (Top, Médio, Baixo) baseado no CTR
-- Filtro por status (ACTIVE, PAUSED, etc.)
+### 2.1 Seção Ads consolidada
 
-### 3.2 Agrupamento por Conjunto de Anúncios
-Na tabela de dados de Ads, agrupar por `conjunto_anuncios` com totais por grupo, permitindo expandir para ver as campanhas individuais.
+Adicionar card **"Performance de Ads"** ao dashboard com KPIs globais (todos os projetos):
+- Gasto Total em Ads (30d)
+- CPL Médio
+- ROAS Global
+- Total de Compras
 
-### 3.3 KPIs de Ads melhorados
-Adicionar cards de:
-- Frequência Média
-- Alcance Total
-- Custo por Compra médio
-- CPM (custo por mil impressões)
+Dados da tabela `imphq_ads_spend` filtrados pelos últimos 30 dias.
+
+### 2.2 Gasto em Ads por Projeto (gráfico)
+
+Novo gráfico de barras horizontais mostrando gasto em ads por projeto (Top 5), similar ao "Receita por Projeto" que já existe.
+
+### 2.3 Top Campanhas
+
+Card listando as 5 campanhas com maior gasto nos últimos 30 dias, com CTR e compras ao lado.
+
+### 2.4 Alerta de Frequência Alta
+
+Adicionar alerta inteligente: se alguma campanha tem frequência > 3.0 nos últimos 7 dias, avisar "⚠ Campanha X com frequência alta (X.X) — risco de saturação".
+
+### 2.5 Filtro de período global no Dashboard
+
+Atualmente o dashboard mostra dados fixos (30d leads, 6m receita). Adicionar um Select com períodos (7d, 30d, 90d, 6m) que filtra **todos** os gráficos e KPIs do dashboard.
 
 ---
 
 ## Resumo de arquivos
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---|---|
-| **Migração SQL** | Tabelas `imphq_ad_accounts` e `imphq_ads_reports` |
-| `src/pages/Empresa.tsx` | Nova aba "Ad Accounts" com CRUD de BMs e contas |
-| `src/components/projeto/ProjetoFinancas.tsx` | Botão salvar análise, sub-aba Relatórios, melhorias criativos e KPIs |
+| `src/components/projeto/ProjetoFinancas.tsx` | Botão salvar no dialog, dialog visualizar relatório, KPIs extras (CPM/Freq/Alcance/CPA), criativos com métricas, agrupamento por conjunto |
+| `src/pages/Dashboard.tsx` | Seção Ads global, gasto por projeto, top campanhas, alerta frequência, filtro período global |
 
 ---
 
 ## Ordem de execução
 
-1. Migração SQL (2 tabelas)
-2. Aba Ad Accounts na Empresa
-3. Salvar + listar relatórios de performance
-4. Melhorias visuais em Ads/Criativos
+1. ProjetoFinancas: botão salvar + dialog visualizar relatório
+2. ProjetoFinancas: KPIs extras + criativos com métricas + agrupamento
+3. Dashboard: seção Ads + gráficos + alertas + filtro global
 
