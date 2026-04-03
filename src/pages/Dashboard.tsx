@@ -44,6 +44,57 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    loadAdsGlobal();
+  }, [dashPeriod]);
+
+  const loadAdsGlobal = async () => {
+    const days = dashPeriod === "7d" ? 7 : dashPeriod === "90d" ? 90 : dashPeriod === "6m" ? 180 : 30;
+    const since = subDays(new Date(), days).toISOString().split("T")[0];
+    const { data: adsRaw } = await supabase.from("imphq_ads_spend").select("*").gte("data_ref", since);
+    const { data: projList } = await supabase.from("imphq_projects").select("id, name, icon");
+    const projMap = new Map((projList || []).map((p: any) => [p.id, p]));
+    const items = (adsRaw || []) as any[];
+    const gasto = items.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
+    const leads = items.reduce((s: number, a: any) => s + (a.leads || 0), 0);
+    const compras = items.reduce((s: number, a: any) => s + (a.compras || 0), 0);
+    
+    // Top campanhas
+    const campMap = new Map<string, { gasto: number; ctr: number; compras: number; count: number }>();
+    items.forEach((a: any) => {
+      const name = a.campanha || "Sem nome";
+      const prev = campMap.get(name) || { gasto: 0, ctr: 0, compras: 0, count: 0 };
+      campMap.set(name, { gasto: prev.gasto + (parseFloat(a.valor) || 0), ctr: prev.ctr + (parseFloat(a.ctr) || 0), compras: prev.compras + (a.compras || 0), count: prev.count + 1 });
+    });
+    const topCampanhas = Array.from(campMap.entries()).map(([name, v]) => ({ name, gasto: v.gasto, ctr: v.count > 0 ? v.ctr / v.count : 0, compras: v.compras })).sort((a, b) => b.gasto - a.gasto).slice(0, 5);
+
+    // Ads by project
+    const projAds = new Map<string, number>();
+    items.forEach((a: any) => { projAds.set(a.project_id, (projAds.get(a.project_id) || 0) + (parseFloat(a.valor) || 0)); });
+    const adsByProject = Array.from(projAds.entries()).map(([pid, val]) => {
+      const p = projMap.get(pid);
+      return { name: p ? `${p.icon || "📁"} ${p.name}` : pid.slice(0, 8), value: val };
+    }).sort((a, b) => b.value - a.value).slice(0, 5);
+
+    // Frequency alerts (last 7 days)
+    const sevenAgo = subDays(new Date(), 7).toISOString().split("T")[0];
+    const recentAds = items.filter((a: any) => a.data_ref >= sevenAgo);
+    const freqAlerts: string[] = [];
+    const freqCamp = new Map<string, { freq: number; count: number }>();
+    recentAds.forEach((a: any) => {
+      if (a.frequencia > 0 && a.campanha) {
+        const prev = freqCamp.get(a.campanha) || { freq: 0, count: 0 };
+        freqCamp.set(a.campanha, { freq: prev.freq + parseFloat(a.frequencia), count: prev.count + 1 });
+      }
+    });
+    freqCamp.forEach((v, name) => {
+      const avg = v.freq / v.count;
+      if (avg > 3) freqAlerts.push(`⚠ "${name.slice(0, 40)}" com frequência alta (${avg.toFixed(1)}) — risco de saturação`);
+    });
+
+    setAdsGlobal({ gasto, cpl: leads > 0 ? gasto / leads : 0, roas: 0, compras, topCampanhas, adsByProject, freqAlerts });
+  };
+
+  useEffect(() => {
     async function load() {
       const [projRes, taskRes, leadRes, costRes, recentRes, urgentRes, oppRes, eventsRes] = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
