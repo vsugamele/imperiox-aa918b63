@@ -78,6 +78,9 @@ export default function Empresa() {
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
+        <TabsContent value="ad_accounts">
+          <AdAccountsTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
