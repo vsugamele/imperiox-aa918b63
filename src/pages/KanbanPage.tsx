@@ -153,7 +153,7 @@ export default function KanbanPage() {
     setAllColumns(cols);
     setAllCards((cardRes.data || []) as KanbanCard[]);
     setMembers((memberRes.data || []) as TeamMember[]);
-    setProjects((projRes.data || []) as { id: string; name: string }[]);
+    setProjects((projRes.data || []) as { id: string; name: string; data?: any }[]);
     setCardAttachmentCounts(attCounts);
     setCardChecklistCounts(checkCounts);
     setLoading(false);
