@@ -163,14 +163,23 @@ export default function KanbanPage() {
 
   // Compute display columns based on active board
   const displayColumns = (() => {
+    if (activeBoard === "experts") {
+      // Group by expert name from project data
+      const expertMap = new Map<string, KanbanColumn>();
+      for (const card of allCards) {
+        const expertName = getProjectExpert(card.project_id) || "Sem Expert";
+        if (!expertMap.has(expertName)) {
+          expertMap.set(expertName, { id: `expert-${expertName}`, title: expertName, color: "#8b5cf6", position: expertMap.size, board: "experts" });
+        }
+      }
+      return Array.from(expertMap.values());
+    }
     if (activeBoard === "geral") {
-      // Smart merge: group columns by normalized title
       const mergedMap = new Map<string, KanbanColumn>();
       for (const col of allColumns) {
         const key = normalizeColTitle(col.title);
         if (!mergedMap.has(key)) mergedMap.set(key, { ...col, title: key });
       }
-      // Ensure canonical order
       const canonical = ["backlog", "fazendo", "travado", "revisão", "feito"];
       const sorted = Array.from(mergedMap.values()).sort((a, b) => {
         const ai = canonical.indexOf(a.title.toLowerCase());
