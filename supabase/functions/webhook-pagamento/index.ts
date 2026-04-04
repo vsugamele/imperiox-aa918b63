@@ -309,6 +309,47 @@ Deno.serve(async (req) => {
         .eq("id", leadId);
     }
 
+    // Handle refund
+    if (evento === "reembolso" && leadId) {
+      // Try to find existing sale to mark as refunded
+      const { data: existingVenda } = await supabase
+        .from("imphq_vendas")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("status", "aprovado")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingVenda) {
+        await supabase.from("imphq_vendas").update({ status: "reembolsado" }).eq("id", existingVenda.id);
+      } else {
+        // Create retroactive refunded sale for history
+        const vendaInsert: any = {
+          id: crypto.randomUUID(),
+          lead_id: leadId,
+          project_id: projectId,
+          produto_nome: produto,
+          valor,
+          plataforma,
+          status: "reembolsado",
+        };
+        if (data_compra) vendaInsert.created_at = data_compra;
+        await supabase.from("imphq_vendas").insert(vendaInsert);
+      }
+
+      // Check if lead still has approved sales
+      const { data: remainingSales } = await supabase
+        .from("imphq_vendas")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("status", "aprovado")
+        .limit(1);
+
+      const newStatus = (remainingSales && remainingSales.length > 0) ? "cliente" : "lead";
+      await supabase.from("imphq_leads").update({ status: newStatus }).eq("id", leadId);
+    }
+
     // Register journey event in imphq_events
     const JOURNEY_EVENT_MAP: Record<string, string> = {
       compra_aprovada: "CompraAprovada",

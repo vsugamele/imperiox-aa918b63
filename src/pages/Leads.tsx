@@ -292,7 +292,15 @@ export default function Leads() {
       Promise.resolve(supabase.from("imphq_vendas").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }))
         .then(({ data }) => {
           (data || []).forEach((v: any) => {
-            events.push({ id: v.id, type: "Purchase", timestamp: v.created_at, title: `Compra: ${v.produto || "—"}`, subtitle: `R$ ${parseFloat(v.valor || 0).toFixed(2)} via ${v.plataforma || "—"}`, details: { status: v.status } });
+            const isRefund = v.status === "reembolsado";
+            events.push({
+              id: v.id,
+              type: isRefund ? "Reembolso" : "Purchase",
+              timestamp: v.created_at,
+              title: isRefund ? `Reembolso: ${v.produto_nome || "—"}` : `Compra: ${v.produto_nome || "—"}`,
+              subtitle: `R$ ${parseFloat(v.valor || 0).toFixed(2)} via ${v.plataforma || "—"}`,
+              details: { status: v.status },
+            });
           });
         })
     );

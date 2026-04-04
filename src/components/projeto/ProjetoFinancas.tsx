@@ -889,9 +889,27 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             <TabsContent value="criativos">
               <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm uppercase tracking-wider text-violet-400 font-sans flex items-center gap-2">
-                    <Image className="h-4 w-4" /> Galeria de Criativos
-                  </CardTitle>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <CardTitle className="text-sm uppercase tracking-wider text-violet-400 font-sans flex items-center gap-2">
+                      <Image className="h-4 w-4" /> Galeria de Criativos
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Buscar criativo..."
+                        className="h-7 text-xs w-40 bg-secondary"
+                        value={creativeSearch}
+                        onChange={e => setCreativeSearch(e.target.value)}
+                      />
+                      <Select value={creativeFilter} onValueChange={setCreativeFilter}>
+                        <SelectTrigger className="h-7 text-xs w-28 bg-secondary"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="active">Ativos</SelectItem>
+                          <SelectItem value="inactive">Inativos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {creatives.length === 0 ? (
@@ -901,8 +919,16 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <p className="text-xs text-muted-foreground/70">Sincronize com o Facebook para ver os criativos aqui</p>
                     </div>
                   ) : (() => {
-                    const activeCreatives = creatives.filter((c: any) => c.status === "ACTIVE");
-                    const inactiveCreatives = creatives.filter((c: any) => c.status !== "ACTIVE");
+                    const searchLower = creativeSearch.toLowerCase();
+                    const filtered = creatives.filter((c: any) => {
+                      const nameMatch = !creativeSearch || (c.name || c.ad_name || "").toLowerCase().includes(searchLower) || (c.body || "").toLowerCase().includes(searchLower);
+                      const statusMatch = creativeFilter === "all" || (creativeFilter === "active" ? c.status === "ACTIVE" : c.status !== "ACTIVE");
+                      return nameMatch && statusMatch;
+                    });
+                    const activeCreatives = filtered.filter((c: any) => c.status === "ACTIVE");
+                    const inactiveCreatives = filtered.filter((c: any) => c.status !== "ACTIVE");
+                    const totalActive = creatives.filter((c: any) => c.status === "ACTIVE").length;
+                    const totalInactive = creatives.length - totalActive;
                     
                     const renderCreativeCard = (c: any, i: number, isActive: boolean) => {
                       const adMatch = fAds.filter(a => a.anuncio && (c.name || c.ad_name) && (a.anuncio.includes(c.name) || a.anuncio.includes(c.ad_name)));
@@ -969,7 +995,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
                     return (
                       <div className="space-y-4">
-                        {activeCreatives.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground">{totalActive} ativos · {totalInactive} inativos · {filtered.length} exibidos</p>
+                        {activeCreatives.length > 0 && creativeFilter !== "inactive" && (
                           <div>
                             <p className="text-xs font-semibold text-emerald-400 mb-2">🟢 Ativos ({activeCreatives.length})</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -977,7 +1004,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             </div>
                           </div>
                         )}
-                        {inactiveCreatives.length > 0 && (
+                        {inactiveCreatives.length > 0 && creativeFilter !== "active" && (
                           <div>
                             <p className="text-xs font-semibold text-muted-foreground mb-2">⏸ Inativos ({inactiveCreatives.length})</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
