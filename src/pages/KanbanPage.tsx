@@ -234,10 +234,12 @@ export default function KanbanPage() {
   // Cards for a specific display column
   const cardsForCol = (col: KanbanColumn): KanbanCard[] => {
     let cards: KanbanCard[];
-    if (activeBoard === "geral") {
+    if (activeBoard === "experts") {
+      const expertName = col.title;
+      cards = allCards.filter(c => (getProjectExpert(c.project_id) || "Sem Expert") === expertName);
+    } else if (activeBoard === "geral") {
       const normalizedTitle = col.title.toLowerCase();
       cards = allCards.filter(c => getCardNormalizedCol(c) === normalizedTitle);
-      // Deduplicate
       const seen = new Set<string>();
       cards = cards.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
     } else {

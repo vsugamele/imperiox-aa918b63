@@ -57,6 +57,7 @@ interface ChecklistItem {
   is_done: boolean;
   position: number;
   created_at: string;
+  member_id?: string;
 }
 
 interface Comment {
