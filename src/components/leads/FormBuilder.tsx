@@ -49,6 +49,7 @@ export function FormBuilder({ projects }: Props) {
   const [formProject, setFormProject] = useState<string>("none");
   const [formStage, setFormStage] = useState("lead_capturado");
   const [formFields, setFormFields] = useState<FormField[]>([...DEFAULT_FIELDS]);
+  const [showPreview, setShowPreview] = useState(false);
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
