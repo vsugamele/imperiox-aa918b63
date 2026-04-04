@@ -488,6 +488,8 @@ async function imphqSubmit(e) {
                       <SelectItem value="number">Número</SelectItem>
                       <SelectItem value="textarea">Textarea</SelectItem>
                       <SelectItem value="select">Select</SelectItem>
+                      <SelectItem value="radio">Radio (Sim/Não)</SelectItem>
+                      <SelectItem value="checkbox">Checkbox (Múltipla)</SelectItem>
                     </SelectContent>
                   </Select>
                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
