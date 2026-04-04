@@ -197,7 +197,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   const openCostFormForNew = () => {
     setEditingCost(null);
-    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
+    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "", beneficiario: "", tipo_recorrencia: "mensal" });
     setShowCostForm(true);
   };
 
