@@ -233,6 +233,16 @@ export default function KanbanPage() {
 
   const getMember = (memberId?: string) => memberId ? members.find(m => m.id === memberId) : undefined;
   const getProjectName = (projectId?: string) => projectId ? projects.find(p => p.id === projectId)?.name : undefined;
+  const getProjectExpert = (projectId?: string) => {
+    if (!projectId) return undefined;
+    const proj = projects.find(p => p.id === projectId);
+    return proj?.data?.expert?.nome || undefined;
+  };
+  const getProjectProduct = (projectId?: string) => {
+    if (!projectId) return undefined;
+    const proj = projects.find(p => p.id === projectId);
+    return proj?.data?.briefing?.produto || undefined;
+  };
 
   // Stats
   const stuckCount = allCards.filter(c => getCardNormalizedCol(c) === "travado").length;
