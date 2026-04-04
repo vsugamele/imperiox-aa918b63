@@ -1,53 +1,57 @@
 
 
-# Plano: Corrigir 4 problemas de UX
+# Plano: Templates de Formulario + Filtros em Financas
 
 ---
 
-## Problemas identificados
+## 1. Templates Prontos no FormBuilder
 
-1. **Formulários de captura nunca foram adicionados na UI** — os arquivos `FormBuilder.tsx` e `FormInsights.tsx` foram criados mas nunca importados no `Leads.tsx`. As abas "Formularios" e "Insights" nao existem.
-2. **Analytics de leads nao filtra por projeto** — a aba Analytics em Leads mostra dados globais, sem Select de projeto.
-3. **Duas abas de pesquisa duplicadas no projeto** — "Pesquisa" (scraping de URL do expert) e "Pesquisa Intel" (concorrentes/produtos/experts via IA) fazem coisas similares. Unificar em uma so aba.
-4. **Dashboard sem filtro de projeto** — o `dashPeriod` filtra por periodo mas nao por projeto.
+Adicionar um sistema de templates pre-definidos para formularios de captura. Quando o usuario clicar "Novo Formulario", pode escolher um template ou comecar do zero.
 
----
+**Templates incluidos:**
+- Captura Simples (nome + email + whatsapp)
+- Pesquisa Pre-Webinar (nome, email, faturamento, maior dor, nivel de consciencia)
+- Aplicacao/Mentoria (nome, email, phone, instagram, faturamento, nicho, objetivo)
+- Pesquisa Pos-Compra (nome, email, como conheceu, nota de 1-10, depoimento)
+- Lead Magnet (nome, email, profissao)
 
-## Solucoes
+**Seletor de Produto:** Adicionar campo "Produto" no formulario, puxando os produtos do projeto selecionado (campo `data.produtos` do `imphq_projects`). Isso vincula o formulario a um produto especifico, facilitando cruzamento de dados.
 
-### 1. Adicionar abas Formularios + Insights em Leads.tsx
-
-- Importar `FormBuilder` e `FormInsights` de `src/components/leads/`
-- Adicionar 2 TabsTrigger: "📝 Formularios" e "💡 Insights"
-- Adicionar os respectivos TabsContent com os componentes
-
-### 2. Filtro por projeto no Analytics de Leads
-
-- Na aba Analytics, adicionar um Select com todos os projetos (ja temos `projects` carregados)
-- Filtrar os dados de analytics (`leads`) pelo `project_id` selecionado
-- Default: "Todos os projetos"
-
-### 3. Unificar Pesquisa + Pesquisa Intel em uma aba
-
-- Remover a aba "Pesquisa" (`ProjetoPesquisa`) separada
-- Integrar a funcionalidade de scraping de URL do expert (que `ProjetoPesquisa` faz) dentro de `ProjetoPesquisaInteligente` como uma 4a sub-aba "Expert URL"
-- Renomear a aba para "🔍 Pesquisa" (unica)
-- Mover o historico de pesquisas do `ProjetoPesquisa` para dentro do componente unificado
-
-### 4. Filtro de projeto no Dashboard
-
-- Adicionar um Select de projeto ao lado do Select de periodo existente
-- Carregar lista de projetos e filtrar todos os dados (stats, leads trend, receita, ads) pelo projeto selecionado
-- Default: "Todos"
+### Mudancas em `FormBuilder.tsx`:
+- Array `FORM_TEMPLATES` com templates pre-definidos
+- Ao clicar "Novo Formulario", mostrar dialog de selecao de template antes do editor
+- Novo campo `product_name` no state do form (salvo no `settings` JSONB do `imphq_capture_forms`)
+- Select de produto que aparece apos selecionar um projeto (busca produtos do projeto)
+- Cards de template com icone, nome e descricao dos campos incluidos
 
 ---
 
-## Arquivos alterados
+## 2. Filtros de Data e Produto em Financas
+
+Financas ja tem filtro de projeto. Adicionar:
+
+### Filtro de Data
+- Dois inputs de data (de/ate) ao lado do Select de projeto
+- Botoes rapidos: "Hoje", "7d", "30d", "Este mes", "Todos"
+- Filtrar `vendas` por `data_venda`, `ads` por `data_ref`, `projectRevenues` por `data_ref`
+
+### Filtro de Produto
+- Select com produtos unicos extraidos das vendas (`produto_nome` da tabela `imphq_vendas`)
+- Default: "Todos os Produtos"
+- Filtra vendas pelo `produto_nome` selecionado
+
+### Mudancas em `Financas.tsx`:
+- Novos states: `filterDateFrom`, `filterDateTo`, `filterProduct`
+- Logica de filtragem aplicada nos arrays `fVendas`, `fAds`, `fProjectRevenues`
+- UI: linha de filtros com projeto + produto + datas + botoes rapidos
+- KPIs e graficos reagem automaticamente aos filtros
+
+---
+
+## Resumo de Arquivos
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Leads.tsx` | Importar FormBuilder/FormInsights, adicionar 2 abas, filtro projeto no analytics |
-| `src/pages/ProjetoDetalhe.tsx` | Remover aba "Pesquisa" separada, renomear "Pesquisa Intel" para "Pesquisa" |
-| `src/components/projeto/ProjetoPesquisaInteligente.tsx` | Absorver funcionalidade de scraping de URL do ProjetoPesquisa |
-| `src/pages/Dashboard.tsx` | Adicionar Select de projeto, filtrar dados por project_id |
+| `src/components/leads/FormBuilder.tsx` | Templates pre-definidos, seletor de produto, dialog de template |
+| `src/pages/Financas.tsx` | Filtros de data (de/ate + atalhos) e filtro de produto |
 
