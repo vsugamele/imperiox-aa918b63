@@ -12,7 +12,7 @@ import { ProjetoExpert } from "@/components/projeto/ProjetoExpert";
 import { ProjetoAvatar } from "@/components/projeto/ProjetoAvatar";
 import { ProjetoBranding } from "@/components/projeto/ProjetoBranding";
 import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
-import { ProjetoPesquisa } from "@/components/projeto/ProjetoPesquisa";
+// ProjetoPesquisa removed — unified into ProjetoPesquisaInteligente
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
