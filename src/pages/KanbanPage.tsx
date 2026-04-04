@@ -22,7 +22,7 @@ import {
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
-const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
+const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
 
 // Synonym map for smart merging in "geral" view
