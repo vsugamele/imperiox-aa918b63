@@ -755,6 +755,8 @@ export default function Leads() {
             <TabsList>
               <TabsTrigger value="leads" className="text-xs">📋 Leads</TabsTrigger>
               <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
+              <TabsTrigger value="formularios" className="text-xs">📝 Formulários</TabsTrigger>
+              <TabsTrigger value="insights" className="text-xs">💡 Insights</TabsTrigger>
               {pixHoje.length > 0 && (
                 <TabsTrigger value="pix_hoje" className="text-xs relative">
                   💰 Pix Hoje
