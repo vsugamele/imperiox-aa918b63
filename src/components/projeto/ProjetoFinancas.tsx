@@ -231,6 +231,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       pix_info: costForm.pix_info || null,
       data_pagamento: costForm.data_pagamento || null,
       produto_nome: costForm.produto_nome || null,
+      beneficiario: costForm.beneficiario || null,
+      tipo_recorrencia: costForm.tipo_recorrencia || "mensal",
     };
 
     if (editingCost) {
