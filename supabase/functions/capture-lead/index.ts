@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
     );
 
     const url = new URL(req.url);
-    const projectId = url.searchParams.get("project");
+    let projectIdFromQuery = url.searchParams.get("project");
 
     let body: any;
     const contentType = req.headers.get("content-type") || "";
@@ -31,6 +31,26 @@ Deno.serve(async (req) => {
       body = await req.json().catch(() => ({}));
     }
 
+    // --- Resolve form config if form_id is present ---
+    let formConfig: any = null;
+    let projectId = projectIdFromQuery;
+    let step: string | null = null;
+
+    if (body.form_id) {
+      const { data: form } = await supabase
+        .from("imphq_capture_forms")
+        .select("*")
+        .eq("id", body.form_id)
+        .maybeSingle();
+
+      if (form) {
+        formConfig = form;
+        projectId = form.project_id || projectId;
+        step = form.step || null;
+      }
+    }
+
+    // --- Extract standard fields ---
     const email = (body.email || "").toString().trim().toLowerCase();
     const name = (body.name || body.nome || "").toString().trim();
     const phone = (body.phone || body.telefone || "").toString().trim();
@@ -39,7 +59,7 @@ Deno.serve(async (req) => {
 
     if (!email) {
       return new Response(
-        JSON.stringify({ error: "Email é obrigatório" }),
+        JSON.stringify({ success: false, error: "Email é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -56,11 +76,11 @@ Deno.serve(async (req) => {
 
     if (existing) {
       leadId = existing.id;
-      // Update with new data if provided
       const updates: any = {};
       if (name) updates.nome = name;
       if (phone) updates.phone = phone;
       if (tags.length) updates.tags = tags;
+      if (step) updates.status = step;
       if (Object.keys(updates).length) {
         await supabase.from("imphq_leads").update(updates).eq("id", leadId);
       }
@@ -72,7 +92,7 @@ Deno.serve(async (req) => {
         email,
         phone: phone || null,
         plataforma: source,
-        status: "lead",
+        status: step || "lead",
         tags: tags.length ? tags : null,
         project_id: projectId,
         data: {
@@ -83,12 +103,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    // --- Save extra responses if form_id exists ---
+    if (body.form_id && formConfig) {
+      const standardKeys = new Set([
+        "form_id", "email", "name", "nome", "phone", "telefone",
+        "tags", "source", "origem", "page_url", "redirect_url",
+        "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+      ]);
+
+      const respostas: Record<string, any> = {};
+      for (const [key, value] of Object.entries(body)) {
+        if (!standardKeys.has(key) && value !== undefined && value !== "") {
+          respostas[key] = value;
+        }
+      }
+
+      if (Object.keys(respostas).length > 0) {
+        await supabase.from("imphq_lead_responses").insert({
+          id: crypto.randomUUID(),
+          lead_id: leadId,
+          form_id: body.form_id,
+          respostas,
+          step: step || null,
+        });
+      }
+    }
+
     // Log event
     await supabase.from("imphq_events").insert({
       id: crypto.randomUUID(),
       project_id: projectId,
       event_name: "LeadCapture",
-      event_data: { email, name, phone, source, tags },
+      event_data: { email, name, phone, source, tags, form_id: body.form_id || null },
       page_url: body.page_url || null,
       utm_source: body.utm_source || null,
       utm_medium: body.utm_medium || null,
@@ -104,13 +150,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, lead_id: leadId, is_new: !existing }),
+      JSON.stringify({ success: true, ok: true, lead_id: leadId, is_new: !existing }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("[capture-lead] Erro:", err);
     return new Response(
-      JSON.stringify({ error: String(err) }),
+      JSON.stringify({ success: false, error: String(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
