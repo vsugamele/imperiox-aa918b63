@@ -24,6 +24,8 @@ import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
+import { FormBuilder } from "@/components/leads/FormBuilder";
+import { FormInsights } from "@/components/leads/FormInsights";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
