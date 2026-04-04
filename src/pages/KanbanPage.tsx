@@ -22,7 +22,7 @@ import {
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 
-const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
+const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
 
 // Synonym map for smart merging in "geral" view
@@ -75,7 +75,7 @@ export default function KanbanPage() {
   const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
   const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; data?: any }[]>([]);
   const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
   const [cardChecklistCounts, setCardChecklistCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [activeBoard, setActiveBoard] = useState("geral");
@@ -124,7 +124,7 @@ export default function KanbanPage() {
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role"),
-      supabase.from("imphq_projects").select("id, name"),
+      supabase.from("imphq_projects").select("id, name, data, icon"),
       supabase.from("imphq_card_attachments").select("card_id"),
       supabase.from("imphq_card_checklists").select("card_id, is_done"),
     ]);
@@ -153,7 +153,7 @@ export default function KanbanPage() {
     setAllColumns(cols);
     setAllCards((cardRes.data || []) as KanbanCard[]);
     setMembers((memberRes.data || []) as TeamMember[]);
-    setProjects((projRes.data || []) as { id: string; name: string }[]);
+    setProjects((projRes.data || []) as { id: string; name: string; data?: any }[]);
     setCardAttachmentCounts(attCounts);
     setCardChecklistCounts(checkCounts);
     setLoading(false);
@@ -161,16 +161,35 @@ export default function KanbanPage() {
 
   useEffect(() => { loadAllData(); }, [loadAllData]);
 
+  const getProjectExpert = (projectId?: string) => {
+    if (!projectId) return undefined;
+    const proj = projects.find(p => p.id === projectId);
+    return proj?.data?.expert?.nome || undefined;
+  };
+  const getProjectProduct = (projectId?: string) => {
+    if (!projectId) return undefined;
+    const proj = projects.find(p => p.id === projectId);
+    return proj?.data?.briefing?.produto || undefined;
+  };
+
   // Compute display columns based on active board
   const displayColumns = (() => {
+    if (activeBoard === "experts") {
+      const expertMap = new Map<string, KanbanColumn>();
+      for (const card of allCards) {
+        const expertName = getProjectExpert(card.project_id) || "Sem Expert";
+        if (!expertMap.has(expertName)) {
+          expertMap.set(expertName, { id: `expert-${expertName}`, title: expertName, color: "#8b5cf6", position: expertMap.size, board: "experts" });
+        }
+      }
+      return Array.from(expertMap.values());
+    }
     if (activeBoard === "geral") {
-      // Smart merge: group columns by normalized title
       const mergedMap = new Map<string, KanbanColumn>();
       for (const col of allColumns) {
         const key = normalizeColTitle(col.title);
         if (!mergedMap.has(key)) mergedMap.set(key, { ...col, title: key });
       }
-      // Ensure canonical order
       const canonical = ["backlog", "fazendo", "travado", "revisão", "feito"];
       const sorted = Array.from(mergedMap.values()).sort((a, b) => {
         const ai = canonical.indexOf(a.title.toLowerCase());
@@ -215,10 +234,12 @@ export default function KanbanPage() {
   // Cards for a specific display column
   const cardsForCol = (col: KanbanColumn): KanbanCard[] => {
     let cards: KanbanCard[];
-    if (activeBoard === "geral") {
+    if (activeBoard === "experts") {
+      const expertName = col.title;
+      cards = allCards.filter(c => (getProjectExpert(c.project_id) || "Sem Expert") === expertName);
+    } else if (activeBoard === "geral") {
       const normalizedTitle = col.title.toLowerCase();
       cards = allCards.filter(c => getCardNormalizedCol(c) === normalizedTitle);
-      // Deduplicate
       const seen = new Set<string>();
       cards = cards.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
     } else {
@@ -233,6 +254,7 @@ export default function KanbanPage() {
 
   const getMember = (memberId?: string) => memberId ? members.find(m => m.id === memberId) : undefined;
   const getProjectName = (projectId?: string) => projectId ? projects.find(p => p.id === projectId)?.name : undefined;
+
 
   // Stats
   const stuckCount = allCards.filter(c => getCardNormalizedCol(c) === "travado").length;
@@ -422,6 +444,8 @@ export default function KanbanPage() {
   const renderCard = (card: KanbanCard) => {
     const member = getMember(card.member_id);
     const projName = getProjectName(card.project_id);
+    const expertName = getProjectExpert(card.project_id);
+    const productName = getProjectProduct(card.project_id);
     const priorityBorder = PRIORITY_BORDER[card.priority] || PRIORITY_BORDER.medium;
     const attCount = cardAttachmentCounts[card.id] || 0;
     const checkInfo = cardChecklistCounts[card.id];
@@ -436,7 +460,6 @@ export default function KanbanPage() {
         <CardContent className="p-3">
           <div className="flex items-start justify-between gap-1">
             <p className="text-sm font-medium flex-1 leading-tight">{card.title}</p>
-            {/* Quick actions on hover */}
             <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0">
               <button
                 onClick={(e) => { e.stopPropagation(); quickMarkDone(card); }}
@@ -463,6 +486,16 @@ export default function KanbanPage() {
               {projName && (
                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-primary/5 text-primary border-primary/20">
                   <FolderOpen className="h-2 w-2" /> {projName}
+                </Badge>
+              )}
+              {expertName && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                  👤 {expertName}
+                </Badge>
+              )}
+              {productName && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                  📦 {productName}
                 </Badge>
               )}
               {card.tags && card.tags.length > 0 && card.tags.slice(0, 2).map((tag, i) => (
