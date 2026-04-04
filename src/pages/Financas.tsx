@@ -33,6 +33,9 @@ export default function Financas() {
   const [ads, setAds] = useState<AdsSpend[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filterProject, setFilterProject] = useState("all");
+  const [filterProduct, setFilterProduct] = useState("all");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
   const [showCustoDialog, setShowCustoDialog] = useState(false);
   const [editingCusto, setEditingCusto] = useState<Custo | null>(null);
   const [custoForm, setCustoForm] = useState({ nome: "", tipo: "SaaS", valor: "", moeda: "BRL" });
@@ -69,13 +72,41 @@ export default function Financas() {
 
   useEffect(() => { load(); }, []);
 
+  // Date filter helper
+  const inDateRange = (dateStr: string | null | undefined) => {
+    if (!dateStr) return true;
+    const d = dateStr.slice(0, 10);
+    if (filterDateFrom && d < filterDateFrom) return false;
+    if (filterDateTo && d > filterDateTo) return false;
+    return true;
+  };
+
+  const setQuickDate = (days: number | "month" | "all") => {
+    if (days === "all") { setFilterDateFrom(""); setFilterDateTo(""); return; }
+    const to = new Date();
+    const toStr = to.toISOString().slice(0, 10);
+    setFilterDateTo(toStr);
+    if (days === "month") {
+      setFilterDateFrom(new Date(to.getFullYear(), to.getMonth(), 1).toISOString().slice(0, 10));
+    } else {
+      const from = new Date(to);
+      from.setDate(from.getDate() - days);
+      setFilterDateFrom(from.toISOString().slice(0, 10));
+    }
+  };
+
+  // Unique products from vendas
+  const uniqueProducts = [...new Set(vendas.map(v => v.produto_nome).filter(Boolean))].sort();
+
   // Filtered data
   const fp = filterProject;
   const fCustos = custos;
-  const fProjectCosts = fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp);
-  const fProjectRevenues = fp === "all" ? projectRevenues : projectRevenues.filter(r => r.project_id === fp);
-  const fVendas = fp === "all" ? vendas : vendas.filter(v => v.project_id === fp);
-  const fAds = fp === "all" ? ads : ads.filter(a => a.project_id === fp);
+  const fProjectCosts = (fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp));
+  const fProjectRevenues = (fp === "all" ? projectRevenues : projectRevenues.filter(r => r.project_id === fp)).filter(r => inDateRange(r.data_ref));
+  const fVendas = (fp === "all" ? vendas : vendas.filter(v => v.project_id === fp))
+    .filter(v => inDateRange(v.data_venda))
+    .filter(v => filterProduct === "all" || v.produto_nome === filterProduct);
+  const fAds = (fp === "all" ? ads : ads.filter(a => a.project_id === fp)).filter(a => inDateRange(a.data_ref));
 
   // KPI calculations
   const custosGlobaisBRL = fCustos.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
@@ -170,13 +201,42 @@ export default function Financas() {
             URL.revokeObjectURL(url);
             toast.success("Relatório financeiro exportado");
           }}>📥 Export CSV</Button>
-          <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="w-[200px] h-9 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {uniqueProducts.length > 0 && (
+          <Select value={filterProduct} onValueChange={setFilterProduct}>
+            <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os Projetos</SelectItem>
-              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+              <SelectItem value="all">Todos Produtos</SelectItem>
+              {uniqueProducts.map(p => <SelectItem key={p} value={p}>📦 {p}</SelectItem>)}
             </SelectContent>
           </Select>
+        )}
+        <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-[140px] h-9 text-xs" />
+        <span className="text-xs text-muted-foreground">até</span>
+        <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-[140px] h-9 text-xs" />
+        <div className="flex gap-1">
+          {[
+            { label: "Hoje", val: 0 },
+            { label: "7d", val: 7 },
+            { label: "30d", val: 30 },
+            { label: "Mês", val: "month" as const },
+            { label: "Todos", val: "all" as const },
+          ].map(b => (
+            <Button key={b.label} size="sm" variant="ghost" className="h-7 text-[10px] px-2" onClick={() => setQuickDate(b.val)}>
+              {b.label}
+            </Button>
+          ))}
         </div>
       </div>
 

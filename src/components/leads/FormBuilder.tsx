@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, Eye, GripVertical, Code } from "lucide-react";
+import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet } from "lucide-react";
 
 interface FormField {
   key: string;
@@ -28,28 +27,105 @@ interface CaptureForm {
   fields: FormField[];
   is_active: boolean | null;
   created_at: string | null;
+  settings?: any;
 }
 
 interface Props {
   projects: { id: string; name: string; icon?: string }[];
 }
 
-const DEFAULT_FIELDS: FormField[] = [
-  { key: "nome", label: "Nome", type: "text", required: true, placeholder: "Seu nome completo" },
-  { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
-  { key: "phone", label: "WhatsApp", type: "tel", required: false, placeholder: "(11) 99999-9999" },
+interface FormTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: any;
+  stage: string;
+  fields: FormField[];
+}
+
+const FORM_TEMPLATES: FormTemplate[] = [
+  {
+    id: "simple",
+    name: "Captura Simples",
+    description: "Nome + Email + WhatsApp",
+    icon: FileText,
+    stage: "lead_capturado",
+    fields: [
+      { key: "nome", label: "Nome", type: "text", required: true, placeholder: "Seu nome completo" },
+      { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
+      { key: "phone", label: "WhatsApp", type: "tel", required: false, placeholder: "(11) 99999-9999" },
+    ],
+  },
+  {
+    id: "pre_webinar",
+    name: "Pesquisa Pré-Webinar",
+    description: "Faturamento, maior dor, nível de consciência",
+    icon: ClipboardList,
+    stage: "webinar",
+    fields: [
+      { key: "nome", label: "Nome", type: "text", required: true, placeholder: "Seu nome" },
+      { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
+      { key: "faturamento", label: "Faturamento Mensal", type: "select", required: true, options: ["Até R$5k", "R$5k a R$20k", "R$20k a R$50k", "R$50k a R$100k", "Acima de R$100k"] },
+      { key: "maior_dor", label: "Qual sua maior dor hoje?", type: "textarea", required: true, placeholder: "Descreva seu maior desafio..." },
+      { key: "nivel_consciencia", label: "Nível de Consciência", type: "select", required: false, options: ["Iniciante", "Já tentei mas não deu certo", "Tenho resultados mas quero escalar", "Já faturo alto e quero otimizar"] },
+    ],
+  },
+  {
+    id: "aplicacao",
+    name: "Aplicação / Mentoria",
+    description: "Instagram, faturamento, nicho, objetivo",
+    icon: Megaphone,
+    stage: "aplicacao",
+    fields: [
+      { key: "nome", label: "Nome Completo", type: "text", required: true, placeholder: "Seu nome" },
+      { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
+      { key: "phone", label: "WhatsApp", type: "tel", required: true, placeholder: "(11) 99999-9999" },
+      { key: "instagram", label: "Instagram", type: "text", required: false, placeholder: "@seuperfil" },
+      { key: "faturamento", label: "Faturamento Atual", type: "select", required: true, options: ["Ainda não faturo", "Até R$5k/mês", "R$5k a R$20k/mês", "R$20k a R$50k/mês", "Acima de R$50k/mês"] },
+      { key: "nicho", label: "Qual seu nicho?", type: "text", required: true, placeholder: "Ex: Marketing, Saúde, Finanças..." },
+      { key: "objetivo", label: "Qual seu principal objetivo?", type: "textarea", required: true, placeholder: "O que você espera alcançar..." },
+    ],
+  },
+  {
+    id: "pos_compra",
+    name: "Pesquisa Pós-Compra",
+    description: "Como conheceu, nota, depoimento",
+    icon: ShoppingBag,
+    stage: "pesquisa",
+    fields: [
+      { key: "nome", label: "Nome", type: "text", required: true, placeholder: "Seu nome" },
+      { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
+      { key: "como_conheceu", label: "Como nos conheceu?", type: "select", required: true, options: ["Instagram", "YouTube", "Google", "Indicação de amigo", "Facebook Ads", "Outro"] },
+      { key: "nota", label: "De 1 a 10, qual nota você dá?", type: "select", required: true, options: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] },
+      { key: "depoimento", label: "Deixe seu depoimento", type: "textarea", required: false, placeholder: "Conte como foi sua experiência..." },
+    ],
+  },
+  {
+    id: "lead_magnet",
+    name: "Lead Magnet",
+    description: "Nome + Email + Profissão",
+    icon: Magnet,
+    stage: "lead_capturado",
+    fields: [
+      { key: "nome", label: "Nome", type: "text", required: true, placeholder: "Seu nome" },
+      { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
+      { key: "profissao", label: "Profissão", type: "text", required: false, placeholder: "Ex: Designer, Consultor..." },
+    ],
+  },
 ];
 
 export function FormBuilder({ projects }: Props) {
   const [forms, setForms] = useState<CaptureForm[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showSnippet, setShowSnippet] = useState<CaptureForm | null>(null);
   const [editForm, setEditForm] = useState<CaptureForm | null>(null);
   const [formName, setFormName] = useState("");
   const [formProject, setFormProject] = useState<string>("none");
   const [formStage, setFormStage] = useState("lead_capturado");
-  const [formFields, setFormFields] = useState<FormField[]>([...DEFAULT_FIELDS]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [formFields, setFormFields] = useState<FormField[]>([]);
+  const [formProduct, setFormProduct] = useState("");
+  const [projectProducts, setProjectProducts] = useState<string[]>([]);
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
@@ -57,6 +133,20 @@ export function FormBuilder({ projects }: Props) {
   };
 
   useEffect(() => { loadForms(); }, []);
+
+  // Load products when project changes
+  useEffect(() => {
+    if (formProject === "none") { setProjectProducts([]); setFormProduct(""); return; }
+    (async () => {
+      const { data } = await supabase.from("imphq_projects").select("data").eq("id", formProject).single();
+      const produtos = (data?.data as any)?.produtos;
+      if (Array.isArray(produtos)) {
+        setProjectProducts(produtos.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
+      } else {
+        setProjectProducts([]);
+      }
+    })();
+  }, [formProject]);
 
   const addField = () => {
     setFormFields(prev => [...prev, { key: `campo_${Date.now()}`, label: "", type: "text", required: false }]);
@@ -70,10 +160,33 @@ export function FormBuilder({ projects }: Props) {
     setFormFields(prev => prev.map((f, i) => i === idx ? { ...f, ...updates } : f));
   };
 
+  const selectTemplate = (tpl: FormTemplate) => {
+    setFormName(tpl.name);
+    setFormStage(tpl.stage);
+    setFormFields([...tpl.fields]);
+    setShowTemplates(false);
+    setShowNew(true);
+  };
+
+  const startFromScratch = () => {
+    setFormName("");
+    setFormProject("none");
+    setFormStage("lead_capturado");
+    setFormFields([
+      { key: "nome", label: "Nome", type: "text", required: true, placeholder: "Seu nome completo" },
+      { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
+    ]);
+    setFormProduct("");
+    setShowTemplates(false);
+    setShowNew(true);
+  };
+
   const saveForm = async () => {
     if (!formName.trim()) { toast.error("Nome obrigatório"); return; }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    const settings = formProduct ? { product_name: formProduct } : {};
 
     const payload = {
       nome: formName,
@@ -82,6 +195,7 @@ export function FormBuilder({ projects }: Props) {
       fields: formFields as any,
       is_active: true,
       user_id: user.id,
+      settings,
     };
 
     if (editForm) {
@@ -93,15 +207,7 @@ export function FormBuilder({ projects }: Props) {
     }
     setShowNew(false);
     setEditForm(null);
-    resetForm();
     loadForms();
-  };
-
-  const resetForm = () => {
-    setFormName("");
-    setFormProject("none");
-    setFormStage("lead_capturado");
-    setFormFields([...DEFAULT_FIELDS]);
   };
 
   const openEdit = (form: CaptureForm) => {
@@ -109,7 +215,8 @@ export function FormBuilder({ projects }: Props) {
     setFormName(form.nome);
     setFormProject(form.project_id || "none");
     setFormStage(form.step || "lead_capturado");
-    setFormFields((form.fields as any as FormField[]) || [...DEFAULT_FIELDS]);
+    setFormFields((form.fields as any as FormField[]) || []);
+    setFormProduct((form.settings as any)?.product_name || "");
     setShowNew(true);
   };
 
@@ -144,7 +251,6 @@ async function imphqSubmit(e) {
   const fd = new FormData(e.target);
   const body = { form_id: "${form.id}" };
   fd.forEach((v, k) => body[k] = v);
-  // UTMs
   const sp = new URLSearchParams(location.search);
   ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(u => {
     if (sp.get(u)) body[u] = sp.get(u);
@@ -158,7 +264,6 @@ async function imphqSubmit(e) {
     const data = await res.json();
     if (data.success) {
       e.target.reset();
-      // Redirecionar ou mostrar mensagem:
       alert("Cadastro realizado!");
     }
   } catch (err) { console.error(err); }
@@ -179,7 +284,7 @@ async function imphqSubmit(e) {
           <h3 className="font-display text-lg font-bold">Formulários de Captura</h3>
           <p className="text-xs text-muted-foreground">Crie formulários dinâmicos e gere snippets para suas landing pages</p>
         </div>
-        <Button size="sm" onClick={() => { resetForm(); setEditForm(null); setShowNew(true); }}>
+        <Button size="sm" onClick={() => { setEditForm(null); setShowTemplates(true); }}>
           <Plus className="h-4 w-4 mr-1" /> Novo Formulário
         </Button>
       </div>
@@ -198,7 +303,10 @@ async function imphqSubmit(e) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-sm">{form.nome}</p>
-                    <p className="text-[10px] text-muted-foreground">{getProjectName(form.project_id)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {getProjectName(form.project_id)}
+                      {(form.settings as any)?.product_name && <span className="ml-1">• 📦 {(form.settings as any).product_name}</span>}
+                    </p>
                   </div>
                   <Badge variant={form.is_active ? "default" : "secondary"} className="text-[10px]">
                     {form.is_active ? "Ativo" : "Inativo"}
@@ -225,6 +333,43 @@ async function imphqSubmit(e) {
           ))}
         </div>
       )}
+
+      {/* Template Selection Dialog */}
+      <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Escolha um Template</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            {FORM_TEMPLATES.map(tpl => (
+              <button
+                key={tpl.id}
+                onClick={() => selectTemplate(tpl)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <tpl.icon className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{tpl.name}</p>
+                  <p className="text-xs text-muted-foreground">{tpl.description}</p>
+                </div>
+                <Badge variant="outline" className="text-[9px] shrink-0">{tpl.fields.length} campos</Badge>
+              </button>
+            ))}
+            <button
+              onClick={startFromScratch}
+              className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border hover:bg-accent/50 transition-colors text-left"
+            >
+              <div className="p-2 rounded-lg bg-muted">
+                <Plus className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">Começar do Zero</p>
+                <p className="text-xs text-muted-foreground">Crie um formulário personalizado</p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={showNew} onOpenChange={(open) => { if (!open) { setShowNew(false); setEditForm(null); } }}>
@@ -257,6 +402,24 @@ async function imphqSubmit(e) {
                 </Select>
               </div>
             </div>
+
+            {/* Product selector */}
+            {formProject !== "none" && (
+              <div>
+                <Label>Produto (opcional)</Label>
+                {projectProducts.length > 0 ? (
+                  <Select value={formProduct || "none"} onValueChange={v => setFormProduct(v === "none" ? "" : v)}>
+                    <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem produto específico</SelectItem>
+                      {projectProducts.map(p => <SelectItem key={p} value={p}>📦 {p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={formProduct} onChange={e => setFormProduct(e.target.value)} placeholder="Nome do produto (manual)" className="bg-secondary" />
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Campos do Formulário</Label>
