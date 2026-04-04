@@ -33,6 +33,9 @@ export default function Financas() {
   const [ads, setAds] = useState<AdsSpend[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filterProject, setFilterProject] = useState("all");
+  const [filterProduct, setFilterProduct] = useState("all");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
   const [showCustoDialog, setShowCustoDialog] = useState(false);
   const [editingCusto, setEditingCusto] = useState<Custo | null>(null);
   const [custoForm, setCustoForm] = useState({ nome: "", tipo: "SaaS", valor: "", moeda: "BRL" });
