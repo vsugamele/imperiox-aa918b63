@@ -213,6 +213,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       produto_nome: cost.produto_nome || "",
       pix_info: cost.pix_info || "",
       data_pagamento: cost.data_pagamento || "",
+      beneficiario: cost.beneficiario || "",
+      tipo_recorrencia: cost.tipo_recorrencia || "mensal",
     });
     setShowCostForm(true);
   };
