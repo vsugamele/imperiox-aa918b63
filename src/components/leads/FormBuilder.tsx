@@ -132,7 +132,7 @@ export function FormBuilder({ projects }: Props) {
       return `  <input type="${f.type}" name="${f.key}" placeholder="${f.placeholder || f.label}" ${f.required ? "required" : ""} />`;
     }).join("\n");
 
-    return `<!-- Imperio HQ — Formulário: ${form.name} -->
+    return `<!-- Imperio HQ — Formulário: ${form.nome} -->
 <form id="imphq-form-${form.id.slice(0, 8)}" onsubmit="return imphqSubmit(event)">
 ${inputsHtml}
   <button type="submit">Enviar</button>
