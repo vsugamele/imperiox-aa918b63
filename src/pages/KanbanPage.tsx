@@ -124,7 +124,7 @@ export default function KanbanPage() {
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role"),
-      supabase.from("imphq_projects").select("id, name"),
+      supabase.from("imphq_projects").select("id, name, data, icon"),
       supabase.from("imphq_card_attachments").select("card_id"),
       supabase.from("imphq_card_checklists").select("card_id, is_done"),
     ]);
