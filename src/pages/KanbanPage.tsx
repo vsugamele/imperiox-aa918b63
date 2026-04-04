@@ -161,10 +161,20 @@ export default function KanbanPage() {
 
   useEffect(() => { loadAllData(); }, [loadAllData]);
 
+  const getProjectExpert = (projectId?: string) => {
+    if (!projectId) return undefined;
+    const proj = projects.find(p => p.id === projectId);
+    return proj?.data?.expert?.nome || undefined;
+  };
+  const getProjectProduct = (projectId?: string) => {
+    if (!projectId) return undefined;
+    const proj = projects.find(p => p.id === projectId);
+    return proj?.data?.briefing?.produto || undefined;
+  };
+
   // Compute display columns based on active board
   const displayColumns = (() => {
     if (activeBoard === "experts") {
-      // Group by expert name from project data
       const expertMap = new Map<string, KanbanColumn>();
       for (const card of allCards) {
         const expertName = getProjectExpert(card.project_id) || "Sem Expert";
