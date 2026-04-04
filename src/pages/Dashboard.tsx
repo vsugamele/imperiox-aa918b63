@@ -54,8 +54,10 @@ export default function Dashboard() {
     const since = subDays(new Date(), days).toISOString().split("T")[0];
     const { data: adsRaw } = await supabase.from("imphq_ads_spend").select("*").gte("data_ref", since);
     const { data: projList } = await supabase.from("imphq_projects").select("id, name, icon");
+    setAllProjects(projList || []);
     const projMap = new Map((projList || []).map((p: any) => [p.id, p]));
-    const items = (adsRaw || []) as any[];
+    let items = (adsRaw || []) as any[];
+    if (dashProject !== "all") items = items.filter((a: any) => a.project_id === dashProject);
     const gasto = items.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
     const leads = items.reduce((s: number, a: any) => s + (a.leads || 0), 0);
     const compras = items.reduce((s: number, a: any) => s + (a.compras || 0), 0);
