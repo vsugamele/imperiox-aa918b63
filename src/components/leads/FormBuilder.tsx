@@ -362,7 +362,7 @@ async function imphqSubmit(e) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {forms.map(form => (
+          {filteredForms.map(form => (
             <Card key={form.id} className="bg-card border-border">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
