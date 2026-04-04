@@ -106,10 +106,10 @@ export function FormBuilder({ projects }: Props) {
 
   const openEdit = (form: CaptureForm) => {
     setEditForm(form);
-    setFormName(form.name);
+    setFormName(form.nome);
     setFormProject(form.project_id || "none");
-    setFormStage(form.funnel_stage || "lead_capturado");
-    setFormFields(form.fields || [...DEFAULT_FIELDS]);
+    setFormStage(form.step || "lead_capturado");
+    setFormFields((form.fields as any as FormField[]) || [...DEFAULT_FIELDS]);
     setShowNew(true);
   };
 
