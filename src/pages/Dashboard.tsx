@@ -347,8 +347,8 @@ export default function Dashboard() {
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
       </div>
 
-      {/* Period Filter */}
-      <div className="flex items-center gap-3">
+      {/* Period + Project Filter */}
+      <div className="flex items-center gap-3 flex-wrap">
         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
         <Select value={dashPeriod} onValueChange={setDashPeriod}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -357,6 +357,15 @@ export default function Dashboard() {
             <SelectItem value="30d">30 dias</SelectItem>
             <SelectItem value="90d">90 dias</SelectItem>
             <SelectItem value="6m">6 meses</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={dashProject} onValueChange={setDashProject}>
+          <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Projetos</SelectItem>
+            {allProjects.map((p: any) => (
+              <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
