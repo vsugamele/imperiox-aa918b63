@@ -304,10 +304,11 @@ async function imphqSubmit(e) {
     if (body[k]) { body[k] = Array.isArray(body[k]) ? body[k].concat(v) : [body[k], v]; }
     else { body[k] = v; }
   });
-  var sp = new URLSearchParams(location.search);
-  ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(u) {
-    if (sp.get(u)) body[u] = sp.get(u);
-  });
+  body.page_url = location.href;
+    var sp = new URLSearchParams(location.search);
+    ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(u) {
+      if (sp.get(u)) body[u] = sp.get(u);
+    });
   try {
     var res = await fetch("${supabaseUrl}/functions/v1/capture-lead", {
       method: "POST",
