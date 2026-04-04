@@ -197,7 +197,7 @@ async function imphqSubmit(e) {
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-sm">{form.name}</p>
+                    <p className="font-medium text-sm">{form.nome}</p>
                     <p className="text-[10px] text-muted-foreground">{getProjectName(form.project_id)}</p>
                   </div>
                   <Badge variant={form.active ? "default" : "secondary"} className="text-[10px]">
