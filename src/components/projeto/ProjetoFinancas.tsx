@@ -27,6 +27,7 @@ interface Cost {
   id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
   documento_url?: string | null; produto_nome?: string | null;
   pix_info?: string | null; data_pagamento?: string | null;
+  beneficiario?: string | null; tipo_recorrencia?: string | null;
 }
 interface Revenue {
   id: string; descricao: string; valor: number; fonte: string; data_ref: string;
