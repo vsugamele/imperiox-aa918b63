@@ -66,7 +66,7 @@ interface Lead {
 
 interface TimelineEvent {
   id: string;
-  type: "PageView" | "LeadCapture" | "ViewContent" | "AddToCart" | "Purchase" | "click" | "CSVImport" | string;
+  type: "PageView" | "LeadCapture" | "ViewContent" | "AddToCart" | "Purchase" | "click" | "CSVImport" | "FormResponse" | string;
   timestamp: string;
   title: string;
   subtitle?: string;
@@ -87,6 +87,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
   CompraAprovada: { icon: <DollarSign className="h-3 w-3" />, color: "bg-emerald-600", label: "Compra Aprovada" },
   Reembolso: { icon: <RefreshCw className="h-3 w-3" />, color: "bg-red-500", label: "Reembolso" },
   LeadNovo: { icon: <Users className="h-3 w-3" />, color: "bg-blue-400", label: "Lead Novo" },
+  FormResponse: { icon: <Radio className="h-3 w-3" />, color: "bg-purple-500", label: "Resposta Formulário" },
 };
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];
@@ -322,6 +323,26 @@ export default function Leads() {
     promises.push(
       Promise.resolve(supabase.from("imphq_activity_log").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(50))
         .then(({ data }) => { setLeadAutomationLogs(data || []); })
+    );
+
+    // Fetch form responses
+    promises.push(
+      Promise.resolve(supabase.from("imphq_lead_responses").select("*, imphq_capture_forms(nome)").eq("lead_id", lead.id).order("created_at", { ascending: false }))
+        .then(({ data }) => {
+          (data || []).forEach((r: any) => {
+            const formName = r.imphq_capture_forms?.nome || "Formulário";
+            const respostas = r.respostas || {};
+            const subtitle = Object.entries(respostas).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(" • ");
+            events.push({
+              id: r.id,
+              type: "FormResponse",
+              timestamp: r.created_at,
+              title: `📋 ${formName}`,
+              subtitle: subtitle || "Sem respostas",
+              details: respostas,
+            });
+          });
+        })
     );
 
     await Promise.all(promises);

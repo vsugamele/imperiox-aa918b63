@@ -11558,6 +11558,7 @@ export type Database = {
       }
       imphq_project_costs: {
         Row: {
+          beneficiario: string | null
           categoria: string | null
           created_at: string | null
           data_pagamento: string | null
@@ -11569,10 +11570,12 @@ export type Database = {
           produto_nome: string | null
           project_id: string
           recorrente: boolean | null
+          tipo_recorrencia: string | null
           user_id: string
           valor: number | null
         }
         Insert: {
+          beneficiario?: string | null
           categoria?: string | null
           created_at?: string | null
           data_pagamento?: string | null
@@ -11584,10 +11587,12 @@ export type Database = {
           produto_nome?: string | null
           project_id: string
           recorrente?: boolean | null
+          tipo_recorrencia?: string | null
           user_id: string
           valor?: number | null
         }
         Update: {
+          beneficiario?: string | null
           categoria?: string | null
           created_at?: string | null
           data_pagamento?: string | null
@@ -11599,6 +11604,7 @@ export type Database = {
           produto_nome?: string | null
           project_id?: string
           recorrente?: boolean | null
+          tipo_recorrencia?: string | null
           user_id?: string
           valor?: number | null
         }

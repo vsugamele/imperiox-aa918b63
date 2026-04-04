@@ -126,6 +126,7 @@ export function FormBuilder({ projects }: Props) {
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formProduct, setFormProduct] = useState("");
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [listFilterProject, setListFilterProject] = useState("all");
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
@@ -133,6 +134,8 @@ export function FormBuilder({ projects }: Props) {
   };
 
   useEffect(() => { loadForms(); }, []);
+
+  const filteredForms = listFilterProject === "all" ? forms : forms.filter(f => f.project_id === listFilterProject);
 
   // Load products when project changes
   useEffect(() => {
@@ -332,14 +335,23 @@ async function imphqSubmit(e) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="font-display text-lg font-bold">Formulários de Captura</h3>
           <p className="text-xs text-muted-foreground">Crie formulários dinâmicos e gere snippets para suas landing pages</p>
         </div>
-        <Button size="sm" onClick={() => { setEditForm(null); setShowTemplates(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Novo Formulário
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={listFilterProject} onValueChange={setListFilterProject}>
+            <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Projetos</SelectItem>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={() => { setEditForm(null); setShowTemplates(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Novo Formulário
+          </Button>
+        </div>
       </div>
 
       {forms.length === 0 ? (
@@ -350,16 +362,22 @@ async function imphqSubmit(e) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {forms.map(form => (
+          {filteredForms.map(form => (
             <Card key={form.id} className="bg-card border-border">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-sm">{form.nome}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {getProjectName(form.project_id)}
-                      {(form.settings as any)?.product_name && <span className="ml-1">• 📦 {(form.settings as any).product_name}</span>}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-[10px] py-0 bg-primary/10 text-primary border-primary/20">
+                        {getProjectName(form.project_id)}
+                      </Badge>
+                      {(form.settings as any)?.product_name && (
+                        <Badge variant="outline" className="text-[10px] py-0 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                          📦 {(form.settings as any).product_name}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Badge variant={form.is_active ? "default" : "secondary"} className="text-[10px]">
                     {form.is_active ? "Ativo" : "Inativo"}

@@ -27,6 +27,7 @@ interface Cost {
   id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
   documento_url?: string | null; produto_nome?: string | null;
   pix_info?: string | null; data_pagamento?: string | null;
+  beneficiario?: string | null; tipo_recorrencia?: string | null;
 }
 interface Revenue {
   id: string; descricao: string; valor: number; fonte: string; data_ref: string;
@@ -67,7 +68,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [showAdsImport, setShowAdsImport] = useState(false);
   const [editingCost, setEditingCost] = useState<Cost | null>(null);
   const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
-  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
+  const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "", beneficiario: "", tipo_recorrencia: "mensal" });
   const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0", imposto_pct: "" });
   const [showFbGuide, setShowFbGuide] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
@@ -196,7 +197,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
   const openCostFormForNew = () => {
     setEditingCost(null);
-    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "" });
+    setCostForm({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "", beneficiario: "", tipo_recorrencia: "mensal" });
     setShowCostForm(true);
   };
 
@@ -212,6 +213,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       produto_nome: cost.produto_nome || "",
       pix_info: cost.pix_info || "",
       data_pagamento: cost.data_pagamento || "",
+      beneficiario: cost.beneficiario || "",
+      tipo_recorrencia: cost.tipo_recorrencia || "mensal",
     });
     setShowCostForm(true);
   };
@@ -228,6 +231,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
       pix_info: costForm.pix_info || null,
       data_pagamento: costForm.data_pagamento || null,
       produto_nome: costForm.produto_nome || null,
+      beneficiario: costForm.beneficiario || null,
+      tipo_recorrencia: costForm.tipo_recorrencia || "mensal",
     };
 
     if (editingCost) {
@@ -559,7 +564,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <TableRow key={c.id}>
                         <TableCell className="text-sm">
                           {c.nome}
-                          {c.recorrente && <Badge variant="outline" className="ml-2 text-[9px] py-0">mensal</Badge>}
+                          {c.beneficiario && <span className="text-[10px] text-muted-foreground ml-1">({c.beneficiario})</span>}
+                          <Badge variant="outline" className="ml-2 text-[9px] py-0">{c.tipo_recorrencia || (c.recorrente ? "mensal" : "pontual")}</Badge>
                         </TableCell>
                         <TableCell>{c.produto_nome && <Badge variant="outline" className="text-[10px]">{c.produto_nome}</Badge>}</TableCell>
                         <TableCell><Badge variant="secondary" className="text-[10px]">{c.categoria}</Badge></TableCell>
@@ -1232,13 +1238,24 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             <div><Label>Valor</Label><Input type="number" step="0.01" value={costForm.valor} onChange={e => setCostForm({ ...costForm, valor: e.target.value })} placeholder="0.00" /></div>
             <ProductSelect value={costForm.produto_nome} onChange={v => setCostForm({ ...costForm, produto_nome: v })} />
             <div className="grid grid-cols-2 gap-3">
+              <div><Label>Beneficiário</Label><Input value={costForm.beneficiario} onChange={e => setCostForm({ ...costForm, beneficiario: e.target.value })} placeholder="Ex: João (sócio), Freelancer X..." className="bg-secondary" /></div>
+              <div>
+                <Label>Recorrência</Label>
+                <Select value={costForm.tipo_recorrencia} onValueChange={v => setCostForm({ ...costForm, tipo_recorrencia: v, recorrente: v !== "pontual" })}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mensal">Mensal</SelectItem>
+                    <SelectItem value="pontual">Pontual (único)</SelectItem>
+                    <SelectItem value="trimestral">Trimestral</SelectItem>
+                    <SelectItem value="anual">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div><Label>Chave PIX / Info</Label><Input value={costForm.pix_info} onChange={e => setCostForm({ ...costForm, pix_info: e.target.value })} placeholder="Chave PIX, comprovante..." className="bg-secondary" /></div>
               <div><Label>Data Pagamento</Label><Input type="date" value={costForm.data_pagamento} onChange={e => setCostForm({ ...costForm, data_pagamento: e.target.value })} className="bg-secondary" /></div>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={costForm.recorrente} onChange={e => setCostForm({ ...costForm, recorrente: e.target.checked })} className="rounded border-border" />
-              Custo recorrente (mensal)
-            </label>
 
             {/* Document upload */}
             <div className="space-y-2">
