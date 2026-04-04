@@ -10075,6 +10075,7 @@ export type Database = {
           created_at: string
           id: string
           is_done: boolean
+          member_id: string | null
           position: number
           title: string
         }
@@ -10083,6 +10084,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_done?: boolean
+          member_id?: string | null
           position?: number
           title: string
         }
@@ -10091,6 +10093,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_done?: boolean
+          member_id?: string | null
           position?: number
           title?: string
         }
@@ -10100,6 +10103,13 @@ export type Database = {
             columns: ["card_id"]
             isOneToOne: false
             referencedRelation: "imphq_kanban_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_card_checklists_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_team_members"
             referencedColumns: ["id"]
           },
         ]

@@ -1,0 +1,1 @@
+ALTER TABLE imphq_card_checklists ADD COLUMN IF NOT EXISTS member_id UUID REFERENCES imphq_team_members(id);
