@@ -13,7 +13,7 @@ import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, M
 interface FormField {
   key: string;
   label: string;
-  type: "text" | "email" | "tel" | "select" | "textarea" | "number";
+  type: "text" | "email" | "tel" | "select" | "textarea" | "number" | "radio" | "checkbox";
   required: boolean;
   options?: string[];
   placeholder?: string;
@@ -230,43 +230,95 @@ export function FormBuilder({ projects }: Props) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const fields = (form.fields || []) as FormField[];
     const inputsHtml = fields.map(f => {
+      const req = f.required ? "required" : "";
+      if (f.type === "radio" && f.options) {
+        return `  <div class="imphq-field">
+    <label class="imphq-label">${f.label}${f.required ? ' <span class="imphq-req">*</span>' : ""}</label>
+    <div class="imphq-radio-group">
+${f.options.map(o => `      <label class="imphq-radio-option"><input type="radio" name="${f.key}" value="${o}" ${req} /><span>${o}</span></label>`).join("\n")}
+    </div>
+  </div>`;
+      }
+      if (f.type === "checkbox" && f.options) {
+        return `  <div class="imphq-field">
+    <label class="imphq-label">${f.label}${f.required ? ' <span class="imphq-req">*</span>' : ""}</label>
+    <div class="imphq-checkbox-group">
+${f.options.map(o => `      <label class="imphq-checkbox-option"><input type="checkbox" name="${f.key}" value="${o}" /><span>${o}</span></label>`).join("\n")}
+    </div>
+  </div>`;
+      }
       if (f.type === "select" && f.options) {
-        return `  <select name="${f.key}" ${f.required ? "required" : ""}>\n    <option value="">${f.placeholder || f.label}</option>\n${f.options.map(o => `    <option value="${o}">${o}</option>`).join("\n")}\n  </select>`;
+        return `  <div class="imphq-field">
+    <label class="imphq-label">${f.label}${f.required ? ' <span class="imphq-req">*</span>' : ""}</label>
+    <select name="${f.key}" class="imphq-input" ${req}>
+      <option value="">${f.placeholder || "Selecione..."}</option>
+${f.options.map(o => `      <option value="${o}">${o}</option>`).join("\n")}
+    </select>
+  </div>`;
       }
       if (f.type === "textarea") {
-        return `  <textarea name="${f.key}" placeholder="${f.placeholder || f.label}" ${f.required ? "required" : ""}></textarea>`;
+        return `  <div class="imphq-field">
+    <label class="imphq-label">${f.label}${f.required ? ' <span class="imphq-req">*</span>' : ""}</label>
+    <textarea name="${f.key}" class="imphq-input imphq-textarea" placeholder="${f.placeholder || f.label}" ${req}></textarea>
+  </div>`;
       }
-      return `  <input type="${f.type}" name="${f.key}" placeholder="${f.placeholder || f.label}" ${f.required ? "required" : ""} />`;
+      return `  <div class="imphq-field">
+    <label class="imphq-label">${f.label}${f.required ? ' <span class="imphq-req">*</span>' : ""}</label>
+    <input type="${f.type}" name="${f.key}" class="imphq-input" placeholder="${f.placeholder || f.label}" ${req} />
+  </div>`;
     }).join("\n");
 
+    const css = `<style>
+.imphq-form{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:28px;background:#1a1a2e;border-radius:16px;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0}
+.imphq-field{margin-bottom:16px}
+.imphq-label{display:block;font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:6px}
+.imphq-req{color:#f87171}
+.imphq-input{width:100%;padding:10px 14px;background:#0f0f23;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;transition:border .2s;box-sizing:border-box}
+.imphq-input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.15)}
+.imphq-textarea{min-height:80px;resize:vertical}
+.imphq-radio-group,.imphq-checkbox-group{display:flex;flex-wrap:wrap;gap:8px}
+.imphq-radio-option,.imphq-checkbox-option{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#0f0f23;border:1px solid rgba(255,255,255,0.1);border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s;color:#cbd5e1}
+.imphq-radio-option:hover,.imphq-checkbox-option:hover{border-color:#8b5cf6;background:#16163a}
+.imphq-radio-option input,.imphq-checkbox-option input{accent-color:#8b5cf6}
+.imphq-btn{width:100%;padding:12px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s;margin-top:8px}
+.imphq-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(139,92,246,0.35)}
+.imphq-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.imphq-success{text-align:center;padding:24px;color:#34d399;font-weight:600;font-size:16px}
+</style>`;
+
     return `<!-- Imperio HQ — Formulário: ${form.nome} -->
-<form id="imphq-form-${form.id.slice(0, 8)}" onsubmit="return imphqSubmit(event)">
+${css}
+<form id="imphq-form-${form.id.slice(0, 8)}" class="imphq-form" onsubmit="return imphqSubmit(event)">
 ${inputsHtml}
-  <button type="submit">Enviar</button>
+  <button type="submit" class="imphq-btn">Enviar</button>
 </form>
 
 <script>
 async function imphqSubmit(e) {
   e.preventDefault();
-  const fd = new FormData(e.target);
-  const body = { form_id: "${form.id}" };
-  fd.forEach((v, k) => body[k] = v);
-  const sp = new URLSearchParams(location.search);
-  ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(u => {
+  var btn = e.target.querySelector('.imphq-btn');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  var fd = new FormData(e.target);
+  var body = { form_id: "${form.id}" };
+  fd.forEach(function(v, k) {
+    if (body[k]) { body[k] = Array.isArray(body[k]) ? body[k].concat(v) : [body[k], v]; }
+    else { body[k] = v; }
+  });
+  var sp = new URLSearchParams(location.search);
+  ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(u) {
     if (sp.get(u)) body[u] = sp.get(u);
   });
   try {
-    const res = await fetch("${supabaseUrl}/functions/v1/capture-lead", {
+    var res = await fetch("${supabaseUrl}/functions/v1/capture-lead", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    var data = await res.json();
     if (data.success) {
-      e.target.reset();
-      alert("Cadastro realizado!");
-    }
-  } catch (err) { console.error(err); }
+      e.target.innerHTML = '<div class="imphq-success">✅ Cadastro realizado com sucesso!</div>';
+    } else { btn.disabled = false; btn.textContent = 'Enviar'; alert(data.error || 'Erro'); }
+  } catch (err) { btn.disabled = false; btn.textContent = 'Enviar'; console.error(err); }
 }
 </script>`;
   };
@@ -436,8 +488,18 @@ async function imphqSubmit(e) {
                       <SelectItem value="number">Número</SelectItem>
                       <SelectItem value="textarea">Textarea</SelectItem>
                       <SelectItem value="select">Select</SelectItem>
+                      <SelectItem value="radio">Radio (Sim/Não)</SelectItem>
+                      <SelectItem value="checkbox">Checkbox (Múltipla)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(field.type === "select" || field.type === "radio" || field.type === "checkbox") && (
+                    <Input
+                      value={(field.options || []).join(", ")}
+                      onChange={e => updateField(idx, { options: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                      placeholder="Opções (separar por vírgula)"
+                      className="bg-background h-8 text-[10px] w-36"
+                    />
+                  )}
                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
                     <input type="checkbox" checked={field.required} onChange={e => updateField(idx, { required: e.target.checked })} />
                     Obrig.
@@ -460,17 +522,33 @@ async function imphqSubmit(e) {
 
       {/* Snippet Dialog */}
       <Dialog open={!!showSnippet} onOpenChange={() => setShowSnippet(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader><DialogTitle>Snippet — {showSnippet?.nome}</DialogTitle></DialogHeader>
           {showSnippet && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">Cole este código na sua landing page para capturar leads diretamente no Imperio HQ:</p>
-              <pre className="bg-secondary p-4 rounded text-[11px] font-mono overflow-auto max-h-[400px] whitespace-pre-wrap border border-border">
-                {getSnippetHTML(showSnippet)}
-              </pre>
-              <Button size="sm" onClick={() => { navigator.clipboard.writeText(getSnippetHTML(showSnippet)); toast.success("Snippet copiado!"); }}>
-                <Copy className="h-3 w-3 mr-1" /> Copiar Snippet
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Code */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Código HTML</p>
+                <pre className="bg-secondary p-3 rounded text-[10px] font-mono overflow-auto max-h-[400px] whitespace-pre-wrap border border-border">
+                  {getSnippetHTML(showSnippet)}
+                </pre>
+                <Button size="sm" onClick={() => { navigator.clipboard.writeText(getSnippetHTML(showSnippet)); toast.success("Snippet copiado!"); }}>
+                  <Copy className="h-3 w-3 mr-1" /> Copiar Snippet
+                </Button>
+              </div>
+              {/* Live Preview */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Preview ao vivo</p>
+                <div className="rounded-lg border border-border overflow-hidden bg-[#1a1a2e]">
+                  <iframe
+                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:16px;background:#1a1a2e">${getSnippetHTML(showSnippet).replace(/<script[\s\S]*?<\/script>/g, "")}</body></html>`}
+                    className="w-full border-0"
+                    style={{ minHeight: 350 }}
+                    sandbox="allow-scripts"
+                    title="Form Preview"
+                  />
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

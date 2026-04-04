@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     // Normalize ad account ID
     const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
 
-    // Date range
+    // Date range — use client-provided dates or default to last 30 days
     const now = new Date();
     const dfrom = date_from || new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0];
     const dto = date_to || now.toISOString().split("T")[0];
@@ -115,20 +115,37 @@ Deno.serve(async (req) => {
       if (opError) { errors++; } else { imported++; }
     }
 
-    // 2. Fetch creatives (save to project data)
+    // 2. Fetch ads with status + creative info
     let creativesCount = 0;
     try {
-      const creativesUrl = `${FB_BASE}/${actId}/adcreatives?fields=name,thumbnail_url,body,title,image_url&limit=100&access_token=${accessToken}`;
-      const creativesRes = await fetch(creativesUrl);
-      if (creativesRes.ok) {
-        const creativesData = await creativesRes.json();
-        const creatives = (creativesData.data || []).map((c: any) => ({
-          name: c.name, thumbnail_url: c.thumbnail_url, body: c.body, title: c.title, image_url: c.image_url,
-        }));
-        creativesCount = creatives.length;
+      // Fetch ads with effective_status and creative details
+      const adsUrl = `${FB_BASE}/${actId}/ads?fields=name,effective_status,creative{id,name,thumbnail_url,image_url,body,title}&limit=200&access_token=${accessToken}`;
+      const adsRes = await fetch(adsUrl);
+      if (adsRes.ok) {
+        const adsData = await adsRes.json();
+        const adItems = adsData.data || [];
+        
+        const creatives = adItems
+          .filter((ad: any) => ad.creative)
+          .map((ad: any) => ({
+            name: ad.creative.name || ad.name,
+            thumbnail_url: ad.creative.thumbnail_url,
+            image_url: ad.creative.image_url,
+            body: ad.creative.body,
+            title: ad.creative.title,
+            status: ad.effective_status, // ACTIVE, PAUSED, ARCHIVED, etc.
+            ad_name: ad.name,
+          }));
+        
+        // Deduplicate by creative id/name
+        const uniqueCreatives = Array.from(
+          new Map(creatives.map((c: any) => [c.name + (c.image_url || c.thumbnail_url || ""), c])).values()
+        );
+        
+        creativesCount = uniqueCreatives.length;
 
         // Save creatives to project data
-        const newData = { ...project.data, facebook_creatives: creatives, facebook_last_sync: new Date().toISOString() };
+        const newData = { ...project.data, facebook_creatives: uniqueCreatives, facebook_last_sync: new Date().toISOString() };
         await supabase.from("imphq_projects").update({ data: newData }).eq("id", project_id);
       }
     } catch (_) { /* creatives are optional */ }
