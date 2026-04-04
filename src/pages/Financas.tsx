@@ -273,6 +273,8 @@ export default function Financas() {
             totalAds={adsTotal}
             totalVendas={receitaVendas}
             totalVendasCount={fVendas.length}
+            totalCustos={custosGlobaisBRL + custosProjetoBRL}
+            filterDateFrom={filterDateFrom}
           />
         </TabsContent>
 
