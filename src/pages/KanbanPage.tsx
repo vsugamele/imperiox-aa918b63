@@ -75,7 +75,7 @@ export default function KanbanPage() {
   const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
   const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; data?: any }[]>([]);
   const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
   const [cardChecklistCounts, setCardChecklistCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [activeBoard, setActiveBoard] = useState("geral");
