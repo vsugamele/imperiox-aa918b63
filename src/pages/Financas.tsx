@@ -122,12 +122,12 @@ export default function Financas() {
   const roi = totalCusto > 0 ? (lucro / totalCusto) * 100 : 0;
   const roas = adsTotal > 0 ? totalReceita / adsTotal : 0;
 
-  // Project summaries
+  // Project summaries (using filtered data)
   const projectSummaries = projects.map(p => {
-    const pCosts = projectCosts.filter(c => c.project_id === p.id).reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
-    const pAds = ads.filter(a => a.project_id === p.id).reduce((a, b) => a + b.valor, 0);
-    const pVendas = vendas.filter(v => v.project_id === p.id).reduce((a, v) => a + v.valor, 0);
-    const pRevenues = projectRevenues.filter(r => r.project_id === p.id).reduce((a, r) => a + r.valor, 0);
+    const pCosts = fProjectCosts.filter(c => c.project_id === p.id).reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
+    const pAds = fAds.filter(a => a.project_id === p.id).reduce((a, b) => a + b.valor, 0);
+    const pVendas = fVendas.filter(v => v.project_id === p.id).reduce((a, v) => a + v.valor, 0);
+    const pRevenues = fProjectRevenues.filter(r => r.project_id === p.id).reduce((a, r) => a + r.valor, 0);
     const receita = pVendas + pRevenues;
     const custo = pCosts + pAds;
     const lucro = receita - custo;
