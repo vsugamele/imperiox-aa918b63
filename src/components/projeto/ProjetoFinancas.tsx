@@ -87,6 +87,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [adsSubTab, setAdsSubTab] = useState("dados");
   const [savedReports, setSavedReports] = useState<any[]>([]);
   const [viewingReport, setViewingReport] = useState<any>(null);
+  const [creativeSearch, setCreativeSearch] = useState("");
+  const [creativeFilter, setCreativeFilter] = useState("all");
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
@@ -461,20 +463,39 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {kpis.map((k) => (
-          <Card key={k.label} className={`bg-gradient-to-br ${k.bg} border-border`}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className={`p-2 rounded-xl bg-background/50 ${k.color}`}>
-                <k.icon className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k.label}</p>
-                <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {kpis.map((k) => {
+          const totalAdsAll = ads.reduce((s, a) => s + a.valor, 0);
+          const showTotalContext = k.label === "ROAS" && dateRange && ads.length !== fAds.length;
+          return (
+            <Card key={k.label} className={`bg-gradient-to-br ${k.bg} border-border`}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className={`p-2 rounded-xl bg-background/50 ${k.color}`}>
+                  <k.icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k.label}</p>
+                  <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
+                  {showTotalContext && (
+                    <p className="text-[9px] text-muted-foreground font-mono">total ads: {fmt(totalAdsAll)}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* Ads total context when filtered */}
+      {dateRange && fAds.length !== ads.length && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/30 rounded-lg px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+          <span>Investido no período: <strong className="text-foreground">{fmt(totalAds)}</strong> — Total histórico: <strong className="text-foreground">{fmt(ads.reduce((s, a) => s + a.valor, 0))}</strong></span>
+          {ads.length > 0 && (
+            <span className="text-muted-foreground/70">({ads[ads.length - 1]?.data_ref?.substring(5)} → {ads[0]?.data_ref?.substring(5)})</span>
+          )}
+          <Button size="sm" variant="ghost" className="h-5 text-[10px] ml-auto" onClick={() => setPeriod("all")}>Ver tudo</Button>
+        </div>
+      )}
 
       {/* Visual comparison bar */}
       <Card className="bg-card border-border">
@@ -671,16 +692,27 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             </Card>
           )}
 
+          {/* Last sync info */}
+          {ads.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mb-2">
+              Último dado: {ads[0]?.data_ref} · {ads.length} registros no banco
+            </p>
+          )}
+
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
             {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) && (
               <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
                 toast.info("Sincronizando com Facebook...");
                 try {
+                  const now = new Date();
                   const syncBody: any = { project_id: projectId };
                   if (dateRange) {
                     syncBody.date_from = format(dateRange.start, "yyyy-MM-dd");
                     syncBody.date_to = format(dateRange.end, "yyyy-MM-dd");
+                  } else {
+                    syncBody.date_from = format(startOfMonth(now), "yyyy-MM-dd");
+                    syncBody.date_to = format(now, "yyyy-MM-dd");
                   }
                   const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: syncBody });
                   if (error) throw error;
@@ -859,9 +891,27 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             <TabsContent value="criativos">
               <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm uppercase tracking-wider text-violet-400 font-sans flex items-center gap-2">
-                    <Image className="h-4 w-4" /> Galeria de Criativos
-                  </CardTitle>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <CardTitle className="text-sm uppercase tracking-wider text-violet-400 font-sans flex items-center gap-2">
+                      <Image className="h-4 w-4" /> Galeria de Criativos
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Buscar criativo..."
+                        className="h-7 text-xs w-40 bg-secondary"
+                        value={creativeSearch}
+                        onChange={e => setCreativeSearch(e.target.value)}
+                      />
+                      <Select value={creativeFilter} onValueChange={setCreativeFilter}>
+                        <SelectTrigger className="h-7 text-xs w-28 bg-secondary"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="active">Ativos</SelectItem>
+                          <SelectItem value="inactive">Inativos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {creatives.length === 0 ? (
@@ -871,8 +921,16 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <p className="text-xs text-muted-foreground/70">Sincronize com o Facebook para ver os criativos aqui</p>
                     </div>
                   ) : (() => {
-                    const activeCreatives = creatives.filter((c: any) => c.status === "ACTIVE");
-                    const inactiveCreatives = creatives.filter((c: any) => c.status !== "ACTIVE");
+                    const searchLower = creativeSearch.toLowerCase();
+                    const filtered = creatives.filter((c: any) => {
+                      const nameMatch = !creativeSearch || (c.name || c.ad_name || "").toLowerCase().includes(searchLower) || (c.body || "").toLowerCase().includes(searchLower);
+                      const statusMatch = creativeFilter === "all" || (creativeFilter === "active" ? c.status === "ACTIVE" : c.status !== "ACTIVE");
+                      return nameMatch && statusMatch;
+                    });
+                    const activeCreatives = filtered.filter((c: any) => c.status === "ACTIVE");
+                    const inactiveCreatives = filtered.filter((c: any) => c.status !== "ACTIVE");
+                    const totalActive = creatives.filter((c: any) => c.status === "ACTIVE").length;
+                    const totalInactive = creatives.length - totalActive;
                     
                     const renderCreativeCard = (c: any, i: number, isActive: boolean) => {
                       const adMatch = fAds.filter(a => a.anuncio && (c.name || c.ad_name) && (a.anuncio.includes(c.name) || a.anuncio.includes(c.ad_name)));
@@ -939,7 +997,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
                     return (
                       <div className="space-y-4">
-                        {activeCreatives.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground">{totalActive} ativos · {totalInactive} inativos · {filtered.length} exibidos</p>
+                        {activeCreatives.length > 0 && creativeFilter !== "inactive" && (
                           <div>
                             <p className="text-xs font-semibold text-emerald-400 mb-2">🟢 Ativos ({activeCreatives.length})</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -947,7 +1006,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             </div>
                           </div>
                         )}
-                        {inactiveCreatives.length > 0 && (
+                        {inactiveCreatives.length > 0 && creativeFilter !== "active" && (
                           <div>
                             <p className="text-xs font-semibold text-muted-foreground mb-2">⏸ Inativos ({inactiveCreatives.length})</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

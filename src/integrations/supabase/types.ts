@@ -23166,7 +23166,12 @@ export type Database = {
           ai_persona_name: string | null
           ai_system_prompt: string | null
           chat_cpm: number | null
+          chat_end_seconds: number | null
+          chat_interval_minutes: number | null
+          chat_mode: string | null
           chat_names: Json | null
+          chat_phrases: Json | null
+          chat_start_seconds: number | null
           created_at: string | null
           description: string | null
           display_name: string | null
@@ -23178,6 +23183,7 @@ export type Database = {
           peak_viewers_max: number | null
           peak_viewers_min: number | null
           project_id: string
+          scheduled_start_at: string | null
           slug: string
           status: string | null
           thumbnail_url: string | null
@@ -23197,7 +23203,12 @@ export type Database = {
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
           chat_cpm?: number | null
+          chat_end_seconds?: number | null
+          chat_interval_minutes?: number | null
+          chat_mode?: string | null
           chat_names?: Json | null
+          chat_phrases?: Json | null
+          chat_start_seconds?: number | null
           created_at?: string | null
           description?: string | null
           display_name?: string | null
@@ -23209,6 +23220,7 @@ export type Database = {
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
           project_id: string
+          scheduled_start_at?: string | null
           slug: string
           status?: string | null
           thumbnail_url?: string | null
@@ -23228,7 +23240,12 @@ export type Database = {
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
           chat_cpm?: number | null
+          chat_end_seconds?: number | null
+          chat_interval_minutes?: number | null
+          chat_mode?: string | null
           chat_names?: Json | null
+          chat_phrases?: Json | null
+          chat_start_seconds?: number | null
           created_at?: string | null
           description?: string | null
           display_name?: string | null
@@ -23240,6 +23257,7 @@ export type Database = {
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
           project_id?: string
+          scheduled_start_at?: string | null
           slug?: string
           status?: string | null
           thumbnail_url?: string | null
