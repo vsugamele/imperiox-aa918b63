@@ -13,7 +13,7 @@ import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, M
 interface FormField {
   key: string;
   label: string;
-  type: "text" | "email" | "tel" | "select" | "textarea" | "number";
+  type: "text" | "email" | "tel" | "select" | "textarea" | "number" | "radio" | "checkbox";
   required: boolean;
   options?: string[];
   placeholder?: string;
