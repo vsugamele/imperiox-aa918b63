@@ -126,6 +126,7 @@ export function FormBuilder({ projects }: Props) {
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formProduct, setFormProduct] = useState("");
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
+  const [listFilterProject, setListFilterProject] = useState("all");
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
@@ -133,6 +134,8 @@ export function FormBuilder({ projects }: Props) {
   };
 
   useEffect(() => { loadForms(); }, []);
+
+  const filteredForms = listFilterProject === "all" ? forms : forms.filter(f => f.project_id === listFilterProject);
 
   // Load products when project changes
   useEffect(() => {
