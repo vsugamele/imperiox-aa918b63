@@ -47,7 +47,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadAdsGlobal();
-  }, [dashPeriod]);
+  }, [dashPeriod, dashProject]);
 
   const loadAdsGlobal = async () => {
     const days = dashPeriod === "7d" ? 7 : dashPeriod === "90d" ? 90 : dashPeriod === "6m" ? 180 : 30;
