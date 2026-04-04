@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3 } from "lucide-react";
+import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "./AdsImportDialog";
 
@@ -39,11 +39,14 @@ interface Props {
   filterProjectId: string;
 }
 
+const PAGE_SIZE = 50;
+
 export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<AdsSpend | null>(null);
   const [form, setForm] = useState({ project_id: "", plataforma: "Facebook", campanha: "", data_ref: "", valor: "", impressoes: "0", cliques: "0", leads: "0" });
+  const [page, setPage] = useState(0);
 
   const totalGasto = ads.reduce((a, b) => a + b.valor, 0);
   const totalCliques = ads.reduce((a, b) => a + b.cliques, 0);
@@ -54,6 +57,9 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
   const avgHookRate = ads.length > 0 ? ads.reduce((a, b) => a + (b.hook_rate || 0), 0) / ads.length : 0;
   const cpc = totalCliques > 0 ? totalGasto / totalCliques : 0;
   const cpl = totalLeads > 0 ? totalGasto / totalLeads : 0;
+
+  const totalPages = Math.max(1, Math.ceil(ads.length / PAGE_SIZE));
+  const paginatedAds = ads.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const kpis = [
     { label: "Total Investido", value: `R$ ${totalGasto.toFixed(2)}`, icon: Target, color: "text-red-400" },
@@ -151,7 +157,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ads.slice(0, 100).map(a => (
+            {paginatedAds.map(a => (
               <TableRow key={a.id} className="group hover:bg-muted/30">
                 <TableCell className="text-xs">{getProjectName(a.project_id)}</TableCell>
                 <TableCell className="text-xs max-w-[120px] truncate">{a.campanha || "—"}</TableCell>
@@ -182,6 +188,21 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-2">
+          <p className="text-xs text-muted-foreground">{ads.length} registros · Página {page + 1} de {totalPages}</p>
+          <div className="flex items-center gap-1">
+            <Button size="icon" variant="ghost" className="h-7 w-7" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>

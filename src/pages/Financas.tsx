@@ -122,12 +122,12 @@ export default function Financas() {
   const roi = totalCusto > 0 ? (lucro / totalCusto) * 100 : 0;
   const roas = adsTotal > 0 ? totalReceita / adsTotal : 0;
 
-  // Project summaries
+  // Project summaries (using filtered data)
   const projectSummaries = projects.map(p => {
-    const pCosts = projectCosts.filter(c => c.project_id === p.id).reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
-    const pAds = ads.filter(a => a.project_id === p.id).reduce((a, b) => a + b.valor, 0);
-    const pVendas = vendas.filter(v => v.project_id === p.id).reduce((a, v) => a + v.valor, 0);
-    const pRevenues = projectRevenues.filter(r => r.project_id === p.id).reduce((a, r) => a + r.valor, 0);
+    const pCosts = fProjectCosts.filter(c => c.project_id === p.id).reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
+    const pAds = fAds.filter(a => a.project_id === p.id).reduce((a, b) => a + b.valor, 0);
+    const pVendas = fVendas.filter(v => v.project_id === p.id).reduce((a, v) => a + v.valor, 0);
+    const pRevenues = fProjectRevenues.filter(r => r.project_id === p.id).reduce((a, r) => a + r.valor, 0);
     const receita = pVendas + pRevenues;
     const custo = pCosts + pAds;
     const lucro = receita - custo;
@@ -178,7 +178,7 @@ export default function Financas() {
     { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsTotal).toFixed(2)}`, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
     { label: "Lucro", value: `R$ ${lucro.toFixed(2)}`, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
     { label: "ROI", value: `${roi.toFixed(1)}%`, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
-    { label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" },
+    ...(adsTotal > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
   ];
 
   return (
