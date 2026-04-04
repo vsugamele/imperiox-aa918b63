@@ -564,7 +564,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <TableRow key={c.id}>
                         <TableCell className="text-sm">
                           {c.nome}
-                          {c.recorrente && <Badge variant="outline" className="ml-2 text-[9px] py-0">mensal</Badge>}
+                          {c.beneficiario && <span className="text-[10px] text-muted-foreground ml-1">({c.beneficiario})</span>}
+                          <Badge variant="outline" className="ml-2 text-[9px] py-0">{c.tipo_recorrencia || (c.recorrente ? "mensal" : "pontual")}</Badge>
                         </TableCell>
                         <TableCell>{c.produto_nome && <Badge variant="outline" className="text-[10px]">{c.produto_nome}</Badge>}</TableCell>
                         <TableCell><Badge variant="secondary" className="text-[10px]">{c.categoria}</Badge></TableCell>
