@@ -522,17 +522,33 @@ async function imphqSubmit(e) {
 
       {/* Snippet Dialog */}
       <Dialog open={!!showSnippet} onOpenChange={() => setShowSnippet(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader><DialogTitle>Snippet — {showSnippet?.nome}</DialogTitle></DialogHeader>
           {showSnippet && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">Cole este código na sua landing page para capturar leads diretamente no Imperio HQ:</p>
-              <pre className="bg-secondary p-4 rounded text-[11px] font-mono overflow-auto max-h-[400px] whitespace-pre-wrap border border-border">
-                {getSnippetHTML(showSnippet)}
-              </pre>
-              <Button size="sm" onClick={() => { navigator.clipboard.writeText(getSnippetHTML(showSnippet)); toast.success("Snippet copiado!"); }}>
-                <Copy className="h-3 w-3 mr-1" /> Copiar Snippet
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Code */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Código HTML</p>
+                <pre className="bg-secondary p-3 rounded text-[10px] font-mono overflow-auto max-h-[400px] whitespace-pre-wrap border border-border">
+                  {getSnippetHTML(showSnippet)}
+                </pre>
+                <Button size="sm" onClick={() => { navigator.clipboard.writeText(getSnippetHTML(showSnippet)); toast.success("Snippet copiado!"); }}>
+                  <Copy className="h-3 w-3 mr-1" /> Copiar Snippet
+                </Button>
+              </div>
+              {/* Live Preview */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Preview ao vivo</p>
+                <div className="rounded-lg border border-border overflow-hidden bg-[#1a1a2e]">
+                  <iframe
+                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:16px;background:#1a1a2e">${getSnippetHTML(showSnippet).replace(/<script[\s\S]*?<\/script>/g, "")}</body></html>`}
+                    className="w-full border-0"
+                    style={{ minHeight: 350 }}
+                    sandbox="allow-scripts"
+                    title="Form Preview"
+                  />
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>
