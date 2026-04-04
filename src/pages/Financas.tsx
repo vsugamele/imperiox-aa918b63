@@ -178,7 +178,7 @@ export default function Financas() {
     { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsTotal).toFixed(2)}`, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
     { label: "Lucro", value: `R$ ${lucro.toFixed(2)}`, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
     { label: "ROI", value: `${roi.toFixed(1)}%`, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
-    { label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" },
+    ...(adsTotal > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
   ];
 
   return (
