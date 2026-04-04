@@ -1136,6 +1136,16 @@ export default function Leads() {
             </div>
           </TabsContent>
 
+          {/* ═══ TAB: FORMULÁRIOS ═══ */}
+          <TabsContent value="formularios" className="space-y-4">
+            <FormBuilder projects={projects} />
+          </TabsContent>
+
+          {/* ═══ TAB: INSIGHTS ═══ */}
+          <TabsContent value="insights" className="space-y-4">
+            <FormInsights projects={projects} />
+          </TabsContent>
+
           {/* ═══ TAB: PIX HOJE ═══ */}
           <TabsContent value="pix_hoje" className="space-y-4">
             <div className="flex items-center gap-2">
