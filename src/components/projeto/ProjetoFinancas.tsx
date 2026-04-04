@@ -659,7 +659,12 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
                 toast.info("Sincronizando com Facebook...");
                 try {
-                  const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: { project_id: projectId } });
+                  const syncBody: any = { project_id: projectId };
+                  if (dateRange) {
+                    syncBody.date_from = format(dateRange.start, "yyyy-MM-dd");
+                    syncBody.date_to = format(dateRange.end, "yyyy-MM-dd");
+                  }
+                  const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: syncBody });
                   if (error) throw error;
                   if (data?.error) { toast.error(data.error); return; }
                   toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
