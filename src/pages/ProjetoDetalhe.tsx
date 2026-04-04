@@ -221,7 +221,7 @@ export default function ProjetoDetalhe() {
           <ProjetoKPIs project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="pesquisa" className="mt-4">
-          <ProjetoPesquisa project={project} onUpdateData={onUpdateData} />
+          <ProjetoPesquisaInteligente projectId={id!} project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="midia" className="mt-4">
           <ProjetoMidia project={project} onUpdateData={onUpdateData} />
