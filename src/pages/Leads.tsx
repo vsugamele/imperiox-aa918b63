@@ -325,6 +325,26 @@ export default function Leads() {
         .then(({ data }) => { setLeadAutomationLogs(data || []); })
     );
 
+    // Fetch form responses
+    promises.push(
+      Promise.resolve(supabase.from("imphq_lead_responses").select("*, imphq_capture_forms(nome)").eq("lead_id", lead.id).order("created_at", { ascending: false }))
+        .then(({ data }) => {
+          (data || []).forEach((r: any) => {
+            const formName = r.imphq_capture_forms?.nome || "Formulário";
+            const respostas = r.respostas || {};
+            const subtitle = Object.entries(respostas).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(" • ");
+            events.push({
+              id: r.id,
+              type: "FormResponse",
+              timestamp: r.created_at,
+              title: `📋 ${formName}`,
+              subtitle: subtitle || "Sem respostas",
+              details: respostas,
+            });
+          });
+        })
+    );
+
     await Promise.all(promises);
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setTimeline(events);
