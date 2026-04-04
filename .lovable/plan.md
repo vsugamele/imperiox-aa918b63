@@ -1,58 +1,53 @@
 
 
-# Diagnóstico: Cruzamento Ads x Vendas + Melhorias Gerais
+# Plano: Snippet Visual + Investimento Correto + Criativos Nítidos
 
 ---
 
-## Resposta: Sim, está cruzando — mas tem um bug nos filtros
+## 3 Problemas Identificados
 
-O cruzamento Ads x Vendas **funciona** em 3 lugares:
-- **KPIs globais** (linha 123): `roas = totalReceita / adsTotal` ✅
-- **FinancasOverview**: ROAS Real, CPA Real, gráfico timeline Ads vs Vendas ✅
-- **FinancasPerformance**: cruza por produto, distribui ads proporcional à receita ✅
+### 1. Snippet gera HTML cru sem estilo visual
+O snippet gerado pelo FormBuilder produz `<select>`, `<input>`, `<textarea>` puros sem CSS. Quem colar na LP recebe campos sem formatação — sem visual bonito, sem radio buttons, sem opções clicáveis estilizadas.
 
-**Bug encontrado**: Os `projectSummaries` (linha 126-135) usam os dados **sem filtro** (`ads`, `vendas`, `projectCosts`) em vez dos filtrados (`fAds`, `fVendas`, `fProjectCosts`). Ou seja, quando você filtra por data ou produto, os cards de Visão Geral por projeto **não mudam**.
+**Solução**: Melhorar `getSnippetHTML()` para:
+- Incluir CSS inline embutido (dark theme, inputs estilizados, selects bonitos)
+- Adicionar novo tipo de campo `radio` (Sim/Não, opções clicáveis) na interface `FormField`
+- Adicionar tipo `checkbox` para múltipla escolha
+- Gerar o HTML com classes e estilos prontos para usar
+- Adicionar preview ao vivo no Dialog do snippet (iframe com o HTML renderizado)
 
----
+### 2. Investimento em Ads não bate com o Gerenciador
+O problema é que a edge function `facebook-ads-sync` puxa dados no nível `ad` com `time_increment=1` (diário por anúncio). Quando o filtro de data no ProjetoFinancas não coincide exatamente, ou quando há duplicação por ad/adset, os totais divergem.
 
-## Plano de Correções + Melhorias
+**Solução**:
+- Na edge function: adicionar campo `date_from` e `date_to` no request de sync para respeitar o período selecionado pelo usuário
+- No ProjetoFinancas: ao clicar "Sincronizar", enviar as datas do filtro ativo (período selecionado) para a edge function
+- Garantir que o upsert não duplique registros (já faz por campaign+adset+ad+date)
 
-### 1. Corrigir projectSummaries para respeitar filtros
-Linhas 126-135 de `Financas.tsx`: trocar `projectCosts` → `fProjectCosts`, `ads` → `fAds`, `vendas` → `fVendas`, `projectRevenues` → `fProjectRevenues`.
+### 3. Criativos embaçados + sem distinção ativo/inativo
+A edge function busca `thumbnail_url` do Facebook — essa URL é uma miniatura de baixa resolução (~64px). Além disso, não há campo `status` sendo puxado dos criativos, e todos aparecem iguais.
 
-### 2. Melhorias identificadas no projeto
-
-| Area | Problema | Melhoria |
-|---|---|---|
-| **Financas - KPIs** | ROAS no topo mostra `0.00x` mesmo com dados porque usa receita total (vendas+manual) mas não tem ads | Mostrar ROAS apenas quando `adsTotal > 0`, senão esconder o card |
-| **Financas - Ads** | Tabela mostra apenas 100 registros sem paginação | Adicionar paginação real (50 por página) |
-| **Dashboard** | `loadAdsGlobal` roda separado do `loadDash` — dados podem ficar dessincronizados | Unificar em um único `useEffect` |
-| **Leads - FormBuilder** | Formulários criados mas sem preview de como fica o form renderizado | Adicionar preview ao vivo do formulário no builder |
-| **Leads - Insights** | Componente criado mas pode não ter dados reais de `form_responses` | Adicionar estado vazio mais explicativo |
-| **Pesquisa Intel** | Depende de edge functions que podem falhar silenciosamente | Adicionar loading states e tratamento de erro visível |
-| **Central Conteúdo** | Geração de LP retorna HTML bruto sem sanitização | Usar iframe sandbox para preview seguro (já faz) ✅ |
-| **Custos globais** | Não tem filtro de data (são custos fixos mensais) | Adicionar campo "recorrência" (mensal/anual/único) para cálculo correto |
-| **WhatsApp** | Página existe mas pode não ter provider configurado | Melhorar onboarding com wizard de configuração |
-
-### 3. Ações imediatas (prioridade alta)
-
-**Arquivo `Financas.tsx`**:
-- Fix: `projectSummaries` usar dados filtrados
-- Fix: esconder ROAS card quando não há ads
-
-**Arquivo `FinancasAds.tsx`**:
-- Adicionar paginação (página atual + total)
-
-**Arquivo `Dashboard.tsx`**:
-- Garantir que filtro de projeto aplica a TODAS as seções (verificar se `loadDash` também filtra por `dashProject`)
+**Solução**:
+- Na edge function: buscar `image_url` (já busca!) e `effective_status` do ad que usa o creative. Buscar ads com `fields=creative{id},effective_status` e cruzar
+- No ProjetoFinancas: usar `c.image_url || c.thumbnail_url` como src da imagem (image_url é full-res)
+- Separar criativos em 2 grupos: "Ativos" (com borda verde, primeiro) e "Inativos" (opacidade reduzida, depois)
+- Adicionar badge "🟢 Ativo" ou "⏸ Inativo" visível
 
 ---
 
-## Resumo de arquivos
+## Arquivos alterados
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/Financas.tsx` | Fix projectSummaries com filtros, ROAS condicional |
-| `src/components/financas/FinancasAds.tsx` | Paginação na tabela |
-| `src/pages/Dashboard.tsx` | Verificar/corrigir filtro projeto em todas as seções |
+| `src/components/leads/FormBuilder.tsx` | Tipos `radio`/`checkbox`, snippet com CSS embutido, preview iframe, editor de opções |
+| `supabase/functions/facebook-ads-sync/index.ts` | Buscar `effective_status` dos ads, usar `image_url`, cruzar status com creatives |
+| `src/components/projeto/ProjetoFinancas.tsx` | Usar `image_url` nos criativos, separar ativos/inativos, enviar datas no sync |
+
+---
+
+## Ordem de execução
+
+1. FormBuilder: adicionar tipos radio/checkbox + snippet com CSS + preview
+2. Edge function: melhorar dados de criativos (image_url + status)
+3. ProjetoFinancas: criativos full-res + ativos vs inativos + sync com datas
 
