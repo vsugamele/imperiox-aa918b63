@@ -23,11 +23,11 @@ interface FormField {
 interface CaptureForm {
   id: string;
   project_id: string | null;
-  name: string;
-  funnel_stage: string | null;
+  nome: string;
+  step: string | null;
   fields: FormField[];
-  active: boolean;
-  created_at: string;
+  is_active: boolean | null;
+  created_at: string | null;
 }
 
 interface Props {
