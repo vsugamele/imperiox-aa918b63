@@ -492,6 +492,14 @@ async function imphqSubmit(e) {
                       <SelectItem value="checkbox">Checkbox (Múltipla)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(field.type === "select" || field.type === "radio" || field.type === "checkbox") && (
+                    <Input
+                      value={(field.options || []).join(", ")}
+                      onChange={e => updateField(idx, { options: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                      placeholder="Opções (separar por vírgula)"
+                      className="bg-background h-8 text-[10px] w-36"
+                    />
+                  )}
                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
                     <input type="checkbox" checked={field.required} onChange={e => updateField(idx, { required: e.target.checked })} />
                     Obrig.
