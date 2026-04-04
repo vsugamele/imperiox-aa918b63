@@ -40,20 +40,24 @@ export default function Dashboard() {
   const [receitaPorProduto, setReceitaPorProduto] = useState<any[]>([]);
   const [roasData, setRoasData] = useState<any[]>([]);
   const [dashPeriod, setDashPeriod] = useState("30d");
+  const [dashProject, setDashProject] = useState("all");
+  const [allProjects, setAllProjects] = useState<any[]>([]);
   const [adsGlobal, setAdsGlobal] = useState<{ gasto: number; cpl: number; roas: number; compras: number; topCampanhas: any[]; adsByProject: any[]; freqAlerts: string[] }>({ gasto: 0, cpl: 0, roas: 0, compras: 0, topCampanhas: [], adsByProject: [], freqAlerts: [] });
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAdsGlobal();
-  }, [dashPeriod]);
+  }, [dashPeriod, dashProject]);
 
   const loadAdsGlobal = async () => {
     const days = dashPeriod === "7d" ? 7 : dashPeriod === "90d" ? 90 : dashPeriod === "6m" ? 180 : 30;
     const since = subDays(new Date(), days).toISOString().split("T")[0];
     const { data: adsRaw } = await supabase.from("imphq_ads_spend").select("*").gte("data_ref", since);
     const { data: projList } = await supabase.from("imphq_projects").select("id, name, icon");
+    setAllProjects(projList || []);
     const projMap = new Map((projList || []).map((p: any) => [p.id, p]));
-    const items = (adsRaw || []) as any[];
+    let items = (adsRaw || []) as any[];
+    if (dashProject !== "all") items = items.filter((a: any) => a.project_id === dashProject);
     const gasto = items.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
     const leads = items.reduce((s: number, a: any) => s + (a.leads || 0), 0);
     const compras = items.reduce((s: number, a: any) => s + (a.compras || 0), 0);
@@ -343,8 +347,8 @@ export default function Dashboard() {
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
       </div>
 
-      {/* Period Filter */}
-      <div className="flex items-center gap-3">
+      {/* Period + Project Filter */}
+      <div className="flex items-center gap-3 flex-wrap">
         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
         <Select value={dashPeriod} onValueChange={setDashPeriod}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -353,6 +357,15 @@ export default function Dashboard() {
             <SelectItem value="30d">30 dias</SelectItem>
             <SelectItem value="90d">90 dias</SelectItem>
             <SelectItem value="6m">6 meses</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={dashProject} onValueChange={setDashProject}>
+          <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Projetos</SelectItem>
+            {allProjects.map((p: any) => (
+              <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

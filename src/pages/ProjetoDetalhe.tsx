@@ -12,7 +12,7 @@ import { ProjetoExpert } from "@/components/projeto/ProjetoExpert";
 import { ProjetoAvatar } from "@/components/projeto/ProjetoAvatar";
 import { ProjetoBranding } from "@/components/projeto/ProjetoBranding";
 import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
-import { ProjetoPesquisa } from "@/components/projeto/ProjetoPesquisa";
+// ProjetoPesquisa removed — unified into ProjetoPesquisaInteligente
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
@@ -191,7 +191,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="avatar">🎭 Avatar</TabsTrigger>
           <TabsTrigger value="branding">🎨 Branding</TabsTrigger>
           <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
-          <TabsTrigger value="pesquisa">🔬 Pesquisa</TabsTrigger>
+          <TabsTrigger value="pesquisa">🔍 Pesquisa</TabsTrigger>
           <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
@@ -199,7 +199,6 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
           <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
-          <TabsTrigger value="pesquisa-intel">🔍 Pesquisa Intel</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
@@ -222,7 +221,7 @@ export default function ProjetoDetalhe() {
           <ProjetoKPIs project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="pesquisa" className="mt-4">
-          <ProjetoPesquisa project={project} onUpdateData={onUpdateData} />
+          <ProjetoPesquisaInteligente projectId={id!} project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="midia" className="mt-4">
           <ProjetoMidia project={project} onUpdateData={onUpdateData} />
@@ -244,9 +243,6 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="central" className="mt-4">
           <ProjetoCentralConteudo projectId={id!} project={project} onUpdateData={onUpdateData} />
-        </TabsContent>
-        <TabsContent value="pesquisa-intel" className="mt-4">
-          <ProjetoPesquisaInteligente projectId={id!} project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">

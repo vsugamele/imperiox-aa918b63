@@ -24,6 +24,8 @@ import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
+import { FormBuilder } from "@/components/leads/FormBuilder";
+import { FormInsights } from "@/components/leads/FormInsights";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
@@ -753,6 +755,8 @@ export default function Leads() {
             <TabsList>
               <TabsTrigger value="leads" className="text-xs">📋 Leads</TabsTrigger>
               <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
+              <TabsTrigger value="formularios" className="text-xs">📝 Formulários</TabsTrigger>
+              <TabsTrigger value="insights" className="text-xs">💡 Insights</TabsTrigger>
               {pixHoje.length > 0 && (
                 <TabsTrigger value="pix_hoje" className="text-xs relative">
                   💰 Pix Hoje
@@ -1130,6 +1134,16 @@ export default function Leads() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ═══ TAB: FORMULÁRIOS ═══ */}
+          <TabsContent value="formularios" className="space-y-4">
+            <FormBuilder projects={projects} />
+          </TabsContent>
+
+          {/* ═══ TAB: INSIGHTS ═══ */}
+          <TabsContent value="insights" className="space-y-4">
+            <FormInsights projects={projects} />
           </TabsContent>
 
           {/* ═══ TAB: PIX HOJE ═══ */}
