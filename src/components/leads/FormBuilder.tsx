@@ -335,14 +335,23 @@ async function imphqSubmit(e) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="font-display text-lg font-bold">Formulários de Captura</h3>
           <p className="text-xs text-muted-foreground">Crie formulários dinâmicos e gere snippets para suas landing pages</p>
         </div>
-        <Button size="sm" onClick={() => { setEditForm(null); setShowTemplates(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Novo Formulário
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={listFilterProject} onValueChange={setListFilterProject}>
+            <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Projetos</SelectItem>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={() => { setEditForm(null); setShowTemplates(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Novo Formulário
+          </Button>
+        </div>
       </div>
 
       {forms.length === 0 ? (
