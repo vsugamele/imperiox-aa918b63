@@ -200,8 +200,8 @@ async function imphqSubmit(e) {
                     <p className="font-medium text-sm">{form.nome}</p>
                     <p className="text-[10px] text-muted-foreground">{getProjectName(form.project_id)}</p>
                   </div>
-                  <Badge variant={form.active ? "default" : "secondary"} className="text-[10px]">
-                    {form.active ? "Ativo" : "Inativo"}
+                  <Badge variant={form.is_active ? "default" : "secondary"} className="text-[10px]">
+                    {form.is_active ? "Ativo" : "Inativo"}
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-1">
