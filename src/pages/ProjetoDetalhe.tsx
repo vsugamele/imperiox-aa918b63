@@ -191,7 +191,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="avatar">🎭 Avatar</TabsTrigger>
           <TabsTrigger value="branding">🎨 Branding</TabsTrigger>
           <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
-          <TabsTrigger value="pesquisa">🔬 Pesquisa</TabsTrigger>
+          <TabsTrigger value="pesquisa">🔍 Pesquisa</TabsTrigger>
           <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
           <TabsTrigger value="docs">📄 Docs</TabsTrigger>
           <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
@@ -199,7 +199,6 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
           <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
-          <TabsTrigger value="pesquisa-intel">🔍 Pesquisa Intel</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
