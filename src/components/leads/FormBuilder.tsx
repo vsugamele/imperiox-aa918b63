@@ -76,11 +76,11 @@ export function FormBuilder({ projects }: Props) {
     if (!user) return;
 
     const payload = {
-      name: formName,
+      nome: formName,
       project_id: formProject !== "none" ? formProject : null,
-      funnel_stage: formStage,
+      step: formStage,
       fields: formFields as any,
-      active: true,
+      is_active: true,
       user_id: user.id,
     };
 
@@ -88,7 +88,7 @@ export function FormBuilder({ projects }: Props) {
       await supabase.from("imphq_capture_forms").update(payload).eq("id", editForm.id);
       toast.success("Formulário atualizado!");
     } else {
-      await supabase.from("imphq_capture_forms").insert(payload);
+      await supabase.from("imphq_capture_forms").insert(payload as any);
       toast.success("Formulário criado!");
     }
     setShowNew(false);
