@@ -432,6 +432,8 @@ export default function KanbanPage() {
   const renderCard = (card: KanbanCard) => {
     const member = getMember(card.member_id);
     const projName = getProjectName(card.project_id);
+    const expertName = getProjectExpert(card.project_id);
+    const productName = getProjectProduct(card.project_id);
     const priorityBorder = PRIORITY_BORDER[card.priority] || PRIORITY_BORDER.medium;
     const attCount = cardAttachmentCounts[card.id] || 0;
     const checkInfo = cardChecklistCounts[card.id];
@@ -446,7 +448,6 @@ export default function KanbanPage() {
         <CardContent className="p-3">
           <div className="flex items-start justify-between gap-1">
             <p className="text-sm font-medium flex-1 leading-tight">{card.title}</p>
-            {/* Quick actions on hover */}
             <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0">
               <button
                 onClick={(e) => { e.stopPropagation(); quickMarkDone(card); }}
@@ -473,6 +474,16 @@ export default function KanbanPage() {
               {projName && (
                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-primary/5 text-primary border-primary/20">
                   <FolderOpen className="h-2 w-2" /> {projName}
+                </Badge>
+              )}
+              {expertName && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                  👤 {expertName}
+                </Badge>
+              )}
+              {productName && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                  📦 {productName}
                 </Badge>
               )}
               {card.tags && card.tags.length > 0 && card.tags.slice(0, 2).map((tag, i) => (
