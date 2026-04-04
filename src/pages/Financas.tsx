@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DollarSign, Plus, Trash2, Pencil, TrendingUp, TrendingDown, Percent, Target } from "lucide-react";
+import { DollarSign, Plus, Trash2, Pencil, TrendingUp, TrendingDown, Percent, Target, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { FinancasOverview } from "@/components/financas/FinancasOverview";
 import { FinancasAds } from "@/components/financas/FinancasAds";
