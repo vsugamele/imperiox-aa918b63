@@ -298,7 +298,7 @@ async function imphqSubmit(e) {
       {/* Snippet Dialog */}
       <Dialog open={!!showSnippet} onOpenChange={() => setShowSnippet(null)}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Snippet — {showSnippet?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Snippet — {showSnippet?.nome}</DialogTitle></DialogHeader>
           {showSnippet && (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">Cole este código na sua landing page para capturar leads diretamente no Imperio HQ:</p>
