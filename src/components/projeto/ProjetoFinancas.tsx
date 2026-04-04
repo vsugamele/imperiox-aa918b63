@@ -461,20 +461,39 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {kpis.map((k) => (
-          <Card key={k.label} className={`bg-gradient-to-br ${k.bg} border-border`}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className={`p-2 rounded-xl bg-background/50 ${k.color}`}>
-                <k.icon className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k.label}</p>
-                <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {kpis.map((k) => {
+          const totalAdsAll = ads.reduce((s, a) => s + a.valor, 0);
+          const showTotalContext = k.label === "ROAS" && dateRange && ads.length !== fAds.length;
+          return (
+            <Card key={k.label} className={`bg-gradient-to-br ${k.bg} border-border`}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className={`p-2 rounded-xl bg-background/50 ${k.color}`}>
+                  <k.icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k.label}</p>
+                  <p className={`text-lg font-mono font-bold ${k.color}`}>{k.value}</p>
+                  {showTotalContext && (
+                    <p className="text-[9px] text-muted-foreground font-mono">total ads: {fmt(totalAdsAll)}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* Ads total context when filtered */}
+      {dateRange && fAds.length !== ads.length && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/30 rounded-lg px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+          <span>Investido no período: <strong className="text-foreground">{fmt(totalAds)}</strong> — Total histórico: <strong className="text-foreground">{fmt(ads.reduce((s, a) => s + a.valor, 0))}</strong></span>
+          {ads.length > 0 && (
+            <span className="text-muted-foreground/70">({ads[ads.length - 1]?.data_ref?.substring(5)} → {ads[0]?.data_ref?.substring(5)})</span>
+          )}
+          <Button size="sm" variant="ghost" className="h-5 text-[10px] ml-auto" onClick={() => setPeriod("all")}>Ver tudo</Button>
+        </div>
+      )}
 
       {/* Visual comparison bar */}
       <Card className="bg-card border-border">
