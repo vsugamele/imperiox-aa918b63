@@ -1,72 +1,80 @@
 
 
-# Plano: Fix Reembolso + Ads Sync + Filtro Criativos
+# Plano: Forms com Projeto + Custos Operacionais + Projeção Mensal
 
 ---
 
-## Diagnóstico dos problemas
+## 3 Problemas Identificados
 
-### 1. Ads mostrando valor errado em Abril
-O banco tem **apenas 2 registros em abril**: 01/04 (R$59.69) e 02/04 (R$15.94) = **R$75.63 total**. Se voce gastou R$150+, os dias 03/04 e 04/04 **nao foram sincronizados**. O filtro "Este mes" funciona corretamente — o problema e que falta rodar o sync para os dias mais recentes.
+### 1. Formulários sem contexto de projeto e sem salvar na jornada do lead
+O FormBuilder salva `project_id` no formulário, e o `capture-lead` usa isso. **Mas**: a lista de formulários não mostra claramente o projeto/produto associado, e as respostas do formulário (`imphq_lead_responses`) **nunca aparecem na timeline do lead** em Leads.tsx — não há nenhuma query a `imphq_lead_responses` na timeline.
 
-**Solucao**: Quando clicar "Sincronizar Facebook" no ProjetoFinancas, enviar automaticamente as datas do filtro ativo (ou do mes atual se "Todo periodo"). Adicionar tambem um botao "Atualizar hoje" que force sync do dia atual. E mostrar a data do ultimo sync visivel para o usuario saber quando foi atualizado.
+**Correções**:
+- **Leads.tsx (timeline)**: Ao abrir um lead, buscar `imphq_lead_responses` pelo `lead_id` e exibir como eventos na timeline (tipo "FormResponse") com as respostas formatadas
+- **FormBuilder.tsx**: Na listagem, mostrar badge do projeto e produto de forma mais visível. Adicionar filtro por projeto na lista de formulários
 
-### 2. Jornada do lead — Reembolso nao registrado corretamente
-O webhook `webhook-pagamento` quando recebe `reembolso`:
-- **Nao** atualiza a venda existente para "reembolsado"
-- **Nao** atualiza o status do lead
-- Se nao existia venda anterior, nao cria registro retroativo
+### 2. Finanças sem visão mensal, projeção e progressão
+Hoje os KPIs mostram totais do período filtrado mas sem contexto de: quanto já faturou no mês, quanto falta, projeção baseada no ritmo atual, comparação com mês anterior.
 
-A timeline no Leads.tsx filtra vendas por `status = "aprovado"`, escondendo reembolsos.
+**Correções no FinancasOverview.tsx**:
+- Adicionar seção "Resumo do Mês" com:
+  - Dias passados / dias totais do mês
+  - Receita até agora + Projeção para fim do mês (receita_atual / dias_passados * dias_totais)
+  - Comparação com mês anterior (% crescimento)
+  - ROAS do mês + tendência
+  - Lucro projetado (receita projetada - custos projetados)
+- Gráfico de progressão acumulada do mês (receita acumulada dia a dia vs meta/mês anterior)
 
-### 3. Criativos sem filtro de busca
-Todos os criativos aparecem juntos. Com muitos criativos, nao da para encontrar os ativos rapidamente.
+### 3. Custos sem categorização de salários, pró-labore, tipo de recorrência
+A tabela `imphq_project_costs` tem campo `recorrente` (boolean) e `categoria`, mas falta: para quem é o custo (beneficiário), se é mensal/pontual, tipo específico (salário, pró-labore, freelancer, ferramenta).
 
----
-
-## Correcoes
-
-### Arquivo 1: `supabase/functions/webhook-pagamento/index.ts`
-
-**Tratar reembolso**:
-- Quando `evento === "reembolso"` e `leadId` existe:
-  - Buscar venda existente do lead (mesmo produto ou qualquer) → update `status: "reembolsado"`
-  - Se nao existir venda, criar uma com status "reembolsado" (historico retroativo)
-  - Atualizar status do lead: se tem outras vendas aprovadas manter "cliente", senao voltar para "lead"
-
-### Arquivo 2: `src/components/projeto/ProjetoFinancas.tsx`
-
-**Sync com datas**:
-- Botao "Sincronizar Facebook" envia `date_from` e `date_to` do filtro ativo
-- Mostrar "Ultimo sync: DD/MM" baseado no `data_ref` mais recente dos ads
-- Se o periodo filtrado mostra valor menor que o total, exibir "(total historico: R$ X.XX)" nos KPIs
-
-**Filtro de criativos**:
-- Select: "Todos" / "Ativos" / "Inativos"
-- Input de busca por nome do criativo
-- Contagem visivel (ex: "12 ativos, 88 inativos")
-
-### Arquivo 3: `src/pages/Leads.tsx`
-
-**Timeline com todos os status de venda**:
-- Remover filtro `eq("status", "aprovado")` na query de vendas da timeline
-- Diferenciar visualmente: aprovado (verde), reembolsado (vermelho com icone de refund)
+**Correções**:
+- **Migração SQL**: Adicionar colunas `beneficiario` (text), `tipo_recorrencia` (text: 'mensal', 'pontual', 'trimestral', 'anual') na tabela `imphq_project_costs`
+- **Financas.tsx (aba Custos)**: Adicionar seção "Custos Fixos / Equipe" separada dos custos de projeto, com campos para beneficiário e tipo de recorrência
+- **ProjetoFinancas.tsx**: Formulário de custo com campos de beneficiário e tipo de recorrência
+- **FinancasOverview.tsx**: Incluir custos fixos (salários/pró-labore) no cálculo de lucro líquido mensal
 
 ---
 
-## Resumo
+## Detalhes Técnicos
 
-| Arquivo | Mudanca |
+### Migração SQL
+```sql
+ALTER TABLE imphq_project_costs
+  ADD COLUMN IF NOT EXISTS beneficiario text,
+  ADD COLUMN IF NOT EXISTS tipo_recorrencia text DEFAULT 'mensal';
+```
+
+### Timeline com respostas de formulário (Leads.tsx)
+- Query: `supabase.from("imphq_lead_responses").select("*, imphq_capture_forms(nome)").eq("lead_id", leadId)`
+- Renderizar como evento com ícone de formulário, nome do form, e lista de respostas key/value
+
+### Projeção mensal (FinancasOverview.tsx)
+- Calcular `diasPassados` e `diasTotais` do mês atual
+- `projecaoReceita = (totalReceita / diasPassados) * diasTotais`
+- Buscar dados do mês anterior para comparação (% variação)
+- Card visual com barra de progresso do mês
+
+---
+
+## Resumo de Arquivos
+
+| Arquivo | Mudança |
 |---|---|
-| `supabase/functions/webhook-pagamento/index.ts` | Tratar reembolso: update venda + status lead |
-| `src/components/projeto/ProjetoFinancas.tsx` | Sync com datas, ultimo sync, contexto total nos KPIs, filtro criativos |
-| `src/pages/Leads.tsx` | Timeline com vendas de todos os status |
+| **Migração SQL** | `beneficiario`, `tipo_recorrencia` em `imphq_project_costs` |
+| `src/pages/Leads.tsx` | Timeline carregando respostas de formulários como eventos |
+| `src/components/leads/FormBuilder.tsx` | Filtro por projeto na listagem, badges mais visíveis |
+| `src/components/financas/FinancasOverview.tsx` | Seção "Resumo do Mês" com projeção, progressão, comparação |
+| `src/pages/Financas.tsx` | Custos com beneficiário e tipo recorrência no form e tabela |
+| `src/components/projeto/ProjetoFinancas.tsx` | Campos beneficiário/recorrência no form de custos |
 
 ---
 
-## Ordem
+## Ordem de Execução
 
-1. Fix webhook reembolso
-2. ProjetoFinancas: sync com datas + filtro criativos + KPIs contextuais
-3. Leads: timeline completa
+1. Migração SQL (2 colunas)
+2. Timeline do lead com respostas de formulário
+3. FormBuilder com filtro por projeto
+4. Custos com beneficiário e tipo de recorrência
+5. Projeção mensal no FinancasOverview
 
