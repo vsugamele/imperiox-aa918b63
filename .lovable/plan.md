@@ -1,150 +1,53 @@
 
 
-# Plano: Sistema de Captura Rica de Leads com Formulários Dinâmicos
+# Plano: Corrigir 4 problemas de UX
 
 ---
 
-## O Problema
+## Problemas identificados
 
-Hoje a edge function `capture-lead` aceita campos fixos (email, nome, phone, tags, source). Não há como:
-- Capturar respostas de pesquisas/questionários customizados
-- Associar o lead a uma etapa específica do funil
-- Armazenar campos extras (profissão, faturamento, nível de consciência, etc.)
-- Gerar formulários embutíveis para páginas externas
-- Depois analisar padrões/semelhanças entre leads
+1. **Formulários de captura nunca foram adicionados na UI** — os arquivos `FormBuilder.tsx` e `FormInsights.tsx` foram criados mas nunca importados no `Leads.tsx`. As abas "Formularios" e "Insights" nao existem.
+2. **Analytics de leads nao filtra por projeto** — a aba Analytics em Leads mostra dados globais, sem Select de projeto.
+3. **Duas abas de pesquisa duplicadas no projeto** — "Pesquisa" (scraping de URL do expert) e "Pesquisa Intel" (concorrentes/produtos/experts via IA) fazem coisas similares. Unificar em uma so aba.
+4. **Dashboard sem filtro de projeto** — o `dashPeriod` filtra por periodo mas nao por projeto.
 
 ---
 
-## Solução em 4 Partes
+## Solucoes
 
-### 1. Tabela `imphq_lead_responses` (respostas estruturadas)
+### 1. Adicionar abas Formularios + Insights em Leads.tsx
 
-Nova tabela para guardar respostas de perguntas customizadas, separada do lead principal para permitir múltiplas respostas ao longo da jornada.
+- Importar `FormBuilder` e `FormInsights` de `src/components/leads/`
+- Adicionar 2 TabsTrigger: "📝 Formularios" e "💡 Insights"
+- Adicionar os respectivos TabsContent com os componentes
 
-```sql
-create table public.imphq_lead_responses (
-  id uuid primary key default gen_random_uuid(),
-  lead_id uuid references public.imphq_leads(id) on delete cascade not null,
-  project_id text,
-  form_id text,              -- identifica qual formulário gerou
-  step text,                 -- etapa do funil (ex: "captura", "pesquisa_pos_webinar")
-  question text not null,    -- "Qual seu faturamento mensal?"
-  answer text not null,      -- "Entre R$10k e R$30k"
-  field_key text,            -- chave normalizada (ex: "faturamento_mensal")
-  created_at timestamptz default now()
-);
-```
+### 2. Filtro por projeto no Analytics de Leads
 
-Isso permite queries como: "Dos leads que compraram, 70% responderam faturamento > R$10k".
+- Na aba Analytics, adicionar um Select com todos os projetos (ja temos `projects` carregados)
+- Filtrar os dados de analytics (`leads`) pelo `project_id` selecionado
+- Default: "Todos os projetos"
 
-### 2. Tabela `imphq_capture_forms` (formulários configuráveis)
+### 3. Unificar Pesquisa + Pesquisa Intel em uma aba
 
-Permite criar formulários pelo painel, cada um com campos customizados, vinculado a um projeto e etapa do funil.
+- Remover a aba "Pesquisa" (`ProjetoPesquisa`) separada
+- Integrar a funcionalidade de scraping de URL do expert (que `ProjetoPesquisa` faz) dentro de `ProjetoPesquisaInteligente` como uma 4a sub-aba "Expert URL"
+- Renomear a aba para "🔍 Pesquisa" (unica)
+- Mover o historico de pesquisas do `ProjetoPesquisa` para dentro do componente unificado
 
-```sql
-create table public.imphq_capture_forms (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  project_id text,
-  nome text not null,
-  step text default 'captura',
-  fields jsonb not null default '[]',  -- [{key, label, type, options, required}]
-  settings jsonb default '{}',         -- redirect_url, thank_you_message, tags_auto
-  is_active boolean default true,
-  created_at timestamptz default now()
-);
-```
+### 4. Filtro de projeto no Dashboard
 
-O campo `fields` armazena a estrutura:
-```json
-[
-  {"key": "email", "label": "E-mail", "type": "email", "required": true},
-  {"key": "nome", "label": "Nome", "type": "text", "required": true},
-  {"key": "phone", "label": "WhatsApp", "type": "tel", "required": false},
-  {"key": "faturamento", "label": "Qual seu faturamento?", "type": "select", "options": ["Até R$5k", "R$5k-R$30k", "R$30k+"]},
-  {"key": "maior_dor", "label": "Qual sua maior dificuldade?", "type": "textarea"}
-]
-```
-
-### 3. Upgrade da Edge Function `capture-lead`
-
-Expandir para aceitar campos dinâmicos e gravar respostas:
-
-- Receber `form_id` opcional no body
-- Se `form_id` presente, buscar a config do formulário em `imphq_capture_forms`
-- Todos os campos extras (além de email/nome/phone) viram registros em `imphq_lead_responses`
-- Gravar `step` e `field_key` para facilitar análise posterior
-- Enriquecer `data` JSONB do lead com campos extras (`profissao`, `faturamento`, etc.)
-- Continuar suportando chamadas simples sem `form_id` (retrocompatível)
-
-### 4. UI no Painel
-
-#### 4.1 Gerenciador de Formulários (nova aba em Leads ou no Projeto)
-
-- Lista de formulários criados com status (ativo/inativo)
-- Editor visual de campos: arrastar para reordenar, tipos (text, email, tel, select, textarea, radio, checkbox)
-- Preview do formulário
-- Gerar snippet HTML/JS embutível: `<script src="..."></script>` ou `<form action="https://...capture-lead?project=X&form=Y">`
-- Gerar link direto do formulário hospedado no próprio Imperio HQ
-
-#### 4.2 Respostas na Jornada do Lead
-
-Na timeline do lead (aba Jornada), exibir as respostas como eventos formatados:
-- "📝 Pesquisa Pré-Webinar: faturamento = R$10k-R$30k, maior_dor = Não consigo escalar"
-
-#### 4.3 Aba Insights (análise de respostas)
-
-Na página de Leads, nova aba "Insights" que cruza respostas com conversão:
-- Gráfico de barras: "Respostas mais comuns para [campo X]"
-- Tabela cruzada: "Dos que responderam faturamento > R$30k, X% compraram"
-- Nuvem de palavras ou lista de respostas abertas mais frequentes
-- Filtro por formulário e por período
+- Adicionar um Select de projeto ao lado do Select de periodo existente
+- Carregar lista de projetos e filtrar todos os dados (stats, leads trend, receita, ads) pelo projeto selecionado
+- Default: "Todos"
 
 ---
 
-## Snippet Embutível (o que seu time/designer recebe)
+## Arquivos alterados
 
-Duas opções de integração para páginas externas:
-
-**Opção A — Form HTML puro (funciona em qualquer LP):**
-```html
-<form action="https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/capture-lead?project=ID&form=FORM_ID" method="POST">
-  <input name="email" required />
-  <input name="nome" />
-  <select name="faturamento">
-    <option>Até R$5k</option>
-    <option>R$5k-R$30k</option>
-  </select>
-  <button type="submit">Enviar</button>
-</form>
-```
-
-**Opção B — JS embed (mais rico, sem redirect):**
-```html
-<div id="imp-form" data-form="FORM_ID" data-project="PROJECT_ID"></div>
-<script src="https://imperiox.lovable.app/embed/capture.js"></script>
-```
-
----
-
-## Resumo de Arquivos
-
-| Arquivo | Mudança |
+| Arquivo | Mudanca |
 |---|---|
-| **Migração SQL** | Tabelas `imphq_lead_responses` e `imphq_capture_forms` com RLS |
-| `supabase/functions/capture-lead/index.ts` | Aceitar campos dinâmicos, gravar respostas, buscar config de form |
-| `src/pages/Leads.tsx` | Nova aba "Formulários" + nova aba "Insights" |
-| `src/components/leads/FormBuilder.tsx` | Editor visual de formulários com preview e gerador de snippet |
-| `src/components/leads/FormInsights.tsx` | Análise cruzada de respostas vs conversão |
-| Timeline do lead | Exibir respostas como eventos na jornada |
-
----
-
-## Ordem de Execução
-
-1. Migração SQL (2 tabelas)
-2. Upgrade da edge function `capture-lead`
-3. FormBuilder (criar/editar formulários + gerar snippets)
-4. Respostas na timeline do lead
-5. Aba Insights com análise cruzada
+| `src/pages/Leads.tsx` | Importar FormBuilder/FormInsights, adicionar 2 abas, filtro projeto no analytics |
+| `src/pages/ProjetoDetalhe.tsx` | Remover aba "Pesquisa" separada, renomear "Pesquisa Intel" para "Pesquisa" |
+| `src/components/projeto/ProjetoPesquisaInteligente.tsx` | Absorver funcionalidade de scraping de URL do ProjetoPesquisa |
+| `src/pages/Dashboard.tsx` | Adicionar Select de projeto, filtrar dados por project_id |
 
