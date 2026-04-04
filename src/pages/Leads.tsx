@@ -66,7 +66,7 @@ interface Lead {
 
 interface TimelineEvent {
   id: string;
-  type: "PageView" | "LeadCapture" | "ViewContent" | "AddToCart" | "Purchase" | "click" | "CSVImport" | string;
+  type: "PageView" | "LeadCapture" | "ViewContent" | "AddToCart" | "Purchase" | "click" | "CSVImport" | "FormResponse" | string;
   timestamp: string;
   title: string;
   subtitle?: string;
