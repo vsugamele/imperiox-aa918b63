@@ -1,80 +1,86 @@
 
 
-# Plano: Forms com Projeto + Custos Operacionais + Projeção Mensal
+# Plano: Expert no Kanban + Subtarefas com Responsavel + Secao Experts + Dashboard Interativa
 
 ---
 
-## 3 Problemas Identificados
+## 4 Melhorias Solicitadas
 
-### 1. Formulários sem contexto de projeto e sem salvar na jornada do lead
-O FormBuilder salva `project_id` no formulário, e o `capture-lead` usa isso. **Mas**: a lista de formulários não mostra claramente o projeto/produto associado, e as respostas do formulário (`imphq_lead_responses`) **nunca aparecem na timeline do lead** em Leads.tsx — não há nenhuma query a `imphq_lead_responses` na timeline.
+### 1. Expert e Produto nos cards do Kanban
+Hoje o card mostra projeto (badge) mas nao mostra o expert do projeto nem o produto. O expert esta no `project.data.expert.nome` e o produto em `project.data.briefing.produto`.
 
-**Correções**:
-- **Leads.tsx (timeline)**: Ao abrir um lead, buscar `imphq_lead_responses` pelo `lead_id` e exibir como eventos na timeline (tipo "FormResponse") com as respostas formatadas
-- **FormBuilder.tsx**: Na listagem, mostrar badge do projeto e produto de forma mais visível. Adicionar filtro por projeto na lista de formulários
+**Solucao**:
+- No `KanbanPage.tsx`, ao carregar projetos, buscar tambem `data` do projeto (ja vem como JSONB)
+- No `renderCard`, se o card tem `project_id`, exibir badge do expert (nome + mini avatar) e badge do produto
+- No `CardDetailPanel`, mostrar expert e produto como campos somente-leitura quando o card esta vinculado a um projeto
 
-### 2. Finanças sem visão mensal, projeção e progressão
-Hoje os KPIs mostram totais do período filtrado mas sem contexto de: quanto já faturou no mês, quanto falta, projeção baseada no ritmo atual, comparação com mês anterior.
+### 2. Subtarefas (checklist) com responsavel
+A tabela `imphq_card_checklists` nao tem coluna `member_id`. Subtarefas sao anonimas — ninguem sabe quem e responsavel por cada item.
 
-**Correções no FinancasOverview.tsx**:
-- Adicionar seção "Resumo do Mês" com:
-  - Dias passados / dias totais do mês
-  - Receita até agora + Projeção para fim do mês (receita_atual / dias_passados * dias_totais)
-  - Comparação com mês anterior (% crescimento)
-  - ROAS do mês + tendência
-  - Lucro projetado (receita projetada - custos projetados)
-- Gráfico de progressão acumulada do mês (receita acumulada dia a dia vs meta/mês anterior)
+**Solucao**:
+- **Migracao SQL**: `ALTER TABLE imphq_card_checklists ADD COLUMN member_id UUID REFERENCES imphq_team_members(id);`
+- No `CardDetailPanel`, ao criar subtarefa, poder selecionar um responsavel (Select de membros ao lado do input)
+- Exibir avatar do responsavel ao lado da subtarefa
+- Essa subtarefa aparecera no "Meu Dia" do membro e na secao de experts/responsaveis
 
-### 3. Custos sem categorização de salários, pró-labore, tipo de recorrência
-A tabela `imphq_project_costs` tem campo `recorrente` (boolean) e `categoria`, mas falta: para quem é o custo (beneficiário), se é mensal/pontual, tipo específico (salário, pró-labore, freelancer, ferramenta).
+### 3. Secao "Experts" — visao por expert/responsavel
+Criar uma nova aba no Kanban ou uma secao filtravel que agrupa cards por expert do projeto. Assim o usuario ve rapidamente o que esta pendente para cada expert (ex: "Jonathan precisa gravar webinar").
 
-**Correções**:
-- **Migração SQL**: Adicionar colunas `beneficiario` (text), `tipo_recorrencia` (text: 'mensal', 'pontual', 'trimestral', 'anual') na tabela `imphq_project_costs`
-- **Financas.tsx (aba Custos)**: Adicionar seção "Custos Fixos / Equipe" separada dos custos de projeto, com campos para beneficiário e tipo de recorrência
-- **ProjetoFinancas.tsx**: Formulário de custo com campos de beneficiário e tipo de recorrência
-- **FinancasOverview.tsx**: Incluir custos fixos (salários/pró-labore) no cálculo de lucro líquido mensal
+**Solucao**:
+- Adicionar aba "Experts" ao BOARDS do Kanban (ou como filtro visual)
+- Agrupar cards por expert do projeto vinculado: buscar `project.data.expert.nome` para cada card com `project_id`
+- Mostrar tambem subtarefas atribuidas a membros que sao experts
+- Layout: colunas por expert, cada coluna mostra cards + subtarefas pendentes
+
+### 4. Dashboard — Tarefas urgentes interativas com responsaveis
+Hoje a secao "Tarefas Urgentes" mostra titulo + projeto + prioridade, mas nao mostra o responsavel nem permite acao rapida.
+
+**Solucao no `Dashboard.tsx`**:
+- Na query de urgentTasks, fazer join com `imphq_team_members` para trazer `member_id`
+- Exibir avatar do responsavel no card da tarefa
+- Adicionar cards travados (status "travado") na mesma secao ou em secao separada "Travados"
+- Tornar clicavel: ao clicar, navegar para `/kanban` com filtro aplicado (ou abrir o card detail)
+- Mostrar badge "Travado" vs "Urgente" vs "Atrasado" com cores distintas
 
 ---
 
-## Detalhes Técnicos
+## Detalhes Tecnicos
 
-### Migração SQL
+### Migracao SQL
 ```sql
-ALTER TABLE imphq_project_costs
-  ADD COLUMN IF NOT EXISTS beneficiario text,
-  ADD COLUMN IF NOT EXISTS tipo_recorrencia text DEFAULT 'mensal';
+ALTER TABLE imphq_card_checklists
+  ADD COLUMN IF NOT EXISTS member_id UUID REFERENCES imphq_team_members(id);
 ```
 
-### Timeline com respostas de formulário (Leads.tsx)
-- Query: `supabase.from("imphq_lead_responses").select("*, imphq_capture_forms(nome)").eq("lead_id", leadId)`
-- Renderizar como evento com ícone de formulário, nome do form, e lista de respostas key/value
+### Dados de Expert nos Cards
+O `loadAllData` do Kanban ja carrega projetos com `select("id, name")`. Mudar para `select("id, name, data, icon")` para ter acesso ao expert e produto sem query extra.
 
-### Projeção mensal (FinancasOverview.tsx)
-- Calcular `diasPassados` e `diasTotais` do mês atual
-- `projecaoReceita = (totalReceita / diasPassados) * diasTotais`
-- Buscar dados do mês anterior para comparação (% variação)
-- Card visual com barra de progresso do mês
+### Secao Experts no Kanban
+Nova aba "experts" que agrupa por `expert.nome` extraido do projeto vinculado. Cards sem projeto ou sem expert ficam em grupo "Sem Expert".
+
+### Dashboard interativa
+- Combinar urgentes + travados + atrasados em uma unica secao "Atencao Necessaria"
+- Cada item mostra: titulo, badge de status (urgente/travado/atrasado), avatar do responsavel, projeto
+- Clicar navega para `/kanban` ou abre um mini-panel
 
 ---
 
 ## Resumo de Arquivos
 
-| Arquivo | Mudança |
+| Arquivo | Mudanca |
 |---|---|
-| **Migração SQL** | `beneficiario`, `tipo_recorrencia` em `imphq_project_costs` |
-| `src/pages/Leads.tsx` | Timeline carregando respostas de formulários como eventos |
-| `src/components/leads/FormBuilder.tsx` | Filtro por projeto na listagem, badges mais visíveis |
-| `src/components/financas/FinancasOverview.tsx` | Seção "Resumo do Mês" com projeção, progressão, comparação |
-| `src/pages/Financas.tsx` | Custos com beneficiário e tipo recorrência no form e tabela |
-| `src/components/projeto/ProjetoFinancas.tsx` | Campos beneficiário/recorrência no form de custos |
+| **Migracao SQL** | `member_id` em `imphq_card_checklists` |
+| `src/pages/KanbanPage.tsx` | Carregar `data` dos projetos, exibir expert/produto nos cards, nova aba "Experts" agrupada |
+| `src/components/kanban/CardDetailPanel.tsx` | Subtarefa com seletor de responsavel, exibir expert/produto do projeto |
+| `src/pages/Dashboard.tsx` | Secao "Atencao" com urgentes+travados+atrasados, avatar do responsavel, clicavel |
 
 ---
 
-## Ordem de Execução
+## Ordem de Execucao
 
-1. Migração SQL (2 colunas)
-2. Timeline do lead com respostas de formulário
-3. FormBuilder com filtro por projeto
-4. Custos com beneficiário e tipo de recorrência
-5. Projeção mensal no FinancasOverview
+1. Migracao SQL (member_id na checklist)
+2. KanbanPage: carregar dados do expert/produto, exibir nos cards
+3. CardDetailPanel: responsavel nas subtarefas
+4. KanbanPage: aba "Experts" agrupada
+5. Dashboard: secao interativa com responsaveis
 
