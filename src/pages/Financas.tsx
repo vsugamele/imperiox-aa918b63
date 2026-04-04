@@ -201,13 +201,42 @@ export default function Financas() {
             URL.revokeObjectURL(url);
             toast.success("Relatório financeiro exportado");
           }}>📥 Export CSV</Button>
-          <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="w-[200px] h-9 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {uniqueProducts.length > 0 && (
+          <Select value={filterProduct} onValueChange={setFilterProduct}>
+            <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os Projetos</SelectItem>
-              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+              <SelectItem value="all">Todos Produtos</SelectItem>
+              {uniqueProducts.map(p => <SelectItem key={p} value={p}>📦 {p}</SelectItem>)}
             </SelectContent>
           </Select>
+        )}
+        <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-[140px] h-9 text-xs" />
+        <span className="text-xs text-muted-foreground">até</span>
+        <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-[140px] h-9 text-xs" />
+        <div className="flex gap-1">
+          {[
+            { label: "Hoje", val: 0 },
+            { label: "7d", val: 7 },
+            { label: "30d", val: 30 },
+            { label: "Mês", val: "month" as const },
+            { label: "Todos", val: "all" as const },
+          ].map(b => (
+            <Button key={b.label} size="sm" variant="ghost" className="h-7 text-[10px] px-2" onClick={() => setQuickDate(b.val)}>
+              {b.label}
+            </Button>
+          ))}
         </div>
       </div>
 
