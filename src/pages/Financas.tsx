@@ -415,6 +415,22 @@ export default function Financas() {
         </TabsContent>
 
         <TabsContent value="ads">
+          {fAds.length === 0 && ads.length > 0 && (filterDateFrom || filterDateTo) && (
+            <Card className="mb-4 border-amber-500/30 bg-amber-500/5">
+              <CardContent className="flex items-center gap-3 p-4">
+                <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-300">Nenhum dado de Ads neste período</p>
+                  <p className="text-xs text-muted-foreground">
+                    Dados existem entre {ads[ads.length - 1]?.data_ref?.slice(0, 10)} e {ads[0]?.data_ref?.slice(0, 10)}. Ajuste o filtro de datas.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0 text-xs" onClick={() => setQuickDate("all")}>
+                  Ver todos
+                </Button>
+              </CardContent>
+            </Card>
+          )}
           <FinancasAds ads={fAds} projects={projects} onRefresh={load} filterProjectId={filterProject === "all" ? "" : filterProject} />
         </TabsContent>
 
