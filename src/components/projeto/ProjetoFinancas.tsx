@@ -690,16 +690,27 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
             </Card>
           )}
 
+          {/* Last sync info */}
+          {ads.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mb-2">
+              Último dado: {ads[0]?.data_ref} · {ads.length} registros no banco
+            </p>
+          )}
+
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
             {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) && (
               <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
                 toast.info("Sincronizando com Facebook...");
                 try {
+                  const now = new Date();
                   const syncBody: any = { project_id: projectId };
                   if (dateRange) {
                     syncBody.date_from = format(dateRange.start, "yyyy-MM-dd");
                     syncBody.date_to = format(dateRange.end, "yyyy-MM-dd");
+                  } else {
+                    syncBody.date_from = format(startOfMonth(now), "yyyy-MM-dd");
+                    syncBody.date_to = format(now, "yyyy-MM-dd");
                   }
                   const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: syncBody });
                   if (error) throw error;
