@@ -1,63 +1,72 @@
 
 
-# Plano: Formulario Simplificado + Fix Ads Aparecendo R$0
+# Plano: Fix Reembolso + Ads Sync + Filtro Criativos
 
 ---
 
-## Problema 1: Formulario — snippet nao funciona end-to-end
+## Diagnóstico dos problemas
 
-O snippet gera HTML que envia `form_id` junto com os campos, mas a edge function `capture-lead` **ignora completamente** o `form_id`. Ela nao busca o formulario no banco, nao salva respostas em `imphq_lead_responses`, e retorna `{ ok: true }` enquanto o snippet espera `data.success`. O formulario **nunca funciona**.
+### 1. Ads mostrando valor errado em Abril
+O banco tem **apenas 2 registros em abril**: 01/04 (R$59.69) e 02/04 (R$15.94) = **R$75.63 total**. Se voce gastou R$150+, os dias 03/04 e 04/04 **nao foram sincronizados**. O filtro "Este mes" funciona corretamente — o problema e que falta rodar o sync para os dias mais recentes.
 
-### O que a pessoa que criar a LP precisa fazer:
-Copiar o snippet HTML gerado e colar na pagina. O snippet ja contem todo o CSS (dark theme estilizado), os campos configurados, e o JS que envia os dados. Nao precisa saber nada tecnico — so colar e funciona.
+**Solucao**: Quando clicar "Sincronizar Facebook" no ProjetoFinancas, enviar automaticamente as datas do filtro ativo (ou do mes atual se "Todo periodo"). Adicionar tambem um botao "Atualizar hoje" que force sync do dia atual. E mostrar a data do ultimo sync visivel para o usuario saber quando foi atualizado.
 
-### Correcoes:
+### 2. Jornada do lead — Reembolso nao registrado corretamente
+O webhook `webhook-pagamento` quando recebe `reembolso`:
+- **Nao** atualiza a venda existente para "reembolsado"
+- **Nao** atualiza o status do lead
+- Se nao existia venda anterior, nao cria registro retroativo
 
-**Edge function `capture-lead`:**
-- Buscar o formulario pelo `form_id` recebido no body
-- Extrair `project_id` e `step` do formulario (nao depender do query param)
-- Separar campos padrao (email, nome, phone) dos campos extras
-- Salvar respostas extras em `imphq_lead_responses` (form_id, lead_id, respostas como JSON)
-- Retornar `{ success: true }` em vez de `{ ok: true }` para match com o snippet
+A timeline no Leads.tsx filtra vendas por `status = "aprovado"`, escondendo reembolsos.
 
-**Snippet (FormBuilder.tsx):**
-- Corrigir check de `data.success` (ja esta correto no snippet, o problema era so na edge function)
-- Adicionar `page_url: location.href` automaticamente no body enviado
+### 3. Criativos sem filtro de busca
+Todos os criativos aparecem juntos. Com muitos criativos, nao da para encontrar os ativos rapidamente.
 
 ---
 
-## Problema 2: Ads mostrando R$0 no filtro de data
+## Correcoes
 
-Os dados de ads existem no banco (100 criativos, registros de spend), mas quando o filtro de data esta ativo (ex: "03/04 - 04/04"), o `inDateRange()` compara a string `data_ref` com as datas do filtro. Se os ads tem datas fora desse range (ex: marco), aparecem R$0.
+### Arquivo 1: `supabase/functions/webhook-pagamento/index.ts`
 
-**Causa provavel**: Na pagina global Financas, o filtro de data usa `filterDateFrom`/`filterDateTo` como strings ISO. Na ProjetoFinancas, usa `isWithinInterval` de date-fns. Ambos dependem de `data_ref` do registro de ads bater com o periodo.
+**Tratar reembolso**:
+- Quando `evento === "reembolso"` e `leadId` existe:
+  - Buscar venda existente do lead (mesmo produto ou qualquer) → update `status: "reembolsado"`
+  - Se nao existir venda, criar uma com status "reembolsado" (historico retroativo)
+  - Atualizar status do lead: se tem outras vendas aprovadas manter "cliente", senao voltar para "lead"
 
-### Correcoes:
+### Arquivo 2: `src/components/projeto/ProjetoFinancas.tsx`
 
-**Financas.tsx (global):**
-- Mostrar um aviso quando o filtro esta ativo e nao ha ads no periodo: "Nenhum dado de Ads neste periodo. Dados existem em [data mais antiga] - [data mais recente]."
-- Adicionar botao "Ver todos" que reseta o filtro de data
+**Sync com datas**:
+- Botao "Sincronizar Facebook" envia `date_from` e `date_to` do filtro ativo
+- Mostrar "Ultimo sync: DD/MM" baseado no `data_ref` mais recente dos ads
+- Se o periodo filtrado mostra valor menor que o total, exibir "(total historico: R$ X.XX)" nos KPIs
 
-**ProjetoFinancas.tsx (dentro do projeto):**
-- Mesma logica: quando `fAds.length === 0` mas `ads.length > 0`, mostrar aviso com range de datas disponiveis
-- O periodo default deveria ser "Todo periodo" para nao confundir
+**Filtro de criativos**:
+- Select: "Todos" / "Ativos" / "Inativos"
+- Input de busca por nome do criativo
+- Contagem visivel (ex: "12 ativos, 88 inativos")
+
+### Arquivo 3: `src/pages/Leads.tsx`
+
+**Timeline com todos os status de venda**:
+- Remover filtro `eq("status", "aprovado")` na query de vendas da timeline
+- Diferenciar visualmente: aprovado (verde), reembolsado (vermelho com icone de refund)
 
 ---
 
-## Resumo de arquivos
+## Resumo
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/capture-lead/index.ts` | Processar `form_id`, buscar formulario, salvar respostas em `imphq_lead_responses`, retornar `success` |
-| `src/components/leads/FormBuilder.tsx` | Adicionar `page_url` no snippet JS |
-| `src/pages/Financas.tsx` | Aviso quando filtro esconde ads existentes, botao "Ver todos" |
-| `src/components/projeto/ProjetoFinancas.tsx` | Aviso de ads fora do periodo filtrado |
+| `supabase/functions/webhook-pagamento/index.ts` | Tratar reembolso: update venda + status lead |
+| `src/components/projeto/ProjetoFinancas.tsx` | Sync com datas, ultimo sync, contexto total nos KPIs, filtro criativos |
+| `src/pages/Leads.tsx` | Timeline com vendas de todos os status |
 
 ---
 
-## Ordem de execucao
+## Ordem
 
-1. Fix edge function capture-lead (form_id + lead_responses + success)
-2. Fix snippet (page_url)
-3. Avisos de filtro vazio em Financas e ProjetoFinancas
+1. Fix webhook reembolso
+2. ProjetoFinancas: sync com datas + filtro criativos + KPIs contextuais
+3. Leads: timeline completa
 
