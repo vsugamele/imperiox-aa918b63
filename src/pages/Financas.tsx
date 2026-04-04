@@ -72,13 +72,41 @@ export default function Financas() {
 
   useEffect(() => { load(); }, []);
 
+  // Date filter helper
+  const inDateRange = (dateStr: string | null | undefined) => {
+    if (!dateStr) return true;
+    const d = dateStr.slice(0, 10);
+    if (filterDateFrom && d < filterDateFrom) return false;
+    if (filterDateTo && d > filterDateTo) return false;
+    return true;
+  };
+
+  const setQuickDate = (days: number | "month" | "all") => {
+    if (days === "all") { setFilterDateFrom(""); setFilterDateTo(""); return; }
+    const to = new Date();
+    const toStr = to.toISOString().slice(0, 10);
+    setFilterDateTo(toStr);
+    if (days === "month") {
+      setFilterDateFrom(new Date(to.getFullYear(), to.getMonth(), 1).toISOString().slice(0, 10));
+    } else {
+      const from = new Date(to);
+      from.setDate(from.getDate() - days);
+      setFilterDateFrom(from.toISOString().slice(0, 10));
+    }
+  };
+
+  // Unique products from vendas
+  const uniqueProducts = [...new Set(vendas.map(v => v.produto_nome).filter(Boolean))].sort();
+
   // Filtered data
   const fp = filterProject;
   const fCustos = custos;
-  const fProjectCosts = fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp);
-  const fProjectRevenues = fp === "all" ? projectRevenues : projectRevenues.filter(r => r.project_id === fp);
-  const fVendas = fp === "all" ? vendas : vendas.filter(v => v.project_id === fp);
-  const fAds = fp === "all" ? ads : ads.filter(a => a.project_id === fp);
+  const fProjectCosts = (fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp));
+  const fProjectRevenues = (fp === "all" ? projectRevenues : projectRevenues.filter(r => r.project_id === fp)).filter(r => inDateRange(r.data_ref));
+  const fVendas = (fp === "all" ? vendas : vendas.filter(v => v.project_id === fp))
+    .filter(v => inDateRange(v.data_venda))
+    .filter(v => filterProduct === "all" || v.produto_nome === filterProduct);
+  const fAds = (fp === "all" ? ads : ads.filter(a => a.project_id === fp)).filter(a => inDateRange(a.data_ref));
 
   // KPI calculations
   const custosGlobaisBRL = fCustos.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
