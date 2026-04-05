@@ -1,51 +1,101 @@
 
 
-# Plano: Fix Lead Capturado Sem Dados na Jornada
+# Plano: Adaptar Sistema de QR via Command Bus (Supabase)
 
-## Diagnostico
+## Contexto
 
-Investiguei o banco e encontrei **3 bugs** que explicam tudo:
+O clawdbot projetou um sistema de QR Code via "command bus" usando 3 tabelas Supabase (`wa_hub_iso_commands`, `wa_hub_iso_sessions`, `wa_hub_iso_events`) + API routes Next.js + worker local. Este projeto é Vite/React (sem Next.js), então precisa adaptar.
 
-### Bug 1: Evento LeadCapture nao tem `visitor_id`
-A edge function `capture-lead` insere o evento em `imphq_events` **sem** definir `visitor_id`. A timeline no frontend busca eventos **apenas** por `visitor_id`. Resultado: o evento existe no banco mas a timeline nunca o encontra.
+## Arquitetura Adaptada
 
-Confirmacao: `imphq_events` tem 0 registros de LeadCapture (o insert provavelmente falhou pelo bug 2 abaixo, mas mesmo que tivesse dado certo, nao teria `visitor_id`).
-
-### Bug 2: Tabela `imphq_lead_responses` tem schema diferente do esperado
-A edge function tenta inserir com coluna `respostas` (JSONB), mas a tabela real tem colunas individuais: `question`, `answer`, `field_key`. O insert falha silenciosamente (erro SQL engolido pelo catch generico).
-
-Schema real:
 ```text
-id | lead_id | project_id | form_id | step | question | answer | field_key | created_at
+Frontend (React)                    Supabase                     Worker Local (sua máquina)
+─────────────────                   ────────                     ─────────────────────────
+                                                                 
+useWaSession hook ──insert──> wa_hub_iso_commands (action=get_qr)
+                                         │
+                                         ▼
+                              worker poll (3s) ──> detecta comando pending
+                              worker executa bot local (Baileys)
+                              worker grava: command.status=done + result
+                              worker grava: wa_hub_iso_events (qr_status + qrImageUrl)
+                              worker grava: wa_hub_iso_sessions (status=awaiting_qr)
+                                         │
+useWaSession poll ◄──select──────────────┘
+(busca commands + sessions + events diretamente do Supabase client)
 ```
 
-A edge function tenta: `INSERT { respostas: {...} }` → coluna nao existe → falha.
-
-### Bug 3: Timeline nao busca eventos por email
-Mesmo se o evento existisse com `visitor_id = leadId`, a timeline so busca por `visitor_id` do campo `data.visitor_id` do lead. Para leads vindos de formulario (sem imptrack.js), esse campo e `null`.
+**Diferença chave**: sem API routes. O frontend usa `supabase.from("wa_hub_iso_*")` diretamente para inserir comandos e ler status. Não precisa de edge function intermediária.
 
 ---
 
-## Correcoes
+## Entregáveis
 
-### 1. Edge Function `capture-lead` (deploy necessario)
-- Definir `visitor_id: leadId` no insert do evento
-- Corrigir insert em `imphq_lead_responses`: usar colunas reais (`question`, `answer`, `field_key`), inserindo uma linha por campo extra em vez de um JSONB unico
-- Setar `data.visitor_id = leadId` no lead criado, para que a timeline funcione
+### 1. Migração SQL — 3 tabelas novas
 
-### 2. Timeline no `Leads.tsx`
-- Adicionar query adicional: buscar eventos `LeadCapture` por `event_data->email` quando `visitor_id` e null
-- Isso garante que leads sem imptrack.js (formulario externo) ainda mostrem a captura na jornada
+**`wa_hub_iso_commands`**: fila de comandos
+- `id`, `tenant_id`, `session_key`, `action` (get_qr, disconnect, etc.), `payload` (jsonb), `status` (pending/processing/done/error), `error`, `result` (jsonb), `created_at`, `updated_at`
 
-### 3. FormBuilder snippet (`FormBuilder.tsx`)
-- Verificar que o snippet gerado envia todos os campos extras com nomes corretos para o mapeamento `field_key`
+**`wa_hub_iso_sessions`**: estado da sessão
+- `id`, `tenant_id`, `session_key`, `status` (awaiting_qr/connected/stopped/error), `last_seen_at`, `updated_at`
+- Unique constraint em `(tenant_id, session_key)`
+
+**`wa_hub_iso_events`**: log de eventos (qr gerado, conexão, desconexão)
+- `id`, `tenant_id`, `session_key`, `event_type`, `payload` (jsonb), `created_at`
+
+RLS: leitura e escrita para authenticated (o worker usa service_role key, o frontend usa anon com auth).
+
+### 2. Hook `useWaSession.ts`
+
+Adaptação do hook do clawdbot para usar Supabase client direto (sem fetch para API routes):
+
+- `startGetQr()`: insere comando na tabela `wa_hub_iso_commands` com action=`get_qr`
+- Polling (2.5s): lê `wa_hub_iso_commands` (status do comando), `wa_hub_iso_sessions` (estado sessão), `wa_hub_iso_events` (QR data)
+- Estados UI: `idle` → `pending` → `awaiting_qr` → `connected` (ou `error`)
+- Timeout de 90s
+- Retorna: `uiStatus`, `qrImageUrl`, `qrText`, `errorMessage`, `canGenerateQr`, `startGetQr`
+
+### 3. Componente `WaHubQrPanel.tsx`
+
+Novo componente visual (separado do QrCodePanel existente que é para Evolution API):
+- Botão "Gerar QR" com estados visuais (loading spinner, badge de status)
+- Renderiza `qrImageUrl` como imagem, fallback para `qrText` em mono
+- Badge de status colorido (pending=amarelo, awaiting_qr=azul, connected=verde, error=vermelho)
+- Mensagem de erro amigável
+- Design consistente com o tema dark do projeto
+
+### 4. Integração no WhatsAppPage
+
+Adicionar uma nova aba ou seção "Hub Local" no WhatsAppPage que mostra o `WaHubQrPanel` para sessões que usam o worker local (em vez de Evolution API).
 
 ---
 
-## Resumo de Arquivos
+## Importante
 
-| Arquivo | Mudanca |
+O **worker local** (que roda na sua máquina com Baileys) NÃO é parte deste projeto Lovable — ele é externo. Este plano cria apenas:
+- As tabelas no Supabase
+- O hook + UI no frontend que lê/escreve nessas tabelas
+
+O worker local precisa ser configurado separadamente para:
+1. Poll `wa_hub_iso_commands` com status=pending
+2. Executar o bot local
+3. Gravar resultados de volta nas tabelas
+
+---
+
+## Arquivos
+
+| Arquivo | Mudança |
 |---|---|
-| `supabase/functions/capture-lead/index.ts` | `visitor_id: leadId` no evento, `data.visitor_id` no lead, fix insert lead_responses para usar colunas reais |
-| `src/pages/Leads.tsx` | Query adicional na timeline: buscar LeadCapture por email quando sem visitor_id |
+| Migration SQL | 3 tabelas: `wa_hub_iso_commands`, `wa_hub_iso_sessions`, `wa_hub_iso_events` |
+| `src/hooks/useWaSession.ts` | Hook com polling via Supabase client |
+| `src/components/whatsapp/WaHubQrPanel.tsx` | Componente visual QR + status |
+| `src/pages/WhatsAppPage.tsx` | Aba/seção "Hub Local" com WaHubQrPanel |
+
+## Ordem
+
+1. Migração SQL (3 tabelas + RLS)
+2. Hook useWaSession
+3. WaHubQrPanel componente
+4. Integração no WhatsAppPage
 
