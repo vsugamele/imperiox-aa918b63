@@ -139,6 +139,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState("");
+  const [newCheckMember, setNewCheckMember] = useState<string>("none");
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -303,8 +304,11 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   // Checklist
   const addCheckItem = async () => {
     if (!card || !newCheckItem.trim()) return;
-    await supabase.from("imphq_card_checklists").insert({ card_id: card.id, title: newCheckItem.trim(), position: checklist.length } as any);
+    const insertData: any = { card_id: card.id, title: newCheckItem.trim(), position: checklist.length };
+    if (newCheckMember !== "none") insertData.member_id = newCheckMember;
+    await supabase.from("imphq_card_checklists").insert(insertData);
     setNewCheckItem("");
+    setNewCheckMember("none");
     loadChecklist(card.id);
   };
   const toggleCheckItem = async (item: ChecklistItem) => {
@@ -314,6 +318,11 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const deleteCheckItem = async (id: string) => {
     await supabase.from("imphq_card_checklists").delete().eq("id", id);
     setChecklist(prev => prev.filter(c => c.id !== id));
+  };
+  const updateCheckMember = async (itemId: string, memberId: string) => {
+    const val = memberId === "none" ? null : memberId;
+    await supabase.from("imphq_card_checklists").update({ member_id: val } as any).eq("id", itemId);
+    setChecklist(prev => prev.map(c => c.id === itemId ? { ...c, member_id: val || undefined } : c));
   };
 
   // Comments
@@ -704,18 +713,68 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                 </div>
                 {totalCheck > 0 && <Progress value={checkProgress} className="h-1.5 mb-3" />}
                 <div className="space-y-1">
-                  {checklist.map(item => (
-                    <div key={item.id} className="flex items-center gap-2 group py-1">
-                      <Checkbox checked={item.is_done} onCheckedChange={() => toggleCheckItem(item)} className="shrink-0" />
-                      <span className={`text-sm flex-1 ${item.is_done ? "line-through text-muted-foreground" : ""}`}>{item.title}</span>
-                      <button onClick={() => deleteCheckItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                  {checklist.map(item => {
+                    const assignee = members.find(m => m.id === item.member_id);
+                    return (
+                      <div key={item.id} className="flex items-center gap-2 group py-1">
+                        <Checkbox checked={item.is_done} onCheckedChange={() => toggleCheckItem(item)} className="shrink-0" />
+                        <span className={`text-sm flex-1 ${item.is_done ? "line-through text-muted-foreground" : ""}`}>{item.title}</span>
+                        <Select value={item.member_id || "none"} onValueChange={(v) => updateCheckMember(item.id, v)}>
+                          <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent [&>svg]:hidden shrink-0">
+                            <SelectValue>
+                              {assignee ? (
+                                <Avatar className="h-5 w-5">
+                                  <AvatarImage src={assignee.avatar_url || undefined} />
+                                  <AvatarFallback className="text-[8px] bg-primary/20 text-primary">{assignee.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                              ) : (
+                                <User className="h-4 w-4 text-muted-foreground/50" />
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sem responsável</SelectItem>
+                            {members.map(m => (
+                              <SelectItem key={m.id} value={m.id}>
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-4 w-4">
+                                    <AvatarImage src={m.avatar_url || undefined} />
+                                    <AvatarFallback className="text-[7px]">{m.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                  </Avatar>
+                                  {m.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <button onClick={() => deleteCheckItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <Input value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} placeholder="Nova subtarefa..." className="h-8 text-xs" onKeyDown={e => e.key === "Enter" && addCheckItem()} />
+                  <Input value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} placeholder="Nova subtarefa..." className="h-8 text-xs flex-1" onKeyDown={e => e.key === "Enter" && addCheckItem()} />
+                  <Select value={newCheckMember} onValueChange={setNewCheckMember}>
+                    <SelectTrigger className="h-8 w-24 text-xs shrink-0">
+                      <SelectValue placeholder="Resp." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {members.map(m => (
+                        <SelectItem key={m.id} value={m.id}>
+                          <div className="flex items-center gap-1.5">
+                            <Avatar className="h-4 w-4">
+                              <AvatarImage src={m.avatar_url || undefined} />
+                              <AvatarFallback className="text-[7px]">{m.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{m.name.split(" ")[0]}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button size="sm" variant="outline" className="h-8 px-2 shrink-0" onClick={addCheckItem}><Plus className="h-3 w-3" /></Button>
                 </div>
               </div>

@@ -100,16 +100,51 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [projRes, taskRes, leadRes, costRes, recentRes, urgentRes, oppRes, eventsRes] = await Promise.all([
+      const [projRes, taskRes, leadRes, costRes, recentRes, oppRes, eventsRes] = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
         supabase.from("imphq_custos").select("valor, moeda"),
         supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("imphq_tasks").select("*").neq("status", "done").or("priority.in.(urgent,high),due_date.lt." + new Date().toISOString()).order("due_date", { ascending: true }).limit(5),
         supabase.from("imphq_mi_opportunities").select("*").eq("ativo", true).order("score", { ascending: false }).limit(4),
         supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
       ]);
+
+      // Fetch kanban cards for "Atenção Necessária"
+      const today = new Date().toISOString().split("T")[0];
+      const [urgentCardsRes, columnsRes, membersRes, projListRes] = await Promise.all([
+        supabase.from("imphq_kanban_cards").select("*").or(`priority.in.(urgent,high),due_date.lt.${today}`).limit(20),
+        supabase.from("imphq_kanban_columns").select("id, title, board"),
+        supabase.from("imphq_team_members").select("id, name, avatar_url"),
+        supabase.from("imphq_projects").select("id, name, icon"),
+      ]);
+
+      const colMap = new Map((columnsRes.data || []).map((c: any) => [c.id, c]));
+      const memberMap = new Map((membersRes.data || []).map((m: any) => [m.id, m]));
+      const projMap2 = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+
+      const enrichedCards = (urgentCardsRes.data || []).map((c: any) => {
+        const col = colMap.get(c.column_id);
+        const colTitle = (col?.title || "").toLowerCase();
+        const isBlocked = colTitle.includes("travado") || colTitle.includes("bloqueado") || colTitle.includes("blocked");
+        const isOverdueCard = c.due_date && c.due_date < today;
+        const _status = isBlocked ? "travado" : isOverdueCard ? "atrasado" : "urgente";
+        const proj = projMap2.get(c.project_id);
+        return {
+          ...c,
+          _status,
+          _member: memberMap.get(c.member_id) || null,
+          _projectName: proj ? `${proj.icon || "📁"} ${proj.name}` : null,
+        };
+      }).filter((c: any) => {
+        // Exclude done columns
+        const col = colMap.get(c.column_id);
+        const colTitle = (col?.title || "").toLowerCase();
+        return !colTitle.includes("conclu") && !colTitle.includes("done") && !colTitle.includes("feito");
+      }).sort((a: any, b: any) => {
+        const order: Record<string, number> = { travado: 0, atrasado: 1, urgente: 2 };
+        return (order[a._status] ?? 3) - (order[b._status] ?? 3);
+      }).slice(0, 8);
 
       let totalCost = 0;
       if (costRes.data) {
@@ -126,7 +161,7 @@ export default function Dashboard() {
         monthlyCost: totalCost,
       });
       setRecentProjects(recentRes.data || []);
-      setUrgentTasks(urgentRes.data || []);
+      setUrgentTasks(enrichedCards);
       setOpportunities(oppRes.data || []);
       setUpcomingEvents(eventsRes.data || []);
 
@@ -202,15 +237,15 @@ export default function Dashboard() {
 
       // Alerts — smarter
       const alertList: string[] = [];
-      const today = new Date().toISOString().split("T")[0];
+      const todayStr = new Date().toISOString().split("T")[0];
       const { count: pixToday } = await supabase.from("imphq_leads").select("id", { count: "exact", head: true })
         .not("data->ultimo_evento", "is", null)
         .neq("status", "cliente")
-        .gte("updated_at", today);
+        .gte("updated_at", todayStr);
       if ((pixToday || 0) > 0) alertList.push(`💳 ${pixToday} lead(s) geraram pix hoje e não compraram`);
       
-      const overdueTasks = (urgentRes.data || []).filter((t: any) => t.due_date && new Date(t.due_date) < new Date());
-      if (overdueTasks.length > 0) alertList.push(`⏰ ${overdueTasks.length} tarefa(s) atrasada(s)`);
+      const overdueCards = enrichedCards.filter((c: any) => c._status === "atrasado");
+      if (overdueCards.length > 0) alertList.push(`⏰ ${overdueCards.length} card(s) atrasado(s)`);
 
       // ROAS alert
       const monthKeys = Object.keys(monthMap);
@@ -241,13 +276,13 @@ export default function Dashboard() {
       setAutoExecCount(autoCount || 0);
 
       // Project finance
-      const [projCostRes, projRevRes, projListRes] = await Promise.all([
+      const [projCostRes, projRevRes, projListRes2] = await Promise.all([
         supabase.from("imphq_project_costs").select("project_id, valor, moeda"),
         supabase.from("imphq_project_revenue").select("project_id, valor"),
         supabase.from("imphq_projects").select("id, name, icon, color"),
       ]);
       
-      const projMap = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+      const projMap = new Map((projListRes2.data || []).map((p: any) => [p.id, p]));
       const costByProj = new Map<string, number>();
       const revByProj = new Map<string, number>();
       
@@ -687,33 +722,53 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Urgent Tasks */}
+        {/* Atenção Necessária */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="font-display text-lg flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-400" /> Tarefas Urgentes
+              <AlertTriangle className="h-4 w-4 text-amber-400" /> Atenção Necessária
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {urgentTasks.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma tarefa urgente</p>}
-            {urgentTasks.map((t) => (
-              <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-                <div>
-                  <p className="text-sm font-medium">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">{t.project_id || "Sem projeto"}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {t.due_date && (
-                    <span className={`text-xs font-mono ${isOverdue(t.due_date) ? "text-red-400" : "text-muted-foreground"}`}>
-                      {new Date(t.due_date).toLocaleDateString("pt-BR")}
-                    </span>
+            {urgentTasks.length === 0 && <p className="text-sm text-muted-foreground">Nenhum card pendente</p>}
+            {urgentTasks.map((t) => {
+              const statusBadge = t._status === "travado"
+                ? { label: "Travado", cls: "bg-purple-500/20 text-purple-400" }
+                : t._status === "atrasado"
+                ? { label: "Atrasado", cls: "bg-orange-500/20 text-orange-400" }
+                : { label: t.priority === "urgent" ? "Urgente" : "Alta", cls: t.priority === "urgent" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400" };
+              return (
+                <div key={t.id} onClick={() => navigate("/kanban")} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-all hover:scale-[1.01]">
+                  {t._member ? (
+                    <div className="shrink-0 h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+                      {t._member.avatar_url ? (
+                        <img src={t._member.avatar_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-[9px] font-bold text-primary">{t._member.name?.slice(0, 2).toUpperCase()}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="shrink-0 h-7 w-7 rounded-full bg-muted flex items-center justify-center">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
                   )}
-                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${t.priority === "urgent" ? "bg-red-500/20 text-red-400" : t.priority === "high" ? "bg-amber-500/20 text-amber-400" : "bg-muted text-muted-foreground"}`}>
-                    {t.priority || "normal"}
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{t.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{t._projectName || "Sem projeto"}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {t.due_date && (
+                      <span className={`text-[10px] font-mono ${isOverdue(t.due_date) ? "text-red-400" : "text-muted-foreground"}`}>
+                        {new Date(t.due_date).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${statusBadge.cls}`}>
+                      {statusBadge.label}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       </div>
