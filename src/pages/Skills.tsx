@@ -71,6 +71,7 @@ const SKILL_FILE_MAP: Record<string, string> = {
   "mapeamento-desejos": "mapeamento-desejos-v2.md",
   "dossie-problemas": "dossie-problemas-v2.md",
   "anams-copywriter": "anams-copywriter.md",
+  "market-intel": "market-intel-v2.md",
 };
 
 const DEFAULT_SKILLS: Skill[] = [
@@ -193,23 +194,37 @@ export default function Skills() {
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     try {
-      if (file.name.endsWith(".zip")) {
-        const zip = await JSZip.loadAsync(file);
-        const mdFile = Object.keys(zip.files).find(f => f.endsWith(".md"));
-        if (!mdFile) { toast.error("Nenhum .md encontrado no ZIP"); return; }
-        const content = await zip.files[mdFile].async("string");
-        const name = mdFile.replace(/\.md$/, "").replace(/[-_]/g, " ");
-        setForm(prev => ({ ...prev, system_prompt: content, nome: prev.nome || name }));
-        toast.success(`Importado: ${mdFile}`);
-      } else {
-        const content = await file.text();
-        const name = file.name.replace(/\.md$/, "").replace(/[-_]/g, " ");
-        setForm(prev => ({ ...prev, system_prompt: content, nome: prev.nome || name }));
-        toast.success(`Importado: ${file.name}`);
+      // Collect all .md contents from files and zips
+      const mdParts: { name: string; content: string }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.name.endsWith(".zip")) {
+          const zip = await JSZip.loadAsync(file);
+          const mdFiles = Object.keys(zip.files).filter(f => f.endsWith(".md") && !zip.files[f].dir);
+          for (const mf of mdFiles) {
+            mdParts.push({ name: mf, content: await zip.files[mf].async("string") });
+          }
+        } else if (file.name.endsWith(".md")) {
+          mdParts.push({ name: file.name, content: await file.text() });
+        }
       }
+      if (mdParts.length === 0) { toast.error("Nenhum .md encontrado"); return; }
+
+      // Sort: largest file first (main prompt), rest as references
+      mdParts.sort((a, b) => b.content.length - a.content.length);
+      const mainPart = mdParts[0];
+      let combined = mainPart.content;
+      if (mdParts.length > 1) {
+        for (let i = 1; i < mdParts.length; i++) {
+          combined += `\n\n---\n\n## Referência: ${mdParts[i].name}\n\n${mdParts[i].content}`;
+        }
+      }
+      const name = mainPart.name.replace(/\.md$/, "").replace(/[-_]/g, " ");
+      setForm(prev => ({ ...prev, system_prompt: combined, nome: prev.nome || name }));
+      toast.success(`Importado: ${mdParts.length} arquivo(s) .md`);
     } catch (err) { toast.error("Erro ao importar arquivo"); }
     if (importRef.current) importRef.current.value = "";
   };
@@ -541,9 +556,9 @@ export default function Skills() {
           <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
             {/* Import button */}
             <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/15">
-              <input ref={importRef} type="file" accept=".md,.zip" onChange={handleImportFile} className="hidden" />
+              <input ref={importRef} type="file" accept=".md,.zip" multiple onChange={handleImportFile} className="hidden" />
               <Button size="sm" variant="outline" onClick={() => importRef.current?.click()} className="gap-1">
-                <Plus className="h-3 w-3" /> Importar .md / .zip
+                <Plus className="h-3 w-3" /> Importar .md / .zip (múltiplos)
               </Button>
               <span className="text-[10px] text-muted-foreground">Importa o system prompt de um arquivo .md ou .zip contendo .md</span>
             </div>

@@ -17,6 +17,7 @@ import desejoPrompt from "./skills/mapeamento-desejos-v2.md?raw";
 import dossiePrompt from "./skills/dossie-problemas-v2.md?raw";
 import anamsPrompt from "./skills/anams-copywriter.md?raw";
 import webinarRoteiroPrompt from "./skills/webinar-roteiro.md?raw";
+import marketIntelPrompt from "./skills/market-intel-v2.md?raw";
 
 export interface SkillData {
   id: string;
@@ -199,5 +200,17 @@ export const SKILLS_DATA: SkillData[] = [
     icone: "🎭",
     cor: "#e05c5c",
     system_prompt: webinarRoteiroPrompt,
+  },
+  {
+    id: "market-intel",
+    nome: "Market Intel",
+    versao: "V2.0",
+    categoria: "Inteligência Competitiva",
+    descricao: "Sistema completo de inteligência de mercado para infoprodutos. Pesquisa nichos, espiona concorrentes, mapeia produtos, define ângulos de copy e gera relatórios com score objetivo.",
+    gatilho: "[Nicho] ou [Temas do usuário]",
+    status: "Ativo",
+    icone: "🕵️",
+    cor: "#4895ef",
+    system_prompt: marketIntelPrompt,
   },
 ];
