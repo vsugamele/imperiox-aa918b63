@@ -385,17 +385,43 @@ Deno.serve(async (req) => {
           project_id: projectId,
           visitor_id: leadId,
           page_url: `webhook://${plataforma}`,
-          event_data: { produto, valor, plataforma, evento },
+          event_data: { produto, valor, plataforma, evento, tipo_venda },
           utm_source: email?.toLowerCase() || null,
         };
         if (data_compra) eventInsert.created_at = data_compra;
         await supabase.from("imphq_events").insert(eventInsert);
-        // Update ultimo_evento on lead
+
+        // Accumulate interaction + update ultimo_evento
         const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
         const currentData = (leadData?.data as Record<string, any>) || {};
+        const interacoes: any[] = currentData.interacoes || [];
+        interacoes.push({
+          evento,
+          data: data_compra || new Date().toISOString(),
+          produto,
+          valor,
+          plataforma,
+          tipo_venda,
+          utms: { utm_source: body?.utm_source, utm_medium: body?.utm_medium, utm_campaign: body?.utm_campaign },
+        });
         await supabase.from("imphq_leads").update({
-          data: { ...currentData, ultimo_evento: evento },
+          data: { ...currentData, interacoes, ultimo_evento: evento },
         }).eq("id", leadId);
+
+        // Scoring for non-purchase events
+        if (evento !== "compra_aprovada") {
+          const scoreMap: Record<string, number> = {
+            inicio_checkout: 15,
+            aguardando_pagamento: 20,
+            pix_gerado: 20,
+            carrinho_abandonado: 10,
+            lead_capturado: 10,
+          };
+          const pts = scoreMap[evento];
+          if (pts) {
+            await supabase.from("imphq_lead_scores_log").insert({ lead_id: leadId, acao: evento, pontos: pts });
+          }
+        }
       } catch (e) {
         console.warn("[webhook-pagamento] Erro ao registrar evento de jornada:", e);
       }
