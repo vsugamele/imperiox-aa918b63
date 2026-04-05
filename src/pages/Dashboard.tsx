@@ -687,33 +687,53 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Urgent Tasks */}
+        {/* Atenção Necessária */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="font-display text-lg flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-400" /> Tarefas Urgentes
+              <AlertTriangle className="h-4 w-4 text-amber-400" /> Atenção Necessária
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {urgentTasks.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma tarefa urgente</p>}
-            {urgentTasks.map((t) => (
-              <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-                <div>
-                  <p className="text-sm font-medium">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">{t.project_id || "Sem projeto"}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {t.due_date && (
-                    <span className={`text-xs font-mono ${isOverdue(t.due_date) ? "text-red-400" : "text-muted-foreground"}`}>
-                      {new Date(t.due_date).toLocaleDateString("pt-BR")}
-                    </span>
+            {urgentTasks.length === 0 && <p className="text-sm text-muted-foreground">Nenhum card pendente</p>}
+            {urgentTasks.map((t) => {
+              const statusBadge = t._status === "travado"
+                ? { label: "Travado", cls: "bg-purple-500/20 text-purple-400" }
+                : t._status === "atrasado"
+                ? { label: "Atrasado", cls: "bg-orange-500/20 text-orange-400" }
+                : { label: t.priority === "urgent" ? "Urgente" : "Alta", cls: t.priority === "urgent" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400" };
+              return (
+                <div key={t.id} onClick={() => navigate("/kanban")} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-all hover:scale-[1.01]">
+                  {t._member ? (
+                    <div className="shrink-0 h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+                      {t._member.avatar_url ? (
+                        <img src={t._member.avatar_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-[9px] font-bold text-primary">{t._member.name?.slice(0, 2).toUpperCase()}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="shrink-0 h-7 w-7 rounded-full bg-muted flex items-center justify-center">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
                   )}
-                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${t.priority === "urgent" ? "bg-red-500/20 text-red-400" : t.priority === "high" ? "bg-amber-500/20 text-amber-400" : "bg-muted text-muted-foreground"}`}>
-                    {t.priority || "normal"}
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{t.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{t._projectName || "Sem projeto"}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {t.due_date && (
+                      <span className={`text-[10px] font-mono ${isOverdue(t.due_date) ? "text-red-400" : "text-muted-foreground"}`}>
+                        {new Date(t.due_date).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${statusBadge.cls}`}>
+                      {statusBadge.label}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       </div>
