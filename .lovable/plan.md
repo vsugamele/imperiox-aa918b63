@@ -1,27 +1,30 @@
 
 
-# Plano: Fix payload.project no Hub Local
+# Plano: Expandir lista de projetos no Hub Local
 
-## Problema
+## Situacao atual
 
-O hook `useWaSession` usa `project = "default"` como fallback (linha 13), e o `WaHubQrPanel` não passa `project` ao hook. O worker recebe `payload.project = "default"` e o endpoint QR retorna 400 porque só aceita `forex`, `igaming`, `eu`.
+O frontend ja envia corretamente o projeto selecionado (nunca "default"). As mudancas do clawdbot sao no backend (worker + API). No front, so precisa expandir a lista.
 
-## Solução
+## Mudanca
 
-### 1. `WaHubQrPanel.tsx` — Adicionar seletor de projeto
+### `src/components/whatsapp/WaHubQrPanel.tsx`
 
-- Adicionar um `<Select>` com as opções `igaming`, `forex`, `eu`
-- Default: `igaming`
-- Passar `project` para o hook `useWaSession`
+Atualizar a constante `WA_PROJECTS` (linha 19-23) para incluir os novos projetos:
 
-### 2. `useWaSession.ts` — Mudar fallback
+```typescript
+const WA_PROJECTS = [
+  { value: "igaming", label: "iGaming" },
+  { value: "forex", label: "Forex" },
+  { value: "eu", label: "EU Encapsulados" },
+  { value: "crypto", label: "Crypto" },
+  { value: "imobiliario", label: "Imobiliário" },
+];
+```
 
-- Linha 13: trocar `project = "default"` para `project = "igaming"`
+Apenas 1 arquivo, 2 linhas adicionadas.
 
-## Arquivos
+## Futuro (quando o endpoint existir)
 
-| Arquivo | Mudança |
-|---|---|
-| `src/hooks/useWaSession.ts` | Fallback de `"default"` para `"igaming"` |
-| `src/components/whatsapp/WaHubQrPanel.tsx` | Seletor de projeto (igaming/forex/eu), passar ao hook |
+Quando o backend tiver `GET /api/whatsapp/projects`, trocar a constante por um fetch dinamico no mount do componente — assim novos projetos aparecem automaticamente.
 
