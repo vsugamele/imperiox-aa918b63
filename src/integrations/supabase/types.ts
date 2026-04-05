@@ -11239,6 +11239,30 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_lead_scores_log: {
+        Row: {
+          acao: string
+          created_at: string
+          id: string
+          lead_id: string
+          pontos: number
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          pontos?: number
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          pontos?: number
+        }
+        Relationships: []
+      }
       imphq_leads: {
         Row: {
           criado_em: string | null
@@ -11824,6 +11848,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_push_subscriptions: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          keys_auth: string
+          keys_p256dh: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          keys_auth: string
+          keys_p256dh: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          keys_auth?: string
+          keys_p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       imphq_quick_links: {
         Row: {

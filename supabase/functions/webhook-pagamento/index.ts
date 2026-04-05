@@ -70,6 +70,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   let valor = 0;
   let produto = "";
   let data_compra: string | null = null;
+  let tipo_venda: string = "principal";
 
   // ── Ticto v2 detection (version field or token in body) ──
   if (body?.version === "2.0" || (body?.token && body?.item && body?.customer)) {
@@ -92,13 +93,16 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     const ph = customer.phone || {};
     phone = ph.ddd && ph.number ? `${ph.ddd}${ph.number}` : "";
 
-    // paid_amount comes in cents in v2
     const order = body.order || {};
     valor = (order.paid_amount || 0) / 100;
 
     const item = body.item || {};
     produto = item.product_name || "";
     data_compra = order.approved_at || order.created_at || body.created_at || null;
+
+    // Detect bump/upsell for Ticto
+    if (item.is_bump === true) tipo_venda = "orderbump";
+    else if (item.is_upsell === true) tipo_venda = "upsell";
   }
   // ── Ticto v1 (legacy) ──
   else if (body?.tipo_evento || body?.dados) {
@@ -127,12 +131,15 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = buyer.checkout_phone || "";
     valor = body.data?.purchase?.price?.value || 0;
     produto = body.data?.product?.name || "";
-    // Hotmart envia approved_date/order_date em ms (number) ou ISO string
     const purchase = body.data?.purchase || {};
     const rawDate = purchase.approved_date || purchase.order_date || purchase.date || null;
     if (rawDate) {
       data_compra = typeof rawDate === "number" ? new Date(rawDate).toISOString() : rawDate;
     }
+
+    // Detect bump/upsell for Hotmart
+    if (purchase.is_order_bump === true) tipo_venda = "orderbump";
+    else if (body.data?.product?.has_co_production === true) tipo_venda = "upsell";
   }
   // ── Kiwify ──
   else if (body?.webhook_event_type || body?.order_status) {
@@ -150,6 +157,9 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     valor = parseFloat(body.sale_amount || body.order_value || "0");
     produto = body.product_name || body.Product?.name || "";
     data_compra = body.sale_date || body.approved_date || body.created_at || null;
+
+    // Detect bump for Kiwify
+    if (body.is_bump === true || body.bump_id) tipo_venda = "orderbump";
   }
   // ── Generic fallback ──
   else {
@@ -163,7 +173,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     data_compra = body.data_compra || body.created_at || null;
   }
 
-  return { plataforma, evento, email, nome, phone, valor, produto, data_compra };
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda };
 }
 
 Deno.serve(async (req) => {
