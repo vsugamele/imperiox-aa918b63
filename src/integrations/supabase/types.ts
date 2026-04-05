@@ -23310,6 +23310,7 @@ export type Database = {
           chat_mode: string | null
           chat_names: Json | null
           chat_phrases: Json | null
+          chat_segments: Json | null
           chat_start_seconds: number | null
           created_at: string | null
           description: string | null
@@ -23347,6 +23348,7 @@ export type Database = {
           chat_mode?: string | null
           chat_names?: Json | null
           chat_phrases?: Json | null
+          chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
           description?: string | null
@@ -23384,6 +23386,7 @@ export type Database = {
           chat_mode?: string | null
           chat_names?: Json | null
           chat_phrases?: Json | null
+          chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
           description?: string | null
