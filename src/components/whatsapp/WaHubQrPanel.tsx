@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QrCode, RefreshCw, Loader2, Wifi, WifiOff, AlertCircle, Radio } from "lucide-react";
 
 const statusConfig: Record<UiStatus, { label: string; color: string; icon: typeof Wifi }> = {
@@ -15,9 +16,16 @@ const statusConfig: Record<UiStatus, { label: string; color: string; icon: typeo
   error: { label: "Erro", color: "bg-destructive/15 text-destructive border-destructive/30", icon: AlertCircle },
 };
 
+const WA_PROJECTS = [
+  { value: "igaming", label: "iGaming" },
+  { value: "forex", label: "Forex" },
+  { value: "eu", label: "EU" },
+];
+
 export default function WaHubQrPanel() {
   const [tenantId, setTenantId] = useState("default");
   const [sessionKey, setSessionKey] = useState("");
+  const [project, setProject] = useState("igaming");
 
   const {
     uiStatus,
@@ -30,6 +38,7 @@ export default function WaHubQrPanel() {
   } = useWaSession({
     tenantId,
     sessionKey: sessionKey || "default-session",
+    project,
   });
 
   const cfg = statusConfig[uiStatus];
@@ -48,7 +57,7 @@ export default function WaHubQrPanel() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Config */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <Label className="text-xs">Tenant ID</Label>
             <Input
@@ -66,6 +75,21 @@ export default function WaHubQrPanel() {
               placeholder="minha-sessao"
               className="h-8 text-xs"
             />
+          </div>
+          <div>
+            <Label className="text-xs">Projeto</Label>
+            <Select value={project} onValueChange={setProject}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WA_PROJECTS.map(p => (
+                  <SelectItem key={p.value} value={p.value} className="text-xs">
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
