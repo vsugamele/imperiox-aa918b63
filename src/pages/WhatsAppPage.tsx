@@ -334,6 +334,12 @@ export default function WhatsApp() {
         </div>
       )}
 
+      {activeTab === "hub" && (
+        <div className="max-w-lg mx-auto">
+          <WaHubQrPanel />
+        </div>
+      )}
+
       {activeTab === "sessoes" && (<>
       <div className="flex items-center gap-3">
         <Select value={filterProject} onValueChange={setFilterProject}>
