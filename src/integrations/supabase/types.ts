@@ -22533,36 +22533,66 @@ export type Database = {
       wa_hub_iso_commands: {
         Row: {
           action: string
+          attempts: number
+          available_at: string
           created_at: string
+          created_by: string | null
+          dedupe_key: string | null
           error: string | null
+          finished_at: string | null
           id: string
+          lock_token: string | null
+          locked_at: string | null
+          max_attempts: number
           payload: Json | null
+          priority: number
           result: Json | null
           session_key: string
+          started_at: string | null
           status: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
           action: string
+          attempts?: number
+          available_at?: string
           created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
           error?: string | null
+          finished_at?: string | null
           id?: string
+          lock_token?: string | null
+          locked_at?: string | null
+          max_attempts?: number
           payload?: Json | null
+          priority?: number
           result?: Json | null
           session_key: string
+          started_at?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string
         }
         Update: {
           action?: string
+          attempts?: number
+          available_at?: string
           created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
           error?: string | null
+          finished_at?: string | null
           id?: string
+          lock_token?: string | null
+          locked_at?: string | null
+          max_attempts?: number
           payload?: Json | null
+          priority?: number
           result?: Json | null
           session_key?: string
+          started_at?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string
