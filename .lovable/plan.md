@@ -1,24 +1,51 @@
 
 
-# Diagnóstico: Tela Branca
+# Plano: Fix Lead Capturado Sem Dados na Jornada
 
-## O que aconteceu
+## Diagnostico
 
-A tela branca **não é causada por erro de código**. Verifiquei:
+Investiguei o banco e encontrei **3 bugs** que explicam tudo:
 
-- **Build**: compila sem erros (TypeScript OK)
-- **Dev server**: rodando normalmente, sem crashes
-- **Console**: único erro é a desconexão do WebSocket do Vite HMR — o hot-reload perdeu conexão com o servidor
-- **Session replay**: você navegou para `/empresa` → `/login` → `/` e a tela ficou branca
+### Bug 1: Evento LeadCapture nao tem `visitor_id`
+A edge function `capture-lead` insere o evento em `imphq_events` **sem** definir `visitor_id`. A timeline no frontend busca eventos **apenas** por `visitor_id`. Resultado: o evento existe no banco mas a timeline nunca o encontra.
 
-## Causa provável
+Confirmacao: `imphq_events` tem 0 registros de LeadCapture (o insert provavelmente falhou pelo bug 2 abaixo, mas mesmo que tivesse dado certo, nao teria `visitor_id`).
 
-O ambiente de preview perdeu a conexão WebSocket do Vite (visível no log de console). Isso é um problema transiente do proxy da plataforma — não do código.
+### Bug 2: Tabela `imphq_lead_responses` tem schema diferente do esperado
+A edge function tenta inserir com coluna `respostas` (JSONB), mas a tabela real tem colunas individuais: `question`, `answer`, `field_key`. O insert falha silenciosamente (erro SQL engolido pelo catch generico).
 
-## Solução
+Schema real:
+```text
+id | lead_id | project_id | form_id | step | question | answer | field_key | created_at
+```
 
-1. **Recarregar a página** no preview (F5 ou Ctrl+R) — isso resolve 90% dos casos de tela branca por desconexão HMR
-2. Se persistir, acessar pela **URL publicada** (https://imperiox.lovable.app) onde o proxy não interfere
+A edge function tenta: `INSERT { respostas: {...} }` → coluna nao existe → falha.
 
-Não há mudanças de código necessárias — todos os arquivos estão compilando corretamente.
+### Bug 3: Timeline nao busca eventos por email
+Mesmo se o evento existisse com `visitor_id = leadId`, a timeline so busca por `visitor_id` do campo `data.visitor_id` do lead. Para leads vindos de formulario (sem imptrack.js), esse campo e `null`.
+
+---
+
+## Correcoes
+
+### 1. Edge Function `capture-lead` (deploy necessario)
+- Definir `visitor_id: leadId` no insert do evento
+- Corrigir insert em `imphq_lead_responses`: usar colunas reais (`question`, `answer`, `field_key`), inserindo uma linha por campo extra em vez de um JSONB unico
+- Setar `data.visitor_id = leadId` no lead criado, para que a timeline funcione
+
+### 2. Timeline no `Leads.tsx`
+- Adicionar query adicional: buscar eventos `LeadCapture` por `event_data->email` quando `visitor_id` e null
+- Isso garante que leads sem imptrack.js (formulario externo) ainda mostrem a captura na jornada
+
+### 3. FormBuilder snippet (`FormBuilder.tsx`)
+- Verificar que o snippet gerado envia todos os campos extras com nomes corretos para o mapeamento `field_key`
+
+---
+
+## Resumo de Arquivos
+
+| Arquivo | Mudanca |
+|---|---|
+| `supabase/functions/capture-lead/index.ts` | `visitor_id: leadId` no evento, `data.visitor_id` no lead, fix insert lead_responses para usar colunas reais |
+| `src/pages/Leads.tsx` | Query adicional na timeline: buscar LeadCapture por email quando sem visitor_id |
 
