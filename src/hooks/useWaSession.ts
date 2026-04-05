@@ -10,7 +10,7 @@ export function useWaSession(params: {
   pollMs?: number;
   timeoutMs?: number;
 }) {
-  const { tenantId, sessionKey, project = "default", pollMs = 2500, timeoutMs = 90000 } = params;
+  const { tenantId, sessionKey, project = "igaming", pollMs = 2500, timeoutMs = 90000 } = params;
 
   const [uiStatus, setUiStatus] = useState<UiStatus>("idle");
   const [commandId, setCommandId] = useState<string | null>(null);
