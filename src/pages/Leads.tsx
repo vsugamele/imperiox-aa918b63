@@ -277,6 +277,21 @@ export default function Leads() {
       );
     }
 
+    // Fetch LeadCapture events by email (for leads without imptrack.js / visitor_id)
+    if (lead.email) {
+      promises.push(
+        Promise.resolve(supabase.from("imphq_events").select("*").eq("event_name", "LeadCapture").order("created_at", { ascending: false }).limit(50))
+          .then(({ data }) => {
+            (data || []).forEach((e: any) => {
+              const eventEmail = e.event_data?.email;
+              if (eventEmail && eventEmail.toLowerCase() === lead.email.toLowerCase() && !events.find(ev => ev.id === e.id)) {
+                events.push({ id: e.id, type: "LeadCapture", timestamp: e.created_at, title: "📥 Lead Capturado", subtitle: e.page_url ? new URL(e.page_url).pathname : (e.event_data?.source || "formulário"), details: { ...e.event_data, utm_source: e.utm_source, utm_medium: e.utm_medium, utm_campaign: e.utm_campaign } });
+              }
+            });
+          })
+      );
+    }
+
     if (lead.email) {
       promises.push(
         Promise.resolve(supabase.from("imphq_events").select("*").eq("event_name", "CSVImport").eq("utm_source", lead.email.toLowerCase()).order("created_at", { ascending: false }).limit(50))

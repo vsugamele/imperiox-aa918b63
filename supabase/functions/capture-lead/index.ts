@@ -81,6 +81,12 @@ Deno.serve(async (req) => {
       if (phone) updates.phone = phone;
       if (tags.length) updates.tags = tags;
       if (step) updates.status = step;
+      // Ensure data.visitor_id is set for timeline
+      const { data: currentLead } = await supabase.from("imphq_leads").select("data").eq("id", leadId).maybeSingle();
+      const currentData = currentLead?.data || {};
+      if (!currentData.visitor_id) {
+        updates.data = { ...currentData, visitor_id: leadId };
+      }
       if (Object.keys(updates).length) {
         await supabase.from("imphq_leads").update(updates).eq("id", leadId);
       }
@@ -96,6 +102,7 @@ Deno.serve(async (req) => {
         tags: tags.length ? tags : null,
         project_id: projectId,
         data: {
+          visitor_id: leadId,
           ultimo_evento: "lead_capturado",
           captura_origem: source,
           capturado_em: new Date().toISOString(),
@@ -111,28 +118,35 @@ Deno.serve(async (req) => {
         "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
       ]);
 
-      const respostas: Record<string, any> = {};
+      const rows: any[] = [];
       for (const [key, value] of Object.entries(body)) {
         if (!standardKeys.has(key) && value !== undefined && value !== "") {
-          respostas[key] = value;
+          rows.push({
+            id: crypto.randomUUID(),
+            lead_id: leadId,
+            project_id: projectId,
+            form_id: body.form_id,
+            step: step || null,
+            field_key: key,
+            question: key,
+            answer: String(value),
+          });
         }
       }
 
-      if (Object.keys(respostas).length > 0) {
-        await supabase.from("imphq_lead_responses").insert({
-          id: crypto.randomUUID(),
-          lead_id: leadId,
-          form_id: body.form_id,
-          respostas,
-          step: step || null,
-        });
+      if (rows.length > 0) {
+        const { error: respError } = await supabase.from("imphq_lead_responses").insert(rows);
+        if (respError) {
+          console.error("[capture-lead] Erro ao salvar respostas:", respError);
+        }
       }
     }
 
-    // Log event
+    // Log event with visitor_id = leadId
     await supabase.from("imphq_events").insert({
       id: crypto.randomUUID(),
       project_id: projectId,
+      visitor_id: leadId,
       event_name: "LeadCapture",
       event_data: { email, name, phone, source, tags, form_id: body.form_id || null },
       page_url: body.page_url || null,
