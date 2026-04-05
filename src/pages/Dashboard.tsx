@@ -100,16 +100,51 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [projRes, taskRes, leadRes, costRes, recentRes, urgentRes, oppRes, eventsRes] = await Promise.all([
+      const [projRes, taskRes, leadRes, costRes, recentRes, oppRes, eventsRes] = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
         supabase.from("imphq_custos").select("valor, moeda"),
         supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("imphq_tasks").select("*").neq("status", "done").or("priority.in.(urgent,high),due_date.lt." + new Date().toISOString()).order("due_date", { ascending: true }).limit(5),
         supabase.from("imphq_mi_opportunities").select("*").eq("ativo", true).order("score", { ascending: false }).limit(4),
         supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
       ]);
+
+      // Fetch kanban cards for "Atenção Necessária"
+      const today = new Date().toISOString().split("T")[0];
+      const [urgentCardsRes, columnsRes, membersRes, projListRes] = await Promise.all([
+        supabase.from("imphq_kanban_cards").select("*").or(`priority.in.(urgent,high),due_date.lt.${today}`).limit(20),
+        supabase.from("imphq_kanban_columns").select("id, title, board"),
+        supabase.from("imphq_team_members").select("id, name, avatar_url"),
+        supabase.from("imphq_projects").select("id, name, icon"),
+      ]);
+
+      const colMap = new Map((columnsRes.data || []).map((c: any) => [c.id, c]));
+      const memberMap = new Map((membersRes.data || []).map((m: any) => [m.id, m]));
+      const projMap2 = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+
+      const enrichedCards = (urgentCardsRes.data || []).map((c: any) => {
+        const col = colMap.get(c.column_id);
+        const colTitle = (col?.title || "").toLowerCase();
+        const isBlocked = colTitle.includes("travado") || colTitle.includes("bloqueado") || colTitle.includes("blocked");
+        const isOverdueCard = c.due_date && c.due_date < today;
+        const _status = isBlocked ? "travado" : isOverdueCard ? "atrasado" : "urgente";
+        const proj = projMap2.get(c.project_id);
+        return {
+          ...c,
+          _status,
+          _member: memberMap.get(c.member_id) || null,
+          _projectName: proj ? `${proj.icon || "📁"} ${proj.name}` : null,
+        };
+      }).filter((c: any) => {
+        // Exclude done columns
+        const col = colMap.get(c.column_id);
+        const colTitle = (col?.title || "").toLowerCase();
+        return !colTitle.includes("conclu") && !colTitle.includes("done") && !colTitle.includes("feito");
+      }).sort((a: any, b: any) => {
+        const order: Record<string, number> = { travado: 0, atrasado: 1, urgente: 2 };
+        return (order[a._status] ?? 3) - (order[b._status] ?? 3);
+      }).slice(0, 8);
 
       let totalCost = 0;
       if (costRes.data) {
@@ -126,7 +161,7 @@ export default function Dashboard() {
         monthlyCost: totalCost,
       });
       setRecentProjects(recentRes.data || []);
-      setUrgentTasks(urgentRes.data || []);
+      setUrgentTasks(enrichedCards);
       setOpportunities(oppRes.data || []);
       setUpcomingEvents(eventsRes.data || []);
 
