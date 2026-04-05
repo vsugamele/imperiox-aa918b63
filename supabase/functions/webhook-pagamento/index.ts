@@ -309,6 +309,7 @@ Deno.serve(async (req) => {
         valor,
         plataforma,
         status: "aprovado",
+        tipo_venda,
       };
       if (data_compra) vendaInsert.created_at = data_compra;
       await supabase.from("imphq_vendas").insert(vendaInsert);
@@ -317,6 +318,12 @@ Deno.serve(async (req) => {
         .from("imphq_leads")
         .update({ status: "cliente" })
         .eq("id", leadId);
+
+      // Lead scoring for purchase
+      try {
+        const scoreRows: any[] = [{ lead_id: leadId, acao: `compra_${tipo_venda}`, pontos: tipo_venda === "principal" ? 50 : tipo_venda === "upsell" ? 30 : tipo_venda === "orderbump" ? 20 : 50 }];
+        await supabase.from("imphq_lead_scores_log").insert(scoreRows);
+      } catch (e) { console.warn("[webhook-pagamento] Score error:", e); }
     }
 
     // Handle refund
