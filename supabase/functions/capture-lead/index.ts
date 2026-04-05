@@ -112,6 +112,17 @@ Deno.serve(async (req) => {
 
     // --- Save extra responses if form_id exists ---
     if (body.form_id && formConfig) {
+      // Build field_key → label map from form config
+      const fieldLabelMap: Record<string, string> = {};
+      const campos = formConfig.campos || formConfig.fields || [];
+      if (Array.isArray(campos)) {
+        campos.forEach((campo: any) => {
+          const key = campo.name || campo.key || campo.id;
+          const label = campo.label || campo.question || campo.placeholder || key;
+          if (key) fieldLabelMap[key] = label;
+        });
+      }
+
       const standardKeys = new Set([
         "form_id", "email", "name", "nome", "phone", "telefone",
         "tags", "source", "origem", "page_url", "redirect_url",
@@ -128,7 +139,7 @@ Deno.serve(async (req) => {
             form_id: body.form_id,
             step: step || null,
             field_key: key,
-            question: key,
+            question: fieldLabelMap[key] || key,
             answer: String(value),
           });
         }
@@ -140,6 +151,36 @@ Deno.serve(async (req) => {
           console.error("[capture-lead] Erro ao salvar respostas:", respError);
         }
       }
+    }
+
+    // --- Lead scoring on capture ---
+    try {
+      const scoreRows: any[] = [];
+      scoreRows.push({ lead_id: leadId, acao: "lead_capturado", pontos: 10 });
+      if (body.form_id) scoreRows.push({ lead_id: leadId, acao: "form_preenchido", pontos: 5 });
+      if (phone) scoreRows.push({ lead_id: leadId, acao: "telefone_informado", pontos: 5 });
+      await supabase.from("imphq_lead_scores_log").insert(scoreRows);
+    } catch (e) {
+      console.warn("[capture-lead] Erro ao registrar score:", e);
+    }
+
+    // --- Accumulate interaction in lead.data.interacoes ---
+    try {
+      const { data: currentLeadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).maybeSingle();
+      const ld = (currentLeadData?.data as Record<string, any>) || {};
+      const interacoes: any[] = ld.interacoes || [];
+      interacoes.push({
+        evento: "lead_capturado",
+        data: new Date().toISOString(),
+        form_id: body.form_id || null,
+        plataforma: source,
+        utms: { utm_source: body.utm_source, utm_medium: body.utm_medium, utm_campaign: body.utm_campaign },
+      });
+      await supabase.from("imphq_leads").update({
+        data: { ...ld, interacoes, ultimo_evento: "lead_capturado" },
+      }).eq("id", leadId);
+    } catch (e) {
+      console.warn("[capture-lead] Erro ao acumular interação:", e);
     }
 
     // Log event with visitor_id = leadId

@@ -70,6 +70,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   let valor = 0;
   let produto = "";
   let data_compra: string | null = null;
+  let tipo_venda: string = "principal";
 
   // ── Ticto v2 detection (version field or token in body) ──
   if (body?.version === "2.0" || (body?.token && body?.item && body?.customer)) {
@@ -92,13 +93,16 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     const ph = customer.phone || {};
     phone = ph.ddd && ph.number ? `${ph.ddd}${ph.number}` : "";
 
-    // paid_amount comes in cents in v2
     const order = body.order || {};
     valor = (order.paid_amount || 0) / 100;
 
     const item = body.item || {};
     produto = item.product_name || "";
     data_compra = order.approved_at || order.created_at || body.created_at || null;
+
+    // Detect bump/upsell for Ticto
+    if (item.is_bump === true) tipo_venda = "orderbump";
+    else if (item.is_upsell === true) tipo_venda = "upsell";
   }
   // ── Ticto v1 (legacy) ──
   else if (body?.tipo_evento || body?.dados) {
@@ -127,12 +131,15 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = buyer.checkout_phone || "";
     valor = body.data?.purchase?.price?.value || 0;
     produto = body.data?.product?.name || "";
-    // Hotmart envia approved_date/order_date em ms (number) ou ISO string
     const purchase = body.data?.purchase || {};
     const rawDate = purchase.approved_date || purchase.order_date || purchase.date || null;
     if (rawDate) {
       data_compra = typeof rawDate === "number" ? new Date(rawDate).toISOString() : rawDate;
     }
+
+    // Detect bump/upsell for Hotmart
+    if (purchase.is_order_bump === true) tipo_venda = "orderbump";
+    else if (body.data?.product?.has_co_production === true) tipo_venda = "upsell";
   }
   // ── Kiwify ──
   else if (body?.webhook_event_type || body?.order_status) {
@@ -150,6 +157,9 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     valor = parseFloat(body.sale_amount || body.order_value || "0");
     produto = body.product_name || body.Product?.name || "";
     data_compra = body.sale_date || body.approved_date || body.created_at || null;
+
+    // Detect bump for Kiwify
+    if (body.is_bump === true || body.bump_id) tipo_venda = "orderbump";
   }
   // ── Generic fallback ──
   else {
@@ -163,7 +173,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     data_compra = body.data_compra || body.created_at || null;
   }
 
-  return { plataforma, evento, email, nome, phone, valor, produto, data_compra };
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda };
 }
 
 Deno.serve(async (req) => {
@@ -185,7 +195,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    let { plataforma, evento, email, nome, phone, valor, produto, data_compra } = parseWebhookBody(body, hotmartToken);
+    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda } = parseWebhookBody(body, hotmartToken);
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
@@ -299,6 +309,7 @@ Deno.serve(async (req) => {
         valor,
         plataforma,
         status: "aprovado",
+        tipo_venda,
       };
       if (data_compra) vendaInsert.created_at = data_compra;
       await supabase.from("imphq_vendas").insert(vendaInsert);
@@ -307,6 +318,12 @@ Deno.serve(async (req) => {
         .from("imphq_leads")
         .update({ status: "cliente" })
         .eq("id", leadId);
+
+      // Lead scoring for purchase
+      try {
+        const scoreRows: any[] = [{ lead_id: leadId, acao: `compra_${tipo_venda}`, pontos: tipo_venda === "principal" ? 50 : tipo_venda === "upsell" ? 30 : tipo_venda === "orderbump" ? 20 : 50 }];
+        await supabase.from("imphq_lead_scores_log").insert(scoreRows);
+      } catch (e) { console.warn("[webhook-pagamento] Score error:", e); }
     }
 
     // Handle refund
@@ -368,17 +385,43 @@ Deno.serve(async (req) => {
           project_id: projectId,
           visitor_id: leadId,
           page_url: `webhook://${plataforma}`,
-          event_data: { produto, valor, plataforma, evento },
+          event_data: { produto, valor, plataforma, evento, tipo_venda },
           utm_source: email?.toLowerCase() || null,
         };
         if (data_compra) eventInsert.created_at = data_compra;
         await supabase.from("imphq_events").insert(eventInsert);
-        // Update ultimo_evento on lead
+
+        // Accumulate interaction + update ultimo_evento
         const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
         const currentData = (leadData?.data as Record<string, any>) || {};
+        const interacoes: any[] = currentData.interacoes || [];
+        interacoes.push({
+          evento,
+          data: data_compra || new Date().toISOString(),
+          produto,
+          valor,
+          plataforma,
+          tipo_venda,
+          utms: { utm_source: body?.utm_source, utm_medium: body?.utm_medium, utm_campaign: body?.utm_campaign },
+        });
         await supabase.from("imphq_leads").update({
-          data: { ...currentData, ultimo_evento: evento },
+          data: { ...currentData, interacoes, ultimo_evento: evento },
         }).eq("id", leadId);
+
+        // Scoring for non-purchase events
+        if (evento !== "compra_aprovada") {
+          const scoreMap: Record<string, number> = {
+            inicio_checkout: 15,
+            aguardando_pagamento: 20,
+            pix_gerado: 20,
+            carrinho_abandonado: 10,
+            lead_capturado: 10,
+          };
+          const pts = scoreMap[evento];
+          if (pts) {
+            await supabase.from("imphq_lead_scores_log").insert({ lead_id: leadId, acao: evento, pontos: pts });
+          }
+        }
       } catch (e) {
         console.warn("[webhook-pagamento] Erro ao registrar evento de jornada:", e);
       }
