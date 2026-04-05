@@ -43,7 +43,7 @@ export default function WhatsApp() {
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WaTemplate | null>(null);
   const [tplForm, setTplForm] = useState({ name: "", content: "", category: "geral", project_id: "" });
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "hub">("sessoes");
 
   const load = async () => {
     const [sRes, pRes, provRes, tRes] = await Promise.all([
@@ -254,6 +254,9 @@ export default function WhatsApp() {
         </button>
         <button onClick={() => setActiveTab("templates")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "templates" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <FileText className="h-3.5 w-3.5 inline mr-1.5" />Templates ({templates.length})
+        </button>
+        <button onClick={() => setActiveTab("hub")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <Radio className="h-3.5 w-3.5 inline mr-1.5" />Hub Local
         </button>
       </div>
 
