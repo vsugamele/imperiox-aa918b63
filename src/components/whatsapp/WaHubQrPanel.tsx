@@ -19,7 +19,9 @@ const statusConfig: Record<UiStatus, { label: string; color: string; icon: typeo
 const WA_PROJECTS = [
   { value: "igaming", label: "iGaming" },
   { value: "forex", label: "Forex" },
-  { value: "eu", label: "EU" },
+  { value: "eu", label: "EU Encapsulados" },
+  { value: "crypto", label: "Crypto" },
+  { value: "imobiliario", label: "Imobiliário" },
 ];
 
 export default function WaHubQrPanel() {
