@@ -237,15 +237,15 @@ export default function Dashboard() {
 
       // Alerts — smarter
       const alertList: string[] = [];
-      const today = new Date().toISOString().split("T")[0];
+      const todayStr = new Date().toISOString().split("T")[0];
       const { count: pixToday } = await supabase.from("imphq_leads").select("id", { count: "exact", head: true })
         .not("data->ultimo_evento", "is", null)
         .neq("status", "cliente")
-        .gte("updated_at", today);
+        .gte("updated_at", todayStr);
       if ((pixToday || 0) > 0) alertList.push(`💳 ${pixToday} lead(s) geraram pix hoje e não compraram`);
       
-      const overdueTasks = (urgentRes.data || []).filter((t: any) => t.due_date && new Date(t.due_date) < new Date());
-      if (overdueTasks.length > 0) alertList.push(`⏰ ${overdueTasks.length} tarefa(s) atrasada(s)`);
+      const overdueCards = enrichedCards.filter((c: any) => c._status === "atrasado");
+      if (overdueCards.length > 0) alertList.push(`⏰ ${overdueCards.length} card(s) atrasado(s)`);
 
       // ROAS alert
       const monthKeys = Object.keys(monthMap);
@@ -276,13 +276,13 @@ export default function Dashboard() {
       setAutoExecCount(autoCount || 0);
 
       // Project finance
-      const [projCostRes, projRevRes, projListRes] = await Promise.all([
+      const [projCostRes, projRevRes, projListRes2] = await Promise.all([
         supabase.from("imphq_project_costs").select("project_id, valor, moeda"),
         supabase.from("imphq_project_revenue").select("project_id, valor"),
         supabase.from("imphq_projects").select("id, name, icon, color"),
       ]);
       
-      const projMap = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+      const projMap = new Map((projListRes2.data || []).map((p: any) => [p.id, p]));
       const costByProj = new Map<string, number>();
       const revByProj = new Map<string, number>();
       
