@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon } from "lucide-react";
+import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon, Radio } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ChatView from "@/components/whatsapp/ChatView";
 import QrCodePanel from "@/components/whatsapp/QrCodePanel";
 import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
+import WaHubQrPanel from "@/components/whatsapp/WaHubQrPanel";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
@@ -42,7 +43,7 @@ export default function WhatsApp() {
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WaTemplate | null>(null);
   const [tplForm, setTplForm] = useState({ name: "", content: "", category: "geral", project_id: "" });
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "hub">("sessoes");
 
   const load = async () => {
     const [sRes, pRes, provRes, tRes] = await Promise.all([
@@ -254,6 +255,9 @@ export default function WhatsApp() {
         <button onClick={() => setActiveTab("templates")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "templates" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <FileText className="h-3.5 w-3.5 inline mr-1.5" />Templates ({templates.length})
         </button>
+        <button onClick={() => setActiveTab("hub")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <Radio className="h-3.5 w-3.5 inline mr-1.5" />Hub Local
+        </button>
       </div>
 
       {activeTab === "templates" && (
@@ -327,6 +331,12 @@ export default function WhatsApp() {
               <DialogFooter><Button onClick={saveTemplate}>{editingTemplate ? "Salvar" : "Criar"}</Button></DialogFooter>
             </DialogContent>
           </Dialog>
+        </div>
+      )}
+
+      {activeTab === "hub" && (
+        <div className="max-w-lg mx-auto">
+          <WaHubQrPanel />
         </div>
       )}
 

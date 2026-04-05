@@ -22530,6 +22530,99 @@ export type Database = {
           },
         ]
       }
+      wa_hub_iso_commands: {
+        Row: {
+          action: string
+          created_at: string
+          error: string | null
+          id: string
+          payload: Json | null
+          result: Json | null
+          session_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json | null
+          result?: Json | null
+          session_key: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json | null
+          result?: Json | null
+          session_key?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wa_hub_iso_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json | null
+          session_key: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          session_key: string
+          tenant_id?: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          session_key?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      wa_hub_iso_sessions: {
+        Row: {
+          id: string
+          last_seen_at: string | null
+          session_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          last_seen_at?: string | null
+          session_key: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          last_seen_at?: string | null
+          session_key?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       water_intake: {
         Row: {
           consumed_ml: number
