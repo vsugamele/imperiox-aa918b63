@@ -277,6 +277,21 @@ export default function Leads() {
       );
     }
 
+    // Fetch LeadCapture events by email (for leads without imptrack.js / visitor_id)
+    if (lead.email) {
+      promises.push(
+        Promise.resolve(supabase.from("imphq_events").select("*").eq("event_name", "LeadCapture").order("created_at", { ascending: false }).limit(50))
+          .then(({ data }) => {
+            (data || []).forEach((e: any) => {
+              const eventEmail = e.event_data?.email;
+              if (eventEmail && eventEmail.toLowerCase() === lead.email.toLowerCase() && !events.find(ev => ev.id === e.id)) {
+                events.push({ id: e.id, type: "LeadCapture", timestamp: e.created_at, title: "📥 Lead Capturado", subtitle: e.page_url ? new URL(e.page_url).pathname : (e.event_data?.source || "formulário"), details: { ...e.event_data, utm_source: e.utm_source, utm_medium: e.utm_medium, utm_campaign: e.utm_campaign } });
+              }
+            });
+          })
+      );
+    }
+
     if (lead.email) {
       promises.push(
         Promise.resolve(supabase.from("imphq_events").select("*").eq("event_name", "CSVImport").eq("utm_source", lead.email.toLowerCase()).order("created_at", { ascending: false }).limit(50))
@@ -329,17 +344,27 @@ export default function Leads() {
     promises.push(
       Promise.resolve(supabase.from("imphq_lead_responses").select("*, imphq_capture_forms(nome)").eq("lead_id", lead.id).order("created_at", { ascending: false }))
         .then(({ data }) => {
+          // Group responses by form_id + created_at (same submission)
+          const grouped: Record<string, { formName: string; entries: Array<{q: string; a: string}>; timestamp: string; id: string }> = {};
           (data || []).forEach((r: any) => {
             const formName = r.imphq_capture_forms?.nome || "Formulário";
-            const respostas = r.respostas || {};
-            const subtitle = Object.entries(respostas).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(" • ");
+            const key = `${r.form_id}_${r.created_at?.substring(0, 16)}`;
+            if (!grouped[key]) {
+              grouped[key] = { formName, entries: [], timestamp: r.created_at, id: r.id };
+            }
+            grouped[key].entries.push({ q: r.question || r.field_key || "—", a: r.answer || "—" });
+          });
+          Object.values(grouped).forEach((g) => {
+            const subtitle = g.entries.slice(0, 3).map(e => `${e.q}: ${e.a}`).join(" • ");
+            const details: Record<string, string> = {};
+            g.entries.forEach(e => { details[e.q] = e.a; });
             events.push({
-              id: r.id,
+              id: g.id,
               type: "FormResponse",
-              timestamp: r.created_at,
-              title: `📋 ${formName}`,
+              timestamp: g.timestamp,
+              title: `📋 ${g.formName}`,
               subtitle: subtitle || "Sem respostas",
-              details: respostas,
+              details,
             });
           });
         })
