@@ -888,7 +888,7 @@ export default function Leads() {
                   } catch { /* skip */ }
                 }
                 toast.success(`${success}/${toAnalyze.length} leads analisados`);
-                loadLeads();
+                load();
               }} className="gap-1"><Zap className="h-4 w-4" /> Analisar com IA</Button>
               <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>
             </div>

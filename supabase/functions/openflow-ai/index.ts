@@ -120,6 +120,7 @@ serve(async (req) => {
     if (action === "generate_avatar_perfil") return await handleAvatarPerfil(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
     if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
+    if (action === "analyze_lead") return await handleAnalyzeLead(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
 
     // Default: automation flow generation
     const triggerLabels: Record<string, string> = {
