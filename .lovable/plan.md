@@ -1,42 +1,76 @@
 
 
-# Plano: 3 Melhorias — Chat do WhatsApp, Seletor de Sessao no OpenFlow, e Envio via Lead
+# Plano: OpenFlow com Hub Local + Melhorias WhatsApp + Dashboard
 
-## 1. Ver o chat do numero que "bati" (WhatsApp Hub)
+3 blocos de trabalho.
 
-**Problema**: Quando voce conecta via Hub Local e troca mensagens, as mensagens ficam em `imphq_wa_messages` com `conversation_id = telefone`. Mas para abrir o ChatView, voce precisa de uma "sessao" em `imphq_wa_conversations`. Se nao criou manualmente, nao aparece na lista.
+---
 
-**Fix**: Na aba Hub do WhatsApp, apos conectar com sucesso, adicionar um botao "Ver Conversas" que lista as mensagens recentes agrupadas por telefone. Ao clicar, abre o ChatView diretamente usando o phone como conversation_id (ja funciona assim no ChatView — ele busca por `conversation_id` OR `phone`).
+## 1. OpenFlow: Puxar providers do Hub Local
 
-Alternativa mais robusta: criar automaticamente uma `imphq_wa_conversations` quando o Hub envia/recebe a primeira mensagem de um numero.
+**Problema**: O OpenFlow so busca `imphq_wa_providers` (Evolution/Twilio). O Hub Local usa tabelas `wa_hub_iso_sessions` — sessoes conectadas por la nao aparecem como opcao no seletor de provider do FlowEditor.
 
-## 2. OpenFlow: Mostrar qual WhatsApp vai enviar
+**Fix**: No `OpenFlow.tsx`, alem de buscar `imphq_wa_providers`, buscar tambem `wa_hub_iso_sessions` com `status = 'connected'` e unificar as duas listas em um formato comum para o FlowEditor. O FlowEditor ja aceita a prop `providers` com `id`, `provider`, `instance_name` — basta mapear as sessoes do Hub para esse formato.
 
-**Problema**: No FlowEditor, quando seleciona tipo "WhatsApp", nao mostra qual sessao/provider sera usado. O usuario nao sabe por qual numero vai sair.
-
-**Fix**: Adicionar ao FlowEditor uma prop `providers` (lista de wa_providers do projeto). Quando o tipo da acao for "whatsapp", exibir um Select com os providers configurados. Salvar `provider_id` na acao. No OpenFlow page, passar os providers filtrados pelo projeto selecionado.
-
-Mudanca na interface `Acao`:
 ```typescript
-export interface Acao {
-  tipo: string;
-  template: string;
-  delay_min: number;
-  provider_id?: string;  // novo
-  // ...
-}
+// OpenFlow.tsx - adicionar ao load()
+const hubRes = await supabase
+  .from("wa_hub_iso_sessions")
+  .select("id, session_key, tenant_id, status")
+  .eq("status", "connected");
+
+// Mapear para formato WaProvider
+const hubProviders = (hubRes.data || []).map(s => ({
+  id: `hub_${s.id}`,
+  provider: "hub_local",
+  instance_name: s.session_key,
+  twilio_from: null,
+  project_id: null,
+}));
+
+setProviders([...provRes.data || [], ...hubProviders]);
 ```
 
-## 3. Leads: Botao de enviar WhatsApp com sessao e template
+No FlowEditor, adicionar icone diferenciado para `hub_local` (📱) vs Evolution (🟢) vs Twilio (🔵).
 
-**Problema**: O `sendQuickWhatsApp` atual so abre `wa.me/` no navegador. Nao usa a infraestrutura interna (providers, templates).
+---
 
-**Fix**: Substituir por um dialog que permite:
-- Selecionar o provider/sessao WhatsApp (lista de `imphq_wa_providers`)
-- Escolher um template ou digitar texto livre
-- Variaveis automaticas: `{{nome}}`, `{{email}}`, `{{telefone}}`
-- Enviar via `whatsapp-api?action=send_message`
-- Criar automaticamente a conversa em `imphq_wa_conversations` se nao existir
+## 2. Melhorias no sistema WhatsApp integrado
+
+### 2a. Status de conexao visivel em toda a plataforma
+- No `WhatsAppPage.tsx`, mostrar badge de status da sessao Hub (connected/disconnected) no topo
+- No painel lateral (AppSidebar), mostrar indicador verde/vermelho no item WhatsApp se ha sessao ativa
+
+### 2b. Leads: Mostrar se o provider selecionado esta conectado
+- No dialog de envio WhatsApp em Leads, ao lado de cada provider no Select, mostrar badge (🟢 Conectado / 🔴 Offline)
+- Para Hub Local: checar `wa_hub_iso_sessions.status`
+- Para Evolution: checar ultimo `session_status` conhecido
+
+### 2c. Conversas do Hub: Filtro por projeto
+- O `HubConversations` atual nao filtra por projeto. Adicionar Select de projeto no topo da lista de conversas do Hub
+
+---
+
+## 3. Melhorias na Dashboard principal
+
+### 3a. Widget WhatsApp na Dashboard
+- Novo card "WhatsApp" nos stat cards mostrando:
+  - Total de mensagens enviadas (hoje/periodo)
+  - Sessoes ativas (connected)
+  - Taxa de resposta (incoming vs outgoing)
+
+### 3b. Leads recentes com score na Dashboard
+- Adicionar card "Leads Quentes" mostrando os 5 leads com maior score que ainda nao sao clientes
+- Exibir nome, score, produto, e tempo desde captura
+
+### 3c. Filtro de periodo afetando mais widgets
+- Atualmente `dashPeriod` so afeta `loadAdsGlobal`. Fazer o filtro afetar tambem:
+  - Leads trend (usar o periodo selecionado em vez de fixo 30 dias)
+  - Receita vs Custo (usar periodo em vez de fixo 6 meses)
+  - Funnel de conversao (filtrar por periodo)
+
+### 3d. Performance: Reduzir queries
+- O Dashboard faz ~15 queries sequenciais no `load()`. Agrupar em `Promise.all` as que sao independentes (varias ja estao, mas `leadsTrend`, `funnelData`, `receitaVsCusto` rodam sequencialmente apos o primeiro `Promise.all`)
 
 ---
 
@@ -44,14 +78,15 @@ export interface Acao {
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/openflow/FlowEditor.tsx` | Prop `providers`, Select de provider quando tipo=whatsapp, salvar `provider_id` na acao |
-| `src/pages/OpenFlow.tsx` | Passar providers do projeto ao FlowEditor |
-| `src/pages/Leads.tsx` | Substituir `sendQuickWhatsApp` por dialog com seletor de provider + template |
-| `src/pages/WhatsAppPage.tsx` | Na aba Hub, listar conversas recentes do hub por telefone |
+| `src/pages/OpenFlow.tsx` | Buscar `wa_hub_iso_sessions` e unificar com providers |
+| `src/components/openflow/FlowEditor.tsx` | Icone para `hub_local` no Select de provider |
+| `src/pages/WhatsAppPage.tsx` | Badge de status + filtro projeto no HubConversations |
+| `src/pages/Dashboard.tsx` | Widget WhatsApp + Leads Quentes + periodo global + otimizar queries |
+| `src/pages/Leads.tsx` | Badge de status do provider no dialog de envio |
 
 ## Ordem
 
-1. FlowEditor + OpenFlow (seletor de provider)
-2. Leads (dialog de envio WhatsApp)
-3. WhatsApp Hub (listar conversas)
+1. OpenFlow + FlowEditor (Hub Local como provider)
+2. Dashboard (widgets + filtro global + performance)
+3. WhatsApp + Leads (status badges + filtro)
 
