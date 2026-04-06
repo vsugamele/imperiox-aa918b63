@@ -47,7 +47,7 @@ export default function Financas() {
       supabase.from("imphq_project_revenue").select("*"),
       supabase.from("imphq_vendas").select("*").eq("status", "aprovado"),
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }),
-      supabase.from("imphq_projects").select("id, name, icon, briefing").eq("is_archived", false),
+      supabase.from("imphq_projects").select("id, name, icon, briefing" as any).eq("is_archived", false),
     ]);
     setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectCosts((r2.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
@@ -67,7 +67,7 @@ export default function Financas() {
       ctr: parseFloat(a.ctr) || 0,
       frequencia: parseFloat(a.frequencia) || 0,
     })));
-    setProjects((r6.data || []) as Project[]);
+    setProjects((r6.data || []) as unknown as Project[]);
   };
 
   useEffect(() => { load(); }, []);
