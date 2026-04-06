@@ -302,31 +302,45 @@ Deno.serve(async (req) => {
 
     // Handle purchase
     if (evento === "compra_aprovada" && leadId && valor > 0) {
-      const vendaInsert: any = {
-        id: crypto.randomUUID(),
-        lead_id: leadId,
-        project_id: projectId,
-        produto_nome: produto,
-        valor,
-        plataforma,
-        status: "aprovado",
-        tipo_venda,
-      };
-      if (data_compra) vendaInsert.created_at = data_compra;
-      const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
-      if (vendaErr) {
-        console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
+      // Deduplication: check if same sale exists within last 5 minutes
+      const { data: existingDup } = await supabase
+        .from("imphq_vendas")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("produto_nome", produto)
+        .eq("valor", valor)
+        .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString())
+        .limit(1);
+
+      if (existingDup && existingDup.length > 0) {
+        console.log("[webhook-pagamento] Venda duplicada ignorada para lead", leadId);
       } else {
-        console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
+        const vendaInsert: any = {
+          id: crypto.randomUUID(),
+          lead_id: leadId,
+          project_id: projectId,
+          produto_nome: produto,
+          valor,
+          plataforma,
+          status: "aprovado",
+          tipo_venda,
+        };
+        if (data_compra) vendaInsert.created_at = data_compra;
+        const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
+        if (vendaErr) {
+          console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
+        } else {
+          console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
+        }
       }
 
-      // Acumular total_gasto + atualizar status
-      const { data: currentLead } = await supabase
-        .from("imphq_leads")
-        .select("total_gasto")
-        .eq("id", leadId)
-        .single();
-      const newTotal = (parseFloat(String(currentLead?.total_gasto)) || 0) + valor;
+      // Recalculate total_gasto from actual approved sales (not increment)
+      const { data: salesSum } = await supabase
+        .from("imphq_vendas")
+        .select("valor")
+        .eq("lead_id", leadId)
+        .eq("status", "aprovado");
+      const newTotal = (salesSum || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
       await supabase
         .from("imphq_leads")
         .update({ status: "cliente", total_gasto: newTotal })
