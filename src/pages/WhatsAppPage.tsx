@@ -418,12 +418,21 @@ export default function WhatsApp() {
 function HubConversations({ projects, providers }: { projects: any[]; providers: any[] }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  const [hubSessions, setHubSessions] = useState<any[]>([]);
+  const [hubFilterProject, setHubFilterProject] = useState("all");
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "—";
 
   useEffect(() => {
-    supabase.from("imphq_wa_messages").select("*").order("created_at", { ascending: false }).limit(500)
-      .then(({ data }) => setMessages(data || []));
+    Promise.all([
+      supabase.from("imphq_wa_messages").select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status"),
+    ]).then(([msgRes, hubRes]) => {
+      setMessages(msgRes.data || []);
+      setHubSessions(hubRes.data || []);
+    });
   }, []);
+
+  const connectedCount = hubSessions.filter(s => s.status === "connected").length;
 
   const grouped = useMemo(() => {
     const map = new Map<string, { phone: string; lastMsg: string; lastAt: string; count: number; projectId: string }>();
@@ -438,8 +447,10 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
         if (m.created_at > existing.lastAt) { existing.lastAt = m.created_at; existing.lastMsg = m.content?.slice(0, 60) || ""; }
       }
     });
-    return Array.from(map.values()).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
-  }, [messages]);
+    let result = Array.from(map.values()).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+    if (hubFilterProject !== "all") result = result.filter(g => g.projectId === hubFilterProject);
+    return result;
+  }, [messages, hubFilterProject]);
 
   if (selectedPhone) {
     const phoneMessages = messages.filter(m => m.phone === selectedPhone).sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -457,9 +468,33 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 
   return (
     <div className="space-y-4">
+      {/* Hub Status */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Badge variant="outline" className={`text-xs gap-1 ${connectedCount > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
+          {connectedCount > 0 ? "🟢" : "🔴"} Hub: {connectedCount} sessão(ões) conectada(s)
+        </Badge>
+        {hubSessions.filter(s => s.status !== "connected").map(s => (
+          <Badge key={s.id} variant="outline" className="text-[10px] bg-muted text-muted-foreground">
+            🔴 {s.session_key} — offline
+          </Badge>
+        ))}
+      </div>
+
       <div className="max-w-lg mx-auto mb-6">
         <WaHubQrPanel />
       </div>
+
+      {/* Project filter */}
+      <div className="flex items-center gap-3">
+        <Select value={hubFilterProject} onValueChange={setHubFilterProject}>
+          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
       {grouped.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-primary mb-3">📱 Conversas Recentes ({grouped.length})</h3>
