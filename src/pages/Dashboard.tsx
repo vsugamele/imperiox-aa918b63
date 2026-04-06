@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon, Wallet, Lock, Zap, ShoppingCart, ArrowRight, Megaphone, Target, MousePointerClick } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, AlertTriangle, TrendingUp, CalendarIcon, Wallet, Lock, Zap, ShoppingCart, ArrowRight, Megaphone, Target, MousePointerClick, MessageCircle, Crown } from "lucide-react";
 import { formatDistanceToNow, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -43,6 +43,8 @@ export default function Dashboard() {
   const [dashProject, setDashProject] = useState("all");
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [adsGlobal, setAdsGlobal] = useState<{ gasto: number; cpl: number; roas: number; compras: number; topCampanhas: any[]; adsByProject: any[]; freqAlerts: string[] }>({ gasto: 0, cpl: 0, roas: 0, compras: 0, topCampanhas: [], adsByProject: [], freqAlerts: [] });
+  const [waStats, setWaStats] = useState<{ sent: number; received: number; sessions: number }>({ sent: 0, received: 0, sessions: 0 });
+  const [hotLeads, setHotLeads] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -329,14 +331,28 @@ export default function Dashboard() {
         return { month: month.slice(5), roas: totalCusto > 0 ? parseFloat((v.receita / totalCusto).toFixed(2)) : 0 };
       }));
 
-      // Recent kanban cards
-      const { data: cardsData } = await supabase
-        .from("imphq_kanban_cards")
-        .select("id, title, priority, board, column_id, project_id, updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(10);
+      // Recent kanban cards + WhatsApp stats + Hot Leads (parallel)
+      const [cardsDataRes, waMsgRes, hubSessionsRes, hotLeadsRes] = await Promise.all([
+        supabase.from("imphq_kanban_cards").select("id, title, priority, board, column_id, project_id, updated_at").order("updated_at", { ascending: false }).limit(10),
+        supabase.from("imphq_wa_messages").select("direction", { count: "exact" }).gte("created_at", subDays(new Date(), 30).toISOString()),
+        supabase.from("wa_hub_iso_sessions").select("id, status"),
+        supabase.from("imphq_leads").select("id, nome, score, phone, email, project_id, criado_em").neq("status", "cliente").order("score", { ascending: false }).limit(5),
+      ]);
+
+      // WhatsApp stats
+      const waMessages = waMsgRes.data || [];
+      const waSent = waMessages.filter((m: any) => m.direction === "outgoing").length;
+      const waReceived = waMessages.filter((m: any) => m.direction === "incoming").length;
+      const waConnected = (hubSessionsRes.data || []).filter((s: any) => s.status === "connected").length;
+      setWaStats({ sent: waSent, received: waReceived, sessions: waConnected });
+
+      // Hot Leads
+      const hotLeadsData = (hotLeadsRes.data || []).filter((l: any) => (l.score || 0) > 0);
+      setHotLeads(hotLeadsData);
+
+      // Kanban cards
+      const cardsData = cardsDataRes.data;
       if (cardsData) {
-        // Fetch column names
         const colIds = [...new Set(cardsData.map(c => c.column_id))];
         const { data: colsData } = await supabase.from("imphq_kanban_columns").select("id, title").in("id", colIds);
         const colMap = new Map((colsData || []).map(c => [c.id, c.title]));
@@ -458,7 +474,45 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-border">
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400"><MessageCircle className="h-5 w-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">WhatsApp</p>
+              <p className="text-lg font-mono font-bold text-emerald-400">{waStats.sent} enviadas · {waStats.received} recebidas</p>
+              <p className="text-[10px] text-muted-foreground">{waStats.sessions} sessão(ões) ativa(s)</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Hot Leads */}
+      {hotLeads.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-base flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-400" /> Leads Quentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {hotLeads.map((l: any) => (
+              <div key={l.id} onClick={() => navigate("/leads")} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{(l.nome || "?")[0].toUpperCase()}</div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{l.nome || l.email || l.phone}</p>
+                    <p className="text-[10px] text-muted-foreground">{l.email || l.phone || "—"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="text-[10px] font-mono">{l.score || 0} pts</Badge>
+                  {l.criado_em && <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(l.criado_em), { locale: ptBR, addSuffix: true })}</span>}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Ads Global Performance */}
       {adsGlobal.gasto > 0 && (

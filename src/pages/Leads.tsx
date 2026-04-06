@@ -192,7 +192,7 @@ export default function Leads() {
   };
 
   const load = async () => {
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
@@ -200,9 +200,19 @@ export default function Leads() {
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }).limit(500),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
+      supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
     ]);
     const allVendas = (vendasRes.data || []) as any[];
-    setWaProviders(waProvRes.data || []);
+    // Unify WA providers with Hub Local sessions
+    const hubProviders = (hubSessionsRes.data || []).map((s: any) => ({
+      id: `hub_${s.id}`,
+      provider: "hub_local",
+      instance_name: s.session_key,
+      twilio_from: null,
+      project_id: s.tenant_id || null,
+      is_active: true,
+    }));
+    setWaProviders([...(waProvRes.data || []), ...hubProviders]);
     setWaTemplates(waTplRes.data || []);
     setAllVendasRaw(allVendas);
     setAdsSpend(adsRes.data || []);
@@ -1860,7 +1870,7 @@ export default function Leads() {
                   <SelectContent>
                     {waProviders.map(p => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find(pr => pr.id === p.project_id)?.name || ""}
+                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find(pr => pr.id === p.project_id)?.name || ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

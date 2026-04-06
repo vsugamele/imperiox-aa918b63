@@ -235,7 +235,7 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                         <SelectContent>
                           {providers.map(p => (
                             <SelectItem key={p.id} value={p.id}>
-                              {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from}
+                              {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from}
                             </SelectItem>
                           ))}
                         </SelectContent>
