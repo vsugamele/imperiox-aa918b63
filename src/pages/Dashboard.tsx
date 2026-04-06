@@ -334,7 +334,7 @@ export default function Dashboard() {
       // Recent kanban cards + WhatsApp stats + Hot Leads (parallel)
       const [cardsDataRes, waMsgRes, hubSessionsRes, hotLeadsRes] = await Promise.all([
         supabase.from("imphq_kanban_cards").select("id, title, priority, board, column_id, project_id, updated_at").order("updated_at", { ascending: false }).limit(10),
-        supabase.from("imphq_wa_messages").select("direction", { count: "exact" }).gte("created_at", subDays(new Date(), days).toISOString()),
+        supabase.from("imphq_wa_messages").select("direction", { count: "exact" }).gte("created_at", subDays(new Date(), 30).toISOString()),
         supabase.from("wa_hub_iso_sessions").select("id, status"),
         supabase.from("imphq_leads").select("id, nome, score, phone, email, project_id, criado_em").neq("status", "cliente").order("score", { ascending: false }).limit(5),
       ]);
