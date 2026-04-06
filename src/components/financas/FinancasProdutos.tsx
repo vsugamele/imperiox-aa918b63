@@ -109,6 +109,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
       const impPct = data.imposto_pct || 0;
       const imposto = receita * (impPct / 100);
       const custoTotal = data.custos + data.custosAds;
+      const roas = data.custosAds > 0 ? receita / data.custosAds : 0;
       return {
         nome,
         qtd: data.qtd,
@@ -125,6 +126,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
         ticket: data.qtd > 0 ? data.receita / data.qtd : 0,
         preco: data.preco,
         tipo: data.tipo,
+        roas,
       };
     })
     .sort((a, b) => b.receita - a.receita);
@@ -134,6 +136,9 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   const totalCustos = products.reduce((a, p) => a + p.custoTotal, 0);
   const totalImpostos = products.reduce((a, p) => a + p.imposto, 0);
   const totalLiquidoGeral = totalReceita - totalCustos - totalImpostos;
+  const totalAdsGeral = products.reduce((a, p) => a + p.custosAds, 0);
+  const roasGeral = totalAdsGeral > 0 ? totalReceita / totalAdsGeral : 0;
+  const cpaGeral = totalVendas > 0 && totalAdsGeral > 0 ? totalAdsGeral / totalVendas : 0;
 
   const chartData = products.slice(0, 8).map(p => ({
     name: p.nome.length > 20 ? p.nome.slice(0, 20) + "…" : p.nome,
