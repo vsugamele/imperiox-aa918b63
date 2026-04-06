@@ -224,6 +224,25 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                     </div>
                   )}
 
+                  {/* Provider selector for WhatsApp */}
+                  {acao.tipo === "whatsapp" && providers.length > 0 && (
+                    <div>
+                      <Label className="text-[10px]">Sessão WhatsApp</Label>
+                      <Select value={acao.provider_id || ""} onValueChange={v => updateAcao(idx, "provider_id", v)}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Selecionar número..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {providers.map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   {/* Message/template for email/whatsapp/telegram */}
                   {!isAguardar && !isCondicao && (
                     <div>
