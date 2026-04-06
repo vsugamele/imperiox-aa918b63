@@ -1411,6 +1411,92 @@ export default function Leads() {
                 </TabsContent>
 
                 <TabsContent value="qualificacao" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {/* Origem da Captura */}
+                  {(editLead.data?.form_name || editLead.data?.form_id || editLead.data?.capturado_em) && (
+                    <div className="space-y-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📍 Origem da Captura</p>
+                      <div className="flex flex-wrap gap-2">
+                        {editLead.data?.form_name && (
+                          <Badge className="text-[10px] bg-primary/20 text-primary border-0">📋 {editLead.data.form_name}</Badge>
+                        )}
+                        {editLead.data?.captura_form_step && (
+                          <Badge variant="outline" className="text-[10px]">Step: {editLead.data.captura_form_step}</Badge>
+                        )}
+                        {editLead.data?.captura_origem && (
+                          <Badge variant="outline" className="text-[10px]">🌐 {editLead.data.captura_origem}</Badge>
+                        )}
+                        {editLead.data?.capturado_em && (() => {
+                          try {
+                            const d = new Date(editLead.data.capturado_em);
+                            return isValid(d) ? <Badge variant="outline" className="text-[10px]">📅 {format(d, "dd/MM/yyyy HH:mm")}</Badge> : null;
+                          } catch { return null; }
+                        })()}
+                      </div>
+                      {/* Tempo até compra */}
+                      {editLead.data?.capturado_em && editLead.total_gasto > 0 && editLead._vendas && editLead._vendas.length > 0 && (() => {
+                        try {
+                          const capturedAt = new Date(editLead.data.capturado_em);
+                          const firstSale = editLead._vendas!.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+                          const saleAt = new Date(firstSale.created_at!);
+                          if (!isValid(capturedAt) || !isValid(saleAt)) return null;
+                          const hours = differenceInHours(saleAt, capturedAt);
+                          const days = differenceInDays(saleAt, capturedAt);
+                          const label = days > 0 ? `${days}d ${hours % 24}h` : `${hours}h`;
+                          return (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Clock className="h-3 w-3 text-primary" />
+                              <span className="text-[11px] text-muted-foreground">Tempo até compra:</span>
+                              <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-0">{label}</Badge>
+                            </div>
+                          );
+                        } catch { return null; }
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Botão Analisar com IA */}
+                  <div className="flex justify-end">
+                    <AIGenerateButton
+                      projectId={editLead.project_id || ""}
+                      action="analyze_lead"
+                      label="Analisar Lead com IA"
+                      size="sm"
+                      variant="outline"
+                      showMenteSelector
+                      contextSources={["Respostas do formulário", "Histórico de interações", "Score", "Dados do lead"]}
+                      fieldsToFill={["Dor Principal", "Nível de Consciência", "Objeções", "Notas"]}
+                      extraBody={{
+                        lead: {
+                          nome: editLead.nome,
+                          email: editLead.email,
+                          phone: editLead.phone,
+                          plataforma: editLead.plataforma,
+                          score: editLead.score ?? editLead._score ?? 0,
+                          total_gasto: editLead.total_gasto,
+                          tags: editLead.tags,
+                          data: editLead.data,
+                        },
+                        form_responses: formResponses,
+                        score_log: scoreLog,
+                      }}
+                      onResult={(data: any) => {
+                        if (data?.qualificacao) {
+                          setEditLead((prev: any) => ({
+                            ...prev,
+                            data: {
+                              ...prev.data,
+                              qualificacao: {
+                                ...(prev.data?.qualificacao || {}),
+                                ...data.qualificacao,
+                              },
+                            },
+                          }));
+                          toast.success("Análise IA preenchida nos campos de qualificação");
+                        }
+                      }}
+                    />
+                  </div>
+
                   {/* Score Detalhado */}
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🎯 Score ({editLead.score ?? editLead._score ?? 0}/100)</p>
