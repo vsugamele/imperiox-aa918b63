@@ -20,6 +20,7 @@ import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
 import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, ChevronDown, ChevronRight, CalendarIcon, TrendingUp, Clock, Target, Megaphone } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -160,6 +161,8 @@ export default function Leads() {
   const [mainTab, setMainTab] = useState("leads");
   const [automations, setAutomations] = useState<any[]>([]);
   const [leadAutomationLogs, setLeadAutomationLogs] = useState<any[]>([]);
+  const [scoreLog, setScoreLog] = useState<{acao: string; pontos: number; created_at: string}[]>([]);
+  const [formResponses, setFormResponses] = useState<{form_id: string; question: string; answer: string; created_at: string}[]>([]);
   const [allVendasRaw, setAllVendasRaw] = useState<any[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [adsSpend, setAdsSpend] = useState<any[]>([]);
@@ -247,6 +250,8 @@ export default function Leads() {
     setTimelineLoading(true);
     setTimeline([]);
     setLeadAutomationLogs([]);
+    setScoreLog([]);
+    setFormResponses([]);
     const events: TimelineEvent[] = [];
     const visitorId = lead.data?.visitor_id;
     const promises: Promise<any>[] = [];
@@ -344,6 +349,15 @@ export default function Leads() {
     promises.push(
       Promise.resolve(supabase.from("imphq_lead_responses").select("*, imphq_capture_forms(nome)").eq("lead_id", lead.id).order("created_at", { ascending: false }))
         .then(({ data }) => {
+          // Store raw form responses for Qualificação tab
+          const rawResponses = (data || []).map((r: any) => ({
+            form_id: r.form_id || "",
+            question: r.question || r.field_key || "—",
+            answer: r.answer || "—",
+            created_at: r.created_at || "",
+          }));
+          setFormResponses(rawResponses);
+
           // Group responses by form_id + created_at (same submission)
           const grouped: Record<string, { formName: string; entries: Array<{q: string; a: string}>; timestamp: string; id: string }> = {};
           (data || []).forEach((r: any) => {
@@ -367,6 +381,14 @@ export default function Leads() {
               details,
             });
           });
+        })
+    );
+
+    // Fetch score log
+    promises.push(
+      Promise.resolve(supabase.from("imphq_lead_scores_log").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }))
+        .then(({ data }) => {
+          setScoreLog((data || []).map((s: any) => ({ acao: s.acao, pontos: s.pontos, created_at: s.created_at })));
         })
     );
 
@@ -1349,8 +1371,9 @@ export default function Leads() {
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">💰 Dados de Compra</p>
                       {editLead._vendas.map((v, i) => (
                         <div key={v.id || i} className="p-2 bg-secondary/50 rounded-lg space-y-1">
-                          <div className="flex items-center justify-between"><span className="text-xs font-medium">{v.produto_nome || "Produto"}</span><span className="text-xs font-mono text-primary">R$ {v.valor.toFixed(2)}</span></div>
+                         <div className="flex items-center justify-between"><span className="text-xs font-medium">{v.produto_nome || "Produto"}</span><span className="text-xs font-mono text-primary">R$ {v.valor.toFixed(2)}</span></div>
                           <div className="flex flex-wrap gap-1">
+                            {v.data?.tipo_venda && v.data.tipo_venda !== "principal" && <Badge className="text-[9px] px-1.5 py-0 h-4 bg-violet-500/20 text-violet-400 border-0">{v.data.tipo_venda === "orderbump" ? "Order Bump" : v.data.tipo_venda === "upsell" ? "Upsell" : v.data.tipo_venda === "downsell" ? "Downsell" : v.data.tipo_venda}</Badge>}
                             {v.data?.metodo_pagamento && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">💳 {v.data.metodo_pagamento}</Badge>}
                             {v.data?.parcelas && v.data.parcelas > 1 && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.parcelas}x</Badge>}
                             {v.data?.bandeira_cartao && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.bandeira_cartao}</Badge>}
@@ -1373,15 +1396,81 @@ export default function Leads() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="qualificacao" className="space-y-3">
-                  <div><Label>Dor Principal</Label><Textarea value={editLead.data?.qualificacao?.dor_principal || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), dor_principal: e.target.value } } })} placeholder="Qual a maior dor/frustração deste lead?" className="bg-secondary min-h-[60px]" /></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Nível de Consciência</Label><Select value={editLead.data?.qualificacao?.nivel_consciencia || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), nivel_consciencia: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="inconsciente">Inconsciente</SelectItem><SelectItem value="problema">Consciente do Problema</SelectItem><SelectItem value="solucao">Consciente da Solução</SelectItem><SelectItem value="produto">Consciente do Produto</SelectItem><SelectItem value="totalmente">Totalmente Consciente</SelectItem></SelectContent></Select></div>
-                    <div><Label>Renda Estimada</Label><Select value={editLead.data?.qualificacao?.renda || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), renda: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="ate3k">Até R$3k</SelectItem><SelectItem value="3k-8k">R$3k — R$8k</SelectItem><SelectItem value="8k-15k">R$8k — R$15k</SelectItem><SelectItem value="15k-30k">R$15k — R$30k</SelectItem><SelectItem value="30k+">R$30k+</SelectItem></SelectContent></Select></div>
+                <TabsContent value="qualificacao" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {/* Score Detalhado */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🎯 Score ({editLead.score ?? editLead._score ?? 0}/100)</p>
+                    <Progress value={editLead.score ?? editLead._score ?? 0} className="h-2" />
+                    {scoreLog.length > 0 && (
+                      <div className="space-y-1">
+                        {scoreLog.map((s, i) => (
+                          <div key={i} className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">{s.acao}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-primary">+{s.pontos}</Badge>
+                              <span className="text-[9px] text-muted-foreground">{(() => { try { const d = new Date(s.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div><Label>Canal Principal</Label><Select value={editLead.data?.qualificacao?.canal || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), canal: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="instagram">Instagram</SelectItem><SelectItem value="youtube">YouTube</SelectItem><SelectItem value="tiktok">TikTok</SelectItem><SelectItem value="google">Google</SelectItem><SelectItem value="whatsapp">WhatsApp</SelectItem><SelectItem value="indicacao">Indicação</SelectItem></SelectContent></Select></div>
-                  <div><Label>Objeções</Label><EditableTagList tags={editLead.data?.qualificacao?.objecoes || []} onChange={tags => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), objecoes: tags } } })} /></div>
-                  <div><Label>Notas do Vendedor</Label><Textarea value={editLead.data?.qualificacao?.notas_vendedor || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), notas_vendedor: e.target.value } } })} placeholder="Observações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div>
+
+                  {/* Respostas de Formulários */}
+                  {formResponses.length > 0 && (
+                    <div className="space-y-2 border-t border-border pt-3">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Respostas de Formulários</p>
+                      {formResponses.map((r, i) => (
+                        <div key={i} className="flex items-start gap-2 text-[11px]">
+                          <span className="font-medium text-muted-foreground min-w-[80px]">{r.question}</span>
+                          <span className="text-foreground">{r.answer}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Histórico de Interações */}
+                  {editLead.data?.interacoes && editLead.data.interacoes.length > 0 && (
+                    <div className="space-y-2 border-t border-border pt-3">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📊 Histórico de Interações</p>
+                      <div className="space-y-1.5">
+                        {(editLead.data.interacoes as any[]).map((int: any, i: number) => (
+                          <div key={i} className="p-2 bg-secondary/50 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-medium">{int.evento}</span>
+                                {int.tipo_venda && int.tipo_venda !== "principal" && (
+                                  <Badge className="text-[9px] px-1.5 py-0 h-4 bg-violet-500/20 text-violet-400 border-0">
+                                    {int.tipo_venda === "orderbump" ? "Order Bump" : int.tipo_venda === "upsell" ? "Upsell" : int.tipo_venda}
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[9px] text-muted-foreground">{(() => { try { const d = new Date(int.data); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {int.produto && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{int.produto}</Badge>}
+                              {int.valor && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-primary">R$ {int.valor}</Badge>}
+                              {int.plataforma && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{int.plataforma}</Badge>}
+                              {int.utms?.utm_source && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">src: {int.utms.utm_source}</Badge>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Campos Manuais */}
+                  <div className="border-t border-border pt-3 space-y-3">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">✏️ Qualificação Manual</p>
+                    <div><Label>Dor Principal</Label><Textarea value={editLead.data?.qualificacao?.dor_principal || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), dor_principal: e.target.value } } })} placeholder="Qual a maior dor/frustração deste lead?" className="bg-secondary min-h-[60px]" /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label>Nível de Consciência</Label><Select value={editLead.data?.qualificacao?.nivel_consciencia || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), nivel_consciencia: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="inconsciente">Inconsciente</SelectItem><SelectItem value="problema">Consciente do Problema</SelectItem><SelectItem value="solucao">Consciente da Solução</SelectItem><SelectItem value="produto">Consciente do Produto</SelectItem><SelectItem value="totalmente">Totalmente Consciente</SelectItem></SelectContent></Select></div>
+                      <div><Label>Renda Estimada</Label><Select value={editLead.data?.qualificacao?.renda || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), renda: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="ate3k">Até R$3k</SelectItem><SelectItem value="3k-8k">R$3k — R$8k</SelectItem><SelectItem value="8k-15k">R$8k — R$15k</SelectItem><SelectItem value="15k-30k">R$15k — R$30k</SelectItem><SelectItem value="30k+">R$30k+</SelectItem></SelectContent></Select></div>
+                    </div>
+                    <div><Label>Canal Principal</Label><Select value={editLead.data?.qualificacao?.canal || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), canal: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="instagram">Instagram</SelectItem><SelectItem value="youtube">YouTube</SelectItem><SelectItem value="tiktok">TikTok</SelectItem><SelectItem value="google">Google</SelectItem><SelectItem value="whatsapp">WhatsApp</SelectItem><SelectItem value="indicacao">Indicação</SelectItem></SelectContent></Select></div>
+                    <div><Label>Objeções</Label><EditableTagList tags={editLead.data?.qualificacao?.objecoes || []} onChange={tags => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), objecoes: tags } } })} /></div>
+                    <div><Label>Notas do Vendedor</Label><Textarea value={editLead.data?.qualificacao?.notas_vendedor || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), notas_vendedor: e.target.value } } })} placeholder="Observações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="jornada">

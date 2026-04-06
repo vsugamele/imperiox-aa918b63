@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
+import { PushOptIn } from "@/components/PushOptIn";
 
 export function AppLayout() {
   return (
@@ -13,7 +14,8 @@ export function AppLayout() {
           <header className="h-12 flex items-center border-b border-border px-4 shrink-0 bg-background/80 backdrop-blur-sm sticky top-0 z-10 gap-3">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
             <GlobalSearch />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1">
+              <PushOptIn />
               <NotificationBell />
             </div>
           </header>
