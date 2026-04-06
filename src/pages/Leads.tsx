@@ -1369,6 +1369,17 @@ export default function Leads() {
                   <div><Label>Tags</Label><EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} /></div>
                   <div><Label>📝 Notas</Label><Textarea value={editLead.data?.notas || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, notas: e.target.value } })} placeholder="Anotações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div>
 
+                  {/* Origem do Lead */}
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📍 Origem</p>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div><span className="text-muted-foreground">Projeto:</span> <span className="font-medium">{(() => { const proj = projects.find(p => p.id === editLead.project_id); return proj ? `${proj.icon || "📁"} ${proj.name}` : "—"; })()}</span></div>
+                      <div><span className="text-muted-foreground">Formulário:</span> <span className="font-medium">{(() => { const firstForm = formResponses.find(r => r.form_name); return firstForm?.form_name || (editLead.data?.interacoes?.[0]?.form_id ? "Formulário" : "—"); })()}</span></div>
+                      <div><span className="text-muted-foreground">Plataforma:</span> <span className="font-medium">{editLead.plataforma || editLead.data?.captura_origem || "—"}</span></div>
+                      <div><span className="text-muted-foreground">Captura:</span> <span className="font-medium">{editLead.data?.capturado_em ? (() => { try { const d = parseISO(editLead.data.capturado_em); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })() : (editLead.criado_em ? (() => { try { const d = parseISO(editLead.criado_em!); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })() : "—")}</span></div>
+                    </div>
+                  </div>
+
                   {editLead._vendas && editLead._vendas.length > 0 && (
                     <div className="space-y-2 border-t border-border pt-3">
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">💰 Dados de Compra</p>
@@ -1419,16 +1430,35 @@ export default function Leads() {
                     )}
                   </div>
 
-                  {/* Respostas de Formulários */}
+                  {/* Respostas de Formulários — agrupadas por form */}
                   {formResponses.length > 0 && (
-                    <div className="space-y-2 border-t border-border pt-3">
+                    <div className="space-y-3 border-t border-border pt-3">
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Respostas de Formulários</p>
-                      {formResponses.map((r, i) => (
-                        <div key={i} className="flex items-start gap-2 text-[11px]">
-                          <span className="font-medium text-muted-foreground min-w-[80px]">{r.question}</span>
-                          <span className="text-foreground">{r.answer}</span>
-                        </div>
-                      ))}
+                      {(() => {
+                        const grouped: Record<string, typeof formResponses> = {};
+                        formResponses.forEach(r => {
+                          const key = r.form_id || "_sem_form";
+                          if (!grouped[key]) grouped[key] = [];
+                          grouped[key].push(r);
+                        });
+                        return Object.entries(grouped).map(([formId, responses]) => {
+                          const formName = responses[0]?.form_name || (formId === "_sem_form" ? "Formulário" : `Form ${formId.slice(0, 8)}`);
+                          return (
+                            <div key={formId} className="space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">📋 {formName}</Badge>
+                                <span className="text-[9px] text-muted-foreground">{responses.length} respostas</span>
+                              </div>
+                              {responses.map((r, i) => (
+                                <div key={i} className="flex items-start gap-2 text-[11px] pl-2">
+                                  <span className="font-medium text-muted-foreground min-w-[80px]">{r.question}</span>
+                                  <span className="text-foreground">{r.answer}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   )}
 
