@@ -241,6 +241,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
               <TableHead className="text-right">Custos Ads</TableHead>
               <TableHead className="text-right">Imposto</TableHead>
               <TableHead className="text-right">Lucro Líq.</TableHead>
+              <TableHead className="text-right">ROAS</TableHead>
               <TableHead className="text-right">Ticket Médio</TableHead>
               <TableHead className="text-right">%</TableHead>
             </TableRow>
@@ -258,6 +259,9 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
                 <TableCell className="text-right font-mono text-blue-400">{p.custosAds > 0 ? `R$ ${p.custosAds.toFixed(2)}` : "—"}</TableCell>
                 <TableCell className="text-right font-mono text-orange-400">{p.imposto > 0 ? `R$ ${p.imposto.toFixed(2)}` : "—"}{p.imposto_pct > 0 && <span className="text-[9px] text-muted-foreground ml-1">({p.imposto_pct}%)</span>}</TableCell>
                 <TableCell className={`text-right font-mono ${p.lucroLiquido >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucroLiquido.toFixed(2)}</TableCell>
+                <TableCell className={`text-right font-mono ${p.roas >= 2 ? "text-emerald-400" : p.roas >= 1 ? "text-yellow-400" : p.roas > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                  {p.roas > 0 ? p.roas.toFixed(2) + "x" : "—"}
+                </TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">R$ {p.ticket.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">
                   {totalReceita > 0 ? ((p.receita / totalReceita) * 100).toFixed(1) : 0}%
