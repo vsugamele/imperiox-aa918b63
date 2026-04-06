@@ -335,9 +335,7 @@ export default function WhatsApp() {
       )}
 
       {activeTab === "hub" && (
-        <div className="max-w-lg mx-auto">
-          <WaHubQrPanel />
-        </div>
+        <HubConversations projects={projects} providers={providers} />
       )}
 
       {activeTab === "sessoes" && (<>

@@ -1847,6 +1847,55 @@ export default function Leads() {
         </AlertDialog>
 
         <LeadImportDialog open={showImport} onOpenChange={setShowImport} projects={projects} defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined} onComplete={load} />
+
+        {/* WhatsApp Send Dialog */}
+        <Dialog open={showWaDialog} onOpenChange={setShowWaDialog}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>💬 Enviar WhatsApp para {waTarget?.nome || waTarget?.phone}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Sessão / Provider</Label>
+                <Select value={waProviderId} onValueChange={setWaProviderId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar número..." /></SelectTrigger>
+                  <SelectContent>
+                    {waProviders.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find(pr => pr.id === p.project_id)?.name || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {waProviders.length === 0 && <p className="text-[10px] text-muted-foreground mt-1">Nenhum provider configurado. Vá em WhatsApp → Provider.</p>}
+              </div>
+              {waTemplates.length > 0 && (
+                <div>
+                  <Label>Template (opcional)</Label>
+                  <Select onValueChange={v => { const t = waTemplates.find((t: any) => t.id === v); if (t) setWaMessage(t.content); }}>
+                    <SelectTrigger><SelectValue placeholder="Usar template..." /></SelectTrigger>
+                    <SelectContent>
+                      {waTemplates.map((t: any) => (
+                        <SelectItem key={t.id} value={t.id}>{t.name} ({t.category})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label>Mensagem</Label>
+                <Textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} rows={4} placeholder="Olá {{nome}}, tudo bem?" />
+                <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {"{{nome}}"}, {"{{email}}"}, {"{{telefone}}"}</p>
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => { window.open(`https://wa.me/${waTarget?.phone?.replace(/\D/g, "")}`, "_blank"); }}>
+                Abrir wa.me
+              </Button>
+              <Button onClick={sendWaMessage} disabled={waSending || !waProviderId}>
+                <Send className="h-3.5 w-3.5 mr-1" /> {waSending ? "Enviando..." : "Enviar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
