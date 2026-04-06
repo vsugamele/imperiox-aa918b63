@@ -5,10 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { MENTES_DATA } from "@/data/mentesData";
 import {
-  Calendar, Video, Image, FileText, Megaphone, Copy, Download, Loader2, Trash2, Save, Sparkles, Code2
+  Calendar, Video, Image, FileText, Megaphone, Copy, Download, Loader2, Trash2, Save, Sparkles, Code2, Brain, UserCircle, Zap
 } from "lucide-react";
 
 interface Props {
@@ -19,6 +22,14 @@ interface Props {
 
 type ContentType = "semanal" | "ads_imagem" | "ads_video" | "vsl" | "webinar" | "lp";
 
+const SKILL_MAP: Record<string, { slug: string; label: string }> = {
+  ads_imagem: { slug: "devastador", label: "Devastador V4" },
+  ads_video: { slug: "devastador", label: "Devastador V4" },
+  vsl: { slug: "lp-persuasiva", label: "LP Persuasiva V2" },
+  webinar: { slug: "webinar-roteiro", label: "Webinar Roteiro" },
+  lp: { slug: "lp-persuasiva", label: "LP Persuasiva V2" },
+};
+
 const CONTENT_TYPES: { value: ContentType; label: string; icon: any; desc: string }[] = [
   { value: "semanal", label: "Conteúdo Semanal", icon: Calendar, desc: "Posts e stories para a semana" },
   { value: "ads_imagem", label: "Ads — Imagem", icon: Image, desc: "Copy para criativos estáticos" },
@@ -26,6 +37,17 @@ const CONTENT_TYPES: { value: ContentType; label: string; icon: any; desc: strin
   { value: "vsl", label: "Roteiro VSL", icon: Video, desc: "Video Sales Letter completo" },
   { value: "webinar", label: "Roteiro Webinário", icon: Megaphone, desc: "Webinar persuasivo" },
   { value: "lp", label: "LP de Vendas (HTML)", icon: Code2, desc: "Landing page HTML exportável" },
+];
+
+const MODELS = [
+  { id: "google/gemini-3-flash-preview", label: "⚡ Gemini 3 Flash", via: "gateway" },
+  { id: "google/gemini-3.1-pro-preview", label: "🧠 Gemini 3.1 Pro", via: "gateway" },
+  { id: "google/gemini-2.5-pro", label: "🔬 Gemini 2.5 Pro", via: "gateway" },
+  { id: "openai/gpt-5.2", label: "🚀 GPT-5.2", via: "gateway" },
+  { id: "openai/gpt-5", label: "💪 GPT-5", via: "gateway" },
+  { id: "anthropic/claude-opus-4", label: "🟣 Claude Opus 4", via: "openrouter" },
+  { id: "anthropic/claude-sonnet-4", label: "🟣 Claude Sonnet 4", via: "openrouter" },
+  { id: "deepseek/deepseek-r1", label: "🔵 DeepSeek R1", via: "openrouter" },
 ];
 
 export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Props) {
@@ -36,6 +58,17 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const [savedItems, setSavedItems] = useState<any[]>(data.central_conteudos || []);
   const [customPrompt, setCustomPrompt] = useState("");
   const [lpTopic, setLpTopic] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
+  const [selectedMente, setSelectedMente] = useState("none");
+
+  const getOpenRouterKey = (): string | null => {
+    try {
+      const raw = localStorage.getItem("imphq_api_keys");
+      if (!raw) return null;
+      return JSON.parse(raw).openrouter || null;
+    } catch { return null; }
+  };
 
   const getContextSummary = () => {
     const avatar = project.avatar || {};
@@ -46,30 +79,77 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
     return { projeto: project.name, expert, avatar, produtos, arsenal, branding };
   };
 
+  const handleOpenDialog = () => setDialogOpen(true);
+
   const handleGenerate = async () => {
+    const modelObj = MODELS.find(m => m.id === selectedModel);
+    const isOpenRouter = modelObj?.via === "openrouter";
+
+    if (isOpenRouter) {
+      const orKey = getOpenRouterKey();
+      if (!orKey) {
+        toast.error("Chave OpenRouter não configurada. Vá em Configurações → APIs & Keys.");
+        return;
+      }
+    }
+
+    setDialogOpen(false);
     setGenerating(true);
     setGeneratedContent("");
+
     try {
       const ctx = getContextSummary();
-      const prompts: Record<ContentType, string> = {
-        semanal: `Crie um planejamento de conteúdo para 7 dias (seg a dom) para "${ctx.projeto}". Inclua: tema, copy curta, CTA e formato (carrossel, reels, stories). Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 5))}. Desejos: ${JSON.stringify((ctx.avatar.desejos || []).slice(0, 5))}. Tom: ${ctx.expert.tom_voz || "profissional"}. Promessa: "${ctx.arsenal.promessa || ""}".`,
-        ads_imagem: `Crie 5 variações de copy para anúncios estáticos do produto "${ctx.produtos[0]?.nome || ctx.projeto}". Cada: headline (max 40 chars), body (max 125 chars), CTA. Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 5))}. Gatilhos: ${JSON.stringify((ctx.avatar.gatilhos || []).slice(0, 5))}.`,
-        ads_video: `Crie 3 roteiros de vídeo ads (30-60s) para "${ctx.produtos[0]?.nome || ctx.projeto}". Formatos: 1) Hook+Problema+Solução+CTA, 2) UGC storytelling, 3) Antes/depois. Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 3))}. Promessa: "${ctx.arsenal.promessa || ""}".`,
-        vsl: `Roteiro completo de VSL para "${ctx.produtos[0]?.nome || ctx.projeto}". Blocos: Hook, Problema, Agitação, Mecanismo, Prova social, Oferta, Garantia, CTA. Avatar: ${JSON.stringify(ctx.avatar.perfil || {})}. Arsenal: ${JSON.stringify(ctx.arsenal)}. Produto: ${JSON.stringify(ctx.produtos[0] || {})}.`,
-        webinar: `Estrutura completa de webinário para "${ctx.produtos[0]?.nome || ctx.projeto}". Blocos: Abertura+promessa, Credenciais, 3 blocos educacionais, Transição, Oferta+bônus, Garantia, FAQ, Escassez+CTA. Expert: ${JSON.stringify(ctx.expert)}. Arsenal: ${JSON.stringify(ctx.arsenal)}.`,
-        lp: `Gere código HTML completo de LP de vendas para "${ctx.produtos[0]?.nome || ctx.projeto}". ${lpTopic ? `Foco: ${lpTopic}.` : ""} Responsiva e persuasiva. Seções: Hero, Problema, Solução, Benefícios, Prova Social, Oferta, Garantia, FAQ, CTA final. Cores: ${JSON.stringify(ctx.branding.cores || {})}. Promessa: "${ctx.arsenal.promessa || ""}". Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 5))}. Retorne APENAS HTML completo com CSS inline.`,
+      const skill = SKILL_MAP[activeType];
+
+      const bodyPayload: Record<string, any> = {
+        project_id: projectId,
+        model: selectedModel,
       };
 
-      const finalPrompt = customPrompt ? `${prompts[activeType]}\n\nInstruções extras: ${customPrompt}` : prompts[activeType];
+      if (isOpenRouter) bodyPayload.openrouter_key = getOpenRouterKey();
+      if (selectedMente !== "none") bodyPayload.mente_id = selectedMente;
 
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-        body: { prompt: finalPrompt, project_id: projectId, action: `generate_${activeType}` },
-      });
+      if (skill) {
+        // Use execute_skill with skill_slug
+        bodyPayload.action = "execute_skill";
+        bodyPayload.skill_slug = skill.slug;
+
+        // Build extra instructions from context
+        const extraParts: string[] = [];
+        if (activeType === "lp" && lpTopic) extraParts.push(`Foco/tema: ${lpTopic}`);
+        if (activeType === "lp") extraParts.push("Retorne APENAS HTML completo com CSS inline, responsivo e persuasivo.");
+        if (activeType === "ads_imagem") extraParts.push(`Gere 5 variações de copy para anúncios estáticos. Produto: "${ctx.produtos[0]?.nome || ctx.projeto}". Cada com headline (max 40 chars), body (max 125 chars), CTA.`);
+        if (activeType === "ads_video") extraParts.push(`Gere 3 roteiros de vídeo ads (30-60s) para "${ctx.produtos[0]?.nome || ctx.projeto}". Formatos: Hook+Problema+Solução+CTA, UGC storytelling, Antes/depois.`);
+        if (activeType === "vsl") extraParts.push(`Roteiro completo de VSL para "${ctx.produtos[0]?.nome || ctx.projeto}". Blocos: Hook, Problema, Agitação, Mecanismo, Prova social, Oferta, Garantia, CTA.`);
+        if (activeType === "webinar") extraParts.push(`Estrutura completa de webinário para "${ctx.produtos[0]?.nome || ctx.projeto}". Abertura+promessa, Credenciais, 3 blocos educacionais, Transição, Oferta+bônus, Garantia, FAQ, Escassez+CTA.`);
+        if (customPrompt) extraParts.push(customPrompt);
+
+        bodyPayload.extra_instructions = extraParts.join("\n");
+      } else {
+        // semanal: use generate_content action
+        bodyPayload.action = "generate_content";
+        bodyPayload.content_type = activeType;
+
+        const prompts: Record<string, string> = {
+          semanal: `Crie um planejamento de conteúdo para 7 dias (seg a dom) para "${ctx.projeto}". Inclua: tema, copy curta, CTA e formato (carrossel, reels, stories). Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 5))}. Desejos: ${JSON.stringify((ctx.avatar.desejos || []).slice(0, 5))}. Tom: ${ctx.expert.tom_voz || "profissional"}. Promessa: "${ctx.arsenal.promessa || ""}".`,
+        };
+        bodyPayload.prompt = customPrompt
+          ? `${prompts[activeType]}\n\nInstruções extras: ${customPrompt}`
+          : prompts[activeType];
+      }
+
+      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", { body: bodyPayload });
       if (error) throw error;
       setGeneratedContent(aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData));
       toast.success("Conteúdo gerado!");
     } catch (err: any) {
-      toast.error(err.message || "Erro ao gerar");
+      if (err?.message?.includes("429") || err?.status === 429) {
+        toast.error("Rate limit excedido. Tente novamente em alguns segundos.");
+      } else if (err?.message?.includes("402") || err?.status === 402) {
+        toast.error("Créditos insuficientes. Adicione créditos no workspace.");
+      } else {
+        toast.error(err.message || "Erro ao gerar");
+      }
     } finally {
       setGenerating(false);
     }
@@ -101,6 +181,8 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
     toast.success("HTML baixado!");
   };
 
+  const activeSkill = SKILL_MAP[activeType];
+
   return (
     <div className="space-y-4">
       <Card className="bg-card border-border">
@@ -112,14 +194,22 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {CONTENT_TYPES.map((ct) => (
-              <button key={ct.value} onClick={() => setActiveType(ct.value)}
-                className={`p-3 rounded-lg border text-left transition-all ${activeType === ct.value ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary/50 hover:border-primary/40"}`}>
-                <ct.icon className="h-4 w-4 mb-1" />
-                <p className="text-xs font-medium">{ct.label}</p>
-                <p className="text-[10px] text-muted-foreground">{ct.desc}</p>
-              </button>
-            ))}
+            {CONTENT_TYPES.map((ct) => {
+              const skill = SKILL_MAP[ct.value];
+              return (
+                <button key={ct.value} onClick={() => setActiveType(ct.value)}
+                  className={`p-3 rounded-lg border text-left transition-all relative ${activeType === ct.value ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary/50 hover:border-primary/40"}`}>
+                  <ct.icon className="h-4 w-4 mb-1" />
+                  <p className="text-xs font-medium">{ct.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{ct.desc}</p>
+                  {skill && (
+                    <Badge variant="secondary" className="absolute top-1.5 right-1.5 text-[8px] px-1 py-0 gap-0.5">
+                      <Zap className="h-2 w-2" /> {skill.label}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {activeType === "lp" && (
@@ -134,12 +224,17 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
             <Textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} placeholder="Ex: Tom informal, incluir emojis..." className="bg-secondary text-xs min-h-[60px]" />
           </div>
 
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={handleGenerate} disabled={generating} className="gap-2">
+          <div className="flex gap-2 flex-wrap items-center">
+            <Button onClick={handleOpenDialog} disabled={generating} className="gap-2">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Gerando..." : "Gerar com IA"}
             </Button>
             <Badge variant="outline" className="text-[10px]">Contexto: Avatar + Expert + Arsenal + Produtos</Badge>
+            {activeSkill && (
+              <Badge variant="secondary" className="text-[10px] gap-1">
+                <Zap className="h-2.5 w-2.5" /> Skill: {activeSkill.label}
+              </Badge>
+            )}
           </div>
 
           {generatedContent && (
@@ -171,6 +266,84 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
           )}
         </CardContent>
       </Card>
+
+      {/* Pre-generation dialog with model + mente selector */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" /> Gerar {CONTENT_TYPES.find(c => c.value === activeType)?.label}
+            </DialogTitle>
+            <DialogDescription>Escolha o modelo e a personalidade IA antes de gerar.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MODELS.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <span className="font-medium">{m.label}</span>
+                      <Badge variant={m.via === "gateway" ? "secondary" : "outline"} className="ml-2 text-[9px] px-1 py-0">
+                        {m.via === "gateway" ? "Gateway" : "OpenRouter"}
+                      </Badge>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                <UserCircle className="h-3 w-3" /> Personalidade (Mente IA)
+              </Label>
+              <Select value={selectedMente} onValueChange={setSelectedMente}>
+                <SelectTrigger className="bg-secondary">
+                  <SelectValue placeholder="Nenhuma" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">🚫 Nenhuma — tom neutro</SelectItem>
+                  {MENTES_DATA.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <span>{m.icon} {m.nome}</span>
+                      <span className="text-muted-foreground ml-1 text-xs">— {m.spec}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {activeSkill && (
+              <div className="flex items-center gap-2 p-2 rounded-md bg-primary/5 border border-primary/20">
+                <Zap className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-xs font-medium">Skill: {activeSkill.label}</p>
+                  <p className="text-[10px] text-muted-foreground">O prompt profissional da skill será usado como base</p>
+                </div>
+              </div>
+            )}
+
+            {!activeSkill && (
+              <div className="flex items-center gap-2 p-2 rounded-md bg-secondary border border-border">
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-medium">Geração direta</p>
+                  <p className="text-[10px] text-muted-foreground">Sem skill dedicada — prompt contextual do projeto</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleGenerate} className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" /> Gerar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {savedItems.length > 0 && (
         <Card className="bg-card border-border">
