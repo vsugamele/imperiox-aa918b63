@@ -81,6 +81,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
       abandoned_cart: "carrinho_abandonado",
       refunded: "reembolso",
       waiting_payment: "aguardando_pagamento",
+      pix_created: "pix_gerado",
       chargeback: "chargeback",
       blocked: "bloqueado",
       started: "inicio_checkout",
