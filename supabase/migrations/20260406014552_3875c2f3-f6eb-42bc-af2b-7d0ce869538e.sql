@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_vendas ADD COLUMN IF NOT EXISTS tipo_venda TEXT DEFAULT 'principal';
