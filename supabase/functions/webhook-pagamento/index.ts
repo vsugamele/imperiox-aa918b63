@@ -320,9 +320,16 @@ Deno.serve(async (req) => {
         console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
       }
 
+      // Acumular total_gasto + atualizar status
+      const { data: currentLead } = await supabase
+        .from("imphq_leads")
+        .select("total_gasto")
+        .eq("id", leadId)
+        .single();
+      const newTotal = (parseFloat(String(currentLead?.total_gasto)) || 0) + valor;
       await supabase
         .from("imphq_leads")
-        .update({ status: "cliente" })
+        .update({ status: "cliente", total_gasto: newTotal })
         .eq("id", leadId);
 
       // Lead scoring for purchase
@@ -387,6 +394,7 @@ Deno.serve(async (req) => {
     if (journeyEventName && leadId) {
       try {
         const eventInsert: any = {
+          id: crypto.randomUUID(),
           event_name: journeyEventName,
           project_id: projectId,
           visitor_id: leadId,
