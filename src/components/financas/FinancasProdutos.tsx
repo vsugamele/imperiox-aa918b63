@@ -148,7 +148,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   return (
     <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Produtos</p>
@@ -165,6 +165,28 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Receita Total</p>
             <p className="text-2xl font-mono font-bold text-emerald-400">R$ {totalReceita.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Gasto Ads</p>
+            <p className="text-2xl font-mono font-bold text-blue-400">R$ {totalAdsGeral.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">ROAS</p>
+            <p className={`text-2xl font-mono font-bold ${roasGeral >= 2 ? "text-emerald-400" : roasGeral >= 1 ? "text-yellow-400" : "text-red-400"}`}>
+              {roasGeral > 0 ? roasGeral.toFixed(2) + "x" : "—"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">CPA</p>
+            <p className="text-2xl font-mono font-bold text-orange-400">
+              {cpaGeral > 0 ? `R$ ${cpaGeral.toFixed(2)}` : "—"}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-border">
