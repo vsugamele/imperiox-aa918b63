@@ -275,42 +275,33 @@ export default function Dashboard() {
       const { count: autoCount } = await supabase.from("imphq_activity_log").select("id", { count: "exact", head: true }).eq("action", "automacao_executada");
       setAutoExecCount(autoCount || 0);
 
-      // Project finance
-      const [projCostRes, projRevRes, projListRes2] = await Promise.all([
-        supabase.from("imphq_project_costs").select("project_id, valor, moeda"),
-        supabase.from("imphq_project_revenue").select("project_id, valor"),
-        supabase.from("imphq_projects").select("id, name, icon, color"),
-      ]);
-      
-      const projMap = new Map((projListRes2.data || []).map((p: any) => [p.id, p]));
-      const costByProj = new Map<string, number>();
-      const revByProj = new Map<string, number>();
-      
-      (projCostRes.data || []).forEach((c: any) => {
-        const val = parseFloat(c.valor) || 0;
-        const brl = c.moeda === "USD" ? val * 5.2 : val;
-        costByProj.set(c.project_id, (costByProj.get(c.project_id) || 0) + brl);
-      });
-      (projRevRes.data || []).forEach((r: any) => {
-        const val = parseFloat(r.valor) || 0;
-        revByProj.set(r.project_id, (revByProj.get(r.project_id) || 0) + val);
-      });
-      
-      const allProjIds = new Set([...costByProj.keys(), ...revByProj.keys()]);
-      const financeData = Array.from(allProjIds).map(pid => {
-        const cost = costByProj.get(pid) || 0;
-        const rev = revByProj.get(pid) || 0;
-        const proj = projMap.get(pid);
-        return { id: pid, name: proj?.name || pid, icon: proj?.icon || "📁", cost, revenue: rev, profit: rev - cost };
-      }).sort((a, b) => b.profit - a.profit).slice(0, 5);
+      // Project finance from consolidated view
+      const { data: finResumo } = await supabase
+        .from("vw_financas_resumo")
+        .select("*")
+        .gt("receita_total", 0)
+        .order("lucro_liquido", { ascending: false })
+        .limit(5);
+
+      const financeData = (finResumo || []).map((f: any) => ({
+        id: f.project_id,
+        name: f.project_name || f.project_id,
+        icon: f.project_icon || "📁",
+        cost: Number(f.custo_total) || 0,
+        revenue: Number(f.receita_total) || 0,
+        profit: Number(f.lucro_liquido) || 0,
+        roas: Number(f.roas) || 0,
+        cpl: Number(f.cpl) || 0,
+      }));
       
       setProjectFinance(financeData);
 
       // Total receita with breakdown
-      const recV = (vendasRes.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
-      const recR = (revsRes.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
-      setTotalReceita(recV + recR);
-      setReceitaBreakdown({ vendas: recV, manual: recR });
+      const totalRevFromView = (finResumo || []).reduce((s: number, f: any) => s + (Number(f.receita_total) || 0), 0);
+      const totalVendasFromView = (finResumo || []).reduce((s: number, f: any) => s + (Number(f.total_vendas) || 0), 0);
+      const totalManualFromView = (finResumo || []).reduce((s: number, f: any) => s + (Number(f.total_receita_manual) || 0), 0);
+      setTotalReceita(totalRevFromView);
+      setReceitaBreakdown({ vendas: totalVendasFromView, manual: totalManualFromView });
 
       // Receita por Projeto (vendas + revenue agrupados por project_id)
       const rpMap = new Map<string, number>();
