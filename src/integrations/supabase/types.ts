@@ -12033,7 +12033,9 @@ export type Database = {
           id: string
           image_url: string | null
           notas: string | null
+          pasta: string | null
           plataforma: string | null
+          produto: string | null
           project_id: string | null
           score: number | null
           tags: string[] | null
@@ -12047,7 +12049,9 @@ export type Database = {
           id: string
           image_url?: string | null
           notas?: string | null
+          pasta?: string | null
           plataforma?: string | null
+          produto?: string | null
           project_id?: string | null
           score?: number | null
           tags?: string[] | null
@@ -12061,7 +12065,9 @@ export type Database = {
           id?: string
           image_url?: string | null
           notas?: string | null
+          pasta?: string | null
           plataforma?: string | null
+          produto?: string | null
           project_id?: string | null
           score?: number | null
           tags?: string[] | null
@@ -12479,10 +12485,12 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string | null
+          icon_url: string | null
           id: string
           name: string
           notes: string | null
           password_encrypted: string | null
+          produto: string | null
           project_id: string | null
           updated_at: string | null
           url: string | null
@@ -12491,10 +12499,12 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string | null
+          icon_url?: string | null
           id?: string
           name: string
           notes?: string | null
           password_encrypted?: string | null
+          produto?: string | null
           project_id?: string | null
           updated_at?: string | null
           url?: string | null
@@ -12503,10 +12513,12 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string | null
+          icon_url?: string | null
           id?: string
           name?: string
           notes?: string | null
           password_encrypted?: string | null
+          produto?: string | null
           project_id?: string | null
           updated_at?: string | null
           url?: string | null
