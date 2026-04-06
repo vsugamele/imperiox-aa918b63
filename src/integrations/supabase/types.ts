@@ -23234,6 +23234,50 @@ export type Database = {
           },
         ]
       }
+      webi_live_chat: {
+        Row: {
+          author: string
+          created_at: string | null
+          id: string
+          is_broadcast: boolean | null
+          is_simulated: boolean | null
+          session_id: string
+          text: string
+          timestamp_video: number
+          webinar_id: string
+        }
+        Insert: {
+          author: string
+          created_at?: string | null
+          id?: string
+          is_broadcast?: boolean | null
+          is_simulated?: boolean | null
+          session_id: string
+          text: string
+          timestamp_video: number
+          webinar_id: string
+        }
+        Update: {
+          author?: string
+          created_at?: string | null
+          id?: string
+          is_broadcast?: boolean | null
+          is_simulated?: boolean | null
+          session_id?: string
+          text?: string
+          timestamp_video?: number
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_live_chat_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_materials: {
         Row: {
           created_at: string | null
@@ -23546,6 +23590,7 @@ export type Database = {
           ai_persona_name: string | null
           ai_system_prompt: string | null
           chat_cpm: number | null
+          chat_default_tab: string | null
           chat_end_seconds: number | null
           chat_interval_minutes: number | null
           chat_mode: string | null
@@ -23558,6 +23603,10 @@ export type Database = {
           display_name: string | null
           duration_seconds: number | null
           evergreen_offset_seconds: number | null
+          fake_viewers_end: number | null
+          fake_viewers_peak: number | null
+          fake_viewers_peak_at_pct: number | null
+          fake_viewers_start: number | null
           form_fields: Json | null
           id: string
           name: string
@@ -23568,8 +23617,10 @@ export type Database = {
           schedule_recurrence: string
           schedule_time: string | null
           scheduled_start_at: string | null
+          session_started_at: string | null
           slug: string
           status: string | null
+          theme: string | null
           thumbnail_url: string | null
           tracking_body_code: string | null
           tracking_head_code: string | null
@@ -23587,6 +23638,7 @@ export type Database = {
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
           chat_cpm?: number | null
+          chat_default_tab?: string | null
           chat_end_seconds?: number | null
           chat_interval_minutes?: number | null
           chat_mode?: string | null
@@ -23599,6 +23651,10 @@ export type Database = {
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
+          fake_viewers_end?: number | null
+          fake_viewers_peak?: number | null
+          fake_viewers_peak_at_pct?: number | null
+          fake_viewers_start?: number | null
           form_fields?: Json | null
           id?: string
           name: string
@@ -23609,8 +23665,10 @@ export type Database = {
           schedule_recurrence?: string
           schedule_time?: string | null
           scheduled_start_at?: string | null
+          session_started_at?: string | null
           slug: string
           status?: string | null
+          theme?: string | null
           thumbnail_url?: string | null
           tracking_body_code?: string | null
           tracking_head_code?: string | null
@@ -23628,6 +23686,7 @@ export type Database = {
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
           chat_cpm?: number | null
+          chat_default_tab?: string | null
           chat_end_seconds?: number | null
           chat_interval_minutes?: number | null
           chat_mode?: string | null
@@ -23640,6 +23699,10 @@ export type Database = {
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
+          fake_viewers_end?: number | null
+          fake_viewers_peak?: number | null
+          fake_viewers_peak_at_pct?: number | null
+          fake_viewers_start?: number | null
           form_fields?: Json | null
           id?: string
           name?: string
@@ -23650,8 +23713,10 @@ export type Database = {
           schedule_recurrence?: string
           schedule_time?: string | null
           scheduled_start_at?: string | null
+          session_started_at?: string | null
           slug?: string
           status?: string | null
+          theme?: string | null
           thumbnail_url?: string | null
           tracking_body_code?: string | null
           tracking_head_code?: string | null
