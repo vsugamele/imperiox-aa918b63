@@ -132,7 +132,7 @@ export default function Referencias() {
   const importFromProject = async () => {
     setImporting(true);
     let count = 0;
-    const { data: media } = await supabase.from("imphq_media_content").select("*").eq("category", "anuncios");
+    const { data: media } = await (supabase as any).from("imphq_media_content").select("*").eq("category", "anuncios");
     if (media) {
       for (const m of media) {
         const exists = refs.some(r => r.image_url === (m as any).file_url && r.project_id === (m as any).project_id);
