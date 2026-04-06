@@ -86,6 +86,7 @@ export function CopyArsenalSection({ arsenal, onChange, projectId }: Props) {
             fieldsToFill={COPY_BLOCKS.map(b => b.label)}
             label="Gerar com IA"
             size="sm"
+            showMenteSelector={true}
           />
         )}
       </div>
