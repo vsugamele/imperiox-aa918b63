@@ -4,13 +4,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
+  projectId?: string;
 }
 
-export function VoyerismosTab({ avatar, onUpdate }: Props) {
+export function VoyerismosTab({ avatar, onUpdate, projectId }: Props) {
   const voyerismos = avatar.voyerismos || [];
 
   const add = () => onUpdate({
@@ -29,9 +31,21 @@ export function VoyerismosTab({ avatar, onUpdate }: Props) {
   return (
     <div className="space-y-6">
       <Card className="bg-card border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">👁️ Cenas de Voyerismo</CardTitle>
-          <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Cena</Button>
+          <div className="flex items-center gap-2">
+            {projectId && (
+              <AIGenerateButton
+                projectId={projectId}
+                action="execute_skill"
+                label="Gerar Cenas"
+                extraBody={{ skill_slug: "dossie-problemas", extra_instructions: "Gere cenas de voyerismo detalhadas: situação real do dia-a-dia, sintoma físico, pensamento interno, comportamento resultante e como usar na copy." }}
+                onResult={() => {}}
+                contextSources={["Avatar", "Dores", "Problemas"]}
+              />
+            )}
+            <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Cena</Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">Cenas reais do dia-a-dia do avatar que revelam dor profunda. Usadas em hooks, aberturas de VSL e copy de alto impacto.</p>

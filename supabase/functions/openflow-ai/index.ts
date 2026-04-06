@@ -290,14 +290,21 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, ba
 }
 
 async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string) {
-  const { skill_id, skill_system_prompt, produto, extra_instructions } = body;
+  const { skill_id, skill_slug, skill_system_prompt, produto, extra_instructions } = body;
 
-  // Get skill system prompt - prefer passed prompt, fallback to DB
+  // Get skill system prompt - prefer passed prompt, fallback to DB by id, then by slug/nome
   let systemPrompt = skill_system_prompt || "";
   let skillCategoria = "";
   if (!systemPrompt && skill_id) {
     const { data: skill } = await sb.from("imphq_skills").select("system_prompt, categoria").eq("id", skill_id).single();
     if (skill?.system_prompt) { systemPrompt = skill.system_prompt; skillCategoria = skill.categoria || ""; }
+  }
+  if (!systemPrompt && skill_slug) {
+    // Search by slug (nome field, case-insensitive partial match)
+    const { data: skills } = await sb.from("imphq_skills").select("system_prompt, categoria, nome")
+      .eq("status", "Ativa").not("system_prompt", "is", null)
+      .ilike("nome", `%${skill_slug}%`).limit(1);
+    if (skills?.[0]?.system_prompt) { systemPrompt = skills[0].system_prompt; skillCategoria = skills[0].categoria || ""; }
   }
   if (!systemPrompt) throw new Error("Skill sem system_prompt");
 
