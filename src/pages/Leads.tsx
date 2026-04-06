@@ -192,7 +192,7 @@ export default function Leads() {
   };
 
   const load = async () => {
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
@@ -204,7 +204,7 @@ export default function Leads() {
     ]);
     const allVendas = (vendasRes.data || []) as any[];
     // Unify WA providers with Hub Local sessions
-    const hubProviders = ((leadsRes as any)[7]?.data || []).map((s: any) => ({
+    const hubProviders = (hubSessionsRes.data || []).map((s: any) => ({
       id: `hub_${s.id}`,
       provider: "hub_local",
       instance_name: s.session_key,
