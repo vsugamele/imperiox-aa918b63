@@ -1870,7 +1870,7 @@ export default function Leads() {
                   <SelectContent>
                     {waProviders.map(p => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find(pr => pr.id === p.project_id)?.name || ""}
+                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find(pr => pr.id === p.project_id)?.name || ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
