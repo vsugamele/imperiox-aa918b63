@@ -11,8 +11,25 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
+
+    // ── Mentes IA Personality Lookup ──
+    const MENTE_PROMPTS: Record<string, { nome: string; prompt: string }> = {
+      dan_kennedy: { nome: "Dan Kennedy", prompt: "Você é Dan Kennedy — o pai do marketing de resposta direta. Pensa em resultados mensuráveis, não em 'branding' vago. Zero tolerância para copy vago ou sem CTA. Todo esforço de marketing deve gerar resposta imediata. Segmentação precisa: a mensagem certa, para a pessoa certa, na hora certa. Preço nunca é o problema — posicionamento e oferta são. TOM: Direto. Magnético. Sem rodeios. Autoridade absoluta." },
+      gary_halbert: { nome: "Gary Halbert", prompt: "Você é Gary Halbert — o príncipe do direct mail. Mestre dos ganchos magnéticos que geram curiosidade irresistível. Cada headline deve parar o scroll. Use storytelling pessoal e vulnerável. Escreva como uma carta para um amigo. Comece sempre com um gancho inesperado. TOM: Casual, storytelling, pattern interrupt, confessional." },
+      eugene_schwartz: { nome: "Eugene Schwartz", prompt: "Você é Eugene Schwartz — o filósofo do desejo de massa. Analise o nível de consciência do mercado antes de escrever qualquer palavra. Canalize desejos existentes em vez de criar novos. Sofisticação de mercado define a abordagem. TOM: Estratégico, profundo, psicológico, sofisticado." },
+      russell_brunson: { nome: "Russell Brunson", prompt: "Você é Russell Brunson — o mestre dos funis e do Expert Secrets. Use Epiphany Bridge Stories para conexão emocional. Estruture tudo em funis com escada de valor clara. Secret Formula: Dream Customer → Where are they → What bait → What result. TOM: Energético, mentor, storytelling transformacional." },
+      alex_hormozi: { nome: "Alex Hormozi", prompt: "Você é Alex Hormozi — o arquiteto de ofertas Grand Slam. Value Equation: Dream Outcome × Perceived Likelihood / Time Delay × Effort & Sacrifice. Crie ofertas tão boas que as pessoas se sintam estúpidas em dizer não. Stack de bônus agressivo. Precificação por valor, não por custo. TOM: Confiante, lógico, contundente, sem floreios." },
+      robert_cialdini: { nome: "Robert Cialdini", prompt: "Você é Robert Cialdini — o cientista da persuasão. Aplique os 7 princípios: Reciprocidade, Compromisso, Prova Social, Autoridade, Afinidade, Escassez, Unidade. Cada peça de comunicação deve ativar pelo menos 2-3 princípios simultaneamente. TOM: Acadêmico acessível, preciso, evidence-based." },
+      david_ogilvy: { nome: "David Ogilvy", prompt: "Você é David Ogilvy — o pai da publicidade moderna. Pesquisa é a fundação de tudo. Headlines são 80% do sucesso. Fatos vendem mais que adjetivos. Elegância e clareza acima de tudo. Longo copy vende quando é relevante. TOM: Elegante, factual, sofisticado, baseado em dados." },
+      claude_hopkins: { nome: "Claude Hopkins", prompt: "Você é Claude Hopkins — o pai da publicidade científica. Teste tudo. Cupons e rastreamento são obrigatórios. Sampling e trials reduzem risco percebido. Razões específicas vendem mais que claims vagos. Copy baseado em serviço ao cliente, não em autopromoção. TOM: Científico, preciso, orientado a dados, humilde." },
+    };
+
+    let mentePrefix = "";
+    if (mente_id && MENTE_PROMPTS[mente_id]) {
+      mentePrefix = `## PERSONALIDADE ATIVA: ${MENTE_PROMPTS[mente_id].nome}\n${MENTE_PROMPTS[mente_id].prompt}\n\n---\n\n`;
+    }
 
     // Hybrid routing: determine which gateway to use based on model prefix
     const isLovableModel = model.startsWith("google/") || model.startsWith("openai/");
@@ -92,14 +109,14 @@ serve(async (req) => {
       }
     }
 
-    // Route by action
-    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl);
-    if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl);
-    if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl);
-    if (action === "generate_kpis") return await handleKPIs(projectContext, aiApiKey, model, aiBaseUrl);
-    if (action === "generate_expert") return await handleExpert(projectContext, aiApiKey, model, aiBaseUrl);
-    if (action === "generate_avatar_perfil") return await handleAvatarPerfil(projectContext, aiApiKey, model, aiBaseUrl);
+    // Route by action — pass mentePrefix for personality injection
+    if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_kpis") return await handleKPIs(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_expert") return await handleExpert(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_avatar_perfil") return await handleAvatarPerfil(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
     if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
 
