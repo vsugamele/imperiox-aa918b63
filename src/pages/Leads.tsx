@@ -414,7 +414,14 @@ export default function Leads() {
     const matchProject = projectFilter === "all" || l.project_id === projectFilter || (!l.project_id && projectFilter === "none");
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
-    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage && matchProduct;
+    const matchDate = (() => {
+      if (!l.criado_em) return true;
+      try {
+        const d = parseISO(l.criado_em);
+        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
+      } catch { return true; }
+    })();
+    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage && matchProduct && matchDate;
   });
 
   const totalLeads = leads.length;
@@ -847,16 +854,24 @@ export default function Leads() {
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
               <Button size="sm" variant="outline" onClick={() => {
-                const headers = ["Nome","Email","Telefone","Status","Estágio","Plataforma","Projeto","Score","Receita","Criado em"];
-                const rows = filtered.map(l => [
-                  l.nome || "", l.email || "", l.phone || "", l.status || "", getLeadStage(l),
-                  l.plataforma || "", projects.find(p => p.id === l.project_id)?.name || "",
-                  String(l._score || 0), String(l.total_gasto || 0), l.criado_em?.split("T")[0] || ""
-                ]);
+                const headers = ["Nome","Email","Telefone","Status","Estágio","Plataforma","Projeto","Produto","Score","Receita","Criado em"];
+                const rows = filtered.map(l => {
+                  const vendas = l._vendas || [];
+                  const produto = vendas.map(v => v.produto_nome).filter(Boolean).join(", ") || "";
+                  return [
+                    l.nome || "", l.email || "", l.phone || "", l.status || "", getLeadStage(l),
+                    l.plataforma || "", projects.find(p => p.id === l.project_id)?.name || "",
+                    produto, String(l._score || 0), String(l.total_gasto || 0), l.criado_em?.split("T")[0] || ""
+                  ];
+                });
                 const csv = [headers, ...rows].map(r => r.map(c => `"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
                 const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement("a"); a.href = url; a.download = `leads_${new Date().toISOString().split("T")[0]}.csv`; a.click();
+                const projName = projectFilter !== "all" && projectFilter !== "none" ? (projects.find(p => p.id === projectFilter)?.name || "").replace(/\s+/g, "-") : "";
+                const prodName = productFilter !== "all" ? productFilter.replace(/\s+/g, "-") : "";
+                const dateRange = `${format(periodRange.from, "yyyy-MM-dd")}_${format(periodRange.to, "yyyy-MM-dd")}`;
+                const parts = ["leads", projName, prodName, dateRange].filter(Boolean).join("_");
+                const a = document.createElement("a"); a.href = url; a.download = `${parts}.csv`; a.click();
                 URL.revokeObjectURL(url);
                 toast.success(`${filtered.length} leads exportados`);
               }}>📥 Export CSV</Button>
@@ -930,6 +945,39 @@ export default function Leads() {
                   {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <Select value={analyticsPeriod} onValueChange={(v) => setAnalyticsPeriod(v as PeriodKey)}>
+                <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Período" /></SelectTrigger>
+                <SelectContent>
+                  {PERIOD_OPTIONS.map(o => <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {analyticsPeriod === "custom" && (
+                <div className="flex items-center gap-1">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1">
+                        <CalendarIcon className="h-3 w-3" />
+                        {customFrom ? format(customFrom, "dd/MM/yy") : "De"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={customFrom} onSelect={(d) => d && setCustomFrom(d)} className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-muted-foreground text-xs">→</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1">
+                        <CalendarIcon className="h-3 w-3" />
+                        {customTo ? format(customTo, "dd/MM/yy") : "Até"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={customTo} onSelect={(d) => d && setCustomTo(d)} className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
               <Button size="icon" variant="ghost" className="h-9 w-9" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
             </div>
 
