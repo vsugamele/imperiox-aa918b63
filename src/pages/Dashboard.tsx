@@ -474,7 +474,45 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-border">
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400"><MessageCircle className="h-5 w-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">WhatsApp</p>
+              <p className="text-lg font-mono font-bold text-emerald-400">{waStats.sent} enviadas · {waStats.received} recebidas</p>
+              <p className="text-[10px] text-muted-foreground">{waStats.sessions} sessão(ões) ativa(s)</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Hot Leads */}
+      {hotLeads.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-base flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-400" /> Leads Quentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {hotLeads.map((l: any) => (
+              <div key={l.id} onClick={() => navigate("/leads")} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{(l.nome || "?")[0].toUpperCase()}</div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{l.nome || l.email || l.phone}</p>
+                    <p className="text-[10px] text-muted-foreground">{l.email || l.phone || "—"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="text-[10px] font-mono">{l.score || 0} pts</Badge>
+                  {l.criado_em && <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(l.criado_em), { locale: ptBR, addSuffix: true })}</span>}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Ads Global Performance */}
       {adsGlobal.gasto > 0 && (
