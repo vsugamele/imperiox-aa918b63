@@ -1,54 +1,79 @@
 
 
-# Plano: Melhorar dados na aba Produtos do Financas
+# Diagnostico: 3 Bugs no webhook-pagamento
 
-## Problema identificado
+## Dados encontrados no banco
 
-Na linha 440 do `Financas.tsx`:
-```typescript
-<FinancasProdutos vendas={fVendas} />
-```
+| Lead | Webhooks recebidos | Vendas | Eventos Jornada | total_gasto | data.interacoes |
+|---|---|---|---|---|---|
+| **Fernanda** (00b1ad95) | `pix_created` + `compra_aprovada` | **0** | **0** | **0** | 1 (compra_aprovada) |
+| **Ingride** (f4b426f2) | `pix_created` | **0** | **0** | **0** | **0** (vazio) |
 
-O componente `FinancasProdutos` aceita 5 props (`vendas`, `briefingProdutos`, `revenues`, `costs`, `ads`), mas so recebe `vendas`. Por isso todas as colunas Custos Op., Custos Ads, Imposto mostram "—" e o Lucro Liquido = Receita.
+## 3 Bugs identificados
 
-Alem disso, a aba Produtos nao mostra **Gasto Ads Total** nem **ROAS por produto**, que sao os dados que voce precisa pra entender quanto gastou vs quanto retornou por periodo.
+### Bug 1: `imphq_events` — insert falha por falta de `id`
+
+A tabela `imphq_events` tem `id text NOT NULL` sem default. O codigo do webhook (linha 389-396) **nao seta `id`** no insert. Resultado: TODAS as insercoes de eventos de jornada falham silenciosamente. Isso explica:
+- Fernanda sem eventos de jornada (pix + compra)
+- Ingride sem evento de jornada (pix)
+
+**Fix**: Adicionar `id: crypto.randomUUID()` no eventInsert.
+
+### Bug 2: `total_gasto` nunca e atualizado
+
+Apos inserir a venda (linha 304-321), o codigo so atualiza `status: "cliente"` (linha 323-326). **Nao soma o valor em `total_gasto`**. Por isso Fernanda mostra `total_gasto = 0` e a coluna "Receita" no CRM aparece como "—".
+
+**Fix**: Adicionar update de `total_gasto` acumulando o valor da venda.
+
+### Bug 3: Ingride — `data.interacoes` vazio
+
+O webhook da Ingride (`pix_created` em 12:45) nao salvou interacoes. Isso sugere que a versao deployada da edge function nao tinha a logica de interacoes ou que o mapeamento `pix_created → pix_gerado` nao estava deployado.
+
+**Fix**: Garantir o deploy com o codigo atual + corrigir os dados manualmente.
 
 ## Solucao
 
-### 1. Passar todas as props filtradas para FinancasProdutos
+### 1. Corrigir `webhook-pagamento/index.ts`
 
+**Evento insert — adicionar id** (linha ~389):
 ```typescript
-<FinancasProdutos
-  vendas={fVendas}
-  revenues={fProjectRevenues}
-  costs={fProjectCosts}
-  ads={fAds}
-  briefingProdutos={briefingProdutos}
+const eventInsert: any = {
+  id: crypto.randomUUID(),  // ← ADICIONAR
+  event_name: journeyEventName,
+  ...
+};
 ```
 
-Tambem precisa carregar `briefingProdutos` dos projetos (campo `briefing` JSONB que contem `produtos[]`).
+**total_gasto — acumular apos venda** (apos linha 326):
+```typescript
+// Acumular total_gasto
+const { data: currentLead } = await supabase
+  .from("imphq_leads")
+  .select("total_gasto")
+  .eq("id", leadId)
+  .single();
+const newTotal = (parseFloat(String(currentLead?.total_gasto)) || 0) + valor;
+await supabase
+  .from("imphq_leads")
+  .update({ status: "cliente", total_gasto: newTotal })
+  .eq("id", leadId);
+```
 
-### 2. Adicionar KPIs de Ads na aba Produtos
+### 2. Redeploy da edge function
 
-Novos cards nos KPIs do `FinancasProdutos`:
-- **Gasto Ads** (total do periodo)
-- **ROAS** (receita / ads)
-- **CPA** (ads / vendas)
+Apos as correcoes, redeploy do `webhook-pagamento`.
 
-### 3. Adicionar coluna ROAS por produto na tabela
+### 3. Corrigir dados existentes (SQL)
 
-Nova coluna "ROAS" na tabela mostrando `receita / custosAds` por produto — o dado mais importante pra saber se cada produto esta pagando o ads.
+Inserir a venda e eventos que faltam para Fernanda e Ingride, e atualizar `total_gasto`:
 
-### 4. Carregar briefingProdutos dos projetos
-
-No `load()` do `Financas.tsx`, extrair `briefing.produtos` dos projetos carregados para popular tipo, preco e imposto_pct de cada produto.
-
----
+- **Fernanda**: Insert em `imphq_vendas` (R$47, Codigo dos Cortes Perfeitos) + insert em `imphq_events` (PixGerado + CompraAprovada) + update `total_gasto = 47`
+- **Ingride**: Insert em `imphq_events` (PixGerado) + update do `data.interacoes` com o evento de pix
 
 ## Arquivos
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Financas.tsx` | Passar `revenues`, `costs`, `ads`, `briefingProdutos` para FinancasProdutos + carregar briefing dos projetos |
-| `src/components/financas/FinancasProdutos.tsx` | Adicionar KPIs (Gasto Ads, ROAS, CPA) + coluna ROAS na tabela |
+| `supabase/functions/webhook-pagamento/index.ts` | Adicionar `id` no event insert + acumular `total_gasto` apos venda |
+| Migracao SQL | Corrigir dados Fernanda + Ingride |
 
