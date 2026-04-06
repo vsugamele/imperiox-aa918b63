@@ -553,9 +553,67 @@ export default function Leads() {
     toast.success(`Email enviado para ${lead.email}`);
   };
 
-  const sendQuickWhatsApp = async (lead: Lead) => {
+  const sendQuickWhatsApp = (lead: Lead) => {
     if (!lead.phone) { toast.error("Lead sem telefone"); return; }
-    window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}`, "_blank");
+    setWaTarget(lead);
+    const msg = `Olá ${lead.nome || ""}! `;
+    setWaMessage(msg);
+    setWaProviderId(waProviders.length === 1 ? waProviders[0].id : "");
+    setShowWaDialog(true);
+  };
+
+  const sendWaMessage = async () => {
+    if (!waTarget?.phone) return;
+    if (!waProviderId) { toast.error("Selecione um provider WhatsApp"); return; }
+    if (!waMessage.trim()) { toast.error("Digite uma mensagem"); return; }
+    setWaSending(true);
+    try {
+      const finalMsg = waMessage
+        .replace(/\{\{nome\}\}/g, waTarget.nome || "")
+        .replace(/\{\{email\}\}/g, waTarget.email || "")
+        .replace(/\{\{telefone\}\}/g, waTarget.phone || "");
+
+      const { data, error } = await supabase.functions.invoke("whatsapp-api", {
+        body: {
+          provider_id: waProviderId,
+          phone: waTarget.phone.replace(/\D/g, ""),
+          content: finalMsg,
+          conversation_id: waTarget.phone.replace(/\D/g, ""),
+          project_id: waTarget.project_id || null,
+        },
+        headers: { "x-action": "send_message" },
+      });
+      // Use query param approach
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=send_message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            provider_id: waProviderId,
+            phone: waTarget.phone.replace(/\D/g, ""),
+            content: finalMsg,
+            conversation_id: waTarget.phone.replace(/\D/g, ""),
+            project_id: waTarget.project_id || null,
+          }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Erro ao enviar");
+
+      toast.success("Mensagem enviada via WhatsApp!");
+      setShowWaDialog(false);
+      setWaTarget(null);
+      setWaMessage("");
+    } catch (e: any) {
+      toast.error("Erro: " + (e?.message || "falha ao enviar"));
+    } finally {
+      setWaSending(false);
+    }
   };
 
   // ── Sidebar: products grouped by project ──
