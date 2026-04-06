@@ -162,7 +162,7 @@ export default function Leads() {
   const [automations, setAutomations] = useState<any[]>([]);
   const [leadAutomationLogs, setLeadAutomationLogs] = useState<any[]>([]);
   const [scoreLog, setScoreLog] = useState<{acao: string; pontos: number; created_at: string}[]>([]);
-  const [formResponses, setFormResponses] = useState<{form_id: string; question: string; answer: string; created_at: string}[]>([]);
+  const [formResponses, setFormResponses] = useState<{form_id: string; form_name?: string; question: string; answer: string; created_at: string}[]>([]);
   const [allVendasRaw, setAllVendasRaw] = useState<any[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [adsSpend, setAdsSpend] = useState<any[]>([]);
@@ -352,6 +352,7 @@ export default function Leads() {
           // Store raw form responses for Qualificação tab
           const rawResponses = (data || []).map((r: any) => ({
             form_id: r.form_id || "",
+            form_name: r.imphq_capture_forms?.nome || "",
             question: r.question || r.field_key || "—",
             answer: r.answer || "—",
             created_at: r.created_at || "",
@@ -977,10 +978,11 @@ export default function Leads() {
             {/* Table */}
             <div className="rounded-lg border border-border overflow-auto">
               <Table>
-                <TableHeader>
+                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10"><Checkbox checked={allFilteredSelected} onCheckedChange={toggleSelectAll} /></TableHead>
                     <TableHead>Lead</TableHead>
+                    <TableHead>Projeto</TableHead>
                     <TableHead>Produto</TableHead>
                     <TableHead>Pagamento</TableHead>
                     <TableHead>Estágio</TableHead>
@@ -1010,6 +1012,7 @@ export default function Leads() {
                           </div>
                         </div>
                       </TableCell>
+                      <TableCell>{(() => { const proj = projects.find(p => p.id === l.project_id); return proj ? <span className="text-xs text-muted-foreground truncate max-w-[100px] block">{proj.icon || "📁"} {proj.name}</span> : <span className="text-xs text-muted-foreground">—</span>; })()}</TableCell>
                       <TableCell>{(() => { const vendas = l._vendas || []; const prods = [...new Set(vendas.map(v => v.produto_nome).filter(Boolean))]; if (prods.length === 0) return <span className="text-xs text-muted-foreground">—</span>; return <span className="text-xs text-primary truncate max-w-[100px] block" title={prods.join(", ")}>{prods[0]}{prods.length > 1 ? ` +${prods.length - 1}` : ""}</span>; })()}</TableCell>
                       <TableCell>{(() => { const vendas = l._vendas || []; const pgto = vendas.find(v => v.data?.metodo_pagamento)?.data?.metodo_pagamento; return pgto ? <span className="text-[10px] text-muted-foreground">{pgto}</span> : <span className="text-xs text-muted-foreground">—</span>; })()}</TableCell>
                       <TableCell>{(() => { const stage = getLeadStage(l); const cfg = STAGE_LABELS[stage] || STAGE_LABELS.lead_capturado; const isPending = ["carrinho_abandonado", "pix_gerado", "aguardando_pagamento"].includes(stage); return (<div className="flex items-center gap-1"><Badge className={cn("text-[10px]", cfg.color, isPending && "animate-pulse ring-1 ring-amber-500/40")}>{cfg.label}</Badge>{isPending && <AlertCircle className="h-3 w-3 text-amber-400" />}</div>); })()}</TableCell>
