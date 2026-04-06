@@ -170,6 +170,13 @@ export default function Leads() {
   const [analyticsPeriod, setAnalyticsPeriod] = useState<PeriodKey>("30d");
   const [customFrom, setCustomFrom] = useState<Date>();
   const [customTo, setCustomTo] = useState<Date>();
+  const [waProviders, setWaProviders] = useState<any[]>([]);
+  const [waTemplates, setWaTemplates] = useState<any[]>([]);
+  const [showWaDialog, setShowWaDialog] = useState(false);
+  const [waTarget, setWaTarget] = useState<Lead | null>(null);
+  const [waProviderId, setWaProviderId] = useState("");
+  const [waMessage, setWaMessage] = useState("");
+  const [waSending, setWaSending] = useState(false);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -185,14 +192,18 @@ export default function Leads() {
   };
 
   const load = async () => {
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }).limit(500),
+      supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
+      supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
     ]);
     const allVendas = (vendasRes.data || []) as any[];
+    setWaProviders(waProvRes.data || []);
+    setWaTemplates(waTplRes.data || []);
     setAllVendasRaw(allVendas);
     setAdsSpend(adsRes.data || []);
     const vendasByLead = new Map<string, LeadVenda[]>();
@@ -542,9 +553,56 @@ export default function Leads() {
     toast.success(`Email enviado para ${lead.email}`);
   };
 
-  const sendQuickWhatsApp = async (lead: Lead) => {
+  const sendQuickWhatsApp = (lead: Lead) => {
     if (!lead.phone) { toast.error("Lead sem telefone"); return; }
-    window.open(`https://wa.me/${lead.phone.replace(/\D/g, "")}`, "_blank");
+    setWaTarget(lead);
+    const msg = `Olá ${lead.nome || ""}! `;
+    setWaMessage(msg);
+    setWaProviderId(waProviders.length === 1 ? waProviders[0].id : "");
+    setShowWaDialog(true);
+  };
+
+  const sendWaMessage = async () => {
+    if (!waTarget?.phone) return;
+    if (!waProviderId) { toast.error("Selecione um provider WhatsApp"); return; }
+    if (!waMessage.trim()) { toast.error("Digite uma mensagem"); return; }
+    setWaSending(true);
+    try {
+      const finalMsg = waMessage
+        .replace(/\{\{nome\}\}/g, waTarget.nome || "")
+        .replace(/\{\{email\}\}/g, waTarget.email || "")
+        .replace(/\{\{telefone\}\}/g, waTarget.phone || "");
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=send_message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            provider_id: waProviderId,
+            phone: waTarget.phone.replace(/\D/g, ""),
+            content: finalMsg,
+            conversation_id: waTarget.phone.replace(/\D/g, ""),
+            project_id: waTarget.project_id || null,
+          }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Erro ao enviar");
+
+      toast.success("Mensagem enviada via WhatsApp!");
+      setShowWaDialog(false);
+      setWaTarget(null);
+      setWaMessage("");
+    } catch (e: any) {
+      toast.error("Erro: " + (e?.message || "falha ao enviar"));
+    } finally {
+      setWaSending(false);
+    }
   };
 
   // ── Sidebar: products grouped by project ──
@@ -1789,6 +1847,55 @@ export default function Leads() {
         </AlertDialog>
 
         <LeadImportDialog open={showImport} onOpenChange={setShowImport} projects={projects} defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined} onComplete={load} />
+
+        {/* WhatsApp Send Dialog */}
+        <Dialog open={showWaDialog} onOpenChange={setShowWaDialog}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>💬 Enviar WhatsApp para {waTarget?.nome || waTarget?.phone}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Sessão / Provider</Label>
+                <Select value={waProviderId} onValueChange={setWaProviderId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar número..." /></SelectTrigger>
+                  <SelectContent>
+                    {waProviders.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find(pr => pr.id === p.project_id)?.name || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {waProviders.length === 0 && <p className="text-[10px] text-muted-foreground mt-1">Nenhum provider configurado. Vá em WhatsApp → Provider.</p>}
+              </div>
+              {waTemplates.length > 0 && (
+                <div>
+                  <Label>Template (opcional)</Label>
+                  <Select onValueChange={v => { const t = waTemplates.find((t: any) => t.id === v); if (t) setWaMessage(t.content); }}>
+                    <SelectTrigger><SelectValue placeholder="Usar template..." /></SelectTrigger>
+                    <SelectContent>
+                      {waTemplates.map((t: any) => (
+                        <SelectItem key={t.id} value={t.id}>{t.name} ({t.category})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label>Mensagem</Label>
+                <Textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} rows={4} placeholder="Olá {{nome}}, tudo bem?" />
+                <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {"{{nome}}"}, {"{{email}}"}, {"{{telefone}}"}</p>
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => { window.open(`https://wa.me/${waTarget?.phone?.replace(/\D/g, "")}`, "_blank"); }}>
+                Abrir wa.me
+              </Button>
+              <Button onClick={sendWaMessage} disabled={waSending || !waProviderId}>
+                <Send className="h-3.5 w-3.5 mr-1" /> {waSending ? "Enviando..." : "Enviar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

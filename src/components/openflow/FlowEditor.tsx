@@ -39,6 +39,15 @@ export interface Acao {
   delay_min: number;
   condicao_tipo?: string;
   condicao_tempo_min?: number;
+  provider_id?: string;
+}
+
+export interface WaProvider {
+  id: string;
+  provider: string;
+  instance_name?: string;
+  twilio_from?: string;
+  project_id?: string;
 }
 
 export interface ProjectTemplate {
@@ -54,9 +63,10 @@ interface FlowEditorProps {
   onGenerateAI?: () => void;
   isGenerating?: boolean;
   templates?: ProjectTemplate[];
+  providers?: WaProvider[];
 }
 
-export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [] }: FlowEditorProps) {
+export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [], providers = [] }: FlowEditorProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
@@ -211,6 +221,25 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                       <p className="text-[9px] text-muted-foreground mt-1">
                         Se a condição for verdadeira, o fluxo continua para o próximo nó.
                       </p>
+                    </div>
+                  )}
+
+                  {/* Provider selector for WhatsApp */}
+                  {acao.tipo === "whatsapp" && providers.length > 0 && (
+                    <div>
+                      <Label className="text-[10px]">Sessão WhatsApp</Label>
+                      <Select value={acao.provider_id || ""} onValueChange={v => updateAcao(idx, "provider_id", v)}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Selecionar número..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {providers.map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 

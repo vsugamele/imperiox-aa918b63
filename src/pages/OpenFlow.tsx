@@ -40,6 +40,7 @@ export default function OpenFlow() {
   const [automacoes, setAutomacoes] = useState<Automacao[]>([]);
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [providers, setProviders] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
   const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" });
@@ -50,14 +51,16 @@ export default function OpenFlow() {
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
 
   const load = async () => {
-    const [aRes, wRes, pRes] = await Promise.all([
+    const [aRes, wRes, pRes, provRes] = await Promise.all([
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_webhooks").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("imphq_projects").select("id, name").order("name"),
+      supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
     ]);
     setAutomacoes((aRes.data || []).map((a: any) => ({ ...a, acoes: a.acoes || [] })));
     setWebhooks(wRes.data || []);
     setProjects(pRes.data || []);
+    setProviders(provRes.data || []);
   };
 
   useEffect(() => { load(); }, []);
@@ -394,6 +397,7 @@ export default function OpenFlow() {
                 onGenerateAI={generateWithAI}
                 isGenerating={isGeneratingAI}
                 templates={projectTemplates}
+                providers={editing.project_id ? (providers || []).filter((p: any) => p.project_id === editing.project_id) : (providers || [])}
               />
             </div>
           )}
