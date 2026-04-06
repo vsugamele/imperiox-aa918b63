@@ -394,8 +394,10 @@ Deno.serve(async (req) => {
           event_data: { produto, valor, plataforma, evento, tipo_venda },
           utm_source: email?.toLowerCase() || null,
         };
-        if (data_compra) eventInsert.created_at = data_compra;
-        await supabase.from("imphq_events").insert(eventInsert);
+        const { error: evtErr } = await supabase.from("imphq_events").insert(eventInsert);
+        if (evtErr) {
+          console.error("[webhook-pagamento] Erro ao inserir evento:", evtErr);
+        }
 
         // Accumulate interaction + update ultimo_evento
         const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
