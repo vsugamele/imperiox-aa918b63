@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
@@ -28,6 +28,7 @@ interface Ref {
   id: string; project_id?: string; tipo?: string; titulo: string;
   url?: string; image_url?: string; tags?: string[]; notas?: string;
   score?: number; plataforma?: string; created_at?: string;
+  pasta?: string; produto?: string;
 }
 
 export default function Referencias() {
@@ -37,10 +38,15 @@ export default function Referencias() {
   const [filterTipo, setFilterTipo] = useState("all");
   const [filterPlat, setFilterPlat] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
+  const [filterPasta, setFilterPasta] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showNewPasta, setShowNewPasta] = useState(false);
+  const [newPastaName, setNewPastaName] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const load = async () => {
     const [rRes, pRes] = await Promise.all([
@@ -53,15 +59,17 @@ export default function Referencias() {
 
   useEffect(() => { load(); }, []);
 
+  const pastas = [...new Set(refs.map(r => r.pasta).filter(Boolean))] as string[];
+
   const filtered = refs.filter(r => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
     const mpr = filterProject === "all" || r.project_id === filterProject;
-    return ms && mt && mp && mpr;
+    const mpa = filterPasta === "all" || r.pasta === filterPasta;
+    return ms && mt && mp && mpr && mpa;
   });
 
-  // Type counts
   const typeCounts = TIPOS.reduce((acc, t) => {
     acc[t] = refs.filter(r => r.tipo === t).length;
     return acc;
@@ -75,7 +83,8 @@ export default function Referencias() {
       url: form.url || null, image_url: form.image_url || null,
       tags: form.tags || [], notas: form.notas || null,
       score: form.score || 0, plataforma: form.plataforma || null,
-      project_id: filterProject !== "all" ? filterProject : null,
+      project_id: filterProject !== "all" ? filterProject : (form.project_id || null),
+      pasta: form.pasta || null, produto: form.produto || null,
     } as any);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Referência criada!");
@@ -90,6 +99,7 @@ export default function Referencias() {
       titulo: editing.titulo, tipo: editing.tipo, url: editing.url,
       image_url: editing.image_url, tags: editing.tags, notas: editing.notas,
       score: editing.score, plataforma: editing.plataforma, project_id: editing.project_id,
+      pasta: editing.pasta || null, produto: editing.produto || null,
     }).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
@@ -98,6 +108,50 @@ export default function Referencias() {
   const deleteRef = async (id: string) => {
     await supabase.from("imphq_referencias").delete().eq("id", id);
     toast.success("Removido"); setEditing(null); load();
+  };
+
+  const handleBulkUpload = async (urls: string[]) => {
+    let count = 0;
+    for (const url of urls) {
+      const { error } = await supabase.from("imphq_referencias").insert({
+        id: crypto.randomUUID(),
+        titulo: `Upload ${new Date().toLocaleDateString()} #${count + 1}`,
+        tipo: "criativo",
+        image_url: url,
+        project_id: filterProject !== "all" ? filterProject : null,
+        pasta: filterPasta !== "all" ? filterPasta : null,
+        tags: [],
+        score: 0,
+      } as any);
+      if (!error) count++;
+    }
+    toast.success(`${count} referências criadas via upload`);
+    load();
+  };
+
+  const importFromProject = async () => {
+    setImporting(true);
+    let count = 0;
+    const { data: media } = await supabase.from("imphq_media_content").select("*").eq("category", "anuncios");
+    if (media) {
+      for (const m of media) {
+        const exists = refs.some(r => r.image_url === (m as any).file_url && r.project_id === (m as any).project_id);
+        if (exists) continue;
+        const { error } = await supabase.from("imphq_referencias").insert({
+          id: crypto.randomUUID(),
+          titulo: (m as any).title || (m as any).file_url?.split("/").pop() || "Importado",
+          tipo: "criativo",
+          image_url: (m as any).file_url || null,
+          project_id: (m as any).project_id || null,
+          tags: [],
+          score: 0,
+        } as any);
+        if (!error) count++;
+      }
+    }
+    toast.success(`${count} referências importadas dos projetos`);
+    setImporting(false);
+    load();
   };
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
@@ -136,16 +190,29 @@ export default function Referencias() {
           </Select>
         </div>
       </div>
-      <div>
-        <Label>Projeto</Label>
-        <Select value={data.project_id || "none"} onValueChange={v => setData({ ...data, project_id: v === "none" ? undefined : v })}>
-          <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Nenhum</SelectItem>
-            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Projeto</Label>
+          <Select value={data.project_id || "none"} onValueChange={v => setData({ ...data, project_id: v === "none" ? undefined : v })}>
+            <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Nenhum</SelectItem>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Pasta</Label>
+          <Select value={data.pasta || "none"} onValueChange={v => setData({ ...data, pasta: v === "none" ? undefined : v })}>
+            <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Nenhuma</SelectItem>
+              {pastas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+      <div><Label>Produto</Label><Input value={data.produto || ""} onChange={e => setData({ ...data, produto: e.target.value })} placeholder="Ex: Curso X, Mentoria Y..." /></div>
       <div><Label>URL</Label><Input value={data.url || ""} onChange={e => setData({ ...data, url: e.target.value })} placeholder="https://..." /></div>
       <div>
         <Label>Imagem</Label>
@@ -167,7 +234,20 @@ export default function Referencias() {
           <h1 className="font-display text-3xl font-bold text-primary">🗂️ Referências</h1>
           <p className="text-sm text-muted-foreground mt-1">{refs.length} referências no swipe file</p>
         </div>
-        <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Referência</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={importFromProject} disabled={importing}>
+            <Download className="h-4 w-4 mr-1" /> {importing ? "Importando..." : "Importar do Projeto"}
+          </Button>
+          <FileUpload
+            bucket="project-media"
+            path="referencias"
+            onUpload={url => handleBulkUpload([url])}
+            onUploadMultiple={handleBulkUpload}
+            label="Upload Múltiplo"
+            multiple
+          />
+          <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Referência</Button>
+        </div>
       </div>
 
       {/* Type counters */}
@@ -213,83 +293,145 @@ export default function Referencias() {
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filterPasta} onValueChange={setFilterPasta}>
+          <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Pasta" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas Pastas</SelectItem>
+            {pastas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowNewPasta(true)} title="Nova pasta">
+          <FolderPlus className="h-3.5 w-3.5" />
+        </Button>
+        <div className="flex border border-border rounded-md overflow-hidden">
+          <button onClick={() => setViewMode("grid")} className={`p-1.5 ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            <Grid3X3 className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setViewMode("list")} className={`p-1.5 ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            <List className="h-3.5 w-3.5" />
+          </button>
+        </div>
         <Badge variant="outline" className="text-xs">{filtered.length} refs</Badge>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((r, i) => {
-          const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
-          const Icon = style.icon;
-          return (
-            <Card
-              key={r.id}
-              className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.02] cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in`}
-              style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
-              onClick={() => setEditing({ ...r })}
-            >
-              {r.image_url ? (
-                <div className="h-36 bg-secondary overflow-hidden relative">
-                  <img
-                    src={r.image_url}
-                    alt={r.titulo}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gradient-to-br ${style.gradient}"><svg class="h-10 w-10 text-muted-foreground/20" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" /></svg></div>`;
-                    }}
-                  />
-                  <button
-                    className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
-                    title="Ver imagem em tamanho grande"
-                  >
-                    <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
-                  </button>
-                </div>
-              ) : (
-                <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
-                  <Icon className="h-10 w-10 text-muted-foreground/20" />
-                </div>
-              )}
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-medium text-sm line-clamp-2">{r.titulo}</h3>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {r.tipo && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
-                  {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((r, i) => {
+            const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
+            const Icon = style.icon;
+            return (
+              <Card
+                key={r.id}
+                className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.02] cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in`}
+                style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
+                onClick={() => setEditing({ ...r })}
+              >
+                {r.image_url ? (
+                  <div className="h-36 bg-secondary overflow-hidden relative">
+                    <img src={r.image_url} alt={r.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <button
+                      className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
+                    >
+                      <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
+                    <Icon className="h-10 w-10 text-muted-foreground/20" />
+                  </div>
+                )}
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-medium text-sm line-clamp-2">{r.titulo}</h3>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {r.tipo && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
+                    {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
+                    {r.pasta && <Badge variant="outline" className="text-[9px]">📁 {r.pasta}</Badge>}
+                    {r.produto && <Badge variant="outline" className="text-[9px]">📦 {r.produto}</Badge>}
+                  </div>
+                  {r.score && r.score > 0 && <ScoreStars score={r.score} />}
+                  {r.tags && r.tags.length > 0 && (
+                    <div className="flex gap-1 flex-wrap">
+                      {r.tags.slice(0, 3).map(t => (
+                        <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
+                      ))}
+                      {r.tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{r.tags.length - 3}</span>}
+                    </div>
+                  )}
+                  {r.project_id && <p className="text-[10px] text-muted-foreground">📁 {projectName(r.project_id)}</p>}
+                  {r.notas && <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>}
+                  {r.url && (
+                    <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <ExternalLink className="h-2.5 w-2.5" /> Abrir link
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="col-span-full text-center py-12 space-y-2">
+              <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
+              <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+              <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {filtered.map(r => {
+            const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
+            return (
+              <div
+                key={r.id}
+                className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group`}
+                onClick={() => setEditing({ ...r })}
+              >
+                {r.image_url ? (
+                  <img src={r.image_url} alt="" className="h-10 w-14 rounded object-cover shrink-0" />
+                ) : (
+                  <div className={`h-10 w-14 rounded bg-gradient-to-br ${style.gradient} flex items-center justify-center shrink-0`}>
+                    {(() => { const Icon = style.icon; return <Icon className="h-4 w-4 text-muted-foreground/30" />; })()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{r.titulo}</p>
+                  <div className="flex gap-1 items-center flex-wrap">
+                    {r.tipo && <Badge className={`text-[8px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
+                    {r.plataforma && <Badge variant="outline" className="text-[8px]">{r.plataforma}</Badge>}
+                    {r.project_id && <span className="text-[9px] text-muted-foreground">📁 {projectName(r.project_id)}</span>}
+                    {r.pasta && <span className="text-[9px] text-muted-foreground">📂 {r.pasta}</span>}
+                    {r.produto && <span className="text-[9px] text-muted-foreground">📦 {r.produto}</span>}
+                  </div>
                 </div>
                 {r.score && r.score > 0 && <ScoreStars score={r.score} />}
                 {r.tags && r.tags.length > 0 && (
-                  <div className="flex gap-1 flex-wrap">
-                    {r.tags.slice(0, 3).map(t => (
-                      <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
+                  <div className="flex gap-1 shrink-0">
+                    {r.tags.slice(0, 2).map(t => (
+                      <span key={t} className="text-[8px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
                     ))}
-                    {r.tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{r.tags.length - 3}</span>}
                   </div>
                 )}
-                {r.project_id && <p className="text-[10px] text-muted-foreground">📁 {projectName(r.project_id)}</p>}
-                {r.notas && <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>}
-                {r.url && (
-                  <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                    <ExternalLink className="h-2.5 w-2.5" /> Abrir link
-                  </a>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className="col-span-full text-center py-12 space-y-2">
-            <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-            <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
-            <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
-          </div>
-        )}
-      </div>
+                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="text-center py-12 space-y-2">
+              <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
+              <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+              <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* New Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -323,6 +465,27 @@ export default function Referencias() {
           {lightboxUrl && (
             <img src={lightboxUrl} alt="Referência" className="w-full h-full object-contain max-h-[90vh] rounded" />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* New Pasta Dialog */}
+      <Dialog open={showNewPasta} onOpenChange={setShowNewPasta}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Nova Pasta</DialogTitle></DialogHeader>
+          <div>
+            <Label>Nome da pasta</Label>
+            <Input value={newPastaName} onChange={e => setNewPastaName(e.target.value)} placeholder="Ex: Anúncios Meta Jan/26" />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => {
+              if (!newPastaName.trim()) { toast.error("Nome obrigatório"); return; }
+              setForm(f => ({ ...f, pasta: newPastaName.trim() }));
+              setFilterPasta(newPastaName.trim());
+              setShowNewPasta(false);
+              setNewPastaName("");
+              toast.success("Pasta criada! Use-a ao criar novas referências.");
+            }}>Criar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

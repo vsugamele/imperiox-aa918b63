@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { FileUpload } from "@/components/FileUpload";
 import {
-  KeyRound, Plus, Search, Eye, EyeOff, Copy, ExternalLink, Pencil, Trash2, Globe
+  KeyRound, Plus, Search, Eye, EyeOff, Copy, ExternalLink, Pencil, Trash2, Globe, Download
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,41 +23,53 @@ interface VaultItem {
   category: string | null;
   notes: string | null;
   project_id: string | null;
+  icon_url: string | null;
+  produto: string | null;
   created_at: string;
 }
 
 const CATEGORIES = [
-  { value: "geral", label: "Geral", color: "bg-muted" },
-  { value: "social", label: "Redes Sociais", color: "bg-violet-500/20 text-violet-400" },
-  { value: "email", label: "E-mail", color: "bg-emerald-500/20 text-emerald-400" },
-  { value: "design", label: "Design", color: "bg-pink-500/20 text-pink-400" },
-  { value: "ads", label: "Tráfego / Ads", color: "bg-amber-500/20 text-amber-400" },
-  { value: "hosting", label: "Hosting / Domínios", color: "bg-cyan-500/20 text-cyan-400" },
-  { value: "dev", label: "Desenvolvimento", color: "bg-blue-500/20 text-blue-400" },
-  { value: "finance", label: "Financeiro", color: "bg-green-500/20 text-green-400" },
-  { value: "other", label: "Outro", color: "bg-muted" },
+  { value: "geral", label: "Geral", color: "bg-muted", border: "border-l-muted-foreground" },
+  { value: "social", label: "Redes Sociais", color: "bg-violet-500/20 text-violet-400", border: "border-l-violet-500" },
+  { value: "email", label: "E-mail", color: "bg-emerald-500/20 text-emerald-400", border: "border-l-emerald-500" },
+  { value: "design", label: "Design", color: "bg-pink-500/20 text-pink-400", border: "border-l-pink-500" },
+  { value: "ads", label: "Tráfego / Ads", color: "bg-amber-500/20 text-amber-400", border: "border-l-amber-500" },
+  { value: "hosting", label: "Hosting / Domínios", color: "bg-cyan-500/20 text-cyan-400", border: "border-l-cyan-500" },
+  { value: "dev", label: "Desenvolvimento", color: "bg-blue-500/20 text-blue-400", border: "border-l-blue-500" },
+  { value: "finance", label: "Financeiro", color: "bg-green-500/20 text-green-400", border: "border-l-green-500" },
+  { value: "other", label: "Outro", color: "bg-muted", border: "border-l-muted-foreground" },
 ];
 
 const getCategoryInfo = (cat: string | null) =>
   CATEGORIES.find(c => c.value === cat) || CATEGORIES[0];
 
-const emptyForm = { name: "", url: "", username: "", password_encrypted: "", category: "geral", notes: "", project_id: "" };
+const getFaviconUrl = (url: string | null) => {
+  if (!url) return null;
+  try {
+    const domain = new URL(url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+  } catch { return null; }
+};
+
+const emptyForm = { name: "", url: "", username: "", password_encrypted: "", category: "geral", notes: "", project_id: "", icon_url: "", produto: "" };
 
 export default function Cofre() {
   const [items, setItems] = useState<VaultItem[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; data: any }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
+  const [filterProject, setFilterProject] = useState("all");
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [importingLinks, setImportingLinks] = useState(false);
 
   const fetchData = useCallback(async () => {
     const [vaultRes, projRes] = await Promise.all([
       supabase.from("imphq_tools_vault").select("*").order("category").order("name"),
-      supabase.from("imphq_projects").select("id, name"),
+      supabase.from("imphq_projects").select("id, name, data"),
     ]);
     setItems((vaultRes.data as any[]) || []);
     setProjects((projRes.data as any[]) || []);
@@ -67,6 +80,7 @@ export default function Cofre() {
 
   const filtered = items.filter(item => {
     if (filterCat !== "all" && item.category !== filterCat) return false;
+    if (filterProject !== "all" && item.project_id !== filterProject) return false;
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -82,6 +96,8 @@ export default function Cofre() {
       category: item.category || "geral",
       notes: item.notes || "",
       project_id: item.project_id || "",
+      icon_url: item.icon_url || "",
+      produto: item.produto || "",
     });
     setDialogOpen(true);
   };
@@ -96,6 +112,8 @@ export default function Cofre() {
       category: form.category,
       notes: form.notes || null,
       project_id: form.project_id || null,
+      icon_url: form.icon_url || null,
+      produto: form.produto || null,
       updated_at: new Date().toISOString(),
     };
     if (editingId) {
@@ -126,11 +144,50 @@ export default function Cofre() {
   const togglePass = (id: string) =>
     setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
 
+  const importProjectLinks = async () => {
+    setImportingLinks(true);
+    let count = 0;
+    for (const proj of projects) {
+      const links = (proj.data as any)?.links;
+      if (!links || !Array.isArray(links)) continue;
+      for (const link of links) {
+        if (!link.url) continue;
+        const exists = items.some(i => i.url === link.url && i.project_id === proj.id);
+        if (exists) continue;
+        const { error } = await supabase.from("imphq_tools_vault").insert({
+          name: link.label || link.url,
+          url: link.url,
+          category: "geral",
+          project_id: proj.id,
+        } as any);
+        if (!error) count++;
+      }
+    }
+    toast.success(`${count} links importados dos projetos`);
+    setImportingLinks(false);
+    fetchData();
+  };
+
   if (loading) return <div className="flex items-center justify-center p-12 text-muted-foreground">Carregando...</div>;
 
   const grouped = CATEGORIES.filter(cat =>
     filterCat === "all" ? filtered.some(i => i.category === cat.value) : cat.value === filterCat
   );
+
+  const ToolIcon = ({ item }: { item: VaultItem }) => {
+    const iconUrl = item.icon_url || getFaviconUrl(item.url);
+    if (iconUrl) {
+      return (
+        <img
+          src={iconUrl}
+          alt=""
+          className="h-5 w-5 rounded shrink-0"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      );
+    }
+    return <Globe className="h-4 w-4 text-muted-foreground shrink-0" />;
+  };
 
   return (
     <div className="space-y-6">
@@ -141,7 +198,12 @@ export default function Cofre() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Sites, senhas e acessos do time</p>
         </div>
-        <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={importProjectLinks} disabled={importingLinks}>
+            <Download className="h-4 w-4 mr-1" /> {importingLinks ? "Importando..." : "Importar do Projeto"}
+          </Button>
+          <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
+        </div>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -156,6 +218,15 @@ export default function Cofre() {
           <SelectContent>
             <SelectItem value="all">Todas categorias</SelectItem>
             {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="w-44 bg-secondary">
+            <SelectValue placeholder="Projeto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -184,12 +255,13 @@ export default function Cofre() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {catItems.map(item => {
                     const proj = projects.find(p => p.id === item.project_id);
+                    const catInfo = getCategoryInfo(item.category);
                     return (
-                      <Card key={item.id} className="group hover:border-primary/30 transition-colors">
+                      <Card key={item.id} className={`group hover:border-primary/30 transition-colors border-l-4 ${catInfo.border}`}>
                         <CardHeader className="pb-2">
                           <div className="flex items-center justify-between">
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
-                              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <ToolIcon item={item} />
                               {item.name}
                             </CardTitle>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -228,7 +300,10 @@ export default function Cofre() {
                             </div>
                           )}
                           {item.notes && <p className="text-muted-foreground italic">{item.notes}</p>}
-                          {proj && <Badge variant="outline" className="text-[10px]">{proj.name}</Badge>}
+                          <div className="flex gap-1 flex-wrap">
+                            {proj && <Badge variant="outline" className="text-[10px]">📁 {proj.name}</Badge>}
+                            {item.produto && <Badge variant="outline" className="text-[10px]">📦 {item.produto}</Badge>}
+                          </div>
                         </CardContent>
                       </Card>
                     );
@@ -252,7 +327,6 @@ export default function Cofre() {
             Conecte IAs externas (Claude, GPT, n8n, Make) ao seu sistema. Use a API para criar tarefas, mover cards, gerenciar leads e mais.
           </p>
 
-          {/* Base URL */}
           <div>
             <Label className="text-xs font-bold uppercase text-muted-foreground">URL Base</Label>
             <div className="flex items-center gap-2 mt-1">
@@ -263,7 +337,6 @@ export default function Cofre() {
             </div>
           </div>
 
-          {/* How to connect */}
           <div>
             <Label className="text-xs font-bold uppercase text-muted-foreground">Como conectar uma IA externa</Label>
             <ol className="text-xs text-muted-foreground mt-2 space-y-1 list-decimal list-inside">
@@ -274,7 +347,6 @@ export default function Cofre() {
             </ol>
           </div>
 
-          {/* Endpoints table */}
           <div>
             <Label className="text-xs font-bold uppercase text-muted-foreground mb-2 block">Endpoints disponíveis</Label>
             <div className="rounded-lg border border-border overflow-hidden">
@@ -325,7 +397,6 @@ export default function Cofre() {
             </div>
           </div>
 
-          {/* Curl example */}
           <div>
             <Label className="text-xs font-bold uppercase text-muted-foreground">Exemplo curl</Label>
             <pre className="mt-1 text-[11px] bg-secondary/50 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground/80 whitespace-pre-wrap">{`# Listar projetos
@@ -386,6 +457,14 @@ curl -H "x-api-key: SUA_CHAVE" \\
                     {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div><Label>Produto (opcional)</Label><Input value={form.produto} onChange={e => setForm(f => ({ ...f, produto: e.target.value }))} placeholder="Ex: Curso X, Mentoria Y..." /></div>
+            <div>
+              <Label>Ícone customizado</Label>
+              <div className="flex items-center gap-2">
+                <Input value={form.icon_url} onChange={e => setForm(f => ({ ...f, icon_url: e.target.value }))} placeholder="URL do ícone..." className="flex-1" />
+                <FileUpload bucket="project-media" path="vault-icons" onUpload={url => setForm(f => ({ ...f, icon_url: url }))} label="Upload" />
               </div>
             </div>
             <div><Label>Notas</Label><Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
