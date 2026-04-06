@@ -27,6 +27,7 @@ import { ptBR } from "date-fns/locale";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
 import { FormBuilder } from "@/components/leads/FormBuilder";
 import { FormInsights } from "@/components/leads/FormInsights";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
