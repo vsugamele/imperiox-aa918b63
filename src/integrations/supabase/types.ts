@@ -23377,6 +23377,9 @@ export type Database = {
           peak_viewers_max: number | null
           peak_viewers_min: number | null
           project_id: string
+          schedule_days: number[] | null
+          schedule_recurrence: string
+          schedule_time: string | null
           scheduled_start_at: string | null
           slug: string
           status: string | null
@@ -23415,6 +23418,9 @@ export type Database = {
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
           project_id: string
+          schedule_days?: number[] | null
+          schedule_recurrence?: string
+          schedule_time?: string | null
           scheduled_start_at?: string | null
           slug: string
           status?: string | null
@@ -23453,6 +23459,9 @@ export type Database = {
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
           project_id?: string
+          schedule_days?: number[] | null
+          schedule_recurrence?: string
+          schedule_time?: string | null
           scheduled_start_at?: string | null
           slug?: string
           status?: string | null
