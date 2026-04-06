@@ -573,17 +573,6 @@ export default function Leads() {
         .replace(/\{\{email\}\}/g, waTarget.email || "")
         .replace(/\{\{telefone\}\}/g, waTarget.phone || "");
 
-      const { data, error } = await supabase.functions.invoke("whatsapp-api", {
-        body: {
-          provider_id: waProviderId,
-          phone: waTarget.phone.replace(/\D/g, ""),
-          content: finalMsg,
-          conversation_id: waTarget.phone.replace(/\D/g, ""),
-          project_id: waTarget.project_id || null,
-        },
-        headers: { "x-action": "send_message" },
-      });
-      // Use query param approach
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=send_message`,
         {
