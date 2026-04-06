@@ -1,59 +1,55 @@
 
 
-# Plano: Evoluir AIGenerateButton com prop `menteId`
+# Plano: Fix QR Code quebrado no Hub Local
 
-## Objetivo
+## Problema
 
-Permitir que qualquer instancia do `AIGenerateButton` injete a personalidade de uma Mente IA (Dan Kennedy, Gary Halbert, etc.) no system prompt da geracao. O usuario escolhe a Mente no dialog antes de gerar.
+A imagem do QR aparece como icone quebrado. O status raw mostra `awaiting_qr`, entao o evento `qr_status` foi encontrado e `qrImageUrl` tem valor — mas a `<img>` nao consegue renderizar.
 
-## Mudancas
-
-### 1. `src/components/projeto/AIGenerateButton.tsx`
-
-- Adicionar prop opcional `showMenteSelector?: boolean` (default false)
-- Importar `MENTES_DATA` de `@/data/mentesData`
-- Adicionar state `selectedMente: string | null` (null = sem mente)
-- No dialog, quando `showMenteSelector=true`, renderizar um `<Select>` com as 8 mentes + opcao "Nenhuma"
-- No `handleGenerate`, se `selectedMente` estiver setado, enviar `mente_id` no body payload
-
-### 2. `supabase/functions/openflow-ai/index.ts`
-
-- No inicio (apos extrair `body`), ler `mente_id` do body
-- Se `mente_id` existir, buscar o prompt da mente correspondente em `MENTES_DATA` (hardcoded no edge function como lookup simples — id → prompt)
-- Injetar o prompt da mente como prefixo do system prompt em `handleExecuteSkill` e nos handlers de copy/branding/gatilhos
-- Substituir o bloco generico `mentesRef` (linha 335) pelo prompt completo da mente selecionada quando `mente_id` for passado
-
-### 3. Ativar seletor de Mente nas abas relevantes
-
-- `CopyArsenalSection.tsx` — adicionar `showMenteSelector={true}` no AIGenerateButton existente
-- `ProjetoBriefing.tsx` — se tiver AIGenerateButton, adicionar `showMenteSelector`
-- `ProjetoEmails.tsx` — idem
-
-## Lookup de Mentes no Edge Function
-
-Em vez de buscar do banco (nao existe tabela de mentes), o edge function tera um map simples:
-
+O codigo atual (linha 118) faz:
 ```typescript
-const MENTE_PROMPTS: Record<string, { nome: string; prompt: string }> = {
-  dan_kennedy: { nome: "Dan Kennedy", prompt: "Você é Dan Kennedy — o pai do marketing de resposta direta..." },
-  gary_halbert: { nome: "Gary Halbert", prompt: "Você é Gary Halbert — o príncipe do direct mail..." },
-  // ... 8 mentes
-};
+src={qrImageUrl.startsWith("data:") ? qrImageUrl : `data:image/png;base64,${qrImageUrl}`}
 ```
 
-Quando `mente_id` chega no body, o prompt da mente e prepended ao system prompt:
+Isso assume que o payload contem base64 puro ou data URI. Porem, o worker local pode estar enviando o QR em outro formato — por exemplo, uma URL http normal da imagem, ou o campo pode estar com nome diferente no payload (`qr`, `qrcode`, `image`).
+
+## Diagnostico necessario
+
+Antes de corrigir, preciso verificar o que o worker esta salvando no evento `qr_status`. Vou consultar o banco para ver o payload real.
+
+## Fix proposto
+
+### 1. Consultar payload real do evento qr_status no banco
+
+Verificar `wa_hub_iso_events` para a sessao `jpfreitas` e ver o campo `payload` do evento `qr_status`.
+
+### 2. Ajustar o mapeamento no `useWaSession.ts`
+
+Se o campo no payload tiver nome diferente (ex: `qr` em vez de `qrImageUrl`), corrigir linhas 125-126:
+```typescript
+const img = payload?.qrImageUrl || payload?.qr || payload?.image || null;
+```
+
+### 3. Ajustar o `<img>` no `WaHubQrPanel.tsx`
+
+Tornar o src mais robusto para aceitar 3 formatos:
+- Data URI completa (`data:image/...`)
+- Base64 puro (sem prefixo)
+- URL HTTP normal
 
 ```typescript
-if (mente_id && MENTE_PROMPTS[mente_id]) {
-  systemPrompt = `## PERSONALIDADE ATIVA: ${MENTE_PROMPTS[mente_id].nome}\n${MENTE_PROMPTS[mente_id].prompt}\n\n---\n\n${systemPrompt}`;
-}
+const qrSrc = useMemo(() => {
+  if (!qrImageUrl) return "";
+  if (qrImageUrl.startsWith("data:")) return qrImageUrl;
+  if (qrImageUrl.startsWith("http")) return qrImageUrl;
+  return `data:image/png;base64,${qrImageUrl}`;
+}, [qrImageUrl]);
 ```
 
 ## Arquivos
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/projeto/AIGenerateButton.tsx` | Prop `showMenteSelector`, Select de Mentes no dialog, enviar `mente_id` no payload |
-| `supabase/functions/openflow-ai/index.ts` | Ler `mente_id`, lookup de prompts, injetar no system prompt |
-| `src/components/projeto/CopyArsenalSection.tsx` | Adicionar `showMenteSelector={true}` |
+| `src/hooks/useWaSession.ts` | Fallback para nomes alternativos do campo QR no payload |
+| `src/components/whatsapp/WaHubQrPanel.tsx` | Src robusto para data URI, base64 e URL HTTP |
 
