@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet } from "lucide-react";
+import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet, Save, CopyPlus } from "lucide-react";
 
 interface FormField {
   key: string;
@@ -229,6 +229,41 @@ export function FormBuilder({ projects }: Props) {
     loadForms();
   };
 
+  const duplicateForm = async (form: CaptureForm) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("imphq_capture_forms").insert({
+      nome: `${form.nome} (cópia)`,
+      project_id: form.project_id,
+      step: form.step,
+      fields: form.fields as any,
+      is_active: true,
+      user_id: user.id,
+      settings: form.settings || {},
+    } as any);
+    if (error) { toast.error("Erro ao duplicar"); return; }
+    toast.success("Formulário duplicado!");
+    loadForms();
+  };
+
+  const saveAsTemplate = async (form: CaptureForm) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const settings = { ...(form.settings || {}), is_template: true, product_name: (form.settings as any)?.product_name };
+    const { error } = await supabase.from("imphq_capture_forms").insert({
+      nome: `[Template] ${form.nome}`,
+      project_id: null,
+      step: form.step,
+      fields: form.fields as any,
+      is_active: false,
+      user_id: user.id,
+      settings,
+    } as any);
+    if (error) { toast.error("Erro ao salvar template"); return; }
+    toast.success("Template salvo!");
+    loadForms();
+  };
+
   const getSnippetHTML = (form: CaptureForm) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const fields = (form.fields || []) as FormField[];
@@ -388,12 +423,18 @@ async function imphqSubmit(e) {
                     <Badge key={i} variant="outline" className="text-[9px]">{f.label || f.key}</Badge>
                   ))}
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-wrap">
                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => openEdit(form)}>
                     <Eye className="h-3 w-3 mr-1" /> Editar
                   </Button>
                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setShowSnippet(form)}>
                     <Code className="h-3 w-3 mr-1" /> Snippet
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => duplicateForm(form)}>
+                    <CopyPlus className="h-3 w-3 mr-1" /> Duplicar
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => saveAsTemplate(form)} title="Salvar como template reutilizável">
+                    <Save className="h-3 w-3 mr-1" /> Template
                   </Button>
                   <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive" onClick={() => deleteForm(form.id)}>
                     <Trash2 className="h-3 w-3" />
@@ -424,6 +465,30 @@ async function imphqSubmit(e) {
                   <p className="text-xs text-muted-foreground">{tpl.description}</p>
                 </div>
                 <Badge variant="outline" className="text-[9px] shrink-0">{tpl.fields.length} campos</Badge>
+              </button>
+            ))}
+            {/* Saved templates from DB */}
+            {forms.filter(f => (f.settings as any)?.is_template).map(tpl => (
+              <button
+                key={tpl.id}
+                onClick={() => {
+                  setFormName(tpl.nome.replace(/^\[Template\]\s*/, ""));
+                  setFormStage(tpl.step || "lead_capturado");
+                  setFormFields([...((tpl.fields as any as FormField[]) || [])]);
+                  setFormProduct((tpl.settings as any)?.product_name || "");
+                  setShowTemplates(false);
+                  setShowNew(true);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-primary/20 hover:bg-primary/5 transition-colors text-left"
+              >
+                <div className="p-2 rounded-lg bg-primary/20">
+                  <Save className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{tpl.nome}</p>
+                  <p className="text-xs text-muted-foreground">Template salvo • {((tpl.fields as any as FormField[]) || []).length} campos</p>
+                </div>
+                <Badge variant="outline" className="text-[9px] shrink-0 bg-primary/10 text-primary border-primary/20">Meu Template</Badge>
               </button>
             ))}
             <button
