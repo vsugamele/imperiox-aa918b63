@@ -331,14 +331,28 @@ export default function Dashboard() {
         return { month: month.slice(5), roas: totalCusto > 0 ? parseFloat((v.receita / totalCusto).toFixed(2)) : 0 };
       }));
 
-      // Recent kanban cards
-      const { data: cardsData } = await supabase
-        .from("imphq_kanban_cards")
-        .select("id, title, priority, board, column_id, project_id, updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(10);
+      // Recent kanban cards + WhatsApp stats + Hot Leads (parallel)
+      const [cardsDataRes, waMsgRes, hubSessionsRes, hotLeadsRes] = await Promise.all([
+        supabase.from("imphq_kanban_cards").select("id, title, priority, board, column_id, project_id, updated_at").order("updated_at", { ascending: false }).limit(10),
+        supabase.from("imphq_wa_messages").select("direction", { count: "exact" }).gte("created_at", subDays(new Date(), days).toISOString()),
+        supabase.from("wa_hub_iso_sessions").select("id, status"),
+        supabase.from("imphq_leads").select("id, nome, score, phone, email, project_id, criado_em").neq("status", "cliente").order("score", { ascending: false }).limit(5),
+      ]);
+
+      // WhatsApp stats
+      const waMessages = waMsgRes.data || [];
+      const waSent = waMessages.filter((m: any) => m.direction === "outgoing").length;
+      const waReceived = waMessages.filter((m: any) => m.direction === "incoming").length;
+      const waConnected = (hubSessionsRes.data || []).filter((s: any) => s.status === "connected").length;
+      setWaStats({ sent: waSent, received: waReceived, sessions: waConnected });
+
+      // Hot Leads
+      const hotLeadsData = (hotLeadsRes.data || []).filter((l: any) => (l.score || 0) > 0);
+      setHotLeads(hotLeadsData);
+
+      // Kanban cards
+      const cardsData = cardsDataRes.data;
       if (cardsData) {
-        // Fetch column names
         const colIds = [...new Set(cardsData.map(c => c.column_id))];
         const { data: colsData } = await supabase.from("imphq_kanban_columns").select("id, title").in("id", colIds);
         const colMap = new Map((colsData || []).map(c => [c.id, c.title]));
