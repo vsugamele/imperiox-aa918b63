@@ -1,55 +1,72 @@
 
 
-# Plano: Fix QR Code quebrado no Hub Local
+# Plano: Melhorar Central de Conteudo IA
 
-## Problema
+## Problemas encontrados
 
-A imagem do QR aparece como icone quebrado. O status raw mostra `awaiting_qr`, entao o evento `qr_status` foi encontrado e `qrImageUrl` tem valor — mas a `<img>` nao consegue renderizar.
+1. **Nenhum tipo de conteudo usa Skills** — a Central gera tudo com prompts inline hardcoded (linhas 54-61). Quando clica "Roteiro Webinario", ele **NAO** usa a skill `webinar-roteiro` que existe no catalogo.
 
-O codigo atual (linha 118) faz:
-```typescript
-src={qrImageUrl.startsWith("data:") ? qrImageUrl : `data:image/png;base64,${qrImageUrl}`}
+2. **O backend nem recebe essas actions** — nao existe handler para `generate_semanal`, `generate_ads_imagem`, etc. no `openflow-ai`. O edge function provavelmente retorna erro ou cai no fallback generico.
+
+3. **Sem seletor de modelo nem de Mente IA** — usa um unico call sem opcao de escolha.
+
+4. **Sem streaming** — o usuario espera sem feedback visual ate a geracao completa terminar.
+
+5. **Conteudos salvos ficam em `project.data.central_conteudos`** (JSON blob), nao em tabela separada — limita busca e organizacao.
+
+---
+
+## Mudancas
+
+### 1. Conectar tipos de conteudo a Skills existentes
+
+Mapear cada `ContentType` para um `skill_slug` quando a skill existir:
+
+| Tipo | Skill existente | Action |
+|---|---|---|
+| semanal | — | `generate_content` (handler novo) |
+| ads_imagem | `devastador` | `execute_skill` |
+| ads_video | `devastador` | `execute_skill` |
+| vsl | `lp-persuasiva` | `execute_skill` |
+| webinar | `webinar-roteiro` | `execute_skill` |
+| lp | `lp-persuasiva` | `execute_skill` |
+
+Quando ha skill, enviar `action: "execute_skill"` + `skill_slug` + contexto do projeto. O prompt inline vira apenas `user_input` complementar. Quando nao ha skill (semanal), criar um handler simples no backend.
+
+### 2. Adicionar seletor de modelo + Mente IA
+
+Reutilizar a logica do `AIGenerateButton` (dialog com Select de modelo + Mente) diretamente no componente, ou substituir o botao "Gerar com IA" por um `AIGenerateButton` customizado.
+
+Abordagem: adicionar um mini-dialog pre-geracao (igual ao AIGenerateButton) com:
+- Select de modelo (MODELS do AIGenerateButton)
+- Select de Mente IA (MENTES_DATA)
+- Enviar `model`, `mente_id` no payload
+
+### 3. Criar handler `generate_content` no backend
+
+Para o tipo "semanal" que nao tem skill dedicada, adicionar um case no `openflow-ai`:
+```
+if (action === "generate_content") return await handleContent(body, projectContext, ...);
 ```
 
-Isso assume que o payload contem base64 puro ou data URI. Porem, o worker local pode estar enviando o QR em outro formato — por exemplo, uma URL http normal da imagem, ou o campo pode estar com nome diferente no payload (`qr`, `qrcode`, `image`).
+### 4. Melhorar UX
 
-## Diagnostico necessario
+- Mostrar qual skill sera usada em cada card (badge "Skill: Webinar Roteiro")
+- Adicionar indicador de progresso durante geracao
+- Manter o preview de LP com iframe
 
-Antes de corrigir, preciso verificar o que o worker esta salvando no evento `qr_status`. Vou consultar o banco para ver o payload real.
-
-## Fix proposto
-
-### 1. Consultar payload real do evento qr_status no banco
-
-Verificar `wa_hub_iso_events` para a sessao `jpfreitas` e ver o campo `payload` do evento `qr_status`.
-
-### 2. Ajustar o mapeamento no `useWaSession.ts`
-
-Se o campo no payload tiver nome diferente (ex: `qr` em vez de `qrImageUrl`), corrigir linhas 125-126:
-```typescript
-const img = payload?.qrImageUrl || payload?.qr || payload?.image || null;
-```
-
-### 3. Ajustar o `<img>` no `WaHubQrPanel.tsx`
-
-Tornar o src mais robusto para aceitar 3 formatos:
-- Data URI completa (`data:image/...`)
-- Base64 puro (sem prefixo)
-- URL HTTP normal
-
-```typescript
-const qrSrc = useMemo(() => {
-  if (!qrImageUrl) return "";
-  if (qrImageUrl.startsWith("data:")) return qrImageUrl;
-  if (qrImageUrl.startsWith("http")) return qrImageUrl;
-  return `data:image/png;base64,${qrImageUrl}`;
-}, [qrImageUrl]);
-```
+---
 
 ## Arquivos
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/hooks/useWaSession.ts` | Fallback para nomes alternativos do campo QR no payload |
-| `src/components/whatsapp/WaHubQrPanel.tsx` | Src robusto para data URI, base64 e URL HTTP |
+| `src/components/projeto/ProjetoCentralConteudo.tsx` | Mapear tipos a skills, adicionar seletor modelo/mente, usar `execute_skill` para tipos com skill |
+| `supabase/functions/openflow-ai/index.ts` | Adicionar handler `generate_content` para conteudo semanal |
+
+## Ordem
+
+1. Atualizar `ProjetoCentralConteudo.tsx` com skill mapping + seletores
+2. Adicionar handler `generate_content` no backend
+3. Deploy edge function
 
