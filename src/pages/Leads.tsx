@@ -200,9 +200,19 @@ export default function Leads() {
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }).limit(500),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
+      supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
     ]);
     const allVendas = (vendasRes.data || []) as any[];
-    setWaProviders(waProvRes.data || []);
+    // Unify WA providers with Hub Local sessions
+    const hubProviders = ((leadsRes as any)[7]?.data || []).map((s: any) => ({
+      id: `hub_${s.id}`,
+      provider: "hub_local",
+      instance_name: s.session_key,
+      twilio_from: null,
+      project_id: s.tenant_id || null,
+      is_active: true,
+    }));
+    setWaProviders([...(waProvRes.data || []), ...hubProviders]);
     setWaTemplates(waTplRes.data || []);
     setAllVendasRaw(allVendas);
     setAdsSpend(adsRes.data || []);
