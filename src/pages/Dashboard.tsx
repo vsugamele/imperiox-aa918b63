@@ -43,6 +43,8 @@ export default function Dashboard() {
   const [dashProject, setDashProject] = useState("all");
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [adsGlobal, setAdsGlobal] = useState<{ gasto: number; cpl: number; roas: number; compras: number; topCampanhas: any[]; adsByProject: any[]; freqAlerts: string[] }>({ gasto: 0, cpl: 0, roas: 0, compras: 0, topCampanhas: [], adsByProject: [], freqAlerts: [] });
+  const [waStats, setWaStats] = useState<{ sent: number; received: number; sessions: number }>({ sent: 0, received: 0, sessions: 0 });
+  const [hotLeads, setHotLeads] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
