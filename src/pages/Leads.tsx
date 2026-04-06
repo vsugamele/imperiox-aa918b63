@@ -170,6 +170,13 @@ export default function Leads() {
   const [analyticsPeriod, setAnalyticsPeriod] = useState<PeriodKey>("30d");
   const [customFrom, setCustomFrom] = useState<Date>();
   const [customTo, setCustomTo] = useState<Date>();
+  const [waProviders, setWaProviders] = useState<any[]>([]);
+  const [waTemplates, setWaTemplates] = useState<any[]>([]);
+  const [showWaDialog, setShowWaDialog] = useState(false);
+  const [waTarget, setWaTarget] = useState<Lead | null>(null);
+  const [waProviderId, setWaProviderId] = useState("");
+  const [waMessage, setWaMessage] = useState("");
+  const [waSending, setWaSending] = useState(false);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
