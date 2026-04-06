@@ -80,16 +80,16 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
           <PerfilTab avatar={avatar} onUpdate={onUpdateAvatar} projectId={project.id} />
         </TabsContent>
         <TabsContent value="desejos" className="mt-4">
-          <DesejosTab avatar={avatar} onUpdate={onUpdateAvatar} />
+          <DesejosTab avatar={avatar} onUpdate={onUpdateAvatar} projectId={project.id} />
         </TabsContent>
         <TabsContent value="dores" className="mt-4">
-          <DoresTab avatar={avatar} onUpdate={onUpdateAvatar} />
+          <DoresTab avatar={avatar} onUpdate={onUpdateAvatar} projectId={project.id} />
         </TabsContent>
         <TabsContent value="voyerismos" className="mt-4">
-          <VoyerismosTab avatar={avatar} onUpdate={onUpdateAvatar} />
+          <VoyerismosTab avatar={avatar} onUpdate={onUpdateAvatar} projectId={project.id} />
         </TabsContent>
         <TabsContent value="problemas" className="mt-4">
-          <ProblemasTab avatar={avatar} onUpdate={onUpdateAvatar} />
+          <ProblemasTab avatar={avatar} onUpdate={onUpdateAvatar} projectId={project.id} />
         </TabsContent>
         <TabsContent value="copy" className="mt-4">
           <CopyArsenalTab avatar={avatar} onUpdate={onUpdateAvatar} />
