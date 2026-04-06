@@ -66,6 +66,7 @@ export function GatilhosTab({ avatar, onUpdate, projectId }: Props) {
                 projectId={projectId}
                 action="generate_gatilhos"
                 onResult={handleAIResult}
+                showMenteSelector={true}
                 contextSources={["Avatar", "Branding", "Dores", "Desejos", "Pesquisa"]}
                 fieldsToFill={["Gatilhos", "Storyboard", "Gatilho Nuclear", "The High/Hell", "Segredo Final"]}
                 label="Gerar com IA"

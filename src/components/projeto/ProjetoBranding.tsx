@@ -70,6 +70,7 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
           projectId={project.id}
           action="generate_branding"
           onResult={handleAIResult}
+          showMenteSelector={true}
           contextSources={["Avatar", "Briefing", "Produtos", "Concorrentes"]}
           fieldsToFill={["Arquétipo", "Inimigo Comum", "Mecanismo", "Personalidade", "Manifesto", "Linguagem"]}
           label="Completar com IA"

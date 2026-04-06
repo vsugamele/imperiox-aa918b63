@@ -9751,6 +9751,13 @@ export type Database = {
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_ads_spend_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       imphq_ai_chats: {
@@ -9791,6 +9798,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ai_chats_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_ai_chats_user_id_fkey"
@@ -9901,6 +9915,13 @@ export type Database = {
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_automacoes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       imphq_calendar_events: {
@@ -9959,6 +9980,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_calendar_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -10222,6 +10250,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "imphq_chat_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+          {
             foreignKeyName: "imphq_chat_messages_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -10435,6 +10470,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "imphq_competitors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+          {
             foreignKeyName: "imphq_competitors_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -10525,6 +10567,13 @@ export type Database = {
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_content_library_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       imphq_custos: {
@@ -10604,6 +10653,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "imphq_daily_routines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+          {
             foreignKeyName: "imphq_daily_routines_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -10681,6 +10737,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_docs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -10766,6 +10829,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -10928,6 +10998,13 @@ export type Database = {
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_funis_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       imphq_growth_metrics: {
@@ -11016,6 +11093,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_kanban_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -11124,6 +11208,13 @@ export type Database = {
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_kanban_cards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       imphq_kanban_columns: {
@@ -11161,6 +11252,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_kanban_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -11326,6 +11424,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -11813,6 +11918,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "imphq_projects_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+          {
             foreignKeyName: "imphq_projects_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -11965,6 +12077,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_referencias_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -12239,6 +12358,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -12528,6 +12654,13 @@ export type Database = {
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       imphq_wa_conversations: {
@@ -12735,6 +12868,53 @@ export type Database = {
           },
         ]
       }
+      imphq_webhook_errors: {
+        Row: {
+          created_at: string
+          erro: string
+          evento: string | null
+          id: string
+          payload: Json | null
+          plataforma: string | null
+          project_id: string | null
+          reprocessado: boolean | null
+          reprocessado_at: string | null
+          webhook_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          erro: string
+          evento?: string | null
+          id?: string
+          payload?: Json | null
+          plataforma?: string | null
+          project_id?: string | null
+          reprocessado?: boolean | null
+          reprocessado_at?: string | null
+          webhook_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          erro?: string
+          evento?: string | null
+          id?: string
+          payload?: Json | null
+          plataforma?: string | null
+          project_id?: string | null
+          reprocessado?: boolean | null
+          reprocessado_at?: string | null
+          webhook_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_webhook_errors_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_webhooks: {
         Row: {
           created_at: string | null
@@ -12780,6 +12960,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -24831,6 +25018,26 @@ export type Database = {
           name?: never
           phone?: never
           pix_key?: never
+        }
+        Relationships: []
+      }
+      vw_financas_resumo: {
+        Row: {
+          cpa: number | null
+          cpl: number | null
+          custo_total: number | null
+          lucro_liquido: number | null
+          project_icon: string | null
+          project_id: string | null
+          project_name: string | null
+          qtd_vendas: number | null
+          receita_total: number | null
+          roas: number | null
+          total_ads: number | null
+          total_custos: number | null
+          total_leads_ads: number | null
+          total_receita_manual: number | null
+          total_vendas: number | null
         }
         Relationships: []
       }

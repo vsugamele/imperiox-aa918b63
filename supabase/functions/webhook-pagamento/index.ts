@@ -514,6 +514,25 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("[webhook-pagamento] Erro:", err);
+
+    // Log error to imphq_webhook_errors
+    try {
+      const supabaseErr = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const rawBody = typeof body !== "undefined" ? body : null;
+      await supabaseErr.from("imphq_webhook_errors").insert({
+        plataforma: rawBody?.plataforma || "desconhecido",
+        evento: rawBody?.evento || rawBody?.event || "desconhecido",
+        erro: String(err),
+        payload: rawBody,
+        project_id: typeof projectId !== "undefined" ? projectId : null,
+      });
+    } catch (logErr) {
+      console.error("[webhook-pagamento] Erro ao logar falha:", logErr);
+    }
+
     return new Response(
       JSON.stringify({ error: String(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

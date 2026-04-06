@@ -39,6 +39,7 @@ export function VoyerismosTab({ avatar, onUpdate, projectId }: Props) {
                 projectId={projectId}
                 action="execute_skill"
                 label="Gerar Cenas"
+                showMenteSelector={true}
                 extraBody={{ skill_slug: "dossie-problemas", extra_instructions: "Gere cenas de voyerismo detalhadas: situação real do dia-a-dia, sintoma físico, pensamento interno, comportamento resultante e como usar na copy." }}
                 onResult={() => {}}
                 contextSources={["Avatar", "Dores", "Problemas"]}

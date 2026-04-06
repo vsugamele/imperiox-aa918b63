@@ -51,10 +51,11 @@ export function DesejosTab({ avatar, onUpdate, projectId }: Props) {
     <div className="space-y-6">
       {projectId && (
         <div className="flex justify-end">
-          <AIGenerateButton
+           <AIGenerateButton
             projectId={projectId}
             action="execute_skill"
             label="Mapear Desejos"
+            showMenteSelector={true}
             extraBody={{ skill_slug: "mapeamento-desejos", extra_instructions: "Mapeie desejos externos, internos e proibidos do avatar com scores e justificativas." }}
             onResult={() => {}}
             contextSources={["Avatar", "Briefing", "Dores"]}
