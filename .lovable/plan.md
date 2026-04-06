@@ -1,35 +1,50 @@
 
 
-# Plano: Exibir respostas do formulario na Qualificacao + corrigir labels
+# Plano: Fix 4 Bugs na Jornada, Score, e Analise IA de Leads
 
-## Situacao atual
+## Bug 1: Jornada duplicada (2x Lead Capturado)
 
-- Os dados **estao sendo salvos** — Bruno Souza tem 15 respostas, o lead teste tem 15 respostas
-- Os leads antigos (Fernanda, Ingride, etc.) foram capturados **antes** do fix e nao tem `form_id` nem respostas
-- O lead da screenshot provavelmente e um desses leads antigos — por isso a secao "Respostas de Formularios" nao aparece
+**Causa raiz**: A `loadTimeline` faz 3 queries paralelas que todas podem encontrar o mesmo evento LeadCapture:
+- Query 1 (linha 263): busca por `visitor_id`
+- Query 2 (linha 275): busca por `lead.id` 
+- Query 3 (linha 289): busca por `email`
 
-**Problema de labels**: Bruno foi capturado com o codigo antigo, entao as questions estao como slug tecnico (`voc__cabeleireiroa_profissional_hoje`). O lead teste "0604" ja tem labels legiveis ("Voce e cabeleireiro(a) profissional hoje?").
+Como rodam em paralelo com `Promise.all`, o check de dedup `!events.find(ev => ev.id === e.id)` falha — quando a query 3 processa, os resultados da query 1 podem ainda nao estar no array.
 
-## Mudancas
-
-### 1. Humanizar labels antigos no display
-
-No render das respostas (linha 1541 do `Leads.tsx`), aplicar uma funcao que converte slugs tecnicos em texto legivel quando a `question` parece ser um field_key:
+**Fix**: Deduplicar DEPOIS de todas as promises resolverem, antes do sort final. Usar um `Map` por `id` para eliminar duplicatas.
 
 ```typescript
-const humanize = (q: string) => {
-  if (!q.includes("_") || q.includes(" ")) return q;
-  return q.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-};
+await Promise.all(promises);
+// Dedup by id
+const unique = new Map(events.map(e => [e.id, e]));
+const deduped = Array.from(unique.values());
+deduped.sort((a, b) => ...);
+setTimeline(deduped);
 ```
 
-### 2. Mostrar mensagem quando nao ha respostas
+## Bug 2: Score mostra "form_preenchido" mas respostas nao aparecem
 
-Quando `formResponses.length === 0`, exibir uma mensagem informativa em vez de esconder a secao completamente. Algo como "Nenhuma resposta de formulario registrada para este lead."
+O score e as respostas vem de tabelas diferentes. O score `form_preenchido` e inserido sempre que `body.form_id` existe no capture-lead. Mas as respostas so sao salvas se o formulario tiver campos preenchidos alem dos meta-fields. Se o lead preencheu um form simples (so nome/email/phone), as respostas foram salvas com o fix anterior — o problema pode ser que o lead em questao foi capturado ANTES do fix (sem form_id persistido). Nesse caso, basta mostrar uma mensagem explicativa na secao de respostas: "Este lead foi capturado antes do rastreamento de formularios".
 
-### 3. Corrigir retroativamente as labels do Bruno via SQL
+## Bug 3: Botao "Analisar Lead com IA" nao faz nada
 
-Executar um UPDATE nas respostas do Bruno cruzando com a config do formulario para substituir os slugs pelas labels reais.
+**Causa raiz**: O `AIGenerateButton` envia `action: "analyze_lead"` para `openflow-ai`, mas NAO EXISTE handler para essa action. O backend ignora e cai no handler default de automacao, que nao retorna `qualificacao`.
+
+**Fix**: Adicionar handler `analyze_lead` no `openflow-ai/index.ts`:
+
+```typescript
+if (action === "analyze_lead") return await handleAnalyzeLead(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+```
+
+O handler envia os dados do lead (respostas, score, interacoes) para a IA com prompt pedindo analise estruturada retornando JSON com `qualificacao: { dor, nivel_consciencia, objecoes, notas }`.
+
+## Bug 4: Botao de analise em massa
+
+Adicionar um botao "Analisar Leads com IA" na toolbar principal da pagina de Leads (ao lado dos filtros), que permite:
+- Analisar todos os leads filtrados de uma vez
+- Ou selecionar leads especificos para analise
+
+O botao dispara `analyze_lead` para cada lead selecionado em sequencia e atualiza os campos de qualificacao automaticamente.
 
 ---
 
@@ -37,6 +52,13 @@ Executar um UPDATE nas respostas do Bruno cruzando com a config do formulario pa
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Leads.tsx` | Humanizar labels + mostrar secao vazia com mensagem |
-| SQL (dados) | Corrigir labels do Bruno retroativamente |
+| `src/pages/Leads.tsx` | Dedup timeline com Map + botao "Analisar Leads" na toolbar + mensagem para leads antigos sem form |
+| `supabase/functions/openflow-ai/index.ts` | Adicionar handler `analyze_lead` |
+
+## Ordem
+
+1. Fix dedup timeline (Leads.tsx)
+2. Adicionar handler `analyze_lead` (openflow-ai)
+3. Deploy edge function
+4. Adicionar botao de analise em massa na toolbar
 
