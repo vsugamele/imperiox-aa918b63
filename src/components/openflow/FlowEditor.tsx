@@ -39,6 +39,15 @@ export interface Acao {
   delay_min: number;
   condicao_tipo?: string;
   condicao_tempo_min?: number;
+  provider_id?: string;
+}
+
+export interface WaProvider {
+  id: string;
+  provider: string;
+  instance_name?: string;
+  twilio_from?: string;
+  project_id?: string;
 }
 
 export interface ProjectTemplate {
@@ -54,9 +63,10 @@ interface FlowEditorProps {
   onGenerateAI?: () => void;
   isGenerating?: boolean;
   templates?: ProjectTemplate[];
+  providers?: WaProvider[];
 }
 
-export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [] }: FlowEditorProps) {
+export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [], providers = [] }: FlowEditorProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
