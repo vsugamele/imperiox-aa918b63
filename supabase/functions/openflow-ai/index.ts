@@ -388,6 +388,43 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+async function handleGenerateContent(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+  const { prompt, content_type } = body;
+  const systemPrompt = `${mentePrefix}Você é um estrategista de conteúdo e copywriter brasileiro de alto nível.
+Especialista em criar conteúdos para redes sociais, marketing digital e lançamentos.
+${projectContext}
+REGRAS:
+- Use linguagem conversacional e persuasiva em português brasileiro
+- Seja específico para o projeto e avatar
+- Inclua CTAs em cada peça de conteúdo
+- Formate de forma organizada e prática`;
+
+  const userMsg = prompt || `Gere conteúdo do tipo "${content_type}" para este projeto.`;
+
+  const isOR = baseUrl.includes("openrouter.ai");
+  const mkH = (key: string, or: boolean): Record<string, string> => {
+    const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    if (or) { h["HTTP-Referer"] = "https://imperiox.lovable.app"; h["X-Title"] = "ImperioHQ"; }
+    return h;
+  };
+  const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMsg }] });
+
+  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+
+  if (!isOR && response.status === 402) {
+    const orKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (orKey) {
+      console.log("Lovable gateway 402, falling back to OpenRouter (generate_content)");
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+    }
+  }
+
+  if (!response.ok) return handleAIError(response);
+  const result = await response.json();
+  const text = result.choices?.[0]?.message?.content || "";
+  return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
   const { project_id, user_prompt } = body;
 
