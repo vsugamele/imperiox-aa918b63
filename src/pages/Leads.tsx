@@ -1518,36 +1518,40 @@ export default function Leads() {
                   </div>
 
                   {/* Respostas de Formulários — agrupadas por form */}
-                  {formResponses.length > 0 && (
-                    <div className="space-y-3 border-t border-border pt-3">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Respostas de Formulários</p>
-                      {(() => {
-                        const grouped: Record<string, typeof formResponses> = {};
-                        formResponses.forEach(r => {
-                          const key = r.form_id || "_sem_form";
-                          if (!grouped[key]) grouped[key] = [];
-                          grouped[key].push(r);
-                        });
-                        return Object.entries(grouped).map(([formId, responses]) => {
-                          const formName = responses[0]?.form_name || (formId === "_sem_form" ? "Formulário" : `Form ${formId.slice(0, 8)}`);
-                          return (
-                            <div key={formId} className="space-y-1.5">
-                              <div className="flex items-center gap-1.5">
-                                <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">📋 {formName}</Badge>
-                                <span className="text-[9px] text-muted-foreground">{responses.length} respostas</span>
-                              </div>
-                              {responses.map((r, i) => (
-                                <div key={i} className="flex items-start gap-2 text-[11px] pl-2">
-                                  <span className="font-medium text-muted-foreground min-w-[80px]">{r.question}</span>
-                                  <span className="text-foreground">{r.answer}</span>
-                                </div>
-                              ))}
+                  <div className="space-y-3 border-t border-border pt-3">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Respostas de Formulários</p>
+                    {formResponses.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground italic">Nenhuma resposta de formulário registrada para este lead.</p>
+                    ) : (() => {
+                      const humanize = (q: string) => {
+                        if (!q || !q.includes("_") || q.includes(" ")) return q;
+                        return q.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+                      };
+                      const grouped: Record<string, typeof formResponses> = {};
+                      formResponses.forEach(r => {
+                        const key = r.form_id || "_sem_form";
+                        if (!grouped[key]) grouped[key] = [];
+                        grouped[key].push(r);
+                      });
+                      return Object.entries(grouped).map(([formId, responses]) => {
+                        const formName = responses[0]?.form_name || (formId === "_sem_form" ? "Formulário" : `Form ${formId.slice(0, 8)}`);
+                        return (
+                          <div key={formId} className="space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">📋 {formName}</Badge>
+                              <span className="text-[9px] text-muted-foreground">{responses.length} respostas</span>
                             </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  )}
+                            {responses.map((r, i) => (
+                              <div key={i} className="flex items-start gap-2 text-[11px] pl-2">
+                                <span className="font-medium text-muted-foreground min-w-[80px]">{humanize(r.question)}</span>
+                                <span className="text-foreground">{r.answer}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
 
                   {/* Histórico de Interações */}
                   {editLead.data?.interacoes && editLead.data.interacoes.length > 0 && (
