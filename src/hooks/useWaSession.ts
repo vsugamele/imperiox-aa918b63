@@ -121,8 +121,8 @@ export function useWaSession(params: {
           (e: any) => e.event_type === "qr_status"
         );
         const payload = latestQrEvent?.payload as any;
-        const hasQr = Boolean(payload?.hasQr);
-        const img = payload?.qrImageUrl || null;
+        const hasQr = Boolean(payload?.qrAvailable || payload?.hasQr || payload?.needsQr);
+        const img = payload?.qrImageUrl || payload?.qr || payload?.image || null;
         const txt = payload?.qrText || null;
 
         if (img) setQrImageUrl(img);
