@@ -395,8 +395,11 @@ export default function Leads() {
     );
 
     await Promise.all(promises);
-    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    setTimeline(events);
+    // Dedup by id using Map to prevent duplicate events from parallel queries
+    const unique = new Map(events.map(e => [e.id, e]));
+    const deduped = Array.from(unique.values());
+    deduped.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    setTimeline(deduped);
     setTimelineLoading(false);
   };
 
@@ -858,6 +861,35 @@ export default function Leads() {
                 toast.success(`${filtered.length} leads exportados`);
               }}>📥 Export CSV</Button>
               <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar</Button>
+              <Button size="sm" variant="outline" onClick={async () => {
+                const toAnalyze = filtered.filter(l => l.project_id);
+                if (toAnalyze.length === 0) { toast.error("Nenhum lead com projeto para analisar"); return; }
+                if (toAnalyze.length > 50) { toast.error("Selecione no máximo 50 leads (use filtros)"); return; }
+                toast.info(`Analisando ${toAnalyze.length} leads com IA...`);
+                let success = 0;
+                for (const lead of toAnalyze) {
+                  try {
+                    const { data: responses } = await supabase.from("imphq_lead_responses").select("question, answer").eq("lead_id", lead.id);
+                    const { data: scores } = await supabase.from("imphq_lead_scores_log").select("acao, pontos").eq("lead_id", lead.id);
+                    const { data, error } = await supabase.functions.invoke("openflow-ai", {
+                      body: {
+                        project_id: lead.project_id,
+                        action: "analyze_lead",
+                        lead: { nome: lead.nome, email: lead.email, phone: lead.phone, plataforma: lead.plataforma, score: lead._score ?? 0, total_gasto: lead.total_gasto, tags: lead.tags, data: lead.data },
+                        form_responses: (responses || []).map((r: any) => ({ question: r.question, answer: r.answer })),
+                        score_log: (scores || []).map((s: any) => ({ acao: s.acao, pontos: s.pontos })),
+                      },
+                    });
+                    if (!error && data?.qualificacao) {
+                      const newData = { ...(lead.data || {}), qualificacao: { ...(lead.data?.qualificacao || {}), ...data.qualificacao } };
+                      await supabase.from("imphq_leads").update({ data: newData }).eq("id", lead.id);
+                      success++;
+                    }
+                  } catch { /* skip */ }
+                }
+                toast.success(`${success}/${toAnalyze.length} leads analisados`);
+                load();
+              }} className="gap-1"><Zap className="h-4 w-4" /> Analisar com IA</Button>
               <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>
             </div>
           </div>
