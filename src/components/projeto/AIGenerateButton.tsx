@@ -4,9 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, Brain, Database } from "lucide-react";
+import { Sparkles, Loader2, Brain, Database, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { MENTES_DATA } from "@/data/mentesData";
 
 const MODELS = [
   // --- Lovable Gateway (Gemini + GPT) ---
@@ -39,6 +40,7 @@ interface AIGenerateButtonProps {
   variant?: "outline" | "default" | "secondary" | "ghost";
   className?: string;
   extraBody?: Record<string, any>;
+  showMenteSelector?: boolean;
 }
 
 export function AIGenerateButton({
@@ -52,10 +54,12 @@ export function AIGenerateButton({
   variant = "outline",
   className = "",
   extraBody = {},
+  showMenteSelector = false,
 }: AIGenerateButtonProps) {
   const [open, setOpen] = useState(false);
   const [model, setModel] = useState(MODELS[0].id);
   const [generating, setGenerating] = useState(false);
+  const [selectedMente, setSelectedMente] = useState<string>("none");
 
   const getOpenRouterKey = (): string | null => {
     try {
@@ -87,6 +91,11 @@ export function AIGenerateButton({
       // Send OpenRouter key for non-gateway models
       if (isOpenRouter) {
         bodyPayload.openrouter_key = getOpenRouterKey();
+      }
+
+      // Send mente_id if selected
+      if (selectedMente && selectedMente !== "none") {
+        bodyPayload.mente_id = selectedMente;
       }
 
       const { data, error } = await supabase.functions.invoke("openflow-ai", {
@@ -149,6 +158,28 @@ export function AIGenerateButton({
                 </SelectContent>
               </Select>
             </div>
+
+            {showMenteSelector && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                  <UserCircle className="h-3 w-3" /> Personalidade (Mente IA)
+                </Label>
+                <Select value={selectedMente} onValueChange={setSelectedMente}>
+                  <SelectTrigger className="bg-secondary">
+                    <SelectValue placeholder="Nenhuma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">🚫 Nenhuma — tom neutro</SelectItem>
+                    {MENTES_DATA.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <span>{m.icon} {m.nome}</span>
+                        <span className="text-muted-foreground ml-1 text-xs">— {m.spec}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {contextSources.length > 0 && (
               <div>
