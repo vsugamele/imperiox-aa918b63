@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, TrendingUp, Target, Zap, ShoppingCart, Sparkles, Heart, Brain, Leaf, PawPrint, Users, Star } from "lucide-react";
 import { NICHE_OFFERS, MARKETING_ANGLES, OFFER_FACTORY, UNIQUE_NICHOS } from "@/data/marketIntelData";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
+import ReactMarkdown from "react-markdown";
 
 const NICHO_COLORS: Record<string, { bg: string; text: string; border: string; icon: any }> = {
   "Saúde": { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", icon: Heart },
@@ -40,8 +42,12 @@ export default function MarketIntel() {
   const [search, setSearch] = useState("");
   const [nichoFilter, setNichoFilter] = useState("all");
   const [angleSearch, setAngleSearch] = useState("");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [aiResult, setAiResult] = useState<string>("");
 
   useEffect(() => {
+    supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => setProjects(data || []));
     supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data }) => setOpps(data || []));
   }, []);
 
@@ -70,7 +76,27 @@ export default function MarketIntel() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="font-display text-3xl font-bold text-primary">🧠 Market Intel</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="font-display text-3xl font-bold text-primary">🧠 Market Intel</h1>
+        <div className="flex items-center gap-2">
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger className="w-[200px] bg-secondary">
+              <SelectValue placeholder="Selecionar projeto..." />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <AIGenerateButton
+            projectId={selectedProject}
+            action="execute_skill"
+            label="Pesquisa de Mercado"
+            extraBody={{ skill_slug: "market-intel", mode: "DISCOVERY" }}
+            onResult={(data) => setAiResult(data?.result || "")}
+            contextSources={["Briefing", "Avatar", "Concorrentes", "Produtos", "Vendas"]}
+          />
+        </div>
+      </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -291,6 +317,22 @@ export default function MarketIntel() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {aiResult && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
+                <Brain className="h-5 w-5" /> Resultado da Pesquisa IA
+              </h2>
+              <Badge variant="outline" className="text-[10px]">{aiResult.length} chars</Badge>
+            </div>
+            <div className="prose prose-sm prose-invert max-w-none">
+              <ReactMarkdown>{aiResult}</ReactMarkdown>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

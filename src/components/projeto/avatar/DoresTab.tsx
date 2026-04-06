@@ -5,13 +5,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
+  projectId?: string;
 }
 
-export function DoresTab({ avatar, onUpdate }: Props) {
+export function DoresTab({ avatar, onUpdate, projectId }: Props) {
   const update = (key: string, val: any) => onUpdate({ ...avatar, [key]: val });
   const subAvatares = avatar.sub_avatares || [];
 
@@ -34,7 +36,28 @@ export function DoresTab({ avatar, onUpdate }: Props) {
   return (
     <div className="space-y-6">
       <Card className="bg-card border-border">
-        <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🩸 Dores & Medos</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🩸 Dores & Medos</CardTitle>
+          {projectId && (
+            <AIGenerateButton
+              projectId={projectId}
+              action="execute_skill"
+              label="Gerar Dores"
+              extraBody={{ skill_slug: "dossie-problemas", extra_instructions: "Foque em mapear dores superficiais, dores profundas, medos específicos e objeções reais do avatar." }}
+              onResult={(data) => {
+                if (data?.result) {
+                  try {
+                    const parsed = JSON.parse(data.result);
+                    if (parsed.dores_superficiais) update("dores_superficiais", [...(avatar.dores_superficiais || []), ...parsed.dores_superficiais]);
+                    if (parsed.dores_profundas) update("dores_profundas", [...(avatar.dores_profundas || []), ...parsed.dores_profundas]);
+                    if (parsed.medos) update("medos", [...(avatar.medos || []), ...parsed.medos]);
+                  } catch { /* result is markdown, not structured */ }
+                }
+              }}
+              contextSources={["Avatar", "Briefing", "Concorrentes"]}
+            />
+          )}
+        </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <Label className="text-xs text-muted-foreground">Dores Superficiais</Label>

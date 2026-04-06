@@ -6,10 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
+  projectId?: string;
 }
 
 // Meta para chaves conhecidas (HTML importado + legado manual)
@@ -31,7 +33,7 @@ const SCORE_META: Record<string, { label: string; color: string }> = {
 };
 const FALLBACK_SCORE_KEYS = ["dor","desejo","piora","veloc_","pagar","comun_","freq_"];
 
-export function ProblemasTab({ avatar, onUpdate }: Props) {
+export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const problemas = avatar.problemas || [];
 
@@ -89,7 +91,19 @@ export function ProblemasTab({ avatar, onUpdate }: Props) {
             <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">Ranking de Problemas</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">Top 5 = base de hooks, VSL e headlines</p>
           </div>
-          <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Problema</Button>
+          <div className="flex items-center gap-2">
+            {projectId && (
+              <AIGenerateButton
+                projectId={projectId}
+                action="execute_skill"
+                label="Gerar Problemas"
+                extraBody={{ skill_slug: "dossie-problemas", extra_instructions: "Gere ranking de problemas com scores (dor, desejo, piora, velocidade, pagar, comunicar, frequência) e cenas de voyerismo associadas." }}
+                onResult={() => {}}
+                contextSources={["Avatar", "Dores", "Desejos"]}
+              />
+            )}
+            <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Problema</Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-1.5">
           {sorted.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Nenhum problema cadastrado.</p>}

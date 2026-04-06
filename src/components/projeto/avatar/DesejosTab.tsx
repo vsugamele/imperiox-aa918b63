@@ -3,10 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
+  projectId?: string;
 }
 
 function RankedList({ items, onUpdate, label, accent }: { items: any[]; onUpdate: (items: any[]) => void; label: string; accent: string }) {
@@ -44,9 +46,21 @@ function RankedList({ items, onUpdate, label, accent }: { items: any[]; onUpdate
   );
 }
 
-export function DesejosTab({ avatar, onUpdate }: Props) {
+export function DesejosTab({ avatar, onUpdate, projectId }: Props) {
   return (
     <div className="space-y-6">
+      {projectId && (
+        <div className="flex justify-end">
+          <AIGenerateButton
+            projectId={projectId}
+            action="execute_skill"
+            label="Mapear Desejos"
+            extraBody={{ skill_slug: "mapeamento-desejos", extra_instructions: "Mapeie desejos externos, internos e proibidos do avatar com scores e justificativas." }}
+            onResult={() => {}}
+            contextSources={["Avatar", "Briefing", "Dores"]}
+          />
+        </div>
+      )}
       <RankedList
         items={avatar.desejos_externos || []}
         onUpdate={items => onUpdate({ ...avatar, desejos_externos: items })}
