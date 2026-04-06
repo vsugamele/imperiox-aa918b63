@@ -74,6 +74,14 @@ Deno.serve(async (req) => {
 
     let leadId: string;
 
+    // Build form metadata to persist in lead.data
+    const formMeta: Record<string, any> = {};
+    if (body.form_id && formConfig) {
+      formMeta.form_id = body.form_id;
+      formMeta.form_name = formConfig.nome || formConfig.name || null;
+      formMeta.captura_form_step = step || null;
+    }
+
     if (existing) {
       leadId = existing.id;
       const updates: any = {};
@@ -81,15 +89,10 @@ Deno.serve(async (req) => {
       if (phone) updates.phone = phone;
       if (tags.length) updates.tags = tags;
       if (step) updates.status = step;
-      // Ensure data.visitor_id is set for timeline
       const { data: currentLead } = await supabase.from("imphq_leads").select("data").eq("id", leadId).maybeSingle();
       const currentData = currentLead?.data || {};
-      if (!currentData.visitor_id) {
-        updates.data = { ...currentData, visitor_id: leadId };
-      }
-      if (Object.keys(updates).length) {
-        await supabase.from("imphq_leads").update(updates).eq("id", leadId);
-      }
+      updates.data = { ...currentData, visitor_id: currentData.visitor_id || leadId, ...formMeta };
+      await supabase.from("imphq_leads").update(updates).eq("id", leadId);
     } else {
       leadId = crypto.randomUUID();
       await supabase.from("imphq_leads").insert({
@@ -106,6 +109,7 @@ Deno.serve(async (req) => {
           ultimo_evento: "lead_capturado",
           captura_origem: source,
           capturado_em: new Date().toISOString(),
+          ...formMeta,
         },
       });
     }
@@ -123,9 +127,9 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Only exclude meta-fields; save ALL user-submitted data (including name, email, phone) as responses
       const standardKeys = new Set([
-        "form_id", "email", "name", "nome", "phone", "telefone",
-        "tags", "source", "origem", "page_url", "redirect_url",
+        "form_id", "redirect_url", "page_url",
         "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
       ]);
 
