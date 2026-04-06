@@ -1,72 +1,60 @@
 
 
-# Plano: Fix Receita Duplicada + Separar OrderBump
+# Plano: Salvar Respostas de Formulario + Identificar Origem + Analise IA
 
-## Problema
+## Problemas Identificados
 
-A Arilsiane e a Lucilene mostram `total_gasto = R$94` mas cada uma tem **apenas 1 venda de R$47**. O webhook foi chamado duas vezes pela Ticto, e o codigo atual **incrementa** `total_gasto` a cada chamada sem verificar se ja inseriu a venda. Na segunda chamada, o insert em `imphq_vendas` falha (ou cria duplicata), mas o `total_gasto` ja foi somado novamente.
+1. **Respostas nao aparecem**: O `capture-lead` so salva em `imphq_lead_responses` campos que NAO sao "standard" (email, name, phone, etc). Se o formulario so tem esses campos, nada e salvo como resposta — so o lead em si.
 
-## Fix 1: Recalcular total_gasto a partir das vendas reais (webhook-pagamento)
+2. **Formulario de origem nao fica claro**: O lead salva `plataforma: "formulario"` mas nao guarda qual formulario especifico. O `form_id` so e usado para lookup temporario, nao fica persistido no lead.
 
-Em vez de incrementar (`currentTotal + valor`), recalcular sempre a partir de `SUM(valor)` das vendas aprovadas:
+3. **Sem analise IA**: Nao existe botao para interpretar os dados brutos do lead.
 
-```typescript
-// ANTES (linha 329):
-const newTotal = (parseFloat(String(currentLead?.total_gasto)) || 0) + valor;
+---
 
-// DEPOIS:
-const { data: salesSum } = await supabase
-  .from("imphq_vendas")
-  .select("valor")
-  .eq("lead_id", leadId)
-  .eq("status", "aprovado");
-const newTotal = (salesSum || []).reduce((s, v) => s + parseFloat(String(v.valor) || "0"), 0);
-```
+## Mudanca 1: Persistir `form_id` e `form_name` no lead
 
-Isso elimina o problema de duplicacao — mesmo que o webhook seja chamado 10 vezes, o total sera sempre correto.
-
-## Fix 2: Deduplicar vendas no webhook
-
-Antes de inserir em `imphq_vendas`, verificar se ja existe uma venda com mesmo `lead_id + produto_nome + valor` nos ultimos 5 minutos:
+No `capture-lead/index.ts`, ao processar o formulario, salvar no `data` do lead:
 
 ```typescript
-const { data: existingDup } = await supabase
-  .from("imphq_vendas")
-  .select("id")
-  .eq("lead_id", leadId)
-  .eq("produto_nome", produto)
-  .eq("valor", valor)
-  .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString())
-  .limit(1);
-
-if (existingDup && existingDup.length > 0) {
-  console.log("[webhook-pagamento] Venda duplicada ignorada");
-} else {
-  // insert...
+// No insert/update do lead, adicionar ao data:
+data: {
+  ...existingData,
+  form_id: body.form_id,
+  form_name: formConfig?.nome || formConfig?.name,
+  captura_form_step: step,
 }
 ```
 
-## Fix 3: Corrigir dados atuais
+Isso permite mostrar "Veio do formulario X" no painel do lead.
 
-Migracao SQL (via insert tool) para recalcular `total_gasto` de todos os leads a partir das vendas reais:
+## Mudanca 2: Salvar campos standard tambem como respostas
 
-```sql
-UPDATE imphq_leads SET total_gasto = COALESCE((
-  SELECT SUM(valor) FROM imphq_vendas 
-  WHERE imphq_vendas.lead_id = imphq_leads.id AND status = 'aprovado'
-), 0)
-WHERE total_gasto > 0;
-```
+Atualmente a lista `standardKeys` exclui email, name, phone. Mudar para salvar TODOS os campos do body como respostas (exceto apenas `form_id`, `redirect_url`, `page_url` e UTMs), garantindo que as respostas do formulario aparecem na aba Qualificacao mesmo que sejam campos basicos.
 
-## Fix 4: Mostrar orderbump separado na tabela de Leads
+## Mudanca 3: Mostrar origem do formulario no painel do lead
 
-Na coluna Produto (`Leads.tsx` linha 1016), agrupar por `tipo_venda`:
+Na aba Qualificacao do `Leads.tsx`, antes das respostas, exibir uma secao "Origem da Captura" mostrando:
+- Nome do formulario (de `data.form_name`)
+- Step/etapa (de `data.captura_form_step`)
+- Data da captura
+- Badge visual identificando o form
 
-- Produto principal: nome normal
-- OrderBump: badge "OB" ao lado
-- Upsell: badge "UP" ao lado
+## Mudanca 4: Botao "Analisar com IA" na aba Qualificacao
 
-Na coluna Receita (linha 1020), mostrar breakdown se houver multiplos tipos.
+Adicionar um `AIGenerateButton` na aba Qualificacao que envia todas as respostas do lead + historico de interacoes para a IA gerar:
+- Perfil comportamental do lead
+- Nivel de consciencia sugerido
+- Objecoes provaveis
+- Recomendacao de abordagem
+
+O resultado preenche automaticamente os campos manuais (dor, nivel consciencia, etc).
+
+## Mudanca 5: KPIs de comportamento por projeto (futuro, preparacao)
+
+No `data` do lead, ja acumulamos `interacoes` e `capturado_em`. Com a venda registrada, podemos calcular:
+- **Tempo ate compra**: diferenca entre `capturado_em` e primeira venda
+- Isso sera exibido inline no painel do lead como badge informativo
 
 ---
 
@@ -74,14 +62,12 @@ Na coluna Receita (linha 1020), mostrar breakdown se houver multiplos tipos.
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/webhook-pagamento/index.ts` | Deduplicar venda + recalcular total_gasto via SUM |
-| `src/pages/Leads.tsx` | Mostrar tipo_venda (OB/UP) na coluna Produto |
-| Dados SQL | Corrigir total_gasto dos leads existentes |
+| `supabase/functions/capture-lead/index.ts` | Persistir `form_id`/`form_name` no lead.data + salvar campos standard como respostas |
+| `src/pages/Leads.tsx` | Secao "Origem da Captura" + AIGenerateButton na Qualificacao + badge "Tempo ate compra" |
 
 ## Ordem
 
-1. Fix webhook (deduplica + recalcula)
+1. Atualizar `capture-lead` (persistir form_id + salvar todos campos)
 2. Deploy edge function
-3. Corrigir dados via insert tool
-4. UI: badges de tipo_venda na tabela
+3. Atualizar UI do painel de Qualificacao (origem + IA + tempo)
 
