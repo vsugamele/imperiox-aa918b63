@@ -192,14 +192,18 @@ export default function Leads() {
   };
 
   const load = async () => {
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes] = await Promise.all([
       supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }).limit(500),
+      supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
+      supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
     ]);
     const allVendas = (vendasRes.data || []) as any[];
+    setWaProviders(waProvRes.data || []);
+    setWaTemplates(waTplRes.data || []);
     setAllVendasRaw(allVendas);
     setAdsSpend(adsRes.data || []);
     const vendasByLead = new Map<string, LeadVenda[]>();
