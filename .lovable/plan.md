@@ -1,79 +1,59 @@
 
 
-# Diagnostico: 3 Bugs no webhook-pagamento
+# Plano: Evoluir AIGenerateButton com prop `menteId`
 
-## Dados encontrados no banco
+## Objetivo
 
-| Lead | Webhooks recebidos | Vendas | Eventos Jornada | total_gasto | data.interacoes |
-|---|---|---|---|---|---|
-| **Fernanda** (00b1ad95) | `pix_created` + `compra_aprovada` | **0** | **0** | **0** | 1 (compra_aprovada) |
-| **Ingride** (f4b426f2) | `pix_created` | **0** | **0** | **0** | **0** (vazio) |
+Permitir que qualquer instancia do `AIGenerateButton` injete a personalidade de uma Mente IA (Dan Kennedy, Gary Halbert, etc.) no system prompt da geracao. O usuario escolhe a Mente no dialog antes de gerar.
 
-## 3 Bugs identificados
+## Mudancas
 
-### Bug 1: `imphq_events` — insert falha por falta de `id`
+### 1. `src/components/projeto/AIGenerateButton.tsx`
 
-A tabela `imphq_events` tem `id text NOT NULL` sem default. O codigo do webhook (linha 389-396) **nao seta `id`** no insert. Resultado: TODAS as insercoes de eventos de jornada falham silenciosamente. Isso explica:
-- Fernanda sem eventos de jornada (pix + compra)
-- Ingride sem evento de jornada (pix)
+- Adicionar prop opcional `showMenteSelector?: boolean` (default false)
+- Importar `MENTES_DATA` de `@/data/mentesData`
+- Adicionar state `selectedMente: string | null` (null = sem mente)
+- No dialog, quando `showMenteSelector=true`, renderizar um `<Select>` com as 8 mentes + opcao "Nenhuma"
+- No `handleGenerate`, se `selectedMente` estiver setado, enviar `mente_id` no body payload
 
-**Fix**: Adicionar `id: crypto.randomUUID()` no eventInsert.
+### 2. `supabase/functions/openflow-ai/index.ts`
 
-### Bug 2: `total_gasto` nunca e atualizado
+- No inicio (apos extrair `body`), ler `mente_id` do body
+- Se `mente_id` existir, buscar o prompt da mente correspondente em `MENTES_DATA` (hardcoded no edge function como lookup simples — id → prompt)
+- Injetar o prompt da mente como prefixo do system prompt em `handleExecuteSkill` e nos handlers de copy/branding/gatilhos
+- Substituir o bloco generico `mentesRef` (linha 335) pelo prompt completo da mente selecionada quando `mente_id` for passado
 
-Apos inserir a venda (linha 304-321), o codigo so atualiza `status: "cliente"` (linha 323-326). **Nao soma o valor em `total_gasto`**. Por isso Fernanda mostra `total_gasto = 0` e a coluna "Receita" no CRM aparece como "—".
+### 3. Ativar seletor de Mente nas abas relevantes
 
-**Fix**: Adicionar update de `total_gasto` acumulando o valor da venda.
+- `CopyArsenalSection.tsx` — adicionar `showMenteSelector={true}` no AIGenerateButton existente
+- `ProjetoBriefing.tsx` — se tiver AIGenerateButton, adicionar `showMenteSelector`
+- `ProjetoEmails.tsx` — idem
 
-### Bug 3: Ingride — `data.interacoes` vazio
+## Lookup de Mentes no Edge Function
 
-O webhook da Ingride (`pix_created` em 12:45) nao salvou interacoes. Isso sugere que a versao deployada da edge function nao tinha a logica de interacoes ou que o mapeamento `pix_created → pix_gerado` nao estava deployado.
+Em vez de buscar do banco (nao existe tabela de mentes), o edge function tera um map simples:
 
-**Fix**: Garantir o deploy com o codigo atual + corrigir os dados manualmente.
-
-## Solucao
-
-### 1. Corrigir `webhook-pagamento/index.ts`
-
-**Evento insert — adicionar id** (linha ~389):
 ```typescript
-const eventInsert: any = {
-  id: crypto.randomUUID(),  // ← ADICIONAR
-  event_name: journeyEventName,
-  ...
+const MENTE_PROMPTS: Record<string, { nome: string; prompt: string }> = {
+  dan_kennedy: { nome: "Dan Kennedy", prompt: "Você é Dan Kennedy — o pai do marketing de resposta direta..." },
+  gary_halbert: { nome: "Gary Halbert", prompt: "Você é Gary Halbert — o príncipe do direct mail..." },
+  // ... 8 mentes
 };
 ```
 
-**total_gasto — acumular apos venda** (apos linha 326):
+Quando `mente_id` chega no body, o prompt da mente e prepended ao system prompt:
+
 ```typescript
-// Acumular total_gasto
-const { data: currentLead } = await supabase
-  .from("imphq_leads")
-  .select("total_gasto")
-  .eq("id", leadId)
-  .single();
-const newTotal = (parseFloat(String(currentLead?.total_gasto)) || 0) + valor;
-await supabase
-  .from("imphq_leads")
-  .update({ status: "cliente", total_gasto: newTotal })
-  .eq("id", leadId);
+if (mente_id && MENTE_PROMPTS[mente_id]) {
+  systemPrompt = `## PERSONALIDADE ATIVA: ${MENTE_PROMPTS[mente_id].nome}\n${MENTE_PROMPTS[mente_id].prompt}\n\n---\n\n${systemPrompt}`;
+}
 ```
-
-### 2. Redeploy da edge function
-
-Apos as correcoes, redeploy do `webhook-pagamento`.
-
-### 3. Corrigir dados existentes (SQL)
-
-Inserir a venda e eventos que faltam para Fernanda e Ingride, e atualizar `total_gasto`:
-
-- **Fernanda**: Insert em `imphq_vendas` (R$47, Codigo dos Cortes Perfeitos) + insert em `imphq_events` (PixGerado + CompraAprovada) + update `total_gasto = 47`
-- **Ingride**: Insert em `imphq_events` (PixGerado) + update do `data.interacoes` com o evento de pix
 
 ## Arquivos
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/webhook-pagamento/index.ts` | Adicionar `id` no event insert + acumular `total_gasto` apos venda |
-| Migracao SQL | Corrigir dados Fernanda + Ingride |
+| `src/components/projeto/AIGenerateButton.tsx` | Prop `showMenteSelector`, Select de Mentes no dialog, enviar `mente_id` no payload |
+| `supabase/functions/openflow-ai/index.ts` | Ler `mente_id`, lookup de prompts, injetar no system prompt |
+| `src/components/projeto/CopyArsenalSection.tsx` | Adicionar `showMenteSelector={true}` |
 
