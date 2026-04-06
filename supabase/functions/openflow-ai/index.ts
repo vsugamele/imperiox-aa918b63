@@ -473,7 +473,7 @@ REGRAS:
   return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-
+async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
   const { project_id, user_prompt } = body;
 
   // Fetch existing ads data for context
