@@ -52,6 +52,7 @@ export function PerfilTab({ avatar, onUpdate, projectId }: Props) {
             projectId={projectId}
             action="generate_avatar_perfil"
             onResult={handleAIResult}
+            showMenteSelector={true}
             contextSources={["Briefing", "Expert", "Pesquisa", "Concorrentes", "Dores", "Desejos"]}
             fieldsToFill={["Retrato", "Arquétipo", "Ferida Central", "Desejos", "Camadas C1-C4", "Crenças"]}
             label="Completar com IA"

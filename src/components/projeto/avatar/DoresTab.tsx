@@ -43,6 +43,7 @@ export function DoresTab({ avatar, onUpdate, projectId }: Props) {
               projectId={projectId}
               action="execute_skill"
               label="Gerar Dores"
+              showMenteSelector={true}
               extraBody={{ skill_slug: "dossie-problemas", extra_instructions: "Foque em mapear dores superficiais, dores profundas, medos específicos e objeções reais do avatar." }}
               onResult={(data) => {
                 if (data?.result) {

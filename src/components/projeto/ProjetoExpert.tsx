@@ -70,6 +70,7 @@ export function ProjetoExpert({ project, onUpdateData }: Props) {
           projectId={project.id}
           action="generate_expert"
           onResult={handleAIResult}
+          showMenteSelector={true}
           contextSources={["Briefing", "Pesquisa", "Concorrentes", "Avatar"]}
           fieldsToFill={["Bio", "Tom de Voz", "Método", "Pilares", "Transformação", "Temas"]}
           label="Completar com IA"

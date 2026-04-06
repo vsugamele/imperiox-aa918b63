@@ -97,6 +97,7 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
                 projectId={projectId}
                 action="execute_skill"
                 label="Gerar Problemas"
+                showMenteSelector={true}
                 extraBody={{ skill_slug: "dossie-problemas", extra_instructions: "Gere ranking de problemas com scores (dor, desejo, piora, velocidade, pagar, comunicar, frequência) e cenas de voyerismo associadas." }}
                 onResult={() => {}}
                 contextSources={["Avatar", "Dores", "Desejos"]}

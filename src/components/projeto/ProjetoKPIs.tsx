@@ -47,6 +47,7 @@ export function ProjetoKPIs({ project, onUpdateData }: Props) {
           projectId={project.id}
           action="generate_kpis"
           onResult={handleAIResult}
+          showMenteSelector={true}
           contextSources={["Vendas", "Leads", "Custos", "Ads", "Produtos"]}
           fieldsToFill={KPI_FIELDS.map(f => f.label)}
           label="Calcular com IA"
