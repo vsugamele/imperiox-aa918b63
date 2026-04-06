@@ -12456,6 +12456,7 @@ export type Database = {
           produto_nome: string | null
           project_id: string | null
           status: string | null
+          tipo_venda: string | null
           utm_campaign: string | null
           utm_content: string | null
           utm_medium: string | null
@@ -12476,6 +12477,7 @@ export type Database = {
           produto_nome?: string | null
           project_id?: string | null
           status?: string | null
+          tipo_venda?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
           utm_medium?: string | null
@@ -12496,6 +12498,7 @@ export type Database = {
           produto_nome?: string | null
           project_id?: string | null
           status?: string | null
+          tipo_venda?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
           utm_medium?: string | null

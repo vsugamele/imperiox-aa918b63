@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,6 +47,8 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
   const [editing, setEditing] = useState<AdsSpend | null>(null);
   const [form, setForm] = useState({ project_id: "", plataforma: "Facebook", campanha: "", data_ref: "", valor: "", impressoes: "0", cliques: "0", leads: "0" });
   const [page, setPage] = useState(0);
+
+  useEffect(() => { setPage(0); }, [ads]);
 
   const totalGasto = ads.reduce((a, b) => a + b.valor, 0);
   const totalCliques = ads.reduce((a, b) => a + b.cliques, 0);
