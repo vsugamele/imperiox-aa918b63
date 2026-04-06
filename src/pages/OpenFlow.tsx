@@ -51,16 +51,25 @@ export default function OpenFlow() {
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
 
   const load = async () => {
-    const [aRes, wRes, pRes, provRes] = await Promise.all([
+    const [aRes, wRes, pRes, provRes, hubRes] = await Promise.all([
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_webhooks").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
+      supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
     ]);
     setAutomacoes((aRes.data || []).map((a: any) => ({ ...a, acoes: a.acoes || [] })));
     setWebhooks(wRes.data || []);
     setProjects(pRes.data || []);
-    setProviders(provRes.data || []);
+    // Unify providers: Evolution/Twilio + Hub Local sessions
+    const hubProviders = (hubRes.data || []).map((s: any) => ({
+      id: `hub_${s.id}`,
+      provider: "hub_local",
+      instance_name: s.session_key,
+      twilio_from: null,
+      project_id: s.tenant_id || null,
+    }));
+    setProviders([...(provRes.data || []), ...hubProviders]);
   };
 
   useEffect(() => { load(); }, []);
