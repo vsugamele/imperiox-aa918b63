@@ -116,6 +116,21 @@ Deno.serve(async (req) => {
           await sendWhatsApp(phone, `${title}\n${message}`);
         }
       }
+
+      // Send push notification
+      try {
+        const pushUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-push`;
+        await fetch(pushUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ user_id: userId, title, message }),
+        });
+      } catch (e) {
+        console.error("[notify-scheduler] Push send error:", e);
+      }
     }
 
     const userIds = await getAllUserIds();
