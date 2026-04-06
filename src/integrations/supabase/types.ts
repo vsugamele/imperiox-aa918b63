@@ -23340,6 +23340,7 @@ export type Database = {
           openrouter_api_key: string | null
           owner_id: string
           resend_from_email: string | null
+          timezone: string
           updated_at: string | null
           webhook_url: string | null
         }
@@ -23354,6 +23355,7 @@ export type Database = {
           openrouter_api_key?: string | null
           owner_id: string
           resend_from_email?: string | null
+          timezone?: string
           updated_at?: string | null
           webhook_url?: string | null
         }
@@ -23368,6 +23370,7 @@ export type Database = {
           openrouter_api_key?: string | null
           owner_id?: string
           resend_from_email?: string | null
+          timezone?: string
           updated_at?: string | null
           webhook_url?: string | null
         }
