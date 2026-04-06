@@ -303,19 +303,15 @@ export default function Dashboard() {
       setTotalReceita(totalRevFromView);
       setReceitaBreakdown({ vendas: totalVendasFromView, manual: totalManualFromView });
 
-      // Receita por Projeto (vendas + revenue agrupados por project_id)
-      const rpMap = new Map<string, number>();
-      (vendasRes.data || []).forEach((v: any) => {
-        if (v.project_id) rpMap.set(v.project_id, (rpMap.get(v.project_id) || 0) + (parseFloat(v.valor) || 0));
-      });
-      (revsRes.data || []).forEach((r: any) => {
-        if (r.project_id) rpMap.set(r.project_id, (rpMap.get(r.project_id) || 0) + (parseFloat(r.valor) || 0));
-      });
-      const projListMap2 = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
-      const rpArr = Array.from(rpMap.entries()).map(([pid, val]) => {
-        const p = projListMap2.get(pid);
-        return { name: p ? `${p.icon || "📁"} ${p.name}` : pid.slice(0, 8), value: val };
-      }).sort((a, b) => b.value - a.value).slice(0, 5);
+      // Receita por Projeto (from view)
+      const rpArr = (finResumo || [])
+        .filter((f: any) => Number(f.receita_total) > 0)
+        .map((f: any) => ({
+          name: `${f.project_icon || "📁"} ${f.project_name || "?"}`,
+          value: Number(f.receita_total) || 0,
+        }))
+        .sort((a: any, b: any) => b.value - a.value)
+        .slice(0, 5);
       setReceitaPorProjeto(rpArr);
 
       // Receita por Produto (vendas.produto)
