@@ -414,3 +414,79 @@ export default function WhatsApp() {
     </div>
   );
 }
+
+function HubConversations({ projects, providers }: { projects: any[]; providers: any[] }) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  const projectName = (id: string) => projects.find(p => p.id === id)?.name || "—";
+
+  useEffect(() => {
+    supabase.from("imphq_wa_messages").select("*").order("created_at", { ascending: false }).limit(500)
+      .then(({ data }) => setMessages(data || []));
+  }, []);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, { phone: string; lastMsg: string; lastAt: string; count: number; projectId: string }>();
+    messages.forEach(m => {
+      const key = m.phone;
+      if (!key) return;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { phone: key, lastMsg: m.content?.slice(0, 60) || "", lastAt: m.created_at, count: 1, projectId: m.project_id || "" });
+      } else {
+        existing.count++;
+        if (m.created_at > existing.lastAt) { existing.lastAt = m.created_at; existing.lastMsg = m.content?.slice(0, 60) || ""; }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+  }, [messages]);
+
+  if (selectedPhone) {
+    const phoneMessages = messages.filter(m => m.phone === selectedPhone).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const provider = providers[0] || null;
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" onClick={() => setSelectedPhone(null)}>← Voltar</Button>
+        <h2 className="text-lg font-semibold text-primary">Chat: {selectedPhone}</h2>
+        <Card className="bg-card border-border">
+          <ChatView conversationId={selectedPhone} phone={selectedPhone} projectId={grouped.find(g => g.phone === selectedPhone)?.projectId || ""} providerId={provider?.id || null} />
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="max-w-lg mx-auto mb-6">
+        <WaHubQrPanel />
+      </div>
+      {grouped.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-primary mb-3">📱 Conversas Recentes ({grouped.length})</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {grouped.map(g => (
+              <Card key={g.phone} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={() => setSelectedPhone(g.phone)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{g.phone}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{g.lastMsg}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-[9px]">{g.count} msgs</Badge>
+                        {g.projectId && <span className="text-[9px] text-muted-foreground">{projectName(g.projectId)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+      {grouped.length === 0 && <p className="text-sm text-muted-foreground text-center">Nenhuma conversa do Hub ainda. Conecte e envie mensagens para ver aqui.</p>}
+    </div>
+  );
+}
