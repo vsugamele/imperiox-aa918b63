@@ -23,7 +23,7 @@ interface ProjectCost { id: string; project_id: string; nome: string; categoria:
 interface ProjectRevenue { id: string; project_id: string; descricao: string; valor: number; fonte: string; data_ref: string; }
 interface Venda { id: string; project_id: string; produto_nome: string; valor: number; plataforma: string; status: string; data_venda: string; }
 interface AdsSpend { id: string; project_id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null; data_ref: string; valor: number; impressoes: number; alcance?: number; cliques: number; leads: number; compras?: number; custo_por_compra?: number; hook_rate?: number; hold_rate?: number; ctr?: number; frequencia?: number; moeda: string; }
-interface Project { id: string; name: string; icon?: string; }
+interface Project { id: string; name: string; icon?: string; briefing?: any; }
 
 export default function Financas() {
   const [custos, setCustos] = useState<Custo[]>([]);
@@ -47,7 +47,7 @@ export default function Financas() {
       supabase.from("imphq_project_revenue").select("*"),
       supabase.from("imphq_vendas").select("*").eq("status", "aprovado"),
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }),
-      supabase.from("imphq_projects").select("id, name, icon").eq("is_archived", false),
+      supabase.from("imphq_projects").select("id, name, icon, briefing" as any).eq("is_archived", false),
     ]);
     setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectCosts((r2.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
@@ -67,7 +67,7 @@ export default function Financas() {
       ctr: parseFloat(a.ctr) || 0,
       frequencia: parseFloat(a.frequencia) || 0,
     })));
-    setProjects((r6.data || []) as Project[]);
+    setProjects((r6.data || []) as unknown as Project[]);
   };
 
   useEffect(() => { load(); }, []);
@@ -437,7 +437,16 @@ export default function Financas() {
         </TabsContent>
 
         <TabsContent value="produtos">
-          <FinancasProdutos vendas={fVendas} />
+          <FinancasProdutos
+            vendas={fVendas}
+            revenues={fProjectRevenues.map(r => ({ id: r.id, descricao: r.descricao, valor: r.valor, produto_nome: (r as any).produto_nome || null }))}
+            costs={fProjectCosts.map(c => ({ id: c.id, nome: c.nome, valor: c.valor, produto_nome: (c as any).produto_nome || null }))}
+            ads={fAds.map(a => ({ id: a.id, valor: a.valor, campanha: a.campanha }))}
+            briefingProdutos={projects.flatMap(p => {
+              const b = p.briefing as any;
+              return Array.isArray(b?.produtos) ? b.produtos : [];
+            })}
+          />
         </TabsContent>
 
         <TabsContent value="performance">
