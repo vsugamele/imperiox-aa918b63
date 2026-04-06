@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWaSession, UiStatus } from "@/hooks/useWaSession";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,7 +115,11 @@ export default function WaHubQrPanel() {
           ) : qrImageUrl ? (
             <div className="bg-background p-3 rounded-xl border border-border">
               <img
-                src={qrImageUrl.startsWith("data:") ? qrImageUrl : `data:image/png;base64,${qrImageUrl}`}
+                src={
+                  qrImageUrl.startsWith("data:") ? qrImageUrl
+                  : qrImageUrl.startsWith("http") ? qrImageUrl
+                  : `data:image/png;base64,${qrImageUrl}`
+                }
                 alt="QR Code"
                 className="w-[250px] h-[250px] rounded-lg"
               />
