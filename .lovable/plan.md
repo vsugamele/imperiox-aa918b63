@@ -1,60 +1,72 @@
 
 
-# Plano: Melhorar Cofre de Ferramentas + Evoluir Referencias como Media Library
+# Plano: Fix Receita Duplicada + Separar OrderBump
 
-2 blocos de trabalho.
+## Problema
 
----
+A Arilsiane e a Lucilene mostram `total_gasto = R$94` mas cada uma tem **apenas 1 venda de R$47**. O webhook foi chamado duas vezes pela Ticto, e o codigo atual **incrementa** `total_gasto` a cada chamada sem verificar se ja inseriu a venda. Na segunda chamada, o insert em `imphq_vendas` falha (ou cria duplicata), mas o `total_gasto` ja foi somado novamente.
 
-## Bloco 1: Melhorar visualizacao do Cofre
+## Fix 1: Recalcular total_gasto a partir das vendas reais (webhook-pagamento)
 
-### Problemas atuais
-- Cards usam icone generico `Globe` para tudo
-- Sem favicon/imagem do site
-- Sem filtro por projeto
-- Sem cor visual por categoria (so badge de texto)
-- Nao puxa links dos projetos automaticamente
+Em vez de incrementar (`currentTotal + valor`), recalcular sempre a partir de `SUM(valor)` das vendas aprovadas:
 
-### Mudancas em `Cofre.tsx`
+```typescript
+// ANTES (linha 329):
+const newTotal = (parseFloat(String(currentLead?.total_gasto)) || 0) + valor;
 
-1. **Favicon automatico**: Usar `https://www.google.com/s2/favicons?domain=DOMINIO&sz=32` para mostrar o icone real do site no card (fallback para `Globe` se sem URL)
+// DEPOIS:
+const { data: salesSum } = await supabase
+  .from("imphq_vendas")
+  .select("valor")
+  .eq("lead_id", leadId)
+  .eq("status", "aprovado");
+const newTotal = (salesSum || []).reduce((s, v) => s + parseFloat(String(v.valor) || "0"), 0);
+```
 
-2. **Campo `icon_url`**: Adicionar coluna `icon_url` na tabela `imphq_tools_vault` para upload de icone customizado (via FileUpload). Se preenchido, usa ele; senao, usa favicon do Google
+Isso elimina o problema de duplicacao — mesmo que o webhook seja chamado 10 vezes, o total sera sempre correto.
 
-3. **Cor por categoria**: Aplicar `border-l-4` colorido nos cards (igual ao Referencias), cada categoria com sua cor (rose para social, amber para ads, etc.)
+## Fix 2: Deduplicar vendas no webhook
 
-4. **Filtro por projeto**: Adicionar Select de projeto ao lado do filtro de categoria. Agrupar por projeto quando filtrado
+Antes de inserir em `imphq_vendas`, verificar se ja existe uma venda com mesmo `lead_id + produto_nome + valor` nos ultimos 5 minutos:
 
-5. **Importar links dos projetos**: Botao "Importar do Projeto" que le `project.data.links` de cada projeto e cria entradas automaticas no cofre com `project_id` preenchido
+```typescript
+const { data: existingDup } = await supabase
+  .from("imphq_vendas")
+  .select("id")
+  .eq("lead_id", leadId)
+  .eq("produto_nome", produto)
+  .eq("valor", valor)
+  .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString())
+  .limit(1);
 
-6. **Campo produto**: Adicionar coluna `produto` (text) para associar ferramenta a um produto especifico
+if (existingDup && existingDup.length > 0) {
+  console.log("[webhook-pagamento] Venda duplicada ignorada");
+} else {
+  // insert...
+}
+```
 
-### Migracao SQL
-- `ALTER TABLE imphq_tools_vault ADD COLUMN icon_url text, ADD COLUMN produto text;`
+## Fix 3: Corrigir dados atuais
 
----
+Migracao SQL (via insert tool) para recalcular `total_gasto` de todos os leads a partir das vendas reais:
 
-## Bloco 2: Evoluir Referencias como biblioteca de midia de ads
+```sql
+UPDATE imphq_leads SET total_gasto = COALESCE((
+  SELECT SUM(valor) FROM imphq_vendas 
+  WHERE imphq_vendas.lead_id = imphq_leads.id AND status = 'aprovado'
+), 0)
+WHERE total_gasto > 0;
+```
 
-### Problema atual
-Referencias funciona como swipe file generico — nao tem conceito de "pasta", nao sincroniza com midia dos projetos, nao tem upload facil de screenshots de anuncios
+## Fix 4: Mostrar orderbump separado na tabela de Leads
 
-### Mudancas em `Referencias.tsx`
+Na coluna Produto (`Leads.tsx` linha 1016), agrupar por `tipo_venda`:
 
-1. **Campo `pasta`**: Adicionar coluna `pasta` (text) na tabela `imphq_referencias` para organizar em pastas customizaveis (ex: "Anuncios Meta Jan/26", "Criativos Produto X"). Filtro por pasta na UI
+- Produto principal: nome normal
+- OrderBump: badge "OB" ao lado
+- Upsell: badge "UP" ao lado
 
-2. **Campo `produto`**: Adicionar coluna `produto` (text) para associar referencia a um produto especifico
-
-3. **Filtro por pasta**: Adicionar sidebar ou select com as pastas existentes (extraidas dos dados). Botao para criar nova pasta
-
-4. **Upload em massa**: Botao "Upload Multiplo" que aceita varios arquivos de uma vez e cria uma referencia para cada, pre-preenchendo projeto e pasta selecionados
-
-5. **Sincronizar com projeto**: Botao "Importar do Projeto" que puxa conteudos do tipo "anuncios" da tabela `imphq_media_content` (usada no ProjetoMidia) e cria referencias automaticas com `project_id` preenchido
-
-6. **View melhorada**: Adicionar toggle grid/lista. Na view lista, mostrar thumbnail pequeno + titulo + projeto + pasta + tags numa linha
-
-### Migracao SQL
-- `ALTER TABLE imphq_referencias ADD COLUMN pasta text, ADD COLUMN produto text;`
+Na coluna Receita (linha 1020), mostrar breakdown se houver multiplos tipos.
 
 ---
 
@@ -62,13 +74,14 @@ Referencias funciona como swipe file generico — nao tem conceito de "pasta", n
 
 | Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | Adicionar `icon_url`, `produto` em vault + `pasta`, `produto` em referencias |
-| `src/pages/Cofre.tsx` | Favicon, cor por categoria, filtro projeto, campo produto, importar links |
-| `src/pages/Referencias.tsx` | Filtro pasta, campo produto, upload multiplo, importar do projeto, toggle grid/lista |
+| `supabase/functions/webhook-pagamento/index.ts` | Deduplicar venda + recalcular total_gasto via SUM |
+| `src/pages/Leads.tsx` | Mostrar tipo_venda (OB/UP) na coluna Produto |
+| Dados SQL | Corrigir total_gasto dos leads existentes |
 
 ## Ordem
 
-1. Migracao SQL (ambas tabelas)
-2. Cofre.tsx (favicon + cores + filtros + importar)
-3. Referencias.tsx (pasta + produto + upload multiplo + importar + view toggle)
+1. Fix webhook (deduplica + recalcula)
+2. Deploy edge function
+3. Corrigir dados via insert tool
+4. UI: badges de tipo_venda na tabela
 
