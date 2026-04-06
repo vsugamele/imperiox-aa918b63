@@ -234,9 +234,9 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string) {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const arsenal = await callAI(
-    `Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.\n${ctx}\nREGRAS: Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.`,
+    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.\n${ctx}\nREGRAS: Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.`,
     "Gere o Arsenal de Copy completo.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_copy_arsenal", description: "Generate copy arsenal", parameters: { type: "object", properties: { promessa: { type: "array", items: { type: "string" } }, inimigo_comum: { type: "array", items: { type: "string" } }, efeito_colateral: { type: "array", items: { type: "string" } }, oportunidade: { type: "array", items: { type: "string" } }, metodo_simplificado: { type: "array", items: { type: "string" } }, hora_do_show: { type: "array", items: { type: "string" } } }, required: ["promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo_simplificado", "hora_do_show"], additionalProperties: false } } }],
@@ -246,9 +246,9 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
   return new Response(JSON.stringify({ arsenal }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleBranding(ctx: string, apiKey: string, model: string, baseUrl: string) {
+async function handleBranding(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const branding = await callAI(
-    `Você é um estrategista de marca brasileiro. Analise o contexto e sugira branding.\n${ctx}\nEscolha arquétipo dentre: heroi, mentor, fora_da_lei, explorador, criador, cuidador, rei, mago, bobo`,
+    `${mentePrefix}Você é um estrategista de marca brasileiro. Analise o contexto e sugira branding.\n${ctx}\nEscolha arquétipo dentre: heroi, mentor, fora_da_lei, explorador, criador, cuidador, rei, mago, bobo`,
     "Analise e gere sugestões de branding completas.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_branding", description: "Generate branding", parameters: { type: "object", properties: { arquetipo: { type: "string" }, inimigo_comum: { type: "string" }, mecanismo_chave: { type: "string" }, personalidade: { type: "string" }, manifesto: { type: "string" }, palavras_usa: { type: "array", items: { type: "string" } }, palavras_evita: { type: "array", items: { type: "string" } } }, required: ["arquetipo", "inimigo_comum", "mecanismo_chave", "personalidade", "manifesto", "palavras_usa", "palavras_evita"], additionalProperties: false } } }],
@@ -258,9 +258,9 @@ async function handleBranding(ctx: string, apiKey: string, model: string, baseUr
   return new Response(JSON.stringify({ branding }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleGatilhos(ctx: string, apiKey: string, model: string, baseUrl: string) {
+async function handleGatilhos(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const gatilhos = await callAI(
-    `Você é um especialista em psicologia do consumo e copywriting emocional brasileiro.\n${ctx}\nGere 5-7 gatilhos emocionais específicos com storyboard narrativo.`,
+    `${mentePrefix}Você é um especialista em psicologia do consumo e copywriting emocional brasileiro.\n${ctx}\nGere 5-7 gatilhos emocionais específicos com storyboard narrativo.`,
     "Gere gatilhos emocionais + storyboard narrativo completo.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_gatilhos", description: "Generate triggers", parameters: { type: "object", properties: { gatilhos: { type: "array", items: { type: "object", properties: { nome: { type: "string" }, categoria: { type: "string" }, intensidade: { type: "string" }, situacao: { type: "string" }, copy_sugerido: { type: "string" } }, required: ["nome", "categoria", "intensidade", "situacao", "copy_sugerido"], additionalProperties: false } }, storyboard: { type: "object", properties: { antes: { type: "string" }, trigger: { type: "string" }, busca: { type: "string" }, objecao: { type: "string" }, decisao: { type: "string" } }, required: ["antes", "trigger", "busca", "objecao", "decisao"], additionalProperties: false }, gatilho_nuclear: { type: "string" }, the_high: { type: "string" }, the_hell: { type: "string" }, segredo_final: { type: "string" } }, required: ["gatilhos", "storyboard", "gatilho_nuclear", "the_high", "the_hell", "segredo_final"], additionalProperties: false } } }],
@@ -270,9 +270,9 @@ async function handleGatilhos(ctx: string, apiKey: string, model: string, baseUr
   return new Response(JSON.stringify({ gatilhos }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleKPIs(ctx: string, apiKey: string, model: string, baseUrl: string) {
+async function handleKPIs(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const kpis = await callAI(
-    `Você é um analista de marketing digital brasileiro. Com base nos dados reais do projeto, calcule ou estime os KPIs.\n${ctx}\nUse os dados de vendas, leads, custos e ads para calcular valores reais. Se não houver dados suficientes, estime com base no mercado.`,
+    `${mentePrefix}Você é um analista de marketing digital brasileiro. Com base nos dados reais do projeto, calcule ou estime os KPIs.\n${ctx}\nUse os dados de vendas, leads, custos e ads para calcular valores reais. Se não houver dados suficientes, estime com base no mercado.`,
     "Calcule os KPIs do projeto com base nos dados disponíveis.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_kpis", description: "Calculate KPIs", parameters: { type: "object", properties: { cpl: { type: "string" }, cac: { type: "string" }, roi: { type: "string" }, roas: { type: "string" }, ticket_medio: { type: "string" }, ltv: { type: "string" }, taxa_conversao: { type: "string" }, leads_mes: { type: "string" } }, required: ["cpl", "cac", "roi", "roas", "ticket_medio", "ltv", "taxa_conversao", "leads_mes"], additionalProperties: false } } }],
@@ -282,9 +282,9 @@ async function handleKPIs(ctx: string, apiKey: string, model: string, baseUrl: s
   return new Response(JSON.stringify({ kpis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleExpert(ctx: string, apiKey: string, model: string, baseUrl: string) {
+async function handleExpert(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const expert = await callAI(
-    `Você é um consultor de posicionamento de experts e infoprodutores brasileiro.\n${ctx}\nCom base no contexto do projeto, preencha os dados do expert de forma coerente.`,
+    `${mentePrefix}Você é um consultor de posicionamento de experts e infoprodutores brasileiro.\n${ctx}\nCom base no contexto do projeto, preencha os dados do expert de forma coerente.`,
     "Preencha os dados do expert com base no contexto disponível.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_expert", description: "Generate expert profile", parameters: { type: "object", properties: { bio: { type: "string" }, tom_voz: { type: "string" }, metodo: { type: "string" }, pilares: { type: "array", items: { type: "string" } }, transformacao: { type: "string" }, temas: { type: "array", items: { type: "string" } }, palavras_usa: { type: "array", items: { type: "string" } }, palavras_evita: { type: "array", items: { type: "string" } } }, required: ["bio", "tom_voz", "metodo", "pilares", "transformacao", "temas"], additionalProperties: false } } }],
@@ -294,9 +294,9 @@ async function handleExpert(ctx: string, apiKey: string, model: string, baseUrl:
   return new Response(JSON.stringify({ expert }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, baseUrl: string) {
+async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const avatar_perfil = await callAI(
-    `Você é um psicólogo de consumo e especialista em avatar de marketing brasileiro.\n${ctx}\nCom base nas pesquisas, dores, desejos e concorrentes, preencha o perfil psicológico completo do avatar.`,
+    `${mentePrefix}Você é um psicólogo de consumo e especialista em avatar de marketing brasileiro.\n${ctx}\nCom base nas pesquisas, dores, desejos e concorrentes, preencha o perfil psicológico completo do avatar.`,
     "Preencha o perfil psicológico e desejos do avatar.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_avatar_perfil", description: "Generate avatar profile", parameters: { type: "object", properties: { perfil_psicologico: { type: "object", properties: { retrato: { type: "string" }, arquetipo: { type: "string" }, ferida_central: { type: "string" }, padrao: { type: "string" }, contradicao: { type: "string" } }, required: ["retrato", "arquetipo", "ferida_central", "padrao", "contradicao"], additionalProperties: false }, desejo_externo: { type: "string" }, desejo_interno: { type: "string" }, inimigo: { type: "string" }, resultado_sonhado: { type: "string" }, trigger_event: { type: "string" }, fase_consciencia: { type: "string" }, crenca_bloqueadora: { type: "string" }, crenca_necessaria: { type: "string" }, epifania_central: { type: "string" }, camadas_psique: { type: "object", properties: { c1_observaveis: { type: "string" }, c2_conscientes: { type: "string" }, c3_subconscientes: { type: "string" }, c4_trauma: { type: "string" } }, required: ["c1_observaveis", "c2_conscientes", "c3_subconscientes", "c4_trauma"], additionalProperties: false } }, required: ["perfil_psicologico", "desejo_externo", "desejo_interno", "camadas_psique"], additionalProperties: false } } }],
@@ -306,7 +306,7 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, ba
   return new Response(JSON.stringify({ avatar_perfil }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string) {
+async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const { skill_id, skill_slug, skill_system_prompt, produto, extra_instructions } = body;
 
   // Get skill system prompt - prefer passed prompt, fallback to DB by id, then by slug/nome
@@ -348,14 +348,16 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
     }
   } catch (e) { console.error("Error fetching complementary skills:", e); }
 
-  // Mentes IA summary
-  const mentesRef = `\n## Referências de Mentes IA:\n- Dan Kennedy: Marketing direto, urgência real, ROI mensurável\n- Gary Halbert: Headlines magnéticas, leads irresistíveis\n- Eugene Schwartz: Níveis de consciência, sofisticação de mercado\n- Russell Brunson: Funis, Expert Secrets, Epiphany Bridge\n- Alex Hormozi: Value equation, Grand Slam Offers\n- Robert Cialdini: 6 princípios de influência\n- David Ogilvy: Pesquisa, elegância, brand\n- Claude Hopkins: Scientific Advertising, testes\n`;
+  // Mentes IA: use specific mente if selected, otherwise generic summary
+  const mentesRef = mentePrefix
+    ? "" // Already injected via mentePrefix
+    : `\n## Referências de Mentes IA:\n- Dan Kennedy: Marketing direto, urgência real, ROI mensurável\n- Gary Halbert: Headlines magnéticas, leads irresistíveis\n- Eugene Schwartz: Níveis de consciência, sofisticação de mercado\n- Russell Brunson: Funis, Expert Secrets, Epiphany Bridge\n- Alex Hormozi: Value equation, Grand Slam Offers\n- Robert Cialdini: 6 princípios de influência\n- David Ogilvy: Pesquisa, elegância, brand\n- Claude Hopkins: Scientific Advertising, testes\n`;
 
   // Product context
   let produtoContext = "";
   if (produto) produtoContext = `\n## Produto selecionado: ${produto}\n`;
 
-  const fullSystem = `${systemPrompt}\n\n---\n\n## CONTEXTO DO PROJETO\n${projectContext}${produtoContext}${complementaryContext}${mentesRef}${skillsContext}`;
+  const fullSystem = `${mentePrefix}${systemPrompt}\n\n---\n\n## CONTEXTO DO PROJETO\n${projectContext}${produtoContext}${complementaryContext}${mentesRef}${skillsContext}`;
 
   const userMsg = extra_instructions
     ? `Execute a skill com base no contexto completo do projeto. Instruções adicionais: ${extra_instructions}`
