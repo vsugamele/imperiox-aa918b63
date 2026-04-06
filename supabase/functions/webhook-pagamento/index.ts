@@ -313,7 +313,12 @@ Deno.serve(async (req) => {
         tipo_venda,
       };
       if (data_compra) vendaInsert.created_at = data_compra;
-      await supabase.from("imphq_vendas").insert(vendaInsert);
+      const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
+      if (vendaErr) {
+        console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
+      } else {
+        console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
+      }
 
       await supabase
         .from("imphq_leads")

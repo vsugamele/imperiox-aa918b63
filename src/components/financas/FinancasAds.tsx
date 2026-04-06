@@ -48,6 +48,8 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
   const [form, setForm] = useState({ project_id: "", plataforma: "Facebook", campanha: "", data_ref: "", valor: "", impressoes: "0", cliques: "0", leads: "0" });
   const [page, setPage] = useState(0);
 
+  useEffect(() => { setPage(0); }, [ads]);
+
   const totalGasto = ads.reduce((a, b) => a + b.valor, 0);
   const totalCliques = ads.reduce((a, b) => a + b.cliques, 0);
   const totalLeads = ads.reduce((a, b) => a + b.leads, 0);
