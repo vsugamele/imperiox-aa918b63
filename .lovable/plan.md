@@ -1,80 +1,73 @@
 
 
-# Plano: Aba Qualificacao Enriquecida + PWA com Push
+# Diagnostico: 4 Problemas Encontrados
 
-2 blocos restantes do plano aprovado.
+## Investigacao no Banco
 
----
+Verifiquei os dados da Fernanda de Olveira (`00b1ad95`) diretamente no Supabase:
 
-## 1. Enriquecer aba Qualificacao no Lead Detail (Leads.tsx)
+- **Lead**: `status=cliente`, `ultimo_evento=compra_aprovada`, `total_gasto=0`
+- **Webhooks recebidos**: 2 — `pix_created` (22:37) e `compra_aprovada` (22:40) — ambos da Ticto
+- **imphq_vendas**: **0 registros** para este lead_id
+- **imphq_events**: **0 registros** apos 22:30
 
-A aba "Qualificacao" (linhas 1376-1385) hoje so tem campos manuais (dor principal, nivel consciencia, renda, canal, objecoes, notas). Precisa exibir os dados automaticos que agora existem no backend.
-
-### Mudancas
-
-**Ao abrir o lead (`loadTimeline`)**: buscar tambem:
-- `imphq_lead_scores_log` filtrado por `lead_id` — para mostrar breakdown de pontos
-- `imphq_lead_responses` filtrado por `lead_id` — para mostrar respostas de formularios
-- Extrair `interacoes` do `lead.data` — para mostrar historico acumulado
-
-**Na aba Qualificacao, adicionar 4 secoes automaticas ANTES dos campos manuais**:
-
-1. **Score Detalhado** — barra de progresso com score total + lista de pontos ganhos (acao + pontos + data)
-2. **Respostas de Formularios** — agrupadas por form_id, exibindo question + answer
-3. **Historico de Interacoes** — lista do array `data.interacoes` com evento, produto, valor, tipo_venda (badges), UTMs, data
-4. **Compras com Tipo** — na secao de vendas existente (linha 1347), adicionar badge de `tipo_venda` (Order Bump, Upsell, Downsell) buscando da venda
-
-**Estado adicional**:
-- `scoreLog: {acao: string, pontos: number, created_at: string}[]`
-- `formResponses: {form_id: string, question: string, answer: string, created_at: string}[]`
-
-### Arquivo
-`src/pages/Leads.tsx` — ~80 linhas adicionadas na aba qualificacao + ~15 linhas no loadTimeline
+A lead foi atualizada para "cliente" e `data.interacoes` tem a compra, mas a venda e os eventos nao foram criados.
 
 ---
 
-## 2. PWA com Push Notifications
+## Bug 1: Venda nao criada (Fernanda nao aparece na Receita)
 
-### 2.1 Instalar vite-plugin-pwa + configurar
+O webhook processou `compra_aprovada`, atualizou o lead para `cliente` e gravou a interacao em `data.interacoes`. Porem **nao inseriu na `imphq_vendas`**.
 
-**`vite.config.ts`**: adicionar `VitePWA` com:
-- `registerType: "autoUpdate"`
-- `devOptions: { enabled: false }`
-- `workbox.navigateFallbackDenylist: [/^\/~oauth/]`
-- `manifest: false` (usar o manifest.json existente)
+**Causa**: O campo `tipo_venda` foi adicionado ao codigo do webhook mas a coluna pode nao existir na tabela (a migracao anterior adicionou `imphq_lead_scores_log` e `imphq_push_subscriptions`, mas a migracao de `tipo_venda` em `imphq_vendas` pode ter falhado ou nao sido executada). O insert falha silenciosamente.
 
-### 2.2 Guard no main.tsx
+Tambem: `total_gasto` nao esta sendo atualizado no lead apos a compra.
 
-**`src/main.tsx`**: adicionar guard que:
-- Detecta iframe ou dominio de preview
-- Unregistra SWs existentes nesses contextos
-- So permite registro em producao
+**Fix**:
+- Verificar/criar coluna `tipo_venda` em `imphq_vendas` via migracao
+- No webhook: adicionar error handling no insert de vendas e atualizar `total_gasto` no lead
+- Remover `tipo_venda` do insert se a coluna nao existir (usar `data` JSONB como fallback)
 
-### 2.3 Edge function send-push
+## Bug 2: Pix Gerado nao aparece na Jornada
 
-**`supabase/functions/send-push/index.ts`**: nova funcao que:
-- Recebe `{ user_id, title, message }`
-- Busca subscriptions do user em `imphq_push_subscriptions`
-- Envia via Web Push usando VAPID keys (secrets necessarios: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`)
+O Ticto envia `status: "pix_created"` mas o `statusMap` (linha 80 do webhook) nao tem essa entrada. Resultado: `evento = "pix_created"` que nao esta no `JOURNEY_EVENT_MAP`, entao nenhum evento e criado em `imphq_events`.
 
-### 2.4 Componente PushOptIn
+**Fix**: Adicionar ao webhook:
+- `statusMap`: `pix_created: "pix_gerado"`
+- `JOURNEY_EVENT_MAP` ja tem `pix_gerado: "PixGerado"` — vai funcionar automaticamente
 
-**`src/components/PushOptIn.tsx`**: botao que:
-- Pede `Notification.requestPermission()`
-- Registra push subscription via `serviceWorkerRegistration.pushManager.subscribe()`
-- Salva endpoint + keys em `imphq_push_subscriptions`
-- Mostra estado atual (ativo/inativo)
+## Bug 3: Eventos nao criados (ambos — pix e compra)
 
-### 2.5 Integrar no layout
+Mesmo o `compra_aprovada` que deveria gerar um evento `CompraAprovada` via `JOURNEY_EVENT_MAP` nao gerou nenhum registro em `imphq_events`. Isso confirma que o insert esta falhando silenciosamente — provavelmente pelo mesmo problema de schema ou porque a edge function deployada e uma versao antiga.
 
-**`src/components/AppLayout.tsx`**: adicionar `<PushOptIn />` ao lado do `<NotificationBell />`
+**Fix**: Adicionar try/catch com log nos inserts de eventos + redeployar a edge function
 
-### 2.6 Integrar no notify-scheduler
+## Bug 4: Filtros do Financas nao atualizam tabelas
 
-**`supabase/functions/notify-scheduler/index.ts`**: apos cada `notify()`, chamar `send-push` via fetch interno para enviar push real
+No `Financas.tsx`, os filtros (projeto, data) geram `fVendas`, `fAds`, `fProjectCosts` que sao passados aos KPIs e ao Overview. Porem os componentes de tabs (FinancasAds, FinancasProdutos, FinancasPerformance) recebem dados ja filtrados via props — entao o filtro DEVERIA funcionar.
 
-### Secrets necessarios
-- `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` — o usuario precisa gerar (vou orientar)
+O problema e que `FinancasAds` recebe `ads` (filtrado `fAds`) mas quando o usuario muda filtro de data, a tabela de Ads usa `ads` direto que ja vem filtrado. O que pode estar acontecendo e que a tabela interna faz paginacao (`page`) que nao reseta quando o filtro muda.
+
+**Fix**: Resetar `page` para 0 quando `ads` (props) mudar em `FinancasAds`
+
+---
+
+## Plano de Execucao
+
+### 1. Migracao SQL
+- `ALTER TABLE imphq_vendas ADD COLUMN IF NOT EXISTS tipo_venda TEXT DEFAULT 'principal'`
+
+### 2. `webhook-pagamento/index.ts`
+- Adicionar `pix_created: "pix_gerado"` ao `statusMap` do Ticto v2
+- Adicionar error handling nos inserts de vendas e eventos (log do erro)
+- Atualizar `total_gasto` no lead apos insert de venda aprovada
+- Scoring para pix_gerado (+15 pontos)
+
+### 3. `FinancasAds.tsx`
+- Adicionar `useEffect` que reseta `page` para 0 quando `ads.length` mudar
+
+### 4. Corrigir dados da Fernanda (insert manual)
+- Inserir a venda que faltou em `imphq_vendas` e atualizar `total_gasto`
 
 ---
 
@@ -82,19 +75,8 @@ A aba "Qualificacao" (linhas 1376-1385) hoje so tem campos manuais (dor principa
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Leads.tsx` | Enriquecer aba Qualificacao com score log, form responses, interacoes, badges tipo_venda |
-| `vite.config.ts` | Adicionar VitePWA plugin |
-| `src/main.tsx` | Guard iframe/preview + unregister SW |
-| `supabase/functions/send-push/index.ts` | Nova edge function Web Push |
-| `src/components/PushOptIn.tsx` | Novo componente opt-in push |
-| `src/components/AppLayout.tsx` | Adicionar PushOptIn no header |
-| `supabase/functions/notify-scheduler/index.ts` | Chamar send-push apos cada notificacao |
-
-## Ordem
-
-1. Aba Qualificacao enriquecida (Leads.tsx)
-2. PWA config (vite.config + main.tsx)
-3. PushOptIn + AppLayout
-4. send-push edge function
-5. Integrar no notify-scheduler
+| Migracao SQL | `tipo_venda` column em imphq_vendas |
+| `supabase/functions/webhook-pagamento/index.ts` | pix_created mapping, error handling, total_gasto update |
+| `src/components/financas/FinancasAds.tsx` | Reset paginacao ao mudar filtros |
+| Insert SQL | Corrigir dados Fernanda (venda + total_gasto) |
 
