@@ -426,7 +426,54 @@ REGRAS:
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
+async function handleAnalyzeLead(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+  const { lead, form_responses, score_log } = body;
+
+  let leadContext = `\n## Dados do Lead:\n`;
+  if (lead) {
+    leadContext += `Nome: ${lead.nome || "—"}\nEmail: ${lead.email || "—"}\nTelefone: ${lead.phone || "—"}\n`;
+    leadContext += `Plataforma: ${lead.plataforma || "—"}\nScore: ${lead.score || 0}\nTotal Gasto: R$ ${lead.total_gasto || 0}\n`;
+    if (lead.tags?.length) leadContext += `Tags: ${lead.tags.join(", ")}\n`;
+    if (lead.data?.interacoes?.length) leadContext += `Interações: ${JSON.stringify(lead.data.interacoes).slice(0, 1000)}\n`;
+    if (lead.data?.qualificacao) leadContext += `Qualificação atual: ${JSON.stringify(lead.data.qualificacao).slice(0, 500)}\n`;
+  }
+
+  if (form_responses?.length) {
+    leadContext += `\n## Respostas de Formulário:\n`;
+    form_responses.forEach((r: any) => { leadContext += `- ${r.question}: ${r.answer}\n`; });
+  }
+
+  if (score_log?.length) {
+    leadContext += `\n## Log de Score:\n`;
+    score_log.forEach((s: any) => { leadContext += `- ${s.acao}: +${s.pontos}\n`; });
+  }
+
+  const systemPrompt = `${mentePrefix}Você é um analista de leads brasileiro especialista em qualificação e comportamento do consumidor.
+Analise TODOS os dados disponíveis deste lead e retorne uma qualificação estruturada.
+${projectContext}${leadContext}
+REGRAS:
+- Analise as respostas do formulário para identificar dores e nível de consciência
+- Use o score e interações para inferir engajamento
+- Seja específico e baseado nos dados reais, não invente`;
+
+  const result = await callAI(systemPrompt, "Analise este lead e retorne a qualificação completa.", apiKey, model,
+    [{ type: "function", function: { name: "analyze_lead", description: "Analyze lead qualification", parameters: { type: "object", properties: {
+      qualificacao: { type: "object", properties: {
+        dor_principal: { type: "string", description: "Principal dor/frustração identificada" },
+        nivel_consciencia: { type: "string", enum: ["inconsciente", "problema", "solucao", "produto", "totalmente"] },
+        objecoes: { type: "array", items: { type: "string" }, description: "Possíveis objeções identificadas" },
+        notas_vendedor: { type: "string", description: "Resumo analítico e recomendações de abordagem" },
+        renda: { type: "string", enum: ["ate3k", "3k-8k", "8k-15k", "15k-30k", "30k+"], description: "Renda estimada com base nos dados" },
+        canal: { type: "string", description: "Canal principal de origem" },
+      }, required: ["dor_principal", "nivel_consciencia", "objecoes", "notas_vendedor"], additionalProperties: false },
+    }, required: ["qualificacao"], additionalProperties: false } } }],
+    "analyze_lead", baseUrl
+  );
+  if (result instanceof Response) return result;
+  return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+
   const { project_id, user_prompt } = body;
 
   // Fetch existing ads data for context
