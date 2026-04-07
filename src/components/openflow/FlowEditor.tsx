@@ -5,7 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles, ChevronUp, ChevronDown, GitBranch } from "lucide-react";
+import { Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles, ChevronUp, ChevronDown, GitBranch, SaveAll } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const CONDICAO_TIPOS = [
   { value: "nao_abriu_email", label: "Não abriu email" },
@@ -64,10 +66,34 @@ interface FlowEditorProps {
   isGenerating?: boolean;
   templates?: ProjectTemplate[];
   providers?: WaProvider[];
+  projectId?: string;
+  onTemplateSaved?: () => void;
 }
 
-export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [], providers = [] }: FlowEditorProps) {
+export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [], providers = [], projectId, onTemplateSaved }: FlowEditorProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  const saveAsTemplate = async (acao: Acao) => {
+    if (!acao.template?.trim()) { toast.error("Escreva uma mensagem antes de salvar"); return; }
+    setSavingTemplate(true);
+    try {
+      const name = acao.template.split(/\s+/).slice(0, 5).join(" ");
+      const { error } = await supabase.from("imphq_wa_templates").insert({
+        name,
+        content: acao.template,
+        category: acao.tipo || "whatsapp",
+        project_id: projectId || null,
+      } as any);
+      if (error) throw error;
+      toast.success("Template salvo!");
+      onTemplateSaved?.();
+    } catch (e: any) {
+      toast.error("Erro ao salvar template: " + (e?.message || ""));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
 
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
 
@@ -275,7 +301,13 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                     </div>
                   )}
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-between">
+                    {!isAguardar && !isCondicao && acao.template?.trim() && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => saveAsTemplate(acao)} disabled={savingTemplate}>
+                        <SaveAll className="h-3 w-3 mr-1" /> Salvar Template
+                      </Button>
+                    )}
+                    <div className="flex-1" />
                     <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => removeAcao(idx)}>
                       <Trash2 className="h-3 w-3 mr-1" /> Remover
                     </Button>

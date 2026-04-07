@@ -74,45 +74,42 @@ export default function OpenFlow() {
 
   useEffect(() => { load(); }, []);
 
+  const loadTemplates = async () => {
+    if (!editing?.project_id) { setProjectTemplates([]); return; }
+    const [projRes, waRes] = await Promise.all([
+      supabase.from("imphq_projects").select("data").eq("id", editing.project_id!).single(),
+      supabase.from("imphq_wa_templates").select("name, content").eq("project_id", editing.project_id!),
+    ]);
+    const tpls: ProjectTemplate[] = [];
+    const d = (projRes.data?.data || {}) as any;
+
+    if (Array.isArray(d.emails)) {
+      d.emails.forEach((e: any, i: number) => {
+        if (e.body) tpls.push({ label: e.subject || `Email ${i + 1}`, content: e.body, source: "Email" });
+      });
+    }
+    if (d.email_config?.templates && Array.isArray(d.email_config.templates)) {
+      d.email_config.templates.forEach((t: any, i: number) => {
+        if (t.html_body) tpls.push({ label: t.subject || `Resend ${i + 1}`, content: t.html_body, source: "✉️ Resend" });
+      });
+    }
+    if (d.copy_arsenal) {
+      const ca = d.copy_arsenal;
+      if (ca.headlines) tpls.push({ label: "Headlines", content: ca.headlines, source: "Copy" });
+      if (ca.storytelling) tpls.push({ label: "Storytelling", content: ca.storytelling, source: "Copy" });
+      if (ca.ctas) tpls.push({ label: "CTAs", content: ca.ctas, source: "Copy" });
+    }
+    if (waRes.data?.length) {
+      waRes.data.forEach((t: any) => {
+        if (t.content) tpls.push({ label: t.name || "WhatsApp", content: t.content, source: "💬 WhatsApp" });
+      });
+    }
+    setProjectTemplates(tpls);
+  };
+
   // Fetch templates when editing an automation with a project
   useEffect(() => {
-    if (!editing?.project_id) { setProjectTemplates([]); return; }
-    const fetchTemplates = async () => {
-      const [projRes, waRes] = await Promise.all([
-        supabase.from("imphq_projects").select("data").eq("id", editing.project_id!).single(),
-        supabase.from("imphq_wa_templates").select("name, content").eq("project_id", editing.project_id!),
-      ]);
-      const tpls: ProjectTemplate[] = [];
-      const d = (projRes.data?.data || {}) as any;
-
-      // Emails from data.emails
-      if (Array.isArray(d.emails)) {
-        d.emails.forEach((e: any, i: number) => {
-          if (e.body) tpls.push({ label: e.subject || `Email ${i + 1}`, content: e.body, source: "Email" });
-        });
-      }
-      // Email Resend templates from data.email_config.templates
-      if (d.email_config?.templates && Array.isArray(d.email_config.templates)) {
-        d.email_config.templates.forEach((t: any, i: number) => {
-          if (t.html_body) tpls.push({ label: t.subject || `Resend ${i + 1}`, content: t.html_body, source: "✉️ Resend" });
-        });
-      }
-      // Copy arsenal
-      if (d.copy_arsenal) {
-        const ca = d.copy_arsenal;
-        if (ca.headlines) tpls.push({ label: "Headlines", content: ca.headlines, source: "Copy" });
-        if (ca.storytelling) tpls.push({ label: "Storytelling", content: ca.storytelling, source: "Copy" });
-        if (ca.ctas) tpls.push({ label: "CTAs", content: ca.ctas, source: "Copy" });
-      }
-      // WhatsApp templates
-      if (waRes.data?.length) {
-        waRes.data.forEach((t: any) => {
-          if (t.content) tpls.push({ label: t.name || "WhatsApp", content: t.content, source: "💬 WhatsApp" });
-        });
-      }
-      setProjectTemplates(tpls);
-    };
-    fetchTemplates();
+    loadTemplates();
   }, [editing?.project_id]);
   // Load products when form project changes
   useEffect(() => {
@@ -175,6 +172,7 @@ export default function OpenFlow() {
           project_id: editing.project_id || null,
           trigger_tipo: editing.trigger_tipo,
           num_etapas: 5,
+          produto: editing.produto || null,
         },
       });
       if (error) throw error;
@@ -407,6 +405,8 @@ export default function OpenFlow() {
                 isGenerating={isGeneratingAI}
                 templates={projectTemplates}
                 providers={editing.project_id ? (providers || []).filter((p: any) => p.project_id === editing.project_id) : (providers || [])}
+                projectId={editing.project_id}
+                onTemplateSaved={loadTemplates}
               />
             </div>
           )}
