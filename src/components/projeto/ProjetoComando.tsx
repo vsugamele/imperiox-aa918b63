@@ -17,21 +17,24 @@ export function ProjetoComando({ projectId, project }: Props) {
   const [cards, setCards] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  const [pendingVendas, setPendingVendas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
-    const [cardsRes, leadsRes, eventsRes] = await Promise.all([
+    const [cardsRes, leadsRes, eventsRes, vendasRes] = await Promise.all([
       supabase.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
       supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
       supabase.from("imphq_events").select("*").eq("project_id", projectId).gte("created_at", today + "T00:00:00").order("created_at", { ascending: false }),
+      supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
     ]);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
     setTodayEvents(eventsRes.data || []);
+    setPendingVendas(vendasRes.data || []);
     setLoading(false);
   };
 
@@ -56,6 +59,30 @@ export function ProjetoComando({ projectId, project }: Props) {
     const col = (c.imphq_kanban_columns?.title || "").toLowerCase();
     return col.includes("conclu") || col.includes("done") || col.includes("finaliz");
   });
+
+  // Product map from vendas pendentes
+  const productByLead = new Map<string, string>();
+  pendingVendas.forEach((v) => {
+    if (v.lead_id && v.produto_nome) productByLead.set(v.lead_id, v.produto_nome);
+  });
+
+  // Breakdown de produtos pendentes (pix/carrinho)
+  const pixProductBreakdown: Record<string, number> = {};
+  pendingVendas.forEach((v) => {
+    const nome = v.produto_nome || "Sem produto";
+    pixProductBreakdown[nome] = (pixProductBreakdown[nome] || 0) + 1;
+  });
+
+  const getLeadProduct = (lead: any): string | null => {
+    if (productByLead.has(lead.id)) return productByLead.get(lead.id)!;
+    const interacoes = lead.data?.interacoes;
+    if (Array.isArray(interacoes)) {
+      for (let i = interacoes.length - 1; i >= 0; i--) {
+        if (interacoes[i]?.produto) return interacoes[i].produto;
+      }
+    }
+    return null;
+  };
 
   const leadsToday = leads.filter(l => l.created_at?.startsWith(new Date().toISOString().split("T")[0])).length;
   const pixEvents = todayEvents.filter(e => e.event_name === "pix_created" || e.event_name === "waiting_payment").length;
@@ -118,6 +145,22 @@ export function ProjetoComando({ projectId, project }: Props) {
         ))}
       </div>
 
+      {/* Breakdown de produtos pendentes */}
+      {Object.keys(pixProductBreakdown).length > 0 && (
+        <Card className="bg-card border-border">
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Produtos com Pix / Pendente</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(pixProductBreakdown).map(([produto, qty]) => (
+                <Badge key={produto} variant="outline" className="text-[10px] gap-1">
+                  {produto} <span className="font-mono font-bold text-primary">×{qty}</span>
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Two columns: Leads + Mini Kanban */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Últimos Leads */}
@@ -135,16 +178,26 @@ export function ProjetoComando({ projectId, project }: Props) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-[10px]">Nome</TableHead>
+                    <TableHead className="text-[10px]">Produto</TableHead>
                     <TableHead className="text-[10px]">Status</TableHead>
                     <TableHead className="text-[10px]">Horário</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {leads.slice(0, 8).map((l) => (
+                  {leads.slice(0, 8).map((l) => {
+                    const produto = getLeadProduct(l);
+                    return (
                     <TableRow key={l.id}>
                       <TableCell className="text-xs py-2">
                         <div>{l.name || l.email || "—"}</div>
                         <div className="text-[10px] text-muted-foreground">{l.email || l.phone || ""}</div>
+                      </TableCell>
+                      <TableCell className="text-xs py-2">
+                        {produto ? (
+                          <Badge variant="secondary" className="text-[9px]">{produto}</Badge>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-2">
                         <Badge variant="outline" className="text-[9px]">{l.status || "novo"}</Badge>
@@ -153,7 +206,8 @@ export function ProjetoComando({ projectId, project }: Props) {
                         {l.created_at ? format(new Date(l.created_at), "dd/MM HH:mm") : "—"}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
