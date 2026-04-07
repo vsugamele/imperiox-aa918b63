@@ -17,6 +17,7 @@ import QrCodePanel from "@/components/whatsapp/QrCodePanel";
 import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
 import WaHubQrPanel from "@/components/whatsapp/WaHubQrPanel";
+import HubGuide from "@/components/whatsapp/HubGuide";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
@@ -466,6 +467,30 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
     );
   }
 
+  const deleteHubSession = async (session: any) => {
+    await Promise.all([
+      supabase.from("wa_hub_iso_events").delete().eq("tenant_id", session.tenant_id).eq("session_key", session.session_key),
+      supabase.from("wa_hub_iso_commands").delete().eq("tenant_id", session.tenant_id).eq("session_key", session.session_key),
+    ]);
+    await supabase.from("wa_hub_iso_sessions").delete().eq("id", session.id);
+    setHubSessions(prev => prev.filter(s => s.id !== session.id));
+    toast.success(`Sessão ${session.session_key} removida`);
+  };
+
+  const cleanOfflineSessions = async () => {
+    const offline = hubSessions.filter(s => s.status !== "connected");
+    if (offline.length === 0) { toast.info("Nenhuma sessão offline"); return; }
+    for (const s of offline) {
+      await Promise.all([
+        supabase.from("wa_hub_iso_events").delete().eq("tenant_id", s.tenant_id).eq("session_key", s.session_key),
+        supabase.from("wa_hub_iso_commands").delete().eq("tenant_id", s.tenant_id).eq("session_key", s.session_key),
+      ]);
+      await supabase.from("wa_hub_iso_sessions").delete().eq("id", s.id);
+    }
+    setHubSessions(prev => prev.filter(s => s.status === "connected"));
+    toast.success(`${offline.length} sessão(ões) offline removida(s)`);
+  };
+
   return (
     <div className="space-y-4">
       {/* Hub Status */}
@@ -474,15 +499,25 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
           {connectedCount > 0 ? "🟢" : "🔴"} Hub: {connectedCount} sessão(ões) conectada(s)
         </Badge>
         {hubSessions.filter(s => s.status !== "connected").map(s => (
-          <Badge key={s.id} variant="outline" className="text-[10px] bg-muted text-muted-foreground">
+          <Badge key={s.id} variant="outline" className="text-[10px] bg-muted text-muted-foreground gap-1">
             🔴 {s.session_key} — offline
+            <button onClick={() => deleteHubSession(s)} className="ml-1 hover:text-destructive transition-colors" title="Remover sessão">
+              <XIcon className="h-3 w-3" />
+            </button>
           </Badge>
         ))}
+        {hubSessions.filter(s => s.status !== "connected").length > 0 && (
+          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={cleanOfflineSessions}>
+            <Trash2 className="h-3 w-3 mr-1" /> Limpar Offline
+          </Button>
+        )}
       </div>
 
       <div className="max-w-lg mx-auto mb-6">
         <WaHubQrPanel />
       </div>
+
+      <HubGuide />
 
       {/* Project filter */}
       <div className="flex items-center gap-3">
