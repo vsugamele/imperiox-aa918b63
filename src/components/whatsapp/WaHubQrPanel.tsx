@@ -192,6 +192,9 @@ export default function WaHubQrPanel() {
                   O worker respondeu mas não gerou QR. A sessão pode estar suja.
                 </p>
                 <div className="flex flex-col gap-1 mt-3">
+                  <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={handleResetSession}>
+                    <Trash2 className="h-3 w-3 mr-1" /> Limpar Sessão
+                  </Button>
                   <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={handleNewSessionKey}>
                     <RotateCcw className="h-3 w-3 mr-1" /> Nova Session Key
                   </Button>
