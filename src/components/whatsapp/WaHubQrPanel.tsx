@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { QrCode, RefreshCw, Loader2, Wifi, WifiOff, AlertCircle, Radio, ChevronDown, RotateCcw, Bug } from "lucide-react";
+import { QrCode, RefreshCw, Loader2, Wifi, WifiOff, AlertCircle, Radio, ChevronDown, RotateCcw, Bug, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 const statusConfig: Record<UiStatus, { label: string; color: string; icon: typeof Wifi }> = {
   idle: { label: "Inativo", color: "bg-muted text-muted-foreground border-border", icon: WifiOff },
@@ -40,6 +41,7 @@ export default function WaHubQrPanel() {
     errorMessage,
     canGenerateQr,
     startGetQr,
+    resetSession,
     sessionRawStatus,
     diagnostics,
   } = useWaSession({
@@ -54,6 +56,13 @@ export default function WaHubQrPanel() {
   const handleNewSessionKey = () => {
     setSessionKey(`session-${Date.now()}`);
   };
+
+  const handleResetSession = async () => {
+    await resetSession();
+    toast.success("Sessão limpa com sucesso. Pode gerar um novo QR.");
+  };
+
+  const showResetButton = ["stale", "error", "connected", "qr_ready"].includes(uiStatus);
 
   return (
     <Card className="bg-card border-border">
@@ -228,17 +237,29 @@ export default function WaHubQrPanel() {
               : "Certifique-se que o worker local está ativo antes de gerar o QR"}
           </p>
 
-          <Button
-            size="sm"
-            onClick={startGetQr}
-            disabled={!canGenerateQr || !sessionKey.trim()}
-          >
-            {uiStatus === "pending" ? (
-              <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Aguardando...</>
-            ) : (
-              <><RefreshCw className="h-3 w-3 mr-1" /> Gerar QR</>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={startGetQr}
+              disabled={!canGenerateQr || !sessionKey.trim()}
+            >
+              {uiStatus === "pending" ? (
+                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Aguardando...</>
+              ) : (
+                <><RefreshCw className="h-3 w-3 mr-1" /> Gerar QR</>
+              )}
+            </Button>
+            {showResetButton && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleResetSession}
+                className="text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+              >
+                <Trash2 className="h-3 w-3 mr-1" /> Limpar Sessão
+              </Button>
             )}
-          </Button>
+          </div>
 
           {/* Diagnostics */}
           {(sessionRawStatus || diagnostics.commandStatus) && (
