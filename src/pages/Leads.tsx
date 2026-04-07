@@ -367,24 +367,36 @@ export default function Leads() {
         .then(({ data }) => { setLeadAutomationLogs(data || []); })
     );
 
-    // Fetch form responses
+    // Fetch form responses (no FK join — fetch form names separately)
+    const META_FIELDS = new Set(["nome", "email", "phone", "telefone", "name"]);
     promises.push(
-      Promise.resolve(supabase.from("imphq_lead_responses").select("*, imphq_capture_forms(nome)").eq("lead_id", lead.id).order("created_at", { ascending: false }))
-        .then(({ data }) => {
-          // Store raw form responses for Qualificação tab
-          const rawResponses = (data || []).map((r: any) => ({
-            form_id: r.form_id || "",
-            form_name: r.imphq_capture_forms?.nome || "",
-            question: r.question || r.field_key || "—",
-            answer: r.answer || "—",
-            created_at: r.created_at || "",
-          }));
+      Promise.resolve(supabase.from("imphq_lead_responses").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }))
+        .then(async ({ data }) => {
+          const rows = data || [];
+          // Fetch form names for distinct form_ids
+          const formIds = [...new Set(rows.map(r => (r as any).form_id).filter(Boolean))];
+          let formNameMap: Record<string, string> = {};
+          if (formIds.length > 0) {
+            const { data: forms } = await supabase.from("imphq_capture_forms").select("id, name").in("id", formIds);
+            (forms || []).forEach((f: any) => { formNameMap[f.id] = f.name; });
+          }
+
+          // Filter out meta fields and build responses
+          const rawResponses = rows
+            .filter((r: any) => !META_FIELDS.has((r.field_key || r.question || "").toLowerCase().trim()))
+            .map((r: any) => ({
+              form_id: r.form_id || "",
+              form_name: formNameMap[r.form_id] || "",
+              question: r.question || r.field_key || "—",
+              answer: r.answer || "—",
+              created_at: r.created_at || "",
+            }));
           setFormResponses(rawResponses);
 
           // Group responses by form_id + created_at (same submission)
           const grouped: Record<string, { formName: string; entries: Array<{q: string; a: string}>; timestamp: string; id: string }> = {};
-          (data || []).forEach((r: any) => {
-            const formName = r.imphq_capture_forms?.nome || "Formulário";
+          rows.forEach((r: any) => {
+            const formName = formNameMap[r.form_id] || "Formulário";
             const key = `${r.form_id}_${r.created_at?.substring(0, 16)}`;
             if (!grouped[key]) {
               grouped[key] = { formName, entries: [], timestamp: r.created_at, id: r.id };
