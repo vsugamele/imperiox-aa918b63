@@ -145,6 +145,22 @@ export function ProjetoComando({ projectId, project }: Props) {
         ))}
       </div>
 
+      {/* Breakdown de produtos pendentes */}
+      {Object.keys(pixProductBreakdown).length > 0 && (
+        <Card className="bg-card border-border">
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Produtos com Pix / Pendente</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(pixProductBreakdown).map(([produto, qty]) => (
+                <Badge key={produto} variant="outline" className="text-[10px] gap-1">
+                  {produto} <span className="font-mono font-bold text-primary">×{qty}</span>
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Two columns: Leads + Mini Kanban */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Últimos Leads */}
