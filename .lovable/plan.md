@@ -1,41 +1,43 @@
 
 
-# Plano: Mostrar produto nos leads com Pix gerado / pendentes
+# Plano: Fix QR bugado apos primeiro uso + anti-lixo + debounce
 
-## Problema
+## Problemas identificados
 
-No ProjetoComando, os KPIs "Pix Gerados" e "Pendentes" mostram apenas contagem. Na tabela de "Ultimos Leads", o status aparece como badge mas sem informacao de qual produto gerou o pix ou carrinho.
-
-## Fonte dos dados de produto
-
-- **`imphq_leads.data`** (JSONB): contem `interacoes[]` com `{ evento, produto, ... }` e `ultimo_evento` — preenchido pelo webhook-pagamento
-- **`imphq_vendas`**: tem `produto_nome`, `status` e `lead_id` — vendas pendentes/aprovadas por lead
-- **`imphq_events.event_data`** (JSONB): contem `{ produto, valor, plataforma }` para eventos de jornada
+1. **Eventos velhos poluem polling** — Apos reset, o polling ainda le eventos antigos do banco (QR expirado anterior). Nao ha filtro por timestamp.
+2. **Sem debounce** — Clicar "Gerar QR" varias vezes cria multiplos comandos em paralelo, confundindo o polling.
+3. **Estado "qr_ready" trava** — Apos conectar e depois desconectar, o QR antigo continua em state e o status fica preso.
+4. **Sem CTA de retry** — Quando QR nao chega apos timeout, nao ha acao clara pro usuario.
 
 ## Solucao
 
-### 1. Buscar vendas pendentes do projeto
+### 1. Anti-lixo: filtro temporal no polling (`useWaSession.ts`)
 
-Adicionar uma query ao `load()` do ProjetoComando para buscar `imphq_vendas` com status diferente de "aprovado" (pendentes, pix, carrinho) do projeto hoje. Isso traz `produto_nome` e `lead_id`.
+- Guardar `lastResetAt` (timestamp) em ref, atualizado no `resetSession` e no inicio de `startGetQr`
+- No polling de eventos, adicionar `.gte("created_at", lastResetAt.toISOString())` para ignorar eventos anteriores ao ultimo reset/inicio
+- Isso impede que QR antigo reapareça
 
-### 2. KPI "Pix Gerados" expandido
+### 2. Debounce de comandos (`useWaSession.ts`)
 
-Abaixo do card KPI de "Pix Gerados", adicionar uma mini-lista mostrando os produtos com pix pendente e a quantidade de cada um. Ex:
-```
-Pix Gerados: 3
-  Curso X — 2
-  Mentoria Y — 1
-```
+- Adicionar ref `lockRef` (boolean)
+- No inicio de `startGetQr`, checar `lockRef.current` — se true, retornar sem fazer nada
+- Setar `lockRef = true` ao iniciar, `lockRef = false` quando polling para (connected/error/stale/timeout)
+- `resetSession` tambem seta `lockRef = false`
 
-### 3. Coluna "Produto" na tabela de Leads
+### 3. Reset limpa estado de QR completamente (`useWaSession.ts`)
 
-Adicionar uma coluna "Produto" na tabela de ultimos leads. Para cada lead, buscar o produto de:
-1. Vendas pendentes associadas ao lead (`imphq_vendas` onde `lead_id` = lead.id)
-2. Fallback: `lead.data?.interacoes` — ultimo evento com produto
+- Ja esta implementado mas falta limpar o timer de polling ativo de uma sessao anterior que pode estar rodando em background
+- Garantir que `clearTimer()` e chamado ANTES de qualquer operacao no `resetSession` (ja esta, manter)
 
-### 4. Badge de produto nos "Pendentes"
+### 4. CTA "Limpar e tentar de novo" no awaiting_qr com timeout (`WaHubQrPanel.tsx`)
 
-Para leads pendentes, mostrar o nome do produto como badge extra ao lado do status.
+- Quando `uiStatus === "awaiting_qr"` e ja passaram 30s+ (usar `diagnostics.pollCount * 2.5s > 30`), mostrar botao "Limpar Sessao e tentar de novo" dentro do card de awaiting
+- No card de `qr_ready`, se o QR ja esta la ha muito tempo, mostrar botao de refresh
+
+### 5. Fluxo pos-reset: auto-idle limpo
+
+- Apos `resetSession`, o estado volta a `idle` com todos os campos null — ja implementado
+- Garantir que `canGenerateQr` retorna `true` quando `idle` — ja funciona
 
 ---
 
@@ -43,12 +45,13 @@ Para leads pendentes, mostrar o nome do produto como badge extra ao lado do stat
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/projeto/ProjetoComando.tsx` | Nova query vendas pendentes, coluna Produto na tabela, breakdown de produtos no KPI Pix |
+| `src/hooks/useWaSession.ts` | Adicionar `lastResetAtRef` + filtro `.gte("created_at")` no polling de eventos + `lockRef` para debounce + limpar lock no reset/stop |
+| `src/components/whatsapp/WaHubQrPanel.tsx` | CTA "Limpar e tentar de novo" no card awaiting_qr apos 30s + mostrar resetButton em mais estados |
 
-## Detalhes tecnicos
+## Ordem
 
-- Query adicional: `supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado")`
-- Criar `Map<lead_id, produto_nome>` para lookup rapido na tabela de leads
-- Para o breakdown do KPI, agrupar vendas pendentes por `produto_nome` e mostrar contagem
-- Tambem buscar vendas de hoje (aprovadas ou nao) para enriquecer o KPI de Pix com o nome do produto
+1. Hook: adicionar refs (lastResetAt, lock)
+2. Hook: filtro temporal no polling
+3. Hook: debounce com lock
+4. Painel: CTA de retry no awaiting_qr
 
