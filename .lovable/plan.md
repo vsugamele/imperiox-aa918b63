@@ -1,33 +1,55 @@
 
 
-# Plano: Alinhar front com regras do backend QR
+# Plano: Capturar tarifas/comissoes e exibir no lead
 
-## Estado atual
+## Problema
 
-A maioria das regras ja esta implementada:
-- Lock por session_key (lockRef) — OK
-- Filtro anti-lixo (.gte created_at > lastResetAt) — OK
-- Polling so le qr_status mais recente — OK
-- CTA "Limpar e tentar de novo" apos 30s — OK
-- Reset idempotente com limpeza completa — OK
+O webhook salva apenas `valor` (bruto) na `imphq_vendas`, mas a plataforma (Ticto, Hotmart, Kiwify) envia breakdown completo: comissao da plataforma, taxa de transacao, comissao do produtor, valor liquido. Esses dados se perdem. O order bump ja funciona (campo `tipo_venda` existe e e parseado).
 
-## O que falta ajustar
+## Solucao
 
-### 1. Auto-reset antes de novo pareamento
+### 1. Extrair breakdown financeiro no webhook-pagamento
 
-Quando o usuario clica "Gerar QR" e o status atual e `stale`, `error`, ou `creating_qr` (sessionRawStatus), executar `resetSession()` automaticamente antes de enviar o `get_qr`. Isso evita que o usuario precise clicar "Limpar" manualmente antes de tentar de novo.
+No `parseWebhookBody`, extrair campos adicionais para um objeto `financeiro` que sera salvo no `imphq_vendas.data`:
 
-### 2. Timeout de QR: 90s → 45s
+**Ticto v2**: `body.order` contem `paid_amount`, `net_amount`, `platform_fee`, `transaction_fee`; `body.commissions` contem array de comissoes (produtor, afiliado, coprodutor).
 
-O `timeoutMs` default e 90s. O backend agora emite `qr_timeout` apos 45s. Ajustar o default para 45s e, no timeout, setar `reset_required: true` nos diagnostics para deixar claro que precisa limpar.
+**Hotmart**: `body.data.purchase.price` contem `value`, `currency`; `body.data.purchase.commission` e `body.data.purchase.price.value`.
 
-### 3. Ler `connected` do evento qr_status
+**Kiwify**: `body.sale_amount`, `body.commissions`.
 
-Alem de checar `sessionRawStatus === "connected"`, tambem checar `payload.connected === true` no evento `qr_status` — o backend agora envia esse campo canonico.
+Mapear para formato padrao:
+```
+{
+  valor_bruto: number,
+  comissao_plataforma: number,
+  taxa_transacao: number,
+  comissao_produtor: number,
+  comissao_afiliado: number,
+  valor_liquido: number,
+  metodo_pagamento: string,
+  parcelas: number,
+  codigo_pedido: string
+}
+```
 
-### 4. Priorizar `payload.qrImageUrl` explicitamente
+Salvar esse objeto dentro de `imphq_vendas.data` (JSONB, ja existe).
 
-Ja esta implementado, mas reordenar para que `payload.qrImageUrl` seja a PRIMEIRA opcao, antes de `payload.qr` e `payload.image` (ja e assim, apenas confirmar).
+### 2. Exibir breakdown na secao "Dados de Compra" do lead
+
+Na area que ja mostra vendas do lead (linha ~1544), adicionar sub-secao "Tarifas e Comissoes" quando `v.data?.valor_bruto` existir:
+
+```
+Valor da Venda     R$ 47,00
+Comissão Plat.   - R$ 3,29
+Taxa Transação   - R$ 2,49
+Comissão Prod.   - R$ 8,24
+Sua Comissão       R$ 32,98
+```
+
+### 3. UTMs do webhook ja na venda
+
+Tambem salvar UTMs do body do webhook em `imphq_vendas.data.utms` para rastreabilidade (ja existe logica de UTMs no lead, mas nao na venda individual).
 
 ---
 
@@ -35,23 +57,12 @@ Ja esta implementado, mas reordenar para que `payload.qrImageUrl` seja a PRIMEIR
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/hooks/useWaSession.ts` | Auto-reset pre-pareamento, timeout 45s, ler `payload.connected` |
-| `src/components/whatsapp/WaHubQrPanel.tsx` | Nenhuma mudanca necessaria (CTA ja existe) |
+| `supabase/functions/webhook-pagamento/index.ts` | Extrair breakdown financeiro de cada plataforma e salvar em `data` da venda |
+| `src/pages/Leads.tsx` | Exibir tabela de tarifas/comissoes na secao "Dados de Compra" |
 
-## Detalhes tecnicos
+## Ordem
 
-No `startGetQr`, antes de inserir o comando:
-```
-if (["stale", "error"].includes(uiStatus) || 
-    ["stale", "error", "creating_qr"].includes(sessionRawStatus || "")) {
-  await resetSession();
-}
-```
-
-No polling, adicionar check de `payload.connected`:
-```
-if (payload?.connected === true) sessionStatus = "connected";
-```
-
-Timeout default: `timeoutMs = 45000`
+1. Webhook: extrair financeiro por plataforma
+2. Webhook: salvar em vendas.data
+3. Front: renderizar breakdown quando disponivel
 
