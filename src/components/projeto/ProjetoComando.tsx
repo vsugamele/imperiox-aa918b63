@@ -17,21 +17,24 @@ export function ProjetoComando({ projectId, project }: Props) {
   const [cards, setCards] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  const [pendingVendas, setPendingVendas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
-    const [cardsRes, leadsRes, eventsRes] = await Promise.all([
+    const [cardsRes, leadsRes, eventsRes, vendasRes] = await Promise.all([
       supabase.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
       supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
       supabase.from("imphq_events").select("*").eq("project_id", projectId).gte("created_at", today + "T00:00:00").order("created_at", { ascending: false }),
+      supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
     ]);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
     setTodayEvents(eventsRes.data || []);
+    setPendingVendas(vendasRes.data || []);
     setLoading(false);
   };
 
