@@ -1,31 +1,45 @@
 
 
-# Plano: Salvar Template do FlowEditor + Confirmar Contexto IA
+# Plano: Agregar todas imagens do sistema em Referencias
+
+## Objetivo
+
+Fazer a pagina Referencias funcionar como hub central de todas as imagens do sistema, puxando automaticamente de `imphq_content_library` (midia dos projetos — fotos expert, anuncios, produtos, etc.) alem das referencias manuais ja existentes.
 
 ## Situacao atual
 
-1. **Templates ja existem** — tabela `imphq_wa_templates` com campos `name`, `content`, `category`, `project_id`. Sao gerenciados na pagina WhatsApp e ja aparecem no FlowEditor via "Usar Template".
-2. **IA ja puxa contexto completo** — o `openflow-ai` busca Briefing, Expert, Produtos, Avatar (dores, desejos, problemas, voyerismos, gatilhos), Brand Kit, vendas, leads e custos antes de gerar. Isso ja funciona.
-3. **Falta**: poder salvar o texto escrito numa acao do flow como template reutilizavel, sem precisar ir na pagina WhatsApp.
-
----
+- **Referencias** (`imphq_referencias`): referencias manuais com upload, score, tipo, pasta
+- **Content Library** (`imphq_content_library`): midias dos projetos com `content_category` (expert, produtos, complementar, anuncios, reels, stories, feed)
+- O botao "Importar do Projeto" so importa `imphq_media_content` com category=anuncios (tabela que pode nem existir mais)
+- Nao ha visao unificada de todas as imagens do sistema
 
 ## Mudancas
 
-### 1. Botao "Salvar como Template" no FlowEditor
+### 1. Carregar `imphq_content_library` junto com `imphq_referencias`
 
-No painel expandido de cada acao (email/whatsapp/telegram), quando houver texto no campo `template`, adicionar um botao "💾 Salvar Template" abaixo do Textarea.
+No `load()`, alem de buscar `imphq_referencias`, buscar tambem `imphq_content_library` (apenas file_type=image e video). Mapear os items para o formato `Ref` com campo `source: "library" | "manual"` para distinguir.
 
-Ao clicar:
-- Insere na `imphq_wa_templates` com `name` = primeiras palavras do texto, `content` = texto completo, `project_id` = projeto da automacao, `category` = tipo da acao (email/whatsapp/telegram)
-- Toast de confirmacao
-- Template fica disponivel imediatamente no dropdown "Usar Template"
+Itens da library serao read-only (nao editaveis/deletaveis direto de Referencias — sao gerenciados no projeto).
 
-### 2. Passar `produto` no contexto da geracao IA
+### 2. Adicionar filtro por origem/categoria
 
-O `generateWithAI` no OpenFlow.tsx ja envia `project_id` e `trigger_tipo`. Adicionar tambem `produto` para que a IA gere copys especificas para aquele produto (o edge function ja recebe `produtos` do projeto mas nao sabe qual e o foco).
+Novos filtros na toolbar:
+- **Origem**: Todos | Minhas Refs | Projetos
+- **Categoria do projeto**: Expert | Produtos | Anuncios | Reels | Stories | Feed (quando origem = Projetos)
 
-No `openflow-ai/index.ts`, no prompt do sistema, adicionar: "O produto em foco é: {produto}" quando informado.
+### 3. Substituir `importFromProject` por visualizacao direta
+
+Em vez de importar (copiar dados), exibir os itens da library diretamente na grid. O botao "Importar do Projeto" vira desnecessario pois os dados ja aparecem em tempo real.
+
+Manter o botao mas mudar para "Salvar como Referencia" — ao clicar num item da library, poder salva-lo como referencia manual com score/tags/notas.
+
+### 4. Agrupar visualmente por projeto
+
+Quando nao ha filtro de projeto ativo, mostrar um header separador entre projetos: "📁 JP Freitas" com contagem de itens. Dentro de cada projeto, separar por content_category (📸 Expert, 📣 Anuncios, etc.).
+
+### 5. Filtro por produto
+
+Adicionar Select de produto na toolbar. Os produtos vem de `imphq_content_library.tags` ou do campo `produto` da referencia.
 
 ---
 
@@ -33,13 +47,13 @@ No `openflow-ai/index.ts`, no prompt do sistema, adicionar: "O produto em foco �
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/openflow/FlowEditor.tsx` | Botao "Salvar Template" no painel expandido + prop `projectId` |
-| `src/pages/OpenFlow.tsx` | Passar `projectId` ao FlowEditor + enviar `produto` no `generateWithAI` |
-| `supabase/functions/openflow-ai/index.ts` | Incluir `produto` no prompt quando informado |
+| `src/pages/Referencias.tsx` | Buscar content_library, unificar com refs, novos filtros (origem, categoria), headers por projeto, "Salvar como Ref" |
 
 ## Ordem
 
-1. FlowEditor (botao salvar template)
-2. OpenFlow (passar projectId + produto na geracao)
-3. Edge function (produto no prompt)
+1. Expandir `load()` para buscar `imphq_content_library`
+2. Mapear items da library para formato Ref unificado
+3. Adicionar filtros de origem e categoria
+4. Ajustar grid para mostrar badge de origem e headers por projeto
+5. Acao "Salvar como Referencia" para itens da library
 
