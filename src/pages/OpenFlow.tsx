@@ -138,7 +138,7 @@ export default function OpenFlow() {
     const { error } = await supabase.from("imphq_automacoes").insert({
       id, nome: form.nome, trigger_tipo: form.trigger_tipo,
       project_id: form.project_id || null, acoes: [] as any, ativo: true,
-      produto: form.produto || null,
+      produto: (form as any).produto || null,
     } as any);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
