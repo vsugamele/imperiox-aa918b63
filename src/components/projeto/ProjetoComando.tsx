@@ -60,6 +60,30 @@ export function ProjetoComando({ projectId, project }: Props) {
     return col.includes("conclu") || col.includes("done") || col.includes("finaliz");
   });
 
+  // Product map from vendas pendentes
+  const productByLead = new Map<string, string>();
+  pendingVendas.forEach((v) => {
+    if (v.lead_id && v.produto_nome) productByLead.set(v.lead_id, v.produto_nome);
+  });
+
+  // Breakdown de produtos pendentes (pix/carrinho)
+  const pixProductBreakdown: Record<string, number> = {};
+  pendingVendas.forEach((v) => {
+    const nome = v.produto_nome || "Sem produto";
+    pixProductBreakdown[nome] = (pixProductBreakdown[nome] || 0) + 1;
+  });
+
+  const getLeadProduct = (lead: any): string | null => {
+    if (productByLead.has(lead.id)) return productByLead.get(lead.id)!;
+    const interacoes = lead.data?.interacoes;
+    if (Array.isArray(interacoes)) {
+      for (let i = interacoes.length - 1; i >= 0; i--) {
+        if (interacoes[i]?.produto) return interacoes[i].produto;
+      }
+    }
+    return null;
+  };
+
   const leadsToday = leads.filter(l => l.created_at?.startsWith(new Date().toISOString().split("T")[0])).length;
   const pixEvents = todayEvents.filter(e => e.event_name === "pix_created" || e.event_name === "waiting_payment").length;
   const salesEvents = todayEvents.filter(e => e.event_name === "approved" || e.event_name === "purchase").length;
