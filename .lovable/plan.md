@@ -1,43 +1,33 @@
 
 
-# Plano: Fix QR bugado apos primeiro uso + anti-lixo + debounce
+# Plano: Alinhar front com regras do backend QR
 
-## Problemas identificados
+## Estado atual
 
-1. **Eventos velhos poluem polling** — Apos reset, o polling ainda le eventos antigos do banco (QR expirado anterior). Nao ha filtro por timestamp.
-2. **Sem debounce** — Clicar "Gerar QR" varias vezes cria multiplos comandos em paralelo, confundindo o polling.
-3. **Estado "qr_ready" trava** — Apos conectar e depois desconectar, o QR antigo continua em state e o status fica preso.
-4. **Sem CTA de retry** — Quando QR nao chega apos timeout, nao ha acao clara pro usuario.
+A maioria das regras ja esta implementada:
+- Lock por session_key (lockRef) — OK
+- Filtro anti-lixo (.gte created_at > lastResetAt) — OK
+- Polling so le qr_status mais recente — OK
+- CTA "Limpar e tentar de novo" apos 30s — OK
+- Reset idempotente com limpeza completa — OK
 
-## Solucao
+## O que falta ajustar
 
-### 1. Anti-lixo: filtro temporal no polling (`useWaSession.ts`)
+### 1. Auto-reset antes de novo pareamento
 
-- Guardar `lastResetAt` (timestamp) em ref, atualizado no `resetSession` e no inicio de `startGetQr`
-- No polling de eventos, adicionar `.gte("created_at", lastResetAt.toISOString())` para ignorar eventos anteriores ao ultimo reset/inicio
-- Isso impede que QR antigo reapareça
+Quando o usuario clica "Gerar QR" e o status atual e `stale`, `error`, ou `creating_qr` (sessionRawStatus), executar `resetSession()` automaticamente antes de enviar o `get_qr`. Isso evita que o usuario precise clicar "Limpar" manualmente antes de tentar de novo.
 
-### 2. Debounce de comandos (`useWaSession.ts`)
+### 2. Timeout de QR: 90s → 45s
 
-- Adicionar ref `lockRef` (boolean)
-- No inicio de `startGetQr`, checar `lockRef.current` — se true, retornar sem fazer nada
-- Setar `lockRef = true` ao iniciar, `lockRef = false` quando polling para (connected/error/stale/timeout)
-- `resetSession` tambem seta `lockRef = false`
+O `timeoutMs` default e 90s. O backend agora emite `qr_timeout` apos 45s. Ajustar o default para 45s e, no timeout, setar `reset_required: true` nos diagnostics para deixar claro que precisa limpar.
 
-### 3. Reset limpa estado de QR completamente (`useWaSession.ts`)
+### 3. Ler `connected` do evento qr_status
 
-- Ja esta implementado mas falta limpar o timer de polling ativo de uma sessao anterior que pode estar rodando em background
-- Garantir que `clearTimer()` e chamado ANTES de qualquer operacao no `resetSession` (ja esta, manter)
+Alem de checar `sessionRawStatus === "connected"`, tambem checar `payload.connected === true` no evento `qr_status` — o backend agora envia esse campo canonico.
 
-### 4. CTA "Limpar e tentar de novo" no awaiting_qr com timeout (`WaHubQrPanel.tsx`)
+### 4. Priorizar `payload.qrImageUrl` explicitamente
 
-- Quando `uiStatus === "awaiting_qr"` e ja passaram 30s+ (usar `diagnostics.pollCount * 2.5s > 30`), mostrar botao "Limpar Sessao e tentar de novo" dentro do card de awaiting
-- No card de `qr_ready`, se o QR ja esta la ha muito tempo, mostrar botao de refresh
-
-### 5. Fluxo pos-reset: auto-idle limpo
-
-- Apos `resetSession`, o estado volta a `idle` com todos os campos null — ja implementado
-- Garantir que `canGenerateQr` retorna `true` quando `idle` — ja funciona
+Ja esta implementado, mas reordenar para que `payload.qrImageUrl` seja a PRIMEIRA opcao, antes de `payload.qr` e `payload.image` (ja e assim, apenas confirmar).
 
 ---
 
@@ -45,13 +35,23 @@
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/hooks/useWaSession.ts` | Adicionar `lastResetAtRef` + filtro `.gte("created_at")` no polling de eventos + `lockRef` para debounce + limpar lock no reset/stop |
-| `src/components/whatsapp/WaHubQrPanel.tsx` | CTA "Limpar e tentar de novo" no card awaiting_qr apos 30s + mostrar resetButton em mais estados |
+| `src/hooks/useWaSession.ts` | Auto-reset pre-pareamento, timeout 45s, ler `payload.connected` |
+| `src/components/whatsapp/WaHubQrPanel.tsx` | Nenhuma mudanca necessaria (CTA ja existe) |
 
-## Ordem
+## Detalhes tecnicos
 
-1. Hook: adicionar refs (lastResetAt, lock)
-2. Hook: filtro temporal no polling
-3. Hook: debounce com lock
-4. Painel: CTA de retry no awaiting_qr
+No `startGetQr`, antes de inserir o comando:
+```
+if (["stale", "error"].includes(uiStatus) || 
+    ["stale", "error", "creating_qr"].includes(sessionRawStatus || "")) {
+  await resetSession();
+}
+```
+
+No polling, adicionar check de `payload.connected`:
+```
+if (payload?.connected === true) sessionStatus = "connected";
+```
+
+Timeout default: `timeoutMs = 45000`
 
