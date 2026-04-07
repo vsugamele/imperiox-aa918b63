@@ -1,29 +1,32 @@
 
 
-# Plano: Guia Tecnico do Hub Local + Deletar Sessoes Offline
+# Plano: Corrigir Badge ref + Ajustar stale card no WaHubQrPanel
 
-## 1. Guia Tecnico embutido no Hub Local
+## Analise do estado atual
 
-Adicionar um componente colapsavel (Collapsible) dentro da aba Hub Local, logo abaixo do `WaHubQrPanel`, com um guia tecnico explicando:
+Dos 4 itens solicitados, a maioria ja esta implementada:
 
-- Arquitetura: command bus via Supabase (tabelas `wa_hub_iso_commands`, `wa_hub_iso_events`, `wa_hub_iso_sessions`)
-- Fluxo: front insere comando `get_qr` → worker local poll → worker gera QR → grava evento `qr_status` → front poll e exibe
-- Como rodar o worker local (endpoint esperado, polling de commands)
-- Campos do payload: `qrImageUrl`, `qrText`, `qrAvailable`, `needsQr`, `hasSession`
-- Reset: comando `reset_session` via command bus
-- Troubleshooting: sessao travada, worker offline, QR nao aparece
+- **Item 2** (resetSession no hook): ja existe (linha 225-272 do useWaSession.ts), com exatamente o fluxo pedido.
+- **Item 3** (botao Limpar Sessao): ja existe no painel (linhas 252-261), com toast e condicao de visibilidade correta.
+- **Item 4** (garantias): fluxo ja funciona corretamente.
 
-Sera um componente `HubGuide.tsx` renderizado dentro da aba `hub` em `WhatsAppPage.tsx`.
+O que falta de fato:
 
-## 2. Deletar sessoes offline
+### 1. Badge: converter para forwardRef
 
-Na secao de badges de sessoes offline (linha 476-480 do `WhatsAppPage.tsx`), adicionar um botao "Limpar Offline" que:
+O `badge.tsx` usa `function Badge(...)` sem forwardRef. Isso causa warnings no React quando componentes pai tentam passar ref (ex: dentro de Collapsible, Tooltip, etc.).
 
-- Busca todas as sessoes com status != `connected` da tabela `wa_hub_iso_sessions`
-- Deleta essas sessoes + seus eventos e comandos associados
-- Atualiza a lista local
+**Mudanca**: Reescrever usando `React.forwardRef<HTMLDivElement, BadgeProps>` e adicionar `displayName`.
 
-Tambem adicionar um botao de delete individual (icone X) em cada badge de sessao offline.
+### 2. Stale card: adicionar "Limpar Sessao" como opcao
+
+No card de sessao travada (stale, linhas 194-199), so tem "Nova Session Key" e "reinicie o worker". Falta o botao "Limpar Sessao" ali tambem, conforme solicitado.
+
+**Mudanca**: Adicionar botao `handleResetSession` no card stale, antes do "Nova Session Key".
+
+### 3. Payload do reset: adicionar `source: "ui"`
+
+O reset atual envia `{ project }` no payload. O pedido especifica `{ source: "ui" }`. Vou incluir ambos: `{ project, source: "ui" }`.
 
 ---
 
@@ -31,12 +34,7 @@ Tambem adicionar um botao de delete individual (icone X) em cada badge de sessao
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/whatsapp/HubGuide.tsx` | Novo componente com guia tecnico colapsavel |
-| `src/pages/WhatsAppPage.tsx` | Importar HubGuide + botao "Limpar Offline" + delete individual de sessoes |
-
-## Ordem
-
-1. Criar HubGuide.tsx com conteudo tecnico
-2. Integrar no WhatsAppPage na aba hub
-3. Adicionar logica de delete de sessoes offline (bulk + individual)
+| `src/components/ui/badge.tsx` | forwardRef + displayName |
+| `src/components/whatsapp/WaHubQrPanel.tsx` | Botao "Limpar Sessao" no card stale |
+| `src/hooks/useWaSession.ts` | Adicionar `source: "ui"` no payload do reset |
 
