@@ -222,6 +222,55 @@ export function useWaSession(params: {
     [uiStatus]
   );
 
+  const resetSession = useCallback(async () => {
+    clearTimer();
+
+    // 1. Insert reset command for the worker
+    await supabase
+      .from("wa_hub_iso_commands")
+      .insert({
+        tenant_id: tenantId,
+        session_key: sessionKey,
+        action: "reset_session",
+        payload: { project } as any,
+        status: "pending",
+      });
+
+    // 2. Delete old events
+    await supabase
+      .from("wa_hub_iso_events")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("session_key", sessionKey);
+
+    // 3. Delete completed/error commands (keep the reset one)
+    await supabase
+      .from("wa_hub_iso_commands")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("session_key", sessionKey)
+      .in("status", ["done", "success", "completed", "error"]);
+
+    // 4. Update session status to reset
+    await supabase
+      .from("wa_hub_iso_sessions")
+      .update({ status: "reset" } as any)
+      .eq("tenant_id", tenantId)
+      .eq("session_key", sessionKey);
+
+    // 5. Reset local state
+    setUiStatus("idle");
+    setCommandId(null);
+    setQrImageUrl(null);
+    setQrText(null);
+    setErrorMessage(null);
+    setSessionRawStatus(null);
+    setDiagnostics({});
+    pollCountRef.current = 0;
+    noQrCountRef.current = 0;
+    startedAtRef.current = null;
+  }, [tenantId, sessionKey, project]);
+
   return {
     uiStatus,
     commandId,
@@ -231,6 +280,7 @@ export function useWaSession(params: {
     sessionRawStatus,
     canGenerateQr,
     startGetQr,
+    resetSession,
     diagnostics,
   };
 }
