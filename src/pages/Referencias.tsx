@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Download, Upload } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
@@ -24,11 +24,26 @@ const TIPO_STYLES: Record<string, { border: string; badge: string; icon: any; gr
   copy: { border: "border-l-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: FileText, gradient: "from-emerald-500/20 to-emerald-500/5" },
 };
 
+const CATEGORY_META: Record<string, { label: string; icon: any; color: string }> = {
+  expert: { label: "Expert", icon: Camera, color: "text-cyan-400 bg-cyan-500/15 border-cyan-500/30" },
+  produtos: { label: "Produtos", icon: LayoutGrid, color: "text-orange-400 bg-orange-500/15 border-orange-500/30" },
+  anuncios: { label: "Anúncios", icon: Megaphone, color: "text-rose-400 bg-rose-500/15 border-rose-500/30" },
+  reels: { label: "Reels", icon: Play, color: "text-violet-400 bg-violet-500/15 border-violet-500/30" },
+  stories: { label: "Stories", icon: Smartphone, color: "text-pink-400 bg-pink-500/15 border-pink-500/30" },
+  feed: { label: "Feed", icon: Image, color: "text-blue-400 bg-blue-500/15 border-blue-500/30" },
+  complementar: { label: "Complementar", icon: FileText, color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30" },
+};
+
+type SourceType = "manual" | "library";
+
 interface Ref {
   id: string; project_id?: string; tipo?: string; titulo: string;
   url?: string; image_url?: string; tags?: string[]; notas?: string;
   score?: number; plataforma?: string; created_at?: string;
   pasta?: string; produto?: string;
+  source: SourceType;
+  content_category?: string;
+  project_name?: string;
 }
 
 export default function Referencias() {
@@ -39,6 +54,8 @@ export default function Referencias() {
   const [filterPlat, setFilterPlat] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
   const [filterPasta, setFilterPasta] = useState("all");
+  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library">("all");
+  const [filterCategory, setFilterCategory] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -46,20 +63,48 @@ export default function Referencias() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showNewPasta, setShowNewPasta] = useState(false);
   const [newPastaName, setNewPastaName] = useState("");
-  const [importing, setImporting] = useState(false);
 
   const load = async () => {
-    const [rRes, pRes] = await Promise.all([
+    const [rRes, lRes, pRes] = await Promise.all([
       supabase.from("imphq_referencias").select("*").order("created_at", { ascending: false }),
+      supabase.from("imphq_content_library" as any).select("id, project_id, title, file_url, file_type, thumbnail_url, tags, description, content_category, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
-    setRefs((rRes.data || []) as Ref[]);
-    setProjects(pRes.data || []);
+
+    const projs = pRes.data || [];
+    setProjects(projs);
+    const projMap = Object.fromEntries(projs.map((p: any) => [p.id, p.name]));
+
+    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => ({
+      ...r,
+      source: "manual" as SourceType,
+    }));
+
+    const libraryRefs: Ref[] = ((lRes.data || []) as any[])
+      .filter((m: any) => m.file_type === "image" || m.file_type === "video")
+      .map((m: any) => ({
+        id: `lib_${m.id}`,
+        project_id: m.project_id || undefined,
+        titulo: m.title || m.file_url?.split("/").pop() || "Sem título",
+        image_url: m.thumbnail_url || m.file_url,
+        url: m.file_url,
+        tags: m.tags || [],
+        notas: m.description || undefined,
+        score: 0,
+        tipo: m.file_type === "video" ? "video" : "criativo",
+        created_at: m.created_at,
+        content_category: m.content_category || undefined,
+        source: "library" as SourceType,
+        project_name: projMap[m.project_id] || undefined,
+      }));
+
+    setRefs([...manualRefs, ...libraryRefs]);
   };
 
   useEffect(() => { load(); }, []);
 
-  const pastas = [...new Set(refs.map(r => r.pasta).filter(Boolean))] as string[];
+  const pastas = [...new Set(refs.filter(r => r.source === "manual").map(r => r.pasta).filter(Boolean))] as string[];
+  const categories = [...new Set(refs.filter(r => r.source === "library").map(r => r.content_category).filter(Boolean))] as string[];
 
   const filtered = refs.filter(r => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
@@ -67,13 +112,36 @@ export default function Referencias() {
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
     const mpr = filterProject === "all" || r.project_id === filterProject;
     const mpa = filterPasta === "all" || r.pasta === filterPasta;
-    return ms && mt && mp && mpr && mpa;
+    const mo = filterOrigem === "all" || r.source === filterOrigem;
+    const mc = filterCategory === "all" || r.content_category === filterCategory;
+    return ms && mt && mp && mpr && mpa && mo && mc;
   });
+
+  // Group by project for display
+  const groupedByProject = () => {
+    if (filterProject !== "all") return null; // no grouping when specific project selected
+    const groups: Record<string, Ref[]> = {};
+    const noProject: Ref[] = [];
+    for (const r of filtered) {
+      if (r.project_id) {
+        const name = r.project_name || projectName(r.project_id) || r.project_id;
+        if (!groups[name]) groups[name] = [];
+        groups[name].push(r);
+      } else {
+        noProject.push(r);
+      }
+    }
+    if (Object.keys(groups).length <= 1 && noProject.length === 0) return null;
+    return { groups, noProject };
+  };
 
   const typeCounts = TIPOS.reduce((acc, t) => {
     acc[t] = refs.filter(r => r.tipo === t).length;
     return acc;
   }, {} as Record<string, number>);
+
+  const manualCount = refs.filter(r => r.source === "manual").length;
+  const libraryCount = refs.filter(r => r.source === "library").length;
 
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
@@ -94,7 +162,7 @@ export default function Referencias() {
   };
 
   const saveEdit = async () => {
-    if (!editing) return;
+    if (!editing || editing.source === "library") return;
     const { error } = await supabase.from("imphq_referencias").update({
       titulo: editing.titulo, tipo: editing.tipo, url: editing.url,
       image_url: editing.image_url, tags: editing.tags, notas: editing.notas,
@@ -106,8 +174,23 @@ export default function Referencias() {
   };
 
   const deleteRef = async (id: string) => {
+    if (id.startsWith("lib_")) { toast.error("Itens do projeto são gerenciados na aba Mídia"); return; }
     await supabase.from("imphq_referencias").delete().eq("id", id);
     toast.success("Removido"); setEditing(null); load();
+  };
+
+  const saveAsRef = async (item: Ref) => {
+    const id = crypto.randomUUID();
+    const { error } = await supabase.from("imphq_referencias").insert({
+      id, titulo: item.titulo, tipo: item.tipo || "criativo",
+      image_url: item.image_url || null, url: item.url || null,
+      tags: item.tags || [], notas: item.notas || null,
+      score: 0, project_id: item.project_id || null,
+      produto: item.content_category || null,
+    } as any);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    toast.success("Salvo como referência!");
+    load();
   };
 
   const handleBulkUpload = async (urls: string[]) => {
@@ -126,31 +209,6 @@ export default function Referencias() {
       if (!error) count++;
     }
     toast.success(`${count} referências criadas via upload`);
-    load();
-  };
-
-  const importFromProject = async () => {
-    setImporting(true);
-    let count = 0;
-    const { data: media } = await (supabase as any).from("imphq_media_content").select("*").eq("category", "anuncios");
-    if (media) {
-      for (const m of media) {
-        const exists = refs.some(r => r.image_url === (m as any).file_url && r.project_id === (m as any).project_id);
-        if (exists) continue;
-        const { error } = await supabase.from("imphq_referencias").insert({
-          id: crypto.randomUUID(),
-          titulo: (m as any).title || (m as any).file_url?.split("/").pop() || "Importado",
-          tipo: "criativo",
-          image_url: (m as any).file_url || null,
-          project_id: (m as any).project_id || null,
-          tags: [],
-          score: 0,
-        } as any);
-        if (!error) count++;
-      }
-    }
-    toast.success(`${count} referências importadas dos projetos`);
-    setImporting(false);
     load();
   };
 
@@ -227,17 +285,149 @@ export default function Referencias() {
     </div>
   );
 
+  const renderCard = (r: Ref, i: number) => {
+    const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
+    const Icon = style.icon;
+    const catMeta = r.content_category ? CATEGORY_META[r.content_category] : null;
+    const isLib = r.source === "library";
+
+    return (
+      <Card
+        key={r.id}
+        className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.02] cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in`}
+        style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
+        onClick={() => isLib ? setLightboxUrl(r.image_url || r.url || null) : setEditing({ ...r })}
+      >
+        {r.image_url ? (
+          <div className="h-36 bg-secondary overflow-hidden relative">
+            <img src={r.image_url} alt={r.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <button
+              className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+              onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
+            >
+              <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+            </button>
+            {isLib && (
+              <button
+                className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                title="Salvar como Referência"
+                onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
+            <Icon className="h-10 w-10 text-muted-foreground/20" />
+          </div>
+        )}
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-medium text-sm line-clamp-2">{r.titulo}</h3>
+            {!isLib && (
+              <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isLib && (
+              <Badge className="text-[9px] border bg-sky-500/15 text-sky-400 border-sky-500/30">📂 Projeto</Badge>
+            )}
+            {catMeta && (
+              <Badge className={`text-[9px] border ${catMeta.color}`}>{catMeta.label}</Badge>
+            )}
+            {!isLib && r.tipo && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
+            {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
+            {r.pasta && <Badge variant="outline" className="text-[9px]">📁 {r.pasta}</Badge>}
+            {r.produto && <Badge variant="outline" className="text-[9px]">📦 {r.produto}</Badge>}
+          </div>
+          {r.score && r.score > 0 && <ScoreStars score={r.score} />}
+          {r.tags && r.tags.length > 0 && (
+            <div className="flex gap-1 flex-wrap">
+              {r.tags.slice(0, 3).map(t => (
+                <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
+              ))}
+              {r.tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{r.tags.length - 3}</span>}
+            </div>
+          )}
+          {r.project_id && <p className="text-[10px] text-muted-foreground">📁 {r.project_name || projectName(r.project_id)}</p>}
+          {r.notas && <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>}
+          {r.url && !isLib && (
+            <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
+              <ExternalLink className="h-2.5 w-2.5" /> Abrir link
+            </a>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderListRow = (r: Ref) => {
+    const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
+    const catMeta = r.content_category ? CATEGORY_META[r.content_category] : null;
+    const isLib = r.source === "library";
+
+    return (
+      <div
+        key={r.id}
+        className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group`}
+        onClick={() => isLib ? setLightboxUrl(r.image_url || r.url || null) : setEditing({ ...r })}
+      >
+        {r.image_url ? (
+          <img src={r.image_url} alt="" className="h-10 w-14 rounded object-cover shrink-0" />
+        ) : (
+          <div className={`h-10 w-14 rounded bg-gradient-to-br ${style.gradient} flex items-center justify-center shrink-0`}>
+            {(() => { const Icon = style.icon; return <Icon className="h-4 w-4 text-muted-foreground/30" />; })()}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{r.titulo}</p>
+          <div className="flex gap-1 items-center flex-wrap">
+            {isLib && <Badge className="text-[8px] border bg-sky-500/15 text-sky-400 border-sky-500/30">Projeto</Badge>}
+            {catMeta && <Badge className={`text-[8px] border ${catMeta.color}`}>{catMeta.label}</Badge>}
+            {!isLib && r.tipo && <Badge className={`text-[8px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
+            {r.plataforma && <Badge variant="outline" className="text-[8px]">{r.plataforma}</Badge>}
+            {r.project_id && <span className="text-[9px] text-muted-foreground">📁 {r.project_name || projectName(r.project_id)}</span>}
+            {r.pasta && <span className="text-[9px] text-muted-foreground">📂 {r.pasta}</span>}
+            {r.produto && <span className="text-[9px] text-muted-foreground">📦 {r.produto}</span>}
+          </div>
+        </div>
+        {r.score && r.score > 0 && <ScoreStars score={r.score} />}
+        {r.tags && r.tags.length > 0 && (
+          <div className="flex gap-1 shrink-0">
+            {r.tags.slice(0, 2).map(t => (
+              <span key={t} className="text-[8px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
+            ))}
+          </div>
+        )}
+        {isLib && (
+          <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" title="Salvar como Referência" onClick={e => { e.stopPropagation(); saveAsRef(r); }}>
+            <BookmarkPlus className="h-3 w-3 text-primary" />
+          </Button>
+        )}
+        {!isLib && (
+          <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+            <Trash2 className="h-3 w-3 text-destructive" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  const grouped = groupedByProject();
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-primary">🗂️ Referências</h1>
-          <p className="text-sm text-muted-foreground mt-1">{refs.length} referências no swipe file</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={importFromProject} disabled={importing}>
-            <Download className="h-4 w-4 mr-1" /> {importing ? "Importando..." : "Importar do Projeto"}
-          </Button>
           <FileUpload
             bucket="project-media"
             path="referencias"
@@ -250,29 +440,78 @@ export default function Referencias() {
         </div>
       </div>
 
-      {/* Type counters */}
+      {/* Origin filter chips */}
       <div className="flex items-center gap-2 flex-wrap">
-        {TIPOS.map(t => {
-          const style = TIPO_STYLES[t];
-          const Icon = style.icon;
-          const count = typeCounts[t] || 0;
-          return (
-            <button
-              key={t}
-              onClick={() => setFilterTipo(filterTipo === t ? "all" : t)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                filterTipo === t
-                  ? `${style.badge} border-current`
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              }`}
-            >
-              <Icon className="h-3 w-3" />
-              <span className="capitalize">{t.replace("_", " ")}</span>
-              <span className="text-[10px] opacity-70">({count})</span>
-            </button>
-          );
-        })}
+        {([
+          { key: "all" as const, label: "Todos", count: refs.length },
+          { key: "manual" as const, label: "Minhas Refs", count: manualCount },
+          { key: "library" as const, label: "Projetos", count: libraryCount },
+        ]).map(o => (
+          <button
+            key={o.key}
+            onClick={() => { setFilterOrigem(o.key); if (o.key !== "library") setFilterCategory("all"); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+              filterOrigem === o.key
+                ? "bg-primary/15 text-primary border-primary/30"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+            }`}
+          >
+            {o.label}
+            <span className="text-[10px] opacity-70">({o.count})</span>
+          </button>
+        ))}
+
+        {/* Category chips when origin = library */}
+        {(filterOrigem === "library" || filterOrigem === "all") && categories.length > 0 && (
+          <>
+            <span className="text-muted-foreground/30">|</span>
+            {categories.map(cat => {
+              const meta = CATEGORY_META[cat] || { label: cat, color: "text-muted-foreground bg-secondary border-border" };
+              const count = refs.filter(r => r.source === "library" && r.content_category === cat).length;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(filterCategory === cat ? "all" : cat)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                    filterCategory === cat
+                      ? `${meta.color} border-current`
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  }`}
+                >
+                  {meta.label}
+                  <span className="text-[10px] opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </>
+        )}
       </div>
+
+      {/* Type counters (for manual refs) */}
+      {filterOrigem !== "library" && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {TIPOS.map(t => {
+            const style = TIPO_STYLES[t];
+            const Icon = style.icon;
+            const count = typeCounts[t] || 0;
+            return (
+              <button
+                key={t}
+                onClick={() => setFilterTipo(filterTipo === t ? "all" : t)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                  filterTipo === t
+                    ? `${style.badge} border-current`
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                }`}
+              >
+                <Icon className="h-3 w-3" />
+                <span className="capitalize">{t.replace("_", " ")}</span>
+                <span className="text-[10px] opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
@@ -293,13 +532,15 @@ export default function Referencias() {
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterPasta} onValueChange={setFilterPasta}>
-          <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Pasta" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas Pastas</SelectItem>
-            {pastas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {filterOrigem !== "library" && (
+          <Select value={filterPasta} onValueChange={setFilterPasta}>
+            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Pasta" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas Pastas</SelectItem>
+              {pastas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowNewPasta(true)} title="Nova pasta">
           <FolderPlus className="h-3.5 w-3.5" />
         </Button>
@@ -315,114 +556,48 @@ export default function Referencias() {
       </div>
 
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((r, i) => {
-            const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
-            const Icon = style.icon;
-            return (
-              <Card
-                key={r.id}
-                className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.02] cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in`}
-                style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
-                onClick={() => setEditing({ ...r })}
-              >
-                {r.image_url ? (
-                  <div className="h-36 bg-secondary overflow-hidden relative">
-                    <img src={r.image_url} alt={r.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    <button
-                      className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
-                      onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
-                    >
-                      <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
-                    <Icon className="h-10 w-10 text-muted-foreground/20" />
-                  </div>
-                )}
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium text-sm line-clamp-2">{r.titulo}</h3>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {r.tipo && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
-                    {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
-                    {r.pasta && <Badge variant="outline" className="text-[9px]">📁 {r.pasta}</Badge>}
-                    {r.produto && <Badge variant="outline" className="text-[9px]">📦 {r.produto}</Badge>}
-                  </div>
-                  {r.score && r.score > 0 && <ScoreStars score={r.score} />}
-                  {r.tags && r.tags.length > 0 && (
-                    <div className="flex gap-1 flex-wrap">
-                      {r.tags.slice(0, 3).map(t => (
-                        <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
-                      ))}
-                      {r.tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{r.tags.length - 3}</span>}
-                    </div>
-                  )}
-                  {r.project_id && <p className="text-[10px] text-muted-foreground">📁 {projectName(r.project_id)}</p>}
-                  {r.notas && <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>}
-                  {r.url && (
-                    <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <ExternalLink className="h-2.5 w-2.5" /> Abrir link
-                    </a>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-          {filtered.length === 0 && (
-            <div className="col-span-full text-center py-12 space-y-2">
-              <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-              <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
-              <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
-            </div>
-          )}
-        </div>
+        grouped ? (
+          <div className="space-y-8">
+            {Object.entries(grouped.groups).sort(([a], [b]) => a.localeCompare(b)).map(([projName, items]) => (
+              <div key={projName}>
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                  <span className="text-lg">📁</span>
+                  <h2 className="font-semibold text-sm">{projName}</h2>
+                  <Badge variant="outline" className="text-[10px]">{items.length}</Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {items.map((r, i) => renderCard(r, i))}
+                </div>
+              </div>
+            ))}
+            {grouped.noProject.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                  <span className="text-lg">📋</span>
+                  <h2 className="font-semibold text-sm">Sem Projeto</h2>
+                  <Badge variant="outline" className="text-[10px]">{grouped.noProject.length}</Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {grouped.noProject.map((r, i) => renderCard(r, i))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filtered.map((r, i) => renderCard(r, i))}
+            {filtered.length === 0 && (
+              <div className="col-span-full text-center py-12 space-y-2">
+                <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
+                <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+                <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+              </div>
+            )}
+          </div>
+        )
       ) : (
         <div className="space-y-1">
-          {filtered.map(r => {
-            const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
-            return (
-              <div
-                key={r.id}
-                className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group`}
-                onClick={() => setEditing({ ...r })}
-              >
-                {r.image_url ? (
-                  <img src={r.image_url} alt="" className="h-10 w-14 rounded object-cover shrink-0" />
-                ) : (
-                  <div className={`h-10 w-14 rounded bg-gradient-to-br ${style.gradient} flex items-center justify-center shrink-0`}>
-                    {(() => { const Icon = style.icon; return <Icon className="h-4 w-4 text-muted-foreground/30" />; })()}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{r.titulo}</p>
-                  <div className="flex gap-1 items-center flex-wrap">
-                    {r.tipo && <Badge className={`text-[8px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
-                    {r.plataforma && <Badge variant="outline" className="text-[8px]">{r.plataforma}</Badge>}
-                    {r.project_id && <span className="text-[9px] text-muted-foreground">📁 {projectName(r.project_id)}</span>}
-                    {r.pasta && <span className="text-[9px] text-muted-foreground">📂 {r.pasta}</span>}
-                    {r.produto && <span className="text-[9px] text-muted-foreground">📦 {r.produto}</span>}
-                  </div>
-                </div>
-                {r.score && r.score > 0 && <ScoreStars score={r.score} />}
-                {r.tags && r.tags.length > 0 && (
-                  <div className="flex gap-1 shrink-0">
-                    {r.tags.slice(0, 2).map(t => (
-                      <span key={t} className="text-[8px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
-                    ))}
-                  </div>
-                )}
-                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              </div>
-            );
-          })}
+          {filtered.map(r => renderListRow(r))}
           {filtered.length === 0 && (
             <div className="text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
@@ -445,16 +620,39 @@ export default function Referencias() {
       {/* Edit Dialog */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Editar Referência</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing?.source === "library" ? "Visualizar" : "Editar"} Referência</DialogTitle></DialogHeader>
           {editing && editing.image_url && (
             <button onClick={() => setLightboxUrl(editing.image_url!)} className="w-full rounded-lg overflow-hidden border border-border hover:opacity-90 transition-opacity">
               <img src={editing.image_url} alt={editing.titulo} className="w-full max-h-48 object-cover" />
             </button>
           )}
-          {editing && <RefForm data={editing} setData={setEditing} />}
+          {editing && editing.source === "library" ? (
+            <div className="space-y-3">
+              <p className="text-sm"><strong>Título:</strong> {editing.titulo}</p>
+              {editing.project_name && <p className="text-sm"><strong>Projeto:</strong> {editing.project_name}</p>}
+              {editing.content_category && <p className="text-sm"><strong>Categoria:</strong> {CATEGORY_META[editing.content_category]?.label || editing.content_category}</p>}
+              {editing.notas && <p className="text-sm"><strong>Descrição:</strong> {editing.notas}</p>}
+              {editing.tags && editing.tags.length > 0 && (
+                <div className="flex gap-1 flex-wrap">
+                  {editing.tags.map(t => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">Este item é gerenciado na aba Mídia do projeto.</p>
+            </div>
+          ) : (
+            editing && <RefForm data={editing} setData={setEditing} />
+          )}
           <DialogFooter className="flex justify-between">
-            <Button variant="destructive" size="sm" onClick={() => editing && deleteRef(editing.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-            <Button onClick={saveEdit}>Salvar</Button>
+            {editing?.source === "library" ? (
+              <Button onClick={() => { if (editing) saveAsRef(editing); setEditing(null); }}>
+                <BookmarkPlus className="h-4 w-4 mr-1" /> Salvar como Referência
+              </Button>
+            ) : (
+              <>
+                <Button variant="destructive" size="sm" onClick={() => editing && deleteRef(editing.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
+                <Button onClick={saveEdit}>Salvar</Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
