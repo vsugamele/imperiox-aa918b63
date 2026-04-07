@@ -121,7 +121,7 @@ export function useWaSession(params: {
           (e: any) => e.event_type === "qr_status"
         );
         const payload = latestQrEvent?.payload as any;
-        const hasQr = Boolean(payload?.qrAvailable || payload?.hasQr || payload?.needsQr);
+        const hasQr = Boolean(payload?.qrAvailable);
         const img = payload?.qrImageUrl || payload?.qr || payload?.image || null;
         const txt = payload?.qrText || null;
 
@@ -129,10 +129,19 @@ export function useWaSession(params: {
         if (txt) setQrText(txt);
 
         const cmd = commandRes.data as any;
+
+        // Fallback: extract QR from command result
+        const cmdQrImg = cmd?.result?.qr?.qrImageUrl || cmd?.result?.qr?.image || cmd?.result?.qrImageUrl || null;
+        const cmdQrTxt = cmd?.result?.qr?.qrText || cmd?.result?.qrText || null;
+        if (cmdQrImg && !img) setQrImageUrl(cmdQrImg);
+        if (cmdQrTxt && !txt) setQrText(cmdQrTxt);
+
+        const effectiveHasQr = hasQr || Boolean(img || cmdQrImg);
+
         const nextUi = mapStatus({
           commandStatus: cmd?.status,
           sessionStatus,
-          hasQr,
+          hasQr: effectiveHasQr,
           commandError: cmd?.error || null,
         });
 

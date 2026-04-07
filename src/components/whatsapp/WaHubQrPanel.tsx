@@ -129,6 +129,14 @@ export default function WaHubQrPanel() {
               <p className="text-[10px] text-muted-foreground mb-1">QR Text (copie para o app):</p>
               <p className="text-xs font-mono break-all select-all">{qrText}</p>
             </div>
+          ) : uiStatus === "awaiting_qr" ? (
+            <div className="w-[250px] h-[250px] flex items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/5">
+              <div className="text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-blue-400 mx-auto mb-2" />
+                <p className="text-xs text-blue-400 font-medium">Gerando QR...</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Worker respondeu, aguardando imagem</p>
+              </div>
+            </div>
           ) : uiStatus === "error" ? (
             <div className="w-[250px] h-[250px] flex items-center justify-center bg-destructive/5 rounded-xl border border-destructive/20">
               <div className="text-center px-4">
