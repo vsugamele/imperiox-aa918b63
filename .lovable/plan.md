@@ -1,45 +1,46 @@
 
 
-# Plano: Agregar todas imagens do sistema em Referencias
+# Plano: Fix QR Code nao aparecendo
 
-## Objetivo
+## Causa raiz
 
-Fazer a pagina Referencias funcionar como hub central de todas as imagens do sistema, puxando automaticamente de `imphq_content_library` (midia dos projetos — fotos expert, anuncios, produtos, etc.) alem das referencias manuais ja existentes.
+Dois problemas no `useWaSession.ts`:
 
-## Situacao atual
+1. **`needsQr` nao significa QR disponivel** — O campo `needsQr: true` no payload indica que a sessao *precisa* de um QR, nao que ele *esta disponivel*. O codigo usa `needsQr` na checagem `hasQr`, o que faz o `mapStatus` retornar `awaiting_qr` mesmo quando `qrAvailable: false` e `qrImageUrl: null`. Resultado: badge mostra "QR Disponivel" mas nenhuma imagem aparece.
 
-- **Referencias** (`imphq_referencias`): referencias manuais com upload, score, tipo, pasta
-- **Content Library** (`imphq_content_library`): midias dos projetos com `content_category` (expert, produtos, complementar, anuncios, reels, stories, feed)
-- O botao "Importar do Projeto" so importa `imphq_media_content` com category=anuncios (tabela que pode nem existir mais)
-- Nao ha visao unificada de todas as imagens do sistema
+2. **Command result ignorado** — O `result` do comando contem `qr.qrImageUrl` quando disponivel, mas o polling so extrai QR dos *events*. Nos eventos recentes, `qrImageUrl` e null, mas em comandos mais antigos o QR estava no result.
 
-## Mudancas
+## Fix
 
-### 1. Carregar `imphq_content_library` junto com `imphq_referencias`
+### 1. Corrigir `hasQr` no polling (`useWaSession.ts`)
 
-No `load()`, alem de buscar `imphq_referencias`, buscar tambem `imphq_content_library` (apenas file_type=image e video). Mapear os items para o formato `Ref` com campo `source: "library" | "manual"` para distinguir.
+Remover `needsQr` da checagem de `hasQr`. Usar apenas `qrAvailable` (que e `true` somente quando o worker realmente gerou o QR):
 
-Itens da library serao read-only (nao editaveis/deletaveis direto de Referencias — sao gerenciados no projeto).
+```ts
+const hasQr = Boolean(payload?.qrAvailable);
+```
 
-### 2. Adicionar filtro por origem/categoria
+### 2. Extrair QR tambem do command result
 
-Novos filtros na toolbar:
-- **Origem**: Todos | Minhas Refs | Projetos
-- **Categoria do projeto**: Expert | Produtos | Anuncios | Reels | Stories | Feed (quando origem = Projetos)
+Apos buscar o comando, verificar se `cmd.result?.qr?.qrImageUrl` existe e usar como fallback:
 
-### 3. Substituir `importFromProject` por visualizacao direta
+```ts
+const cmdQrImg = cmd?.result?.qr?.qrImageUrl || null;
+const cmdQrTxt = cmd?.result?.qr?.qrText || null;
+if (cmdQrImg) setQrImageUrl(cmdQrImg);
+if (cmdQrTxt) setQrText(cmdQrTxt);
+```
 
-Em vez de importar (copiar dados), exibir os itens da library diretamente na grid. O botao "Importar do Projeto" vira desnecessario pois os dados ja aparecem em tempo real.
+### 3. UI: estado intermediario quando `awaiting_qr` sem imagem
 
-Manter o botao mas mudar para "Salvar como Referencia" — ao clicar num item da library, poder salva-lo como referencia manual com score/tags/notas.
+No `WaHubQrPanel.tsx`, adicionar um caso para `awaiting_qr` sem QR disponivel — mostrar spinner com mensagem "Aguardando worker gerar QR..." em vez do placeholder "Clique em Gerar QR". Isso evita confusao quando o badge diz "QR Disponivel" mas nada aparece.
 
-### 4. Agrupar visualmente por projeto
-
-Quando nao ha filtro de projeto ativo, mostrar um header separador entre projetos: "📁 JP Freitas" com contagem de itens. Dentro de cada projeto, separar por content_category (📸 Expert, 📣 Anuncios, etc.).
-
-### 5. Filtro por produto
-
-Adicionar Select de produto na toolbar. Os produtos vem de `imphq_content_library.tags` ou do campo `produto` da referencia.
+Reorganizar a logica de render:
+- `pending` → spinner "Aguardando worker"
+- `awaiting_qr` + sem imagem → spinner "Worker respondeu, gerando QR..."
+- `awaiting_qr` + com imagem → mostrar QR
+- `connected` → checkmark
+- `error` → erro
 
 ---
 
@@ -47,13 +48,6 @@ Adicionar Select de produto na toolbar. Os produtos vem de `imphq_content_librar
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Referencias.tsx` | Buscar content_library, unificar com refs, novos filtros (origem, categoria), headers por projeto, "Salvar como Ref" |
-
-## Ordem
-
-1. Expandir `load()` para buscar `imphq_content_library`
-2. Mapear items da library para formato Ref unificado
-3. Adicionar filtros de origem e categoria
-4. Ajustar grid para mostrar badge de origem e headers por projeto
-5. Acao "Salvar como Referencia" para itens da library
+| `src/hooks/useWaSession.ts` | Corrigir `hasQr` (remover needsQr) + extrair QR do command result |
+| `src/components/whatsapp/WaHubQrPanel.tsx` | Novo estado visual para `awaiting_qr` sem imagem |
 
