@@ -178,16 +178,26 @@ export function ProjetoComando({ projectId, project }: Props) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-[10px]">Nome</TableHead>
+                    <TableHead className="text-[10px]">Produto</TableHead>
                     <TableHead className="text-[10px]">Status</TableHead>
                     <TableHead className="text-[10px]">Horário</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {leads.slice(0, 8).map((l) => (
+                  {leads.slice(0, 8).map((l) => {
+                    const produto = getLeadProduct(l);
+                    return (
                     <TableRow key={l.id}>
                       <TableCell className="text-xs py-2">
                         <div>{l.name || l.email || "—"}</div>
                         <div className="text-[10px] text-muted-foreground">{l.email || l.phone || ""}</div>
+                      </TableCell>
+                      <TableCell className="text-xs py-2">
+                        {produto ? (
+                          <Badge variant="secondary" className="text-[9px]">{produto}</Badge>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-2">
                         <Badge variant="outline" className="text-[9px]">{l.status || "novo"}</Badge>
@@ -196,7 +206,8 @@ export function ProjetoComando({ projectId, project }: Props) {
                         {l.created_at ? format(new Date(l.created_at), "dd/MM HH:mm") : "—"}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
