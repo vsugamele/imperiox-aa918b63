@@ -1,38 +1,41 @@
 
 
-# Plano: Corrigir exibicao de respostas de formulario na Qualificacao
+# Plano: Mostrar produto nos leads com Pix gerado / pendentes
 
-## Causa raiz
+## Problema
 
-A query na linha 372 usa um join embutido do PostgREST:
-```
-.select("*, imphq_capture_forms(nome)")
-```
+No ProjetoComando, os KPIs "Pix Gerados" e "Pendentes" mostram apenas contagem. Na tabela de "Ultimos Leads", o status aparece como badge mas sem informacao de qual produto gerou o pix ou carrinho.
 
-Porem a tabela `imphq_lead_responses` **nao tem foreign key** para `imphq_capture_forms` (o types.ts mostra `Relationships: []`). O PostgREST retorna erro 400 ou dados vazios, fazendo `formResponses` ficar sempre vazio.
+## Fonte dos dados de produto
 
-Os dados existem no banco — confirmei 10 respostas para o lead `fb55df1d` com perguntas como "Voce e cabeleireiro(a)?", "Faixa de faturamento", etc.
+- **`imphq_leads.data`** (JSONB): contem `interacoes[]` com `{ evento, produto, ... }` e `ultimo_evento` — preenchido pelo webhook-pagamento
+- **`imphq_vendas`**: tem `produto_nome`, `status` e `lead_id` — vendas pendentes/aprovadas por lead
+- **`imphq_events.event_data`** (JSONB): contem `{ produto, valor, plataforma }` para eventos de jornada
 
 ## Solucao
 
-### 1. Migracaoo SQL: adicionar FK
+### 1. Buscar vendas pendentes do projeto
 
-```sql
-ALTER TABLE public.imphq_lead_responses
-  ADD CONSTRAINT imphq_lead_responses_form_id_fkey
-  FOREIGN KEY (form_id) REFERENCES public.imphq_capture_forms(id)
-  ON DELETE SET NULL;
+Adicionar uma query ao `load()` do ProjetoComando para buscar `imphq_vendas` com status diferente de "aprovado" (pendentes, pix, carrinho) do projeto hoje. Isso traz `produto_nome` e `lead_id`.
+
+### 2. KPI "Pix Gerados" expandido
+
+Abaixo do card KPI de "Pix Gerados", adicionar uma mini-lista mostrando os produtos com pix pendente e a quantidade de cada um. Ex:
+```
+Pix Gerados: 3
+  Curso X — 2
+  Mentoria Y — 1
 ```
 
-Isso permite o join do PostgREST funcionar nativamente.
+### 3. Coluna "Produto" na tabela de Leads
 
-### 2. Fallback no front (defesa)
+Adicionar uma coluna "Produto" na tabela de ultimos leads. Para cada lead, buscar o produto de:
+1. Vendas pendentes associadas ao lead (`imphq_vendas` onde `lead_id` = lead.id)
+2. Fallback: `lead.data?.interacoes` — ultimo evento com produto
 
-Mesmo com a FK, adicionar fallback: se o join retornar sem `imphq_capture_forms`, buscar os nomes dos forms separadamente por `form_id` distinto. Assim, se a FK falhar por qualquer razao, as respostas ainda aparecem.
+### 4. Badge de produto nos "Pendentes"
 
-### 3. Filtrar campos meta da exibicao
-
-Atualmente a `capture-lead` salva `nome`, `email`, `phone` como respostas tambem. Na Qualificacao, filtrar esses campos basicos (ja exibidos na aba Dados) para nao poluir — mostrar apenas as respostas de qualificacao reais.
+Para leads pendentes, mostrar o nome do produto como badge extra ao lado do status.
 
 ---
 
@@ -40,12 +43,12 @@ Atualmente a `capture-lead` salva `nome`, `email`, `phone` como respostas tambem
 
 | Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | FK `imphq_lead_responses.form_id` → `imphq_capture_forms.id` |
-| `src/pages/Leads.tsx` | Fallback para buscar nomes de forms sem join + filtrar campos basicos (nome/email/phone) da exibicao |
+| `src/components/projeto/ProjetoComando.tsx` | Nova query vendas pendentes, coluna Produto na tabela, breakdown de produtos no KPI Pix |
 
-## Ordem
+## Detalhes tecnicos
 
-1. Criar migracao com FK
-2. Ajustar query com fallback
-3. Filtrar campos meta da lista de respostas
+- Query adicional: `supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado")`
+- Criar `Map<lead_id, produto_nome>` para lookup rapido na tabela de leads
+- Para o breakdown do KPI, agrupar vendas pendentes por `produto_nome` e mostrar contagem
+- Tambem buscar vendas de hoje (aprovadas ou nao) para enriquecer o KPI de Pix com o nome do produto
 
