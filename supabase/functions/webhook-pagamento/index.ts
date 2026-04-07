@@ -61,6 +61,85 @@ async function sendCAPIEvent(
   return await capiRes.json();
 }
 
+function extractFinanceiro(body: any, plataforma: string): Record<string, any> | null {
+  try {
+    if (plataforma === "Ticto") {
+      const order = body?.order || {};
+      const comms = body?.commissions || [];
+      const paidAmount = (order.paid_amount || 0) / 100;
+      const netAmount = (order.net_amount || 0) / 100;
+      const platformFee = (order.platform_fee || 0) / 100;
+      const txFee = (order.transaction_fee || 0) / 100;
+      const prodComm = comms.find((c: any) => c.role === "producer" || c.role === "PRODUCER");
+      const affComm = comms.find((c: any) => c.role === "affiliate" || c.role === "AFFILIATE");
+      if (paidAmount > 0 || netAmount > 0) {
+        return {
+          valor_bruto: paidAmount || undefined,
+          comissao_plataforma: platformFee || undefined,
+          taxa_transacao: txFee || undefined,
+          comissao_produtor: prodComm ? (prodComm.value || 0) / 100 : undefined,
+          comissao_afiliado: affComm ? (affComm.value || 0) / 100 : undefined,
+          valor_liquido: netAmount || undefined,
+          metodo_pagamento: order.payment_method || body?.payment?.method || undefined,
+          parcelas: order.installments || body?.payment?.installments || undefined,
+          codigo_pedido: order.code || order.id || undefined,
+          bandeira_cartao: body?.payment?.card_brand || undefined,
+        };
+      }
+    }
+    if (plataforma === "Hotmart") {
+      const purchase = body?.data?.purchase || {};
+      const price = purchase.price || {};
+      const comm = purchase.commission_as || purchase.commission;
+      const hotValue = price.value || 0;
+      if (hotValue > 0) {
+        return {
+          valor_bruto: hotValue,
+          comissao_plataforma: purchase.hotmart_fee || undefined,
+          taxa_transacao: undefined,
+          comissao_produtor: typeof comm === "number" ? comm : comm?.value || undefined,
+          comissao_afiliado: purchase.affiliate_commission?.value || undefined,
+          valor_liquido: purchase.full_price?.value || purchase.original_offer_price?.value || undefined,
+          metodo_pagamento: purchase.payment?.type || purchase.payment_method || undefined,
+          parcelas: purchase.payment?.installments_number || undefined,
+          codigo_pedido: purchase.transaction || purchase.order_bump?.id || undefined,
+          oferta: purchase.offer?.code || undefined,
+        };
+      }
+    }
+    if (plataforma === "Kiwify") {
+      const saleAmount = parseFloat(body?.sale_amount || body?.order_value || "0");
+      const comms = body?.commissions || body?.Commissions || {};
+      if (saleAmount > 0) {
+        return {
+          valor_bruto: saleAmount,
+          comissao_plataforma: parseFloat(comms.charge_amount || comms.kiwify_fee || "0") || undefined,
+          taxa_transacao: undefined,
+          comissao_produtor: parseFloat(comms.producer_amount || comms.my_commission || "0") || undefined,
+          comissao_afiliado: parseFloat(comms.affiliate_amount || "0") || undefined,
+          valor_liquido: parseFloat(comms.receive_amount || comms.net_amount || "0") || undefined,
+          metodo_pagamento: body?.payment_method || undefined,
+          parcelas: body?.installments || undefined,
+          codigo_pedido: body?.order_id || body?.order_ref || undefined,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("[webhook-pagamento] Erro ao extrair financeiro:", e);
+  }
+  return null;
+}
+
+function extractUtms(body: any): Record<string, string> | null {
+  const src = body?.utm_source || body?.data?.purchase?.tracking?.source || body?.tracking?.utm_source;
+  const med = body?.utm_medium || body?.data?.purchase?.tracking?.medium || body?.tracking?.utm_medium;
+  const cmp = body?.utm_campaign || body?.data?.purchase?.tracking?.campaign || body?.tracking?.utm_campaign;
+  const cnt = body?.utm_content || body?.tracking?.utm_content;
+  const trm = body?.utm_term || body?.tracking?.utm_term;
+  if (src || med || cmp) return { utm_source: src || "", utm_medium: med || "", utm_campaign: cmp || "", utm_content: cnt || "", utm_term: trm || "" };
+  return null;
+}
+
 function parseWebhookBody(body: any, hotmartToken: string | null) {
   let plataforma = "desconhecido";
   let evento = "desconhecido";
@@ -174,7 +253,11 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     data_compra = body.data_compra || body.created_at || null;
   }
 
-  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda };
+  // Extract financial breakdown and UTMs
+  const financeiro = extractFinanceiro(body, plataforma);
+  const utms = extractUtms(body);
+
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms };
 }
 
 Deno.serve(async (req) => {
