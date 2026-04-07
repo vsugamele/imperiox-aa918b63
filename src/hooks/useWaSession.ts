@@ -74,12 +74,26 @@ export function useWaSession(params: {
     if (lockRef.current) return;
     lockRef.current = true;
 
-    // Auto-reset dirty sessions before new pairing
+    // Auto-reset dirty sessions before new pairing (inline to avoid circular dep)
     if (
       ["stale", "error"].includes(uiStatus) ||
       ["stale", "error", "creating_qr"].includes(sessionRawStatus || "")
     ) {
-      await resetSession();
+      clearTimer();
+      await supabase.from("wa_hub_iso_commands").insert({
+        tenant_id: tenantId, session_key: sessionKey,
+        action: "reset_session",
+        payload: { project, source: "ui" } as any,
+        status: "pending",
+      });
+      await supabase.from("wa_hub_iso_events").delete()
+        .eq("tenant_id", tenantId).eq("session_key", sessionKey);
+      await supabase.from("wa_hub_iso_commands").delete()
+        .eq("tenant_id", tenantId).eq("session_key", sessionKey)
+        .in("status", ["done", "success", "completed", "error"]);
+      await supabase.from("wa_hub_iso_sessions")
+        .update({ status: "reset" } as any)
+        .eq("tenant_id", tenantId).eq("session_key", sessionKey);
     }
 
     setErrorMessage(null);
