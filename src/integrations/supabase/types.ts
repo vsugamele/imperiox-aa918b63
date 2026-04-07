@@ -9883,6 +9883,7 @@ export type Database = {
           created_at: string | null
           id: string
           nome: string
+          produto: string | null
           project_id: string | null
           trigger_tipo: string
           updated_at: string | null
@@ -9893,6 +9894,7 @@ export type Database = {
           created_at?: string | null
           id: string
           nome: string
+          produto?: string | null
           project_id?: string | null
           trigger_tipo: string
           updated_at?: string | null
@@ -9903,6 +9905,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           nome?: string
+          produto?: string | null
           project_id?: string | null
           trigger_tipo?: string
           updated_at?: string | null
