@@ -17,6 +17,7 @@ import QrCodePanel from "@/components/whatsapp/QrCodePanel";
 import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
 import WaHubQrPanel from "@/components/whatsapp/WaHubQrPanel";
+import HubGuide from "@/components/whatsapp/HubGuide";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
