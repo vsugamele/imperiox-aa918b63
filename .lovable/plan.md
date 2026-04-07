@@ -1,53 +1,87 @@
 
+Plano: corrigir o fluxo do QR do Hub Local com base no que o código e o banco mostram hoje.
 
-# Plano: Fix QR Code nao aparecendo
+O que encontrei
+- O front já está tentando ler QR em vários formatos: `payload.qrImageUrl`, `payload.qr`, `payload.image` e também fallback em `command.result.qr.qrImageUrl`.
+- Nos registros recentes de `wa_hub_iso_commands` e `wa_hub_iso_events`, o worker está respondendo `success: true`, mas com:
+  - `qrAvailable: false`
+  - `qrImageUrl: null`
+  - `qrText: null`
+  - `hasSession: false`
+- Existe histórico antigo funcionando com esses mesmos campos (`qrImageUrl` e `qrText`), então hoje o problema principal não parece ser mismatch de nome de campo no front.
+- O bug atual de UX é que o app trata `session.status = awaiting_qr` como se o QR estivesse disponível, então mostra “QR Disponível” mesmo sem imagem.
+- O timeout não parece ser a causa principal agora, porque o comando termina rápido e já volta sem QR.
 
-## Causa raiz
+O que vou implementar
+1. Ajustar a máquina de estados do QR
+- Em `src/hooks/useWaSession.ts`, separar claramente:
+  - worker processando
+  - sessão aguardando QR
+  - QR realmente pronto
+  - erro / sessão travada
+- Não marcar mais “QR Disponível” só porque a sessão ficou `awaiting_qr`.
+- Só considerar QR pronto quando houver `qrImageUrl` ou `qrText` de fato.
 
-Dois problemas no `useWaSession.ts`:
+2. Corrigir a UI para não enganar
+- Em `src/components/whatsapp/WaHubQrPanel.tsx`, trocar o badge/estado visual:
+  - “Aguardando worker”
+  - “Sessão aguardando geração do QR”
+  - “QR pronto para escanear”
+  - “Sessão possivelmente travada”
+- Se o worker responder sem QR, mostrar isso explicitamente em vez de ficar preso em “QR Disponível”.
 
-1. **`needsQr` nao significa QR disponivel** — O campo `needsQr: true` no payload indica que a sessao *precisa* de um QR, nao que ele *esta disponivel*. O codigo usa `needsQr` na checagem `hasQr`, o que faz o `mapStatus` retornar `awaiting_qr` mesmo quando `qrAvailable: false` e `qrImageUrl: null`. Resultado: badge mostra "QR Disponivel" mas nenhuma imagem aparece.
+3. Exibir diagnóstico bruto do worker
+- Aproveitar os dados que já estão vindo no payload/result:
+  - `instructions`
+  - `hasSession`
+  - `needsQr`
+  - `qrAvailable`
+  - `qrAt`
+  - `commandId`
+- Mostrar isso no painel para você entender rapidamente se:
+  - o worker não subiu direito
+  - a session key está suja
+  - o QR não foi persistido
+  - o retorno veio sem imagem
 
-2. **Command result ignorado** — O `result` do comando contem `qr.qrImageUrl` quando disponivel, mas o polling so extrai QR dos *events*. Nos eventos recentes, `qrImageUrl` e null, mas em comandos mais antigos o QR estava no result.
+4. Destravar a tentativa de novo QR
+- Hoje, se cair em `awaiting_qr`, o botão pode ficar bloqueado.
+- Vou ajustar para permitir novo “Gerar QR” quando o comando já terminou mas não trouxe QR real.
+- Também vou adicionar uma ação de “nova session key”/“trocar session key” para contornar sessão presa sem depender de limpeza manual.
 
-## Fix
+5. Tratar sessão suja como caso explícito
+- Se vier repetidamente `awaiting_qr` + `qrAvailable: false` + `qrImageUrl: null`, o painel vai assumir “sessão travada ou worker sem persistência”.
+- Em vez de spinner infinito, mostrar instrução clara:
+  - tentar nova session key
+  - reiniciar worker local
+  - repetir a geração
 
-### 1. Corrigir `hasQr` no polling (`useWaSession.ts`)
+Dependência externa importante
+- O worker do Hub Local não está neste repositório, então eu consigo corrigir bem a experiência, diagnóstico e retry no app.
+- Mas se o worker continuar retornando `qrAvailable: false` e `qrImageUrl: null`, o app não tem como inventar a imagem.
+- Se você também controla o worker externo, o ideal é padronizar o contrato para sempre devolver:
+  - `qrAvailable`
+  - `qrImageUrl`
+  - `qrText`
+  - `error` ou `reason`
+  - `expiresAt`
+  - algum indicador de “dirty/stale session”
 
-Remover `needsQr` da checagem de `hasQr`. Usar apenas `qrAvailable` (que e `true` somente quando o worker realmente gerou o QR):
+Arquivos
+- `src/hooks/useWaSession.ts`
+- `src/components/whatsapp/WaHubQrPanel.tsx`
+- `src/pages/WhatsAppPage.tsx` (apoio para sessão nova/diagnóstico visível)
 
-```ts
-const hasQr = Boolean(payload?.qrAvailable);
-```
+Detalhes técnicos
+- Causa 1 (“campo diferente”) hoje é improvável, porque o front já cobre os campos conhecidos e há evento antigo com `qrImageUrl` no mesmo formato.
+- Causa 2 e 3 são as mais prováveis no estado atual:
+  - sessão presa
+  - worker não persistindo/retornando o QR mesmo concluindo o comando
+- Causa 4 (timeout) fica como melhoria secundária, não como raiz principal.
+- Há também warnings de `ref` em `HubConversations`, mas isso é separado do bug do QR.
 
-### 2. Extrair QR tambem do command result
-
-Apos buscar o comando, verificar se `cmd.result?.qr?.qrImageUrl` existe e usar como fallback:
-
-```ts
-const cmdQrImg = cmd?.result?.qr?.qrImageUrl || null;
-const cmdQrTxt = cmd?.result?.qr?.qrText || null;
-if (cmdQrImg) setQrImageUrl(cmdQrImg);
-if (cmdQrTxt) setQrText(cmdQrTxt);
-```
-
-### 3. UI: estado intermediario quando `awaiting_qr` sem imagem
-
-No `WaHubQrPanel.tsx`, adicionar um caso para `awaiting_qr` sem QR disponivel — mostrar spinner com mensagem "Aguardando worker gerar QR..." em vez do placeholder "Clique em Gerar QR". Isso evita confusao quando o badge diz "QR Disponivel" mas nada aparece.
-
-Reorganizar a logica de render:
-- `pending` → spinner "Aguardando worker"
-- `awaiting_qr` + sem imagem → spinner "Worker respondeu, gerando QR..."
-- `awaiting_qr` + com imagem → mostrar QR
-- `connected` → checkmark
-- `error` → erro
-
----
-
-## Arquivos
-
-| Arquivo | Mudanca |
-|---|---|
-| `src/hooks/useWaSession.ts` | Corrigir `hasQr` (remover needsQr) + extrair QR do command result |
-| `src/components/whatsapp/WaHubQrPanel.tsx` | Novo estado visual para `awaiting_qr` sem imagem |
-
+Ordem
+1. Corrigir estado e regras de “QR pronto” no hook
+2. Ajustar badge/mensagens e reabilitar retry no painel
+3. Exibir diagnóstico bruto do comando/evento
+4. Adicionar fluxo de nova session key para sessões travadas
