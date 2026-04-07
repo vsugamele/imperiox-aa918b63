@@ -175,6 +175,7 @@ export default function OpenFlow() {
           project_id: editing.project_id || null,
           trigger_tipo: editing.trigger_tipo,
           num_etapas: 5,
+          produto: editing.produto || null,
         },
       });
       if (error) throw error;
@@ -407,6 +408,8 @@ export default function OpenFlow() {
                 isGenerating={isGeneratingAI}
                 templates={projectTemplates}
                 providers={editing.project_id ? (providers || []).filter((p: any) => p.project_id === editing.project_id) : (providers || [])}
+                projectId={editing.project_id}
+                onTemplateSaved={loadTemplates}
               />
             </div>
           )}

@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
     // ── Mentes IA Personality Lookup ──
@@ -130,9 +130,11 @@ serve(async (req) => {
       reembolso: "Reembolso — o cliente pediu reembolso",
     };
 
+    const produtoFoco = produto ? `\nO PRODUTO EM FOCO desta automação é: "${produto}". Direcione toda a copy especificamente para este produto.\n` : "";
+
     const systemPrompt = `Você é um copywriter brasileiro especialista em automações de marketing digital e sequências multicanal (email, WhatsApp, Telegram).
 Seu objetivo: criar uma sequência de ${num_etapas} mensagens para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}".
-${projectContext ? `Contexto do projeto:\n${projectContext}` : ""}
+${produtoFoco}${projectContext ? `Contexto do projeto:\n${projectContext}` : ""}
 ${skillsContext}
 REGRAS:
 - Use linguagem conversacional e persuasiva em português brasileiro

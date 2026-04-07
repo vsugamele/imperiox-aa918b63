@@ -301,7 +301,13 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                     </div>
                   )}
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-between">
+                    {!isAguardar && !isCondicao && acao.template?.trim() && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => saveAsTemplate(acao)} disabled={savingTemplate}>
+                        <SaveAll className="h-3 w-3 mr-1" /> Salvar Template
+                      </Button>
+                    )}
+                    <div className="flex-1" />
                     <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => removeAcao(idx)}>
                       <Trash2 className="h-3 w-3 mr-1" /> Remover
                     </Button>
