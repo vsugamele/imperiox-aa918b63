@@ -1553,9 +1553,31 @@ export default function Leads() {
                             {v.data?.parcelas && v.data.parcelas > 1 && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.parcelas}x</Badge>}
                             {v.data?.bandeira_cartao && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.bandeira_cartao}</Badge>}
                             {v.data?.codigo_pedido && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">#{v.data.codigo_pedido}</Badge>}
-                            {v.data?.valor_liquidado && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-blue-400">Líq: R$ {v.data.valor_liquidado}</Badge>}
                             {v.data?.oferta && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{v.data.oferta}</Badge>}
                           </div>
+                          {/* Financial breakdown */}
+                          {v.data?.valor_bruto && (
+                            <div className="mt-1 pt-1 border-t border-border/50 space-y-0.5">
+                              <p className="text-[9px] font-bold text-muted-foreground uppercase">Tarifas e Comissões</p>
+                              <div className="grid grid-cols-2 gap-x-3 text-[10px]">
+                                <span className="text-muted-foreground">Valor da Venda</span>
+                                <span className="text-right font-mono">R$ {Number(v.data.valor_bruto).toFixed(2)}</span>
+                                {v.data.comissao_plataforma != null && (<><span className="text-muted-foreground">Comissão Plat.</span><span className="text-right font-mono text-red-400">- R$ {Number(v.data.comissao_plataforma).toFixed(2)}</span></>)}
+                                {v.data.taxa_transacao != null && (<><span className="text-muted-foreground">Taxa Transação</span><span className="text-right font-mono text-red-400">- R$ {Number(v.data.taxa_transacao).toFixed(2)}</span></>)}
+                                {v.data.comissao_produtor != null && (<><span className="text-muted-foreground">Comissão Prod.</span><span className="text-right font-mono text-red-400">- R$ {Number(v.data.comissao_produtor).toFixed(2)}</span></>)}
+                                {v.data.comissao_afiliado != null && (<><span className="text-muted-foreground">Comissão Afil.</span><span className="text-right font-mono text-red-400">- R$ {Number(v.data.comissao_afiliado).toFixed(2)}</span></>)}
+                                {v.data.valor_liquido != null && (<><span className="text-muted-foreground font-semibold">Valor Líquido</span><span className="text-right font-mono text-green-400 font-semibold">R$ {Number(v.data.valor_liquido).toFixed(2)}</span></>)}
+                              </div>
+                            </div>
+                          )}
+                          {/* UTMs da venda */}
+                          {v.data?.utms && Object.values(v.data.utms).some(Boolean) && (
+                            <div className="mt-1 pt-1 border-t border-border/50">
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(v.data.utms).filter(([, val]) => val).map(([k, val]) => <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(val).substring(0, 25)}</Badge>)}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
