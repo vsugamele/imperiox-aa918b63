@@ -23,7 +23,7 @@ export function useWaSession(params: {
   pollMs?: number;
   timeoutMs?: number;
 }) {
-  const { tenantId, sessionKey, project = "igaming", pollMs = 2500, timeoutMs = 90000 } = params;
+  const { tenantId, sessionKey, project = "igaming", pollMs = 2500, timeoutMs = 45000 } = params;
 
   const [uiStatus, setUiStatus] = useState<UiStatus>("idle");
   const [commandId, setCommandId] = useState<string | null>(null);
@@ -73,6 +73,14 @@ export function useWaSession(params: {
     // Debounce: prevent parallel commands
     if (lockRef.current) return;
     lockRef.current = true;
+
+    // Auto-reset dirty sessions before new pairing
+    if (
+      ["stale", "error"].includes(uiStatus) ||
+      ["stale", "error", "creating_qr"].includes(sessionRawStatus || "")
+    ) {
+      await resetSession();
+    }
 
     setErrorMessage(null);
     setQrImageUrl(null);
@@ -134,7 +142,7 @@ export function useWaSession(params: {
             .single(),
         ]);
 
-        const sessionStatus = sessionRes.data?.status || null;
+        let sessionStatus = sessionRes.data?.status || null;
         setSessionRawStatus(sessionStatus);
 
         const events = eventsRes.data || [];
@@ -159,6 +167,11 @@ export function useWaSession(params: {
 
         if (finalImg) setQrImageUrl(finalImg);
         if (finalTxt) setQrText(finalTxt);
+
+        // Check connected from event payload (canonical field from backend)
+        if (payload?.connected === true && sessionStatus !== "connected") {
+          sessionStatus = "connected";
+        }
 
         const hasRealQr = Boolean(finalImg || finalTxt);
 
@@ -217,7 +230,8 @@ export function useWaSession(params: {
         if (shouldStop) {
           if (elapsed > timeoutMs && nextUi !== "connected" && nextUi !== "error" && nextUi !== "qr_ready") {
             setUiStatus("stale");
-            setErrorMessage("Timeout ao obter QR (90s). Sessão pode estar travada.");
+            setErrorMessage("Timeout ao obter QR (45s). Sessão pode estar travada.");
+            setDiagnostics(prev => ({ ...prev, reason: "qr_timeout", reset_required: true } as any));
           }
           unlockAndStop();
         }
