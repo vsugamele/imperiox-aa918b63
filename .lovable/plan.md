@@ -1,25 +1,31 @@
 
 
-# Plano: Fix 400 error no OpenFlow — coluna `produto` ausente
+# Plano: Salvar Template do FlowEditor + Confirmar Contexto IA
 
-## Causa raiz
+## Situacao atual
 
-O `createAutomacao` (linha 141) e `saveAutomacao` inserem/atualizam o campo `produto` na tabela `imphq_automacoes`, mas essa coluna **nao existe** na tabela. O cast `as any` esconde o erro em build-time, mas o PostgREST retorna 400.
+1. **Templates ja existem** — tabela `imphq_wa_templates` com campos `name`, `content`, `category`, `project_id`. Sao gerenciados na pagina WhatsApp e ja aparecem no FlowEditor via "Usar Template".
+2. **IA ja puxa contexto completo** — o `openflow-ai` busca Briefing, Expert, Produtos, Avatar (dores, desejos, problemas, voyerismos, gatilhos), Brand Kit, vendas, leads e custos antes de gerar. Isso ja funciona.
+3. **Falta**: poder salvar o texto escrito numa acao do flow como template reutilizavel, sem precisar ir na pagina WhatsApp.
 
-A segunda mensagem ("message channel closed") e o erro generico do Preview proxy ao falhar a request — nao e um bug separado.
+---
 
-## Fix
+## Mudancas
 
-### 1. Migracao SQL — adicionar coluna `produto`
+### 1. Botao "Salvar como Template" no FlowEditor
 
-```sql
-ALTER TABLE public.imphq_automacoes
-  ADD COLUMN IF NOT EXISTS produto text;
-```
+No painel expandido de cada acao (email/whatsapp/telegram), quando houver texto no campo `template`, adicionar um botao "💾 Salvar Template" abaixo do Textarea.
 
-### 2. Remover casts `as any` desnecessarios
+Ao clicar:
+- Insere na `imphq_wa_templates` com `name` = primeiras palavras do texto, `content` = texto completo, `project_id` = projeto da automacao, `category` = tipo da acao (email/whatsapp/telegram)
+- Toast de confirmacao
+- Template fica disponivel imediatamente no dropdown "Usar Template"
 
-No `OpenFlow.tsx`, remover os `as any` nas chamadas de insert/update agora que o tipo tera a coluna `produto`. Isso restaura a seguranca de tipos.
+### 2. Passar `produto` no contexto da geracao IA
+
+O `generateWithAI` no OpenFlow.tsx ja envia `project_id` e `trigger_tipo`. Adicionar tambem `produto` para que a IA gere copys especificas para aquele produto (o edge function ja recebe `produtos` do projeto mas nao sabe qual e o foco).
+
+No `openflow-ai/index.ts`, no prompt do sistema, adicionar: "O produto em foco é: {produto}" quando informado.
 
 ---
 
@@ -27,6 +33,13 @@ No `OpenFlow.tsx`, remover os `as any` nas chamadas de insert/update agora que o
 
 | Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | Adicionar coluna `produto` em `imphq_automacoes` |
-| `src/pages/OpenFlow.tsx` | Remover `as any` nos insert/update |
+| `src/components/openflow/FlowEditor.tsx` | Botao "Salvar Template" no painel expandido + prop `projectId` |
+| `src/pages/OpenFlow.tsx` | Passar `projectId` ao FlowEditor + enviar `produto` no `generateWithAI` |
+| `supabase/functions/openflow-ai/index.ts` | Incluir `produto` no prompt quando informado |
+
+## Ordem
+
+1. FlowEditor (botao salvar template)
+2. OpenFlow (passar projectId + produto na geracao)
+3. Edge function (produto no prompt)
 
