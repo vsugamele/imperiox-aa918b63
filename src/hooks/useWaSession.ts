@@ -232,7 +232,7 @@ export function useWaSession(params: {
         tenant_id: tenantId,
         session_key: sessionKey,
         action: "reset_session",
-        payload: { project } as any,
+        payload: { project, source: "ui" } as any,
         status: "pending",
       });
 
