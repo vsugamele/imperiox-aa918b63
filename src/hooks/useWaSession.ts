@@ -23,7 +23,7 @@ export function useWaSession(params: {
   pollMs?: number;
   timeoutMs?: number;
 }) {
-  const { tenantId, sessionKey, project = "igaming", pollMs = 2500, timeoutMs = 90000 } = params;
+  const { tenantId, sessionKey, project = "igaming", pollMs = 2500, timeoutMs = 45000 } = params;
 
   const [uiStatus, setUiStatus] = useState<UiStatus>("idle");
   const [commandId, setCommandId] = useState<string | null>(null);
@@ -73,6 +73,28 @@ export function useWaSession(params: {
     // Debounce: prevent parallel commands
     if (lockRef.current) return;
     lockRef.current = true;
+
+    // Auto-reset dirty sessions before new pairing (inline to avoid circular dep)
+    if (
+      ["stale", "error"].includes(uiStatus) ||
+      ["stale", "error", "creating_qr"].includes(sessionRawStatus || "")
+    ) {
+      clearTimer();
+      await supabase.from("wa_hub_iso_commands").insert({
+        tenant_id: tenantId, session_key: sessionKey,
+        action: "reset_session",
+        payload: { project, source: "ui" } as any,
+        status: "pending",
+      });
+      await supabase.from("wa_hub_iso_events").delete()
+        .eq("tenant_id", tenantId).eq("session_key", sessionKey);
+      await supabase.from("wa_hub_iso_commands").delete()
+        .eq("tenant_id", tenantId).eq("session_key", sessionKey)
+        .in("status", ["done", "success", "completed", "error"]);
+      await supabase.from("wa_hub_iso_sessions")
+        .update({ status: "reset" } as any)
+        .eq("tenant_id", tenantId).eq("session_key", sessionKey);
+    }
 
     setErrorMessage(null);
     setQrImageUrl(null);
@@ -134,7 +156,7 @@ export function useWaSession(params: {
             .single(),
         ]);
 
-        const sessionStatus = sessionRes.data?.status || null;
+        let sessionStatus = sessionRes.data?.status || null;
         setSessionRawStatus(sessionStatus);
 
         const events = eventsRes.data || [];
@@ -159,6 +181,11 @@ export function useWaSession(params: {
 
         if (finalImg) setQrImageUrl(finalImg);
         if (finalTxt) setQrText(finalTxt);
+
+        // Check connected from event payload (canonical field from backend)
+        if (payload?.connected === true && sessionStatus !== "connected") {
+          sessionStatus = "connected";
+        }
 
         const hasRealQr = Boolean(finalImg || finalTxt);
 
@@ -217,7 +244,8 @@ export function useWaSession(params: {
         if (shouldStop) {
           if (elapsed > timeoutMs && nextUi !== "connected" && nextUi !== "error" && nextUi !== "qr_ready") {
             setUiStatus("stale");
-            setErrorMessage("Timeout ao obter QR (90s). Sessão pode estar travada.");
+            setErrorMessage("Timeout ao obter QR (45s). Sessão pode estar travada.");
+            setDiagnostics(prev => ({ ...prev, reason: "qr_timeout", reset_required: true } as any));
           }
           unlockAndStop();
         }
@@ -227,7 +255,7 @@ export function useWaSession(params: {
         unlockAndStop();
       }
     }, pollMs);
-  }, [tenantId, sessionKey, project, pollMs, timeoutMs]);
+  }, [tenantId, sessionKey, project, pollMs, timeoutMs, uiStatus, sessionRawStatus]);
 
   useEffect(() => () => { clearTimer(); lockRef.current = false; }, []);
 
