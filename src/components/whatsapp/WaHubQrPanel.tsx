@@ -144,6 +144,16 @@ export default function WaHubQrPanel() {
                 <Loader2 className="h-10 w-10 animate-spin text-blue-400 mx-auto mb-2" />
                 <p className="text-xs text-blue-400 font-medium">Gerando QR...</p>
                 <p className="text-[10px] text-muted-foreground mt-1">Worker respondeu, aguardando imagem</p>
+                {(diagnostics.pollCount ?? 0) * 2.5 > 30 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 text-[10px] h-7 text-orange-400 border-orange-500/30"
+                    onClick={handleResetSession}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" /> Limpar e tentar de novo
+                  </Button>
+                )}
               </div>
             </div>
           )}

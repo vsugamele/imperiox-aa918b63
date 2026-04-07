@@ -34,15 +34,22 @@ export function useWaSession(params: {
   const [diagnostics, setDiagnostics] = useState<WorkerDiagnostics>({});
 
   const startedAtRef = useRef<number | null>(null);
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
   const noQrCountRef = useRef(0);
+  const lastResetAtRef = useRef<Date>(new Date());
+  const lockRef = useRef(false);
 
   const clearTimer = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+  };
+
+  const unlockAndStop = () => {
+    clearTimer();
+    lockRef.current = false;
   };
 
   // Check initial session status on mount
@@ -63,6 +70,10 @@ export function useWaSession(params: {
   }, [tenantId, sessionKey]);
 
   const startGetQr = useCallback(async () => {
+    // Debounce: prevent parallel commands
+    if (lockRef.current) return;
+    lockRef.current = true;
+
     setErrorMessage(null);
     setQrImageUrl(null);
     setQrText(null);
@@ -70,6 +81,7 @@ export function useWaSession(params: {
     setDiagnostics({});
     pollCountRef.current = 0;
     noQrCountRef.current = 0;
+    lastResetAtRef.current = new Date();
 
     const { data, error } = await supabase
       .from("wa_hub_iso_commands")
@@ -86,12 +98,14 @@ export function useWaSession(params: {
     if (error || !data?.id) {
       setUiStatus("error");
       setErrorMessage(error?.message || "Falha ao criar comando get_qr");
+      lockRef.current = false;
       return;
     }
 
     const cmdId = data.id;
     setCommandId(cmdId);
     startedAtRef.current = Date.now();
+    const filterAfter = lastResetAtRef.current.toISOString();
 
     clearTimer();
     timerRef.current = setInterval(async () => {
@@ -110,6 +124,7 @@ export function useWaSession(params: {
             .select("event_type, payload")
             .eq("tenant_id", tenantId)
             .eq("session_key", sessionKey)
+            .gte("created_at", filterAfter)
             .order("created_at", { ascending: false })
             .limit(10),
           supabase
@@ -177,7 +192,6 @@ export function useWaSession(params: {
         } else if (hasRealQr) {
           nextUi = "qr_ready";
         } else if (commandDone && !hasRealQr) {
-          // Command finished but no QR came — session likely stale
           noQrCountRef.current++;
           if (noQrCountRef.current >= 2) {
             nextUi = "stale";
@@ -205,17 +219,17 @@ export function useWaSession(params: {
             setUiStatus("stale");
             setErrorMessage("Timeout ao obter QR (90s). Sessão pode estar travada.");
           }
-          clearTimer();
+          unlockAndStop();
         }
       } catch (err: any) {
         setUiStatus("error");
         setErrorMessage(err?.message || "Erro de polling");
-        clearTimer();
+        unlockAndStop();
       }
     }, pollMs);
   }, [tenantId, sessionKey, project, pollMs, timeoutMs]);
 
-  useEffect(() => () => clearTimer(), []);
+  useEffect(() => () => { clearTimer(); lockRef.current = false; }, []);
 
   const canGenerateQr = useMemo(
     () => uiStatus !== "pending" && uiStatus !== "awaiting_qr",
@@ -224,6 +238,8 @@ export function useWaSession(params: {
 
   const resetSession = useCallback(async () => {
     clearTimer();
+    lockRef.current = false;
+    lastResetAtRef.current = new Date();
 
     // 1. Insert reset command for the worker
     await supabase
