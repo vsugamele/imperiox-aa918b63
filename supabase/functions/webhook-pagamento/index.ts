@@ -398,6 +398,11 @@ Deno.serve(async (req) => {
       if (existingDup && existingDup.length > 0) {
         console.log("[webhook-pagamento] Venda duplicada ignorada para lead", leadId);
       } else {
+        const vendaData: Record<string, any> = {};
+        if (financeiro) Object.assign(vendaData, financeiro);
+        if (webhookUtms) vendaData.utms = webhookUtms;
+        if (tipo_venda !== "principal") vendaData.tipo_venda = tipo_venda;
+
         const vendaInsert: any = {
           id: crypto.randomUUID(),
           lead_id: leadId,
@@ -407,6 +412,7 @@ Deno.serve(async (req) => {
           plataforma,
           status: "aprovado",
           tipo_venda,
+          data: Object.keys(vendaData).length > 0 ? vendaData : null,
         };
         if (data_compra) vendaInsert.created_at = data_compra;
         const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
