@@ -241,7 +241,7 @@ export function useWaSession(params: {
         unlockAndStop();
       }
     }, pollMs);
-  }, [tenantId, sessionKey, project, pollMs, timeoutMs]);
+  }, [tenantId, sessionKey, project, pollMs, timeoutMs, uiStatus, sessionRawStatus, resetSession]);
 
   useEffect(() => () => { clearTimer(); lockRef.current = false; }, []);
 
