@@ -1,32 +1,38 @@
 
 
-# Plano: Corrigir Badge ref + Ajustar stale card no WaHubQrPanel
+# Plano: Corrigir exibicao de respostas de formulario na Qualificacao
 
-## Analise do estado atual
+## Causa raiz
 
-Dos 4 itens solicitados, a maioria ja esta implementada:
+A query na linha 372 usa um join embutido do PostgREST:
+```
+.select("*, imphq_capture_forms(nome)")
+```
 
-- **Item 2** (resetSession no hook): ja existe (linha 225-272 do useWaSession.ts), com exatamente o fluxo pedido.
-- **Item 3** (botao Limpar Sessao): ja existe no painel (linhas 252-261), com toast e condicao de visibilidade correta.
-- **Item 4** (garantias): fluxo ja funciona corretamente.
+Porem a tabela `imphq_lead_responses` **nao tem foreign key** para `imphq_capture_forms` (o types.ts mostra `Relationships: []`). O PostgREST retorna erro 400 ou dados vazios, fazendo `formResponses` ficar sempre vazio.
 
-O que falta de fato:
+Os dados existem no banco — confirmei 10 respostas para o lead `fb55df1d` com perguntas como "Voce e cabeleireiro(a)?", "Faixa de faturamento", etc.
 
-### 1. Badge: converter para forwardRef
+## Solucao
 
-O `badge.tsx` usa `function Badge(...)` sem forwardRef. Isso causa warnings no React quando componentes pai tentam passar ref (ex: dentro de Collapsible, Tooltip, etc.).
+### 1. Migracaoo SQL: adicionar FK
 
-**Mudanca**: Reescrever usando `React.forwardRef<HTMLDivElement, BadgeProps>` e adicionar `displayName`.
+```sql
+ALTER TABLE public.imphq_lead_responses
+  ADD CONSTRAINT imphq_lead_responses_form_id_fkey
+  FOREIGN KEY (form_id) REFERENCES public.imphq_capture_forms(id)
+  ON DELETE SET NULL;
+```
 
-### 2. Stale card: adicionar "Limpar Sessao" como opcao
+Isso permite o join do PostgREST funcionar nativamente.
 
-No card de sessao travada (stale, linhas 194-199), so tem "Nova Session Key" e "reinicie o worker". Falta o botao "Limpar Sessao" ali tambem, conforme solicitado.
+### 2. Fallback no front (defesa)
 
-**Mudanca**: Adicionar botao `handleResetSession` no card stale, antes do "Nova Session Key".
+Mesmo com a FK, adicionar fallback: se o join retornar sem `imphq_capture_forms`, buscar os nomes dos forms separadamente por `form_id` distinto. Assim, se a FK falhar por qualquer razao, as respostas ainda aparecem.
 
-### 3. Payload do reset: adicionar `source: "ui"`
+### 3. Filtrar campos meta da exibicao
 
-O reset atual envia `{ project }` no payload. O pedido especifica `{ source: "ui" }`. Vou incluir ambos: `{ project, source: "ui" }`.
+Atualmente a `capture-lead` salva `nome`, `email`, `phone` como respostas tambem. Na Qualificacao, filtrar esses campos basicos (ja exibidos na aba Dados) para nao poluir — mostrar apenas as respostas de qualificacao reais.
 
 ---
 
@@ -34,7 +40,12 @@ O reset atual envia `{ project }` no payload. O pedido especifica `{ source: "ui
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/ui/badge.tsx` | forwardRef + displayName |
-| `src/components/whatsapp/WaHubQrPanel.tsx` | Botao "Limpar Sessao" no card stale |
-| `src/hooks/useWaSession.ts` | Adicionar `source: "ui"` no payload do reset |
+| Migracao SQL | FK `imphq_lead_responses.form_id` → `imphq_capture_forms.id` |
+| `src/pages/Leads.tsx` | Fallback para buscar nomes de forms sem join + filtrar campos basicos (nome/email/phone) da exibicao |
+
+## Ordem
+
+1. Criar migracao com FK
+2. Ajustar query com fallback
+3. Filtrar campos meta da lista de respostas
 
