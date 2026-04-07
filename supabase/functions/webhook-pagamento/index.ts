@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda } = parseWebhookBody(body, hotmartToken);
+    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms } = parseWebhookBody(body, hotmartToken);
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
