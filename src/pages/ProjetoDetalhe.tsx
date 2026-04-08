@@ -23,6 +23,8 @@ import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
+import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
+import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
