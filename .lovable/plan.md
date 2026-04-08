@@ -1,50 +1,33 @@
 
 
-# Plano: Sync automático do Facebook Ads via pg_cron
+# Plano: Corrigir filtros do Kanban que nao abrem
 
-## Problema
+## Causa raiz
 
-Hoje o sync é 100% manual — o usuário precisa clicar "Sincronizar Facebook" toda vez. Para dados quase em tempo real, precisamos de um job agendado.
+O botao "Filtros" usa `Popover` com `Select` dentro. Quando o usuario clica num `Select` (Prioridade, Projeto, Prazo), o dropdown do Select abre num portal fora do DOM do Popover. Isso dispara o "outside click" do Popover, que fecha imediatamente — parece que nada abre.
 
-## Solução
+## Solucao
 
-Usar **pg_cron + pg_net** para chamar a edge function `facebook-ads-sync` automaticamente a cada 30 minutos, para todos os projetos que têm token e ad account configurados.
+Trocar o `Popover` por um `DropdownMenu` nao resolve (mesmo problema). A solucao correta e adicionar `modal={false}` no `PopoverContent` para que cliques em portais filhos (como o Select dropdown) nao fechem o Popover. Alternativamente, adicionar `onInteractOutside` para prevenir o fechamento quando o clique e num portal de Select.
 
-### 1. Nova Edge Function: `facebook-ads-sync-all`
+Abordagem concreta: adicionar `onInteractOutside` no `PopoverContent` para ignorar cliques que vem de dentro de um `[data-radix-popper-content-wrapper]` (o portal do Select):
 
-Uma função leve que:
-- Busca todos os projetos com `data->facebook_ad_account_id` e `data->facebook_marketing_token` preenchidos
-- Para cada um, chama internamente a lógica de sync (últimas 24h)
-- Retorna resumo de quantos projetos foram sincronizados
-
-### 2. Cron job via pg_cron
-
-Agendar execução a cada 30 min (ou intervalo que preferir):
-```sql
-select cron.schedule(
-  'facebook-ads-auto-sync',
-  '*/30 * * * *',
-  $$ select net.http_post(...facebook-ads-sync-all...) $$
-);
+```tsx
+<PopoverContent
+  className="w-64 space-y-3"
+  align="start"
+  onInteractOutside={(e) => {
+    const target = e.target as HTMLElement;
+    if (target?.closest("[data-radix-popper-content-wrapper]")) {
+      e.preventDefault();
+    }
+  }}
+>
 ```
 
-### 3. UI: indicador de "auto-sync ativo"
+## Arquivo
 
-No botão de sync, mostrar um badge "Auto ⚡" e o horário da última sincronização automática (campo `facebook_last_sync` que já existe no `data` do projeto). O botão manual continua disponível para forçar sync imediato.
-
----
-
-## Arquivos
-
-| Arquivo | Mudança |
+| Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/facebook-ads-sync-all/index.ts` | Nova function que itera projetos configurados e chama sync |
-| SQL (pg_cron) | Ativar extensões + agendar job |
-| `src/components/projeto/ProjetoFinancas.tsx` | Badge "Auto-sync" + mostrar última sync |
-
-## Ordem
-
-1. Criar edge function `facebook-ads-sync-all`
-2. Deploy + configurar cron job via SQL
-3. Atualizar UI com indicador de auto-sync
+| `src/pages/KanbanPage.tsx` | Adicionar `onInteractOutside` no PopoverContent dos filtros (linha ~616) |
 
