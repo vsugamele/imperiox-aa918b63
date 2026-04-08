@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -138,10 +138,13 @@ function getConversionBucket(hours: number): string {
   return "30d+";
 }
 
+const PAGE_SIZE = 50;
+
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -177,8 +180,22 @@ export default function Leads() {
   const [waProviderId, setWaProviderId] = useState("");
   const [waMessage, setWaMessage] = useState("");
   const [waSending, setWaSending] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(false);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
+
+  // Debounce search input
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = useCallback((val: string) => {
+    setSearch(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(val);
+      setPage(0);
+    }, 400);
+  }, []);
 
   const calcScore = (l: Lead, vendasList: LeadVenda[]) => {
     let s = 0;
@@ -192,8 +209,37 @@ export default function Leads() {
   };
 
   const load = async () => {
+    setLoading(true);
+
+    // Build leads query with server-side filters
+    let leadsQuery = supabase.from("imphq_leads").select("*", { count: "exact" });
+    
+    // Search filter (server-side)
+    if (debouncedSearch) {
+      leadsQuery = leadsQuery.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+    }
+    // Status filter
+    if (statusFilter !== "all") {
+      leadsQuery = leadsQuery.eq("status", statusFilter);
+    }
+    // Platform filter
+    if (platformFilter !== "all") {
+      leadsQuery = leadsQuery.eq("plataforma", platformFilter);
+    }
+    // Project filter
+    if (projectFilter !== "all" && projectFilter !== "none") {
+      leadsQuery = leadsQuery.eq("project_id", projectFilter);
+    } else if (projectFilter === "none") {
+      leadsQuery = leadsQuery.is("project_id", null);
+    }
+
+    // Pagination
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    leadsQuery = leadsQuery.order("criado_em", { ascending: false }).range(from, to);
+
     const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes] = await Promise.all([
-      supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
+      leadsQuery,
       supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
@@ -202,6 +248,10 @@ export default function Leads() {
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
     ]);
+
+    // Set total count from server
+    setTotalCount(leadsRes.count ?? 0);
+
     const allVendas = (vendasRes.data || []) as any[];
     // Unify WA providers with Hub Local sessions
     const hubProviders = (hubSessionsRes.data || []).map((s: any) => ({
@@ -241,9 +291,10 @@ export default function Leads() {
       setProductLeadIds(null);
     }
     setSelectedIds(new Set());
+    setLoading(false);
   };
 
-  useEffect(() => { load(); }, [productFilter]);
+  useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter]);
 
   // Realtime subscription
   useEffect(() => {
@@ -440,24 +491,16 @@ export default function Leads() {
     if (editLead) loadTimeline(editLead);
   }, [editLead?.id]);
 
+  // Stage filter stays client-side (computed from lead.data), product filter too
   const filtered = leads.filter((l) => {
-    const matchSearch = !search || l.nome?.toLowerCase().includes(search.toLowerCase()) || l.email?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || l.status === statusFilter;
-    const matchPlatform = platformFilter === "all" || l.plataforma === platformFilter;
-    const matchProject = projectFilter === "all" || l.project_id === projectFilter || (!l.project_id && projectFilter === "none");
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
-    const matchDate = (() => {
-      if (!l.criado_em) return true;
-      try {
-        const d = parseISO(l.criado_em);
-        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
-      } catch { return true; }
-    })();
-    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage && matchProduct && matchDate;
+    return matchStage && matchProduct;
   });
 
-  const totalLeads = leads.length;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  const totalLeads = totalCount;
   const clientes = leads.filter(l => l.status === "cliente").length;
   const vips = leads.filter(l => l.status === "vip").length;
   const totalReceita = leads.reduce((s, l) => s + (parseFloat(String(l.total_gasto)) || 0), 0);
@@ -994,16 +1037,16 @@ export default function Leads() {
             <div className="flex items-center gap-3 flex-wrap">
               <div className="relative max-w-xs flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar nome, email..." className="pl-9 bg-secondary h-9" />
+                <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Buscar nome, email..." className="pl-9 bg-secondary h-9" />
               </div>
-              <Select value={platformFilter} onValueChange={setPlatformFilter}>
+              <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setPage(0); }}>
                 <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Plataforma" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Plataforma</SelectItem>
                   {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
                 <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Status</SelectItem>
@@ -1190,6 +1233,28 @@ export default function Leads() {
                 </TableBody>
               </Table>
             </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount} leads
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={page === 0 || loading} onClick={() => setPage(p => p - 1)}>Anterior</Button>
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 7) { pageNum = i; }
+                    else if (page < 4) { pageNum = i; }
+                    else if (page > totalPages - 5) { pageNum = totalPages - 7 + i; }
+                    else { pageNum = page - 3 + i; }
+                    return (
+                      <Button key={pageNum} size="sm" variant={pageNum === page ? "default" : "outline"} className="h-8 w-8 text-xs p-0" onClick={() => setPage(pageNum)}>{pageNum + 1}</Button>
+                    );
+                  })}
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={page >= totalPages - 1 || loading} onClick={() => setPage(p => p + 1)}>Próximo</Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* ═══ TAB: ANALYTICS ═══ */}
