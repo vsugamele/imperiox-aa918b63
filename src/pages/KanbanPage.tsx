@@ -613,7 +613,12 @@ export default function KanbanPage() {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 space-y-3" align="start">
+           <PopoverContent className="w-64 space-y-3" align="start" onInteractOutside={(e) => {
+              const target = e.target as HTMLElement;
+              if (target?.closest("[data-radix-popper-content-wrapper]")) {
+                e.preventDefault();
+              }
+            }}>
             <div>
               <Label className="text-xs text-muted-foreground">Prioridade</Label>
               <Select value={filters.priority} onValueChange={v => setFilters(f => ({ ...f, priority: v }))}>
