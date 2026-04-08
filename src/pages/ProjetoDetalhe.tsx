@@ -248,6 +248,12 @@ export default function ProjetoDetalhe() {
         <TabsContent value="central" className="mt-4">
           <ProjetoCentralConteudo projectId={id!} project={project} onUpdateData={onUpdateData} />
         </TabsContent>
+        <TabsContent value="flowcharts" className="mt-4">
+          <ProjetoFlowcharts project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="expert_panel" className="mt-4">
+          <ProjetoExpertPanel projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📈 Analytics & Tracking</CardTitle></CardHeader>
