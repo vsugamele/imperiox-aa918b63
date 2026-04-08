@@ -209,8 +209,37 @@ export default function Leads() {
   };
 
   const load = async () => {
+    setLoading(true);
+
+    // Build leads query with server-side filters
+    let leadsQuery = supabase.from("imphq_leads").select("*", { count: "exact" });
+    
+    // Search filter (server-side)
+    if (debouncedSearch) {
+      leadsQuery = leadsQuery.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+    }
+    // Status filter
+    if (statusFilter !== "all") {
+      leadsQuery = leadsQuery.eq("status", statusFilter);
+    }
+    // Platform filter
+    if (platformFilter !== "all") {
+      leadsQuery = leadsQuery.eq("plataforma", platformFilter);
+    }
+    // Project filter
+    if (projectFilter !== "all" && projectFilter !== "none") {
+      leadsQuery = leadsQuery.eq("project_id", projectFilter);
+    } else if (projectFilter === "none") {
+      leadsQuery = leadsQuery.is("project_id", null);
+    }
+
+    // Pagination
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    leadsQuery = leadsQuery.order("criado_em", { ascending: false }).range(from, to);
+
     const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes] = await Promise.all([
-      supabase.from("imphq_leads").select("*").order("criado_em", { ascending: false }),
+      leadsQuery,
       supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
@@ -219,6 +248,10 @@ export default function Leads() {
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
     ]);
+
+    // Set total count from server
+    setTotalCount(leadsRes.count ?? 0);
+
     const allVendas = (vendasRes.data || []) as any[];
     // Unify WA providers with Hub Local sessions
     const hubProviders = (hubSessionsRes.data || []).map((s: any) => ({
@@ -258,9 +291,10 @@ export default function Leads() {
       setProductLeadIds(null);
     }
     setSelectedIds(new Set());
+    setLoading(false);
   };
 
-  useEffect(() => { load(); }, [productFilter]);
+  useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter]);
 
   // Realtime subscription
   useEffect(() => {
