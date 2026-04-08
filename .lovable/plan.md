@@ -1,33 +1,43 @@
 
-
-# Plano: Corrigir filtros do Kanban que nao abrem
+# Plano: Corrigir valor da venda Ticto (usar preco do item, nao do pedido)
 
 ## Causa raiz
 
-O botao "Filtros" usa `Popover` com `Select` dentro. Quando o usuario clica num `Select` (Prioridade, Projeto, Prazo), o dropdown do Select abre num portal fora do DOM do Popover. Isso dispara o "outside click" do Popover, que fecha imediatamente — parece que nada abre.
+Linha 177 do webhook: `valor = (order.paid_amount || 0) / 100`
 
-## Solucao
+`order.paid_amount` e o **total do pedido** (produto + bumps). Para a Maiara: produto R$47 + bump R$27 = R$74 total. O sistema grava R$74 como venda "principal", inflando a receita.
 
-Trocar o `Popover` por um `DropdownMenu` nao resolve (mesmo problema). A solucao correta e adicionar `modal={false}` no `PopoverContent` para que cliques em portais filhos (como o Select dropdown) nao fechem o Popover. Alternativamente, adicionar `onInteractOutside` para prevenir o fechamento quando o clique e num portal de Select.
+O correto e usar `item.price` (preco individual do item em centavos) para o valor da venda, e `order.paid_amount` apenas para o breakdown financeiro.
 
-Abordagem concreta: adicionar `onInteractOutside` no `PopoverContent` para ignorar cliques que vem de dentro de um `[data-radix-popper-content-wrapper]` (o portal do Select):
+## Mudancas
 
-```tsx
-<PopoverContent
-  className="w-64 space-y-3"
-  align="start"
-  onInteractOutside={(e) => {
-    const target = e.target as HTMLElement;
-    if (target?.closest("[data-radix-popper-content-wrapper]")) {
-      e.preventDefault();
-    }
-  }}
->
+### 1. Webhook: usar preco do item
+
+```
+// ANTES
+valor = (order.paid_amount || 0) / 100;
+
+// DEPOIS
+valor = (item.price || item.amount || order.paid_amount || 0) / 100;
 ```
 
-## Arquivo
+Manter `order.paid_amount` no `extractFinanceiro` como `valor_bruto` (total do pedido).
+
+### 2. Corrigir venda existente da Maiara
+
+SQL para ajustar o valor da venda ja gravada (de 74 para 47), caso `item.price` confirme ser 4700.
+
+Nao podemos garantir sem ver o payload original, mas como o produto custa R$47 e a comissao e R$32,98 (~70% de 47), o valor correto e 47.
+
+### 3. Gravar bump como venda separada (se vier no mesmo webhook)
+
+Verificar se Ticto v2 envia `order.bumps[]` ou `order.items[]` — se sim, criar vendas separadas com `tipo_venda = "orderbump"`.
+
+---
+
+## Arquivos
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/KanbanPage.tsx` | Adicionar `onInteractOutside` no PopoverContent dos filtros (linha ~616) |
-
+| `supabase/functions/webhook-pagamento/index.ts` | Usar `item.price` em vez de `order.paid_amount` para valor individual |
+| Migracao SQL | Corrigir valor da venda da Maiara (74 → 47) |
