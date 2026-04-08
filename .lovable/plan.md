@@ -1,59 +1,78 @@
 
-# Avaliacao de Melhorias Pendentes — Imperio HQ
 
-## Problemas Tecnicos (Divida Tecnica)
+# Plano: Fluxogramas Visuais + Portal do Expert
 
-### 1. Arquivos gigantes e sem separacao
-- `Leads.tsx` tem **1.946 linhas** — deveria ser dividido em componentes menores (tabela, filtros, detalhe do lead, qualificacao, formularios)
-- `Dashboard.tsx` tem **939 linhas** com ~15 useState e queries soltas — deveria usar hooks customizados
-- `KanbanPage.tsx` tem **1.123 linhas** — idem
-- `ProjetoDetalhe.tsx` tem **583 linhas** mas e gerenciavel
+## Duas funcionalidades pedidas
 
-### 2. Queries sem cache / re-fetch desnecessario
-- Dashboard faz **7+ queries paralelas** no mount sem React Query (`useQuery`). Ja existe `@tanstack/react-query` instalado mas quase nao e usado.
-- Navegacao entre paginas refaz todas as queries do zero — sem cache, sem stale-while-revalidate.
+### 1. Fluxogramas de Processo por Projeto
+Diagramas visuais de processos/funis (como os que voce mostrou — "Funil B — Low Ticket + Webinario + Formacao") dentro de cada projeto.
 
-### 3. Tipagem fraca (`any` excessivo)
-- `project` e tipado como `any` em quase todos os componentes
-- `lead.data` e `any` sem interface
-- Isso gera bugs silenciosos (ex: o bug do R$74 vs R$47 so foi pego manualmente)
+### 2. Portal do Expert
+Uma secao onde o expert acessa tudo que precisa fazer: calendario, tarefas, processos, plano de conteudo — tudo filtrado pelo projeto dele.
 
 ---
 
-## Melhorias de Produto (UX)
+## Funcionalidade 1: Fluxogramas de Processo
 
-### 4. Dashboard — filtros sem efeito global
-- O filtro de periodo/projeto so afeta o bloco de Ads. Receita, leads trend, funil e outros KPIs nao respeitam o filtro selecionado.
+### O que existe hoje
+- A pagina **Funis** (`/funis`) ja tem um canvas com etapas arrastaves e conexoes (setas SVG entre nos)
+- A tabela `imphq_processes` tem `steps` (JSON) mas e usada apenas como checklist (passos com done/not done)
+- Nao existe nenhum editor de fluxograma tipo whiteboard nos projetos
 
-### 5. Leads — performance com volume
-- Sem paginacao real (carrega tudo do Supabase). Com 500+ leads vai ficar lento.
-- Busca e client-side, nao server-side.
+### Solucao
+Criar uma nova aba **"🗺️ Fluxogramas"** no ProjetoDetalhe que reutiliza a mecanica de canvas do Funis, mas simplificada para desenhar processos estrategicos (como os das imagens).
 
-### 6. Notificacoes / Alertas proativos
-- Nao existe alerta quando um lead fica "pix_gerado" por mais de X horas sem converter.
-- Nao existe alerta quando gasto de ads sobe sem leads proporcionais (CPA disparando).
+**Armazenamento**: Usar `imphq_projects.data.flowcharts[]` — array de fluxogramas, cada um com nome, nos (texto + posicao + cor + tipo) e conexoes.
 
-### 7. WhatsApp — robustez pos-QR
-- Acabamos de melhorar o fluxo de QR, mas falta: reconexao automatica quando sessao cai, notificacao quando desconecta, e historico de sessoes.
+**Editor**: Canvas com:
+- Nos arrastaves com titulo, subtitulo e cor configuravel
+- Conexoes (setas) entre nos
+- Tipos de no: etapa, decisao, resultado, nota
+- Zoom in/out (ja existe no Funis)
+- Salvar via autoSave no campo `data`
 
-### 8. Mobile responsivo
-- Sidebar funciona com collapsible, mas varias paginas (Kanban, Leads, Dashboard) nao foram otimizadas para mobile.
-
----
-
-## Priorizacao Sugerida
-
-| # | Melhoria | Impacto | Esforco |
-|---|----------|---------|---------|
-| 1 | Filtros globais no Dashboard (periodo afeta tudo) | Alto | Medio |
-| 2 | Paginacao server-side em Leads | Alto | Medio |
-| 3 | Alertas proativos (pix sem conversao, CPA alto) | Alto | Medio |
-| 4 | Refatorar Leads.tsx em componentes menores | Medio | Alto |
-| 5 | Migrar queries para React Query (cache) | Medio | Alto |
-| 6 | Tipagem forte para Project, Lead, Venda | Medio | Medio |
-| 7 | Mobile responsivo (Kanban + Leads) | Medio | Medio |
-| 8 | WhatsApp reconexao + notificacao | Baixo | Alto |
+**Diferenca do Funis**: O Funis e para metricas de conversao (visitantes/conversoes). Os fluxogramas sao para planejamento estrategico visual — sem metricas, com mais flexibilidade de layout e texto.
 
 ---
 
-Qual area voce quer atacar primeiro? Posso comecar por qualquer item acima.
+## Funcionalidade 2: Portal do Expert
+
+### O que existe hoje
+- Aba "Expert" no projeto — dados do expert (nome, bio, redes)
+- Calendario por projeto
+- Processos/SOPs na pagina Tarefas (com filtro por projeto)
+- Kanban com cards por projeto
+- Nenhuma visao unificada "o que o expert precisa fazer"
+
+### Solucao
+Criar uma nova aba **"🧭 Painel Expert"** no ProjetoDetalhe que agrega numa unica tela:
+
+1. **Agenda da Semana** — Proximos 7 dias de eventos do calendario do projeto
+2. **Tarefas Pendentes** — Cards do Kanban atribuidos ao projeto com status != concluido
+3. **Processos Ativos** — SOPs do projeto com progresso (barra de %)
+4. **Plano de Conteudo** — Calendario semanal estilo o da imagem (seg-dom, com posts planejados por dia)
+5. **Fluxogramas** — Link rapido para os fluxogramas do projeto (abre a aba)
+6. **Notas/Instrucoes** — Campo de texto livre para orientacoes gerais ao expert
+
+O plano de conteudo sera uma sub-secao nova com:
+- Grid semanal (7 colunas)
+- Cada dia tem cards de conteudo (plataforma + tipo + descricao curta)
+- Armazenado em `imphq_projects.data.content_plan[]` com `{semana, dia, plataforma, tipo, descricao}`
+- KPIs resumidos: posts/semana, plataformas ativas, foco estrategico
+
+---
+
+## Arquivos
+
+| Arquivo | Mudanca |
+|---|---|
+| `src/components/projeto/ProjetoFlowcharts.tsx` | **Novo** — Editor de fluxogramas canvas (nos + setas + drag) |
+| `src/components/projeto/ProjetoExpertPanel.tsx` | **Novo** — Painel unificado do expert (agenda, tarefas, processos, conteudo) |
+| `src/pages/ProjetoDetalhe.tsx` | Adicionar 2 novas abas: Fluxogramas e Painel Expert |
+
+## Ordem
+
+1. Criar `ProjetoFlowcharts.tsx` com editor canvas
+2. Criar `ProjetoExpertPanel.tsx` com as 5 secoes agregadas
+3. Integrar ambos como novas abas no ProjetoDetalhe
+
