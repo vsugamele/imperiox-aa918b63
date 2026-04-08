@@ -23,6 +23,8 @@ import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
+import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
+import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -199,6 +201,8 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
           <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
+          <TabsTrigger value="flowcharts">🗺️ Fluxogramas</TabsTrigger>
+          <TabsTrigger value="expert_panel">🧭 Painel Expert</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
@@ -243,6 +247,12 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="central" className="mt-4">
           <ProjetoCentralConteudo projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="flowcharts" className="mt-4">
+          <ProjetoFlowcharts project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="expert_panel" className="mt-4">
+          <ProjetoExpertPanel projectId={id!} project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">
