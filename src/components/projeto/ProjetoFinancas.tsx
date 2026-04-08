@@ -708,27 +708,37 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
             {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) && (
-              <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
-                toast.info("Sincronizando com Facebook...");
-                try {
-                  const now = new Date();
-                  const syncBody: any = { project_id: projectId };
-                  if (dateRange) {
-                    syncBody.date_from = format(dateRange.start, "yyyy-MM-dd");
-                    syncBody.date_to = format(dateRange.end, "yyyy-MM-dd");
-                  } else {
-                    syncBody.date_from = format(startOfMonth(now), "yyyy-MM-dd");
-                    syncBody.date_to = format(now, "yyyy-MM-dd");
-                  }
-                  const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: syncBody });
-                  if (error) throw error;
-                  if (data?.error) { toast.error(data.error); return; }
-                  toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
-                  loadData();
-                } catch (e: any) { toast.error("Erro ao sincronizar: " + (e.message || e)); }
-              }}>
-                <Globe className="h-3.5 w-3.5 mr-1" /> Sincronizar Facebook
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="border-green-500/40 text-green-400 text-[10px] gap-1 py-0.5">
+                  <Sparkles className="h-3 w-3" /> Auto ⚡
+                  {project?.data?.facebook_last_sync && (
+                    <span className="text-muted-foreground ml-1">
+                      {(() => { try { const d = new Date(project.data.facebook_last_sync); const now = new Date(); const diff = Math.floor((now.getTime() - d.getTime()) / 60000); return diff < 60 ? `${diff}min` : diff < 1440 ? `${Math.floor(diff/60)}h` : format(d, "dd/MM HH:mm"); } catch { return ""; } })()}
+                    </span>
+                  )}
+                </Badge>
+                <Button size="sm" variant="outline" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={async () => {
+                  toast.info("Sincronizando com Facebook...");
+                  try {
+                    const now = new Date();
+                    const syncBody: any = { project_id: projectId };
+                    if (dateRange) {
+                      syncBody.date_from = format(dateRange.start, "yyyy-MM-dd");
+                      syncBody.date_to = format(dateRange.end, "yyyy-MM-dd");
+                    } else {
+                      syncBody.date_from = format(startOfMonth(now), "yyyy-MM-dd");
+                      syncBody.date_to = format(now, "yyyy-MM-dd");
+                    }
+                    const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: syncBody });
+                    if (error) throw error;
+                    if (data?.error) { toast.error(data.error); return; }
+                    toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
+                    loadData();
+                  } catch (e: any) { toast.error("Erro ao sincronizar: " + (e.message || e)); }
+                }}>
+                  <Globe className="h-3.5 w-3.5 mr-1" /> Sync Manual
+                </Button>
+              </div>
             )}
             <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
               <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
