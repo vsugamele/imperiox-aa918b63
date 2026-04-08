@@ -1,68 +1,50 @@
 
 
-# Plano: Capturar tarifas/comissoes e exibir no lead
+# Plano: Sync automático do Facebook Ads via pg_cron
 
 ## Problema
 
-O webhook salva apenas `valor` (bruto) na `imphq_vendas`, mas a plataforma (Ticto, Hotmart, Kiwify) envia breakdown completo: comissao da plataforma, taxa de transacao, comissao do produtor, valor liquido. Esses dados se perdem. O order bump ja funciona (campo `tipo_venda` existe e e parseado).
+Hoje o sync é 100% manual — o usuário precisa clicar "Sincronizar Facebook" toda vez. Para dados quase em tempo real, precisamos de um job agendado.
 
-## Solucao
+## Solução
 
-### 1. Extrair breakdown financeiro no webhook-pagamento
+Usar **pg_cron + pg_net** para chamar a edge function `facebook-ads-sync` automaticamente a cada 30 minutos, para todos os projetos que têm token e ad account configurados.
 
-No `parseWebhookBody`, extrair campos adicionais para um objeto `financeiro` que sera salvo no `imphq_vendas.data`:
+### 1. Nova Edge Function: `facebook-ads-sync-all`
 
-**Ticto v2**: `body.order` contem `paid_amount`, `net_amount`, `platform_fee`, `transaction_fee`; `body.commissions` contem array de comissoes (produtor, afiliado, coprodutor).
+Uma função leve que:
+- Busca todos os projetos com `data->facebook_ad_account_id` e `data->facebook_marketing_token` preenchidos
+- Para cada um, chama internamente a lógica de sync (últimas 24h)
+- Retorna resumo de quantos projetos foram sincronizados
 
-**Hotmart**: `body.data.purchase.price` contem `value`, `currency`; `body.data.purchase.commission` e `body.data.purchase.price.value`.
+### 2. Cron job via pg_cron
 
-**Kiwify**: `body.sale_amount`, `body.commissions`.
-
-Mapear para formato padrao:
-```
-{
-  valor_bruto: number,
-  comissao_plataforma: number,
-  taxa_transacao: number,
-  comissao_produtor: number,
-  comissao_afiliado: number,
-  valor_liquido: number,
-  metodo_pagamento: string,
-  parcelas: number,
-  codigo_pedido: string
-}
+Agendar execução a cada 30 min (ou intervalo que preferir):
+```sql
+select cron.schedule(
+  'facebook-ads-auto-sync',
+  '*/30 * * * *',
+  $$ select net.http_post(...facebook-ads-sync-all...) $$
+);
 ```
 
-Salvar esse objeto dentro de `imphq_vendas.data` (JSONB, ja existe).
+### 3. UI: indicador de "auto-sync ativo"
 
-### 2. Exibir breakdown na secao "Dados de Compra" do lead
-
-Na area que ja mostra vendas do lead (linha ~1544), adicionar sub-secao "Tarifas e Comissoes" quando `v.data?.valor_bruto` existir:
-
-```
-Valor da Venda     R$ 47,00
-Comissão Plat.   - R$ 3,29
-Taxa Transação   - R$ 2,49
-Comissão Prod.   - R$ 8,24
-Sua Comissão       R$ 32,98
-```
-
-### 3. UTMs do webhook ja na venda
-
-Tambem salvar UTMs do body do webhook em `imphq_vendas.data.utms` para rastreabilidade (ja existe logica de UTMs no lead, mas nao na venda individual).
+No botão de sync, mostrar um badge "Auto ⚡" e o horário da última sincronização automática (campo `facebook_last_sync` que já existe no `data` do projeto). O botão manual continua disponível para forçar sync imediato.
 
 ---
 
 ## Arquivos
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---|---|
-| `supabase/functions/webhook-pagamento/index.ts` | Extrair breakdown financeiro de cada plataforma e salvar em `data` da venda |
-| `src/pages/Leads.tsx` | Exibir tabela de tarifas/comissoes na secao "Dados de Compra" |
+| `supabase/functions/facebook-ads-sync-all/index.ts` | Nova function que itera projetos configurados e chama sync |
+| SQL (pg_cron) | Ativar extensões + agendar job |
+| `src/components/projeto/ProjetoFinancas.tsx` | Badge "Auto-sync" + mostrar última sync |
 
 ## Ordem
 
-1. Webhook: extrair financeiro por plataforma
-2. Webhook: salvar em vendas.data
-3. Front: renderizar breakdown quando disponivel
+1. Criar edge function `facebook-ads-sync-all`
+2. Deploy + configurar cron job via SQL
+3. Atualizar UI com indicador de auto-sync
 
