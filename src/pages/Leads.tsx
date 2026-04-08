@@ -491,24 +491,16 @@ export default function Leads() {
     if (editLead) loadTimeline(editLead);
   }, [editLead?.id]);
 
+  // Stage filter stays client-side (computed from lead.data), product filter too
   const filtered = leads.filter((l) => {
-    const matchSearch = !search || l.nome?.toLowerCase().includes(search.toLowerCase()) || l.email?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || l.status === statusFilter;
-    const matchPlatform = platformFilter === "all" || l.plataforma === platformFilter;
-    const matchProject = projectFilter === "all" || l.project_id === projectFilter || (!l.project_id && projectFilter === "none");
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
-    const matchDate = (() => {
-      if (!l.criado_em) return true;
-      try {
-        const d = parseISO(l.criado_em);
-        return isValid(d) && isWithinInterval(d, { start: periodRange.from, end: periodRange.to });
-      } catch { return true; }
-    })();
-    return matchSearch && matchStatus && matchPlatform && matchProject && matchStage && matchProduct && matchDate;
+    return matchStage && matchProduct;
   });
 
-  const totalLeads = leads.length;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  const totalLeads = totalCount;
   const clientes = leads.filter(l => l.status === "cliente").length;
   const vips = leads.filter(l => l.status === "vip").length;
   const totalReceita = leads.reduce((s, l) => s + (parseFloat(String(l.total_gasto)) || 0), 0);
