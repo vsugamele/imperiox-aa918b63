@@ -138,10 +138,13 @@ function getConversionBucket(hours: number): string {
   return "30d+";
 }
 
+const PAGE_SIZE = 50;
+
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -177,8 +180,22 @@ export default function Leads() {
   const [waProviderId, setWaProviderId] = useState("");
   const [waMessage, setWaMessage] = useState("");
   const [waSending, setWaSending] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(false);
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
+
+  // Debounce search input
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = useCallback((val: string) => {
+    setSearch(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(val);
+      setPage(0);
+    }, 400);
+  }, []);
 
   const calcScore = (l: Lead, vendasList: LeadVenda[]) => {
     let s = 0;
