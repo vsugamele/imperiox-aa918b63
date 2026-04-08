@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.facebook-ads-sync]
 verify_jwt = false
+
+[functions.facebook-ads-sync-all]
+verify_jwt = false
