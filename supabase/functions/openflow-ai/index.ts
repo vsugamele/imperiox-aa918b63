@@ -580,3 +580,69 @@ REGRAS:
   if (analysis instanceof Response) return analysis;
   return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
+
+async function handleContentPlan(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+  const result = await callAI(
+    `${mentePrefix}Você é um estrategista de conteúdo brasileiro especialista em redes sociais e marketing digital.
+${ctx}
+REGRAS:
+- Gere um plano de conteúdo para 7 dias (seg a dom)
+- Para cada dia, sugira 1-3 peças de conteúdo com plataforma, tipo e tema
+- Use as plataformas mais relevantes para o projeto (Instagram, YouTube, TikTok, LinkedIn, Blog, Email, WhatsApp)
+- Tipos: Post, Reels, Story, Live, Artigo, Email, Vídeo, Carousel
+- Baseie os temas nas dores do avatar, expert e brand kit
+- Varie os formatos e plataformas ao longo da semana
+- Retorne EXATAMENTE o JSON solicitado`,
+    "Gere o plano de conteúdo semanal completo para este projeto.",
+    apiKey, model,
+    [{ type: "function", function: { name: "generate_content_plan", description: "Generate weekly content plan", parameters: { type: "object", properties: {
+      content_plan: { type: "object", properties: {
+        seg: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
+        ter: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
+        qua: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
+        qui: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
+        sex: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
+        "sáb": { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
+        dom: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
+      }, required: ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"], additionalProperties: false }
+    }, required: ["content_plan"], additionalProperties: false } } }],
+    "generate_content_plan", baseUrl
+  );
+  if (result instanceof Response) return result;
+  return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function handleExpertNotes(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+  const isOR = baseUrl.includes("openrouter.ai");
+  const mkH = (key: string, or: boolean): Record<string, string> => {
+    const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    if (or) { h["HTTP-Referer"] = "https://imperiox.lovable.app"; h["X-Title"] = "ImperioHQ"; }
+    return h;
+  };
+
+  const systemPrompt = `${mentePrefix}Você é um diretor de operações e estrategista de conteúdo brasileiro.
+${ctx}
+Gere instruções claras e objetivas para o expert da semana, incluindo:
+- Objetivos principais da semana
+- Foco estratégico de conteúdo
+- Lembretes importantes
+- Orientações de tom e abordagem
+- Prioridades de engajamento
+Seja direto, prático e motivacional. Máximo 500 palavras.`;
+
+  const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: "Gere as instruções da semana para o expert." }] });
+
+  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+
+  if (!isOR && response.status === 402) {
+    const orKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (orKey) {
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+    }
+  }
+
+  if (!response.ok) return handleAIError(response);
+  const result = await response.json();
+  const text = result.choices?.[0]?.message?.content || "";
+  return new Response(JSON.stringify({ expert_notes: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
