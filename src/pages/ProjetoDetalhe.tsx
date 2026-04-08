@@ -201,6 +201,8 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
           <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
+          <TabsTrigger value="flowcharts">🗺️ Fluxogramas</TabsTrigger>
+          <TabsTrigger value="expert_panel">🧭 Painel Expert</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
