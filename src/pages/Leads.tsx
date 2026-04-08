@@ -1233,6 +1233,28 @@ export default function Leads() {
                 </TableBody>
               </Table>
             </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount} leads
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={page === 0 || loading} onClick={() => setPage(p => p - 1)}>Anterior</Button>
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 7) { pageNum = i; }
+                    else if (page < 4) { pageNum = i; }
+                    else if (page > totalPages - 5) { pageNum = totalPages - 7 + i; }
+                    else { pageNum = page - 3 + i; }
+                    return (
+                      <Button key={pageNum} size="sm" variant={pageNum === page ? "default" : "outline"} className="h-8 w-8 text-xs p-0" onClick={() => setPage(pageNum)}>{pageNum + 1}</Button>
+                    );
+                  })}
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={page >= totalPages - 1 || loading} onClick={() => setPage(p => p + 1)}>Próximo</Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* ═══ TAB: ANALYTICS ═══ */}
