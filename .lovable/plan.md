@@ -1,64 +1,52 @@
 
 
-# Plano: Fluxogramas Visuais + Portal do Expert
+# Plano: Link Publico do Expert + IA para Alimentar Painel
 
-## Duas funcionalidades pedidas
+## Duas funcionalidades
 
-### 1. Fluxogramas de Processo por Projeto
-Diagramas visuais de processos/funis (como os que voce mostrou — "Funil B — Low Ticket + Webinario + Formacao") dentro de cada projeto.
+### 1. Link publico compartilhavel para o Expert
+Uma pagina publica (sem login) bonita e read-only onde o expert ve tudo que precisa: agenda, tarefas, plano de conteudo, notas e processos. Voce copia o link e manda pro expert no WhatsApp.
 
-### 2. Portal do Expert
-Uma secao onde o expert acessa tudo que precisa fazer: calendario, tarefas, processos, plano de conteudo — tudo filtrado pelo projeto dele.
-
----
-
-## Funcionalidade 1: Fluxogramas de Processo
-
-### O que existe hoje
-- A pagina **Funis** (`/funis`) ja tem um canvas com etapas arrastaves e conexoes (setas SVG entre nos)
-- A tabela `imphq_processes` tem `steps` (JSON) mas e usada apenas como checklist (passos com done/not done)
-- Nao existe nenhum editor de fluxograma tipo whiteboard nos projetos
-
-### Solucao
-Criar uma nova aba **"🗺️ Fluxogramas"** no ProjetoDetalhe que reutiliza a mecanica de canvas do Funis, mas simplificada para desenhar processos estrategicos (como os das imagens).
-
-**Armazenamento**: Usar `imphq_projects.data.flowcharts[]` — array de fluxogramas, cada um com nome, nos (texto + posicao + cor + tipo) e conexoes.
-
-**Editor**: Canvas com:
-- Nos arrastaves com titulo, subtitulo e cor configuravel
-- Conexoes (setas) entre nos
-- Tipos de no: etapa, decisao, resultado, nota
-- Zoom in/out (ja existe no Funis)
-- Salvar via autoSave no campo `data`
-
-**Diferenca do Funis**: O Funis e para metricas de conversao (visitantes/conversoes). Os fluxogramas sao para planejamento estrategico visual — sem metricas, com mais flexibilidade de layout e texto.
+### 2. Botao de IA para gerar plano de conteudo semanal
+Um `AIGenerateButton` que usa o contexto do projeto (avatar, expert, briefing, brand) para gerar automaticamente o plano de conteudo da semana com sugestoes de posts por dia/plataforma.
 
 ---
 
-## Funcionalidade 2: Portal do Expert
+## Funcionalidade 1: Pagina Publica do Expert
 
-### O que existe hoje
-- Aba "Expert" no projeto — dados do expert (nome, bio, redes)
-- Calendario por projeto
-- Processos/SOPs na pagina Tarefas (com filtro por projeto)
-- Kanban com cards por projeto
-- Nenhuma visao unificada "o que o expert precisa fazer"
+### Como funciona
+- Cada projeto ganha um **token publico** (UUID curto) salvo em `imphq_projects.data.expert_share_token`
+- Rota publica: `/expert/:token` (fora do ProtectedRoute)
+- Edge function `expert-portal` busca os dados do projeto pelo token (sem autenticacao)
+- Pagina bonita, responsiva, read-only com: nome do projeto, logo, agenda, tarefas, plano de conteudo, notas, processos
+- No Painel Expert interno, botao "🔗 Copiar Link do Expert" que gera o token (se nao existir) e copia a URL
 
-### Solucao
-Criar uma nova aba **"🧭 Painel Expert"** no ProjetoDetalhe que agrega numa unica tela:
+### Seguranca
+- Token aleatorio (UUID) — nao expoe o project_id
+- Apenas dados necessarios sao retornados (nao envia financeiro, leads, etc)
+- Pode revogar/regenerar o token a qualquer momento
 
-1. **Agenda da Semana** — Proximos 7 dias de eventos do calendario do projeto
-2. **Tarefas Pendentes** — Cards do Kanban atribuidos ao projeto com status != concluido
-3. **Processos Ativos** — SOPs do projeto com progresso (barra de %)
-4. **Plano de Conteudo** — Calendario semanal estilo o da imagem (seg-dom, com posts planejados por dia)
-5. **Fluxogramas** — Link rapido para os fluxogramas do projeto (abre a aba)
-6. **Notas/Instrucoes** — Campo de texto livre para orientacoes gerais ao expert
+### Visual da pagina publica
+- Header com nome do projeto + icone
+- Cards com KPIs (eventos, tarefas, posts)
+- Agenda da semana
+- Plano de conteudo semanal (grid 7 colunas)
+- Notas/instrucoes
+- Footer discreto "Powered by Imperio HQ"
+- Dark theme consistente com o sistema
 
-O plano de conteudo sera uma sub-secao nova com:
-- Grid semanal (7 colunas)
-- Cada dia tem cards de conteudo (plataforma + tipo + descricao curta)
-- Armazenado em `imphq_projects.data.content_plan[]` com `{semana, dia, plataforma, tipo, descricao}`
-- KPIs resumidos: posts/semana, plataformas ativas, foco estrategico
+---
+
+## Funcionalidade 2: IA no Painel Expert
+
+### Botao "Gerar Plano com IA"
+- Usa `AIGenerateButton` com action `generate_content_plan`
+- Contexto injetado: briefing, expert (tom de voz, temas), avatar (dores, desejos), brand_kit (plataformas ativas)
+- Prompt gera 7 dias de conteudo com plataforma + tipo + tema para cada dia
+- Resultado preenche o `content_plan` automaticamente
+
+### Botao "Gerar Instrucoes com IA"
+- Gera as notas/instrucoes da semana baseado no contexto do projeto e tarefas pendentes
 
 ---
 
@@ -66,13 +54,18 @@ O plano de conteudo sera uma sub-secao nova com:
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/projeto/ProjetoFlowcharts.tsx` | **Novo** — Editor de fluxogramas canvas (nos + setas + drag) |
-| `src/components/projeto/ProjetoExpertPanel.tsx` | **Novo** — Painel unificado do expert (agenda, tarefas, processos, conteudo) |
-| `src/pages/ProjetoDetalhe.tsx` | Adicionar 2 novas abas: Fluxogramas e Painel Expert |
+| `supabase/functions/expert-portal/index.ts` | **Nova** — Edge function que retorna dados publicos do projeto pelo token |
+| `src/pages/ExpertPortal.tsx` | **Nova** — Pagina publica bonita read-only |
+| `src/App.tsx` | Adicionar rota `/expert/:token` fora do ProtectedRoute |
+| `src/components/projeto/ProjetoExpertPanel.tsx` | Adicionar botao "Copiar Link" + botoes de IA para gerar conteudo/notas |
+| `supabase/functions/openflow-ai/index.ts` | Adicionar handler para action `generate_content_plan` e `generate_expert_notes` |
 
 ## Ordem
 
-1. Criar `ProjetoFlowcharts.tsx` com editor canvas
-2. Criar `ProjetoExpertPanel.tsx` com as 5 secoes agregadas
-3. Integrar ambos como novas abas no ProjetoDetalhe
+1. Edge function `expert-portal` (busca projeto por token, retorna dados filtrados)
+2. Pagina publica `ExpertPortal.tsx` com layout bonito
+3. Rota publica no App.tsx
+4. Botao "Copiar Link" no ProjetoExpertPanel (gera token se necessario)
+5. Handlers de IA para gerar plano de conteudo e instrucoes
+6. Botoes de IA no painel interno
 
