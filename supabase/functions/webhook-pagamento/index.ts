@@ -424,6 +424,30 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Handle Ticto bumps as separate sales
+      if (plataforma === "Ticto" && body?.order?.bumps && Array.isArray(body.order.bumps)) {
+        for (const bump of body.order.bumps) {
+          const bumpValor = ((bump.price || bump.amount || 0)) / 100;
+          const bumpProduto = bump.product_name || bump.name || "Order Bump";
+          if (bumpValor > 0) {
+            const bumpId = crypto.randomUUID();
+            await supabase.from("imphq_vendas").insert({
+              id: bumpId,
+              lead_id: leadId,
+              project_id: projectId,
+              produto_nome: bumpProduto,
+              valor: bumpValor,
+              plataforma,
+              status: "aprovado",
+              tipo_venda: "orderbump",
+              data: { tipo_venda: "orderbump" },
+              ...(data_compra ? { created_at: data_compra } : {}),
+            });
+            console.log("[webhook-pagamento] Bump inserido:", bumpId, bumpProduto, bumpValor);
+          }
+        }
+      }
+
       // Recalculate total_gasto from actual approved sales (not increment)
       const { data: salesSum } = await supabase
         .from("imphq_vendas")
