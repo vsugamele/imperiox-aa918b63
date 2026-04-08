@@ -174,9 +174,10 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = ph.ddd && ph.number ? `${ph.ddd}${ph.number}` : "";
 
     const order = body.order || {};
-    valor = (order.paid_amount || 0) / 100;
-
     const item = body.item || {};
+    // Use item-level price (individual product) instead of order.paid_amount (total incl. bumps)
+    valor = ((item.price || item.amount || order.paid_amount || 0)) / 100;
+
     produto = item.product_name || "";
     data_compra = order.approved_at || order.created_at || body.created_at || null;
 
