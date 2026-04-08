@@ -174,9 +174,10 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = ph.ddd && ph.number ? `${ph.ddd}${ph.number}` : "";
 
     const order = body.order || {};
-    valor = (order.paid_amount || 0) / 100;
-
     const item = body.item || {};
+    // Use item-level price (individual product) instead of order.paid_amount (total incl. bumps)
+    valor = ((item.price || item.amount || order.paid_amount || 0)) / 100;
+
     produto = item.product_name || "";
     data_compra = order.approved_at || order.created_at || body.created_at || null;
 
@@ -420,6 +421,30 @@ Deno.serve(async (req) => {
           console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
         } else {
           console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
+        }
+      }
+
+      // Handle Ticto bumps as separate sales
+      if (plataforma === "Ticto" && body?.order?.bumps && Array.isArray(body.order.bumps)) {
+        for (const bump of body.order.bumps) {
+          const bumpValor = ((bump.price || bump.amount || 0)) / 100;
+          const bumpProduto = bump.product_name || bump.name || "Order Bump";
+          if (bumpValor > 0) {
+            const bumpId = crypto.randomUUID();
+            await supabase.from("imphq_vendas").insert({
+              id: bumpId,
+              lead_id: leadId,
+              project_id: projectId,
+              produto_nome: bumpProduto,
+              valor: bumpValor,
+              plataforma,
+              status: "aprovado",
+              tipo_venda: "orderbump",
+              data: { tipo_venda: "orderbump" },
+              ...(data_compra ? { created_at: data_compra } : {}),
+            });
+            console.log("[webhook-pagamento] Bump inserido:", bumpId, bumpProduto, bumpValor);
+          }
         }
       }
 
