@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.facebook-ads-sync-all]
 verify_jwt = false
+
+[functions.expert-portal]
+verify_jwt = false
