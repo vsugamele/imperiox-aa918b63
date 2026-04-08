@@ -31,6 +31,7 @@ import Configuracoes from "./pages/Configuracoes";
 import Cofre from "./pages/Cofre";
 import Guia from "./pages/Guia";
 import Privacy from "./pages/Privacy";
+import ExpertPortal from "./pages/ExpertPortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/expert/:token" element={<ExpertPortal />} />
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="dashboard" element={<Dashboard />} />

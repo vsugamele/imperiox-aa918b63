@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, CheckCircle2, Clock, FileText, Plus, Trash2, X } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AIGenerateButton } from "./AIGenerateButton";
 
 interface ContentItem {
   id: string;
@@ -41,6 +42,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const contentPlan: WeekPlan = data.content_plan || {};
   const expertNotes: string = data.expert_notes || "";
+  const shareToken: string = data.expert_share_token || "";
 
   useEffect(() => {
     const now = new Date();
@@ -84,12 +86,69 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, expert_notes: notes });
   };
 
+  // Share link
+  const generateShareLink = async () => {
+    const token = shareToken || crypto.randomUUID();
+    if (!shareToken) {
+      onUpdateData({ ...data, expert_share_token: token });
+    }
+    const url = `${window.location.origin}/expert/${token}`;
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copiado! Envie para o expert.");
+  };
+
+  const regenerateShareLink = () => {
+    const token = crypto.randomUUID();
+    onUpdateData({ ...data, expert_share_token: token });
+    const url = `${window.location.origin}/expert/${token}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Novo link gerado e copiado!");
+  };
+
+  // AI handlers
+  const handleContentPlanAI = (result: any) => {
+    if (result?.content_plan) {
+      onUpdateData({ ...data, content_plan: result.content_plan });
+      toast.success("Plano de conteúdo gerado com IA!");
+    }
+  };
+
+  const handleExpertNotesAI = (result: any) => {
+    if (result?.expert_notes) {
+      onUpdateData({ ...data, expert_notes: result.expert_notes });
+      toast.success("Instruções geradas com IA!");
+    }
+  };
+
   // Stats
   const totalContent = DAYS.reduce((s, d) => s + (contentPlan[d]?.length || 0), 0);
   const activePlatforms = new Set(DAYS.flatMap(d => (contentPlan[d] || []).map(i => i.platform))).size;
 
   return (
     <div className="space-y-6">
+      {/* Share Link Bar */}
+      <Card className="bg-card border-primary/30">
+        <CardContent className="p-4 flex flex-wrap items-center gap-3">
+          <Link2 className="h-4 w-4 text-primary" />
+          <span className="text-xs text-muted-foreground">Link público do Expert:</span>
+          {shareToken ? (
+            <code className="text-[10px] bg-secondary px-2 py-1 rounded truncate max-w-xs">
+              {window.location.origin}/expert/{shareToken}
+            </code>
+          ) : (
+            <span className="text-[10px] text-muted-foreground italic">Nenhum link gerado</span>
+          )}
+          <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={generateShareLink}>
+            <Link2 className="h-3 w-3" /> {shareToken ? "Copiar Link" : "Gerar Link"}
+          </Button>
+          {shareToken && (
+            <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={regenerateShareLink}>
+              <RefreshCw className="h-3 w-3" /> Regenerar
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="bg-card border-border">
@@ -202,8 +261,19 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
       {/* Plano de Conteúdo Semanal */}
       <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📅 Plano de Conteúdo Semanal</CardTitle>
+          <AIGenerateButton
+            projectId={projectId}
+            action="generate_content_plan"
+            label="Gerar Plano com IA"
+            onResult={handleContentPlanAI}
+            contextSources={["Briefing", "Avatar", "Expert", "Brand Kit"]}
+            fieldsToFill={["Plano de conteúdo 7 dias"]}
+            showMenteSelector
+            size="sm"
+            variant="outline"
+          />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-7 gap-2">
@@ -252,8 +322,19 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
       {/* Notas / Instruções */}
       <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📝 Notas & Instruções para o Expert</CardTitle>
+          <AIGenerateButton
+            projectId={projectId}
+            action="generate_expert_notes"
+            label="Gerar Instruções com IA"
+            onResult={handleExpertNotesAI}
+            contextSources={["Briefing", "Expert", "Tarefas", "Conteúdo"]}
+            fieldsToFill={["Notas do Expert"]}
+            showMenteSelector
+            size="sm"
+            variant="outline"
+          />
         </CardHeader>
         <CardContent>
           <Textarea
