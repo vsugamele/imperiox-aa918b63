@@ -23647,6 +23647,8 @@ export type Database = {
           waiting_delay_seconds: number | null
           waiting_room_enabled: boolean | null
           waiting_room_message: string | null
+          whatsapp_pitch_message: string | null
+          whatsapp_welcome_message: string | null
         }
         Insert: {
           ai_enabled?: boolean | null
@@ -23695,6 +23697,8 @@ export type Database = {
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
           waiting_room_message?: string | null
+          whatsapp_pitch_message?: string | null
+          whatsapp_welcome_message?: string | null
         }
         Update: {
           ai_enabled?: boolean | null
@@ -23743,6 +23747,8 @@ export type Database = {
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
           waiting_room_message?: string | null
+          whatsapp_pitch_message?: string | null
+          whatsapp_welcome_message?: string | null
         }
         Relationships: [
           {
