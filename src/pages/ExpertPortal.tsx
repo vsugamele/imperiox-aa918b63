@@ -310,10 +310,11 @@ export default function ExpertPortal() {
             <Tabs value={activeWeek} onValueChange={setActiveWeek}>
               <TabsList className="w-full grid grid-cols-4 mb-3">
                 {WEEKS.map((wk, i) => {
-                  const weekItems = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
+                  const weekItems = DAYS.reduce((s, d) => s + (((monthlyPlan as any)[wk] || {})[d]?.length || 0), 0);
+                  const label = weekLabels[wk] ? `${WEEK_LABELS[i]} — ${weekLabels[wk]}` : WEEK_LABELS[i];
                   return (
                     <TabsTrigger key={wk} value={wk} className="text-xs gap-1">
-                      {WEEK_LABELS[i]}
+                      {label}
                       {weekItems > 0 && <Badge variant="secondary" className="text-[8px] h-3.5 px-1">{weekItems}</Badge>}
                     </TabsTrigger>
                   );
@@ -321,9 +322,16 @@ export default function ExpertPortal() {
               </TabsList>
 
               {WEEKS.map(wk => {
-                const weekData = monthlyPlan[wk] || {};
+                const weekData = (monthlyPlan as any)[wk] || {};
+                const summary = weekSummaries[wk];
                 return (
-                  <TabsContent key={wk} value={wk}>
+                  <TabsContent key={wk} value={wk} className="space-y-3">
+                    {(summary?.focus || summary?.event) && (
+                      <div className="flex flex-wrap items-center gap-2 p-2 rounded border border-border bg-secondary/20">
+                        {summary.focus && <Badge variant="outline" className="text-[9px]">🎯 {summary.focus}</Badge>}
+                        {summary.event && <Badge variant="outline" className="text-[9px]">📅 {summary.event}</Badge>}
+                      </div>
+                    )}
                     <div className="grid grid-cols-7 gap-2">
                       {DAYS.map(day => (
                         <div key={day} className="space-y-1">
