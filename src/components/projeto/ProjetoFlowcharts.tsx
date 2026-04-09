@@ -5,14 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight } from "lucide-react";
+import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { FlowMinimap } from "./flowchart/FlowMinimap";
+import { FlowImportDialog } from "./flowchart/FlowImportDialog";
 
 interface FlowNode {
   id: string;
   title: string;
   subtitle?: string;
-  type: "etapa" | "decisao" | "resultado" | "nota";
+  type: "etapa" | "decisao" | "resultado" | "nota" | "imagem";
+  image_url?: string;
   color: string;
   pos_x: number;
   pos_y: number;
@@ -40,6 +43,7 @@ const TYPE_STYLES: Record<string, { bg: string; border: string; label: string }>
   decisao:   { bg: "bg-amber-500/15", border: "border-amber-500/50", label: "Decisão" },
   resultado: { bg: "bg-emerald-500/15", border: "border-emerald-500/50", label: "Resultado" },
   nota:      { bg: "bg-slate-500/15", border: "border-slate-500/50", label: "Nota" },
+  imagem:    { bg: "bg-purple-500/15", border: "border-purple-500/50", label: "Imagem" },
 };
 
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#64748b"];
