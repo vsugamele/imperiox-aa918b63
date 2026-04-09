@@ -103,6 +103,13 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
     onUpdateData({ ...data, flowcharts: updated });
   };
 
+  // --- Import nodes ---
+  const importNodes = (newNodes: FlowNode[]) => {
+    if (!active) return;
+    const chart = { ...active, nodes: [...active.nodes, ...newNodes] };
+    updateActive(chart);
+  };
+
   // --- Nodes ---
   const addNode = (type: FlowNode["type"]) => {
     if (!active) return;
@@ -287,11 +294,12 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
           {/* Toolbar */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground mr-2">Adicionar:</span>
-            {Object.entries(TYPE_STYLES).map(([key, s]) => (
+            {Object.entries(TYPE_STYLES).filter(([k]) => k !== "imagem").map(([key, s]) => (
               <Button key={key} variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addNode(key as FlowNode["type"])}>
                 <Plus className="h-3 w-3" /> {s.label}
               </Button>
             ))}
+            <FlowImportDialog onImportNodes={importNodes} projectSlug={project.slug} />
             <div className="ml-auto flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
                 <ZoomOut className="h-3 w-3" />
