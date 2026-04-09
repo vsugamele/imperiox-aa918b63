@@ -69,8 +69,38 @@ serve(async (req) => {
         const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
         if (d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 800)}\n`;
         if (d.expert) projectContext += `Expert: ${JSON.stringify(d.expert).slice(0, 800)}\n`;
-        if (d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 500)}\n`;
         if (d.kpis) projectContext += `KPIs existentes: ${JSON.stringify(d.kpis).slice(0, 500)}\n`;
+
+        // Enrich with individual product data (mecanismo, contexto, copy_arsenal, links)
+        if (d.produtos && Array.isArray(d.produtos)) {
+          projectContext += `\n## Produtos do Projeto (${d.produtos.length}):\n`;
+          for (const prod of d.produtos) {
+            projectContext += `### Produto: ${prod.nome || prod.name || "Sem nome"}\n`;
+            if (prod.mecanismo_unico) projectContext += `Mecanismo Único: ${prod.mecanismo_unico}\n`;
+            if (prod.contexto) projectContext += `Contexto: ${prod.contexto}\n`;
+            if (prod.copy_arsenal) {
+              const ca = prod.copy_arsenal;
+              const caStr = typeof ca === "string" ? ca : JSON.stringify({
+                promessa: ca.promessa?.slice?.(0,3),
+                inimigo_comum: ca.inimigo_comum?.slice?.(0,3),
+                metodo: ca.metodo_simplificado?.slice?.(0,3),
+              });
+              projectContext += `Arsenal de Copy: ${caStr.slice(0, 500)}\n`;
+            }
+            if (prod.links) projectContext += `Links do produto: ${JSON.stringify(prod.links).slice(0, 300)}\n`;
+          }
+        } else if (d.produtos) {
+          projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 500)}\n`;
+        }
+
+        // Active social links from briefing
+        if (d.links) {
+          const activeLinks = Object.entries(d.links).filter(([_, v]) => v && String(v).trim() !== "");
+          if (activeLinks.length > 0) {
+            projectContext += `\n## Redes Sociais Ativas: ${activeLinks.map(([k]) => k).join(", ")}\n`;
+            projectContext += `Links: ${JSON.stringify(Object.fromEntries(activeLinks)).slice(0, 500)}\n`;
+          }
+        }
         
         const avatar = project.avatar || {};
         if (avatar.dores) projectContext += `Dores do Avatar: ${JSON.stringify(avatar.dores).slice(0, 500)}\n`;
@@ -585,8 +615,14 @@ async function handleContentPlan(ctx: string, apiKey: string, model: string, bas
   const objective = body.content_objective || "";
   const postsPerDay = body.posts_per_day || 2;
   const platforms = body.priority_platforms?.length ? body.priority_platforms.join(", ") : "Instagram, YouTube, TikTok, LinkedIn, Blog, Email, WhatsApp";
+  const productName = body.product_name || "";
 
-  const dayItemSchema = { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false };
+  let productFocus = "";
+  if (productName) {
+    productFocus = `\n## PRODUTO EM FOCO: "${productName}"\nTodo o conteúdo deve ser direcionado para este produto. Use o mecanismo único, contexto e arsenal de copy deste produto nos temas.\n`;
+  }
+
+  const dayItemSchema = { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" }, cross_platforms: { type: "array", items: { type: "string" } } }, required: ["id", "platform", "type", "description"], additionalProperties: false };
   const weekSchema = { type: "object", properties: {
     seg: { type: "array", items: dayItemSchema }, ter: { type: "array", items: dayItemSchema },
     qua: { type: "array", items: dayItemSchema }, qui: { type: "array", items: dayItemSchema },
@@ -597,14 +633,17 @@ async function handleContentPlan(ctx: string, apiKey: string, model: string, bas
   const result = await callAI(
     `${mentePrefix}Você é um estrategista de conteúdo brasileiro especialista em redes sociais e marketing digital.
 ${ctx}
-${objective ? `\n## OBJETIVO DO MOVIMENTO\n${objective}\n` : ""}
+${objective ? `\n## OBJETIVO DO MOVIMENTO\n${objective}\n` : ""}${productFocus}
 REGRAS:
 - Gere um plano de conteúdo MENSAL completo (4 semanas: semana_1 a semana_4)
 - Cada semana tem 7 dias (seg a dom)
 - Para cada dia, sugira ${postsPerDay} peças de conteúdo com plataforma, tipo e tema
 - Plataformas prioritárias: ${platforms}
-- Tipos possíveis: Post, Reels, Story, Live, Artigo, Email, Vídeo, Carousel
-- Baseie os temas nas dores do avatar, expert e brand kit
+- Tipos possíveis: Post, Reels, Story, Live, Artigo, Email, Vídeo, Carousel, Video Longo
+- STORIES: inclua 1-2 Stories por dia (bastidores, enquetes, CTA, quicktips)
+- REELS: quando criar um Reels, adicione cross_platforms: ["TikTok", "YouTube Shorts"] pois o mesmo conteúdo serve para essas plataformas
+- VIDEO LONGO: para YouTube, inclua pelo menos 1 "Video Longo" por semana com roteiro mais detalhado na descrição
+- Baseie os temas nas dores do avatar, expert, brand kit e arsenal de copy do produto em foco
 - Varie formatos e plataformas ao longo do mês
 - Construa uma narrativa progressiva ao longo das 4 semanas${objective ? ` alinhada ao objetivo: "${objective}"` : ""}
 - Retorne EXATAMENTE o JSON solicitado com semana_1, semana_2, semana_3, semana_4`,

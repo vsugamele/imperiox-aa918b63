@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
@@ -24,6 +25,7 @@ interface ContentItem {
   description: string;
   copy?: string;
   hashtags?: string;
+  cross_platforms?: string[];
 }
 
 interface WeekPlan {
@@ -43,8 +45,8 @@ interface Props {
   onUpdateData: (data: any) => void;
 }
 
-const PLATFORMS = ["Instagram", "YouTube", "TikTok", "LinkedIn", "Blog", "Email", "WhatsApp"];
-const CONTENT_TYPES = ["Post", "Reels", "Story", "Live", "Artigo", "Email", "Vídeo", "Carousel"];
+const ALL_PLATFORMS = ["Instagram", "YouTube", "TikTok", "LinkedIn", "Blog", "Email", "WhatsApp"];
+const CONTENT_TYPES = ["Post", "Reels", "Story", "Live", "Artigo", "Email", "Vídeo", "Carousel", "Video Longo"];
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
 const WEEK_LABELS = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
@@ -63,6 +65,13 @@ const TYPE_COLORS: Record<string, string> = {
   Email: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   Vídeo: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
   Carousel: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+  "Video Longo": "bg-cyan-600/20 text-cyan-300 border-cyan-600/30",
+};
+
+// Map briefing link keys to platform names
+const LINK_TO_PLATFORM: Record<string, string> = {
+  instagram: "Instagram", youtube: "YouTube", tiktok: "TikTok",
+  linkedin: "LinkedIn", blog: "Blog", whatsapp: "WhatsApp",
 };
 
 function migrateToMonthly(plan: any): MonthlyPlan {
@@ -80,7 +89,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiObjective, setAiObjective] = useState("");
   const [aiFrequency, setAiFrequency] = useState("2");
+  const [aiProductName, setAiProductName] = useState("");
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
 
   // Card detail modal state
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -98,6 +109,24 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const expertNotes: string = data.expert_notes || "";
   const shareToken: string = data.expert_share_token || "";
   const contentObjective: string = data.content_objective || "";
+
+  // Derive active platforms from briefing links
+  const PLATFORMS = useMemo(() => {
+    const links = data.links || {};
+    const active = Object.entries(links)
+      .filter(([_, v]) => v && String(v).trim() !== "")
+      .map(([k]) => LINK_TO_PLATFORM[k.toLowerCase()])
+      .filter(Boolean) as string[];
+    // Always include Email
+    if (!active.includes("Email")) active.push("Email");
+    return active.length > 1 ? active : ALL_PLATFORMS;
+  }, [data.links]);
+
+  // Product list from briefing
+  const products = useMemo(() => {
+    const prods = data.produtos || [];
+    return Array.isArray(prods) ? prods.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
+  }, [data.produtos]);
 
   useEffect(() => {
     const now = new Date();
@@ -461,6 +490,11 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                               </div>
                               <p className="text-[10px] opacity-80">{item.type}</p>
                               {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                              {item.cross_platforms && item.cross_platforms.length > 0 && (
+                                <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                                  {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                                </div>
+                              )}
                               {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
                             </div>
                           ))}
@@ -494,7 +528,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 <Select value={editPlatform} onValueChange={setEditPlatform}>
                   <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {PLATFORMS.map(p => <SelectItem key={p} value={p}>{PLATFORM_ICONS[p]} {p}</SelectItem>)}
+                    {ALL_PLATFORMS.map(p => <SelectItem key={p} value={p}>{PLATFORM_ICONS[p]} {p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -596,12 +630,22 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 className="bg-secondary"
               />
             </div>
+            {products.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">📦 Produto em foco</Label>
+                <Select value={aiProductName} onValueChange={setAiProductName}>
+                  <SelectTrigger className="bg-secondary"><SelectValue placeholder="Todos os produtos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos os produtos</SelectItem>
+                    {products.map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">📊 Frequência de posts por dia?</Label>
               <Select value={aiFrequency} onValueChange={setAiFrequency}>
-                <SelectTrigger className="bg-secondary">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">1 post por dia</SelectItem>
                   <SelectItem value="2">2 posts por dia</SelectItem>
@@ -640,6 +684,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 content_objective: aiObjective,
                 posts_per_day: parseInt(aiFrequency),
                 priority_platforms: aiPlatforms,
+                product_name: aiProductName,
               }}
             />
           </DialogFooter>
