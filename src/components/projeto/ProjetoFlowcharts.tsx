@@ -5,14 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight } from "lucide-react";
+import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { FlowMinimap } from "./flowchart/FlowMinimap";
+import { FlowImportDialog } from "./flowchart/FlowImportDialog";
 
 interface FlowNode {
   id: string;
   title: string;
   subtitle?: string;
-  type: "etapa" | "decisao" | "resultado" | "nota";
+  type: "etapa" | "decisao" | "resultado" | "nota" | "imagem";
+  image_url?: string;
   color: string;
   pos_x: number;
   pos_y: number;
@@ -40,6 +43,7 @@ const TYPE_STYLES: Record<string, { bg: string; border: string; label: string }>
   decisao:   { bg: "bg-amber-500/15", border: "border-amber-500/50", label: "Decisão" },
   resultado: { bg: "bg-emerald-500/15", border: "border-emerald-500/50", label: "Resultado" },
   nota:      { bg: "bg-slate-500/15", border: "border-slate-500/50", label: "Nota" },
+  imagem:    { bg: "bg-purple-500/15", border: "border-purple-500/50", label: "Imagem" },
 };
 
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#64748b"];
@@ -97,6 +101,13 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
     const updated = [...flowcharts];
     updated[idx] = { ...updated[idx], name };
     onUpdateData({ ...data, flowcharts: updated });
+  };
+
+  // --- Import nodes ---
+  const importNodes = (newNodes: FlowNode[]) => {
+    if (!active) return;
+    const chart = { ...active, nodes: [...active.nodes, ...newNodes] };
+    updateActive(chart);
   };
 
   // --- Nodes ---
@@ -283,11 +294,12 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
           {/* Toolbar */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground mr-2">Adicionar:</span>
-            {Object.entries(TYPE_STYLES).map(([key, s]) => (
+            {Object.entries(TYPE_STYLES).filter(([k]) => k !== "imagem").map(([key, s]) => (
               <Button key={key} variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addNode(key as FlowNode["type"])}>
                 <Plus className="h-3 w-3" /> {s.label}
               </Button>
             ))}
+            <FlowImportDialog onImportNodes={importNodes} projectSlug={project.slug} />
             <div className="ml-auto flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
                 <ZoomOut className="h-3 w-3" />
@@ -330,6 +342,7 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
               {/* Nodes */}
               {active.nodes.map(node => {
                 const style = TYPE_STYLES[node.type] || TYPE_STYLES.etapa;
+                const isImage = node.type === "imagem";
                 return (
                   <div
                     key={node.id}
@@ -345,13 +358,17 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
                           onChange={e => updateNode(node.id, { title: e.target.value })}
                           className="h-6 text-xs font-semibold bg-transparent border-none p-0 focus-visible:ring-0"
                         />
-                        <Textarea
-                          value={node.subtitle || ""}
-                          onChange={e => updateNode(node.id, { subtitle: e.target.value })}
-                          placeholder="Descrição..."
-                          className="mt-1 text-[10px] bg-transparent border-none p-0 min-h-[24px] resize-none focus-visible:ring-0 text-muted-foreground"
-                          rows={2}
-                        />
+                        {isImage && node.image_url ? (
+                          <img src={node.image_url} alt={node.title} className="mt-1 rounded max-h-32 w-full object-cover" />
+                        ) : (
+                          <Textarea
+                            value={node.subtitle || ""}
+                            onChange={e => updateNode(node.id, { subtitle: e.target.value })}
+                            placeholder="Descrição..."
+                            className="mt-1 text-[10px] bg-transparent border-none p-0 min-h-[24px] resize-none focus-visible:ring-0 text-muted-foreground"
+                            rows={2}
+                          />
+                        )}
                       </div>
                       <div className="flex flex-col gap-1 items-center">
                         <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab" />
@@ -368,7 +385,10 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
                     </div>
                     {/* Type badge */}
                     <div className="flex items-center justify-between mt-2">
-                      <Badge variant="outline" className="text-[9px] h-4">{style.label}</Badge>
+                      <Badge variant="outline" className="text-[9px] h-4">
+                        {isImage && <ImageIcon className="h-2 w-2 mr-0.5 inline" />}
+                        {style.label}
+                      </Badge>
                       {/* Connect dot */}
                       <div
                         className="connect-dot h-4 w-4 rounded-full bg-primary/60 hover:bg-primary cursor-crosshair flex items-center justify-center"
@@ -381,6 +401,17 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
                 );
               })}
             </div>
+            {/* Minimap */}
+            <FlowMinimap
+              nodes={active.nodes}
+              pan={pan}
+              zoom={zoom}
+              canvasW={CANVAS_W}
+              canvasH={CANVAS_H}
+              viewportW={canvasRef.current?.parentElement?.clientWidth || 800}
+              viewportH={520}
+              onPanChange={setPan}
+            />
           </div>
         </>
       ) : (
