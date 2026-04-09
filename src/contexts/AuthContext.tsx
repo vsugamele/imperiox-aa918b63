@@ -6,6 +6,8 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  userRole: string | null;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -16,18 +18,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  const fetchRole = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from("imphq_user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      setUserRole(data?.role || null);
+    } catch {
+      setUserRole(null);
+    }
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        setTimeout(() => fetchRole(session.user.id), 0);
+      } else {
+        setUserRole(null);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        fetchRole(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -43,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, userRole, isAdmin: userRole === "admin", signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,11 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban } from "lucide-react";
 import { toast } from "sonner";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 
 export default function Configuracoes() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   return (
     <div className="flex gap-6">
@@ -20,7 +24,13 @@ export default function Configuracoes() {
         <TabsList className="flex-col h-auto w-48 shrink-0 bg-transparent gap-0.5 justify-start items-stretch p-0">
           <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
             <Settings className="h-4 w-4" /> Configurações
+            <SectionInfo {...sectionHelpTexts.configuracoes} />
           </h2>
+          {isAdmin && (
+            <TabsTrigger value="usuarios" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+              <Users className="h-3.5 w-3.5 mr-2" /> Usuários
+            </TabsTrigger>
+          )}
           <TabsTrigger value="apis" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Key className="h-3.5 w-3.5 mr-2" /> APIs & Keys
           </TabsTrigger>
@@ -39,6 +49,7 @@ export default function Configuracoes() {
         </TabsList>
 
         <div className="flex-1 min-w-0">
+          {isAdmin && <TabsContent value="usuarios"><UsuariosTab /></TabsContent>}
           <TabsContent value="apis"><APIsTab /></TabsContent>
           <TabsContent value="notificacoes"><NotificacoesTab /></TabsContent>
           <TabsContent value="cronjobs"><CronJobsTab /></TabsContent>
@@ -46,6 +57,238 @@ export default function Configuracoes() {
           <TabsContent value="webhooks"><WebhooksTab /></TabsContent>
         </div>
       </Tabs>
+    </div>
+  );
+}
+
+// ── Usuarios Tab (Admin) ─────────────────────────────────────────
+interface UserRow {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  banned: boolean;
+  role: string | null;
+}
+
+function UsuariosTab() {
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState("editor");
+  const [resetPassword, setResetPassword] = useState("");
+
+  const callAdminApi = async (action: string, body?: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Not authenticated");
+    
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tkbivipqiewkfnhktmqq";
+    const url = `https://${projectId}.supabase.co/functions/v1/admin-users?action=${action}`;
+    
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erro na API");
+    return data;
+  };
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await callAdminApi("list");
+      setUsers(data.users || []);
+    } catch (err: any) {
+      toast.error("Erro ao carregar usuários: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
+  const handleCreate = async () => {
+    if (!newEmail || !newPassword) { toast.error("Preencha email e senha"); return; }
+    if (newPassword.length < 6) { toast.error("Senha mínima: 6 caracteres"); return; }
+    try {
+      await callAdminApi("create", { email: newEmail, password: newPassword, role: newRole });
+      toast.success("Usuário criado!");
+      setCreateOpen(false);
+      setNewEmail("");
+      setNewPassword("");
+      setNewRole("editor");
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (!selectedUser || !resetPassword) return;
+    if (resetPassword.length < 6) { toast.error("Senha mínima: 6 caracteres"); return; }
+    try {
+      await callAdminApi("set_password", { user_id: selectedUser.id, password: resetPassword });
+      toast.success("Senha atualizada!");
+      setPasswordOpen(false);
+      setResetPassword("");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleSetRole = async (userId: string, role: string) => {
+    try {
+      await callAdminApi("set_role", { user_id: userId, role });
+      toast.success("Role atualizada!");
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleToggleBan = async (u: UserRow) => {
+    try {
+      await callAdminApi("toggle_ban", { user_id: u.id, ban: !u.banned });
+      toast.success(u.banned ? "Usuário reativado" : "Usuário desativado");
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const getRoleBadge = (role: string | null) => {
+    if (role === "admin") return <Badge className="bg-primary/20 text-primary text-[9px]">Admin</Badge>;
+    if (role === "editor") return <Badge className="bg-blue-500/20 text-blue-400 text-[9px]">Editor</Badge>;
+    if (role === "viewer") return <Badge className="bg-muted text-muted-foreground text-[9px]">Viewer</Badge>;
+    return <Badge variant="outline" className="text-[9px]">Sem role</Badge>;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold">Gerenciar Usuários</h2>
+          <SectionInfo {...sectionHelpTexts.usuarios} />
+        </div>
+        <Button onClick={() => setCreateOpen(true)} size="sm">
+          <UserPlus className="h-4 w-4 mr-1" /> Criar Usuário
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Carregando...</p>
+      ) : (
+        <div className="space-y-2">
+          {users.map(u => (
+            <Card key={u.id} className="bg-card border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{u.email}</p>
+                      {getRoleBadge(u.role)}
+                      {u.banned && <Badge variant="destructive" className="text-[9px]">Banido</Badge>}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Último login: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("pt-BR") : "Nunca"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Select value={u.role || "none"} onValueChange={(v) => handleSetRole(u.id, v)}>
+                      <SelectTrigger className="h-7 w-24 text-[10px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="editor">Editor</SelectItem>
+                        <SelectItem value="viewer">Viewer</SelectItem>
+                        <SelectItem value="none">Sem role</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      title="Redefinir senha"
+                      onClick={() => { setSelectedUser(u); setPasswordOpen(true); }}
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className={`h-7 w-7 ${u.banned ? "text-emerald-400" : "text-destructive"}`}
+                      title={u.banned ? "Reativar" : "Desativar"}
+                      onClick={() => handleToggleBan(u)}
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create User Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Novo Usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Email</Label>
+              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="colaborador@email.com" className="bg-secondary" />
+            </div>
+            <div>
+              <Label className="text-xs">Senha</Label>
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="bg-secondary" />
+            </div>
+            <div>
+              <Label className="text-xs">Role</Label>
+              <Select value={newRole} onValueChange={setNewRole}>
+                <SelectTrigger className="bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleCreate}>Criar Usuário</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Redefinir Senha</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">Definir nova senha para: <strong>{selectedUser?.email}</strong></p>
+          <Input type="password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} placeholder="Nova senha (mínimo 6 caracteres)" className="bg-secondary" />
+          <DialogFooter>
+            <Button onClick={handleSetPassword}>Salvar Senha</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -206,46 +449,11 @@ function NotificacoesTab() {
 // ── Cron Jobs Tab ────────────────────────────────────────────────
 function CronJobsTab() {
   const CRON_JOBS = [
-    {
-      key: "relatorio_semanal",
-      name: "Relatório Semanal",
-      description: "Gera um resumo de KPIs e métricas de todos os projetos ativos",
-      icon: "📊",
-      frequency: "Toda segunda às 9h",
-      cron: "0 9 * * 1",
-    },
-    {
-      key: "limpeza_dados",
-      name: "Limpeza de Dados Antigos",
-      description: "Remove webhooks processados com mais de 90 dias e logs antigos",
-      icon: "🧹",
-      frequency: "Todo domingo às 3h",
-      cron: "0 3 * * 0",
-    },
-    {
-      key: "leads_inativos",
-      name: "Verificação de Leads Inativos",
-      description: "Identifica leads sem interação há 30+ dias e marca como inativos",
-      icon: "👤",
-      frequency: "Diariamente às 6h",
-      cron: "0 6 * * *",
-    },
-    {
-      key: "sync_analytics",
-      name: "Sync de Analytics",
-      description: "Puxa dados de plataformas (Meta, GA) e atualiza KPIs dos projetos",
-      icon: "📈",
-      frequency: "A cada 6 horas",
-      cron: "0 */6 * * *",
-    },
-    {
-      key: "backup_kb",
-      name: "Backup Knowledge Base",
-      description: "Exporta toda a KB para um documento de backup no Supabase Storage",
-      icon: "💾",
-      frequency: "Diariamente às 2h",
-      cron: "0 2 * * *",
-    },
+    { key: "relatorio_semanal", name: "Relatório Semanal", description: "Gera um resumo de KPIs e métricas de todos os projetos ativos", icon: "📊", frequency: "Toda segunda às 9h", cron: "0 9 * * 1" },
+    { key: "limpeza_dados", name: "Limpeza de Dados Antigos", description: "Remove webhooks processados com mais de 90 dias e logs antigos", icon: "🧹", frequency: "Todo domingo às 3h", cron: "0 3 * * 0" },
+    { key: "leads_inativos", name: "Verificação de Leads Inativos", description: "Identifica leads sem interação há 30+ dias e marca como inativos", icon: "👤", frequency: "Diariamente às 6h", cron: "0 6 * * *" },
+    { key: "sync_analytics", name: "Sync de Analytics", description: "Puxa dados de plataformas (Meta, GA) e atualiza KPIs dos projetos", icon: "📈", frequency: "A cada 6 horas", cron: "0 */6 * * *" },
+    { key: "backup_kb", name: "Backup Knowledge Base", description: "Exporta toda a KB para um documento de backup no Supabase Storage", icon: "💾", frequency: "Diariamente às 2h", cron: "0 2 * * *" },
   ];
 
   const [statuses, setStatuses] = useState<Record<string, { enabled: boolean; lastRun?: string; status?: string }>>(() => {
@@ -256,10 +464,7 @@ function CronJobsTab() {
   const [running, setRunning] = useState<string | null>(null);
 
   const toggleCron = (key: string) => {
-    const next = {
-      ...statuses,
-      [key]: { ...statuses[key], enabled: !statuses[key]?.enabled },
-    };
+    const next = { ...statuses, [key]: { ...statuses[key], enabled: !statuses[key]?.enabled } };
     setStatuses(next);
     localStorage.setItem("imphq_cron_statuses", JSON.stringify(next));
     toast.success(next[key].enabled ? "Cron ativado" : "Cron desativado");
@@ -267,12 +472,8 @@ function CronJobsTab() {
 
   const runManual = async (key: string) => {
     setRunning(key);
-    // Simulate execution — in production this would call an edge function
     await new Promise(r => setTimeout(r, 2000));
-    const next = {
-      ...statuses,
-      [key]: { ...statuses[key], lastRun: new Date().toISOString(), status: "success" },
-    };
+    const next = { ...statuses, [key]: { ...statuses[key], lastRun: new Date().toISOString(), status: "success" } };
     setStatuses(next);
     localStorage.setItem("imphq_cron_statuses", JSON.stringify(next));
     setRunning(null);
@@ -285,8 +486,6 @@ function CronJobsTab() {
         <h2 className="text-lg font-bold">Cron Jobs</h2>
         <p className="text-xs text-muted-foreground">Tarefas agendadas do sistema. Ative pg_cron no Supabase para execução automática.</p>
       </div>
-
-      {/* Setup Instructions */}
       <Card className="bg-amber-500/5 border-amber-500/20">
         <CardContent className="p-4 space-y-2">
           <p className="text-xs font-medium text-amber-400">⚠️ Para habilitar execução automática:</p>
@@ -297,7 +496,6 @@ function CronJobsTab() {
           </ol>
         </CardContent>
       </Card>
-
       <div className="space-y-3">
         {CRON_JOBS.map(job => {
           const st = statuses[job.key] as { enabled?: boolean; lastRun?: string; status?: string } | undefined;
@@ -322,24 +520,11 @@ function CronJobsTab() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={() => runManual(job.key)}
-                      disabled={running === job.key}
-                    >
-                      {running === job.key ? (
-                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <Play className="h-3 w-3 mr-1" />
-                      )}
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => runManual(job.key)} disabled={running === job.key}>
+                      {running === job.key ? <RefreshCw className="h-3 w-3 mr-1 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
                       {running === job.key ? "Executando..." : "Executar"}
                     </Button>
-                    <Switch
-                      checked={st?.enabled || false}
-                      onCheckedChange={() => toggleCron(job.key)}
-                    />
+                    <Switch checked={st?.enabled || false} onCheckedChange={() => toggleCron(job.key)} />
                   </div>
                 </div>
               </CardContent>
@@ -467,17 +652,11 @@ function WebhooksTab() {
         <p className="text-xs text-muted-foreground">Gerencie chaves de API para integrações com IAs e automações externas</p>
       </div>
 
-      {/* Generate Key */}
       <Card className="bg-card border-border">
         <CardContent className="p-4 space-y-3">
           <h3 className="text-sm font-medium">Gerar Nova Chave</h3>
           <div className="flex gap-2">
-            <Input
-              value={newKeyName}
-              onChange={e => setNewKeyName(e.target.value)}
-              placeholder="Nome da chave (ex: MeuBot, Make, n8n)"
-              className="bg-secondary"
-            />
+            <Input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} placeholder="Nome da chave (ex: MeuBot, Make, n8n)" className="bg-secondary" />
             <Button onClick={generateKey} disabled={!newKeyName.trim()}>
               <Plus className="h-4 w-4 mr-1" /> Gerar
             </Button>
@@ -496,7 +675,6 @@ function WebhooksTab() {
         </CardContent>
       </Card>
 
-      {/* Existing Keys */}
       <Card className="bg-card border-border">
         <CardContent className="p-4 space-y-2">
           <h3 className="text-sm font-medium">Chaves Ativas ({keys.length})</h3>
@@ -518,25 +696,21 @@ function WebhooksTab() {
         </CardContent>
       </Card>
 
-      {/* Documentation */}
       <Card className="bg-card border-border">
         <CardContent className="p-4 space-y-3">
           <h3 className="text-sm font-medium">📖 Documentação da API</h3>
           <p className="text-xs text-muted-foreground">Use o header <code className="bg-secondary px-1 rounded">x-api-key</code> em todas as requisições.</p>
-          
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-secondary/50 space-y-1">
               <p className="text-xs font-bold text-emerald-400">POST — Criar Tarefa</p>
               <code className="text-[10px] text-muted-foreground block break-all">{baseUrl}?action=create_task</code>
               <pre className="text-[10px] text-muted-foreground bg-secondary rounded p-2 mt-1">{`{ "title": "Minha tarefa", "board": "agentes", "priority": "high" }`}</pre>
             </div>
-
             <div className="p-3 rounded-lg bg-secondary/50 space-y-1">
               <p className="text-xs font-bold text-blue-400">POST — Criar Lead</p>
               <code className="text-[10px] text-muted-foreground block break-all">{baseUrl}?action=create_lead</code>
               <pre className="text-[10px] text-muted-foreground bg-secondary rounded p-2 mt-1">{`{ "nome": "João", "email": "joao@email.com", "project_id": "meu-projeto" }`}</pre>
             </div>
-
             <div className="p-3 rounded-lg bg-secondary/50 space-y-1">
               <p className="text-xs font-bold text-amber-400">GET — Status do Projeto</p>
               <code className="text-[10px] text-muted-foreground block break-all">{baseUrl}?action=project_status&project_id=meu-projeto</code>
