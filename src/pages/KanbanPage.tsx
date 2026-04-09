@@ -696,6 +696,18 @@ export default function KanbanPage() {
                 </SelectContent>
               </Select>
             </div>
+            {allProducts.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Produto</Label>
+                <Select value={filters.product} onValueChange={v => setFilters(f => ({ ...f, product: v }))}>
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {allProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {activeFiltersCount > 0 && (
               <Button size="sm" variant="ghost" className="w-full text-xs" onClick={clearAllFilters}>
                 <X className="h-3 w-3 mr-1" /> Limpar filtros
