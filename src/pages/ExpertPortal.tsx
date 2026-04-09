@@ -132,7 +132,7 @@ export default function ExpertPortal() {
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     WEEKS.forEach((wk, wi) => {
-      const wp = monthlyPlan[wk] || {};
+      const wp = (monthlyPlan as any)[wk] || {};
       DAYS.forEach((day, di) => {
         if ((wp[day]?.length || 0) > 0) {
           const dayOffset = wi * 7 + di;
@@ -155,11 +155,16 @@ export default function ExpertPortal() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Objetivo do Movimento */}
-        {data.content_objective && (
-          <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
-            <Target className="h-4 w-4 text-primary flex-shrink-0" />
-            <p className="text-sm font-medium text-foreground">🎯 {data.content_objective}</p>
+        {/* Objetivos do Movimento */}
+        {contentObjectives.length > 0 && (
+          <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Target className="h-4 w-4 text-primary flex-shrink-0" />
+              <span className="text-xs font-semibold text-primary">Objetivos do Movimento</span>
+            </div>
+            {contentObjectives.map((obj, i) => (
+              <p key={i} className="text-sm text-foreground ml-6">• {obj}</p>
+            ))}
           </div>
         )}
 
