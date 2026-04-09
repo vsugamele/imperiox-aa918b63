@@ -1,39 +1,83 @@
 
 
-# Plano: Objetivo com multiplos bullets + Inspiracoes do DOCX no Painel Expert
+# Plano: Painel de Usuarios Admin + Tooltips de Ajuda por Secao
 
-## 1. Objetivo do Movimento — multiplos bullets
+## Contexto
 
-Hoje o campo "Objetivo do Movimento" e um unico `Input`. Trocar por um sistema de lista onde o usuario pode adicionar varios bullets (ex: "Aquecimento para lancamento", "Captacao via Low Ticket", "Construir autoridade no nicho").
+Hoje nao existe tabela de usuarios/perfis no projeto — a autenticacao usa apenas `auth.users` do Supabase. A pagina Equipe (`imphq_team_members`) gerencia membros de equipe mas nao usuarios do sistema. Para criar colaboradores com login e definir senhas, precisamos de uma edge function com service_role_key (unica forma de criar usuarios e definir senhas pelo admin no Supabase).
 
-**Mudanca**: Trocar o `Input` por uma lista editavel com botao "+ Adicionar". Cada bullet tem campo de texto + botao de remover. Salvar como `content_objectives: string[]` (com migracao do campo antigo `content_objective: string`).
+---
 
-## 2. Fases semanais inspiradas no DOCX
+## 1. Painel de Usuarios (Admin)
 
-O documento mostra que cada semana tem uma **fase estrategica** (Sem 1: Atracao, Sem 2: Autoridade + Live, Sem 3: Objecoes, Sem 4: Lancamento). Adicionar campo de **nome/fase** para cada semana nas tabs (ex: "Semana 1 — Atracao").
+### Banco de dados
 
-**Mudanca**: Adicionar campo editavel `week_labels` ao `MonthlyPlan`. Exibir como subtitulo na tab de cada semana. A IA tambem deve gerar os nomes das fases.
+Criar tabela `imphq_user_roles` para controle de acesso:
 
-## 3. Resumo semanal com KPIs do DOCX
+```text
+imphq_user_roles
+├── id (uuid, PK)
+├── user_id (uuid, FK → auth.users)
+├── role (text: 'admin' | 'editor' | 'viewer')
+├── created_at (timestamptz)
+└── UNIQUE(user_id, role)
+```
 
-O documento tem tabela de resumo por semana (posts/semana, plataformas ativas, foco estrategico, evento central). Adicionar mini-resumo no topo de cada semana.
+RLS: apenas admins podem ler/escrever (via funcao `security definer`).
 
-**Mudanca**: Adicionar campo `week_summary` (objeto com posts_count, focus, event) por semana. Exibir como barra de info compacta acima dos dias.
+Inserir voce e o Bruno como admin via seed (pelos auth.users IDs existentes).
 
-## 4. Guia de producao no painel
+### Edge Function `admin-users`
 
-O documento tem rotina semanal de producao (domingo gravar, terca subir YT, etc) e formatos por plataforma. Adicionar secao "Guia de Producao" com notas editaveis.
+Nova edge function que usa `SUPABASE_SERVICE_ROLE_KEY` para:
+- **Listar usuarios**: `supabase.auth.admin.listUsers()`
+- **Criar usuario**: `supabase.auth.admin.createUser({ email, password, email_confirm: true })`
+- **Definir senha**: `supabase.auth.admin.updateUserById(id, { password })`
+- **Desativar usuario**: `supabase.auth.admin.updateUserById(id, { banned: true })`
 
-**Mudanca**: Usar o campo `expert_notes` existente, mas adicionar templates pre-populados pela IA baseados no DOCX (rotina semanal, formatos por plataforma).
+Todas as acoes validam que o chamador e admin (via `imphq_user_roles`).
 
-## 5. Prompt da IA enriquecido
+### Frontend — Nova pagina ou aba
 
-Atualizar o prompt de geracao de plano de conteudo na edge function para gerar:
-- Fases por semana (nome + foco)
-- Resumo semanal (KPIs esperados)
-- Stories diarios detalhados (bastidor, caixinha, repost)
-- Estrutura de lives/webinarios quando aplicavel
-- `content_objectives` como lista no prompt
+Adicionar aba "Usuarios" na pagina Configuracoes (ou link na sidebar). Conteudo:
+- Lista de usuarios com email, role, status (ativo/banido), ultimo login
+- Botao "Criar Usuario" → dialog com email, senha, role
+- Botao "Redefinir Senha" por usuario → dialog com campo de senha
+- Toggle ativo/inativo
+- Select de role (Admin/Editor/Viewer)
+
+### Restricao de acesso
+
+O AuthContext passara a expor `userRole`. Paginas sensiveis (Config, Equipe admin) verificam se role === 'admin'.
+
+---
+
+## 2. Tooltips de Ajuda (icone ℹ️)
+
+### Componente `SectionInfo`
+
+Componente reutilizavel que renderiza um icone ℹ️ ao lado de titulos de secao. Ao clicar/hover, abre um popover com:
+- Titulo da secao
+- Descricao do que faz
+- Como usar (1-2 frases)
+
+```text
+<SectionInfo
+  title="Arsenal de Copy"
+  description="Gere promessas, inimigos comuns e mecanismos unicos para cada produto."
+  usage="Clique em 'Gerar com IA' para criar automaticamente baseado no briefing."
+/>
+```
+
+### Mapa de ajuda
+
+Dicionario centralizado com textos de ajuda para cada secao principal:
+- Dashboard, Kanban, Leads, Financas, Mentes IA, OpenFlow, Skills, Docs, WhatsApp, Tracker, Equipe, etc.
+- Dentro de Projeto: Briefing, Avatar, Expert, Branding, KPIs, Copy Arsenal, Calendario, Conteudo, etc.
+
+### Onde colocar
+
+Ao lado de cada `<h1>`, `<h2>` ou titulo de aba principal. Nao invasivo — pequeno icone cinza que aparece ao lado do titulo.
 
 ---
 
@@ -41,14 +85,20 @@ Atualizar o prompt de geracao de plano de conteudo na edge function para gerar:
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/projeto/ProjetoExpertPanel.tsx` | Campo de objetivos com multiplos bullets, labels de fase por semana, mini-resumo semanal |
-| `src/pages/ExpertPortal.tsx` | Exibir multiplos objetivos + fases semanais |
-| `supabase/functions/openflow-ai/index.ts` | Prompt enriquecido para gerar fases, resumos semanais, objetivos multiplos |
+| `supabase/migrations/xxx_user_roles.sql` | Criar tabela `imphq_user_roles` + funcao `has_imphq_role` + RLS |
+| `supabase/functions/admin-users/index.ts` | **Novo** — CRUD de usuarios via service_role |
+| `src/components/SectionInfo.tsx` | **Novo** — Componente de tooltip de ajuda |
+| `src/data/sectionHelpTexts.ts` | **Novo** — Dicionario de textos de ajuda por secao |
+| `src/pages/Configuracoes.tsx` | Adicionar aba "Usuarios" com painel admin |
+| `src/contexts/AuthContext.tsx` | Expor `userRole` consultando `imphq_user_roles` |
+| Paginas principais (Dashboard, Leads, etc.) | Adicionar `<SectionInfo>` nos titulos |
 
 ## Ordem
 
-1. Trocar campo de objetivo por lista de bullets editavel
-2. Adicionar labels de fase e resumo por semana
-3. Atualizar prompt da IA para gerar estrutura mais rica
-4. Sincronizar portal publico
+1. Migrar tabela `imphq_user_roles` + seed admins
+2. Edge function `admin-users`
+3. Aba de usuarios no Configuracoes
+4. Role no AuthContext + restricao de acesso
+5. Componente `SectionInfo` + dicionario de textos
+6. Aplicar tooltips nas paginas principais
 
