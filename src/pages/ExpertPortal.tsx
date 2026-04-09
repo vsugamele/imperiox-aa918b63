@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -28,11 +29,21 @@ const TYPE_COLORS: Record<string, string> = {
   Carousel: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
 };
 
+const COLUMN_LABELS: Record<string, string> = {
+  backlog: "Backlog",
+  todo: "A Fazer",
+  doing: "Em Andamento",
+  review: "Revisão",
+  done: "Concluído",
+};
+
 interface ContentItem {
   id: string;
   platform: string;
   type: string;
   description: string;
+  copy?: string;
+  hashtags?: string;
 }
 
 interface WeekPlan { [day: string]: ContentItem[]; }
@@ -51,6 +62,7 @@ export default function ExpertPortal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeWeek, setActiveWeek] = useState("semana_1");
+  const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -166,7 +178,21 @@ export default function ExpertPortal() {
                   <Badge variant="outline" className="text-[9px] h-4 flex-shrink-0">
                     {t.priority === "high" ? "🔴" : t.priority === "medium" ? "🟡" : "🟢"}
                   </Badge>
-                  <p className="text-xs truncate flex-1">{t.title}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs truncate">{t.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {t.column_id && (
+                        <Badge variant="secondary" className="text-[8px] h-3.5">
+                          {COLUMN_LABELS[t.column_id] || t.column_id}
+                        </Badge>
+                      )}
+                      {t.checklist_total > 0 && (
+                        <span className="text-[8px] text-muted-foreground">
+                          ✅ {t.checklist_done}/{t.checklist_total}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   {t.due_date && <span className="text-[9px] text-muted-foreground">{format(new Date(t.due_date), "dd/MM")}</span>}
                 </div>
               ))}
@@ -209,9 +235,15 @@ export default function ExpertPortal() {
           <CardContent>
             <Tabs value={activeWeek} onValueChange={setActiveWeek}>
               <TabsList className="w-full grid grid-cols-4 mb-3">
-                {WEEKS.map((wk, i) => (
-                  <TabsTrigger key={wk} value={wk} className="text-xs">{WEEK_LABELS[i]}</TabsTrigger>
-                ))}
+                {WEEKS.map((wk, i) => {
+                  const weekItems = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
+                  return (
+                    <TabsTrigger key={wk} value={wk} className="text-xs gap-1">
+                      {WEEK_LABELS[i]}
+                      {weekItems > 0 && <Badge variant="secondary" className="text-[8px] h-3.5 px-1">{weekItems}</Badge>}
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
 
               {WEEKS.map(wk => {
@@ -224,13 +256,18 @@ export default function ExpertPortal() {
                           <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
                           <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
                             {(weekData[day] || []).map((item: ContentItem) => (
-                              <div key={item.id} className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"}`}>
+                              <div
+                                key={item.id}
+                                className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}
+                                onClick={() => setSelectedCard(item)}
+                              >
                                 <div className="flex items-center gap-1 mb-0.5">
                                   <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
                                   <span className="text-[10px] font-semibold">{item.platform}</span>
                                 </div>
                                 <p className="text-[10px] opacity-80">{item.type}</p>
-                                {item.description && <p className="text-[10px] mt-0.5">{item.description}</p>}
+                                {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                                {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
                               </div>
                             ))}
                             {!(weekData[day]?.length) && (
@@ -246,6 +283,45 @@ export default function ExpertPortal() {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* Card Detail Modal (read-only for portal) */}
+        <Dialog open={!!selectedCard} onOpenChange={(open) => !open && setSelectedCard(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {PLATFORM_ICONS[selectedCard?.platform || ""] || "📌"} {selectedCard?.platform} — {selectedCard?.type}
+              </DialogTitle>
+              <DialogDescription>Detalhes do conteúdo planejado.</DialogDescription>
+            </DialogHeader>
+            {selectedCard && (
+              <div className="space-y-4">
+                {selectedCard.description && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">🎯 Tema</p>
+                    <p className="text-sm">{selectedCard.description}</p>
+                  </div>
+                )}
+                {selectedCard.copy && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">📝 Copy</p>
+                    <div className="whitespace-pre-wrap text-sm bg-secondary/30 rounded p-3 border border-border">
+                      {selectedCard.copy}
+                    </div>
+                  </div>
+                )}
+                {selectedCard.hashtags && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1"># Hashtags</p>
+                    <p className="text-sm text-primary">{selectedCard.hashtags}</p>
+                  </div>
+                )}
+                {!selectedCard.copy && !selectedCard.description && (
+                  <p className="text-sm text-muted-foreground">Nenhum detalhe adicionado ainda.</p>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Notas */}
         {data.expert_notes && (

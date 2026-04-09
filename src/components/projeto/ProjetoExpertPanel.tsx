@@ -22,6 +22,8 @@ interface ContentItem {
   platform: string;
   type: string;
   description: string;
+  copy?: string;
+  hashtags?: string;
 }
 
 interface WeekPlan {
@@ -67,7 +69,6 @@ function migrateToMonthly(plan: any): MonthlyPlan {
   const empty: WeekPlan = {};
   if (!plan) return { semana_1: empty, semana_2: empty, semana_3: empty, semana_4: empty };
   if (plan.semana_1) return plan as MonthlyPlan;
-  // Legacy weekly plan → move to semana_1
   return { semana_1: plan, semana_2: empty, semana_3: empty, semana_4: empty };
 }
 
@@ -80,6 +81,16 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiObjective, setAiObjective] = useState("");
   const [aiFrequency, setAiFrequency] = useState("2");
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
+
+  // Card detail modal state
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string>("");
+  const [editCopy, setEditCopy] = useState("");
+  const [editHashtags, setEditHashtags] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPlatform, setEditPlatform] = useState("");
+  const [editType, setEditType] = useState("");
 
   const data = project.data || {};
   const monthlyPlan = migrateToMonthly(data.content_plan);
@@ -140,6 +151,38 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, expert_notes: notes });
   };
 
+  // Open card detail modal
+  const openCardDetail = (item: ContentItem, day: string) => {
+    setSelectedCard(item);
+    setSelectedDay(day);
+    setEditCopy(item.copy || "");
+    setEditHashtags(item.hashtags || "");
+    setEditDescription(item.description);
+    setEditPlatform(item.platform);
+    setEditType(item.type);
+    setDetailModalOpen(true);
+  };
+
+  const saveCardDetail = () => {
+    if (!selectedCard) return;
+    updateContentItem(selectedDay, selectedCard.id, {
+      platform: editPlatform,
+      type: editType,
+      description: editDescription,
+      copy: editCopy,
+      hashtags: editHashtags,
+    });
+    setDetailModalOpen(false);
+    toast.success("Card atualizado!");
+  };
+
+  const deleteCardFromModal = () => {
+    if (!selectedCard) return;
+    removeContentItem(selectedDay, selectedCard.id);
+    setDetailModalOpen(false);
+    toast.success("Card excluído.");
+  };
+
   // Share link
   const generateShareLink = async () => {
     const token = shareToken || crypto.randomUUID();
@@ -163,11 +206,34 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     setAiPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
   };
 
-  // AI handlers
+  // AI handlers — MERGE logic: only fill empty days
   const handleContentPlanAI = (result: any) => {
     if (result?.content_plan) {
-      onUpdateData({ ...data, content_plan: result.content_plan });
-      toast.success("Plano de conteúdo mensal gerado com IA!");
+      const aiPlan = migrateToMonthly(result.content_plan);
+      const currentPlan = { ...monthlyPlan };
+      let filled = 0;
+      let preserved = 0;
+
+      for (const wk of WEEKS) {
+        const aiWeek = aiPlan[wk] || {};
+        const currentWeek = currentPlan[wk] || {};
+        const mergedWeek = { ...currentWeek };
+
+        for (const day of DAYS) {
+          const existing = currentWeek[day] || [];
+          const aiItems = aiWeek[day] || [];
+          if (existing.length === 0 && aiItems.length > 0) {
+            mergedWeek[day] = aiItems;
+            filled++;
+          } else if (existing.length > 0) {
+            preserved++;
+          }
+        }
+        (currentPlan as any)[wk] = mergedWeek;
+      }
+
+      onUpdateData({ ...data, content_plan: currentPlan });
+      toast.success(`Plano gerado! ${filled} dias preenchidos, ${preserved} dias preservados.`);
     }
   };
 
@@ -175,6 +241,16 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     if (result?.expert_notes) {
       onUpdateData({ ...data, expert_notes: result.expert_notes });
       toast.success("Instruções geradas com IA!");
+    }
+  };
+
+  // Handle copy generation result
+  const handleCopyAI = (result: any) => {
+    if (result?.copy) {
+      setEditCopy(result.copy);
+    }
+    if (result?.hashtags) {
+      setEditHashtags(result.hashtags);
     }
   };
 
@@ -188,6 +264,12 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     return DAYS.flatMap(d => (wp[d] || []).map(i => i.platform));
   });
   const activePlatforms = new Set(allItems).size;
+
+  // Count empty days for "fill blanks" button
+  const emptyDaysCount = WEEKS.reduce((total, wk) => {
+    const wp = monthlyPlan[wk] || {};
+    return total + DAYS.reduce((s, d) => (wp[d]?.length || 0) === 0 ? s + 1 : s, 0);
+  }, 0);
 
   return (
     <div className="space-y-6">
@@ -314,6 +396,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📅 Plano de Conteúdo Mensal</CardTitle>
             <div className="flex items-center gap-2">
+              {emptyDaysCount > 0 && totalContent > 0 && (
+                <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground" onClick={() => {
+                  setAiObjective(contentObjective);
+                  setAiDialogOpen(true);
+                }}>
+                  <Sparkles className="h-3 w-3" /> Preencher {emptyDaysCount} dias vazios
+                </Button>
+              )}
               <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => {
                 setAiObjective(contentObjective);
                 setAiDialogOpen(true);
@@ -338,11 +428,15 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           {/* Week Tabs */}
           <Tabs value={activeWeek} onValueChange={setActiveWeek}>
             <TabsList className="w-full grid grid-cols-4">
-              {WEEKS.map((wk, i) => (
-                <TabsTrigger key={wk} value={wk} className="text-xs">
-                  {WEEK_LABELS[i]}
-                </TabsTrigger>
-              ))}
+              {WEEKS.map((wk, i) => {
+                const weekItems = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
+                return (
+                  <TabsTrigger key={wk} value={wk} className="text-xs gap-1">
+                    {WEEK_LABELS[i]}
+                    {weekItems > 0 && <Badge variant="secondary" className="text-[8px] h-3.5 px-1">{weekItems}</Badge>}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
 
             {WEEKS.map(wk => (
@@ -356,35 +450,18 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                         <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
                         <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
                           {items.map(item => (
-                            <div key={item.id} className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} group relative`}>
-                              <Button variant="ghost" size="icon" className="h-4 w-4 absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={() => removeContentItem(day, item.id)}>
-                                <X className="h-2.5 w-2.5" />
-                              </Button>
-                              <div className="flex items-center gap-1 mb-1">
+                            <div
+                              key={item.id}
+                              className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} group relative cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}
+                              onClick={() => openCardDetail(item, day)}
+                            >
+                              <div className="flex items-center gap-1 mb-0.5">
                                 <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
-                                <Select value={item.platform} onValueChange={v => updateContentItem(day, item.id, { platform: v })}>
-                                  <SelectTrigger className="h-5 text-[10px] bg-transparent border-none p-0 w-auto min-w-0 font-semibold">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {PLATFORMS.map(p => <SelectItem key={p} value={p} className="text-xs">{PLATFORM_ICONS[p]} {p}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
+                                <span className="text-[10px] font-semibold">{item.platform}</span>
                               </div>
-                              <Select value={item.type} onValueChange={v => updateContentItem(day, item.id, { type: v })}>
-                                <SelectTrigger className="h-5 text-[10px] bg-transparent border-none p-0 w-auto min-w-0">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {CONTENT_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                              <Input
-                                value={item.description}
-                                onChange={e => updateContentItem(day, item.id, { description: e.target.value })}
-                                placeholder="Tema..."
-                                className="h-5 text-[10px] bg-transparent border-none p-0 focus-visible:ring-0 mt-0.5"
-                              />
+                              <p className="text-[10px] opacity-80">{item.type}</p>
+                              {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                              {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
                             </div>
                           ))}
                           <Button variant="ghost" size="sm" className="w-full h-6 text-[9px] text-muted-foreground" onClick={() => addContentItem(day)}>
@@ -401,6 +478,100 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
         </CardContent>
       </Card>
 
+      {/* Card Detail Modal */}
+      <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {PLATFORM_ICONS[editPlatform] || "📌"} Detalhes do Conteúdo
+            </DialogTitle>
+            <DialogDescription>Edite os detalhes, adicione copy e hashtags.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Plataforma</Label>
+                <Select value={editPlatform} onValueChange={setEditPlatform}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PLATFORMS.map(p => <SelectItem key={p} value={p}>{PLATFORM_ICONS[p]} {p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
+                <Select value={editType} onValueChange={setEditType}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CONTENT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">🎯 Tema / Descrição</Label>
+              <Textarea
+                value={editDescription}
+                onChange={e => setEditDescription(e.target.value)}
+                placeholder="Sobre o que é esse conteúdo?"
+                className="bg-secondary min-h-[60px]"
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs text-muted-foreground">📝 Copy / Texto do Post</Label>
+                <AIGenerateButton
+                  projectId={projectId}
+                  action="generate_copy"
+                  label="✨ Gerar Copy"
+                  onResult={handleCopyAI}
+                  contextSources={["Avatar", "Brand Kit"]}
+                  fieldsToFill={["Copy do post"]}
+                  showMenteSelector
+                  size="sm"
+                  variant="ghost"
+                  extraBody={{
+                    platform: editPlatform,
+                    content_type: editType,
+                    description: editDescription,
+                    content_objective: contentObjective,
+                  }}
+                />
+              </div>
+              <Textarea
+                value={editCopy}
+                onChange={e => setEditCopy(e.target.value)}
+                placeholder="Cole ou gere a copy com IA..."
+                className="bg-secondary min-h-[100px] text-sm"
+                rows={4}
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block"># Hashtags</Label>
+              <Input
+                value={editHashtags}
+                onChange={e => setEditHashtags(e.target.value)}
+                placeholder="#marketing #digital #vendas"
+                className="bg-secondary"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button variant="destructive" size="sm" className="gap-1" onClick={deleteCardFromModal}>
+              <Trash2 className="h-3.5 w-3.5" /> Excluir
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setDetailModalOpen(false)}>Cancelar</Button>
+              <Button size="sm" onClick={saveCardDetail}>Salvar</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* AI Pre-Questions Dialog */}
       <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
         <DialogContent className="max-w-md">
@@ -408,9 +579,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" /> Configurar Plano com IA
             </DialogTitle>
-            <DialogDescription>Responda as perguntas para gerar um plano de conteúdo mensal personalizado.</DialogDescription>
+            <DialogDescription>Responda as perguntas para gerar um plano de conteúdo mensal personalizado. Dias com conteúdo existente serão preservados.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {totalContent > 0 && (
+              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
+                ⚠️ Você já tem {totalContent} posts. A IA vai preencher apenas os {emptyDaysCount} dias vazios.
+              </div>
+            )}
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">🎯 Qual o objetivo do conteúdo este mês?</Label>
               <Input
