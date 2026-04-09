@@ -49,8 +49,20 @@ interface ContentItem {
   cross_platforms?: string[];
 }
 
+interface WeekSummary {
+  focus?: string;
+  event?: string;
+}
+
 interface WeekPlan { [day: string]: ContentItem[]; }
-interface MonthlyPlan { semana_1: WeekPlan; semana_2: WeekPlan; semana_3: WeekPlan; semana_4: WeekPlan; }
+interface MonthlyPlan {
+  semana_1: WeekPlan;
+  semana_2: WeekPlan;
+  semana_3: WeekPlan;
+  semana_4: WeekPlan;
+  week_labels?: Record<string, string>;
+  week_summaries?: Record<string, WeekSummary>;
+}
 
 function migrateToMonthly(plan: any): MonthlyPlan {
   const empty: WeekPlan = {};
