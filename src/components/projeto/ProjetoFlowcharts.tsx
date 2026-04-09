@@ -342,6 +342,7 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
               {/* Nodes */}
               {active.nodes.map(node => {
                 const style = TYPE_STYLES[node.type] || TYPE_STYLES.etapa;
+                const isImage = node.type === "imagem";
                 return (
                   <div
                     key={node.id}
@@ -357,13 +358,17 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
                           onChange={e => updateNode(node.id, { title: e.target.value })}
                           className="h-6 text-xs font-semibold bg-transparent border-none p-0 focus-visible:ring-0"
                         />
-                        <Textarea
-                          value={node.subtitle || ""}
-                          onChange={e => updateNode(node.id, { subtitle: e.target.value })}
-                          placeholder="Descrição..."
-                          className="mt-1 text-[10px] bg-transparent border-none p-0 min-h-[24px] resize-none focus-visible:ring-0 text-muted-foreground"
-                          rows={2}
-                        />
+                        {isImage && node.image_url ? (
+                          <img src={node.image_url} alt={node.title} className="mt-1 rounded max-h-32 w-full object-cover" />
+                        ) : (
+                          <Textarea
+                            value={node.subtitle || ""}
+                            onChange={e => updateNode(node.id, { subtitle: e.target.value })}
+                            placeholder="Descrição..."
+                            className="mt-1 text-[10px] bg-transparent border-none p-0 min-h-[24px] resize-none focus-visible:ring-0 text-muted-foreground"
+                            rows={2}
+                          />
+                        )}
                       </div>
                       <div className="flex flex-col gap-1 items-center">
                         <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab" />
@@ -380,7 +385,10 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
                     </div>
                     {/* Type badge */}
                     <div className="flex items-center justify-between mt-2">
-                      <Badge variant="outline" className="text-[9px] h-4">{style.label}</Badge>
+                      <Badge variant="outline" className="text-[9px] h-4">
+                        {isImage && <ImageIcon className="h-2 w-2 mr-0.5 inline" />}
+                        {style.label}
+                      </Badge>
                       {/* Connect dot */}
                       <div
                         className="connect-dot h-4 w-4 rounded-full bg-primary/60 hover:bg-primary cursor-crosshair flex items-center justify-center"
@@ -393,6 +401,17 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
                 );
               })}
             </div>
+            {/* Minimap */}
+            <FlowMinimap
+              nodes={active.nodes}
+              pan={pan}
+              zoom={zoom}
+              canvasW={CANVAS_W}
+              canvasH={CANVAS_H}
+              viewportW={canvasRef.current?.parentElement?.clientWidth || 800}
+              viewportH={520}
+              onPanChange={setPan}
+            />
           </div>
         </>
       ) : (
