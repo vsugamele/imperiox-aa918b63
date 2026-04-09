@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
@@ -24,6 +25,7 @@ interface ContentItem {
   description: string;
   copy?: string;
   hashtags?: string;
+  cross_platforms?: string[];
 }
 
 interface WeekPlan {
@@ -43,8 +45,8 @@ interface Props {
   onUpdateData: (data: any) => void;
 }
 
-const PLATFORMS = ["Instagram", "YouTube", "TikTok", "LinkedIn", "Blog", "Email", "WhatsApp"];
-const CONTENT_TYPES = ["Post", "Reels", "Story", "Live", "Artigo", "Email", "Vídeo", "Carousel"];
+const ALL_PLATFORMS = ["Instagram", "YouTube", "TikTok", "LinkedIn", "Blog", "Email", "WhatsApp"];
+const CONTENT_TYPES = ["Post", "Reels", "Story", "Live", "Artigo", "Email", "Vídeo", "Carousel", "Video Longo"];
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
 const WEEK_LABELS = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
@@ -63,6 +65,13 @@ const TYPE_COLORS: Record<string, string> = {
   Email: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   Vídeo: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
   Carousel: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+  "Video Longo": "bg-cyan-600/20 text-cyan-300 border-cyan-600/30",
+};
+
+// Map briefing link keys to platform names
+const LINK_TO_PLATFORM: Record<string, string> = {
+  instagram: "Instagram", youtube: "YouTube", tiktok: "TikTok",
+  linkedin: "LinkedIn", blog: "Blog", whatsapp: "WhatsApp",
 };
 
 function migrateToMonthly(plan: any): MonthlyPlan {
