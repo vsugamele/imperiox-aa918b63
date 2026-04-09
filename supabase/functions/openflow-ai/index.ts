@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
     // ── Mentes IA Personality Lookup ──
@@ -142,7 +142,7 @@ serve(async (req) => {
     // Route by action — pass mentePrefix for personality injection
     if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content") return await handleGenerateContent(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index);
     if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_kpis") return await handleKPIs(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
@@ -270,9 +270,57 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number) {
+  // Enrich context with scraped website content via Firecrawl
+  let scrapedContext = "";
+  try {
+    const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+    const produtos = Array.isArray(d.produtos) ? d.produtos : [];
+    
+    // Get product links to scrape
+    const productLinks: string[] = [];
+    if (typeof productIndex === "number" && produtos[productIndex]) {
+      const prod = produtos[productIndex];
+      if (prod.checkout_urls) {
+        const urls = Array.isArray(prod.checkout_urls) ? prod.checkout_urls : [prod.checkout_urls];
+        productLinks.push(...urls.map((u: any) => typeof u === "string" ? u : u.url).filter(Boolean));
+      }
+      if (prod.links) {
+        const links = typeof prod.links === "object" ? Object.values(prod.links) : [];
+        productLinks.push(...(links as string[]).filter(Boolean));
+      }
+    }
+    // Also try project-level links
+    if (d.links) {
+      const projLinks = Object.values(d.links).filter(v => v && String(v).trim() !== "" && String(v).startsWith("http")) as string[];
+      productLinks.push(...projLinks);
+    }
+
+    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+    if (firecrawlKey && productLinks.length > 0) {
+      const uniqueUrls = [...new Set(productLinks)].slice(0, 2);
+      for (const url of uniqueUrls) {
+        try {
+          console.log("Scraping URL for copy arsenal:", url);
+          const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
+          });
+          if (scrapeRes.ok) {
+            const scrapeData = await scrapeRes.json();
+            const md = scrapeData?.data?.markdown || scrapeData?.markdown || "";
+            if (md) scrapedContext += `\n### Conteúdo de ${url}:\n${md.slice(0, 2000)}\n`;
+          }
+        } catch (e) { console.error("Firecrawl scrape error:", e); }
+      }
+    }
+  } catch (e) { console.error("Error preparing scrape context:", e); }
+
+  const fullCtx = scrapedContext ? `${ctx}\n\n## Conteúdo scraped do site do produto:\n${scrapedContext}` : ctx;
+
   const arsenal = await callAI(
-    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.\n${ctx}\nREGRAS: Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.`,
+    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.\n${fullCtx}\nREGRAS: Use linguagem persuasiva, emocional e direta. Seja específico para este projeto. Se houver conteúdo scraped do site, use-o para criar copy mais precisa e alinhada à página real do produto.`,
     "Gere o Arsenal de Copy completo.",
     apiKey, model,
     [{ type: "function", function: { name: "generate_copy_arsenal", description: "Generate copy arsenal", parameters: { type: "object", properties: { promessa: { type: "array", items: { type: "string" } }, inimigo_comum: { type: "array", items: { type: "string" } }, efeito_colateral: { type: "array", items: { type: "string" } }, oportunidade: { type: "array", items: { type: "string" } }, metodo_simplificado: { type: "array", items: { type: "string" } }, hora_do_show: { type: "array", items: { type: "string" } } }, required: ["promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo_simplificado", "hora_do_show"], additionalProperties: false } } }],

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, ChevronDown, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { AIGenerateButton } from "./AIGenerateButton";
@@ -20,9 +21,15 @@ interface Props {
   arsenal: Record<string, string | string[]>;
   onChange: (updated: Record<string, string | string[]>) => void;
   projectId?: string;
+  produtos?: any[];
 }
 
-export function CopyArsenalSection({ arsenal, onChange, projectId }: Props) {
+export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = [] }: Props) {
+  const [selectedProductIndex, setSelectedProductIndex] = useState<string>("");
+
+  const productNames = useMemo(() => {
+    return Array.isArray(produtos) ? produtos.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
+  }, [produtos]);
   const getVariations = (key: string): string[] => {
     const val = arsenal[key];
     if (!val) return [""];
@@ -78,16 +85,30 @@ export function CopyArsenalSection({ arsenal, onChange, projectId }: Props) {
           </Button>
         </CollapsibleTrigger>
         {projectId && (
-          <AIGenerateButton
-            projectId={projectId}
-            action="generate_copy_arsenal"
-            onResult={handleAIResult}
-            contextSources={["Avatar", "Branding", "Produtos", "Concorrentes", "Pesquisa"]}
-            fieldsToFill={COPY_BLOCKS.map(b => b.label)}
-            label="Gerar com IA"
-            size="sm"
-            showMenteSelector={true}
-          />
+          <div className="flex items-center gap-2">
+            {productNames.length > 1 && (
+              <Select value={selectedProductIndex} onValueChange={setSelectedProductIndex}>
+                <SelectTrigger className="h-7 text-[10px] w-[140px]"><SelectValue placeholder="Produto" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos</SelectItem>
+                  {productNames.map((name: string, i: number) => (
+                    <SelectItem key={i} value={String(i)}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <AIGenerateButton
+              projectId={projectId}
+              action="generate_copy_arsenal"
+              onResult={handleAIResult}
+              contextSources={["Avatar", "Branding", "Produtos", "Concorrentes", "Pesquisa"]}
+              fieldsToFill={COPY_BLOCKS.map(b => b.label)}
+              label="Gerar com IA"
+              size="sm"
+              showMenteSelector={true}
+              extraBody={selectedProductIndex !== "" ? { product_index: parseInt(selectedProductIndex) } : undefined}
+            />
+          </div>
         )}
       </div>
       <CollapsibleContent className="pt-3">

@@ -524,6 +524,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   arsenal={p.copy_arsenal || {}}
                   onChange={(updated) => updateProduto(i, "copy_arsenal", updated)}
                   projectId={project.id}
+                  produtos={produtos}
                 />
               </div>
             );
