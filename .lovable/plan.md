@@ -1,34 +1,35 @@
 
 
-# Plano: Minimap + Importador de HTML/CSS/Imagem no Fluxograma
+# Plano: Fix RLS de templates + Debug envio Evolution API
 
-## 1. Minimap
+## 3 problemas encontrados
 
-Renderizar um pequeno `<canvas>` ou `<div>` no canto inferior direito do canvas (estilo Google Docs / Figma) que mostra uma visao reduzida de todos os nos. Um retangulo semitransparente indica a area visivel (viewport). Clicar/arrastar no minimap atualiza o `pan` para navegar rapidamente.
+### 1. Template RLS — `user_id` nao enviado no INSERT
 
-**Implementacao**: Componente interno `FlowMinimap` que recebe `nodes`, `pan`, `zoom`, `canvasSize` e `viewportSize`. Renderiza nos como retangulos coloridos em escala reduzida (~150x100px). O viewport indicator e um retangulo com borda primaria.
+A tabela `imphq_wa_templates` tem RLS com policy `auth.uid() = user_id`. Mas o INSERT na linha 195 de `WhatsAppPage.tsx` **nao inclui `user_id`**. Como `user_id` fica `NULL`, a policy falha porque `auth.uid() != NULL`.
 
-## 2. Importador de HTML/CSS/Imagem
+**Fix**: Adicionar `user_id: (await supabase.auth.getUser()).data.user?.id` no insert. Fazer o mesmo no `FlowEditor.tsx` (linha 82).
 
-Botao "Importar" na toolbar que abre um dialog com 2 opcoes:
+### 2. Disparo em massa sem contatos
 
-**a) HTML/CSS**: Upload de arquivo `.html`. O front faz parse do DOM (via `DOMParser`) para extrair `<div>`, `<section>`, `<h1-h6>`, listas, etc. e converte em nos do fluxograma automaticamente:
-- Cada secao/div principal vira um no "etapa"
-- Headers viram titulo do no
-- Paragrafos viram subtitulo
-- Posiciona automaticamente em grid (top-down, left-to-right)
+A imagem mostra "Contatos (0/0)" — o `BulkSendDialog` busca leads de `imphq_leads` com telefone preenchido. Se nao ha leads com telefone cadastrado, nao aparece nenhum. Isso nao e bug, e ausencia de dados. Mas podemos melhorar permitindo colar numeros manualmente.
 
-**b) Imagem**: Upload de PNG/JPG. A imagem e adicionada como um no especial tipo "imagem" (novo tipo) com a imagem renderizada dentro. Usa Supabase Storage para upload e exibe a URL no no.
+### 3. Evolution API — envio de mensagem
 
-## Arquivos
+A edge function `whatsapp-api` usa `sendEvolution` com endpoint `/message/sendText/{instance_name}`. Pela imagem a instancia "JP Freitas" esta conectada. Preciso verificar se a URL e API key do provider estao corretas no banco, e checar logs de erro.
+
+## Mudancas
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/projeto/ProjetoFlowcharts.tsx` | Adicionar `FlowMinimap` + botao Importar + dialog de importacao + novo tipo "imagem" |
+| `src/pages/WhatsAppPage.tsx` | Incluir `user_id` no insert de templates |
+| `src/components/openflow/FlowEditor.tsx` | Incluir `user_id` no insert de templates |
+| `src/components/whatsapp/BulkSendDialog.tsx` | Adicionar campo para colar numeros manualmente |
+| `supabase/functions/whatsapp-api/index.ts` | Adicionar logs de debug no sendEvolution para diagnosticar falhas |
 
 ## Ordem
 
-1. Implementar minimap com viewport indicator
-2. Adicionar dialog de importacao com parse HTML e upload de imagem
-3. Novo tipo de no "imagem" para exibir imagens importadas
+1. Fix insert de templates (user_id) — resolve o erro RLS imediatamente
+2. Adicionar campo manual de numeros no disparo em massa
+3. Testar Evolution API via curl para diagnosticar o envio
 
