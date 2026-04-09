@@ -112,7 +112,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const data = project.data || {};
   const monthlyPlan = migrateToMonthly(data.content_plan);
-  const currentWeekPlan: WeekPlan = monthlyPlan[activeWeek as keyof MonthlyPlan] || {};
+  const currentWeekPlan: WeekPlan = (monthlyPlan as any)[activeWeek] || {};
   const expertNotes: string = data.expert_notes || "";
   const shareToken: string = data.expert_share_token || "";
   // Support both old single string and new array format
