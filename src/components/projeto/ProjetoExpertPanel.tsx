@@ -110,6 +110,24 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const shareToken: string = data.expert_share_token || "";
   const contentObjective: string = data.content_objective || "";
 
+  // Derive active platforms from briefing links
+  const PLATFORMS = useMemo(() => {
+    const links = data.links || {};
+    const active = Object.entries(links)
+      .filter(([_, v]) => v && String(v).trim() !== "")
+      .map(([k]) => LINK_TO_PLATFORM[k.toLowerCase()])
+      .filter(Boolean) as string[];
+    // Always include Email
+    if (!active.includes("Email")) active.push("Email");
+    return active.length > 1 ? active : ALL_PLATFORMS;
+  }, [data.links]);
+
+  // Product list from briefing
+  const products = useMemo(() => {
+    const prods = data.produtos || [];
+    return Array.isArray(prods) ? prods.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
+  }, [data.produtos]);
+
   useEffect(() => {
     const now = new Date();
     const weekEnd = addDays(now, 7);
