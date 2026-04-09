@@ -158,9 +158,11 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, content_plan: plan });
   }, [data, onUpdateData]);
 
+  const getWeekPlan = (wk: string): WeekPlan => (monthlyPlan as any)[wk] || {};
+
   const addContentItem = (day: string) => {
     const plan = { ...monthlyPlan };
-    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    const week = { ...getWeekPlan(activeWeek) };
     const items = [...(week[day] || [])];
     items.push({ id: crypto.randomUUID(), platform: "Instagram", type: "Post", description: "" });
     week[day] = items;
@@ -170,7 +172,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const updateContentItem = (day: string, itemId: string, patch: Partial<ContentItem>) => {
     const plan = { ...monthlyPlan };
-    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    const week = { ...getWeekPlan(activeWeek) };
     week[day] = (week[day] || []).map(item => item.id === itemId ? { ...item, ...patch } : item);
     (plan as any)[activeWeek] = week;
     updateMonthlyPlan(plan);
@@ -178,7 +180,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const removeContentItem = (day: string, itemId: string) => {
     const plan = { ...monthlyPlan };
-    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    const week = { ...getWeekPlan(activeWeek) };
     week[day] = (week[day] || []).filter(item => item.id !== itemId);
     (plan as any)[activeWeek] = week;
     updateMonthlyPlan(plan);
