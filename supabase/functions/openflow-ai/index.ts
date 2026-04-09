@@ -121,7 +121,7 @@ serve(async (req) => {
     if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
     if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
     if (action === "analyze_lead") return await handleAnalyzeLead(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
-    if (action === "generate_content_plan") return await handleContentPlan(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_content_plan") return await handleContentPlan(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, body);
     if (action === "generate_expert_notes") return await handleExpertNotes(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
 
     // Default: automation flow generation

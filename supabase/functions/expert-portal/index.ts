@@ -47,6 +47,7 @@ serve(async (req) => {
       project_name: project.name,
       expert: d.expert || null,
       content_plan: d.content_plan || {},
+      content_objective: d.content_objective || "",
       expert_notes: d.expert_notes || "",
       brand_kit: project.brand_kit || {},
       events: evRes.data || [],
