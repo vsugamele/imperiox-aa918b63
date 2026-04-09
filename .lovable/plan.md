@@ -1,52 +1,35 @@
 
 
-# Plano: Link Publico do Expert + IA para Alimentar Painel
+# Plano: Melhorar Painel Expert — Cards claros, perguntas na IA, conteudo mensal
 
-## Duas funcionalidades
+## 3 melhorias pedidas
 
-### 1. Link publico compartilhavel para o Expert
-Uma pagina publica (sem login) bonita e read-only onde o expert ve tudo que precisa: agenda, tarefas, plano de conteudo, notas e processos. Voce copia o link e manda pro expert no WhatsApp.
+### 1. Cards de conteudo mais claros + perguntas antes de gerar com IA
+Hoje o card do conteudo mostra apenas plataforma/tipo/descricao em texto minusculo (8px). E o botao "Gerar Plano com IA" nao faz perguntas — gera direto sem saber o objetivo do movimento.
 
-### 2. Botao de IA para gerar plano de conteudo semanal
-Um `AIGenerateButton` que usa o contexto do projeto (avatar, expert, briefing, brand) para gerar automaticamente o plano de conteudo da semana com sugestoes de posts por dia/plataforma.
+**Solucao:**
+- Redesenhar os cards de conteudo com icones por plataforma, cores por tipo, e layout mais legivel
+- Adicionar campo "Objetivo do Movimento" no topo do plano de conteudo (ex: "Lançamento do produto X", "Aquecimento para webinar") — salvo em `data.content_objective`
+- No dialog do AIGenerateButton para `generate_content_plan`, adicionar perguntas antes de gerar:
+  - "Qual o objetivo do conteudo?" (texto livre)
+  - "Frequencia de posts por dia?" (1-3)
+  - "Plataformas prioritarias?" (multi-select)
+- Essas respostas sao enviadas como `extraBody` para a edge function e injetadas no prompt da IA
+- Botao "Consultar Mentes Sinteticas" que pre-seleciona a mente e gera sugestoes estrategicas antes do plano
 
----
+### 2. Objetivo do movimento de conteudo
+- Campo editavel no topo da secao de conteudo: "🎯 Objetivo do Movimento"
+- Placeholder: "Ex: Aquecimento para lancamento, Autoridade no nicho, Captacao de leads..."
+- Salvo em `data.content_objective`
+- Injetado automaticamente no prompt da IA ao gerar plano
 
-## Funcionalidade 1: Pagina Publica do Expert
-
-### Como funciona
-- Cada projeto ganha um **token publico** (UUID curto) salvo em `imphq_projects.data.expert_share_token`
-- Rota publica: `/expert/:token` (fora do ProtectedRoute)
-- Edge function `expert-portal` busca os dados do projeto pelo token (sem autenticacao)
-- Pagina bonita, responsiva, read-only com: nome do projeto, logo, agenda, tarefas, plano de conteudo, notas, processos
-- No Painel Expert interno, botao "🔗 Copiar Link do Expert" que gera o token (se nao existir) e copia a URL
-
-### Seguranca
-- Token aleatorio (UUID) — nao expoe o project_id
-- Apenas dados necessarios sao retornados (nao envia financeiro, leads, etc)
-- Pode revogar/regenerar o token a qualquer momento
-
-### Visual da pagina publica
-- Header com nome do projeto + icone
-- Cards com KPIs (eventos, tarefas, posts)
-- Agenda da semana
-- Plano de conteudo semanal (grid 7 colunas)
-- Notas/instrucoes
-- Footer discreto "Powered by Imperio HQ"
-- Dark theme consistente com o sistema
-
----
-
-## Funcionalidade 2: IA no Painel Expert
-
-### Botao "Gerar Plano com IA"
-- Usa `AIGenerateButton` com action `generate_content_plan`
-- Contexto injetado: briefing, expert (tom de voz, temas), avatar (dores, desejos), brand_kit (plataformas ativas)
-- Prompt gera 7 dias de conteudo com plataforma + tipo + tema para cada dia
-- Resultado preenche o `content_plan` automaticamente
-
-### Botao "Gerar Instrucoes com IA"
-- Gera as notas/instrucoes da semana baseado no contexto do projeto e tarefas pendentes
+### 3. Plano mensal (4 semanas) em vez de semanal
+- Trocar grid de 7 colunas (seg-dom) por navegacao de **4 semanas**
+- Tabs ou selector: "Semana 1 | Semana 2 | Semana 3 | Semana 4"
+- Cada semana tem os 7 dias com cards de conteudo
+- Armazenamento: `data.content_plan` muda de `{seg: [], ter: []}` para `{semana_1: {seg: [], ter: []}, semana_2: {...}, ...}`
+- A IA gera o mes inteiro de uma vez (4 semanas)
+- O portal publico do expert tambem mostra as 4 semanas com navegacao
 
 ---
 
@@ -54,18 +37,16 @@ Um `AIGenerateButton` que usa o contexto do projeto (avatar, expert, briefing, b
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/expert-portal/index.ts` | **Nova** — Edge function que retorna dados publicos do projeto pelo token |
-| `src/pages/ExpertPortal.tsx` | **Nova** — Pagina publica bonita read-only |
-| `src/App.tsx` | Adicionar rota `/expert/:token` fora do ProtectedRoute |
-| `src/components/projeto/ProjetoExpertPanel.tsx` | Adicionar botao "Copiar Link" + botoes de IA para gerar conteudo/notas |
-| `supabase/functions/openflow-ai/index.ts` | Adicionar handler para action `generate_content_plan` e `generate_expert_notes` |
+| `src/components/projeto/ProjetoExpertPanel.tsx` | Redesenhar cards, adicionar objetivo, navegacao mensal (4 semanas), perguntas pre-IA |
+| `supabase/functions/openflow-ai/index.ts` | Atualizar `handleContentPlan` para aceitar objetivo + preferencias e gerar 4 semanas |
+| `src/pages/ExpertPortal.tsx` | Atualizar portal publico para exibir 4 semanas com navegacao |
+| `supabase/functions/expert-portal/index.ts` | Incluir `content_objective` na resposta |
 
 ## Ordem
 
-1. Edge function `expert-portal` (busca projeto por token, retorna dados filtrados)
-2. Pagina publica `ExpertPortal.tsx` com layout bonito
-3. Rota publica no App.tsx
-4. Botao "Copiar Link" no ProjetoExpertPanel (gera token se necessario)
-5. Handlers de IA para gerar plano de conteudo e instrucoes
-6. Botoes de IA no painel interno
+1. Atualizar estrutura de dados para mensal (4 semanas) no ExpertPanel
+2. Adicionar campo "Objetivo do Movimento" e perguntas pre-IA
+3. Redesenhar cards de conteudo com icones e cores
+4. Atualizar edge function para gerar plano mensal com objetivo
+5. Atualizar portal publico para exibir 4 semanas
 
