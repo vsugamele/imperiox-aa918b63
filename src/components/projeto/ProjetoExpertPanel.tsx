@@ -89,7 +89,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiObjective, setAiObjective] = useState("");
   const [aiFrequency, setAiFrequency] = useState("2");
+  const [aiProductName, setAiProductName] = useState("");
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
 
   // Card detail modal state
   const [detailModalOpen, setDetailModalOpen] = useState(false);
