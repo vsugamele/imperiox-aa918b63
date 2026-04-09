@@ -1,35 +1,35 @@
 
 
-# Plano: Fix RLS de templates + Debug envio Evolution API
+# Plano: Mostrar Formulario de Captura + Filtro por Formulario nos Leads
 
-## 3 problemas encontrados
+## Sobre deduplicacao
 
-### 1. Template RLS — `user_id` nao enviado no INSERT
+Sim, os leads sao deduplicados por email. Quando um lead ja existe, o `capture-lead` faz UPDATE em vez de INSERT — merges nome, telefone, tags, e acumula interacoes no campo `data.interacoes`. Cada formulario preenchido adiciona uma nova entrada. Entao quanto mais o lead interage, mais dados ele acumula.
 
-A tabela `imphq_wa_templates` tem RLS com policy `auth.uid() = user_id`. Mas o INSERT na linha 195 de `WhatsAppPage.tsx` **nao inclui `user_id`**. Como `user_id` fica `NULL`, a policy falha porque `auth.uid() != NULL`.
+## O que falta na interface
 
-**Fix**: Adicionar `user_id: (await supabase.auth.getUser()).data.user?.id` no insert. Fazer o mesmo no `FlowEditor.tsx` (linha 82).
+### 1. Coluna "Formulario" na tabela de leads
 
-### 2. Disparo em massa sem contatos
+Os dados ja existem no lead: `data.form_name` e `data.form_id`. Basta extrair e exibir como uma nova coluna apos "Projeto". Mostrara o nome do formulario que capturou o lead (ex: "Teste", "Pesquisa Low Ticket").
 
-A imagem mostra "Contatos (0/0)" — o `BulkSendDialog` busca leads de `imphq_leads` com telefone preenchido. Se nao ha leads com telefone cadastrado, nao aparece nenhum. Isso nao e bug, e ausencia de dados. Mas podemos melhorar permitindo colar numeros manualmente.
+### 2. Filtro por Formulario
 
-### 3. Evolution API — envio de mensagem
+Adicionar um `Select` de filtro com a lista de formularios existentes (buscar de `imphq_capture_forms`). Filtrar leads cujo `data->form_id` bate com o selecionado. Como o filtro e sobre um campo JSONB, aplicar no frontend (ja temos os leads carregados) ou usar `.filter()` no `contains`.
 
-A edge function `whatsapp-api` usa `sendEvolution` com endpoint `/message/sendText/{instance_name}`. Pela imagem a instancia "JP Freitas" esta conectada. Preciso verificar se a URL e API key do provider estao corretas no banco, e checar logs de erro.
+### 3. Exibir formulario no detalhe do lead
+
+No painel lateral de edicao do lead, mostrar qual formulario o capturou (nome + step) de forma visivel, alem de ja estar na aba Qualificacao.
 
 ## Mudancas
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/WhatsAppPage.tsx` | Incluir `user_id` no insert de templates |
-| `src/components/openflow/FlowEditor.tsx` | Incluir `user_id` no insert de templates |
-| `src/components/whatsapp/BulkSendDialog.tsx` | Adicionar campo para colar numeros manualmente |
-| `supabase/functions/whatsapp-api/index.ts` | Adicionar logs de debug no sendEvolution para diagnosticar falhas |
+| `src/pages/Leads.tsx` | Nova coluna "Formulario" na tabela, novo state `formFilter`, buscar `imphq_capture_forms` no load, filtro Select, exibir no detalhe |
 
 ## Ordem
 
-1. Fix insert de templates (user_id) — resolve o erro RLS imediatamente
-2. Adicionar campo manual de numeros no disparo em massa
-3. Testar Evolution API via curl para diagnosticar o envio
+1. Buscar lista de formularios no load inicial
+2. Adicionar coluna "Formulario" na tabela (extrair de `data.form_name`)
+3. Adicionar filtro Select por formulario
+4. Mostrar info do formulario no painel de detalhe do lead
 
