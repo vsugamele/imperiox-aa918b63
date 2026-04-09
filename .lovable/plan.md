@@ -1,42 +1,39 @@
 
 
-# Plano: Continuar tarefas pendentes + Scraping de site no Arsenal de Copy
+# Plano: Objetivo com multiplos bullets + Inspiracoes do DOCX no Painel Expert
 
-## 1. Arsenal de Copy com scraping do site do produto
+## 1. Objetivo do Movimento — multiplos bullets
 
-Hoje o botao "Gerar com IA" no `CopyArsenalSection` envia action `generate_copy_arsenal` para a edge function, que usa apenas o contexto do projeto (avatar, briefing, etc). **Nao le o site do produto.**
+Hoje o campo "Objetivo do Movimento" e um unico `Input`. Trocar por um sistema de lista onde o usuario pode adicionar varios bullets (ex: "Aquecimento para lancamento", "Captacao via Low Ticket", "Construir autoridade no nicho").
 
-**Solucao**: Antes de chamar a IA, a edge function usa Firecrawl (ja configurado em `expert-research`) para fazer scrape dos links do produto. O conteudo scraped e injetado no prompt como contexto adicional.
+**Mudanca**: Trocar o `Input` por uma lista editavel com botao "+ Adicionar". Cada bullet tem campo de texto + botao de remover. Salvar como `content_objectives: string[]` (com migracao do campo antigo `content_objective: string`).
 
-### Mudancas
+## 2. Fases semanais inspiradas no DOCX
 
-**`CopyArsenalSection.tsx`**: Passar `product_index` como `extraBody` para indicar qual produto gerar. Se houver mais de 1 produto, mostrar select para escolher.
+O documento mostra que cada semana tem uma **fase estrategica** (Sem 1: Atracao, Sem 2: Autoridade + Live, Sem 3: Objecoes, Sem 4: Lancamento). Adicionar campo de **nome/fase** para cada semana nas tabs (ex: "Semana 1 — Atracao").
 
-**`supabase/functions/openflow-ai/index.ts`** — `handleCopyArsenal`:
-- Receber `product_index` ou `product_name` do body
-- Buscar `d.produtos[index].links` (array de URLs do produto)
-- Chamar Firecrawl scrape em cada URL (max 2, formato markdown, truncado a 2000 chars cada)
-- Injetar o conteudo scraped no system prompt antes de gerar o arsenal
-- Fallback: se Firecrawl nao estiver configurado, gerar normalmente sem scraping
+**Mudanca**: Adicionar campo editavel `week_labels` ao `MonthlyPlan`. Exibir como subtitulo na tab de cada semana. A IA tambem deve gerar os nomes das fases.
 
-Logica:
-```
-// Dentro de handleCopyArsenal
-const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
-if (firecrawlKey && productLinks.length > 0) {
-  for (const url of productLinks.slice(0, 2)) {
-    const scraped = await fetch('https://api.firecrawl.dev/v1/scrape', { ... });
-    scrapedContent += scraped.data.markdown.slice(0, 2000);
-  }
-  ctx += `\n## Conteudo do site do produto:\n${scrapedContent}\n`;
-}
-```
+## 3. Resumo semanal com KPIs do DOCX
 
-## 2. Mini-calendario no Painel Expert e Portal Publico (tarefa pendente)
+O documento tem tabela de resumo por semana (posts/semana, plataformas ativas, foco estrategico, evento central). Adicionar mini-resumo no topo de cada semana.
 
-**`ProjetoExpertPanel.tsx`**: Adicionar componente `Calendar` do shadcn acima das semanas. Dias com conteudo planejado recebem um dot colorido. Clicar num dia faz scroll para a semana correspondente.
+**Mudanca**: Adicionar campo `week_summary` (objeto com posts_count, focus, event) por semana. Exibir como barra de info compacta acima dos dias.
 
-**`ExpertPortal.tsx`**: Mesmo mini-calendario + adicionar `cross_platforms` badges e tipo "Video Longo" nos cards (sincronizar com o painel interno).
+## 4. Guia de producao no painel
+
+O documento tem rotina semanal de producao (domingo gravar, terca subir YT, etc) e formatos por plataforma. Adicionar secao "Guia de Producao" com notas editaveis.
+
+**Mudanca**: Usar o campo `expert_notes` existente, mas adicionar templates pre-populados pela IA baseados no DOCX (rotina semanal, formatos por plataforma).
+
+## 5. Prompt da IA enriquecido
+
+Atualizar o prompt de geracao de plano de conteudo na edge function para gerar:
+- Fases por semana (nome + foco)
+- Resumo semanal (KPIs esperados)
+- Stories diarios detalhados (bastidor, caixinha, repost)
+- Estrutura de lives/webinarios quando aplicavel
+- `content_objectives` como lista no prompt
 
 ---
 
@@ -44,14 +41,14 @@ if (firecrawlKey && productLinks.length > 0) {
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/projeto/CopyArsenalSection.tsx` | Select de produto + passar product_index no extraBody |
-| `supabase/functions/openflow-ai/index.ts` | handleCopyArsenal recebe product_index, scrape via Firecrawl, injetar conteudo no prompt |
-| `src/components/projeto/ProjetoExpertPanel.tsx` | Mini-calendario com dots nos dias com conteudo |
-| `src/pages/ExpertPortal.tsx` | Mini-calendario + cross_platforms + Video Longo |
+| `src/components/projeto/ProjetoExpertPanel.tsx` | Campo de objetivos com multiplos bullets, labels de fase por semana, mini-resumo semanal |
+| `src/pages/ExpertPortal.tsx` | Exibir multiplos objetivos + fases semanais |
+| `supabase/functions/openflow-ai/index.ts` | Prompt enriquecido para gerar fases, resumos semanais, objetivos multiplos |
 
 ## Ordem
 
-1. Scraping + select de produto no Arsenal de Copy (edge function + frontend)
-2. Mini-calendario no Painel Expert
-3. Sincronizar ExpertPortal com melhorias visuais
+1. Trocar campo de objetivo por lista de bullets editavel
+2. Adicionar labels de fase e resumo por semana
+3. Atualizar prompt da IA para gerar estrutura mais rica
+4. Sincronizar portal publico
 
