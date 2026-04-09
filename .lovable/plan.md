@@ -1,49 +1,46 @@
 
 
-# Plano: Corrigir bugs restantes da maquina de estados + atualizar HubGuide
+# Plano: Filtros Expert no Kanban + Contexto de Produto na IA + Melhorias no Painel Expert
 
-## Bugs encontrados no codigo atual
+## 9 melhorias solicitadas
 
-### Bug 1: `!qrAvailable` vs `qrAvailable === false`
-Linha 230: `sessionStatus === "connected" && !qrAvailable` — quando `qrAvailable` e `undefined` (worker nao enviou o campo), `!undefined` e `true`. Isso faz o front mostrar "Conectado" mesmo sem confirmacao de que nao ha QR pendente.
+### 1. Kanban Expert: mostrar apenas tarefas atribuidas
 
-**Fix**: trocar `!qrAvailable` por `qrAvailable !== true` nao resolve. O correto e exigir `qrAvailable === false` (strict) ou unificar com a checagem da linha 227.
+Hoje a aba "experts" agrupa TODOS os cards por nome do expert do projeto — mesmo cards sem atribuicao. Fix: filtrar na aba experts apenas cards que tenham `member_id` preenchido OU que pertencam ao board "experts", excluindo cards sem vinculo ao expert.
 
-### Bug 2: `qrAvailable === true` mas `hasRealQr === false`
-Quando o worker seta `qrAvailable: true` mas a imagem ainda nao chegou (payload parcial), nenhuma condicao pega esse caso. Cai no fallback (awaiting_qr ou stale). Deveria mostrar "awaiting_qr" com indicacao de que o QR esta a caminho.
+### 2. Filtro por Produto no Kanban
 
-### Bug 3: Check inicial no mount sobrescreve
-Linha 66: se `wa_hub_iso_sessions.status === "connected"`, seta `uiStatus("connected")` imediatamente. Depois, quando o usuario clica "Gerar QR" e o worker retorna `qrAvailable: true`, o polling pode nao rodar porque o `startGetQr` auto-reset so checa `stale`/`error`, nao `connected`.
+Adicionar Select "Produto" nos filtros avancados. Extrair lista de produtos de `projects[].data.produtos[].nome`. Filtrar cards cujo `project_id` pertenca a projetos que contenham aquele produto.
 
-### Bug 4: Polling para em `qr_ready`
-Linha 253: `shouldStop` inclui `qr_ready`. Isso significa que depois de mostrar o QR, o polling para e nunca detecta a transicao para `connected` apos o usuario escanear.
+### 3. Enriquecer contexto de IA com dados do produto
 
-## Solucao
+No `openflow-ai/index.ts` (linhas 69-84), o contexto NAO inclui `mecanismo`, `contexto`, `copy_arsenal` e `links` dos produtos individuais. Adicionar ao contexto:
+- Para cada produto: nome, mecanismo unico, contexto, copy_arsenal (promessa, inimigo_comum, metodo — resumido)
+- `d.links` (redes sociais ativas do briefing)
 
-### `useWaSession.ts` — 4 fixes
+### 4. IA de conteudo: selecionar produto em foco
 
-1. **Unificar checagem connected**: trocar linha 230 de `!qrAvailable` para `qrAvailable === false` (strict). Se qrAvailable for undefined, nao assumir connected.
+`handleContentPlan` recebera campo `product_name` no body. O `ProjetoExpertPanel` ganhara um Select de produto antes de gerar plano. O prompt da IA recebera os dados especificos do produto selecionado (mecanismo, contexto, copy_arsenal completo).
 
-2. **Adicionar caso `qrAvailable === true && !hasRealQr`**: entre linhas 223-224, adicionar:
-```
-else if (qrAvailable === true && !hasRealQr) {
-  nextUi = "awaiting_qr"; // QR sinalizado mas imagem nao chegou ainda
-}
-```
+### 5. Plataformas ativas baseadas no briefing
 
-3. **Nao parar polling em `qr_ready`**: remover `qr_ready` do `shouldStop`. Continuar polling para detectar `connected` apos scan. Adicionar `qr_ready` com um timeout maior (ex: 120s) para nao ficar infinito.
+Ler `data.links` do briefing para determinar quais plataformas tem URL preenchida (Instagram, YouTube, TikTok, etc). No painel do expert, filtrar `PLATFORMS` e `aiPlatforms` para mostrar apenas as ativas. Fallback: mostrar todas se nenhuma configurada.
 
-4. **Auto-reset de `connected` no `startGetQr`**: adicionar `connected` a lista de estados que fazem auto-reset antes de gerar novo QR (linha 78).
+### 6. Sugestoes de Stories diarios
 
-### `WaHubQrPanel.tsx` — Ajuste menor
-- Mostrar botao "Limpar Sessao" tambem quando `uiStatus === "idle"` e `sessionRawStatus === "connected"` (caso mount detectou sessao antiga).
+Na geracao por IA, instruir o prompt para incluir 1-2 stories por dia (bastidores, enquetes, CTA, quicktips). Tipo "Story" ja existe no `CONTENT_TYPES`.
 
-### `HubGuide.tsx` — Atualizar documentacao
-Atualizar para refletir:
-- Nova maquina de estados (6 estados: idle, resetting, pending/starting, awaiting_qr, qr_ready, connected, stale, error)
-- Regra de prioridade: QR > connected
-- Novo fluxo de reset
-- Polling continua apos QR para detectar scan
+### 7. Reels = TikTok = YouTube Shorts (cross-platform)
+
+Adicionar campo `cross_platforms?: string[]` ao `ContentItem`. Na geracao por IA, instruir que Reels sao automaticamente multi-plataforma (Instagram Reels, TikTok, YouTube Shorts). Na UI, mostrar badges das plataformas adicionais no card. Evitar duplicar o mesmo conteudo como itens separados.
+
+### 8. Videos longos para YouTube
+
+Adicionar tipo "Video Longo" ao `CONTENT_TYPES`. Na IA, videos longos sao exclusivos para YouTube com roteiro mais detalhado na descricao.
+
+### 9. Calendario visual no painel do Expert
+
+Adicionar mini-calendario (componente `Calendar` do shadcn) com indicadores nos dias que tem conteudo planejado. Ao clicar num dia, scroll/highlight para os cards daquele dia. Incluir tambem no portal publico.
 
 ---
 
@@ -51,13 +48,15 @@ Atualizar para refletir:
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/hooks/useWaSession.ts` | Fix 4 bugs: strict qrAvailable check, caso qrAvailable sem imagem, polling continua em qr_ready, auto-reset de connected |
-| `src/components/whatsapp/WaHubQrPanel.tsx` | Botao reset visivel quando sessao antiga detectada |
-| `src/components/whatsapp/HubGuide.tsx` | Atualizar guia com nova maquina de estados e regras |
+| `src/pages/KanbanPage.tsx` | Filtrar cards na aba experts (so atribuidos), adicionar filtro por Produto, expandir tipo `Filters` |
+| `supabase/functions/openflow-ai/index.ts` | Enriquecer contexto com produtos individuais (mecanismo, contexto, copy_arsenal, links), aceitar `product_name` no content plan, instruir stories e cross-platform no prompt |
+| `src/components/projeto/ProjetoExpertPanel.tsx` | Select de produto pre-IA, plataformas ativas do briefing, cross-platform badges, tipo "Video Longo", mini-calendario, campo `cross_platforms` no ContentItem |
+| `src/pages/ExpertPortal.tsx` | Mini-calendario, cross-platform badges, tipo "Video Longo" |
 
 ## Ordem
 
-1. Fix maquina de estados (useWaSession.ts)
-2. Ajustar visibilidade do botao reset (WaHubQrPanel.tsx)
-3. Atualizar HubGuide com nova documentacao
+1. Enriquecer contexto de IA com dados de produto + ajustar prompt (`openflow-ai`)
+2. Filtros do Kanban (expert + produto)
+3. Melhorias no painel do expert (plataformas ativas, produto em foco, calendario, cross-platform, stories, video longo)
+4. Atualizar portal publico com mesmas melhorias visuais
 
