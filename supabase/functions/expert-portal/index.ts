@@ -18,7 +18,6 @@ serve(async (req) => {
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Find project by expert_share_token inside data JSONB
     const { data: projects, error } = await sb
       .from("imphq_projects")
       .select("id, name, data, avatar, brand_kit")
@@ -32,17 +31,29 @@ serve(async (req) => {
     const project = projects[0];
     const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
 
-    // Fetch related data
     const now = new Date();
     const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const [evRes, taskRes, procRes] = await Promise.all([
       sb.from("imphq_calendar_events").select("id, title, start_date, end_date, type").eq("project_id", project.id).gte("start_date", now.toISOString()).lte("start_date", weekEnd.toISOString()).order("start_date"),
-      sb.from("imphq_kanban_cards").select("id, title, priority, due_date, column_id").contains("tags", [project.id]).order("position").limit(20),
+      sb.from("imphq_kanban_cards").select("id, title, priority, due_date, column_id, checklist").contains("tags", [project.id]).order("position").limit(20),
       sb.from("imphq_processes").select("id, title, name, steps").eq("project_id", project.id),
     ]);
 
-    // Build safe response (no financeiro, no leads)
+    // Enrich tasks with checklist summary
+    const tasks = (taskRes.data || []).map((t: any) => {
+      const checklist = t.checklist || [];
+      return {
+        id: t.id,
+        title: t.title,
+        priority: t.priority,
+        due_date: t.due_date,
+        column_id: t.column_id,
+        checklist_total: checklist.length,
+        checklist_done: checklist.filter((c: any) => c.done).length,
+      };
+    });
+
     const response = {
       project_name: project.name,
       expert: d.expert || null,
@@ -51,7 +62,7 @@ serve(async (req) => {
       expert_notes: d.expert_notes || "",
       brand_kit: project.brand_kit || {},
       events: evRes.data || [],
-      tasks: taskRes.data || [],
+      tasks,
       processes: (procRes.data || []).map((p: any) => ({
         id: p.id,
         title: p.title || p.name,
