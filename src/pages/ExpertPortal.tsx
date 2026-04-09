@@ -3,11 +3,30 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, CheckCircle2, Clock, FileText, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
+const WEEK_LABELS = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
+
+const PLATFORM_ICONS: Record<string, string> = {
+  Instagram: "📸", YouTube: "▶️", TikTok: "🎵", LinkedIn: "💼",
+  Blog: "📝", Email: "📧", WhatsApp: "💬",
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  Post: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  Reels: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  Story: "bg-pink-500/20 text-pink-400 border-pink-500/30",
+  Live: "bg-red-500/20 text-red-400 border-red-500/30",
+  Artigo: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  Email: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  Vídeo: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+  Carousel: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+};
 
 interface ContentItem {
   id: string;
@@ -16,11 +35,22 @@ interface ContentItem {
   description: string;
 }
 
+interface WeekPlan { [day: string]: ContentItem[]; }
+interface MonthlyPlan { semana_1: WeekPlan; semana_2: WeekPlan; semana_3: WeekPlan; semana_4: WeekPlan; }
+
+function migrateToMonthly(plan: any): MonthlyPlan {
+  const empty: WeekPlan = {};
+  if (!plan) return { semana_1: empty, semana_2: empty, semana_3: empty, semana_4: empty };
+  if (plan.semana_1) return plan as MonthlyPlan;
+  return { semana_1: plan, semana_2: empty, semana_3: empty, semana_4: empty };
+}
+
 export default function ExpertPortal() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeWeek, setActiveWeek] = useState("semana_1");
 
   useEffect(() => {
     if (!token) return;
@@ -52,27 +82,41 @@ export default function ExpertPortal() {
     </div>
   );
 
-  const contentPlan = data.content_plan || {};
-  const totalContent = DAYS.reduce((s, d) => s + (contentPlan[d]?.length || 0), 0);
-  const activePlatforms = new Set(DAYS.flatMap(d => (contentPlan[d] || []).map((i: ContentItem) => i.platform))).size;
+  const monthlyPlan = migrateToMonthly(data.content_plan);
+  const totalContent = WEEKS.reduce((total, wk) => {
+    const wp = monthlyPlan[wk] || {};
+    return total + DAYS.reduce((s, d) => s + (wp[d]?.length || 0), 0);
+  }, 0);
+  const allItems = WEEKS.flatMap(wk => {
+    const wp = monthlyPlan[wk] || {};
+    return DAYS.flatMap(d => (wp[d] || []).map((i: ContentItem) => i.platform));
+  });
+  const activePlatforms = new Set(allItems).size;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="max-w-5xl mx-auto px-4 py-6">
           <h1 className="text-2xl font-bold text-foreground">🧭 {data.project_name}</h1>
-          <p className="text-sm text-muted-foreground mt-1">Painel do Expert — visão semanal</p>
+          <p className="text-sm text-muted-foreground mt-1">Painel do Expert — planejamento mensal</p>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* Objetivo do Movimento */}
+        {data.content_objective && (
+          <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+            <Target className="h-4 w-4 text-primary flex-shrink-0" />
+            <p className="text-sm font-medium text-foreground">🎯 {data.content_objective}</p>
+          </div>
+        )}
+
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "Eventos (7d)", value: data.events?.length || 0 },
             { label: "Tarefas", value: data.tasks?.length || 0 },
-            { label: "Posts/Semana", value: totalContent },
+            { label: "Posts/Mês", value: totalContent },
             { label: "Plataformas", value: activePlatforms },
           ].map(k => (
             <Card key={k.label} className="bg-card border-border">
@@ -85,7 +129,6 @@ export default function ExpertPortal() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Agenda */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
@@ -109,7 +152,6 @@ export default function ExpertPortal() {
             </CardContent>
           </Card>
 
-          {/* Tarefas */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
@@ -159,31 +201,49 @@ export default function ExpertPortal() {
           </Card>
         )}
 
-        {/* Plano de Conteúdo */}
+        {/* Plano de Conteúdo Mensal */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📅 Plano de Conteúdo Semanal</CardTitle>
+            <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📅 Plano de Conteúdo Mensal</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-7 gap-2">
-              {DAYS.map(day => (
-                <div key={day} className="space-y-1">
-                  <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
-                  <div className="min-h-[80px] rounded border border-border bg-secondary/30 p-1 space-y-1">
-                    {(contentPlan[day] || []).map((item: ContentItem) => (
-                      <div key={item.id} className="p-1.5 rounded bg-background border border-border text-[9px] space-y-0.5">
-                        <p className="font-semibold text-primary">{item.platform}</p>
-                        <p className="text-muted-foreground">{item.type}</p>
-                        {item.description && <p>{item.description}</p>}
-                      </div>
-                    ))}
-                    {!(contentPlan[day]?.length) && (
-                      <p className="text-[8px] text-muted-foreground text-center pt-4">—</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Tabs value={activeWeek} onValueChange={setActiveWeek}>
+              <TabsList className="w-full grid grid-cols-4 mb-3">
+                {WEEKS.map((wk, i) => (
+                  <TabsTrigger key={wk} value={wk} className="text-xs">{WEEK_LABELS[i]}</TabsTrigger>
+                ))}
+              </TabsList>
+
+              {WEEKS.map(wk => {
+                const weekData = monthlyPlan[wk] || {};
+                return (
+                  <TabsContent key={wk} value={wk}>
+                    <div className="grid grid-cols-7 gap-2">
+                      {DAYS.map(day => (
+                        <div key={day} className="space-y-1">
+                          <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
+                          <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
+                            {(weekData[day] || []).map((item: ContentItem) => (
+                              <div key={item.id} className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"}`}>
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
+                                  <span className="text-[10px] font-semibold">{item.platform}</span>
+                                </div>
+                                <p className="text-[10px] opacity-80">{item.type}</p>
+                                {item.description && <p className="text-[10px] mt-0.5">{item.description}</p>}
+                              </div>
+                            ))}
+                            {!(weekData[day]?.length) && (
+                              <p className="text-[8px] text-muted-foreground text-center pt-6">—</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -202,7 +262,6 @@ export default function ExpertPortal() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border py-4 mt-8">
         <p className="text-center text-[10px] text-muted-foreground">Powered by <span className="font-semibold">Imperio HQ</span></p>
       </footer>

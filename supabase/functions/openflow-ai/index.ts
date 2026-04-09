@@ -121,7 +121,7 @@ serve(async (req) => {
     if (action === "generate_campaign_drafts") return await handleCampaignDrafts(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
     if (action === "analyze_ads_performance") return await handleAnalyzeAds(body, projectContext, projectData, sb, aiApiKey, model, aiBaseUrl);
     if (action === "analyze_lead") return await handleAnalyzeLead(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
-    if (action === "generate_content_plan") return await handleContentPlan(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_content_plan") return await handleContentPlan(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, body);
     if (action === "generate_expert_notes") return await handleExpertNotes(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
 
     // Default: automation flow generation
@@ -581,30 +581,39 @@ REGRAS:
   return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleContentPlan(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+async function handleContentPlan(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", body: any = {}) {
+  const objective = body.content_objective || "";
+  const postsPerDay = body.posts_per_day || 2;
+  const platforms = body.priority_platforms?.length ? body.priority_platforms.join(", ") : "Instagram, YouTube, TikTok, LinkedIn, Blog, Email, WhatsApp";
+
+  const dayItemSchema = { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false };
+  const weekSchema = { type: "object", properties: {
+    seg: { type: "array", items: dayItemSchema }, ter: { type: "array", items: dayItemSchema },
+    qua: { type: "array", items: dayItemSchema }, qui: { type: "array", items: dayItemSchema },
+    sex: { type: "array", items: dayItemSchema }, "sáb": { type: "array", items: dayItemSchema },
+    dom: { type: "array", items: dayItemSchema },
+  }, required: ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"], additionalProperties: false };
+
   const result = await callAI(
     `${mentePrefix}Você é um estrategista de conteúdo brasileiro especialista em redes sociais e marketing digital.
 ${ctx}
+${objective ? `\n## OBJETIVO DO MOVIMENTO\n${objective}\n` : ""}
 REGRAS:
-- Gere um plano de conteúdo para 7 dias (seg a dom)
-- Para cada dia, sugira 1-3 peças de conteúdo com plataforma, tipo e tema
-- Use as plataformas mais relevantes para o projeto (Instagram, YouTube, TikTok, LinkedIn, Blog, Email, WhatsApp)
-- Tipos: Post, Reels, Story, Live, Artigo, Email, Vídeo, Carousel
+- Gere um plano de conteúdo MENSAL completo (4 semanas: semana_1 a semana_4)
+- Cada semana tem 7 dias (seg a dom)
+- Para cada dia, sugira ${postsPerDay} peças de conteúdo com plataforma, tipo e tema
+- Plataformas prioritárias: ${platforms}
+- Tipos possíveis: Post, Reels, Story, Live, Artigo, Email, Vídeo, Carousel
 - Baseie os temas nas dores do avatar, expert e brand kit
-- Varie os formatos e plataformas ao longo da semana
-- Retorne EXATAMENTE o JSON solicitado`,
-    "Gere o plano de conteúdo semanal completo para este projeto.",
+- Varie formatos e plataformas ao longo do mês
+- Construa uma narrativa progressiva ao longo das 4 semanas${objective ? ` alinhada ao objetivo: "${objective}"` : ""}
+- Retorne EXATAMENTE o JSON solicitado com semana_1, semana_2, semana_3, semana_4`,
+    "Gere o plano de conteúdo mensal completo (4 semanas) para este projeto.",
     apiKey, model,
-    [{ type: "function", function: { name: "generate_content_plan", description: "Generate weekly content plan", parameters: { type: "object", properties: {
+    [{ type: "function", function: { name: "generate_content_plan", description: "Generate monthly content plan (4 weeks)", parameters: { type: "object", properties: {
       content_plan: { type: "object", properties: {
-        seg: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
-        ter: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
-        qua: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
-        qui: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
-        sex: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
-        "sáb": { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
-        dom: { type: "array", items: { type: "object", properties: { id: { type: "string" }, platform: { type: "string" }, type: { type: "string" }, description: { type: "string" } }, required: ["id", "platform", "type", "description"], additionalProperties: false } },
-      }, required: ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"], additionalProperties: false }
+        semana_1: weekSchema, semana_2: weekSchema, semana_3: weekSchema, semana_4: weekSchema,
+      }, required: ["semana_1", "semana_2", "semana_3", "semana_4"], additionalProperties: false }
     }, required: ["content_plan"], additionalProperties: false } } }],
     "generate_content_plan", baseUrl
   );
