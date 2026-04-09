@@ -110,16 +110,21 @@ export default function ExpertPortal() {
     </div>
   );
 
-  const monthlyPlan = migrateToMonthly(data.content_plan);
-  const totalContent = WEEKS.reduce((total, wk) => {
-    const wp = monthlyPlan[wk] || {};
-    return total + DAYS.reduce((s, d) => s + (wp[d]?.length || 0), 0);
-  }, 0);
-  const allItems = WEEKS.flatMap(wk => {
-    const wp = monthlyPlan[wk] || {};
-    return DAYS.flatMap(d => (wp[d] || []).map((i: ContentItem) => i.platform));
-  });
-  const activePlatforms = new Set(allItems).size;
+   const monthlyPlan = migrateToMonthly(data.content_plan);
+   const weekLabels: Record<string, string> = monthlyPlan.week_labels || {};
+   const weekSummaries: Record<string, WeekSummary> = monthlyPlan.week_summaries || {};
+   const contentObjectives: string[] = Array.isArray(data.content_objectives)
+     ? data.content_objectives.filter(Boolean)
+     : data.content_objective ? [data.content_objective] : [];
+   const totalContent = WEEKS.reduce((total, wk) => {
+     const wp = (monthlyPlan as any)[wk] || {};
+     return total + DAYS.reduce((s, d) => s + (wp[d]?.length || 0), 0);
+   }, 0);
+   const allItems = WEEKS.flatMap(wk => {
+     const wp = (monthlyPlan as any)[wk] || {};
+     return DAYS.flatMap(d => (wp[d] || []).map((i: ContentItem) => i.platform));
+   });
+   const activePlatforms = new Set(allItems).size;
 
   // Calendar content dates
   const contentDates = (() => {
