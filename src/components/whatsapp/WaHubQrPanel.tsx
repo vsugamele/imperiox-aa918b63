@@ -18,6 +18,7 @@ const statusConfig: Record<UiStatus, { label: string; color: string; icon: typeo
   connected: { label: "Conectado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: Wifi },
   stale: { label: "Sessão Travada", color: "bg-orange-500/15 text-orange-400 border-orange-500/30", icon: AlertCircle },
   error: { label: "Erro", color: "bg-destructive/15 text-destructive border-destructive/30", icon: AlertCircle },
+  resetting: { label: "Limpando...", color: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: Loader2 },
 };
 
 const WA_PROJECTS = [
@@ -59,10 +60,12 @@ export default function WaHubQrPanel() {
 
   const handleResetSession = async () => {
     await resetSession();
-    toast.success("Sessão limpa com sucesso. Pode gerar um novo QR.");
+    toast.success("Sessão limpa. Pode gerar um novo QR.");
   };
 
-  const showResetButton = ["stale", "error", "connected", "qr_ready"].includes(uiStatus);
+  const showResetButton = ["stale", "error", "connected", "qr_ready"].includes(uiStatus) ||
+    diagnostics.hasSession === true ||
+    (diagnostics.reason === "qr_timeout");
 
   return (
     <Card className="bg-card border-border">
@@ -70,7 +73,7 @@ export default function WaHubQrPanel() {
         <CardTitle className="text-sm flex items-center gap-2">
           <Radio className="h-4 w-4 text-primary" /> Hub Local — WhatsApp
           <Badge variant="outline" className={`ml-auto text-[10px] ${cfg.color}`}>
-            <StatusIcon className={`h-3 w-3 mr-1 ${uiStatus === "pending" || uiStatus === "awaiting_qr" ? "animate-spin" : ""}`} />
+            <StatusIcon className={`h-3 w-3 mr-1 ${["pending", "awaiting_qr", "resetting"].includes(uiStatus) ? "animate-spin" : ""}`} />
             {cfg.label}
           </Badge>
         </CardTitle>
@@ -126,7 +129,18 @@ export default function WaHubQrPanel() {
 
         {/* QR Area */}
         <div className="flex flex-col items-center gap-4">
-          {/* PENDING: worker processing */}
+          {/* RESETTING */}
+          {uiStatus === "resetting" && (
+            <div className="w-[250px] h-[250px] flex items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/5">
+              <div className="text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-amber-400 mx-auto mb-2" />
+                <p className="text-xs text-amber-400 font-medium">Limpando sessão...</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Removendo dados anteriores</p>
+              </div>
+            </div>
+          )}
+
+          {/* PENDING */}
           {uiStatus === "pending" && (
             <div className="w-[250px] h-[250px] flex items-center justify-center rounded-xl border border-border bg-muted/30">
               <div className="text-center">
@@ -137,7 +151,7 @@ export default function WaHubQrPanel() {
             </div>
           )}
 
-          {/* AWAITING_QR: command done but no image yet */}
+          {/* AWAITING_QR */}
           {uiStatus === "awaiting_qr" && (
             <div className="w-[250px] h-[250px] flex items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/5">
               <div className="text-center">
@@ -158,7 +172,7 @@ export default function WaHubQrPanel() {
             </div>
           )}
 
-          {/* QR_READY: image available */}
+          {/* QR_READY: image */}
           {uiStatus === "qr_ready" && qrImageUrl && (
             <div className="bg-background p-3 rounded-xl border border-emerald-500/20">
               <img
@@ -192,7 +206,7 @@ export default function WaHubQrPanel() {
             </div>
           )}
 
-          {/* STALE: session stuck */}
+          {/* STALE */}
           {uiStatus === "stale" && (
             <div className="w-[250px] h-[250px] flex items-center justify-center bg-orange-500/5 rounded-xl border border-orange-500/20">
               <div className="text-center px-4">
@@ -247,6 +261,8 @@ export default function WaHubQrPanel() {
               ? "O worker local precisa estar rodando na sua máquina"
               : uiStatus === "awaiting_qr"
               ? "Worker respondeu, gerando imagem do QR..."
+              : uiStatus === "resetting"
+              ? "Limpando sessão anterior..."
               : "Certifique-se que o worker local está ativo antes de gerar o QR"}
           </p>
 
