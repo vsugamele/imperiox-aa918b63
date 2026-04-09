@@ -443,15 +443,66 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Objetivo do Movimento */}
-          <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
-            <Target className="h-4 w-4 text-primary flex-shrink-0" />
-            <Input
-              value={contentObjective}
-              onChange={e => updateObjective(e.target.value)}
-              placeholder="🎯 Objetivo do Movimento — Ex: Aquecimento para lançamento, Autoridade no nicho, Captação de leads..."
-              className="bg-transparent border-none text-sm focus-visible:ring-0 h-8"
-            />
+          {/* Mini Calendar */}
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+            <div className="shrink-0">
+              <CalendarComponent
+                mode="single"
+                selected={calendarDate}
+                onSelect={(date) => {
+                  setCalendarDate(date);
+                  if (date) {
+                    const dayOfWeek = date.getDay();
+                    const dayMap = [6, 0, 1, 2, 3, 4, 5]; // Sun=6, Mon=0...
+                    const dayIndex = dayMap[dayOfWeek];
+                    const dayKey = DAYS[dayIndex];
+                    // Find which week has content for this day
+                    for (const wk of WEEKS) {
+                      const wp = monthlyPlan[wk] || {};
+                      if (wp[dayKey]?.length) {
+                        setActiveWeek(wk);
+                        break;
+                      }
+                    }
+                  }
+                }}
+                className="rounded-md border pointer-events-auto"
+                modifiers={{
+                  hasContent: (() => {
+                    const dates: Date[] = [];
+                    const today = new Date();
+                    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                    WEEKS.forEach((wk, wi) => {
+                      const wp = monthlyPlan[wk] || {};
+                      DAYS.forEach((day, di) => {
+                        if ((wp[day]?.length || 0) > 0) {
+                          const dayOffset = wi * 7 + di;
+                          const d = new Date(startOfMonth);
+                          d.setDate(d.getDate() + dayOffset);
+                          dates.push(d);
+                        }
+                      });
+                    });
+                    return dates;
+                  })(),
+                }}
+                modifiersStyles={{
+                  hasContent: { fontWeight: "bold", textDecoration: "underline", color: "hsl(var(--primary))" },
+                }}
+              />
+            </div>
+            <div className="flex-1 w-full">
+              {/* Objetivo do Movimento */}
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <Target className="h-4 w-4 text-primary flex-shrink-0" />
+                <Input
+                  value={contentObjective}
+                  onChange={e => updateObjective(e.target.value)}
+                  placeholder="🎯 Objetivo do Movimento — Ex: Aquecimento para lançamento, Autoridade no nicho, Captação de leads..."
+                  className="bg-transparent border-none text-sm focus-visible:ring-0 h-8"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Week Tabs */}
