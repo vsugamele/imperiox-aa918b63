@@ -503,7 +503,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 <Select value={editPlatform} onValueChange={setEditPlatform}>
                   <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {PLATFORMS.map(p => <SelectItem key={p} value={p}>{PLATFORM_ICONS[p]} {p}</SelectItem>)}
+                    {ALL_PLATFORMS.map(p => <SelectItem key={p} value={p}>{PLATFORM_ICONS[p]} {p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -621,7 +621,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">📱 Plataformas prioritárias</Label>
               <div className="flex flex-wrap gap-2">
-                {PLATFORMS.map(p => (
+                {ALL_PLATFORMS.map(p => (
                   <label key={p} className="flex items-center gap-1.5 text-xs cursor-pointer">
                     <Checkbox checked={aiPlatforms.includes(p)} onCheckedChange={() => togglePlatform(p)} />
                     <span>{PLATFORM_ICONS[p]} {p}</span>
