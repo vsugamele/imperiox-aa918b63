@@ -49,8 +49,20 @@ interface ContentItem {
   cross_platforms?: string[];
 }
 
+interface WeekSummary {
+  focus?: string;
+  event?: string;
+}
+
 interface WeekPlan { [day: string]: ContentItem[]; }
-interface MonthlyPlan { semana_1: WeekPlan; semana_2: WeekPlan; semana_3: WeekPlan; semana_4: WeekPlan; }
+interface MonthlyPlan {
+  semana_1: WeekPlan;
+  semana_2: WeekPlan;
+  semana_3: WeekPlan;
+  semana_4: WeekPlan;
+  week_labels?: Record<string, string>;
+  week_summaries?: Record<string, WeekSummary>;
+}
 
 function migrateToMonthly(plan: any): MonthlyPlan {
   const empty: WeekPlan = {};
@@ -98,16 +110,21 @@ export default function ExpertPortal() {
     </div>
   );
 
-  const monthlyPlan = migrateToMonthly(data.content_plan);
-  const totalContent = WEEKS.reduce((total, wk) => {
-    const wp = monthlyPlan[wk] || {};
-    return total + DAYS.reduce((s, d) => s + (wp[d]?.length || 0), 0);
-  }, 0);
-  const allItems = WEEKS.flatMap(wk => {
-    const wp = monthlyPlan[wk] || {};
-    return DAYS.flatMap(d => (wp[d] || []).map((i: ContentItem) => i.platform));
-  });
-  const activePlatforms = new Set(allItems).size;
+   const monthlyPlan = migrateToMonthly(data.content_plan);
+   const weekLabels: Record<string, string> = monthlyPlan.week_labels || {};
+   const weekSummaries: Record<string, WeekSummary> = monthlyPlan.week_summaries || {};
+   const contentObjectives: string[] = Array.isArray(data.content_objectives)
+     ? data.content_objectives.filter(Boolean)
+     : data.content_objective ? [data.content_objective] : [];
+   const totalContent = WEEKS.reduce((total, wk) => {
+     const wp = (monthlyPlan as any)[wk] || {};
+     return total + DAYS.reduce((s, d) => s + (wp[d]?.length || 0), 0);
+   }, 0);
+   const allItems = WEEKS.flatMap(wk => {
+     const wp = (monthlyPlan as any)[wk] || {};
+     return DAYS.flatMap(d => (wp[d] || []).map((i: ContentItem) => i.platform));
+   });
+   const activePlatforms = new Set(allItems).size;
 
   // Calendar content dates
   const contentDates = (() => {
@@ -115,7 +132,7 @@ export default function ExpertPortal() {
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     WEEKS.forEach((wk, wi) => {
-      const wp = monthlyPlan[wk] || {};
+      const wp = (monthlyPlan as any)[wk] || {};
       DAYS.forEach((day, di) => {
         if ((wp[day]?.length || 0) > 0) {
           const dayOffset = wi * 7 + di;
@@ -138,11 +155,16 @@ export default function ExpertPortal() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Objetivo do Movimento */}
-        {data.content_objective && (
-          <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
-            <Target className="h-4 w-4 text-primary flex-shrink-0" />
-            <p className="text-sm font-medium text-foreground">🎯 {data.content_objective}</p>
+        {/* Objetivos do Movimento */}
+        {contentObjectives.length > 0 && (
+          <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Target className="h-4 w-4 text-primary flex-shrink-0" />
+              <span className="text-xs font-semibold text-primary">Objetivos do Movimento</span>
+            </div>
+            {contentObjectives.map((obj, i) => (
+              <p key={i} className="text-sm text-foreground ml-6">• {obj}</p>
+            ))}
           </div>
         )}
 
@@ -288,10 +310,11 @@ export default function ExpertPortal() {
             <Tabs value={activeWeek} onValueChange={setActiveWeek}>
               <TabsList className="w-full grid grid-cols-4 mb-3">
                 {WEEKS.map((wk, i) => {
-                  const weekItems = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
+                  const weekItems = DAYS.reduce((s, d) => s + (((monthlyPlan as any)[wk] || {})[d]?.length || 0), 0);
+                  const label = weekLabels[wk] ? `${WEEK_LABELS[i]} — ${weekLabels[wk]}` : WEEK_LABELS[i];
                   return (
                     <TabsTrigger key={wk} value={wk} className="text-xs gap-1">
-                      {WEEK_LABELS[i]}
+                      {label}
                       {weekItems > 0 && <Badge variant="secondary" className="text-[8px] h-3.5 px-1">{weekItems}</Badge>}
                     </TabsTrigger>
                   );
@@ -299,9 +322,16 @@ export default function ExpertPortal() {
               </TabsList>
 
               {WEEKS.map(wk => {
-                const weekData = monthlyPlan[wk] || {};
+                const weekData = (monthlyPlan as any)[wk] || {};
+                const summary = weekSummaries[wk];
                 return (
-                  <TabsContent key={wk} value={wk}>
+                  <TabsContent key={wk} value={wk} className="space-y-3">
+                    {(summary?.focus || summary?.event) && (
+                      <div className="flex flex-wrap items-center gap-2 p-2 rounded border border-border bg-secondary/20">
+                        {summary.focus && <Badge variant="outline" className="text-[9px]">🎯 {summary.focus}</Badge>}
+                        {summary.event && <Badge variant="outline" className="text-[9px]">📅 {summary.event}</Badge>}
+                      </div>
+                    )}
                     <div className="grid grid-cols-7 gap-2">
                       {DAYS.map(day => (
                         <div key={day} className="space-y-1">

@@ -678,29 +678,46 @@ async function handleContentPlan(ctx: string, apiKey: string, model: string, bas
     dom: { type: "array", items: dayItemSchema },
   }, required: ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"], additionalProperties: false };
 
+  const weekSummarySchema = { type: "object", properties: { focus: { type: "string" }, event: { type: "string" } }, required: ["focus"], additionalProperties: false };
+
   const result = await callAI(
     `${mentePrefix}Você é um estrategista de conteúdo brasileiro especialista em redes sociais e marketing digital.
 ${ctx}
-${objective ? `\n## OBJETIVO DO MOVIMENTO\n${objective}\n` : ""}${productFocus}
+${objective ? `\n## OBJETIVOS DO MOVIMENTO\n${objective}\n` : ""}${productFocus}
 REGRAS:
 - Gere um plano de conteúdo MENSAL completo (4 semanas: semana_1 a semana_4)
 - Cada semana tem 7 dias (seg a dom)
 - Para cada dia, sugira ${postsPerDay} peças de conteúdo com plataforma, tipo e tema
 - Plataformas prioritárias: ${platforms}
 - Tipos possíveis: Post, Reels, Story, Live, Artigo, Email, Vídeo, Carousel, Video Longo
-- STORIES: inclua 1-2 Stories por dia (bastidores, enquetes, CTA, quicktips)
-- REELS: quando criar um Reels, adicione cross_platforms: ["TikTok", "YouTube Shorts"] pois o mesmo conteúdo serve para essas plataformas
-- VIDEO LONGO: para YouTube, inclua pelo menos 1 "Video Longo" por semana com roteiro mais detalhado na descrição
-- Baseie os temas nas dores do avatar, expert, brand kit e arsenal de copy do produto em foco
+
+## FASES ESTRATÉGICAS SEMANAIS
+- Cada semana deve ter uma FASE estratégica (week_labels). Exemplo:
+  - Semana 1: "Atração" (conteúdo educativo, topo de funil)
+  - Semana 2: "Autoridade" (prova social, lives, casos)
+  - Semana 3: "Objeções" (FAQ, bastidores, depoimentos)
+  - Semana 4: "Conversão" (oferta, escassez, CTA direto)
+- Adapte as fases ao objetivo declarado pelo usuário.
+
+## RESUMO POR SEMANA (week_summaries)
+- Para cada semana, inclua um objeto com "focus" (foco estratégico resumido) e "event" (evento central, ex: "Live de autoridade", "Webinário", ou vazio)
+
+## REGRAS DE FORMATO
+- STORIES: inclua 1-2 Stories por dia (bastidores, enquetes, CTA, quicktips, caixinha de perguntas)
+- REELS: quando criar um Reels, adicione cross_platforms: ["TikTok", "YouTube Shorts"]
+- VIDEO LONGO: para YouTube, inclua pelo menos 1 "Video Longo" por semana
+- Baseie os temas nas dores do avatar, expert, brand kit e arsenal de copy
 - Varie formatos e plataformas ao longo do mês
-- Construa uma narrativa progressiva ao longo das 4 semanas${objective ? ` alinhada ao objetivo: "${objective}"` : ""}
-- Retorne EXATAMENTE o JSON solicitado com semana_1, semana_2, semana_3, semana_4`,
-    "Gere o plano de conteúdo mensal completo (4 semanas) para este projeto.",
+- Construa uma narrativa progressiva ao longo das 4 semanas${objective ? ` alinhada aos objetivos: "${objective}"` : ""}
+- Retorne EXATAMENTE o JSON solicitado`,
+    "Gere o plano de conteúdo mensal completo (4 semanas) com fases estratégicas.",
     apiKey, model,
-    [{ type: "function", function: { name: "generate_content_plan", description: "Generate monthly content plan (4 weeks)", parameters: { type: "object", properties: {
+    [{ type: "function", function: { name: "generate_content_plan", description: "Generate monthly content plan (4 weeks) with strategic phases", parameters: { type: "object", properties: {
       content_plan: { type: "object", properties: {
         semana_1: weekSchema, semana_2: weekSchema, semana_3: weekSchema, semana_4: weekSchema,
-      }, required: ["semana_1", "semana_2", "semana_3", "semana_4"], additionalProperties: false }
+        week_labels: { type: "object", properties: { semana_1: { type: "string" }, semana_2: { type: "string" }, semana_3: { type: "string" }, semana_4: { type: "string" } }, required: ["semana_1", "semana_2", "semana_3", "semana_4"], additionalProperties: false },
+        week_summaries: { type: "object", properties: { semana_1: weekSummarySchema, semana_2: weekSummarySchema, semana_3: weekSummarySchema, semana_4: weekSummarySchema }, required: ["semana_1", "semana_2", "semana_3", "semana_4"], additionalProperties: false },
+      }, required: ["semana_1", "semana_2", "semana_3", "semana_4", "week_labels", "week_summaries"], additionalProperties: false }
     }, required: ["content_plan"], additionalProperties: false } } }],
     "generate_content_plan", baseUrl
   );

@@ -32,11 +32,18 @@ interface WeekPlan {
   [day: string]: ContentItem[];
 }
 
+interface WeekSummary {
+  focus?: string;
+  event?: string;
+}
+
 interface MonthlyPlan {
   semana_1: WeekPlan;
   semana_2: WeekPlan;
   semana_3: WeekPlan;
   semana_4: WeekPlan;
+  week_labels?: Record<string, string>;
+  week_summaries?: Record<string, WeekSummary>;
 }
 
 interface Props {
@@ -105,10 +112,15 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const data = project.data || {};
   const monthlyPlan = migrateToMonthly(data.content_plan);
-  const currentWeekPlan: WeekPlan = monthlyPlan[activeWeek as keyof MonthlyPlan] || {};
+  const currentWeekPlan: WeekPlan = (monthlyPlan as any)[activeWeek] || {};
   const expertNotes: string = data.expert_notes || "";
   const shareToken: string = data.expert_share_token || "";
-  const contentObjective: string = data.content_objective || "";
+  // Support both old single string and new array format
+  const contentObjectives: string[] = Array.isArray(data.content_objectives)
+    ? data.content_objectives
+    : data.content_objective ? [data.content_objective] : [""];
+  const weekLabels: Record<string, string> = monthlyPlan.week_labels || {};
+  const weekSummaries: Record<string, WeekSummary> = monthlyPlan.week_summaries || {};
 
   // Derive active platforms from briefing links
   const PLATFORMS = useMemo(() => {
@@ -146,9 +158,11 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, content_plan: plan });
   }, [data, onUpdateData]);
 
+  const getWeekPlan = (wk: string): WeekPlan => (monthlyPlan as any)[wk] || {};
+
   const addContentItem = (day: string) => {
     const plan = { ...monthlyPlan };
-    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    const week = { ...getWeekPlan(activeWeek) };
     const items = [...(week[day] || [])];
     items.push({ id: crypto.randomUUID(), platform: "Instagram", type: "Post", description: "" });
     week[day] = items;
@@ -158,7 +172,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const updateContentItem = (day: string, itemId: string, patch: Partial<ContentItem>) => {
     const plan = { ...monthlyPlan };
-    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    const week = { ...getWeekPlan(activeWeek) };
     week[day] = (week[day] || []).map(item => item.id === itemId ? { ...item, ...patch } : item);
     (plan as any)[activeWeek] = week;
     updateMonthlyPlan(plan);
@@ -166,14 +180,33 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const removeContentItem = (day: string, itemId: string) => {
     const plan = { ...monthlyPlan };
-    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    const week = { ...getWeekPlan(activeWeek) };
     week[day] = (week[day] || []).filter(item => item.id !== itemId);
     (plan as any)[activeWeek] = week;
     updateMonthlyPlan(plan);
   };
 
-  const updateObjective = (obj: string) => {
-    onUpdateData({ ...data, content_objective: obj });
+  const updateObjectives = (objectives: string[]) => {
+    onUpdateData({ ...data, content_objectives: objectives, content_objective: objectives[0] || "" });
+  };
+
+  const addObjective = () => {
+    updateObjectives([...contentObjectives, ""]);
+  };
+
+  const removeObjective = (index: number) => {
+    updateObjectives(contentObjectives.filter((_, i) => i !== index));
+  };
+
+  const setObjectiveAt = (index: number, value: string) => {
+    const updated = [...contentObjectives];
+    updated[index] = value;
+    updateObjectives(updated);
+  };
+
+  const updateWeekLabel = (wk: string, label: string) => {
+    const plan = { ...monthlyPlan, week_labels: { ...weekLabels, [wk]: label } };
+    updateMonthlyPlan(plan);
   };
 
   const updateNotes = (notes: string) => {
@@ -242,6 +275,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       const currentPlan = { ...monthlyPlan };
       let filled = 0;
       let preserved = 0;
+
+      // Merge week_labels and week_summaries from AI
+      if (aiPlan.week_labels) {
+        currentPlan.week_labels = { ...currentPlan.week_labels, ...aiPlan.week_labels };
+      }
+      if (aiPlan.week_summaries) {
+        currentPlan.week_summaries = { ...currentPlan.week_summaries, ...aiPlan.week_summaries };
+      }
 
       for (const wk of WEEKS) {
         const aiWeek = aiPlan[wk] || {};
@@ -427,14 +468,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             <div className="flex items-center gap-2">
               {emptyDaysCount > 0 && totalContent > 0 && (
                 <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground" onClick={() => {
-                  setAiObjective(contentObjective);
+                  setAiObjective(contentObjectives.filter(Boolean).join("; "));
                   setAiDialogOpen(true);
                 }}>
                   <Sparkles className="h-3 w-3" /> Preencher {emptyDaysCount} dias vazios
                 </Button>
               )}
               <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => {
-                setAiObjective(contentObjective);
+                setAiObjective(contentObjectives.filter(Boolean).join("; "));
                 setAiDialogOpen(true);
               }}>
                 <Sparkles className="h-3.5 w-3.5" /> 🤖 Gerar Plano com IA
@@ -491,16 +532,34 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 }}
               />
             </div>
-            <div className="flex-1 w-full">
-              {/* Objetivo do Movimento */}
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
-                <Target className="h-4 w-4 text-primary flex-shrink-0" />
-                <Input
-                  value={contentObjective}
-                  onChange={e => updateObjective(e.target.value)}
-                  placeholder="🎯 Objetivo do Movimento — Ex: Aquecimento para lançamento, Autoridade no nicho, Captação de leads..."
-                  className="bg-transparent border-none text-sm focus-visible:ring-0 h-8"
-                />
+            <div className="flex-1 w-full space-y-2">
+              {/* Objetivos do Movimento — multi-bullets */}
+              <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="text-xs font-semibold text-primary">Objetivos do Movimento</span>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-muted-foreground" onClick={addObjective}>
+                    <Plus className="h-3 w-3" /> Adicionar
+                  </Button>
+                </div>
+                {contentObjectives.map((obj, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <Input
+                      value={obj}
+                      onChange={e => setObjectiveAt(i, e.target.value)}
+                      placeholder="Ex: Aquecimento para lançamento, Captação de leads..."
+                      className="bg-transparent border-none text-sm focus-visible:ring-0 h-7 flex-1"
+                    />
+                    {contentObjectives.length > 1 && (
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive" onClick={() => removeObjective(i)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -510,17 +569,33 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             <TabsList className="w-full grid grid-cols-4">
               {WEEKS.map((wk, i) => {
                 const weekItems = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
+                const label = weekLabels[wk] ? `${WEEK_LABELS[i]} — ${weekLabels[wk]}` : WEEK_LABELS[i];
                 return (
                   <TabsTrigger key={wk} value={wk} className="text-xs gap-1">
-                    {WEEK_LABELS[i]}
+                    {label}
                     {weekItems > 0 && <Badge variant="secondary" className="text-[8px] h-3.5 px-1">{weekItems}</Badge>}
                   </TabsTrigger>
                 );
               })}
             </TabsList>
 
-            {WEEKS.map(wk => (
-              <TabsContent key={wk} value={wk}>
+            {WEEKS.map((wk, wi) => (
+              <TabsContent key={wk} value={wk} className="space-y-3">
+                {/* Week label + summary bar */}
+                <div className="flex flex-wrap items-center gap-3 p-2 rounded border border-border bg-secondary/20">
+                  <Input
+                    value={weekLabels[wk] || ""}
+                    onChange={e => updateWeekLabel(wk, e.target.value)}
+                    placeholder={`Fase da ${WEEK_LABELS[wi]} — Ex: Atração, Autoridade, Objeções, Lançamento`}
+                    className="bg-transparent border-none text-xs focus-visible:ring-0 h-7 flex-1 min-w-[200px]"
+                  />
+                  {weekSummaries[wk]?.focus && (
+                    <Badge variant="outline" className="text-[9px]">🎯 {weekSummaries[wk].focus}</Badge>
+                  )}
+                  {weekSummaries[wk]?.event && (
+                    <Badge variant="outline" className="text-[9px]">📅 {weekSummaries[wk].event}</Badge>
+                  )}
+                </div>
                 <div className="grid grid-cols-7 gap-2">
                   {DAYS.map(day => {
                     const weekData = monthlyPlan[wk] || {};
@@ -622,7 +697,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                     platform: editPlatform,
                     content_type: editType,
                     description: editDescription,
-                    content_objective: contentObjective,
+                    content_objective: contentObjectives.filter(Boolean).join("; "),
                   }}
                 />
               </div>
