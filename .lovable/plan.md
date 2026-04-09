@@ -1,52 +1,60 @@
 
+# Plano: Modal de detalhes, merge IA, plano mensal no portal, integração Kanban
 
-# Plano: Melhorar Painel Expert — Cards claros, perguntas na IA, conteudo mensal
+## 5 problemas identificados
 
-## 3 melhorias pedidas
+1. **Cards sem clique** — Não há modal para ver/editar detalhes do card de conteúdo
+2. **IA apaga plano existente** — `handleContentPlanAI` (linha 168) sobrescreve `content_plan` inteiro com resultado da IA
+3. **Portal público não exibe mensal** — `ExpertPortal.tsx` já tem 4 semanas com tabs (OK, já funciona)
+4. **Tarefas do Kanban no portal** — Já aparecem via `.contains("tags", [projectId])`, mas precisam de melhor exibição
+5. **Falta integração IA ↔ Expert** — O painel não conecta sugestões de IA com o fluxo de trabalho do expert
 
-### 1. Cards de conteudo mais claros + perguntas antes de gerar com IA
-Hoje o card do conteudo mostra apenas plataforma/tipo/descricao em texto minusculo (8px). E o botao "Gerar Plano com IA" nao faz perguntas — gera direto sem saber o objetivo do movimento.
+---
 
-**Solucao:**
-- Redesenhar os cards de conteudo com icones por plataforma, cores por tipo, e layout mais legivel
-- Adicionar campo "Objetivo do Movimento" no topo do plano de conteudo (ex: "Lançamento do produto X", "Aquecimento para webinar") — salvo em `data.content_objective`
-- No dialog do AIGenerateButton para `generate_content_plan`, adicionar perguntas antes de gerar:
-  - "Qual o objetivo do conteudo?" (texto livre)
-  - "Frequencia de posts por dia?" (1-3)
-  - "Plataformas prioritarias?" (multi-select)
-- Essas respostas sao enviadas como `extraBody` para a edge function e injetadas no prompt da IA
-- Botao "Consultar Mentes Sinteticas" que pre-seleciona a mente e gera sugestoes estrategicas antes do plano
+## Solução 1: Modal central para detalhes do card
 
-### 2. Objetivo do movimento de conteudo
-- Campo editavel no topo da secao de conteudo: "🎯 Objetivo do Movimento"
-- Placeholder: "Ex: Aquecimento para lancamento, Autoridade no nicho, Captacao de leads..."
-- Salvo em `data.content_objective`
-- Injetado automaticamente no prompt da IA ao gerar plano
+Ao clicar num card de conteúdo, abre um **Dialog** central com:
+- Plataforma e tipo (selects)
+- Descrição/tema (textarea maior)
+- Sugestão de copy (campo de texto livre)
+- Hashtags sugeridas
+- Botão "Gerar Copy com IA" que chama a mente para criar o texto do post
+- Botão excluir
 
-### 3. Plano mensal (4 semanas) em vez de semanal
-- Trocar grid de 7 colunas (seg-dom) por navegacao de **4 semanas**
-- Tabs ou selector: "Semana 1 | Semana 2 | Semana 3 | Semana 4"
-- Cada semana tem os 7 dias com cards de conteudo
-- Armazenamento: `data.content_plan` muda de `{seg: [], ter: []}` para `{semana_1: {seg: [], ter: []}, semana_2: {...}, ...}`
-- A IA gera o mes inteiro de uma vez (4 semanas)
-- O portal publico do expert tambem mostra as 4 semanas com navegacao
+**Novo campo no ContentItem**: `copy?: string`, `hashtags?: string`
+
+## Solução 2: IA preenche só vazios (merge)
+
+No `handleContentPlanAI`, em vez de sobrescrever:
+- Para cada semana → cada dia: se o dia já tem cards, **não sobrescreve**
+- Só preenche dias com array vazio ou inexistente
+- Exibir toast informando quantos dias foram preenchidos vs. preservados
+
+## Solução 3: Tarefas do Kanban melhor integradas
+
+- No Painel Expert interno: já aparecem, manter
+- No Portal público (`expert-portal` edge function): já busca via `.contains("tags", [projectId])` — OK
+- Melhorar exibição no portal público: mostrar coluna (status) do card, deadline, e checklist summary se existir
+
+## Solução 4: Integração IA ↔ Expert
+
+- Dentro do modal do card: botão "✨ Gerar Copy" que usa o contexto do avatar + tema do card para gerar copy pronta
+- No painel de notas: já tem "Gerar Instruções com IA" — manter
+- Adicionar no topo do plano de conteúdo: botão "Preencher vazios com IA" (diferente do "Gerar Plano") para completar só o que falta
 
 ---
 
 ## Arquivos
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---|---|
-| `src/components/projeto/ProjetoExpertPanel.tsx` | Redesenhar cards, adicionar objetivo, navegacao mensal (4 semanas), perguntas pre-IA |
-| `supabase/functions/openflow-ai/index.ts` | Atualizar `handleContentPlan` para aceitar objetivo + preferencias e gerar 4 semanas |
-| `src/pages/ExpertPortal.tsx` | Atualizar portal publico para exibir 4 semanas com navegacao |
-| `supabase/functions/expert-portal/index.ts` | Incluir `content_objective` na resposta |
+| `src/components/projeto/ProjetoExpertPanel.tsx` | Adicionar modal de detalhes do card + merge logic na IA + botão "Preencher vazios" |
+| `src/pages/ExpertPortal.tsx` | Melhorar exibição de tarefas (status, checklist) |
+| `supabase/functions/expert-portal/index.ts` | Incluir `column_id` e `checklist` nos dados de tasks |
 
 ## Ordem
 
-1. Atualizar estrutura de dados para mensal (4 semanas) no ExpertPanel
-2. Adicionar campo "Objetivo do Movimento" e perguntas pre-IA
-3. Redesenhar cards de conteudo com icones e cores
-4. Atualizar edge function para gerar plano mensal com objetivo
-5. Atualizar portal publico para exibir 4 semanas
-
+1. Criar modal central de detalhes do card (com campos expandidos + IA)
+2. Implementar merge logic (IA preenche só dias vazios)
+3. Melhorar exibição de tarefas no portal público
+4. Adicionar botão "Preencher vazios com IA" separado
