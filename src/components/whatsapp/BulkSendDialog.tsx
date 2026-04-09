@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +28,8 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
   const [delayMs, setDelayMs] = useState(3000);
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<any[]>([]);
+  const [manualNumbers, setManualNumbers] = useState("");
+  const [contactMode, setContactMode] = useState<"leads" | "manual">("leads");
 
   useEffect(() => {
     if (open) {
@@ -45,16 +48,34 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
     else setSelected(leads.map(l => l.id));
   };
 
-  const send = async () => {
-    if (!providerId) { toast.error("Selecione um provider"); return; }
-    if (selected.length === 0) { toast.error("Selecione ao menos 1 contato"); return; }
-    setSending(true);
-    setResults([]);
-    try {
-      const contacts = leads.filter(l => selected.includes(l.id)).map(l => ({
+  const getContacts = () => {
+    if (contactMode === "leads") {
+      return leads.filter(l => selected.includes(l.id)).map(l => ({
         phone: l.telefone.replace(/\D/g, ""),
         name: l.nome || "",
       }));
+    }
+    // Parse manual numbers: one per line, format "number" or "number - name"
+    return manualNumbers
+      .split("\n")
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        const parts = line.split(/[-–—,;]/).map(s => s.trim());
+        const phone = (parts[0] || "").replace(/\D/g, "");
+        const name = parts[1] || "";
+        return { phone, name };
+      })
+      .filter(c => c.phone.length >= 8);
+  };
+
+  const send = async () => {
+    if (!providerId) { toast.error("Selecione um provider"); return; }
+    const contacts = getContacts();
+    if (contacts.length === 0) { toast.error("Nenhum contato válido"); return; }
+    setSending(true);
+    setResults([]);
+    try {
       const provider = providers.find(p => p.id === providerId);
       const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_bulk", {
         body: {
@@ -74,6 +95,8 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
       setSending(false);
     }
   };
+
+  const manualCount = getContacts().length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,24 +136,45 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
             <Input type="number" value={delayMs} onChange={e => setDelayMs(Number(e.target.value))} min={1000} step={500} />
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label>Contatos ({selected.length}/{leads.length})</Label>
-              <Button size="sm" variant="ghost" onClick={selectAll}>
-                {selected.length === leads.length ? "Desmarcar todos" : "Selecionar todos"}
-              </Button>
-            </div>
-            <ScrollArea className="h-48 border border-border rounded-lg p-2">
-              {leads.map(l => (
-                <label key={l.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded cursor-pointer text-sm">
-                  <Checkbox checked={selected.includes(l.id)} onCheckedChange={() => toggleLead(l.id)} />
-                  <span className="flex-1 truncate">{l.nome || "Sem nome"}</span>
-                  <span className="text-xs text-muted-foreground font-mono">{l.telefone}</span>
-                </label>
-              ))}
-              {leads.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead com telefone</p>}
-            </ScrollArea>
-          </div>
+          <Tabs value={contactMode} onValueChange={v => setContactMode(v as any)}>
+            <TabsList className="w-full">
+              <TabsTrigger value="leads" className="flex-1">Leads cadastrados</TabsTrigger>
+              <TabsTrigger value="manual" className="flex-1">Colar números</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="leads">
+              <div className="flex items-center justify-between mb-2">
+                <Label>Contatos ({selected.length}/{leads.length})</Label>
+                <Button size="sm" variant="ghost" onClick={selectAll}>
+                  {selected.length === leads.length ? "Desmarcar todos" : "Selecionar todos"}
+                </Button>
+              </div>
+              <ScrollArea className="h-48 border border-border rounded-lg p-2">
+                {leads.map(l => (
+                  <label key={l.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded cursor-pointer text-sm">
+                    <Checkbox checked={selected.includes(l.id)} onCheckedChange={() => toggleLead(l.id)} />
+                    <span className="flex-1 truncate">{l.nome || "Sem nome"}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{l.telefone}</span>
+                  </label>
+                ))}
+                {leads.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead com telefone</p>}
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="manual">
+              <Label>Cole os números (um por linha)</Label>
+              <Textarea
+                value={manualNumbers}
+                onChange={e => setManualNumbers(e.target.value)}
+                rows={6}
+                placeholder={"5511999998888 - João\n5521988887777 - Maria\n5531977776666"}
+                className="font-mono text-xs mt-1"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Formato: número ou número - nome. {manualCount > 0 && <span className="text-primary font-medium">{manualCount} contatos detectados</span>}
+              </p>
+            </TabsContent>
+          </Tabs>
 
           {results.length > 0 && (
             <div>
@@ -149,7 +193,7 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
         </div>
         <DialogFooter>
           <Button onClick={send} disabled={sending}>
-            {sending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</> : <><Send className="h-4 w-4 mr-1" /> Disparar ({selected.length})</>}
+            {sending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</> : <><Send className="h-4 w-4 mr-1" /> Disparar ({contactMode === "leads" ? selected.length : manualCount})</>}
           </Button>
         </DialogFooter>
       </DialogContent>

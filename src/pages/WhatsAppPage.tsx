@@ -192,9 +192,11 @@ export default function WhatsApp() {
       if (error) { toast.error(error.message); return; }
       toast.success("Template atualizado!");
     } else {
+      const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase.from("imphq_wa_templates").insert({
         name: tplForm.name, content: tplForm.content,
         category: tplForm.category, project_id: tplForm.project_id || null,
+        user_id: user?.id,
       });
       if (error) { toast.error(error.message); return; }
       toast.success("Template criado!");

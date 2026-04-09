@@ -79,11 +79,13 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
     setSavingTemplate(true);
     try {
       const name = acao.template.split(/\s+/).slice(0, 5).join(" ");
+      const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase.from("imphq_wa_templates").insert({
         name,
         content: acao.template,
         category: acao.tipo || "whatsapp",
         project_id: projectId || null,
+        user_id: user?.id,
       } as any);
       if (error) throw error;
       toast.success("Template salvo!");
