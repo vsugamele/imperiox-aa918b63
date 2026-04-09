@@ -20,6 +20,7 @@ import {
   Clock, Tag, Link2, ArrowRight, Search
 } from "lucide-react";
 import { toast } from "sonner";
+import { updateCalendarEventForCard, removeCalendarEventForCard } from "@/lib/calendarSync";
 
 interface KanbanCard {
   id: string;
@@ -241,7 +242,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const handleTitleChange = (v: string) => { setTitle(v); autoSave("title", v); };
   const handleDescChange = (v: string) => { setDescription(v); autoSave("description", v); };
   const handlePriorityChange = (v: string) => { setPriority(v); autoSave("priority", v); };
-  const handleDueDateChange = (v: string) => { setDueDate(v); autoSave("due_date", v || null); };
+  const handleDueDateChange = (v: string) => { setDueDate(v); autoSave("due_date", v || null); if (card) updateCalendarEventForCard(card.id, v || null); };
   const handleMemberChange = (v: string) => { setMemberId(v); autoSave("member_id", v === "none" ? null : v); };
   const handleProjectChange = (v: string) => { setProjectId(v); autoSave("project_id", v === "none" ? null : v); };
   const handleStartDateChange = (v: string) => { setStartDate(v); saveMetadata({ start_date: v || null }); };
@@ -374,6 +375,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const deleteCard = async () => {
     if (!card) return;
     if (!confirm("Excluir esta tarefa permanentemente?")) return;
+    removeCalendarEventForCard(card.id);
     await supabase.from("imphq_kanban_cards").delete().eq("id", card.id);
     toast.success("Tarefa excluída");
     onClose();

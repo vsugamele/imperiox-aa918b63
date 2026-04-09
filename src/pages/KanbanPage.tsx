@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
+import { createCalendarEventForCard } from "@/lib/calendarSync";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
@@ -382,6 +383,11 @@ export default function KanbanPage() {
           }
         }
       }
+    }
+    // Sync with calendar if due_date exists
+    if (newDueDate && newCard) {
+      const { data: { user: calUser } } = await supabase.auth.getUser();
+      if (calUser) createCalendarEventForCard({ title: newTitle.trim(), due_date: newDueDate, project_id: (newCard as any).project_id, user_id: calUser.id, card_id: (newCard as any).id });
     }
     toast.success("Card criado!");
     setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); setNewProjectId("none");
