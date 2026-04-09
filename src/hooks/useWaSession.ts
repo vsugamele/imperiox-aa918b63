@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type UiStatus = "idle" | "pending" | "awaiting_qr" | "qr_ready" | "connected" | "stale" | "error";
+export type UiStatus = "idle" | "pending" | "awaiting_qr" | "qr_ready" | "connected" | "stale" | "error" | "resetting";
 
 export interface WorkerDiagnostics {
   instructions?: string;
@@ -70,11 +70,10 @@ export function useWaSession(params: {
   }, [tenantId, sessionKey]);
 
   const startGetQr = useCallback(async () => {
-    // Debounce: prevent parallel commands
     if (lockRef.current) return;
     lockRef.current = true;
 
-    // Auto-reset dirty sessions before new pairing (inline to avoid circular dep)
+    // Auto-reset dirty sessions before new pairing
     if (
       ["stale", "error"].includes(uiStatus) ||
       ["stale", "error", "creating_qr"].includes(sessionRawStatus || "")
@@ -156,7 +155,7 @@ export function useWaSession(params: {
             .single(),
         ]);
 
-        let sessionStatus = sessionRes.data?.status || null;
+        const sessionStatus = sessionRes.data?.status || null;
         setSessionRawStatus(sessionStatus);
 
         const events = eventsRes.data || [];
@@ -182,19 +181,19 @@ export function useWaSession(params: {
         if (finalImg) setQrImageUrl(finalImg);
         if (finalTxt) setQrText(finalTxt);
 
-        // Check connected from event payload (canonical field from backend)
-        if (payload?.connected === true && sessionStatus !== "connected") {
-          sessionStatus = "connected";
-        }
-
         const hasRealQr = Boolean(finalImg || finalTxt);
+
+        // Canonical signals from payload/result
+        const qrAvailable = payload?.qrAvailable ?? cmd?.result?.qrAvailable ?? undefined;
+        const hasSession = payload?.hasSession ?? cmd?.result?.hasSession ?? undefined;
+        const needsQr = payload?.needsQr ?? cmd?.result?.needsQr ?? undefined;
 
         // Build diagnostics
         const diag: WorkerDiagnostics = {
           instructions: payload?.instructions || cmd?.result?.instructions || undefined,
-          hasSession: payload?.hasSession ?? cmd?.result?.hasSession ?? undefined,
-          needsQr: payload?.needsQr ?? cmd?.result?.needsQr ?? undefined,
-          qrAvailable: payload?.qrAvailable ?? cmd?.result?.qrAvailable ?? undefined,
+          hasSession,
+          needsQr,
+          qrAvailable,
           qrAt: payload?.qrAt || cmd?.result?.qrAt || undefined,
           commandId: cmdId,
           commandStatus: cmd?.status,
@@ -204,21 +203,35 @@ export function useWaSession(params: {
         };
         setDiagnostics(diag);
 
-        // Determine UI status
+        // Command status checks
         const cmdError = cmd?.error || null;
         const commandDone = cmd?.status === "done" || cmd?.status === "success" || cmd?.status === "completed";
         const commandFailed = cmd?.status === "error" || Boolean(cmdError);
 
+        // ===== NEW STATE MACHINE: QR > connected =====
         let nextUi: UiStatus;
 
         if (commandFailed || sessionStatus === "error") {
+          // 1. Errors always surface
           nextUi = "error";
           if (cmdError) setErrorMessage(cmdError);
-        } else if (sessionStatus === "connected") {
-          nextUi = "connected";
-        } else if (hasRealQr) {
+        } else if (qrAvailable === true && hasRealQr) {
+          // 2. QR available AND we have the image/text → show QR (even if hasSession=true)
           nextUi = "qr_ready";
+        } else if (hasRealQr) {
+          // 3. We have QR image but qrAvailable flag not set → still show QR
+          nextUi = "qr_ready";
+        } else if (needsQr === true && !hasRealQr) {
+          // 4. Backend says needs QR but image not yet available
+          nextUi = "awaiting_qr";
+        } else if (hasSession === true && qrAvailable === false) {
+          // 5. Has session, no QR pending → connected
+          nextUi = "connected";
+        } else if (sessionStatus === "connected" && !qrAvailable) {
+          // 6. Session table says connected, no QR → connected
+          nextUi = "connected";
         } else if (commandDone && !hasRealQr) {
+          // 7. Command finished but no QR → possibly stale
           noQrCountRef.current++;
           if (noQrCountRef.current >= 2) {
             nextUi = "stale";
@@ -245,7 +258,7 @@ export function useWaSession(params: {
           if (elapsed > timeoutMs && nextUi !== "connected" && nextUi !== "error" && nextUi !== "qr_ready") {
             setUiStatus("stale");
             setErrorMessage("Timeout ao obter QR (45s). Sessão pode estar travada.");
-            setDiagnostics(prev => ({ ...prev, reason: "qr_timeout", reset_required: true } as any));
+            setDiagnostics(prev => ({ ...prev, reason: "qr_timeout" } as any));
           }
           unlockAndStop();
         }
@@ -260,7 +273,7 @@ export function useWaSession(params: {
   useEffect(() => () => { clearTimer(); lockRef.current = false; }, []);
 
   const canGenerateQr = useMemo(
-    () => uiStatus !== "pending" && uiStatus !== "awaiting_qr",
+    () => !["pending", "awaiting_qr", "resetting"].includes(uiStatus),
     [uiStatus]
   );
 
@@ -269,6 +282,9 @@ export function useWaSession(params: {
     lockRef.current = false;
     lastResetAtRef.current = new Date();
 
+    // Set resetting state
+    setUiStatus("resetting");
+
     // 1. Insert reset command for the worker
     await supabase
       .from("wa_hub_iso_commands")
@@ -276,7 +292,7 @@ export function useWaSession(params: {
         tenant_id: tenantId,
         session_key: sessionKey,
         action: "reset_session",
-        payload: { project, source: "ui" } as any,
+        payload: { project, source: "ui", hard: true } as any,
         status: "pending",
       });
 
@@ -302,7 +318,7 @@ export function useWaSession(params: {
       .eq("tenant_id", tenantId)
       .eq("session_key", sessionKey);
 
-    // 5. Reset local state
+    // 5. Reset local state → idle (ready to generate new QR)
     setUiStatus("idle");
     setCommandId(null);
     setQrImageUrl(null);
