@@ -630,12 +630,22 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 className="bg-secondary"
               />
             </div>
+            {products.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">📦 Produto em foco</Label>
+                <Select value={aiProductName} onValueChange={setAiProductName}>
+                  <SelectTrigger className="bg-secondary"><SelectValue placeholder="Todos os produtos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos os produtos</SelectItem>
+                    {products.map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">📊 Frequência de posts por dia?</Label>
               <Select value={aiFrequency} onValueChange={setAiFrequency}>
-                <SelectTrigger className="bg-secondary">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">1 post por dia</SelectItem>
                   <SelectItem value="2">2 posts por dia</SelectItem>
@@ -646,7 +656,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">📱 Plataformas prioritárias</Label>
               <div className="flex flex-wrap gap-2">
-                {ALL_PLATFORMS.map(p => (
+                {PLATFORMS.map(p => (
                   <label key={p} className="flex items-center gap-1.5 text-xs cursor-pointer">
                     <Checkbox checked={aiPlatforms.includes(p)} onCheckedChange={() => togglePlatform(p)} />
                     <span>{PLATFORM_ICONS[p]} {p}</span>
@@ -674,6 +684,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 content_objective: aiObjective,
                 posts_per_day: parseInt(aiFrequency),
                 priority_platforms: aiPlatforms,
+                product_name: aiProductName,
               }}
             />
           </DialogFooter>
