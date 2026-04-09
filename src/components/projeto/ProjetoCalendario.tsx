@@ -39,6 +39,7 @@ const EVENT_TYPES = [
   { value: "deadline", label: "Deadline", icon: "⏰", color: "bg-amber-500/20 text-amber-400" },
   { value: "meeting", label: "Reunião", icon: "🤝", color: "bg-blue-500/20 text-blue-400" },
   { value: "content", label: "Conteúdo", icon: "📝", color: "bg-emerald-500/20 text-emerald-400" },
+  { value: "task", label: "Tarefa", icon: "✅", color: "bg-violet-500/20 text-violet-400" },
 ];
 
 const getEventType = (type: string) => EVENT_TYPES.find(t => t.value === type) || EVENT_TYPES[0];
