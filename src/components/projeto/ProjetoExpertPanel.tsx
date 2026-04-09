@@ -490,6 +490,11 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                               </div>
                               <p className="text-[10px] opacity-80">{item.type}</p>
                               {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                              {item.cross_platforms && item.cross_platforms.length > 0 && (
+                                <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                                  {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                                </div>
+                              )}
                               {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
                             </div>
                           ))}
