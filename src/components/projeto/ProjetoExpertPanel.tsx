@@ -6,8 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -24,6 +28,13 @@ interface WeekPlan {
   [day: string]: ContentItem[];
 }
 
+interface MonthlyPlan {
+  semana_1: WeekPlan;
+  semana_2: WeekPlan;
+  semana_3: WeekPlan;
+  semana_4: WeekPlan;
+}
+
 interface Props {
   projectId: string;
   project: any;
@@ -33,16 +44,49 @@ interface Props {
 const PLATFORMS = ["Instagram", "YouTube", "TikTok", "LinkedIn", "Blog", "Email", "WhatsApp"];
 const CONTENT_TYPES = ["Post", "Reels", "Story", "Live", "Artigo", "Email", "Vídeo", "Carousel"];
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
+const WEEK_LABELS = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
+
+const PLATFORM_ICONS: Record<string, string> = {
+  Instagram: "📸", YouTube: "▶️", TikTok: "🎵", LinkedIn: "💼",
+  Blog: "📝", Email: "📧", WhatsApp: "💬",
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  Post: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  Reels: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  Story: "bg-pink-500/20 text-pink-400 border-pink-500/30",
+  Live: "bg-red-500/20 text-red-400 border-red-500/30",
+  Artigo: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  Email: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  Vídeo: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+  Carousel: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+};
+
+function migrateToMonthly(plan: any): MonthlyPlan {
+  const empty: WeekPlan = {};
+  if (!plan) return { semana_1: empty, semana_2: empty, semana_3: empty, semana_4: empty };
+  if (plan.semana_1) return plan as MonthlyPlan;
+  // Legacy weekly plan → move to semana_1
+  return { semana_1: plan, semana_2: empty, semana_3: empty, semana_4: empty };
+}
 
 export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) {
   const [events, setEvents] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [processes, setProcesses] = useState<any[]>([]);
-  const data = project.data || {};
+  const [activeWeek, setActiveWeek] = useState<string>("semana_1");
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiObjective, setAiObjective] = useState("");
+  const [aiFrequency, setAiFrequency] = useState("2");
+  const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
 
-  const contentPlan: WeekPlan = data.content_plan || {};
+  const data = project.data || {};
+  const monthlyPlan = migrateToMonthly(data.content_plan);
+  const currentWeekPlan: WeekPlan = monthlyPlan[activeWeek as keyof MonthlyPlan] || {};
   const expertNotes: string = data.expert_notes || "";
   const shareToken: string = data.expert_share_token || "";
+  const contentObjective: string = data.content_objective || "";
 
   useEffect(() => {
     const now = new Date();
@@ -58,28 +102,38 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     });
   }, [projectId]);
 
-  const updateContentPlan = useCallback((plan: WeekPlan) => {
+  const updateMonthlyPlan = useCallback((plan: MonthlyPlan) => {
     onUpdateData({ ...data, content_plan: plan });
   }, [data, onUpdateData]);
 
   const addContentItem = (day: string) => {
-    const plan = { ...contentPlan };
-    const items = plan[day] || [];
+    const plan = { ...monthlyPlan };
+    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    const items = [...(week[day] || [])];
     items.push({ id: crypto.randomUUID(), platform: "Instagram", type: "Post", description: "" });
-    plan[day] = items;
-    updateContentPlan(plan);
+    week[day] = items;
+    (plan as any)[activeWeek] = week;
+    updateMonthlyPlan(plan);
   };
 
   const updateContentItem = (day: string, itemId: string, patch: Partial<ContentItem>) => {
-    const plan = { ...contentPlan };
-    plan[day] = (plan[day] || []).map(item => item.id === itemId ? { ...item, ...patch } : item);
-    updateContentPlan(plan);
+    const plan = { ...monthlyPlan };
+    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    week[day] = (week[day] || []).map(item => item.id === itemId ? { ...item, ...patch } : item);
+    (plan as any)[activeWeek] = week;
+    updateMonthlyPlan(plan);
   };
 
   const removeContentItem = (day: string, itemId: string) => {
-    const plan = { ...contentPlan };
-    plan[day] = (plan[day] || []).filter(item => item.id !== itemId);
-    updateContentPlan(plan);
+    const plan = { ...monthlyPlan };
+    const week = { ...(plan[activeWeek as keyof MonthlyPlan] || {}) };
+    week[day] = (week[day] || []).filter(item => item.id !== itemId);
+    (plan as any)[activeWeek] = week;
+    updateMonthlyPlan(plan);
+  };
+
+  const updateObjective = (obj: string) => {
+    onUpdateData({ ...data, content_objective: obj });
   };
 
   const updateNotes = (notes: string) => {
@@ -105,11 +159,15 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     toast.success("Novo link gerado e copiado!");
   };
 
+  const togglePlatform = (p: string) => {
+    setAiPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  };
+
   // AI handlers
   const handleContentPlanAI = (result: any) => {
     if (result?.content_plan) {
       onUpdateData({ ...data, content_plan: result.content_plan });
-      toast.success("Plano de conteúdo gerado com IA!");
+      toast.success("Plano de conteúdo mensal gerado com IA!");
     }
   };
 
@@ -121,8 +179,15 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   };
 
   // Stats
-  const totalContent = DAYS.reduce((s, d) => s + (contentPlan[d]?.length || 0), 0);
-  const activePlatforms = new Set(DAYS.flatMap(d => (contentPlan[d] || []).map(i => i.platform))).size;
+  const totalContent = WEEKS.reduce((total, wk) => {
+    const wp = monthlyPlan[wk] || {};
+    return total + DAYS.reduce((s, d) => s + (wp[d]?.length || 0), 0);
+  }, 0);
+  const allItems = WEEKS.flatMap(wk => {
+    const wp = monthlyPlan[wk] || {};
+    return DAYS.flatMap(d => (wp[d] || []).map(i => i.platform));
+  });
+  const activePlatforms = new Set(allItems).size;
 
   return (
     <div className="space-y-6">
@@ -151,40 +216,24 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{events.length}</p>
-            <p className="text-[10px] text-muted-foreground">Eventos (7 dias)</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{tasks.length}</p>
-            <p className="text-[10px] text-muted-foreground">Tarefas</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{processes.length}</p>
-            <p className="text-[10px] text-muted-foreground">Processos</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{totalContent}</p>
-            <p className="text-[10px] text-muted-foreground">Posts/Semana</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{activePlatforms}</p>
-            <p className="text-[10px] text-muted-foreground">Plataformas</p>
-          </CardContent>
-        </Card>
+        {[
+          { label: "Eventos (7d)", value: events.length },
+          { label: "Tarefas", value: tasks.length },
+          { label: "Processos", value: processes.length },
+          { label: "Posts/Mês", value: totalContent },
+          { label: "Plataformas", value: activePlatforms },
+        ].map(k => (
+          <Card key={k.label} className="bg-card border-border">
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{k.value}</p>
+              <p className="text-[10px] text-muted-foreground">{k.label}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Agenda da Semana */}
+        {/* Agenda */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
@@ -208,7 +257,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           </CardContent>
         </Card>
 
-        {/* Tarefas Pendentes */}
+        {/* Tarefas */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
@@ -231,7 +280,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
         </Card>
       </div>
 
-      {/* Processos Ativos */}
+      {/* Processos */}
       {processes.length > 0 && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
@@ -259,66 +308,167 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
         </Card>
       )}
 
-      {/* Plano de Conteúdo Semanal */}
+      {/* Plano de Conteúdo Mensal */}
       <Card className="bg-card border-border">
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📅 Plano de Conteúdo Semanal</CardTitle>
-          <AIGenerateButton
-            projectId={projectId}
-            action="generate_content_plan"
-            label="Gerar Plano com IA"
-            onResult={handleContentPlanAI}
-            contextSources={["Briefing", "Avatar", "Expert", "Brand Kit"]}
-            fieldsToFill={["Plano de conteúdo 7 dias"]}
-            showMenteSelector
-            size="sm"
-            variant="outline"
-          />
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-7 gap-2">
-            {DAYS.map(day => (
-              <div key={day} className="space-y-1">
-                <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
-                <div className="min-h-[80px] rounded border border-border bg-secondary/30 p-1 space-y-1">
-                  {(contentPlan[day] || []).map(item => (
-                    <div key={item.id} className="p-1.5 rounded bg-background border border-border text-[9px] space-y-0.5 group relative">
-                      <Button variant="ghost" size="icon" className="h-3 w-3 absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100" onClick={() => removeContentItem(day, item.id)}>
-                        <X className="h-2 w-2" />
-                      </Button>
-                      <Select value={item.platform} onValueChange={v => updateContentItem(day, item.id, { platform: v })}>
-                        <SelectTrigger className="h-4 text-[8px] bg-transparent border-none p-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PLATFORMS.map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={item.type} onValueChange={v => updateContentItem(day, item.id, { type: v })}>
-                        <SelectTrigger className="h-4 text-[8px] bg-transparent border-none p-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CONTENT_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        value={item.description}
-                        onChange={e => updateContentItem(day, item.id, { description: e.target.value })}
-                        placeholder="Tema..."
-                        className="h-4 text-[8px] bg-transparent border-none p-0 focus-visible:ring-0"
-                      />
-                    </div>
-                  ))}
-                  <Button variant="ghost" size="sm" className="w-full h-5 text-[8px]" onClick={() => addContentItem(day)}>
-                    <Plus className="h-2 w-2" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+        <CardHeader className="pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📅 Plano de Conteúdo Mensal</CardTitle>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => {
+                setAiObjective(contentObjective);
+                setAiDialogOpen(true);
+              }}>
+                <Sparkles className="h-3.5 w-3.5" /> 🤖 Gerar Plano com IA
+              </Button>
+            </div>
           </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Objetivo do Movimento */}
+          <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+            <Target className="h-4 w-4 text-primary flex-shrink-0" />
+            <Input
+              value={contentObjective}
+              onChange={e => updateObjective(e.target.value)}
+              placeholder="🎯 Objetivo do Movimento — Ex: Aquecimento para lançamento, Autoridade no nicho, Captação de leads..."
+              className="bg-transparent border-none text-sm focus-visible:ring-0 h-8"
+            />
+          </div>
+
+          {/* Week Tabs */}
+          <Tabs value={activeWeek} onValueChange={setActiveWeek}>
+            <TabsList className="w-full grid grid-cols-4">
+              {WEEKS.map((wk, i) => (
+                <TabsTrigger key={wk} value={wk} className="text-xs">
+                  {WEEK_LABELS[i]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {WEEKS.map(wk => (
+              <TabsContent key={wk} value={wk}>
+                <div className="grid grid-cols-7 gap-2">
+                  {DAYS.map(day => {
+                    const weekData = monthlyPlan[wk] || {};
+                    const items = weekData[day] || [];
+                    return (
+                      <div key={day} className="space-y-1">
+                        <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
+                        <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
+                          {items.map(item => (
+                            <div key={item.id} className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} group relative`}>
+                              <Button variant="ghost" size="icon" className="h-4 w-4 absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={() => removeContentItem(day, item.id)}>
+                                <X className="h-2.5 w-2.5" />
+                              </Button>
+                              <div className="flex items-center gap-1 mb-1">
+                                <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
+                                <Select value={item.platform} onValueChange={v => updateContentItem(day, item.id, { platform: v })}>
+                                  <SelectTrigger className="h-5 text-[10px] bg-transparent border-none p-0 w-auto min-w-0 font-semibold">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PLATFORMS.map(p => <SelectItem key={p} value={p} className="text-xs">{PLATFORM_ICONS[p]} {p}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Select value={item.type} onValueChange={v => updateContentItem(day, item.id, { type: v })}>
+                                <SelectTrigger className="h-5 text-[10px] bg-transparent border-none p-0 w-auto min-w-0">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {CONTENT_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                value={item.description}
+                                onChange={e => updateContentItem(day, item.id, { description: e.target.value })}
+                                placeholder="Tema..."
+                                className="h-5 text-[10px] bg-transparent border-none p-0 focus-visible:ring-0 mt-0.5"
+                              />
+                            </div>
+                          ))}
+                          <Button variant="ghost" size="sm" className="w-full h-6 text-[9px] text-muted-foreground" onClick={() => addContentItem(day)}>
+                            <Plus className="h-2.5 w-2.5 mr-0.5" /> Adicionar
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
         </CardContent>
       </Card>
+
+      {/* AI Pre-Questions Dialog */}
+      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Configurar Plano com IA
+            </DialogTitle>
+            <DialogDescription>Responda as perguntas para gerar um plano de conteúdo mensal personalizado.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">🎯 Qual o objetivo do conteúdo este mês?</Label>
+              <Input
+                value={aiObjective}
+                onChange={e => setAiObjective(e.target.value)}
+                placeholder="Ex: Aquecimento para lançamento, Gerar autoridade, Captar leads..."
+                className="bg-secondary"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">📊 Frequência de posts por dia?</Label>
+              <Select value={aiFrequency} onValueChange={setAiFrequency}>
+                <SelectTrigger className="bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 post por dia</SelectItem>
+                  <SelectItem value="2">2 posts por dia</SelectItem>
+                  <SelectItem value="3">3 posts por dia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">📱 Plataformas prioritárias</Label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORMS.map(p => (
+                  <label key={p} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={aiPlatforms.includes(p)} onCheckedChange={() => togglePlatform(p)} />
+                    <span>{PLATFORM_ICONS[p]} {p}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setAiDialogOpen(false)}>Cancelar</Button>
+            <AIGenerateButton
+              projectId={projectId}
+              action="generate_content_plan"
+              label="Gerar Plano Mensal"
+              onResult={(result) => {
+                handleContentPlanAI(result);
+                setAiDialogOpen(false);
+              }}
+              contextSources={["Briefing", "Avatar", "Expert", "Brand Kit"]}
+              fieldsToFill={["Plano de conteúdo 4 semanas"]}
+              showMenteSelector
+              size="sm"
+              variant="default"
+              extraBody={{
+                content_objective: aiObjective,
+                posts_per_day: parseInt(aiFrequency),
+                priority_platforms: aiPlatforms,
+              }}
+            />
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Notas / Instruções */}
       <Card className="bg-card border-border">
