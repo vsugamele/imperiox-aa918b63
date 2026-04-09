@@ -1,35 +1,54 @@
 
 
-# Plano: Mostrar Formulario de Captura + Filtro por Formulario nos Leads
+# Plano: Sincronizar Tarefas do Kanban com o Calendario
 
-## Sobre deduplicacao
+## Objetivo
 
-Sim, os leads sao deduplicados por email. Quando um lead ja existe, o `capture-lead` faz UPDATE em vez de INSERT — merges nome, telefone, tags, e acumula interacoes no campo `data.interacoes`. Cada formulario preenchido adiciona uma nova entrada. Entao quanto mais o lead interage, mais dados ele acumula.
-
-## O que falta na interface
-
-### 1. Coluna "Formulario" na tabela de leads
-
-Os dados ja existem no lead: `data.form_name` e `data.form_id`. Basta extrair e exibir como uma nova coluna apos "Projeto". Mostrara o nome do formulario que capturou o lead (ex: "Teste", "Pesquisa Low Ticket").
-
-### 2. Filtro por Formulario
-
-Adicionar um `Select` de filtro com a lista de formularios existentes (buscar de `imphq_capture_forms`). Filtrar leads cujo `data->form_id` bate com o selecionado. Como o filtro e sobre um campo JSONB, aplicar no frontend (ja temos os leads carregados) ou usar `.filter()` no `contains`.
-
-### 3. Exibir formulario no detalhe do lead
-
-No painel lateral de edicao do lead, mostrar qual formulario o capturou (nome + step) de forma visivel, alem de ja estar na aba Qualificacao.
+Quando uma tarefa (card do Kanban) for criada com data de entrega (`due_date`), automaticamente registrar um evento no calendario (`imphq_calendar_events`) com tipo "task". O calendario ganha um novo tipo de evento com visual discreto para nao poluir.
 
 ## Mudancas
 
+### 1. Novo tipo de evento "task" no Calendario
+
+Adicionar `{ value: "task", label: "Tarefa", icon: "✅", color: "bg-violet-500/20 text-violet-400" }` na lista `EVENT_TYPES` do `ProjetoCalendario.tsx`. Tarefas aparecem com visual sutil e podem ser filtradas/ocultadas pelo badge de filtro ja existente.
+
+### 2. Funcao auxiliar para criar evento de tarefa
+
+Criar uma funcao utilitaria `createCalendarEventForCard` que:
+- Recebe `{ title, due_date, project_id, user_id, card_id }`
+- Insere em `imphq_calendar_events` com `event_type: "task"`, `all_day: true`, `description: "Tarefa do Kanban"`
+- Usa o `card_id` no campo `description` para referencia (ex: `"[kanban:card_id] Tarefa do Kanban"`)
+- Nao bloqueia o fluxo principal (fire-and-forget com `.then()`)
+
+### 3. Integrar nos pontos de criacao de cards
+
+Nos 3 locais que criam cards com `due_date`:
+
+- **KanbanPage.tsx** linha 352 — apos `createCard`, se `newDueDate` existe, chamar a funcao
+- **KanbanPage.tsx** linhas 894/914 — criacao inline, mesma logica
+- **Tarefas.tsx** linha 1502 — proximo passo, se tiver `due_date`
+
+### 4. Atualizar/remover evento quando card muda
+
+- Quando um card tem seu `due_date` atualizado (no `CardDetailPanel`), atualizar o evento correspondente
+- Quando um card e deletado, remover o evento do calendario
+
+### 5. Visual discreto no calendario
+
+Os eventos de tarefa aparecem com icone ✅ e cor violeta suave. No calendario, os dots de tarefa usam a mesma cor dos outros eventos (sem criar poluicao visual adicional). O filtro por tipo permite ocultar tarefas se desejado.
+
+## Arquivos
+
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Leads.tsx` | Nova coluna "Formulario" na tabela, novo state `formFilter`, buscar `imphq_capture_forms` no load, filtro Select, exibir no detalhe |
+| `src/components/projeto/ProjetoCalendario.tsx` | Novo EVENT_TYPE "task" |
+| `src/pages/KanbanPage.tsx` | Criar evento ao criar card com due_date |
+| `src/pages/Tarefas.tsx` | Criar evento ao criar proximo passo com due_date |
+| `src/components/kanban/CardDetailPanel.tsx` | Sync evento ao atualizar/deletar card |
 
 ## Ordem
 
-1. Buscar lista de formularios no load inicial
-2. Adicionar coluna "Formulario" na tabela (extrair de `data.form_name`)
-3. Adicionar filtro Select por formulario
-4. Mostrar info do formulario no painel de detalhe do lead
+1. Adicionar tipo "task" no calendario
+2. Implementar logica de criacao de evento nos pontos de insert de cards
+3. Sync ao editar/deletar cards
 
