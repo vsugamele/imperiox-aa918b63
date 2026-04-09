@@ -159,6 +159,8 @@ export default function Leads() {
   const [productFilter, setProductFilter] = useState("all");
   const [products, setProducts] = useState<string[]>([]);
   const [productLeadIds, setProductLeadIds] = useState<Set<string> | null>(null);
+  const [formFilter, setFormFilter] = useState("all");
+  const [captureForms, setCaptureForms] = useState<{id: string; name: string}[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
@@ -238,7 +240,7 @@ export default function Leads() {
     const to = from + PAGE_SIZE - 1;
     leadsQuery = leadsQuery.order("criado_em", { ascending: false }).range(from, to);
 
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes, formsRes] = await Promise.all([
       leadsQuery,
       supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }),
@@ -247,6 +249,7 @@ export default function Leads() {
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
+      supabase.from("imphq_capture_forms").select("id, name").order("name"),
     ]);
 
     // Set total count from server
@@ -290,6 +293,7 @@ export default function Leads() {
     } else {
       setProductLeadIds(null);
     }
+    setCaptureForms((formsRes.data || []).map((f: any) => ({ id: f.id, name: f.name })));
     setSelectedIds(new Set());
     setLoading(false);
   };
@@ -495,7 +499,8 @@ export default function Leads() {
   const filtered = leads.filter((l) => {
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
-    return matchStage && matchProduct;
+    const matchForm = formFilter === "all" || (l.data as any)?.form_id === formFilter || (l.data as any)?.interacoes?.some((i: any) => i.form_id === formFilter);
+    return matchStage && matchProduct && matchForm;
   });
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -1060,6 +1065,15 @@ export default function Leads() {
                   {STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {captureForms.length > 0 && (
+                <Select value={formFilter} onValueChange={setFormFilter}>
+                  <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Formulário</SelectItem>
+                    {captureForms.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={projectFilter} onValueChange={setProjectFilter}>
                 <SelectTrigger className="w-[140px] h-9 lg:hidden"><SelectValue placeholder="Projeto" /></SelectTrigger>
                 <SelectContent>
@@ -1187,6 +1201,7 @@ export default function Leads() {
                     <TableHead className="w-10"><Checkbox checked={allFilteredSelected} onCheckedChange={toggleSelectAll} /></TableHead>
                     <TableHead>Lead</TableHead>
                     <TableHead>Projeto</TableHead>
+                    <TableHead>Formulário</TableHead>
                     <TableHead>Produto</TableHead>
                     <TableHead>Pagamento</TableHead>
                     <TableHead>Estágio</TableHead>
