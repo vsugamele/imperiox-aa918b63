@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -27,6 +28,7 @@ const TYPE_COLORS: Record<string, string> = {
   Email: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   Vídeo: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
   Carousel: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+  "Video Longo": "bg-cyan-600/20 text-cyan-300 border-cyan-600/30",
 };
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -44,6 +46,7 @@ interface ContentItem {
   description: string;
   copy?: string;
   hashtags?: string;
+  cross_platforms?: string[];
 }
 
 interface WeekPlan { [day: string]: ContentItem[]; }
@@ -63,6 +66,7 @@ export default function ExpertPortal() {
   const [error, setError] = useState<string | null>(null);
   const [activeWeek, setActiveWeek] = useState("semana_1");
   const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
     if (!token) return;
@@ -104,6 +108,25 @@ export default function ExpertPortal() {
     return DAYS.flatMap(d => (wp[d] || []).map((i: ContentItem) => i.platform));
   });
   const activePlatforms = new Set(allItems).size;
+
+  // Calendar content dates
+  const contentDates = (() => {
+    const dates: Date[] = [];
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    WEEKS.forEach((wk, wi) => {
+      const wp = monthlyPlan[wk] || {};
+      DAYS.forEach((day, di) => {
+        if ((wp[day]?.length || 0) > 0) {
+          const dayOffset = wi * 7 + di;
+          const d = new Date(startOfMonth);
+          d.setDate(d.getDate() + dayOffset);
+          dates.push(d);
+        }
+      });
+    });
+    return dates;
+  })();
 
   return (
     <div className="min-h-screen bg-background">
@@ -232,7 +255,36 @@ export default function ExpertPortal() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary">📅 Plano de Conteúdo Mensal</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Mini Calendar */}
+            <div className="flex justify-center">
+              <CalendarComponent
+                mode="single"
+                selected={calendarDate}
+                onSelect={(date) => {
+                  setCalendarDate(date);
+                  if (date) {
+                    const dayOfWeek = date.getDay();
+                    const dayMap = [6, 0, 1, 2, 3, 4, 5];
+                    const dayIndex = dayMap[dayOfWeek];
+                    const dayKey = DAYS[dayIndex];
+                    for (const wk of WEEKS) {
+                      const wp = monthlyPlan[wk] || {};
+                      if (wp[dayKey]?.length) {
+                        setActiveWeek(wk);
+                        break;
+                      }
+                    }
+                  }
+                }}
+                className="rounded-md border pointer-events-auto"
+                modifiers={{ hasContent: contentDates }}
+                modifiersStyles={{
+                  hasContent: { fontWeight: "bold", textDecoration: "underline", color: "hsl(var(--primary))" },
+                }}
+              />
+            </div>
+
             <Tabs value={activeWeek} onValueChange={setActiveWeek}>
               <TabsList className="w-full grid grid-cols-4 mb-3">
                 {WEEKS.map((wk, i) => {
@@ -267,6 +319,11 @@ export default function ExpertPortal() {
                                 </div>
                                 <p className="text-[10px] opacity-80">{item.type}</p>
                                 {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                                {item.cross_platforms && item.cross_platforms.length > 0 && (
+                                  <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                                    {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                                  </div>
+                                )}
                                 {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
                               </div>
                             ))}
@@ -295,6 +352,12 @@ export default function ExpertPortal() {
             </DialogHeader>
             {selectedCard && (
               <div className="space-y-4">
+                {selectedCard.cross_platforms && selectedCard.cross_platforms.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Cross-platform:</span>
+                    {selectedCard.cross_platforms.map(cp => <Badge key={cp} variant="secondary" className="text-[9px]">{cp}</Badge>)}
+                  </div>
+                )}
                 {selectedCard.description && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">🎯 Tema</p>
