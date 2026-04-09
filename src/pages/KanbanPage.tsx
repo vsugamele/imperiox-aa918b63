@@ -471,7 +471,7 @@ export default function KanbanPage() {
 
   const clearAllFilters = () => {
     setSearchTerm(""); setFilterMember("all");
-    setFilters({ priority: "all", project: "all", deadline: "all" });
+    setFilters({ priority: "all", project: "all", product: "all", deadline: "all" });
   };
 
   const toggleGroup = (key: string) => {
