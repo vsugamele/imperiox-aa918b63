@@ -68,6 +68,7 @@ interface KanbanCard {
 interface Filters {
   priority: string;
   project: string;
+  product: string;
   deadline: string; // all | overdue | today | none
 }
 
@@ -91,7 +92,7 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMember, setFilterMember] = useState("all");
-  const [filters, setFilters] = useState<Filters>({ priority: "all", project: "all", deadline: "all" });
+  const [filters, setFilters] = useState<Filters>({ priority: "all", project: "all", product: "all", deadline: "all" });
   const [dragCardId, setDragCardId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
 
@@ -172,11 +173,42 @@ export default function KanbanPage() {
     return proj?.data?.briefing?.produto || undefined;
   };
 
+  // All unique products from projects
+  const allProducts = (() => {
+    const prods = new Set<string>();
+    projects.forEach(p => {
+      const d = p.data || {};
+      if (Array.isArray(d.produtos)) {
+        d.produtos.forEach((prod: any) => {
+          const name = prod.nome || prod.name;
+          if (name) prods.add(name);
+        });
+      }
+    });
+    return Array.from(prods).sort();
+  })();
+
+  // Project IDs that contain the selected product
+  const projectIdsWithProduct = (productName: string): Set<string> => {
+    const ids = new Set<string>();
+    projects.forEach(p => {
+      const d = p.data || {};
+      if (Array.isArray(d.produtos)) {
+        if (d.produtos.some((prod: any) => (prod.nome || prod.name) === productName)) {
+          ids.add(p.id);
+        }
+      }
+    });
+    return ids;
+  };
+
   // Compute display columns based on active board
   const displayColumns = (() => {
     if (activeBoard === "experts") {
       const expertMap = new Map<string, KanbanColumn>();
+      // Only include cards that have a member_id (assigned to expert)
       for (const card of allCards) {
+        if (!card.member_id && !card.project_id) continue; // skip unassigned cards without project
         const expertName = getProjectExpert(card.project_id) || "Sem Expert";
         if (!expertMap.has(expertName)) {
           expertMap.set(expertName, { id: `expert-${expertName}`, title: expertName, color: "#8b5cf6", position: expertMap.size, board: "experts" });
@@ -224,6 +256,10 @@ export default function KanbanPage() {
     if (filterMember !== "all") result = result.filter(c => c.member_id === filterMember);
     if (filters.priority !== "all") result = result.filter(c => c.priority === filters.priority);
     if (filters.project !== "all") result = result.filter(c => c.project_id === filters.project);
+    if (filters.product !== "all") {
+      const ids = projectIdsWithProduct(filters.product);
+      result = result.filter(c => c.project_id && ids.has(c.project_id));
+    }
     if (filters.deadline === "overdue") result = result.filter(c => isOverdue(c.due_date));
     else if (filters.deadline === "today") result = result.filter(c => isToday(c.due_date));
     else if (filters.deadline === "none") result = result.filter(c => !c.due_date);
@@ -236,7 +272,13 @@ export default function KanbanPage() {
     let cards: KanbanCard[];
     if (activeBoard === "experts") {
       const expertName = col.title;
-      cards = allCards.filter(c => (getProjectExpert(c.project_id) || "Sem Expert") === expertName);
+      // Only show cards assigned (member_id) or belonging to expert's project
+      cards = allCards.filter(c => {
+        const cardExpert = getProjectExpert(c.project_id) || "Sem Expert";
+        if (cardExpert !== expertName) return false;
+        // Must have member_id OR project_id to appear in expert view
+        return !!(c.member_id || c.project_id);
+      });
     } else if (activeBoard === "geral") {
       const normalizedTitle = col.title.toLowerCase();
       cards = allCards.filter(c => getCardNormalizedCol(c) === normalizedTitle);
@@ -249,7 +291,7 @@ export default function KanbanPage() {
   };
 
   const activeFiltersCount = [
-    filters.priority !== "all", filters.project !== "all", filters.deadline !== "all", filterMember !== "all"
+    filters.priority !== "all", filters.project !== "all", filters.product !== "all", filters.deadline !== "all", filterMember !== "all"
   ].filter(Boolean).length;
 
   const getMember = (memberId?: string) => memberId ? members.find(m => m.id === memberId) : undefined;
