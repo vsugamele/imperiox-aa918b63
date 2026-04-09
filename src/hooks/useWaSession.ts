@@ -63,7 +63,10 @@ export function useWaSession(params: {
         .maybeSingle();
       if (data?.status) {
         setSessionRawStatus(data.status);
-        if (data.status === "connected") setUiStatus("connected");
+        if (data.status === "connected") {
+          // Don't auto-set connected — let polling confirm via qrAvailable === false
+          setUiStatus("idle");
+        }
       }
     };
     checkSession();
@@ -73,10 +76,10 @@ export function useWaSession(params: {
     if (lockRef.current) return;
     lockRef.current = true;
 
-    // Auto-reset dirty sessions before new pairing
+    // Auto-reset dirty sessions before new pairing (including connected)
     if (
-      ["stale", "error"].includes(uiStatus) ||
-      ["stale", "error", "creating_qr"].includes(sessionRawStatus || "")
+      ["stale", "error", "connected"].includes(uiStatus) ||
+      ["stale", "error", "creating_qr", "connected"].includes(sessionRawStatus || "")
     ) {
       clearTimer();
       await supabase.from("wa_hub_iso_commands").insert({
@@ -215,20 +218,20 @@ export function useWaSession(params: {
           // 1. Errors always surface
           nextUi = "error";
           if (cmdError) setErrorMessage(cmdError);
-        } else if (qrAvailable === true && hasRealQr) {
-          // 2. QR available AND we have the image/text → show QR (even if hasSession=true)
-          nextUi = "qr_ready";
         } else if (hasRealQr) {
-          // 3. We have QR image but qrAvailable flag not set → still show QR
+          // 2. We have QR image/text → show QR (even if hasSession=true or connected)
           nextUi = "qr_ready";
+        } else if (qrAvailable === true && !hasRealQr) {
+          // 3. QR signaled but image not yet received
+          nextUi = "awaiting_qr";
         } else if (needsQr === true && !hasRealQr) {
           // 4. Backend says needs QR but image not yet available
           nextUi = "awaiting_qr";
         } else if (hasSession === true && qrAvailable === false) {
-          // 5. Has session, no QR pending → connected
+          // 5. Has session, explicitly no QR pending → connected (strict check)
           nextUi = "connected";
-        } else if (sessionStatus === "connected" && !qrAvailable) {
-          // 6. Session table says connected, no QR → connected
+        } else if (sessionStatus === "connected" && qrAvailable === false) {
+          // 6. Session table says connected AND qrAvailable explicitly false → connected
           nextUi = "connected";
         } else if (commandDone && !hasRealQr) {
           // 7. Command finished but no QR → possibly stale
@@ -247,11 +250,13 @@ export function useWaSession(params: {
         setUiStatus(nextUi);
 
         const elapsed = Date.now() - (startedAtRef.current || Date.now());
+        // Continue polling in qr_ready to detect scan → connected (120s max)
+        const qrReadyTimeout = 120000;
         const shouldStop =
           nextUi === "connected" ||
           nextUi === "error" ||
-          nextUi === "qr_ready" ||
           nextUi === "stale" ||
+          (nextUi === "qr_ready" && elapsed > qrReadyTimeout) ||
           elapsed > timeoutMs;
 
         if (shouldStop) {

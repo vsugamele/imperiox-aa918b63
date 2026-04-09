@@ -65,7 +65,8 @@ export default function WaHubQrPanel() {
 
   const showResetButton = ["stale", "error", "connected", "qr_ready"].includes(uiStatus) ||
     diagnostics.hasSession === true ||
-    (diagnostics.reason === "qr_timeout");
+    (diagnostics.reason === "qr_timeout") ||
+    (uiStatus === "idle" && sessionRawStatus === "connected");
 
   return (
     <Card className="bg-card border-border">
