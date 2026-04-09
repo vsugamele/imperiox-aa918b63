@@ -34,7 +34,9 @@ serve(async (req) => {
 
     // ── Helper: send via Evolution API ──
     async function sendEvolution(provider: any, phone: string, text: string) {
-      const res = await fetch(`${provider.api_url}/message/sendText/${provider.instance_name}`, {
+      const url = `${provider.api_url}/message/sendText/${provider.instance_name}`;
+      console.log("[sendEvolution] URL:", url, "phone:", phone, "textLen:", text.length);
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -43,6 +45,7 @@ serve(async (req) => {
         body: JSON.stringify({ number: phone, text }),
       });
       const data = await res.json();
+      console.log("[sendEvolution] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
       if (!res.ok) throw new Error(`Evolution error [${res.status}]: ${JSON.stringify(data)}`);
       return data;
     }
