@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,11 +15,13 @@ interface WaSession {
   provider_id: string | null;
   last_message?: string | null;
   updated_at?: string;
+  avatar_url?: string | null;
 }
 
 interface Props {
   sessions: WaSession[];
   projects: { id: string; name: string }[];
+  providers?: { id: string; instance_name?: string; twilio_from?: string; provider: string; project_id: string }[];
   selectedId: string | null;
   loading: boolean;
   onSelect: (session: WaSession) => void;
@@ -39,12 +42,28 @@ function timeAgo(dateStr: string | undefined) {
   return `${days}d`;
 }
 
+function getInitials(name: string | null, phone: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  }
+  return phone.slice(-2);
+}
+
 export default function ConversationList({
-  sessions, projects, selectedId, loading, onSelect, onNewSession, filterProject, onFilterProject,
+  sessions, projects, providers, selectedId, loading, onSelect, onNewSession, filterProject, onFilterProject,
 }: Props) {
   const [search, setSearch] = useState("");
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
+  const getProviderLabel = (providerId: string | null) => {
+    if (!providerId || !providers) return null;
+    const prov = providers.find(p => p.id === providerId);
+    if (!prov) return null;
+    if (prov.provider === "evolution") return prov.instance_name || "Evolution";
+    return prov.twilio_from ? `Twilio ...${prov.twilio_from.slice(-4)}` : "Twilio";
+  };
 
   const filtered = sessions.filter(s => {
     const matchProject = filterProject === "all" || s.project_id === filterProject;
@@ -117,6 +136,7 @@ export default function ConversationList({
           <div className="py-1">
             {filtered.map(s => {
               const isSelected = s.id === selectedId;
+              const provLabel = getProviderLabel(s.provider_id);
               return (
                 <button
                   key={s.id}
@@ -125,9 +145,12 @@ export default function ConversationList({
                     isSelected ? "bg-accent" : ""
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <MessageSquare className="h-4.5 w-4.5 text-primary" />
-                  </div>
+                  <Avatar className="h-10 w-10 shrink-0">
+                    {s.avatar_url && <AvatarImage src={s.avatar_url} alt={s.contact_name || s.phone} />}
+                    <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+                      {getInitials(s.contact_name, s.phone)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium truncate">
@@ -147,9 +170,16 @@ export default function ConversationList({
                         </Badge>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
-                      {projectName(s.project_id)}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-[10px] text-muted-foreground/70 truncate">
+                        {projectName(s.project_id)}
+                      </p>
+                      {provLabel && (
+                        <Badge variant="outline" className="text-[8px] h-3.5 px-1 shrink-0 font-normal">
+                          {provLabel}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </button>
               );

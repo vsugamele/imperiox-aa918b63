@@ -525,6 +525,91 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: fetch_profile_pic ──
+    if (action === "fetch_profile_pic") {
+      const body = await req.json();
+      const { provider_id, phone } = body;
+      if (!provider_id || !phone) throw new Error("provider_id and phone required");
+      const provider = await getProvider(provider_id);
+
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ success: false, error: "Only Evolution API supports profile pics" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const inst = encodeURIComponent(provider.instance_name);
+      const cleanPhone = phone.replace(/\D/g, "");
+      const res = await fetch(`${provider.api_url}/chat/fetchProfilePictureUrl/${inst}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: provider.api_key },
+        body: JSON.stringify({ number: cleanPhone }),
+      });
+      const data = await res.json();
+      const picUrl = data?.profilePictureUrl || data?.picture || data?.imgUrl || null;
+
+      // Cache in DB if found
+      if (picUrl) {
+        await supabase
+          .from("imphq_wa_conversations")
+          .update({ avatar_url: picUrl })
+          .eq("phone", cleanPhone)
+          .eq("project_id", provider.project_id);
+      }
+
+      return new Response(JSON.stringify({ success: true, avatar_url: picUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── ACTION: fetch_avatars_batch ──
+    if (action === "fetch_avatars_batch") {
+      const body = await req.json();
+      const { provider_id, phones } = body;
+      if (!provider_id || !Array.isArray(phones)) throw new Error("provider_id and phones[] required");
+      const provider = await getProvider(provider_id);
+
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ success: true, results: {} }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const inst = encodeURIComponent(provider.instance_name);
+      const results: Record<string, string | null> = {};
+
+      // Process in small batches to avoid timeouts (max 20)
+      const batch = phones.slice(0, 20);
+      for (const phone of batch) {
+        try {
+          const cleanPhone = phone.replace(/\D/g, "");
+          const res = await fetch(`${provider.api_url}/chat/fetchProfilePictureUrl/${inst}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: provider.api_key },
+            body: JSON.stringify({ number: cleanPhone }),
+          });
+          const data = await res.json();
+          const picUrl = data?.profilePictureUrl || data?.picture || data?.imgUrl || null;
+          results[cleanPhone] = picUrl;
+
+          if (picUrl) {
+            await supabase
+              .from("imphq_wa_conversations")
+              .update({ avatar_url: picUrl })
+              .eq("phone", cleanPhone)
+              .eq("project_id", provider.project_id);
+          }
+        } catch (e) {
+          console.warn("[fetch_avatars_batch] Error for", phone, e);
+          results[phone] = null;
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Action not found: " + action }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
