@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
