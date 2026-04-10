@@ -97,7 +97,14 @@ serve(async (req) => {
       });
       const data = await res.json();
       console.log("[sendEvolution] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
-      if (!res.ok) throw new Error(`Evolution error [${res.status}]: ${JSON.stringify(data)}`);
+      if (!res.ok) {
+        // Check if it's an invalid/non-existent number
+        const msgs = data?.response?.message;
+        if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
+          return { ok: false, error: "invalid_number", details: msgs };
+        }
+        throw new Error(`Evolution error [${res.status}]: ${JSON.stringify(data)}`);
+      }
       return data;
     }
 
@@ -139,6 +146,18 @@ serve(async (req) => {
         result = await sendEvolution(provider, phone, content);
       } else {
         result = await sendTwilio(provider, phone, content);
+      }
+
+      // Handle invalid number gracefully
+      if (result?.ok === false && result?.error === "invalid_number") {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Número inválido ou não encontrado no WhatsApp.",
+          details: result.details,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       // Find or create conversation
@@ -187,10 +206,17 @@ serve(async (req) => {
             .replace(/\{\{nome\}\}/g, contact.name || "")
             .replace(/\{\{telefone\}\}/g, contact.phone || "");
 
+          let sendResult;
           if (provider.provider === "evolution") {
-            await sendEvolution(provider, contact.phone, text);
+            sendResult = await sendEvolution(provider, contact.phone, text);
           } else {
-            await sendTwilio(provider, contact.phone, text);
+            sendResult = await sendTwilio(provider, contact.phone, text);
+          }
+
+          // Skip DB persistence if number is invalid
+          if (sendResult?.ok === false && sendResult?.error === "invalid_number") {
+            results.push({ phone: contact.phone, status: "invalid_number", error: "Número não existe no WhatsApp" });
+            continue;
           }
 
           // Find or create conversation for this contact
