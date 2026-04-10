@@ -639,6 +639,43 @@ serve(async (req) => {
           console.log(`[webhook] Skipped: phone=${phone} content=${!!content} project=${projectId}`);
         }
 
+          // ── Auto-reply by command ──
+          try {
+            const lowerContent = content.toLowerCase().trim();
+            const { data: commands } = await supabase
+              .from("imphq_wa_commands")
+              .select("*")
+              .eq("project_id", projectId)
+              .eq("is_active", true);
+
+            if (commands && commands.length > 0) {
+              const matched = commands.find((cmd: any) =>
+                lowerContent === cmd.trigger_word.toLowerCase() ||
+                lowerContent.startsWith(cmd.trigger_word.toLowerCase() + " ")
+              );
+              if (matched && providerId) {
+                const { data: provCmd } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("api_url, api_key, instance_name")
+                  .eq("id", providerId)
+                  .single();
+                if (provCmd) {
+                  const cmdApiBase = provCmd.api_url.replace(/\/+$/, "");
+                  const cmdInst = encodeURIComponent(provCmd.instance_name);
+                  const cmdJid = phone + "@s.whatsapp.net";
+                  await fetch(`${cmdApiBase}/message/sendText/${cmdInst}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", apikey: provCmd.api_key },
+                    body: JSON.stringify({ number: cmdJid, text: matched.response_text || "" }),
+                  });
+                  console.log(`[webhook] Command auto-reply: "${matched.trigger_word}" → ${phone}`);
+                }
+              }
+            }
+          } catch (cmdErr: any) {
+            console.warn("[webhook] Command auto-reply error:", cmdErr.message);
+          }
+
         return new Response(JSON.stringify({ success: true, event: eventType }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -704,6 +741,73 @@ serve(async (req) => {
         }
 
         return new Response(JSON.stringify({ success: true, event: "twilio_inbound" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── GROUP_PARTICIPANTS_UPDATE — detect exits ──
+      if (providerType === "evolution" && eventType === "GROUP_PARTICIPANTS_UPDATE") {
+        const participants = body?.data?.participants || body?.data?.affect || [];
+        const action2 = body?.data?.action || "";
+        const groupJid = body?.data?.id || body?.data?.jid || "";
+
+        if (action2 === "remove" && groupJid && Array.isArray(participants)) {
+          for (const p of participants) {
+            const exitPhone = String(p).replace("@s.whatsapp.net", "").replace(/\D/g, "");
+            if (!exitPhone) continue;
+
+            // Save exit record
+            await supabase.from("imphq_wa_group_exits").insert({
+              group_jid: groupJid,
+              phone: exitPhone,
+              provider_id: null,
+            });
+
+            // Check if any campaign has exit_message for this group
+            const { data: exitCampaigns } = await supabase
+              .from("imphq_wa_campaigns")
+              .select("id, exit_message, provider_id")
+              .eq("status", "active")
+              .not("exit_message", "is", null);
+
+            if (exitCampaigns) {
+              for (const ec of exitCampaigns) {
+                const groups: string[] = (ec as any).groups || [];
+                if (!groups.includes(groupJid)) continue;
+                if (!ec.exit_message || !ec.provider_id) continue;
+
+                // Send DM
+                const { data: exitProv } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("api_url, api_key, instance_name")
+                  .eq("id", ec.provider_id)
+                  .single();
+
+                if (exitProv) {
+                  const exitApi = exitProv.api_url.replace(/\/+$/, "");
+                  const exitInst = encodeURIComponent(exitProv.instance_name);
+                  try {
+                    await fetch(`${exitApi}/message/sendText/${exitInst}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", apikey: exitProv.api_key },
+                      body: JSON.stringify({ number: exitPhone + "@s.whatsapp.net", text: ec.exit_message }),
+                    });
+                    await supabase.from("imphq_wa_group_exits")
+                      .update({ message_sent: true, campaign_id: ec.id })
+                      .eq("phone", exitPhone)
+                      .eq("group_jid", groupJid)
+                      .eq("message_sent", false);
+                    console.log(`[webhook] Exit DM sent to ${exitPhone} from campaign ${ec.id}`);
+                  } catch (dmErr: any) {
+                    console.warn(`[webhook] Exit DM error: ${dmErr.message}`);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, event: "GROUP_PARTICIPANTS_UPDATE" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

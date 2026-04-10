@@ -181,7 +181,7 @@ export default function WhatsApp() {
                     <div className="flex-1 min-w-0">
                       <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
                       <p className="text-[11px] text-muted-foreground">
-                        {projectName(selectedSession.project_id)}
+                        📞 {selectedSession.phone} · {projectName(selectedSession.project_id)}
                         {selectedProvider && (
                           <span className="ml-1.5 text-[10px] opacity-70">
                             · via {selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from}

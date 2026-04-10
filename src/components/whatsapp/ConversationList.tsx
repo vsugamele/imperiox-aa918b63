@@ -151,7 +151,7 @@ export default function ConversationList({
                       {getInitials(s.contact_name, s.phone)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium truncate">
                         {s.contact_name || s.phone}
@@ -160,9 +160,12 @@ export default function ConversationList({
                         {timeAgo(s.updated_at || s.created_at)}
                       </span>
                     </div>
+                    {s.contact_name && (
+                      <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
+                    )}
                     <div className="flex items-center justify-between mt-0.5">
                       <p className="text-xs text-muted-foreground truncate pr-2">
-                        {s.last_message || s.phone}
+                        {s.last_message || (s.contact_name ? "" : s.phone)}
                       </p>
                       {s.message_count > 0 && (
                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 shrink-0">
