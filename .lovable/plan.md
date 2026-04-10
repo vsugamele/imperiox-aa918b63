@@ -1,74 +1,46 @@
 
 
-# Plano: Próximos Passos de Integração (Itens 3, 4, 7, 8)
+# Plano: Melhorar o Webhook Handler da Evolution API
 
-Os itens 1 (Painel de Status), 2 (Webhook Log) e 5 (CORS) já foram implementados. Restam 5 itens. Vou agrupar em duas fases por dependência.
+## Problemas identificados
 
----
+1. **"Webhook by Events" habilitado**: A Evolution API adiciona o nome do evento ao final da URL (ex: `.../whatsapp-api/MESSAGES_UPSERT?action=webhook&provider=evolution`). Isso pode impedir que o `action` seja reconhecido corretamente, pois a Edge Function pode interpretar o path de forma diferente.
 
-## Fase 1 — Segurança + Resiliência (itens 3, 7)
+2. **Só captura texto**: O handler ignora mensagens de imagem, áudio, vídeo, documentos e stickers — qualquer mídia recebida é silenciosamente descartada.
 
-### 3. Mover tokens sensíveis do JSONB para tabela segura
+3. **Sem logging**: Não há log do que chega via webhook, dificultando debug. Se algo falha, não há como saber o que foi recebido.
 
-Atualmente o `facebook_marketing_token` e a `resend_api_key` ficam dentro de `imphq_projects.data` — qualquer query que retorna `data` expõe esses tokens ao frontend.
+4. **Ignora eventos de status**: A Evolution envia `MESSAGES_UPDATE` com status de entrega (delivered, read), mas o handler não processa — os status das mensagens enviadas nunca atualizam.
 
-**Mudanças:**
-- Criar tabela `imphq_integration_credentials` com colunas: `id`, `project_id`, `provider` (facebook, resend, google), `credentials` (JSONB), `expires_at`, `created_at`, `updated_at`
-- RLS restritivo: apenas o owner do projeto pode ler, e apenas via service_role nas Edge Functions
-- Migrar as Edge Functions `facebook-ads-sync`, `facebook-ads-sync-all` e `send-project-email` para ler tokens dessa tabela em vez do JSONB
-- No frontend, os formulários de configuração (Briefing) passam a salvar nessa tabela via Edge Function (nunca expõem o token ao client)
-
-### 7. Rate limiting na Evolution API
-
-**Mudanças:**
-- No `whatsapp-api/index.ts`, adicionar delay de 200ms entre chamadas no `fetch_avatars_batch` e no `sync_contacts`
-- Limitar batch de sync a 50 contatos por execução
-- Retornar `{ partial: true, processed: N }` quando atingir o limite
+5. **Ignora eventos de conexão**: `CONNECTION_UPDATE` não é tratado — o status da sessão no banco fica desatualizado.
 
 ---
 
-## Fase 2 — Motor de Execução do OpenFlow (itens 4, 6, 8)
+## Mudanças
 
-### 4. Edge Function `openflow-executor`
+### 1. Tornar o handler resiliente ao "Webhook by Events"
+Atualmente o handler depende de `action === "webhook"`. Com "Webhook by Events" ativo, a Evolution envia para URLs como `/whatsapp-api/MESSAGES_UPSERT`. Preciso detectar quando o path contém um nome de evento da Evolution e tratar como webhook, independente do query param `action`.
 
-O FlowEditor já salva automações com trigger, ações e delays na tabela `imphq_automacoes`. O que falta é um "motor" que execute essas ações quando o trigger dispara.
+### 2. Capturar tipos de mídia
+Extrair conteúdo de `imageMessage`, `audioMessage`, `videoMessage`, `documentMessage`, `stickerMessage` e salvar com um indicador de tipo (ex: `[📷 Imagem]`, `[🎤 Áudio]`).
 
-**Mudanças:**
-- Criar tabela `imphq_flow_executions` com: `id`, `automacao_id`, `lead_id`, `current_step`, `status` (pending/running/completed/failed), `step_results` (JSONB), `next_run_at`, `created_at`
-- Criar Edge Function `openflow-executor` que:
-  1. Recebe `{ trigger_tipo, project_id, lead_data }` (chamado pelo `webhook-pagamento` ou manualmente)
-  2. Busca automações ativas para aquele trigger + projeto
-  3. Cria um registro em `imphq_flow_executions`
-  4. Percorre cada etapa sequencialmente, respeitando `delay_min`
-  5. Para ações de WhatsApp: chama `whatsapp-api` com action `send`
-  6. Para ações de Email: chama `send-project-email`
-  7. Para condições: avalia e pula para o branch correto
-  8. Salva resultado de cada etapa em `step_results`
+### 3. Adicionar logging estruturado
+Logar evento recebido, tipo, instância e resultado do processamento para facilitar debug via `edge_function_logs`.
 
-### 6 + 8. Integrar webhook-pagamento ao executor + Resend
+### 4. Processar MESSAGES_UPDATE (status de entrega)
+Quando receber evento de status update (`delivered`, `read`, `played`), atualizar o campo `status` da mensagem correspondente em `imphq_wa_messages` usando o `provider_message_id`.
 
-**Mudanças:**
-- No final do processamento do `webhook-pagamento`, após salvar a venda, chamar `openflow-executor` passando o trigger (`compra_aprovada`, `lead_novo`, etc.) e os dados do lead
-- O executor já chamará `send-project-email` para ações de email, completando a integração Resend
+### 5. Processar CONNECTION_UPDATE
+Atualizar o `status` da sessão em `imphq_wa_providers` ou `imphq_wa_conversations` quando a conexão mudar (open/close/connecting).
 
 ---
 
-## Arquivos afetados
+## Arquivo afetado
 
-| Arquivo | Ação |
+| Arquivo | Mudança |
 |---|---|
-| `supabase/migrations/*` | Criar `imphq_integration_credentials` e `imphq_flow_executions` |
-| `supabase/functions/openflow-executor/index.ts` | **Novo** — motor de execução |
-| `supabase/functions/webhook-pagamento/index.ts` | Chamar executor após processar venda |
-| `supabase/functions/facebook-ads-sync/index.ts` | Ler token da nova tabela |
-| `supabase/functions/facebook-ads-sync-all/index.ts` | Ler token da nova tabela |
-| `supabase/functions/send-project-email/index.ts` | Ler Resend key da nova tabela |
-| `supabase/functions/whatsapp-api/index.ts` | Rate limiting no sync/avatars |
-| `src/components/projeto/ProjetoBriefing.tsx` | Salvar tokens via Edge Function |
+| `supabase/functions/whatsapp-api/index.ts` | Refatorar bloco webhook (linhas 472-526) com detecção de evento por path, suporte a mídia, status updates e logging |
 
 ## Resultado
-
-- Tokens nunca mais expostos ao frontend
-- Evolution API protegida contra rate limit
-- Automações do OpenFlow executam automaticamente quando um webhook de pagamento chega — enviando WhatsApp e email sem intervenção manual
+Mensagens recebidas via WhatsApp (texto e mídia) aparecerão automaticamente no chat. Status de entrega/leitura serão atualizados em tempo real. Debugging facilitado com logs estruturados.
 
