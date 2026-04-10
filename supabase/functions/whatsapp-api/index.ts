@@ -331,6 +331,125 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: instance_info (Evolution — real-time status + number) ──
+    if (action === "instance_info") {
+      const providerId = url.searchParams.get("provider_id");
+      if (!providerId) throw new Error("provider_id required");
+      const provider = await getProvider(providerId);
+
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ status: "connected", provider: "twilio", number: provider.twilio_from }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get connection state
+      const stateRes = await fetch(
+        `${provider.api_url}/instance/connectionState/${provider.instance_name}`,
+        { headers: { apikey: provider.api_key } }
+      );
+      const stateData = await stateRes.json();
+
+      // Try to get instance info for the connected number
+      let ownerNumber = null;
+      try {
+        const infoRes = await fetch(
+          `${provider.api_url}/instance/fetchInstances?instanceName=${provider.instance_name}`,
+          { headers: { apikey: provider.api_key } }
+        );
+        const infoData = await infoRes.json();
+        const inst = Array.isArray(infoData) ? infoData[0] : infoData;
+        ownerNumber = inst?.instance?.owner || inst?.owner || null;
+      } catch (e) {
+        console.warn("[instance_info] Could not fetch instance info:", e);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        status: stateData?.instance?.state || stateData?.state || "unknown",
+        number: ownerNumber,
+        instance_name: provider.instance_name,
+        provider_id: provider.id,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── ACTION: sync_contacts (Evolution — import contacts) ──
+    if (action === "sync_contacts") {
+      const body = await req.json();
+      const { provider_id } = body;
+      const provider = await getProvider(provider_id);
+
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ error: "sync_contacts only for Evolution API" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch chats from Evolution
+      const chatsRes = await fetch(
+        `${provider.api_url}/chat/findChats/${provider.instance_name}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: provider.api_key },
+          body: JSON.stringify({}),
+        }
+      );
+      const chats = await chatsRes.json();
+      console.log("[sync_contacts] chats count:", Array.isArray(chats) ? chats.length : 0);
+
+      let imported = 0;
+      let skipped = 0;
+
+      if (Array.isArray(chats)) {
+        for (const chat of chats) {
+          const remoteJid = chat.id || chat.remoteJid || "";
+          if (!remoteJid || remoteJid.includes("@g.us") || remoteJid.includes("@broadcast")) {
+            skipped++;
+            continue;
+          }
+          const phone = remoteJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+          if (!phone) { skipped++; continue; }
+
+          const contactName = chat.name || chat.pushName || chat.contact?.pushName || null;
+
+          // Upsert — skip if already exists
+          const { data: existing } = await supabase
+            .from("imphq_wa_conversations")
+            .select("id")
+            .eq("phone", phone)
+            .eq("project_id", provider.project_id)
+            .limit(1)
+            .single();
+
+          if (existing) { skipped++; continue; }
+
+          const { error } = await supabase.from("imphq_wa_conversations").insert({
+            phone,
+            contact_name: contactName,
+            session: `evo-sync-${Date.now()}`,
+            project_id: provider.project_id,
+            status: "active",
+            provider_id: provider.id,
+            message_count: 0,
+          });
+
+          if (error) {
+            console.warn("[sync_contacts] Insert error:", error.message);
+            skipped++;
+          } else {
+            imported++;
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, imported, skipped, total: Array.isArray(chats) ? chats.length : 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── ACTION: webhook (receive messages) ──
     if (action === "webhook") {
       const body = await req.json();

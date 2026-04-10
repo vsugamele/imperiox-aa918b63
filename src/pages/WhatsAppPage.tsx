@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon, Radio } from "lucide-react";
+import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon, Radio, RefreshCw, Wifi, WifiOff, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ChatView from "@/components/whatsapp/ChatView";
@@ -229,16 +229,22 @@ export default function WhatsApp() {
         </div>
       </div>
 
-      {/* Provider status */}
-      {providers.length > 0 && (
+      {/* Evolution Instance Status Card */}
+      {providers.filter(p => p.provider === "evolution").map(p => (
+        <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} onSynced={load} />
+      ))}
+
+      {/* Non-evolution provider badges */}
+      {providers.filter(p => p.provider !== "evolution").length > 0 && (
         <div className="flex gap-2 flex-wrap">
-          {providers.map(p => (
+          {providers.filter(p => p.provider !== "evolution").map(p => (
             <Badge key={p.id} variant="outline" className="text-xs gap-1">
-              {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projectName(p.project_id)}
+              🔵 {p.twilio_from} — {projectName(p.project_id)}
             </Badge>
           ))}
         </div>
       )}
+
       {providers.length === 0 && (
         <Card className="bg-card border-border border-dashed">
           <CardContent className="p-4 text-center">
@@ -560,5 +566,104 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
       )}
       {grouped.length === 0 && <p className="text-sm text-muted-foreground text-center">Nenhuma conversa do Hub ainda. Conecte e envie mensagens para ver aqui.</p>}
     </div>
+  );
+}
+
+function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: any; projectName: string; onSynced: () => void }) {
+  const [status, setStatus] = useState<string>("loading");
+  const [number, setNumber] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStatus = useCallback(async () => {
+    setLoading(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/whatsapp-api?action=instance_info&provider_id=${provider.id}`,
+        { headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+      );
+      const data = await res.json();
+      setStatus(data.status || "unknown");
+      setNumber(data.number || null);
+    } catch {
+      setStatus("error");
+    }
+    setLoading(false);
+  }, [provider.id]);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  const syncContacts = async () => {
+    setSyncing(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/whatsapp-api?action=sync_contacts`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+          body: JSON.stringify({ provider_id: provider.id }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${data.imported} contato(s) importado(s), ${data.skipped} já existente(s)`);
+        onSynced();
+      } else {
+        toast.error(data.error || "Erro ao sincronizar");
+      }
+    } catch (err: any) {
+      toast.error("Falha na sincronização: " + err.message);
+    }
+    setSyncing(false);
+  };
+
+  const isConnected = status === "open" || status === "connected";
+  const formatNumber = (n: string | null) => {
+    if (!n) return null;
+    const clean = n.replace(/\D/g, "");
+    if (clean.length >= 12) return `+${clean.slice(0, 2)} ${clean.slice(2, 4)} ${clean.slice(4)}`;
+    return `+${clean}`;
+  };
+
+  return (
+    <Card className="bg-card border-border">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : isConnected ? (
+              <Wifi className="h-5 w-5 text-emerald-400" />
+            ) : (
+              <WifiOff className="h-5 w-5 text-destructive" />
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">{provider.instance_name}</span>
+                <Badge variant="outline" className={`text-[10px] ${isConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
+                  {loading ? "Verificando..." : isConnected ? "Conectado" : status === "loading" ? "..." : "Desconectado"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {number ? formatNumber(number) : projectName} · Evolution API
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-8">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+            {isConnected && (
+              <Button size="sm" variant="outline" onClick={syncContacts} disabled={syncing} className="h-8 text-xs">
+                {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                Sincronizar Contatos
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
