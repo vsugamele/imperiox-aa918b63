@@ -1,46 +1,52 @@
 
 
-# Plano: Melhorar o Webhook Handler da Evolution API
+# Plano: Chat WhatsApp Bonito + Suporte a Mídia
 
 ## Problemas identificados
 
-1. **"Webhook by Events" habilitado**: A Evolution API adiciona o nome do evento ao final da URL (ex: `.../whatsapp-api/MESSAGES_UPSERT?action=webhook&provider=evolution`). Isso pode impedir que o `action` seja reconhecido corretamente, pois a Edge Function pode interpretar o path de forma diferente.
+1. **Webhook não salva `media_url` nem `message_type`**: A tabela tem as colunas `media_url` e `message_type`, mas o INSERT no webhook ignora ambas — salva apenas o emoji como texto.
 
-2. **Só captura texto**: O handler ignora mensagens de imagem, áudio, vídeo, documentos e stickers — qualquer mídia recebida é silenciosamente descartada.
+2. **Sem download de mídia**: A Evolution API fornece URLs temporárias ou base64. Precisamos baixar a mídia e salvar no Supabase Storage para que ela persista.
 
-3. **Sem logging**: Não há log do que chega via webhook, dificultando debug. Se algo falha, não há como saber o que foi recebido.
-
-4. **Ignora eventos de status**: A Evolution envia `MESSAGES_UPDATE` com status de entrega (delivered, read), mas o handler não processa — os status das mensagens enviadas nunca atualizam.
-
-5. **Ignora eventos de conexão**: `CONNECTION_UPDATE` não é tratado — o status da sessão no banco fica desatualizado.
+3. **ChatView é texto puro**: Não renderiza imagens, áudios, vídeos ou documentos — tudo aparece como texto plano. Também não tem visual de chat moderno (sem avatar, sem indicadores de status de entrega).
 
 ---
 
 ## Mudanças
 
-### 1. Tornar o handler resiliente ao "Webhook by Events"
-Atualmente o handler depende de `action === "webhook"`. Com "Webhook by Events" ativo, a Evolution envia para URLs como `/whatsapp-api/MESSAGES_UPSERT`. Preciso detectar quando o path contém um nome de evento da Evolution e tratar como webhook, independente do query param `action`.
+### 1. Edge Function — Salvar mídia no Supabase Storage
 
-### 2. Capturar tipos de mídia
-Extrair conteúdo de `imageMessage`, `audioMessage`, `videoMessage`, `documentMessage`, `stickerMessage` e salvar com um indicador de tipo (ex: `[📷 Imagem]`, `[🎤 Áudio]`).
+No `whatsapp-api/index.ts`, no bloco de MESSAGES_UPSERT:
+- Adicionar `message_type` e `media_url` ao INSERT
+- Para mensagens de mídia (image, audio, video, document): buscar a mídia via Evolution API (`/chat/getBase64FromMediaMessage`), fazer upload para o bucket `whatsapp-media` no Supabase Storage, e salvar a URL pública como `media_url`
+- Criar o bucket `whatsapp-media` via migração SQL (público, para exibir no frontend)
 
-### 3. Adicionar logging estruturado
-Logar evento recebido, tipo, instância e resultado do processamento para facilitar debug via `edge_function_logs`.
+### 2. ChatView — Redesign visual tipo WhatsApp
 
-### 4. Processar MESSAGES_UPDATE (status de entrega)
-Quando receber evento de status update (`delivered`, `read`, `played`), atualizar o campo `status` da mensagem correspondente em `imphq_wa_messages` usando o `provider_message_id`.
+Transformar o ChatView num chat bonito:
+- **Background**: fundo com padrão sutil (como o WhatsApp)
+- **Bolhas**: sombras suaves, cores distintas (verde claro para outgoing, branco para incoming)
+- **Mídia inline**: renderizar `<img>` para imagens, `<audio>` para áudios, `<video>` para vídeos, link para documentos
+- **Status de entrega**: ícones de check (✓ enviado, ✓✓ entregue, ✓✓ azul lido)
+- **Avatar**: mostrar iniciais ou foto do contato nas mensagens incoming
+- **Textarea**: trocar Input por Textarea com auto-resize para mensagens longas
+- **Botão de emoji**: adicionar seletor básico de emojis
+- **Envio de mídia**: botão para anexar imagem/arquivo (upload via Supabase Storage + envio via Evolution API)
 
-### 5. Processar CONNECTION_UPDATE
-Atualizar o `status` da sessão em `imphq_wa_providers` ou `imphq_wa_conversations` quando a conexão mudar (open/close/connecting).
+### 3. Migração SQL — Bucket de mídia
+
+Criar bucket `whatsapp-media` com acesso público de leitura.
 
 ---
 
-## Arquivo afetado
+## Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| `supabase/functions/whatsapp-api/index.ts` | Refatorar bloco webhook (linhas 472-526) com detecção de evento por path, suporte a mídia, status updates e logging |
+| `supabase/migrations/*` | Criar bucket `whatsapp-media` |
+| `supabase/functions/whatsapp-api/index.ts` | Salvar `media_url` + `message_type`, download de mídia da Evolution API |
+| `src/components/whatsapp/ChatView.tsx` | Redesign completo — visual de chat, mídia inline, status, textarea |
 
 ## Resultado
-Mensagens recebidas via WhatsApp (texto e mídia) aparecerão automaticamente no chat. Status de entrega/leitura serão atualizados em tempo real. Debugging facilitado com logs estruturados.
+Chat com visual moderno tipo WhatsApp, imagens e áudios aparecendo inline, status de entrega visível, e possibilidade de enviar mídia.
 
