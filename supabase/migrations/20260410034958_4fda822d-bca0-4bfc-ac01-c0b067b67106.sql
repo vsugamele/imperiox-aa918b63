@@ -1,0 +1,1 @@
+UPDATE imphq_wa_providers SET api_url = RTRIM(api_url, '/') WHERE api_url LIKE '%/';
