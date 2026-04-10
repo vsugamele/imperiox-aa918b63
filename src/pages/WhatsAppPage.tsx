@@ -147,6 +147,7 @@ export default function WhatsApp() {
               <ConversationList
                 sessions={sessions}
                 projects={projects}
+                providers={providers}
                 selectedId={selectedSession?.id || null}
                 loading={loading}
                 onSelect={(s) => { setSelectedSession(s); setChatTab("chat"); }}
@@ -164,12 +165,23 @@ export default function WhatsApp() {
                 <div className="flex flex-col h-full">
                   {/* Chat header */}
                   <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                      <MessageSquare className="h-4 w-4 text-primary" />
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {(selectedSession as any).avatar_url ? (
+                        <img src={(selectedSession as any).avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        <MessageSquare className="h-4 w-4 text-primary" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
-                      <p className="text-[11px] text-muted-foreground">{projectName(selectedSession.project_id)}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {projectName(selectedSession.project_id)}
+                        {selectedProvider && (
+                          <span className="ml-1.5 text-[10px] opacity-70">
+                            · via {selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from}
+                          </span>
+                        )}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1">
                       {selectedProvider && (

@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_wa_conversations ADD COLUMN IF NOT EXISTS avatar_url TEXT;
