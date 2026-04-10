@@ -97,7 +97,14 @@ serve(async (req) => {
       });
       const data = await res.json();
       console.log("[sendEvolution] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
-      if (!res.ok) throw new Error(`Evolution error [${res.status}]: ${JSON.stringify(data)}`);
+      if (!res.ok) {
+        // Check if it's an invalid/non-existent number
+        const msgs = data?.response?.message;
+        if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
+          return { ok: false, error: "invalid_number", details: msgs };
+        }
+        throw new Error(`Evolution error [${res.status}]: ${JSON.stringify(data)}`);
+      }
       return data;
     }
 
