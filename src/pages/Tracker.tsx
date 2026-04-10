@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -330,7 +332,7 @@ export default function Tracker() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">⚡ Tracker / Meta</h1>
+        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">⚡ Tracker / Meta <SectionInfo {...sectionHelpTexts.tracker} /></h1>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowScript(true)}><Code className="h-4 w-4 mr-1" /> Script</Button>
           <Button size="sm" variant="outline" onClick={() => setShowTargets(true)}><Target className="h-4 w-4 mr-1" /> Metas</Button>

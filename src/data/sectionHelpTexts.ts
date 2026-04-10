@@ -154,6 +154,23 @@ export const sectionHelpTexts: Record<string, SectionHelp> = {
     usage: "Documente tudo que a equipe precisa saber sobre este projeto.",
   },
 
+  // WhatsApp sub-seções
+  campanhas_whatsapp: {
+    title: "Campanhas WhatsApp",
+    description: "Crie campanhas com sequências de mensagens agendadas para grupos. Configure textos, imagens, áudios e horários de envio.",
+    usage: "Monte a sequência, selecione os grupos e ative — as mensagens serão enviadas automaticamente nos horários definidos.",
+  },
+  templates_whatsapp: {
+    title: "Templates WhatsApp",
+    description: "Modelos de mensagens reutilizáveis com variáveis dinâmicas para envio rápido.",
+    usage: "Crie templates com placeholders como {{nome}} e use em campanhas ou envios avulsos.",
+  },
+  hub_whatsapp: {
+    title: "Hub WhatsApp",
+    description: "Guia de configuração do WhatsApp: conecte seu número, configure o provider e comece a usar.",
+    usage: "Siga o passo a passo para conectar via QR Code ou API.",
+  },
+
   // Usuarios
   usuarios: {
     title: "Usuários",

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -203,7 +205,7 @@ export default function OpenFlow() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">⚡ OpenFlow</h1>
+        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">⚡ OpenFlow <SectionInfo {...sectionHelpTexts.openflow} /></h1>
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Automação</Button>
       </div>
 

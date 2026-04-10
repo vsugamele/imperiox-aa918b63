@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -389,7 +391,7 @@ export default function Docs() {
       <div className="w-64 shrink-0 border-r border-border bg-card/50 overflow-y-auto">
         <div className="p-4 border-b border-border">
           <h2 className="font-display text-lg font-bold text-primary flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Knowledge Base
+            <FileText className="h-4 w-4" /> Knowledge Base <SectionInfo {...sectionHelpTexts.docs} />
           </h2>
           <p className="text-[10px] text-muted-foreground mt-1">{totalSections} seções</p>
         </div>

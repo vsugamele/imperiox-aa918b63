@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, DragEvent } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -586,7 +588,7 @@ export default function KanbanPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">Kanban</h1>
+        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Kanban <SectionInfo {...sectionHelpTexts.kanban} /></h1>
       </div>
 
       {/* Mini Analytics KPIs */}

@@ -1,4 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -381,7 +383,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="font-display text-3xl font-bold text-primary">Dashboard</h1>
+        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Dashboard <SectionInfo {...sectionHelpTexts.dashboard} /></h1>
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
       </div>
 

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,7 +110,7 @@ export default function Equipe() {
         <div className="flex items-center gap-3">
           <Users className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="font-display text-2xl font-bold">Equipe</h1>
+            <h1 className="font-display text-2xl font-bold flex items-center gap-2">Equipe <SectionInfo {...sectionHelpTexts.equipe} /></h1>
             <p className="text-xs text-muted-foreground">{members.length} membros · {activeMembers.length} ativos</p>
           </div>
         </div>

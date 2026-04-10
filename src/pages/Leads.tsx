@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -902,7 +904,7 @@ export default function Leads() {
       {/* ═══ SIDEBAR COLAPSÁVEL ═══ */}
       <div className="w-52 shrink-0 hidden lg:block">
         <div className="flex items-center gap-2 mb-2">
-          <h2 className="font-display text-sm font-bold text-primary">Leads</h2>
+          <h2 className="font-display text-sm font-bold text-primary flex items-center gap-1">Leads <SectionInfo {...sectionHelpTexts.leads} /></h2>
           {realtimeActive && <Radio className="h-3 w-3 text-emerald-400 animate-pulse" />}
         </div>
         <p className="text-[10px] text-muted-foreground mb-3">{leads.length} total</p>

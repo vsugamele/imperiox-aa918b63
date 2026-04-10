@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { SectionInfo } from "@/components/SectionInfo";
+import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -337,7 +339,7 @@ export default function Skills() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold text-primary">Skills & Engines</h1>
+          <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Skills & Engines <SectionInfo {...sectionHelpTexts.skills} /></h1>
           <p className="text-sm text-muted-foreground mt-1">{allSkills.filter(s => s.status === "Ativo").length} ativas · {allSkills.length} no arsenal</p>
         </div>
         <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova Skill</Button>
