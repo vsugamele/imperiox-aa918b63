@@ -554,11 +554,71 @@ serve(async (req) => {
         if (phone && content && projectId) {
           const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined);
 
+          // Try to download media and upload to Supabase Storage
+          let mediaUrl: string | null = null;
+          if (messageType !== "text" && messageType !== "contact" && messageType !== "location" && messageType !== "sticker") {
+            try {
+              const { data: provData } = await supabase
+                .from("imphq_wa_providers")
+                .select("api_url, api_key, instance_name")
+                .eq("id", providerId)
+                .single();
+
+              if (provData?.api_url && provData?.api_key) {
+                const apiBase = provData.api_url.replace(/\/+$/, "");
+                const inst = encodeURIComponent(provData.instance_name);
+                const mediaRes = await fetch(`${apiBase}/chat/getBase64FromMediaMessage/${inst}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", apikey: provData.api_key },
+                  body: JSON.stringify({ message: { key, message: msg } }),
+                });
+                
+                if (mediaRes.ok) {
+                  const mediaData = await mediaRes.json();
+                  const base64 = mediaData?.base64 || mediaData?.data;
+                  const mimetype = mediaData?.mimetype || "application/octet-stream";
+                  
+                  if (base64) {
+                    const extMap: Record<string, string> = {
+                      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+                      "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+                      "video/mp4": "mp4", "application/pdf": "pdf",
+                    };
+                    const ext = extMap[mimetype] || mimetype.split("/")[1] || "bin";
+                    const filePath = `${projectId}/${conv.id}/${providerMsgId || Date.now()}.${ext}`;
+                    
+                    const binaryStr = atob(base64);
+                    const bytes = new Uint8Array(binaryStr.length);
+                    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                    
+                    const { error: uploadError } = await supabase.storage
+                      .from("whatsapp-media")
+                      .upload(filePath, bytes, { contentType: mimetype, upsert: true });
+                    
+                    if (!uploadError) {
+                      const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(filePath);
+                      mediaUrl = urlData?.publicUrl || null;
+                      console.log(`[webhook] Media uploaded: ${mediaUrl}`);
+                    } else {
+                      console.warn("[webhook] Media upload error:", uploadError.message);
+                    }
+                  }
+                } else {
+                  console.warn("[webhook] Failed to fetch media base64:", mediaRes.status);
+                }
+              }
+            } catch (mediaErr: any) {
+              console.warn("[webhook] Media download error:", mediaErr.message);
+            }
+          }
+
           const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
             conversation_id: conv.id,
             direction: "incoming",
             phone,
             content,
+            message_type: messageType,
+            media_url: mediaUrl,
             project_id: projectId,
             provider: providerType,
             provider_message_id: providerMsgId,
@@ -568,7 +628,7 @@ serve(async (req) => {
           if (msgError) {
             console.error("[webhook] DB save error:", msgError.message);
           } else {
-            console.log(`[webhook] Saved ${messageType} from ${phone} (conv=${conv.id})`);
+            console.log(`[webhook] Saved ${messageType} from ${phone} (conv=${conv.id}) media=${!!mediaUrl}`);
           }
 
           await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
