@@ -481,58 +481,173 @@ serve(async (req) => {
       });
     }
 
-    // ── ACTION: webhook (receive messages) ──
+    // ── ACTION: webhook (receive messages, status updates, connection events) ──
     if (action === "webhook") {
       const body = await req.json();
       const providerType = url.searchParams.get("provider") || "evolution";
 
-      let phone = "";
-      let content = "";
-      let projectId = "";
-      let providerMsgId = "";
-      let providerId: string | null = null;
+      // Determine which Evolution event this is
+      const eventType = evolutionEventFromPath || body?.event || "MESSAGES_UPSERT";
+      const instanceName = body?.instance || "";
 
-      if (providerType === "evolution") {
-        phone = body?.data?.key?.remoteJid?.replace("@s.whatsapp.net", "") || "";
-        content = body?.data?.message?.conversation || body?.data?.message?.extendedTextMessage?.text || "";
-        providerMsgId = body?.data?.key?.id || "";
-        const instanceName = body?.instance || "";
+      console.log(`[webhook] event=${eventType} instance=${instanceName} provider=${providerType}`);
+
+      // ── MESSAGES_UPSERT — incoming message ──
+      if (providerType === "evolution" && (eventType === "MESSAGES_UPSERT" || eventType === "SEND_MESSAGE")) {
+        const key = body?.data?.key;
+        const msg = body?.data?.message;
+        const pushName = body?.data?.pushName || "";
+
+        // Skip outgoing messages (fromMe) to avoid duplicates
+        if (key?.fromMe && eventType === "MESSAGES_UPSERT") {
+          console.log("[webhook] Skipping fromMe message");
+          return new Response(JSON.stringify({ success: true, skipped: "fromMe" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const phone = (key?.remoteJid || "").replace("@s.whatsapp.net", "").replace(/\D/g, "");
+        const providerMsgId = key?.id || "";
+
+        // Extract content from various message types
+        let content = "";
+        let messageType = "text";
+
+        if (msg?.conversation) {
+          content = msg.conversation;
+        } else if (msg?.extendedTextMessage?.text) {
+          content = msg.extendedTextMessage.text;
+        } else if (msg?.imageMessage) {
+          content = msg.imageMessage.caption ? `📷 ${msg.imageMessage.caption}` : "📷 Imagem";
+          messageType = "image";
+        } else if (msg?.audioMessage) {
+          const duration = msg.audioMessage.seconds ? ` (${msg.audioMessage.seconds}s)` : "";
+          content = msg.audioMessage.ptt ? `🎤 Áudio${duration}` : `🔊 Áudio${duration}`;
+          messageType = "audio";
+        } else if (msg?.videoMessage) {
+          content = msg.videoMessage.caption ? `🎬 ${msg.videoMessage.caption}` : "🎬 Vídeo";
+          messageType = "video";
+        } else if (msg?.documentMessage) {
+          const fileName = msg.documentMessage.fileName || "arquivo";
+          content = `📎 ${fileName}`;
+          messageType = "document";
+        } else if (msg?.stickerMessage) {
+          content = "🏷️ Sticker";
+          messageType = "sticker";
+        } else if (msg?.contactMessage) {
+          content = `👤 Contato: ${msg.contactMessage.displayName || ""}`;
+          messageType = "contact";
+        } else if (msg?.locationMessage) {
+          content = `📍 Localização`;
+          messageType = "location";
+        }
+
+        // Look up provider
         const { data: prov } = await supabase
           .from("imphq_wa_providers")
           .select("id, project_id")
           .eq("instance_name", instanceName)
           .single();
-        projectId = prov?.project_id || "";
-        providerId = prov?.id || null;
-      } else if (providerType === "twilio") {
-        phone = (body?.From || "").replace("whatsapp:+", "");
-        content = body?.Body || "";
-        providerMsgId = body?.MessageSid || "";
-      }
+        const projectId = prov?.project_id || "";
+        const providerId = prov?.id || null;
 
-      if (phone && content && projectId) {
-        // Find or create conversation
-        const conv = await findOrCreateConversation(phone, projectId, providerId);
+        if (phone && content && projectId) {
+          const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined);
 
-        const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
-          conversation_id: conv.id,
-          direction: "incoming",
-          phone,
-          content,
-          project_id: projectId,
-          provider: providerType,
-          provider_message_id: providerMsgId,
-          status: "received",
-        });
+          const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
+            conversation_id: conv.id,
+            direction: "incoming",
+            phone,
+            content,
+            project_id: projectId,
+            provider: providerType,
+            provider_message_id: providerMsgId,
+            status: "received",
+          });
 
-        if (msgError) {
-          console.error("[webhook] DB save error:", msgError.message);
+          if (msgError) {
+            console.error("[webhook] DB save error:", msgError.message);
+          } else {
+            console.log(`[webhook] Saved ${messageType} from ${phone} (conv=${conv.id})`);
+          }
+
+          await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
+        } else {
+          console.log(`[webhook] Skipped: phone=${phone} content=${!!content} project=${projectId}`);
         }
 
-        await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
+        return new Response(JSON.stringify({ success: true, event: eventType }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      return new Response(JSON.stringify({ success: true }), {
+      // ── MESSAGES_UPDATE — delivery/read status ──
+      if (providerType === "evolution" && eventType === "MESSAGES_UPDATE") {
+        const msgId = body?.data?.key?.id || body?.data?.keyId || "";
+        const status = body?.data?.status || "";
+
+        // Map Evolution numeric status to readable
+        const statusMap: Record<string, string> = {
+          "0": "error", "1": "pending", "2": "sent", "3": "delivered", "4": "read", "5": "played",
+          "ERROR": "error", "PENDING": "pending", "SERVER_ACK": "sent",
+          "DELIVERY_ACK": "delivered", "READ": "read", "PLAYED": "played",
+        };
+        const mappedStatus = statusMap[String(status)] || String(status);
+
+        if (msgId && mappedStatus) {
+          const { error, count } = await supabase
+            .from("imphq_wa_messages")
+            .update({ status: mappedStatus })
+            .eq("provider_message_id", msgId);
+
+          console.log(`[webhook] MESSAGES_UPDATE msgId=${msgId} status=${mappedStatus} updated=${count ?? "?"} err=${error?.message || "none"}`);
+        }
+
+        return new Response(JSON.stringify({ success: true, event: "MESSAGES_UPDATE" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── CONNECTION_UPDATE — session status changed ──
+      if (providerType === "evolution" && eventType === "CONNECTION_UPDATE") {
+        const state = body?.data?.state || body?.data?.status || "";
+        // state can be: "open", "close", "connecting", "refused"
+
+        if (instanceName && state) {
+          const dbStatus = state === "open" ? "connected" : state === "close" ? "disconnected" : state;
+
+          const { error } = await supabase
+            .from("imphq_wa_providers")
+            .update({ status: dbStatus, updated_at: new Date().toISOString() })
+            .eq("instance_name", instanceName);
+
+          console.log(`[webhook] CONNECTION_UPDATE instance=${instanceName} state=${state} dbStatus=${dbStatus} err=${error?.message || "none"}`);
+        }
+
+        return new Response(JSON.stringify({ success: true, event: "CONNECTION_UPDATE" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── Twilio inbound ──
+      if (providerType === "twilio") {
+        const phone = (body?.From || "").replace("whatsapp:+", "");
+        const content = body?.Body || "";
+        const providerMsgId = body?.MessageSid || "";
+
+        if (phone && content) {
+          console.log(`[webhook] Twilio inbound from ${phone}`);
+          // Twilio doesn't send instance, so we need project_id from query or lookup
+        }
+
+        return new Response(JSON.stringify({ success: true, event: "twilio_inbound" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── Other Evolution events — just log and acknowledge ──
+      console.log(`[webhook] Unhandled event=${eventType} instance=${instanceName}`);
+      return new Response(JSON.stringify({ success: true, event: eventType, handled: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
