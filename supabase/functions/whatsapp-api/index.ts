@@ -206,10 +206,17 @@ serve(async (req) => {
             .replace(/\{\{nome\}\}/g, contact.name || "")
             .replace(/\{\{telefone\}\}/g, contact.phone || "");
 
+          let sendResult;
           if (provider.provider === "evolution") {
-            await sendEvolution(provider, contact.phone, text);
+            sendResult = await sendEvolution(provider, contact.phone, text);
           } else {
-            await sendTwilio(provider, contact.phone, text);
+            sendResult = await sendTwilio(provider, contact.phone, text);
+          }
+
+          // Skip DB persistence if number is invalid
+          if (sendResult?.ok === false && sendResult?.error === "invalid_number") {
+            results.push({ phone: contact.phone, status: "invalid_number", error: "Número não existe no WhatsApp" });
+            continue;
           }
 
           // Find or create conversation for this contact
