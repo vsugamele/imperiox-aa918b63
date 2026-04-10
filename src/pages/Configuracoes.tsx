@@ -10,10 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban } from "lucide-react";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
+import { IntegrationStatusTab } from "@/components/configuracoes/IntegrationStatusTab";
+import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
 
 export default function Configuracoes() {
   const { user, isAdmin } = useAuth();
@@ -46,6 +48,12 @@ export default function Configuracoes() {
           <TabsTrigger value="webhooks" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Webhook className="h-3.5 w-3.5 mr-2" /> API & Webhooks
           </TabsTrigger>
+          <TabsTrigger value="integracoes" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Activity className="h-3.5 w-3.5 mr-2" /> Status Integrações
+          </TabsTrigger>
+          <TabsTrigger value="webhook-log" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <ScrollText className="h-3.5 w-3.5 mr-2" /> Log Webhooks
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 min-w-0">
@@ -55,6 +63,8 @@ export default function Configuracoes() {
           <TabsContent value="cronjobs"><CronJobsTab /></TabsContent>
           <TabsContent value="seguranca"><SegurancaTab user={user} /></TabsContent>
           <TabsContent value="webhooks"><WebhooksTab /></TabsContent>
+          <TabsContent value="integracoes"><IntegrationStatusTab /></TabsContent>
+          <TabsContent value="webhook-log"><WebhookLogTab /></TabsContent>
         </div>
       </Tabs>
     </div>
