@@ -140,7 +140,7 @@ export default function CampaignManager({ projects, providers }: Props) {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-foreground">📢 Campanhas</h2>
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">📢 Campanhas <SectionInfo {...sectionHelpTexts.campanhas_whatsapp} /></h2>
           <p className="text-xs text-muted-foreground">Sequências automáticas de mensagens para grupos WhatsApp</p>
         </div>
         <Button size="sm" onClick={() => setShowCreate(true)}>

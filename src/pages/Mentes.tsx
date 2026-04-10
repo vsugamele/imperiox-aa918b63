@@ -579,7 +579,7 @@ export default function Mentes() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">
-            🧬 Mentes Sintéticas
+            🧬 Mentes Sintéticas <SectionInfo {...sectionHelpTexts.mentes} />
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Copywriters e estrategistas de IA — consulte a mente certa para cada decisão

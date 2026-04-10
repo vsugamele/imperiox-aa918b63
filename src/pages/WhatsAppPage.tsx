@@ -102,7 +102,7 @@ export default function WhatsApp() {
     <div className="h-[calc(100vh-64px)] flex flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-card">
-        <h1 className="font-display text-xl font-bold text-primary">💬 WhatsApp</h1>
+        <h1 className="font-display text-xl font-bold text-primary flex items-center gap-2">💬 WhatsApp <SectionInfo {...sectionHelpTexts.whatsapp} /></h1>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowProviderConfig(true)} className="h-8 text-xs">
             <Settings2 className="h-3.5 w-3.5 mr-1" /> Provider

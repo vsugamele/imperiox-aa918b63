@@ -422,7 +422,7 @@ export default function Referencias() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold text-primary">🗂️ Referências</h1>
+          <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">🗂️ Referências <SectionInfo {...sectionHelpTexts.referencias} /></h1>
           <p className="text-sm text-muted-foreground mt-1">
             {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos
           </p>

@@ -194,7 +194,7 @@ export default function Cofre() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">
-            <KeyRound className="h-7 w-7" /> Cofre de Ferramentas
+            <KeyRound className="h-7 w-7" /> Cofre de Ferramentas <SectionInfo {...sectionHelpTexts.cofre} />
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Sites, senhas e acessos do time</p>
         </div>

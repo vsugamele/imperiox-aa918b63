@@ -381,7 +381,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="font-display text-3xl font-bold text-primary">Dashboard</h1>
+        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Dashboard <SectionInfo {...sectionHelpTexts.dashboard} /></h1>
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
       </div>
 

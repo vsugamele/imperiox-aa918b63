@@ -184,7 +184,7 @@ export default function Financas() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="font-display text-3xl font-bold text-primary">💰 Finanças</h1>
+        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">💰 Finanças <SectionInfo {...sectionHelpTexts.financas} /></h1>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => {
             const headers = ["Tipo","Projeto","Descrição","Valor","Data"];
