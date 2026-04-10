@@ -148,6 +148,18 @@ serve(async (req) => {
         result = await sendTwilio(provider, phone, content);
       }
 
+      // Handle invalid number gracefully
+      if (result?.ok === false && result?.error === "invalid_number") {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Número inválido ou não encontrado no WhatsApp.",
+          details: result.details,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Find or create conversation
       const conv = conversation_id
         ? (await supabase.from("imphq_wa_conversations").select("*").eq("id", conversation_id).single()).data
