@@ -21,7 +21,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ── Helper: get provider config ──
+    // ── Helper: get provider config (normalizes api_url) ──
     async function getProvider(providerId: string) {
       const { data, error } = await supabase
         .from("imphq_wa_providers")
@@ -29,6 +29,8 @@ serve(async (req) => {
         .eq("id", providerId)
         .single();
       if (error || !data) throw new Error("Provider não encontrado: " + (error?.message || ""));
+      // Normalize: remove trailing slashes from api_url
+      if (data.api_url) data.api_url = data.api_url.replace(/\/+$/, "");
       return data;
     }
 
@@ -85,7 +87,8 @@ serve(async (req) => {
 
     // ── Helper: send via Evolution API ──
     async function sendEvolution(provider: any, phone: string, text: string) {
-      const apiUrl = `${provider.api_url}/message/sendText/${provider.instance_name}`;
+      const inst = encodeURIComponent(provider.instance_name);
+      const apiUrl = `${provider.api_url}/message/sendText/${inst}`;
       console.log("[sendEvolution] URL:", apiUrl, "phone:", phone, "textLen:", text.length);
       const res = await fetch(apiUrl, {
         method: "POST",
@@ -267,7 +270,7 @@ serve(async (req) => {
         });
       }
 
-      const res = await fetch(`${provider.api_url}/instance/connect/${provider.instance_name}`, {
+      const res = await fetch(`${provider.api_url}/instance/connect/${encodeURIComponent(provider.instance_name)}`, {
         headers: { apikey: provider.api_key },
       });
       const data = await res.json();
@@ -290,7 +293,7 @@ serve(async (req) => {
       }
 
       const res = await fetch(
-        `${provider.api_url}/instance/connectionState/${provider.instance_name}`,
+        `${provider.api_url}/instance/connectionState/${encodeURIComponent(provider.instance_name)}`,
         { headers: { apikey: provider.api_key } }
       );
       const data = await res.json();
@@ -345,7 +348,7 @@ serve(async (req) => {
 
       // Get connection state
       const stateRes = await fetch(
-        `${provider.api_url}/instance/connectionState/${provider.instance_name}`,
+        `${provider.api_url}/instance/connectionState/${encodeURIComponent(provider.instance_name)}`,
         { headers: { apikey: provider.api_key } }
       );
       const stateData = await stateRes.json();
@@ -354,7 +357,7 @@ serve(async (req) => {
       let ownerNumber = null;
       try {
         const infoRes = await fetch(
-          `${provider.api_url}/instance/fetchInstances?instanceName=${provider.instance_name}`,
+          `${provider.api_url}/instance/fetchInstances?instanceName=${encodeURIComponent(provider.instance_name)}`,
           { headers: { apikey: provider.api_key } }
         );
         const infoData = await infoRes.json();
@@ -390,7 +393,7 @@ serve(async (req) => {
 
       // Fetch chats from Evolution
       const chatsRes = await fetch(
-        `${provider.api_url}/chat/findChats/${provider.instance_name}`,
+        `${provider.api_url}/chat/findChats/${encodeURIComponent(provider.instance_name)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: provider.api_key },
@@ -398,13 +401,17 @@ serve(async (req) => {
         }
       );
       const chats = await chatsRes.json();
-      console.log("[sync_contacts] chats count:", Array.isArray(chats) ? chats.length : 0);
+      const total = Array.isArray(chats) ? chats.length : 0;
+      console.log("[sync_contacts] chats count:", total);
 
       let imported = 0;
       let skipped = 0;
 
       if (Array.isArray(chats)) {
+        // Filter valid individual chats and limit to 500
+        const validChats: { phone: string; contactName: string | null }[] = [];
         for (const chat of chats) {
+          if (validChats.length >= 500) break;
           const remoteJid = chat.id || chat.remoteJid || "";
           if (!remoteJid || remoteJid.includes("@g.us") || remoteJid.includes("@broadcast")) {
             skipped++;
@@ -412,40 +419,52 @@ serve(async (req) => {
           }
           const phone = remoteJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
           if (!phone) { skipped++; continue; }
-
-          const contactName = chat.name || chat.pushName || chat.contact?.pushName || null;
-
-          // Upsert — skip if already exists
-          const { data: existing } = await supabase
-            .from("imphq_wa_conversations")
-            .select("id")
-            .eq("phone", phone)
-            .eq("project_id", provider.project_id)
-            .limit(1)
-            .single();
-
-          if (existing) { skipped++; continue; }
-
-          const { error } = await supabase.from("imphq_wa_conversations").insert({
+          validChats.push({
             phone,
-            contact_name: contactName,
+            contactName: chat.name || chat.pushName || chat.contact?.pushName || null,
+          });
+        }
+
+        // Get existing phones in one query
+        const phones = validChats.map(c => c.phone);
+        const { data: existingRows } = await supabase
+          .from("imphq_wa_conversations")
+          .select("phone")
+          .eq("project_id", provider.project_id)
+          .in("phone", phones);
+        const existingPhones = new Set((existingRows || []).map((r: any) => r.phone));
+
+        // Build batch of new contacts
+        const toInsert = validChats
+          .filter(c => !existingPhones.has(c.phone))
+          .map(c => ({
+            phone: c.phone,
+            contact_name: c.contactName,
             session: `evo-sync-${Date.now()}`,
             project_id: provider.project_id,
             status: "active",
             provider_id: provider.id,
             message_count: 0,
-          });
+          }));
 
-          if (error) {
-            console.warn("[sync_contacts] Insert error:", error.message);
-            skipped++;
-          } else {
-            imported++;
+        skipped += validChats.length - toInsert.length;
+
+        if (toInsert.length > 0) {
+          // Insert in batches of 100
+          for (let i = 0; i < toInsert.length; i += 100) {
+            const batch = toInsert.slice(i, i + 100);
+            const { error } = await supabase.from("imphq_wa_conversations").insert(batch);
+            if (error) {
+              console.warn("[sync_contacts] Batch insert error:", error.message);
+              skipped += batch.length;
+            } else {
+              imported += batch.length;
+            }
           }
         }
       }
 
-      return new Response(JSON.stringify({ success: true, imported, skipped, total: Array.isArray(chats) ? chats.length : 0 }), {
+      return new Response(JSON.stringify({ success: true, imported, skipped, total }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

@@ -38,12 +38,20 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
   const [loadingMore, setLoadingMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const initialLoadDone = useRef(false);
+  const newestTimestampRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
   }, []);
 
-  // Initial load: last PAGE_SIZE messages by conversation_id only
+  // Keep newestTimestampRef in sync
+  useEffect(() => {
+    if (messages.length > 0) {
+      newestTimestampRef.current = messages[messages.length - 1].created_at;
+    }
+  }, [messages]);
+
+  // Initial load
   const loadInitial = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_wa_messages")
@@ -75,29 +83,28 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
     setLoadingMore(false);
   };
 
-  // Poll for new messages only
+  // Poll for new messages — uses ref to avoid dependency on messages state
   const pollNew = useCallback(async () => {
-    if (!initialLoadDone.current) return;
-    const newest = messages[messages.length - 1]?.created_at;
-    if (!newest) return;
+    if (!initialLoadDone.current || !newestTimestampRef.current) return;
     const { data } = await supabase
       .from("imphq_wa_messages")
       .select("*")
       .eq("conversation_id", conversationId)
-      .gt("created_at", newest)
+      .gt("created_at", newestTimestampRef.current)
       .order("created_at", { ascending: true });
     if (data && data.length > 0) {
       setMessages(prev => [...prev, ...(data as any[])]);
     }
-  }, [conversationId, messages]);
+  }, [conversationId]);
 
   useEffect(() => {
     initialLoadDone.current = false;
+    newestTimestampRef.current = null;
     loadInitial();
   }, [conversationId, loadInitial]);
 
   useEffect(() => {
-    const interval = setInterval(pollNew, 30000);
+    const interval = setInterval(pollNew, 8000);
     return () => clearInterval(interval);
   }, [pollNew]);
 
@@ -114,8 +121,13 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
         body: { provider_id: providerId, phone, content: text, conversation_id: conversationId, project_id: projectId },
       });
       if (error) throw error;
+      // Check for success: false (e.g. invalid number)
+      if (data && data.success === false) {
+        toast.error(data.error || "Erro ao enviar mensagem");
+        setSending(false);
+        return;
+      }
       setText("");
-      // Reload messages after send
       setTimeout(() => pollNew(), 500);
       toast.success("Mensagem enviada!");
     } catch (err: any) {
