@@ -23703,6 +23703,9 @@ export type Database = {
           form_fields: Json | null
           id: string
           is_panic_active: boolean | null
+          landing_button_text: string | null
+          landing_headline: string | null
+          landing_subheadline: string | null
           name: string
           peak_viewers_max: number | null
           peak_viewers_min: number | null
@@ -23757,6 +23760,9 @@ export type Database = {
           form_fields?: Json | null
           id?: string
           is_panic_active?: boolean | null
+          landing_button_text?: string | null
+          landing_headline?: string | null
+          landing_subheadline?: string | null
           name: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -23811,6 +23817,9 @@ export type Database = {
           form_fields?: Json | null
           id?: string
           is_panic_active?: boolean | null
+          landing_button_text?: string | null
+          landing_headline?: string | null
+          landing_subheadline?: string | null
           name?: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
