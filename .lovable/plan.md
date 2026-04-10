@@ -1,108 +1,74 @@
 
 
-# Avaliação do Sistema — Oportunidades de Melhoria em Integração
+# Plano: Próximos Passos de Integração (Itens 3, 4, 7, 8)
 
-## Diagnóstico Geral
-
-O sistema tem 14 Edge Functions, integrações com Evolution API, Facebook Ads, Google Calendar, webhooks de pagamento (Ticto/Hotmart/Kiwify), Resend, e IA (Lovable Gateway + OpenRouter). A arquitetura é funcional, mas tem lacunas importantes em **confiabilidade**, **observabilidade** e **experiência de configuração**.
+Os itens 1 (Painel de Status), 2 (Webhook Log) e 5 (CORS) já foram implementados. Restam 5 itens. Vou agrupar em duas fases por dependência.
 
 ---
 
-## 1. Sem Health Check centralizado das integrações
+## Fase 1 — Segurança + Resiliência (itens 3, 7)
 
-**Problema**: Não existe nenhum painel que mostre o status real de cada integração. O usuário não sabe se o token do Facebook expirou, se a Evolution API está online, ou se o Google Calendar está autenticado — só descobre quando algo falha.
+### 3. Mover tokens sensíveis do JSONB para tabela segura
 
-**Solução**: Criar uma página "Status de Integrações" (ou aba em Configurações) que:
-- Pinga cada serviço e exibe verde/vermelho
-- Mostra última sincronização bem-sucedida
-- Alerta proativamente quando tokens expiram
+Atualmente o `facebook_marketing_token` e a `resend_api_key` ficam dentro de `imphq_projects.data` — qualquer query que retorna `data` expõe esses tokens ao frontend.
 
----
+**Mudanças:**
+- Criar tabela `imphq_integration_credentials` com colunas: `id`, `project_id`, `provider` (facebook, resend, google), `credentials` (JSONB), `expires_at`, `created_at`, `updated_at`
+- RLS restritivo: apenas o owner do projeto pode ler, e apenas via service_role nas Edge Functions
+- Migrar as Edge Functions `facebook-ads-sync`, `facebook-ads-sync-all` e `send-project-email` para ler tokens dessa tabela em vez do JSONB
+- No frontend, os formulários de configuração (Briefing) passam a salvar nessa tabela via Edge Function (nunca expõem o token ao client)
 
-## 2. Tokens do Facebook armazenados como texto plano no JSONB
+### 7. Rate limiting na Evolution API
 
-**Problema**: O `facebook_marketing_token` está dentro de `imphq_projects.data` (coluna JSONB). Qualquer query que retorna `data` expõe o token ao frontend. Não há refresh automático — tokens de curta duração expiram e o sync quebra silenciosamente.
-
-**Solução**:
-- Mover tokens sensíveis para os Supabase Secrets (acessíveis apenas pelas Edge Functions)
-- Ou criar uma tabela `imphq_integration_credentials` com RLS restritivo
-- Implementar alerta de expiração de token
-
----
-
-## 3. Google Calendar usa credenciais globais (não por projeto)
-
-**Problema**: A Edge Function `google-calendar-sync` usa `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` como secrets globais. Todos os projetos compartilham a mesma conta Google. Não há suporte para múltiplas agendas de projetos diferentes.
-
-**Solução**: Vincular credenciais Google por projeto (similar ao que já é feito com WhatsApp providers), permitindo cada projeto ter sua própria integração.
+**Mudanças:**
+- No `whatsapp-api/index.ts`, adicionar delay de 200ms entre chamadas no `fetch_avatars_batch` e no `sync_contacts`
+- Limitar batch de sync a 50 contatos por execução
+- Retornar `{ partial: true, processed: N }` quando atingir o limite
 
 ---
 
-## 4. Webhooks de pagamento sem retry nem log visual
+## Fase 2 — Motor de Execução do OpenFlow (itens 4, 6, 8)
 
-**Problema**: A `webhook-pagamento` processa Ticto/Hotmart/Kiwify, mas:
-- Se falhar, o evento se perde (sem fila de retry)
-- Os logs só existem no Supabase Dashboard (Edge Function Logs)
-- O usuário não tem visibilidade dos webhooks recebidos
+### 4. Edge Function `openflow-executor`
 
-**Solução**:
-- Salvar cada webhook recebido em `imphq_webhooks` antes de processar (já existe a tabela, mas não está sendo usada consistentemente)
-- Painel no frontend mostrando webhooks recentes com status (sucesso/erro/pendente)
-- Botão de "reprocessar" para webhooks com erro
+O FlowEditor já salva automações com trigger, ações e delays na tabela `imphq_automacoes`. O que falta é um "motor" que execute essas ações quando o trigger dispara.
 
----
+**Mudanças:**
+- Criar tabela `imphq_flow_executions` com: `id`, `automacao_id`, `lead_id`, `current_step`, `status` (pending/running/completed/failed), `step_results` (JSONB), `next_run_at`, `created_at`
+- Criar Edge Function `openflow-executor` que:
+  1. Recebe `{ trigger_tipo, project_id, lead_data }` (chamado pelo `webhook-pagamento` ou manualmente)
+  2. Busca automações ativas para aquele trigger + projeto
+  3. Cria um registro em `imphq_flow_executions`
+  4. Percorre cada etapa sequencialmente, respeitando `delay_min`
+  5. Para ações de WhatsApp: chama `whatsapp-api` com action `send`
+  6. Para ações de Email: chama `send-project-email`
+  7. Para condições: avalia e pula para o branch correto
+  8. Salva resultado de cada etapa em `step_results`
 
-## 5. OpenFlow não executa — só planeja
+### 6 + 8. Integrar webhook-pagamento ao executor + Resend
 
-**Problema**: O `FlowEditor` permite criar automações com ações (email, WhatsApp, Telegram), mas a execução real das etapas depende de triggers manuais ou cron jobs que não estão implementados. O sistema monta o fluxo mas não tem um "motor" que o executa automaticamente quando o trigger dispara.
-
-**Solução**: Implementar um executor de fluxos:
-- Edge Function `openflow-executor` que recebe um trigger event e percorre as etapas
-- Integrar com `webhook-pagamento` para disparar automaticamente em eventos como `compra_aprovada`
-- Fila de execução com status por etapa
-
----
-
-## 6. Sem integração nativa com plataformas de email
-
-**Problema**: A ação "Email (Resend)" no OpenFlow apenas configura o template, mas não há integração de envio real implementada. A Edge Function `send-project-email` existe mas é invocada manualmente.
-
-**Solução**: Conectar o executor de fluxos ao Resend para disparos automáticos.
+**Mudanças:**
+- No final do processamento do `webhook-pagamento`, após salvar a venda, chamar `openflow-executor` passando o trigger (`compra_aprovada`, `lead_novo`, etc.) e os dados do lead
+- O executor já chamará `send-project-email` para ações de email, completando a integração Resend
 
 ---
 
-## 7. CORS inconsistente entre Edge Functions
+## Arquivos afetados
 
-**Problema**: Algumas funções usam `corsHeaders` do SDK (`@supabase/supabase-js/cors`), outras definem manualmente com headers diferentes. Isso pode causar falhas silenciosas em browsers diferentes.
+| Arquivo | Ação |
+|---|---|
+| `supabase/migrations/*` | Criar `imphq_integration_credentials` e `imphq_flow_executions` |
+| `supabase/functions/openflow-executor/index.ts` | **Novo** — motor de execução |
+| `supabase/functions/webhook-pagamento/index.ts` | Chamar executor após processar venda |
+| `supabase/functions/facebook-ads-sync/index.ts` | Ler token da nova tabela |
+| `supabase/functions/facebook-ads-sync-all/index.ts` | Ler token da nova tabela |
+| `supabase/functions/send-project-email/index.ts` | Ler Resend key da nova tabela |
+| `supabase/functions/whatsapp-api/index.ts` | Rate limiting no sync/avatars |
+| `src/components/projeto/ProjetoBriefing.tsx` | Salvar tokens via Edge Function |
 
-**Solução**: Padronizar todas as Edge Functions para usar o mesmo padrão de CORS headers.
+## Resultado
 
----
-
-## 8. Sem monitoramento de rate limits da Evolution API
-
-**Problema**: O sync de contatos e envio de mensagens não controlam rate limits. Se houver muitas chamadas simultâneas, a Evolution API pode bloquear temporariamente.
-
-**Solução**: Adicionar controle de concorrência e delays entre batches no sync de contatos/avatares.
-
----
-
-## Priorização sugerida (por impacto)
-
-| # | Melhoria | Impacto | Esforço |
-|---|---|---|---|
-| 1 | Painel de Status das Integrações | Alto | Médio |
-| 2 | Webhook log visual + reprocessar | Alto | Médio |
-| 3 | Mover tokens sensíveis para secrets | Alto (segurança) | Baixo |
-| 4 | Motor de execução do OpenFlow | Muito Alto | Alto |
-| 5 | CORS padronizado | Médio | Baixo |
-| 6 | Google Calendar multi-projeto | Médio | Médio |
-| 7 | Rate limiting Evolution API | Médio | Baixo |
-| 8 | Integração real Resend no OpenFlow | Alto | Médio |
-
-## Recomendação
-
-Começar pelo **Painel de Status das Integrações** (item 1) + **Webhook log visual** (item 2) — são os que mais impactam a experiência do usuário e dão visibilidade sobre o que está funcionando. Depois avançar para o **motor de execução do OpenFlow** (item 4), que é o mais transformador em termos de automação real.
-
-Quer que eu implemente algum desses itens? Posso começar por qualquer um.
+- Tokens nunca mais expostos ao frontend
+- Evolution API protegida contra rate limit
+- Automações do OpenFlow executam automaticamente quando um webhook de pagamento chega — enviando WhatsApp e email sem intervenção manual
 
