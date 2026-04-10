@@ -574,6 +574,9 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
   const [number, setNumber] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const webhookUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-api?action=webhook&provider=evolution`;
 
   const fetchStatus = useCallback(async () => {
     setLoading(true);
@@ -619,6 +622,13 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
     setSyncing(false);
   };
 
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    toast.success("URL do webhook copiada!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const isConnected = status === "open" || status === "connected";
   const formatNumber = (n: string | null) => {
     if (!n) return null;
@@ -629,7 +639,7 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
 
   return (
     <Card className="bg-card border-border">
-      <CardContent className="p-4">
+      <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {loading ? (
@@ -661,6 +671,17 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
                 Sincronizar Contatos
               </Button>
             )}
+          </div>
+        </div>
+        {/* Webhook URL for incoming messages */}
+        <div className="bg-muted/50 rounded-lg p-2.5 border border-border">
+          <p className="text-[10px] text-muted-foreground font-semibold mb-1">📥 Webhook para receber mensagens</p>
+          <p className="text-[9px] text-muted-foreground mb-1.5">Configure esta URL na Evolution API para receber mensagens incoming automaticamente.</p>
+          <div className="flex items-center gap-1.5">
+            <code className="text-[10px] bg-background rounded px-1.5 py-0.5 flex-1 truncate border border-border/50">{webhookUrl}</code>
+            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={copyWebhook}>
+              <Copy className={`h-3 w-3 ${copied ? "text-emerald-400" : ""}`} />
+            </Button>
           </div>
         </div>
       </CardContent>
