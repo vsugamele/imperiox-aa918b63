@@ -484,10 +484,13 @@ serve(async (req) => {
     // ── ACTION: webhook (receive messages, status updates, connection events) ──
     if (action === "webhook") {
       const body = await req.json();
-      const providerType = url.searchParams.get("provider") || "evolution";
+      // Normalize providerType — extract just "evolution" or "twilio" (strip path segments like "evolution/messages-upsert")
+      const rawProvider = url.searchParams.get("provider") || "evolution";
+      const providerType = rawProvider.split("/")[0].toLowerCase();
 
-      // Determine which Evolution event this is
-      const eventType = evolutionEventFromPath || body?.event || "MESSAGES_UPSERT";
+      // Normalize eventType — map "messages.upsert" → "MESSAGES_UPSERT"
+      const rawEventType = evolutionEventFromPath || body?.event || "MESSAGES_UPSERT";
+      const eventType = rawEventType.toUpperCase().replace(/[.\-]/g, "_");
       const instanceName = body?.instance || "";
 
       console.log(`[webhook] event=${eventType} instance=${instanceName} provider=${providerType}`);
