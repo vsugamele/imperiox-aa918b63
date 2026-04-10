@@ -32,11 +32,62 @@ serve(async (req) => {
       return data;
     }
 
+    // ── Helper: find or create conversation ──
+    async function findOrCreateConversation(phone: string, projectId: string, providerId: string | null, contactName?: string) {
+      const cleanPhone = phone.replace(/\D/g, "");
+      
+      // Try to find existing conversation by phone + project
+      const { data: existing } = await supabase
+        .from("imphq_wa_conversations")
+        .select("*")
+        .eq("phone", cleanPhone)
+        .eq("project_id", projectId)
+        .limit(1)
+        .single();
+
+      if (existing) return existing;
+
+      // Create new conversation
+      const { data: created, error } = await supabase
+        .from("imphq_wa_conversations")
+        .insert({
+          phone: cleanPhone,
+          contact_name: contactName || null,
+          session: `session-${Date.now()}`,
+          project_id: projectId,
+          status: "active",
+          provider_id: providerId,
+          message_count: 0,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("[findOrCreateConversation] Error creating:", error.message);
+        throw new Error("Falha ao criar conversa: " + error.message);
+      }
+      return created;
+    }
+
+    // ── Helper: update conversation metadata after message ──
+    async function updateConversationAfterMessage(conversationId: string, content: string, currentCount: number) {
+      const { error } = await supabase
+        .from("imphq_wa_conversations")
+        .update({
+          last_message: content.substring(0, 200),
+          last_message_at: new Date().toISOString(),
+          message_count: (currentCount || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", conversationId);
+      if (error) console.warn("[updateConversation] Error:", error.message);
+    }
+
     // ── Helper: send via Evolution API ──
     async function sendEvolution(provider: any, phone: string, text: string) {
-      const url = `${provider.api_url}/message/sendText/${provider.instance_name}`;
-      console.log("[sendEvolution] URL:", url, "phone:", phone, "textLen:", text.length);
-      const res = await fetch(url, {
+      const apiUrl = `${provider.api_url}/message/sendText/${provider.instance_name}`;
+      console.log("[sendEvolution] URL:", apiUrl, "phone:", phone, "textLen:", text.length);
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -82,6 +133,7 @@ serve(async (req) => {
       const { provider_id, phone, content, conversation_id, project_id } = body;
       const provider = await getProvider(provider_id);
 
+      // Send via provider
       let result;
       if (provider.provider === "evolution") {
         result = await sendEvolution(provider, phone, content);
@@ -89,34 +141,34 @@ serve(async (req) => {
         result = await sendTwilio(provider, phone, content);
       }
 
-      // Save message
-      await supabase.from("imphq_wa_messages").insert({
-        conversation_id: conversation_id || phone,
-        project_id: project_id || provider.project_id,
+      // Find or create conversation
+      const conv = conversation_id
+        ? (await supabase.from("imphq_wa_conversations").select("*").eq("id", conversation_id).single()).data
+        : await findOrCreateConversation(phone, project_id || provider.project_id, provider.id);
+
+      if (!conv) throw new Error("Conversa não encontrada nem criada");
+
+      // Save message with all required fields
+      const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
+        conversation_id: conv.id,
         direction: "outgoing",
         phone,
         content,
+        project_id: project_id || provider.project_id,
         provider: provider.provider,
         provider_message_id: result?.key?.id || result?.sid || null,
         status: "sent",
       });
 
-      // Update conversation message count
-      if (conversation_id) {
-        const { data: conv } = await supabase
-          .from("imphq_wa_conversations")
-          .select("message_count")
-          .eq("id", conversation_id)
-          .single();
-        if (conv) {
-          await supabase
-            .from("imphq_wa_conversations")
-            .update({ message_count: (conv.message_count || 0) + 1 })
-            .eq("id", conversation_id);
-        }
+      if (msgError) {
+        console.error("[send_message] DB save error:", msgError.message);
+        throw new Error("Mensagem enviada mas falhou ao salvar: " + msgError.message);
       }
 
-      return new Response(JSON.stringify({ success: true, result }), {
+      // Update conversation metadata
+      await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
+
+      return new Response(JSON.stringify({ success: true, result, conversation_id: conv.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -141,19 +193,28 @@ serve(async (req) => {
             await sendTwilio(provider, contact.phone, text);
           }
 
+          // Find or create conversation for this contact
+          const conv = await findOrCreateConversation(
+            contact.phone,
+            project_id || provider.project_id,
+            provider.id,
+            contact.name
+          );
+
           await supabase.from("imphq_wa_messages").insert({
-            conversation_id: contact.phone,
-            project_id: project_id || provider.project_id,
+            conversation_id: conv.id,
             direction: "outgoing",
             phone: contact.phone,
             content: text,
+            project_id: project_id || provider.project_id,
             provider: provider.provider,
             status: "sent",
           });
 
+          await updateConversationAfterMessage(conv.id, text, conv.message_count || 0);
+
           results.push({ phone: contact.phone, status: "sent" });
 
-          // Anti-ban delay
           if (delayTime > 0) {
             await new Promise((r) => setTimeout(r, delayTime));
           }
@@ -253,37 +314,46 @@ serve(async (req) => {
       let content = "";
       let projectId = "";
       let providerMsgId = "";
+      let providerId: string | null = null;
 
       if (providerType === "evolution") {
-        // Evolution webhook payload
         phone = body?.data?.key?.remoteJid?.replace("@s.whatsapp.net", "") || "";
         content = body?.data?.message?.conversation || body?.data?.message?.extendedTextMessage?.text || "";
         providerMsgId = body?.data?.key?.id || "";
-        // Try to find project from instance
         const instanceName = body?.instance || "";
         const { data: prov } = await supabase
           .from("imphq_wa_providers")
-          .select("project_id")
+          .select("id, project_id")
           .eq("instance_name", instanceName)
           .single();
         projectId = prov?.project_id || "";
+        providerId = prov?.id || null;
       } else if (providerType === "twilio") {
         phone = (body?.From || "").replace("whatsapp:+", "");
         content = body?.Body || "";
         providerMsgId = body?.MessageSid || "";
       }
 
-      if (phone && content) {
-        await supabase.from("imphq_wa_messages").insert({
-          conversation_id: phone,
-          project_id: projectId,
+      if (phone && content && projectId) {
+        // Find or create conversation
+        const conv = await findOrCreateConversation(phone, projectId, providerId);
+
+        const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
+          conversation_id: conv.id,
           direction: "incoming",
           phone,
           content,
+          project_id: projectId,
           provider: providerType,
           provider_message_id: providerMsgId,
           status: "received",
         });
+
+        if (msgError) {
+          console.error("[webhook] DB save error:", msgError.message);
+        }
+
+        await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
       }
 
       return new Response(JSON.stringify({ success: true }), {

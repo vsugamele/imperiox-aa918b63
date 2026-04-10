@@ -43,19 +43,19 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
     supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
   }, []);
 
-  // Initial load: last PAGE_SIZE messages
+  // Initial load: last PAGE_SIZE messages by conversation_id only
   const loadInitial = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_wa_messages")
       .select("*")
-      .or(`conversation_id.eq.${conversationId},conversation_id.eq.${phone}`)
+      .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
       .limit(PAGE_SIZE);
     const sorted = ((data as any[]) || []).reverse();
     setMessages(sorted);
     setHasMore((data?.length || 0) >= PAGE_SIZE);
     initialLoadDone.current = true;
-  }, [conversationId, phone]);
+  }, [conversationId]);
 
   // Load older messages
   const loadMore = async () => {
@@ -65,7 +65,7 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
     const { data } = await supabase
       .from("imphq_wa_messages")
       .select("*")
-      .or(`conversation_id.eq.${conversationId},conversation_id.eq.${phone}`)
+      .eq("conversation_id", conversationId)
       .lt("created_at", oldest)
       .order("created_at", { ascending: false })
       .limit(PAGE_SIZE);
@@ -83,18 +83,18 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
     const { data } = await supabase
       .from("imphq_wa_messages")
       .select("*")
-      .or(`conversation_id.eq.${conversationId},conversation_id.eq.${phone}`)
+      .eq("conversation_id", conversationId)
       .gt("created_at", newest)
       .order("created_at", { ascending: true });
     if (data && data.length > 0) {
       setMessages(prev => [...prev, ...(data as any[])]);
     }
-  }, [conversationId, phone, messages]);
+  }, [conversationId, messages]);
 
   useEffect(() => {
     initialLoadDone.current = false;
     loadInitial();
-  }, [conversationId, phone, loadInitial]);
+  }, [conversationId, loadInitial]);
 
   useEffect(() => {
     const interval = setInterval(pollNew, 30000);
@@ -115,7 +115,8 @@ export default function ChatView({ conversationId, phone, projectId, providerId 
       });
       if (error) throw error;
       setText("");
-      await pollNew();
+      // Reload messages after send
+      setTimeout(() => pollNew(), 500);
       toast.success("Mensagem enviada!");
     } catch (err: any) {
       toast.error("Erro ao enviar: " + err.message);
