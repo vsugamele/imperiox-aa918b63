@@ -408,10 +408,10 @@ serve(async (req) => {
       let skipped = 0;
 
       if (Array.isArray(chats)) {
-        // Filter valid individual chats and limit to 500
+        // Filter valid individual chats and limit to 50 per batch (rate limiting)
         const validChats: { phone: string; contactName: string | null }[] = [];
         for (const chat of chats) {
-          if (validChats.length >= 500) break;
+          if (validChats.length >= 50) break;
           const remoteJid = chat.id || chat.remoteJid || "";
           if (!remoteJid || remoteJid.includes("@g.us") || remoteJid.includes("@broadcast")) {
             skipped++;
@@ -578,10 +578,13 @@ serve(async (req) => {
       const inst = encodeURIComponent(provider.instance_name);
       const results: Record<string, string | null> = {};
 
-      // Process in small batches to avoid timeouts (max 20)
-      const batch = phones.slice(0, 20);
-      for (const phone of batch) {
+      // Process in small batches to avoid timeouts and rate limits (max 15)
+      const batch = phones.slice(0, 15);
+      for (let idx = 0; idx < batch.length; idx++) {
+        const phone = batch[idx];
         try {
+          // Rate limit: 200ms delay between API calls
+          if (idx > 0) await new Promise(r => setTimeout(r, 200));
           const cleanPhone = phone.replace(/\D/g, "");
           const res = await fetch(`${provider.api_url}/chat/fetchProfilePictureUrl/${inst}`, {
             method: "POST",

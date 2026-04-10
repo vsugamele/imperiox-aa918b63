@@ -38,13 +38,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Try email_config first, fallback to checklist.resend
-    const emailConfig = (project.data as any)?.email_config || {};
-    const briefingResend = (project.data as any)?.checklist?.resend || {};
-    const resendApiKey = emailConfig.resend_api_key || briefingResend.resend_api_key;
-    const fromEmail = emailConfig.from_email || briefingResend.from_email;
-    const fromName = emailConfig.from_name || briefingResend.from_name || "";
-    const replyTo = emailConfig.reply_to || briefingResend.reply_to || "";
+    // Try secure credentials table first
+    let resendApiKey = "";
+    let fromEmail = "";
+    let fromName = "";
+    let replyTo = "";
+
+    const { data: creds } = await supabase
+      .from("imphq_integration_credentials")
+      .select("credentials")
+      .eq("project_id", project_id)
+      .eq("provider", "resend")
+      .maybeSingle();
+
+    if (creds?.credentials) {
+      resendApiKey = creds.credentials.api_key || "";
+      fromEmail = creds.credentials.from_email || "";
+      fromName = creds.credentials.from_name || "";
+      replyTo = creds.credentials.reply_to || "";
+    }
+
+    // Fallback to legacy JSONB storage
+    if (!resendApiKey) {
+      const emailConfig = (project.data as any)?.email_config || {};
+      const briefingResend = (project.data as any)?.checklist?.resend || {};
+      resendApiKey = resendApiKey || emailConfig.resend_api_key || briefingResend.resend_api_key || "";
+      fromEmail = fromEmail || emailConfig.from_email || briefingResend.from_email || "";
+      fromName = fromName || emailConfig.from_name || briefingResend.from_name || "";
+      replyTo = replyTo || emailConfig.reply_to || briefingResend.reply_to || "";
+    }
 
     if (!resendApiKey) {
       return new Response(JSON.stringify({ error: "Resend API Key não configurada neste projeto" }), {

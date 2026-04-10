@@ -633,6 +633,37 @@ Deno.serve(async (req) => {
 
       if (matched.length > 0) {
         console.log(`[webhook-pagamento] ${matched.length} automações encontradas para ${triggerTipo}`);
+        // Trigger openflow-executor for each matched automation
+        try {
+          const execRes = await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/openflow-executor`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({
+                trigger_tipo: triggerTipo,
+                project_id: projectId,
+                lead_data: {
+                  lead_id: leadId,
+                  email,
+                  nome,
+                  phone,
+                  produto,
+                  valor,
+                  plataforma,
+                  tipo_venda,
+                },
+              }),
+            }
+          );
+          const execData = await execRes.json();
+          console.log("[webhook-pagamento] openflow-executor result:", JSON.stringify(execData).slice(0, 300));
+        } catch (flowErr) {
+          console.error("[webhook-pagamento] Erro ao chamar openflow-executor:", flowErr);
+        }
       }
     }
 

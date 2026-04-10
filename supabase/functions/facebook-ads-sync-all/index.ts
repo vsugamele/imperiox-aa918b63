@@ -49,9 +49,24 @@ Deno.serve(async (req) => {
 
     for (const proj of configuredProjects) {
       try {
-        const rawToken = proj.data?.facebook_marketing_token || proj.data?.facebook_access_token || "";
+        // Try secure credentials table first, fallback to JSONB
+        let rawToken = "";
+        let adAccountIdVal = "";
+        const { data: creds } = await supabase
+          .from("imphq_integration_credentials")
+          .select("credentials")
+          .eq("project_id", proj.id)
+          .eq("provider", "facebook")
+          .maybeSingle();
+
+        if (creds?.credentials) {
+          rawToken = creds.credentials.access_token || creds.credentials.marketing_token || "";
+          adAccountIdVal = creds.credentials.ad_account_id || "";
+        }
+        if (!rawToken) rawToken = proj.data?.facebook_marketing_token || proj.data?.facebook_access_token || "";
+        if (!adAccountIdVal) adAccountIdVal = proj.data?.facebook_ad_account_id || "";
         const accessToken = rawToken.replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
-        const adAccountId = proj.data?.facebook_ad_account_id;
+        const adAccountId = adAccountIdVal;
         const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
 
         // Fetch insights
