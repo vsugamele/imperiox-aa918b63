@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Textarea } from "@/components/ui/textarea";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
