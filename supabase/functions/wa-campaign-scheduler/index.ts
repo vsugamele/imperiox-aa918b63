@@ -58,7 +58,15 @@ serve(async (req) => {
       // Filter steps that should run now
       const steps = (campaign.imphq_wa_campaign_steps || []).filter((step: any) => {
         if (!step.is_active) return false;
-        if (step.days_offset !== daysSinceStart) return false;
+
+        // Check date: send_date takes priority over days_offset
+        if (step.send_date) {
+          const stepDate = step.send_date; // "YYYY-MM-DD"
+          const todayDate = brTime.toISOString().slice(0, 10);
+          if (stepDate !== todayDate) return false;
+        } else {
+          if (step.days_offset !== daysSinceStart) return false;
+        }
 
         // Check time match (±1 min tolerance)
         const [stepH, stepM] = step.send_time.split(":").map(Number);

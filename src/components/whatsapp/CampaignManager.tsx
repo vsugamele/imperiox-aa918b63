@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Textarea } from "@/components/ui/textarea";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +24,7 @@ interface Campaign {
   status: string;
   groups: string[];
   start_date: string | null;
+  exit_message: string | null;
   created_at: string;
 }
 
@@ -176,6 +178,7 @@ export default function CampaignManager({ projects, providers }: Props) {
                       <span>📁 {projectName(c.project_id)}</span>
                       <span>👥 {Array.isArray(c.groups) ? c.groups.length : 0} grupos</span>
                       {c.start_date && <span>📅 Início: {c.start_date}</span>}
+                      {c.exit_message && <span>🚪 Msg saída ✓</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -237,6 +240,16 @@ export default function CampaignManager({ projects, providers }: Props) {
             <div>
               <Label>Data de início</Label>
               <Input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
+            </div>
+            <div>
+              <Label>Mensagem de saída (quando alguém sai do grupo)</Label>
+              <Textarea
+                value={(form as any).exit_message || ""}
+                onChange={e => setForm({ ...form, exit_message: e.target.value } as any)}
+                placeholder="Olá! Vi que saiu do grupo. Posso te ajudar com algo?"
+                rows={2}
+                className="text-xs"
+              />
             </div>
           </div>
           <DialogFooter><Button onClick={createCampaign}>Criar</Button></DialogFooter>

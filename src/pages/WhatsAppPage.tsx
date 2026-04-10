@@ -25,6 +25,7 @@ import ConversationList from "@/components/whatsapp/ConversationList";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 import CampaignManager from "@/components/whatsapp/CampaignManager";
+import CommandManager from "@/components/whatsapp/CommandManager";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
@@ -50,7 +51,7 @@ export default function WhatsApp() {
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "hub">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
 
@@ -139,6 +140,9 @@ export default function WhatsApp() {
         <button onClick={() => setActiveTab("campanhas")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "campanhas" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <Rocket className="h-3 w-3 inline mr-1" />Campanhas
         </button>
+        <button onClick={() => setActiveTab("comandos")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "comandos" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          ⚡ Comandos
+        </button>
         <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <Radio className="h-3 w-3 inline mr-1" />Hub Local (Beta)
         </button>
@@ -181,7 +185,7 @@ export default function WhatsApp() {
                     <div className="flex-1 min-w-0">
                       <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
                       <p className="text-[11px] text-muted-foreground">
-                        {projectName(selectedSession.project_id)}
+                        📞 {selectedSession.phone} · {projectName(selectedSession.project_id)}
                         {selectedProvider && (
                           <span className="ml-1.5 text-[10px] opacity-70">
                             · via {selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from}
@@ -261,6 +265,12 @@ export default function WhatsApp() {
         {activeTab === "campanhas" && (
           <ScrollArea className="h-full">
             <CampaignManager projects={projects} providers={providers} />
+          </ScrollArea>
+        )}
+
+        {activeTab === "comandos" && (
+          <ScrollArea className="h-full">
+            <CommandManager projects={projects} />
           </ScrollArea>
         )}
 

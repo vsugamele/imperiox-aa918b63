@@ -21,6 +21,7 @@ interface Step {
   media_type: string;
   send_time: string;
   days_offset: number;
+  send_date: string | null;
   is_active: boolean;
 }
 
@@ -120,7 +121,7 @@ export default function CampaignStepEditor({ campaignId }: { campaignId: string 
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <div>
                       <Label className="text-[10px]">Tipo</Label>
                       <Select value={step.media_type} onValueChange={v => updateStep(step.id, "media_type", v)}>
@@ -139,8 +140,12 @@ export default function CampaignStepEditor({ campaignId }: { campaignId: string 
                       <Input type="time" className="h-8 text-xs" value={step.send_time?.slice(0, 5) || "09:00"} onChange={e => updateStep(step.id, "send_time", e.target.value)} />
                     </div>
                     <div>
-                      <Label className="text-[10px]">Dia (offset)</Label>
-                      <Input type="number" className="h-8 text-xs" value={step.days_offset} onChange={e => updateStep(step.id, "days_offset", parseInt(e.target.value) || 0)} min={0} />
+                      <Label className="text-[10px]">Data específica</Label>
+                      <Input type="date" className="h-8 text-xs" value={step.send_date || ""} onChange={e => updateStep(step.id, "send_date", e.target.value || null)} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">{step.send_date ? "Offset (ignorado)" : "Dia (offset)"}</Label>
+                      <Input type="number" className={`h-8 text-xs ${step.send_date ? "opacity-50" : ""}`} value={step.days_offset} onChange={e => updateStep(step.id, "days_offset", parseInt(e.target.value) || 0)} min={0} disabled={!!step.send_date} />
                     </div>
                   </div>
 

@@ -12835,6 +12835,7 @@ export type Database = {
           is_active: boolean
           media_type: string
           media_url: string | null
+          send_date: string | null
           send_time: string
           step_order: number
         }
@@ -12847,6 +12848,7 @@ export type Database = {
           is_active?: boolean
           media_type?: string
           media_url?: string | null
+          send_date?: string | null
           send_time?: string
           step_order?: number
         }
@@ -12859,6 +12861,7 @@ export type Database = {
           is_active?: boolean
           media_type?: string
           media_url?: string | null
+          send_date?: string | null
           send_time?: string
           step_order?: number
         }
@@ -12875,6 +12878,7 @@ export type Database = {
       imphq_wa_campaigns: {
         Row: {
           created_at: string
+          exit_message: string | null
           groups: Json
           id: string
           name: string
@@ -12886,6 +12890,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          exit_message?: string | null
           groups?: Json
           id?: string
           name: string
@@ -12897,6 +12902,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          exit_message?: string | null
           groups?: Json
           id?: string
           name?: string
@@ -12915,6 +12921,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_wa_commands: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          media_type: string | null
+          project_id: string
+          response_media_url: string | null
+          response_text: string | null
+          trigger_word: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          media_type?: string | null
+          project_id: string
+          response_media_url?: string | null
+          response_text?: string | null
+          trigger_word: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          media_type?: string | null
+          project_id?: string
+          response_media_url?: string | null
+          response_text?: string | null
+          trigger_word?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       imphq_wa_conversations: {
         Row: {
@@ -12971,6 +13013,80 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_crm: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          stage: string
+          tags: string[] | null
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          stage?: string
+          tags?: string[] | null
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          stage?: string
+          tags?: string[] | null
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: []
+      }
+      imphq_wa_group_exits: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          exited_at: string
+          group_jid: string
+          id: string
+          message_sent: boolean
+          phone: string
+          provider_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          exited_at?: string
+          group_jid: string
+          id?: string
+          message_sent?: boolean
+          phone: string
+          provider_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          exited_at?: string
+          group_jid?: string
+          id?: string
+          message_sent?: boolean
+          phone?: string
+          provider_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_group_exits_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_campaigns"
             referencedColumns: ["id"]
           },
         ]
