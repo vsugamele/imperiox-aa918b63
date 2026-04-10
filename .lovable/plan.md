@@ -1,77 +1,68 @@
 
-# Avaliação Rigorosa — Módulo WhatsApp
 
-## Problemas Encontrados
+# Plano: Melhorar UX/CX do Módulo WhatsApp
 
-### 1. URL da API com barra dupla (BUG ATIVO)
-A `api_url` salva no banco termina com `/`: `https://darkadvanced-evolution-api.llxtug.easypanel.host/`
-O código concatena: `${provider.api_url}/message/sendText/...`, gerando URLs com `//` (ex: `host//message/sendText/...`).
-Os logs confirmam: `[sendEvolution] URL: https://...easypanel.host//message/sendText/JP Freitas`.
-**Impacto**: Pode causar erros 404 ou comportamento inesperado dependendo do servidor.
-**Fix**: Normalizar a URL no helper removendo trailing slash: `provider.api_url.replace(/\/+$/, "")`.
+## Problemas de experiência identificados
 
-### 2. Instance name sem encode na URL (BUG ATIVO)
-O nome da instância é `JP Freitas` (com espaço). O código insere direto na URL sem `encodeURIComponent`.
-URL gerada: `/message/sendText/JP Freitas` — espaço não encodado.
-**Impacto**: Pode funcionar em alguns servidores mas é tecnicamente incorreto e frágil.
-**Fix**: Usar `encodeURIComponent(provider.instance_name)` em todas as chamadas à Evolution API.
+1. **Página monolítica (690 linhas)** — difícil de manter, componentes inline misturados
+2. **Sem feedback visual de loading** na tela inicial (dados carregam silenciosamente)
+3. **Chat fixo em 500px** — não aproveita o espaço da tela, parece "preso"
+4. **Sem busca** nas sessões — usuário com muitos contatos não consegue filtrar
+5. **Lista de sessões como cards 3 colunas** — ineficiente para volume; layout de chat apps usa lista lateral + chat aberto
+6. **Navegação destrutiva** — ao clicar numa sessão, toda a listagem desaparece (volta com botão "← Voltar"), perdendo contexto
+7. **Empty states fracos** — textos genéricos sem call-to-action claro
+8. **Console error: ref no ChatView** — React avisa "Function components cannot be given refs"
+9. **Sem indicação de última mensagem** nos cards de sessão — o usuário não sabe qual conversa tem atividade recente
+10. **Aba Hub Local confusa** — carrega 500 mensagens brutas no mount, conceito paralelo ao Evolution sem clareza
 
-### 3. sync_contacts dá timeout (BUG ATIVO)
-A action `sync_contacts` percorre todos os chats da Evolution fazendo queries individuais ao banco para cada contato. Se houver muitos chats, ultrapassa o timeout de 60s da edge function.
-**Fix**: Usar batch upsert em vez de loop individual. Limitar a 500 contatos por sync.
+## Mudanças propostas
 
-### 4. ChatView: `send` não trata resposta `success: false` (BUG)
-Quando o envio retorna `{ success: false, error: "Número inválido..." }`, o frontend trata como sucesso porque `supabase.functions.invoke` não joga erro para status 200. O toast mostra "Mensagem enviada!" mesmo quando o número é inválido.
-**Fix**: Checar `data.success === false` após o invoke e mostrar `data.error` no toast.
+### 1. Layout split-panel (estilo WhatsApp Web)
+Trocar a navegação destrutiva por um layout de 2 painéis:
+- **Esquerda**: lista de conversas com busca, filtro por projeto, último trecho de mensagem e horário
+- **Direita**: chat aberto da conversa selecionada, ocupando altura total
 
-### 5. Polling ineficiente no ChatView
-`pollNew` depende de `messages` no dependency array do `useCallback`, causando recriação do intervalo a cada mudança. Polling a cada 30s é lento para um chat.
-**Fix**: Usar `useRef` para o timestamp mais recente em vez de depender do state.
+Isso elimina o "← Voltar" e dá contexto constante ao usuário.
 
-### 6. Hub Local x Sessões: confusão conceitual
-A aba "Sessões" mostra `imphq_wa_conversations` (contatos), a aba "Hub Local" mostra `wa_hub_iso_sessions` + mensagens brutas. São dois sistemas paralelos e desconectados:
-- Evolution API (via edge function) salva em `imphq_wa_messages`
-- Hub Local (via command bus) salva em `wa_hub_iso_events`
-Nenhum dos dois recebe mensagens incoming automaticamente da Evolution (o webhook precisa ser configurado na Evolution apontando para a edge function).
-**Fix**: Documentar no UI que o webhook da Evolution precisa ser configurado. Adicionar o webhook URL visível no EvolutionStatusCard.
+### 2. Barra de busca nas sessões
+Input de busca que filtra por nome do contato ou telefone em tempo real.
 
-### 7. ProviderConfigDialog: API key salva em texto puro no banco (SEGURANÇA)
-A `api_key` da Evolution está salva diretamente na tabela `imphq_wa_providers`, acessível a qualquer usuário autenticado via RLS `USING (true)`.
-**Impacto**: Qualquer usuário autenticado pode ler a API key de todos os providers.
-**Recomendação**: Mover para Supabase Vault ou secrets. Por agora, ao menos restringir RLS por `user_id`.
+### 3. Chat responsivo (altura dinâmica)
+Substituir `h-[500px]` por `h-[calc(100vh-200px)]` para preencher o viewport.
 
-### 8. RLS sem isolamento por usuário
-Todas as policies em `imphq_wa_conversations`, `imphq_wa_messages` e `imphq_wa_providers` usam `USING (true)` — qualquer usuário autenticado vê tudo de todos.
-Não é um problema agora se é single-tenant, mas é um risco se mais usuários forem adicionados.
+### 4. Preview da última mensagem nos cards
+Na lista lateral, exibir o trecho da última mensagem e o horário relativo ("há 5 min"), similar ao WhatsApp real.
 
----
+### 5. Loading skeleton na carga inicial
+Skeleton cards enquanto os dados carregam, evitando tela vazia.
 
-## Plano de Correção (priorizado)
+### 6. Empty states com ação
+- Sem sessões: ilustração + botão "Criar primeira sessão"
+- Sem provider: passo-a-passo rápido com botão "Configurar"
+- Chat vazio: "Envie a primeira mensagem abaixo"
 
-### Passo 1 — Corrigir bugs ativos na edge function
-Arquivo: `supabase/functions/whatsapp-api/index.ts`
-- Normalizar `api_url` (remover trailing slash) no helper `getProvider` ou antes de cada fetch
-- Encodar `instance_name` com `encodeURIComponent` em todas as URLs
-- Otimizar `sync_contacts` com batch processing e limite de 500
+### 7. Fix ref warning no ChatView
+Adicionar `React.forwardRef` no ChatView para eliminar o console error.
 
-### Passo 2 — Corrigir ChatView
-Arquivo: `src/components/whatsapp/ChatView.tsx`
-- Tratar `data.success === false` no handler de envio
-- Refatorar polling para usar `useRef` no timestamp, reduzir intervalo para 5-10s
-- Reduzir re-renders desnecessários
+### 8. Simplificar Hub Local
+Renomear para "Hub Local (Beta)" com tooltip explicando a diferença, e reduzir o limit de 500 para 100 mensagens.
 
-### Passo 3 — Mostrar webhook URL no EvolutionStatusCard
-Arquivo: `src/pages/WhatsAppPage.tsx`
-- No card de status, exibir o URL do webhook que deve ser configurado na Evolution:
-  `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/whatsapp-api?action=webhook&provider=evolution`
-- Botão de copiar para facilitar a configuração
+### 9. Optimistic UI no envio
+Ao enviar mensagem, inserir imediatamente um bubble local com status "enviando..." antes de confirmar com a API.
 
-### Passo 4 — Fix na API URL duplicada no banco
-- Migration para limpar o trailing slash da `api_url` existente
+### 10. Refatorar página em componentes menores
+Extrair: `ConversationList`, `EvolutionStatusCard` (já existe), `TemplateManager`, `SessionDetailView` — arquivo principal fica com ~100 linhas.
+
+## Arquivos envolvidos
 
 | Arquivo | Mudança |
 |---|---|
-| `supabase/functions/whatsapp-api/index.ts` | URL normalization, encodeURIComponent, batch sync |
-| `src/components/whatsapp/ChatView.tsx` | Error handling, polling fix |
-| `src/pages/WhatsAppPage.tsx` | Webhook URL display |
-| `supabase/migrations/*` | Fix api_url trailing slash |
+| `src/pages/WhatsAppPage.tsx` | Refatorar para layout split-panel, busca, skeletons, empty states |
+| `src/components/whatsapp/ChatView.tsx` | forwardRef, altura dinâmica, optimistic UI |
+| `src/components/whatsapp/ConversationList.tsx` | **Novo** — lista lateral com busca e preview |
+| `src/components/whatsapp/TemplateManager.tsx` | **Novo** — extrair lógica de templates |
+| `src/components/whatsapp/SessionDetailView.tsx` | **Novo** — extrair view de detalhe/info |
+
+## Resultado esperado
+Interface que se parece com WhatsApp Web: lista à esquerda, chat à direita, busca rápida, feedback visual constante, zero navegação destrutiva.
+
