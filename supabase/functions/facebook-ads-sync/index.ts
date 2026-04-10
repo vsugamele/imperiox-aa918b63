@@ -24,9 +24,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Projeto não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const rawToken = project.data?.facebook_marketing_token || project.data?.facebook_access_token || "";
+    // Try secure credentials table first, fallback to JSONB
+    let rawToken = "";
+    let adAccountId = "";
+    const { data: creds } = await supabase
+      .from("imphq_integration_credentials")
+      .select("credentials")
+      .eq("project_id", project_id)
+      .eq("provider", "facebook")
+      .maybeSingle();
+
+    if (creds?.credentials) {
+      rawToken = creds.credentials.access_token || creds.credentials.marketing_token || "";
+      adAccountId = creds.credentials.ad_account_id || "";
+    }
+    // Fallback to legacy JSONB storage
+    if (!rawToken) rawToken = project.data?.facebook_marketing_token || project.data?.facebook_access_token || "";
+    if (!adAccountId) adAccountId = project.data?.facebook_ad_account_id || "";
     const accessToken = rawToken.replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
-    const adAccountId = project.data?.facebook_ad_account_id;
 
     if (!accessToken || !adAccountId) {
       return new Response(JSON.stringify({ error: "Configure o Access Token e Ad Account ID nas configurações do projeto" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -10926,6 +10926,51 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_flow_executions: {
+        Row: {
+          automacao_id: string
+          created_at: string
+          current_step: number
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          next_run_at: string | null
+          project_id: string
+          status: string
+          step_results: Json
+          trigger_tipo: string
+          updated_at: string
+        }
+        Insert: {
+          automacao_id: string
+          created_at?: string
+          current_step?: number
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          next_run_at?: string | null
+          project_id: string
+          status?: string
+          step_results?: Json
+          trigger_tipo: string
+          updated_at?: string
+        }
+        Update: {
+          automacao_id?: string
+          created_at?: string
+          current_step?: number
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          next_run_at?: string | null
+          project_id?: string
+          status?: string
+          step_results?: Json
+          trigger_tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_flows: {
         Row: {
           edges: Json | null
