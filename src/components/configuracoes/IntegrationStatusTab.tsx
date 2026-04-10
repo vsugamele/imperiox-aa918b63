@@ -71,15 +71,16 @@ export function IntegrationStatusTab() {
       if (fbProjects.length === 0) {
         results.push({ name: "Facebook Ads / CAPI", icon: "🟦", status: "unconfigured", message: "Nenhum projeto com token configurado" });
       } else {
-        // Check last successful sync
-        const { data: lastSync } = await supabase
-          .from("imphq_ad_accounts")
-          .select("last_sync")
-          .order("last_sync", { ascending: false })
+        // Check last Facebook-related event
+        const { data: lastFbEvent } = await supabase
+          .from("imphq_events")
+          .select("created_at")
+          .eq("event_name", "CompraAprovada")
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        const lastSyncDate = lastSync?.last_sync;
+        const lastSyncDate = lastFbEvent?.created_at;
         const hoursSince = lastSyncDate ? (Date.now() - new Date(lastSyncDate).getTime()) / 3600000 : 999;
 
         results.push({
