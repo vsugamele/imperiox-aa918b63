@@ -12796,36 +12796,51 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          direction: string | null
           id: string
           media_url: string | null
           message_type: string | null
           model: string | null
+          phone: string | null
+          project_id: string | null
+          provider: string | null
           provider_message_id: string | null
-          role: string
+          role: string | null
+          status: string | null
           tokens_used: number | null
         }
         Insert: {
           content: string
           conversation_id: string
           created_at?: string
+          direction?: string | null
           id?: string
           media_url?: string | null
           message_type?: string | null
           model?: string | null
+          phone?: string | null
+          project_id?: string | null
+          provider?: string | null
           provider_message_id?: string | null
-          role: string
+          role?: string | null
+          status?: string | null
           tokens_used?: number | null
         }
         Update: {
           content?: string
           conversation_id?: string
           created_at?: string
+          direction?: string | null
           id?: string
           media_url?: string | null
           message_type?: string | null
           model?: string | null
+          phone?: string | null
+          project_id?: string | null
+          provider?: string | null
           provider_message_id?: string | null
-          role?: string
+          role?: string | null
+          status?: string | null
           tokens_used?: number | null
         }
         Relationships: [
@@ -23664,6 +23679,7 @@ export type Database = {
           ai_persona_avatar: string | null
           ai_persona_name: string | null
           ai_system_prompt: string | null
+          bad_words_filter: boolean | null
           chat_cpm: number | null
           chat_default_tab: string | null
           chat_end_seconds: number | null
@@ -23674,6 +23690,7 @@ export type Database = {
           chat_segments: Json | null
           chat_start_seconds: number | null
           created_at: string | null
+          custom_background_url: string | null
           description: string | null
           display_name: string | null
           duration_seconds: number | null
@@ -23682,8 +23699,10 @@ export type Database = {
           fake_viewers_peak: number | null
           fake_viewers_peak_at_pct: number | null
           fake_viewers_start: number | null
+          fallback_url: string | null
           form_fields: Json | null
           id: string
+          is_panic_active: boolean | null
           name: string
           peak_viewers_max: number | null
           peak_viewers_min: number | null
@@ -23714,6 +23733,7 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
           chat_end_seconds?: number | null
@@ -23724,6 +23744,7 @@ export type Database = {
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          custom_background_url?: string | null
           description?: string | null
           display_name?: string | null
           duration_seconds?: number | null
@@ -23732,8 +23753,10 @@ export type Database = {
           fake_viewers_peak?: number | null
           fake_viewers_peak_at_pct?: number | null
           fake_viewers_start?: number | null
+          fallback_url?: string | null
           form_fields?: Json | null
           id?: string
+          is_panic_active?: boolean | null
           name: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -23764,6 +23787,7 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
           chat_end_seconds?: number | null
@@ -23774,6 +23798,7 @@ export type Database = {
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          custom_background_url?: string | null
           description?: string | null
           display_name?: string | null
           duration_seconds?: number | null
@@ -23782,8 +23807,10 @@ export type Database = {
           fake_viewers_peak?: number | null
           fake_viewers_peak_at_pct?: number | null
           fake_viewers_start?: number | null
+          fallback_url?: string | null
           form_fields?: Json | null
           id?: string
+          is_panic_active?: boolean | null
           name?: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
