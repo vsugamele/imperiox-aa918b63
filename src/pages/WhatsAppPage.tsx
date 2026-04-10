@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ChatView from "@/components/whatsapp/ChatView";
@@ -22,6 +22,7 @@ import HubGuide from "@/components/whatsapp/HubGuide";
 import ConversationList from "@/components/whatsapp/ConversationList";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
+import CampaignManager from "@/components/whatsapp/CampaignManager";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
@@ -47,7 +48,7 @@ export default function WhatsApp() {
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "hub">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "hub">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
 
@@ -132,6 +133,9 @@ export default function WhatsApp() {
         </button>
         <button onClick={() => setActiveTab("templates")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "templates" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <FileText className="h-3 w-3 inline mr-1" />Templates ({templates.length})
+        </button>
+        <button onClick={() => setActiveTab("campanhas")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "campanhas" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <Rocket className="h-3 w-3 inline mr-1" />Campanhas
         </button>
         <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <Radio className="h-3 w-3 inline mr-1" />Hub Local (Beta)
@@ -249,6 +253,12 @@ export default function WhatsApp() {
         {activeTab === "templates" && (
           <ScrollArea className="h-full">
             <TemplateManager templates={templates} projects={projects} onReload={load} />
+          </ScrollArea>
+        )}
+
+        {activeTab === "campanhas" && (
+          <ScrollArea className="h-full">
+            <CampaignManager projects={projects} providers={providers} />
           </ScrollArea>
         )}
 
