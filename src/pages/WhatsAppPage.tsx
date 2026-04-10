@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon, Radio, RefreshCw, Wifi, WifiOff, Loader2 } from "lucide-react";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ChatView from "@/components/whatsapp/ChatView";
@@ -18,6 +19,9 @@ import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
 import WaHubQrPanel from "@/components/whatsapp/WaHubQrPanel";
 import HubGuide from "@/components/whatsapp/HubGuide";
+import ConversationList from "@/components/whatsapp/ConversationList";
+import TemplateManager from "@/components/whatsapp/TemplateManager";
+import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
@@ -28,25 +32,27 @@ interface WaSession {
   session: string; project_id: string; status: string;
   message_count: number; metadata: any; created_at: string;
   provider_id: string | null;
+  last_message?: string | null;
+  updated_at?: string;
 }
 
 export default function WhatsApp() {
   const [sessions, setSessions] = useState<WaSession[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<WaTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterProject, setFilterProject] = useState("all");
+  const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
-  const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
-  const [templates, setTemplates] = useState<WaTemplate[]>([]);
-  const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<WaTemplate | null>(null);
-  const [tplForm, setTplForm] = useState({ name: "", content: "", category: "geral", project_id: "" });
   const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "hub">("sessoes");
+  const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
+  const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
     const [sRes, pRes, provRes, tRes] = await Promise.all([
       supabase.from("imphq_wa_conversations").select("*").order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
@@ -57,20 +63,17 @@ export default function WhatsApp() {
     setProjects(pRes.data || []);
     setProviders(provRes.data as any[] || []);
     setTemplates((tRes.data as any[]) || []);
-  };
+    setLoading(false);
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const filtered = sessions.filter(s => filterProject === "all" || s.project_id === filterProject);
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "—";
-
-  const getProviderForProject = (projectId: string) => {
-    return providers.find(p => p.project_id === projectId) || null;
-  };
+  const getProvider = (projectId: string) => providers.find(p => p.project_id === projectId) || null;
 
   const createSession = async () => {
     if (!form.phone || !form.project_id) { toast.error("Telefone e projeto obrigatórios"); return; }
-    const provider = getProviderForProject(form.project_id);
+    const provider = getProvider(form.project_id);
     const id = crypto.randomUUID();
     const { error } = await supabase.from("imphq_wa_conversations").insert({
       id, phone: form.phone.replace(/\D/g, ""),
@@ -87,310 +90,163 @@ export default function WhatsApp() {
 
   const deleteSession = async (id: string) => {
     await supabase.from("imphq_wa_conversations").delete().eq("id", id);
-    toast.success("Sessão removida"); setSelectedSession(null); load();
-  };
-
-  const getWaLink = (phone: string, message?: string) => {
-    const clean = phone.replace(/\D/g, "");
-    return `https://wa.me/${clean}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
-  };
-
-  // ── Detail View ──
-  if (selectedSession) {
-    const provider = getProviderForProject(selectedSession.project_id);
-    const waLink = getWaLink(selectedSession.phone, (selectedSession.metadata as any)?.default_message);
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedSession(null)}>← Voltar</Button>
-          <h1 className="font-display text-2xl font-bold text-primary">
-            {selectedSession.contact_name || selectedSession.phone}
-          </h1>
-          <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
-            {selectedSession.status}
-          </Badge>
-          {provider && (
-            <Badge variant="outline" className="text-[10px]">
-              {provider.provider === "evolution" ? "🟢 Evolution" : "🔵 Twilio"}
-            </Badge>
-          )}
-        </div>
-
-        <Tabs defaultValue="chat" className="w-full">
-          <TabsList>
-            <TabsTrigger value="chat"><MessageSquare className="h-3.5 w-3.5 mr-1" /> Chat</TabsTrigger>
-            {provider?.provider === "evolution" && (
-              <TabsTrigger value="qrcode">📱 QR Code</TabsTrigger>
-            )}
-            <TabsTrigger value="info"><Phone className="h-3.5 w-3.5 mr-1" /> Info</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="chat">
-            <Card className="bg-card border-border">
-              <ChatView
-                conversationId={selectedSession.id}
-                phone={selectedSession.phone}
-                projectId={selectedSession.project_id}
-                providerId={provider?.id || null}
-              />
-            </Card>
-          </TabsContent>
-
-          {provider?.provider === "evolution" && (
-            <TabsContent value="qrcode">
-              <QrCodePanel provider={provider} />
-            </TabsContent>
-          )}
-
-          <TabsContent value="info">
-            <Card className="bg-card border-border">
-              <CardContent className="space-y-4 pt-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Telefone</span><span className="font-mono">{selectedSession.phone}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Projeto</span><span>{projectName(selectedSession.project_id)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Sessão</span><span className="font-mono text-xs">{selectedSession.session}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Mensagens</span><span className="font-mono">{selectedSession.message_count}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Provider</span><span>{provider ? `${provider.provider} (${provider.instance_name || provider.twilio_from})` : "Nenhum"}</span></div>
-                  {(selectedSession.metadata as any)?.default_message && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Mensagem padrão:</p>
-                      <p className="text-xs bg-secondary p-2 rounded">{(selectedSession.metadata as any).default_message}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="pt-2">
-                  <p className="text-xs text-muted-foreground mb-2">Link direto:</p>
-                  <div className="p-2 bg-secondary rounded text-xs text-primary break-all font-mono">{waLink}</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(waLink); toast.success("Link copiado!"); }}>
-                    <Copy className="h-3 w-3 mr-1" /> Copiar Link
-                  </Button>
-                  <Button size="sm" variant="outline" asChild>
-                    <a href={waLink} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1" /> Abrir WA</a>
-                  </Button>
-                </div>
-                <Button size="sm" variant="destructive" onClick={() => deleteSession(selectedSession.id)} className="w-full">
-                  <Trash2 className="h-3 w-3 mr-1" /> Excluir Sessão
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  }
-
-  const saveTemplate = async () => {
-    if (!tplForm.name.trim() || !tplForm.content.trim()) { toast.error("Nome e conteúdo obrigatórios"); return; }
-    if (editingTemplate) {
-      const { error } = await supabase.from("imphq_wa_templates").update({
-        name: tplForm.name, content: tplForm.content, category: tplForm.category,
-        project_id: tplForm.project_id || null,
-      }).eq("id", editingTemplate.id);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Template atualizado!");
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from("imphq_wa_templates").insert({
-        name: tplForm.name, content: tplForm.content,
-        category: tplForm.category, project_id: tplForm.project_id || null,
-        user_id: user?.id,
-      });
-      if (error) { toast.error(error.message); return; }
-      toast.success("Template criado!");
-    }
-    setShowTemplateForm(false); setEditingTemplate(null);
-    setTplForm({ name: "", content: "", category: "geral", project_id: "" });
+    toast.success("Sessão removida");
+    if (selectedSession?.id === id) setSelectedSession(null);
     load();
   };
 
-  const deleteTemplate = async (id: string) => {
-    await supabase.from("imphq_wa_templates").delete().eq("id", id);
-    toast.success("Template removido"); load();
-  };
+  const selectedProvider = selectedSession ? getProvider(selectedSession.project_id) : null;
 
-  // ── List View ──
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">💬 WhatsApp</h1>
+    <div className="h-[calc(100vh-64px)] flex flex-col">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-card">
+        <h1 className="font-display text-xl font-bold text-primary">💬 WhatsApp</h1>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowProviderConfig(true)}>
-            <Settings2 className="h-4 w-4 mr-1" /> Provider
+          <Button size="sm" variant="outline" onClick={() => setShowProviderConfig(true)} className="h-8 text-xs">
+            <Settings2 className="h-3.5 w-3.5 mr-1" /> Provider
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowBulk(true)}>
-            <Megaphone className="h-4 w-4 mr-1" /> Disparo
-          </Button>
-          <Button size="sm" onClick={() => setShowNew(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Nova Sessão
+          <Button size="sm" variant="outline" onClick={() => setShowBulk(true)} className="h-8 text-xs">
+            <Megaphone className="h-3.5 w-3.5 mr-1" /> Disparo
           </Button>
         </div>
       </div>
 
-      {/* Evolution Instance Status Card */}
+      {/* Provider status strip */}
       {providers.filter(p => p.provider === "evolution").map(p => (
         <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} onSynced={load} />
       ))}
-
-      {/* Non-evolution provider badges */}
-      {providers.filter(p => p.provider !== "evolution").length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {providers.filter(p => p.provider !== "evolution").map(p => (
-            <Badge key={p.id} variant="outline" className="text-xs gap-1">
-              🔵 {p.twilio_from} — {projectName(p.project_id)}
-            </Badge>
-          ))}
-        </div>
-      )}
-
       {providers.length === 0 && (
-        <Card className="bg-card border-border border-dashed">
-          <CardContent className="p-4 text-center">
-            <p className="text-sm text-muted-foreground">Nenhum provider configurado. Configure um provider (Evolution API ou Twilio) para enviar mensagens.</p>
-            <Button size="sm" variant="outline" className="mt-2" onClick={() => setShowProviderConfig(true)}>
-              <Settings2 className="h-4 w-4 mr-1" /> Configurar Provider
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="px-4 py-2 bg-muted/30 border-b border-border text-center shrink-0">
+          <p className="text-xs text-muted-foreground inline">Nenhum provider configurado.</p>
+          <Button size="sm" variant="link" className="text-xs h-auto p-0 ml-1" onClick={() => setShowProviderConfig(true)}>
+            Configurar agora →
+          </Button>
+        </div>
       )}
 
       {/* Tab switcher */}
-      <div className="flex items-center gap-2 border-b border-border">
-        <button onClick={() => setActiveTab("sessoes")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "sessoes" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <MessageSquare className="h-3.5 w-3.5 inline mr-1.5" />Sessões
+      <div className="flex items-center gap-0 border-b border-border shrink-0 bg-card px-2">
+        <button onClick={() => setActiveTab("sessoes")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "sessoes" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <MessageSquare className="h-3 w-3 inline mr-1" />Sessões
         </button>
-        <button onClick={() => setActiveTab("templates")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "templates" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <FileText className="h-3.5 w-3.5 inline mr-1.5" />Templates ({templates.length})
+        <button onClick={() => setActiveTab("templates")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "templates" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <FileText className="h-3 w-3 inline mr-1" />Templates ({templates.length})
         </button>
-        <button onClick={() => setActiveTab("hub")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <Radio className="h-3.5 w-3.5 inline mr-1.5" />Hub Local
+        <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <Radio className="h-3 w-3 inline mr-1" />Hub Local (Beta)
         </button>
       </div>
 
-      {activeTab === "templates" && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setEditingTemplate(null); setTplForm({ name: "", content: "", category: "geral", project_id: "" }); setShowTemplateForm(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Novo Template
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map(t => (
-              <Card key={t.id} className="bg-card border-border">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-sm">{t.name}</h3>
-                    <Badge variant="outline" className="text-[9px]">{t.category}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{t.content}</p>
-                  {t.project_id && <p className="text-[10px] text-muted-foreground">{projectName(t.project_id)}</p>}
-                  <div className="flex gap-1 pt-1">
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => {
-                      setEditingTemplate(t);
-                      setTplForm({ name: t.name, content: t.content, category: t.category, project_id: t.project_id || "" });
-                      setShowTemplateForm(true);
-                    }}><Edit className="h-3 w-3 mr-1" /> Editar</Button>
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive" onClick={() => deleteTemplate(t.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {templates.length === 0 && <p className="text-sm text-muted-foreground">Nenhum template criado</p>}
-          </div>
+      {/* Main content */}
+      <div className="flex-1 min-h-0">
+        {activeTab === "sessoes" && (
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            {/* Left: conversation list */}
+            <ResizablePanel defaultSize={30} minSize={20} maxSize={45}>
+              <ConversationList
+                sessions={sessions}
+                projects={projects}
+                selectedId={selectedSession?.id || null}
+                loading={loading}
+                onSelect={(s) => { setSelectedSession(s); setChatTab("chat"); }}
+                onNewSession={() => setShowNew(true)}
+                filterProject={filterProject}
+                onFilterProject={setFilterProject}
+              />
+            </ResizablePanel>
 
-          {/* Template Form Dialog */}
-          <Dialog open={showTemplateForm} onOpenChange={setShowTemplateForm}>
-            <DialogContent>
-              <DialogHeader><DialogTitle>{editingTemplate ? "Editar Template" : "Novo Template"}</DialogTitle></DialogHeader>
-              <div className="space-y-3">
-                <div><Label>Nome</Label><Input value={tplForm.name} onChange={e => setTplForm({ ...tplForm, name: e.target.value })} placeholder="Ex: Boas-vindas" /></div>
-                <div>
-                  <Label>Conteúdo</Label>
-                  <Textarea value={tplForm.content} onChange={e => setTplForm({ ...tplForm, content: e.target.value })} rows={4} placeholder="Olá {{nome}}, tudo bem?" />
-                  <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {"{{nome}}"}, {"{{telefone}}"}, {"{{produto}}"}</p>
-                </div>
-                <div>
-                  <Label>Categoria</Label>
-                  <Select value={tplForm.category} onValueChange={v => setTplForm({ ...tplForm, category: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="geral">Geral</SelectItem>
-                      <SelectItem value="boas-vindas">Boas-vindas</SelectItem>
-                      <SelectItem value="follow-up">Follow-up</SelectItem>
-                      <SelectItem value="vendas">Vendas</SelectItem>
-                      <SelectItem value="suporte">Suporte</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Projeto (opcional)</Label>
-                  <Select value={tplForm.project_id || "none"} onValueChange={v => setTplForm({ ...tplForm, project_id: v === "none" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter><Button onClick={saveTemplate}>{editingTemplate ? "Salvar" : "Criar"}</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
+            <ResizableHandle withHandle />
 
-      {activeTab === "hub" && (
-        <HubConversations projects={projects} providers={providers} />
-      )}
-
-      {activeTab === "sessoes" && (<>
-      <div className="flex items-center gap-3">
-        <Select value={filterProject} onValueChange={setFilterProject}>
-          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Projetos</SelectItem>
-            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Badge variant="outline" className="text-xs">{filtered.length} sessões</Badge>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(s => {
-          const provider = getProviderForProject(s.project_id);
-          return (
-            <Card key={s.id} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors group" onClick={() => setSelectedSession(s)}>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <MessageSquare className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm truncate">{s.contact_name || s.phone}</h3>
-                    <p className="text-xs text-muted-foreground font-mono">{s.phone}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">{projectName(s.project_id)}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">{s.status}</Badge>
-                      {provider && (
+            {/* Right: chat or empty */}
+            <ResizablePanel defaultSize={70}>
+              {selectedSession ? (
+                <div className="flex flex-col h-full">
+                  {/* Chat header */}
+                  <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
+                      <p className="text-[11px] text-muted-foreground">{projectName(selectedSession.project_id)}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {selectedProvider && (
                         <Badge variant="outline" className="text-[9px]">
-                          {provider.provider === "evolution" ? "🟢" : "🔵"}
+                          {selectedProvider.provider === "evolution" ? "🟢 Evolution" : "🔵 Twilio"}
                         </Badge>
                       )}
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <MessageSquare className="h-2.5 w-2.5" /> {s.message_count}
-                      </span>
+                      <Tabs value={chatTab} onValueChange={(v) => setChatTab(v as any)}>
+                        <TabsList className="h-7">
+                          <TabsTrigger value="chat" className="text-[10px] h-6 px-2">Chat</TabsTrigger>
+                          {selectedProvider?.provider === "evolution" && (
+                            <TabsTrigger value="qrcode" className="text-[10px] h-6 px-2">📱 QR</TabsTrigger>
+                          )}
+                          <TabsTrigger value="info" className="text-[10px] h-6 px-2"><Info className="h-3 w-3" /></TabsTrigger>
+                        </TabsList>
+                      </Tabs>
                     </div>
                   </div>
+
+                  {/* Chat content */}
+                  <div className="flex-1 min-h-0">
+                    {chatTab === "chat" && (
+                      <ChatView
+                        conversationId={selectedSession.id}
+                        phone={selectedSession.phone}
+                        projectId={selectedSession.project_id}
+                        providerId={selectedProvider?.id || null}
+                      />
+                    )}
+                    {chatTab === "qrcode" && selectedProvider?.provider === "evolution" && (
+                      <div className="p-4 overflow-auto h-full">
+                        <QrCodePanel provider={selectedProvider} />
+                      </div>
+                    )}
+                    {chatTab === "info" && (
+                      <div className="p-4 overflow-auto h-full">
+                        <SessionDetailView
+                          session={selectedSession}
+                          projectName={projectName(selectedSession.project_id)}
+                          providerLabel={selectedProvider ? `${selectedProvider.provider} (${selectedProvider.instance_name || selectedProvider.twilio_from})` : "Nenhum"}
+                          onDelete={deleteSession}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-        {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma sessão WhatsApp</p>}
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-1">Selecione uma conversa</h3>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-xs">
+                    Escolha uma conversa à esquerda ou crie uma nova sessão para começar a conversar.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => setShowNew(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Nova Sessão
+                  </Button>
+                </div>
+              )}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
+
+        {activeTab === "templates" && (
+          <ScrollArea className="h-full">
+            <TemplateManager templates={templates} projects={projects} onReload={load} />
+          </ScrollArea>
+        )}
+
+        {activeTab === "hub" && (
+          <ScrollArea className="h-full">
+            <div className="p-4">
+              <HubConversations projects={projects} providers={providers} />
+            </div>
+          </ScrollArea>
+        )}
       </div>
 
       {/* New Session Dialog */}
@@ -414,16 +270,13 @@ export default function WhatsApp() {
         </DialogContent>
       </Dialog>
 
-      {/* Provider Config Dialog */}
       <ProviderConfigDialog open={showProviderConfig} onOpenChange={setShowProviderConfig} projects={projects} onCreated={load} />
-
-      {/* Bulk Send Dialog */}
       <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} templates={templates} />
-      </>)}
     </div>
   );
 }
 
+// ── Hub Conversations (kept inline, simplified) ──
 function HubConversations({ projects, providers }: { projects: any[]; providers: any[] }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
@@ -433,7 +286,7 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 
   useEffect(() => {
     Promise.all([
-      supabase.from("imphq_wa_messages").select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("imphq_wa_messages").select("*").order("created_at", { ascending: false }).limit(100),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status"),
     ]).then(([msgRes, hubRes]) => {
       setMessages(msgRes.data || []);
@@ -462,13 +315,12 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
   }, [messages, hubFilterProject]);
 
   if (selectedPhone) {
-    const phoneMessages = messages.filter(m => m.phone === selectedPhone).sort((a, b) => a.created_at.localeCompare(b.created_at));
     const provider = providers[0] || null;
     return (
       <div className="space-y-4">
         <Button variant="ghost" size="sm" onClick={() => setSelectedPhone(null)}>← Voltar</Button>
         <h2 className="text-lg font-semibold text-primary">Chat: {selectedPhone}</h2>
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border h-[500px]">
           <ChatView conversationId={selectedPhone} phone={selectedPhone} projectId={grouped.find(g => g.phone === selectedPhone)?.projectId || ""} providerId={provider?.id || null} />
         </Card>
       </div>
@@ -501,17 +353,20 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 
   return (
     <div className="space-y-4">
-      {/* Hub Status */}
+      <div className="bg-muted/50 rounded-lg p-3 border border-border">
+        <p className="text-xs text-muted-foreground">
+          <strong>Hub Local (Beta)</strong> — Conecta diretamente ao WhatsApp Web via QR Code no navegador. Diferente da Evolution API, funciona apenas enquanto o navegador estiver aberto.
+        </p>
+      </div>
+
       <div className="flex items-center gap-3 flex-wrap">
-        <Badge variant="outline" className={`text-xs gap-1 ${connectedCount > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
-          {connectedCount > 0 ? "🟢" : "🔴"} Hub: {connectedCount} sessão(ões) conectada(s)
+        <Badge variant="outline" className={`text-xs gap-1 ${connectedCount > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
+          {connectedCount > 0 ? "🟢" : "🔴"} Hub: {connectedCount} sessão(ões)
         </Badge>
         {hubSessions.filter(s => s.status !== "connected").map(s => (
           <Badge key={s.id} variant="outline" className="text-[10px] bg-muted text-muted-foreground gap-1">
-            🔴 {s.session_key} — offline
-            <button onClick={() => deleteHubSession(s)} className="ml-1 hover:text-destructive transition-colors" title="Remover sessão">
-              <XIcon className="h-3 w-3" />
-            </button>
+            🔴 {s.session_key}
+            <button onClick={() => deleteHubSession(s)} className="ml-1 hover:text-destructive transition-colors"><XIcon className="h-3 w-3" /></button>
           </Badge>
         ))}
         {hubSessions.filter(s => s.status !== "connected").length > 0 && (
@@ -521,54 +376,46 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
         )}
       </div>
 
-      <div className="max-w-lg mx-auto mb-6">
-        <WaHubQrPanel />
-      </div>
-
+      <div className="max-w-lg mx-auto"><WaHubQrPanel /></div>
       <HubGuide />
 
-      {/* Project filter */}
-      <div className="flex items-center gap-3">
-        <Select value={hubFilterProject} onValueChange={setHubFilterProject}>
-          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Projetos</SelectItem>
-            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select value={hubFilterProject} onValueChange={setHubFilterProject}>
+        <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os Projetos</SelectItem>
+          {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
 
-      {grouped.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-primary mb-3">📱 Conversas Recentes ({grouped.length})</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {grouped.map(g => (
-              <Card key={g.phone} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={() => setSelectedPhone(g.phone)}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                      <MessageSquare className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{g.phone}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{g.lastMsg}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-[9px]">{g.count} msgs</Badge>
-                        {g.projectId && <span className="text-[9px] text-muted-foreground">{projectName(g.projectId)}</span>}
-                      </div>
-                    </div>
+      {grouped.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {grouped.map(g => (
+            <Card key={g.phone} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={() => setSelectedPhone(g.phone)}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                    <MessageSquare className="h-4 w-4 text-primary" />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{g.phone}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{g.lastMsg}</p>
+                    <Badge variant="outline" className="text-[9px] mt-1">{g.count} msgs</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-sm text-muted-foreground">Nenhuma conversa do Hub. Conecte via QR Code para começar.</p>
         </div>
       )}
-      {grouped.length === 0 && <p className="text-sm text-muted-foreground text-center">Nenhuma conversa do Hub ainda. Conecte e envie mensagens para ver aqui.</p>}
     </div>
   );
 }
 
+// ── Evolution Status Card ──
 function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: any; projectName: string; onSynced: () => void }) {
   const [status, setStatus] = useState<string>("loading");
   const [number, setNumber] = useState<string | null>(null);
@@ -589,9 +436,7 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
       const data = await res.json();
       setStatus(data.status || "unknown");
       setNumber(data.number || null);
-    } catch {
-      setStatus("error");
-    }
+    } catch { setStatus("error"); }
     setLoading(false);
   }, [provider.id]);
 
@@ -603,31 +448,16 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/whatsapp-api?action=sync_contacts`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ provider_id: provider.id }),
-        }
+        { method: "POST", headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: JSON.stringify({ provider_id: provider.id }) }
       );
       const data = await res.json();
-      if (data.success) {
-        toast.success(`${data.imported} contato(s) importado(s), ${data.skipped} já existente(s)`);
-        onSynced();
-      } else {
-        toast.error(data.error || "Erro ao sincronizar");
-      }
-    } catch (err: any) {
-      toast.error("Falha na sincronização: " + err.message);
-    }
+      if (data.success) { toast.success(`${data.imported} contato(s) importado(s), ${data.skipped} já existente(s)`); onSynced(); }
+      else toast.error(data.error || "Erro ao sincronizar");
+    } catch (err: any) { toast.error("Falha: " + err.message); }
     setSyncing(false);
   };
 
-  const copyWebhook = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    toast.success("URL do webhook copiada!");
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const copyWebhook = () => { navigator.clipboard.writeText(webhookUrl); setCopied(true); toast.success("URL copiada!"); setTimeout(() => setCopied(false), 2000); };
 
   const isConnected = status === "open" || status === "connected";
   const formatNumber = (n: string | null) => {
@@ -638,53 +468,35 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
   };
 
   return (
-    <Card className="bg-card border-border">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            ) : isConnected ? (
-              <Wifi className="h-5 w-5 text-emerald-400" />
-            ) : (
-              <WifiOff className="h-5 w-5 text-destructive" />
-            )}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-sm">{provider.instance_name}</span>
-                <Badge variant="outline" className={`text-[10px] ${isConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
-                  {loading ? "Verificando..." : isConnected ? "Conectado" : status === "loading" ? "..." : "Desconectado"}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {number ? formatNumber(number) : projectName} · Evolution API
-              </p>
+    <div className="px-4 py-2 border-b border-border bg-card shrink-0">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : isConnected ? <Wifi className="h-4 w-4 text-emerald-400" /> : <WifiOff className="h-4 w-4 text-destructive" />}
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-xs">{provider.instance_name}</span>
+              <Badge variant="outline" className={`text-[9px] ${isConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
+                {loading ? "..." : isConnected ? "Conectado" : "Desconectado"}
+              </Badge>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-8">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-            {isConnected && (
-              <Button size="sm" variant="outline" onClick={syncContacts} disabled={syncing} className="h-8 text-xs">
-                {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
-                Sincronizar Contatos
-              </Button>
-            )}
+            <p className="text-[10px] text-muted-foreground">{number ? formatNumber(number) : projectName} · Evolution</p>
           </div>
         </div>
-        {/* Webhook URL for incoming messages */}
-        <div className="bg-muted/50 rounded-lg p-2.5 border border-border">
-          <p className="text-[10px] text-muted-foreground font-semibold mb-1">📥 Webhook para receber mensagens</p>
-          <p className="text-[9px] text-muted-foreground mb-1.5">Configure esta URL na Evolution API para receber mensagens incoming automaticamente.</p>
-          <div className="flex items-center gap-1.5">
-            <code className="text-[10px] bg-background rounded px-1.5 py-0.5 flex-1 truncate border border-border/50">{webhookUrl}</code>
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={copyWebhook}>
-              <Copy className={`h-3 w-3 ${copied ? "text-emerald-400" : ""}`} />
+        <div className="flex gap-1.5 items-center">
+          <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 w-7 p-0">
+            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+          {isConnected && (
+            <Button size="sm" variant="outline" onClick={syncContacts} disabled={syncing} className="h-7 text-[10px]">
+              {syncing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+              Sync
             </Button>
-          </div>
+          )}
+          <Button size="sm" variant="ghost" onClick={copyWebhook} className="h-7 w-7 p-0" title="Copiar webhook URL">
+            <Copy className={`h-3 w-3 ${copied ? "text-emerald-400" : ""}`} />
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
