@@ -12780,6 +12780,142 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_campaign_logs: {
+        Row: {
+          campaign_id: string | null
+          error: string | null
+          executed_at: string
+          group_jid: string
+          id: string
+          status: string
+          step_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          error?: string | null
+          executed_at?: string
+          group_jid: string
+          id?: string
+          status?: string
+          step_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          error?: string | null
+          executed_at?: string
+          group_jid?: string
+          id?: string
+          status?: string
+          step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_campaign_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_campaign_logs_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_campaign_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_campaign_steps: {
+        Row: {
+          campaign_id: string
+          content: string | null
+          created_at: string
+          days_offset: number
+          id: string
+          is_active: boolean
+          media_type: string
+          media_url: string | null
+          send_time: string
+          step_order: number
+        }
+        Insert: {
+          campaign_id: string
+          content?: string | null
+          created_at?: string
+          days_offset?: number
+          id?: string
+          is_active?: boolean
+          media_type?: string
+          media_url?: string | null
+          send_time?: string
+          step_order?: number
+        }
+        Update: {
+          campaign_id?: string
+          content?: string | null
+          created_at?: string
+          days_offset?: number
+          id?: string
+          is_active?: boolean
+          media_type?: string
+          media_url?: string | null
+          send_time?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_campaign_steps_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_campaigns: {
+        Row: {
+          created_at: string
+          groups: Json
+          id: string
+          name: string
+          project_id: string | null
+          provider_id: string | null
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          groups?: Json
+          id?: string
+          name: string
+          project_id?: string | null
+          provider_id?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          groups?: Json
+          id?: string
+          name?: string
+          project_id?: string | null
+          provider_id?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_campaigns_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_conversations: {
         Row: {
           avatar_url: string | null
