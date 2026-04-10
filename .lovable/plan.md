@@ -1,41 +1,37 @@
 
 
-# Plano: Adicionar SectionInfo (ℹ️) em Todas as Páginas
+# Fix: Mensagens de entrada não são processadas
 
-## Situação atual
-- O componente `SectionInfo` existe e funciona (popover com título, descrição e dica de uso)
-- Os textos de ajuda já estão definidos em `sectionHelpTexts.ts` para todas as seções
-- Só está implementado em **Configurações** — todas as outras páginas estão sem
+## Causa raiz
 
-## Mudanças
+A Edge Function `whatsapp-api` tem dois bugs no handler de webhook que fazem **todas as mensagens de entrada caírem no "Unhandled"**:
 
-Adicionar `<SectionInfo {...sectionHelpTexts.xxx} />` ao lado do título principal de cada página e sub-seção:
+1. **`providerType` contém lixo** — o valor vem como `evolution/contacts-update` em vez de `evolution`. O check `providerType === "evolution"` (linha 496) falha.
 
-| Página / Componente | Help Key |
+2. **`eventType` em formato errado** — Evolution envia `messages.upsert` (minúsculo, com pontos) mas o código compara com `MESSAGES_UPSERT` (maiúsculo, underscores). Idem para `messages.update`, `connection.update`, etc.
+
+## Solução
+
+Adicionar normalização no início do handler de webhook (ação `webhook`, após linha 490):
+
+```typescript
+// Normalize providerType — extract just "evolution" or "twilio"
+const rawProvider = url.searchParams.get("provider") || "evolution";
+const providerType = rawProvider.split("/")[0].toLowerCase();
+
+// Normalize eventType — map "messages.upsert" → "MESSAGES_UPSERT"
+const rawEventType = evolutionEventFromPath || body?.event || "MESSAGES_UPSERT";
+const eventType = rawEventType.toUpperCase().replace(/[.\-]/g, "_");
+```
+
+Isso faz `messages.upsert` → `MESSAGES_UPSERT`, `connection.update` → `CONNECTION_UPDATE`, e `evolution/contacts-update` → `evolution`.
+
+## Arquivo afetado
+
+| Arquivo | Mudança |
 |---|---|
-| `Dashboard.tsx` | `dashboard` |
-| `KanbanPage.tsx` | `kanban` |
-| `Leads.tsx` | `leads` |
-| `Financas.tsx` | `financas` |
-| `Mentes.tsx` | `mentes` |
-| `Skills.tsx` | `skills` |
-| `OpenFlow.tsx` | `openflow` |
-| `Docs.tsx` | `docs` |
-| `WhatsAppPage.tsx` | `whatsapp` |
-| `Tracker.tsx` | `tracker` |
-| `Equipe.tsx` | `equipe` |
-| `Referencias.tsx` | `referencias` |
-| `Cofre.tsx` | `cofre` |
-| `ProjetoDetalhe.tsx` (sub-seções) | `projeto_briefing`, `projeto_avatar`, `projeto_expert`, etc. |
-| `CampaignManager.tsx` | Adicionar nova entry `campanhas_whatsapp` ao `sectionHelpTexts.ts` |
-
-Também adicionar textos de ajuda novos para seções que ainda não têm (Campanhas WhatsApp, Templates, Hub).
-
-## Arquivos afetados
-- `src/data/sectionHelpTexts.ts` — adicionar entries novas (campanhas, templates, hub)
-- ~15 páginas em `src/pages/` — importar `SectionInfo` + `sectionHelpTexts` e adicionar ao lado do título
-- `src/components/whatsapp/CampaignManager.tsx` — adicionar info na seção de campanhas
+| `supabase/functions/whatsapp-api/index.ts` | Normalizar `providerType` e `eventType` no webhook handler (~4 linhas) |
 
 ## Resultado
-Todas as seções do sistema terão o ícone ℹ️ com explicação contextual, facilitando onboarding e uso.
+Mensagens inbound voltam a ser processadas e salvas no banco. O chat vai receber as mensagens corretamente.
 
