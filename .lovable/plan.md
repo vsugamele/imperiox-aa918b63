@@ -1,55 +1,63 @@
 
-Objetivo: fazer o WhatsApp/Evolution realmente aparecer na interface depois que a instância conecta, envia ou recebe mensagem.
 
-O que encontrei
-- O provider Evolution está salvo no banco, então a configuração básica existe.
-- Mesmo assim, hoje as tabelas que alimentam a UI estão vazias: `imphq_wa_conversations = 0` e `imphq_wa_messages = 0`.
-- A edge function `whatsapp-api` tenta salvar em `imphq_wa_messages` campos que não existem hoje nessa tabela (`project_id`, `direction`, `phone`, `provider`, `status`).
-- Além disso, ela não checa erro após esses inserts. Então pode até mandar para a Evolution, mas falhar ao persistir no banco sem deixar isso claro na tela.
-- O front depende justamente desses registros para mostrar conversas e histórico. Sem persistência, “não aparece nada”.
-- Há também uma confusão de UX: conectar a instância da Evolution não cria automaticamente uma conversa. A aba atual mistura “instância conectada” com “conversas CRM”.
-- O fluxo do Hub Local está vivo (`wa_hub_iso_*` com atividade), mas ele é separado do fluxo Evolution/Twilio.
+# Plano: Enriquecer integração Evolution na ImperioHQ
 
-Plano de correção
-1. Normalizar a persistência do WhatsApp
-- Criar migration para alinhar `imphq_wa_messages` ao uso real do app, adicionando os campos que o sistema já usa na UI e na function.
-- Garantir políticas/RLS adequadas para `imphq_wa_conversations` e `imphq_wa_messages`, porque têm telefone e conteúdo de mensagem.
+## Problema atual
 
-2. Corrigir a edge function `whatsapp-api`
-- Antes de salvar uma mensagem, localizar ou criar uma conversa em `imphq_wa_conversations`.
-- Usar sempre `conversation_id` UUID real da conversa, nunca telefone direto nesse campo.
-- Atualizar `last_message`, `last_message_at` e `message_count` da conversa em envios e recebimentos.
-- Validar e propagar erro de insert/update; se a Evolution aceitar o envio mas o banco falhar, a UI deve mostrar erro real.
+1. A sessão existe e aparece no app (1 card), mas com 0 mensagens porque o envio falhou (número inválido no WhatsApp)
+2. Existem 2 providers duplicados para o mesmo projeto — causa confusão visual (2 badges "🟢 JP Freitas")
+3. A Evolution pode ter contatos e conversas reais, mas o app não puxa esses dados automaticamente
+4. Não há visão do status real da instância Evolution (conectada? desconectada? número vinculado?)
 
-3. Corrigir o front da página WhatsApp
-- Ajustar `ChatView` para buscar por `conversation_id` real, sem fallback inconsistente por telefone.
-- Atualizar o fluxo da aba “Sessões” para refletir “Conversas”.
-- Melhorar o empty state: “instância conectada, mas ainda sem conversas”.
-- Recarregar automaticamente a conversa após envio bem-sucedido.
+## Mudanças propostas
 
-4. Separar melhor instância vs conversa
-- Exibir o status do provider/instância de forma mais clara no topo da página, mesmo quando não há nenhuma conversa ainda.
-- Isso evita a sensação de que “não apareceu nada” quando, na prática, a instância conectou mas não houve persistência ou conversa criada.
+### 1. Limpar providers duplicados e prevenir duplicatas futuras
 
-5. Higiene de dados
-- Tratar duplicidade de providers ativos do mesmo projeto/instância para o app não pegar um registro errado.
-- Preferir `provider_id` salvo na conversa em vez de “primeiro provider do projeto”.
+- Remover o provider mais antigo via migration (DELETE do `cf701693`)
+- Adicionar constraint UNIQUE em `(project_id, provider, instance_name)` para evitar duplicatas
 
-Validação
-1. Configurar/abrir a instância Evolution.
-2. Enviar uma mensagem teste.
-3. Confirmar:
-- conversa criada em `imphq_wa_conversations`
-- mensagem criada em `imphq_wa_messages`
-- card aparece na tela
-- chat abre com histórico
-4. Testar resposta recebida via webhook e verificar atualização da mesma conversa.
+### 2. Painel de status da instância Evolution
 
-Arquivos envolvidos
-- `supabase/functions/whatsapp-api/index.ts`
-- `src/pages/WhatsAppPage.tsx`
-- `src/components/whatsapp/ChatView.tsx`
-- `supabase/migrations/*` (ajuste de schema/RLS)
+Na página WhatsApp, acima das sessões, exibir um card com:
+- Status real da instância (chamando `GET /instance/connectionState/{instanceName}` na Evolution)
+- Número conectado
+- Botão "Sincronizar contatos" para importar conversas existentes
 
-Detalhe técnico importante
-O principal bug hoje não parece ser “a Evolution não conecta”; parece ser “o app não persiste nem lê corretamente os dados do WhatsApp”. Ou seja: mesmo que a instância esteja ok, a tela continua vazia porque o modelo de dados da function e o schema real do banco estão desencontrados.
+Isso será feito via a edge function `whatsapp-api` com uma nova action `instance_status` que consulta a Evolution API.
+
+### 3. Action "sync_contacts" na edge function
+
+Nova action POST que:
+- Chama `GET /chat/findContacts/{instanceName}` na Evolution API
+- Para cada contato encontrado, cria/atualiza um registro em `imphq_wa_conversations`
+- Retorna quantos contatos foram importados
+
+### 4. Action "instance_status" na edge function
+
+Nova action GET que:
+- Chama a Evolution API para obter `connectionState` e `fetchInstances`
+- Retorna: status (open/close/connecting), número vinculado, nome da instância
+
+### 5. UI: Card de status + botão de sync
+
+No topo da aba "Sessões", antes da lista de conversas:
+- Card mostrando "🟢 Conectado — +55 11 99999-9999" ou "🔴 Desconectado"
+- Botão "Sincronizar Contatos" que chama `sync_contacts`
+- Empty state melhorado: "Instância conectada! Sincronize seus contatos ou crie uma nova sessão."
+
+## Arquivos envolvidos
+
+| Arquivo | Mudança |
+|---|---|
+| `supabase/functions/whatsapp-api/index.ts` | Novas actions: `instance_status`, `sync_contacts` |
+| `src/pages/WhatsAppPage.tsx` | Card de status da instância + botão sync |
+| `supabase/migrations/*` | Limpar provider duplicado + unique constraint |
+
+## Fora do escopo (próximos passos)
+
+- Automações de grupos WhatsApp
+- Integração com funis (vincular etapa do funil a template de mensagem)
+- Webhook para receber mensagens inbound automaticamente
+
+Essas features podem ser construídas depois que a base de dados de conversas estiver populada e funcional.
+
