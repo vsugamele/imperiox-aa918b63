@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon, Radio } from "lucide-react";
+import { Plus, Trash2, MessageSquare, ExternalLink, Copy, Phone, Settings2, Send, Megaphone, FileText, Edit, X as XIcon, Radio, RefreshCw, Wifi, WifiOff, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ChatView from "@/components/whatsapp/ChatView";
@@ -229,16 +229,22 @@ export default function WhatsApp() {
         </div>
       </div>
 
-      {/* Provider status */}
-      {providers.length > 0 && (
+      {/* Evolution Instance Status Card */}
+      {providers.filter(p => p.provider === "evolution").map(p => (
+        <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} onSynced={load} />
+      ))}
+
+      {/* Non-evolution provider badges */}
+      {providers.filter(p => p.provider !== "evolution").length > 0 && (
         <div className="flex gap-2 flex-wrap">
-          {providers.map(p => (
+          {providers.filter(p => p.provider !== "evolution").map(p => (
             <Badge key={p.id} variant="outline" className="text-xs gap-1">
-              {p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projectName(p.project_id)}
+              🔵 {p.twilio_from} — {projectName(p.project_id)}
             </Badge>
           ))}
         </div>
       )}
+
       {providers.length === 0 && (
         <Card className="bg-card border-border border-dashed">
           <CardContent className="p-4 text-center">
