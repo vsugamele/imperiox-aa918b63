@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target, Radio } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target, Radio, Upload, Video } from "lucide-react";
 import { format, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
@@ -95,19 +98,73 @@ export default function ExpertPortal() {
   const [activeWeek, setActiveWeek] = useState("semana_1");
   const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  const [expertLogs, setExpertLogs] = useState<any[]>([]);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [pendingUploadCard, setPendingUploadCard] = useState<{ id: string; week: string; day: string } | null>(null);
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+  const callApi = useCallback(async (body: any) => {
+    const res = await fetch(`${supabaseUrl}/functions/v1/expert-portal?token=${token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }, [supabaseUrl, token]);
 
   useEffect(() => {
     if (!token) return;
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     fetch(`${supabaseUrl}/functions/v1/expert-portal?token=${token}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
-        else setData(d);
+        else {
+          setData(d);
+          setExpertLogs(d.expert_logs || []);
+        }
       })
       .catch(() => setError("Erro ao carregar dados"))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, supabaseUrl]);
+
+  const isMarkedDone = (contentId: string) => expertLogs.some(l => l.content_id === contentId && l.action === "mark_done");
+  const getVideoLog = (contentId: string) => expertLogs.find(l => l.content_id === contentId && l.action === "video_upload");
+
+  const toggleDone = async (contentId: string, week: string, day: string) => {
+    const wasDone = isMarkedDone(contentId);
+    // Optimistic update
+    if (wasDone) {
+      setExpertLogs(prev => prev.filter(l => !(l.content_id === contentId && l.action === "mark_done")));
+    } else {
+      setExpertLogs(prev => [...prev, { content_id: contentId, action: "mark_done", week, day, created_at: new Date().toISOString() }]);
+    }
+    await callApi({ action: "mark_done", content_id: contentId, week, day, done: !wasDone });
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !pendingUploadCard) return;
+    const { id: contentId, week, day } = pendingUploadCard;
+    setUploadingId(contentId);
+    try {
+      const { signed_url, path, error: urlError } = await callApi({ action: "upload_url", content_id: contentId, filename: file.name });
+      if (urlError) throw new Error(urlError);
+
+      await fetch(signed_url, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+
+      const { url } = await callApi({ action: "register_upload", content_id: contentId, week, day, file_path: path, filename: file.name });
+      setExpertLogs(prev => [...prev, { content_id: contentId, action: "video_upload", metadata: { url, filename: file.name, path }, created_at: new Date().toISOString() }]);
+      toast.success("Vídeo enviado com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro no upload: " + (err.message || "Tente novamente"));
+    } finally {
+      setUploadingId(null);
+      setPendingUploadCard(null);
+      if (videoInputRef.current) videoInputRef.current.value = "";
+    }
+  };
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -173,6 +230,8 @@ export default function ExpertPortal() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* Hidden video input */}
+        <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
         {/* Objetivos do Movimento */}
         {contentObjectives.length > 0 && (
           <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-1">
