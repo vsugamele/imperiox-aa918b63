@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 
@@ -212,6 +212,7 @@ export default function OpenFlow() {
       <Tabs defaultValue="automacoes">
         <TabsList>
           <TabsTrigger value="automacoes">Automações</TabsTrigger>
+          <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
           <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia do Webhook</TabsTrigger>
         </TabsList>
 
@@ -303,6 +304,11 @@ export default function OpenFlow() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Logs Tab */}
+        <TabsContent value="logs" className="space-y-4 mt-4">
+          <AutomacaoLogs automacoes={automacoes} projects={projects} />
         </TabsContent>
 
         {/* Webhook Guide Tab */}
@@ -418,6 +424,86 @@ export default function OpenFlow() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Automação Logs Component ─────────────────────────────────────
+function AutomacaoLogs({ automacoes, projects }: { automacoes: Automacao[]; projects: any[] }) {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [filterAuto, setFilterAuto] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  useEffect(() => {
+    const loadLogs = async () => {
+      const { data } = await supabase.from("imphq_automacao_logs" as any).select("*").order("created_at", { ascending: false }).limit(100);
+      setLogs(data || []);
+    };
+    loadLogs();
+  }, []);
+
+  const filtered = logs.filter(l => {
+    if (filterAuto !== "all" && l.automacao_id !== filterAuto) return false;
+    if (filterStatus !== "all" && l.status !== filterStatus) return false;
+    return true;
+  });
+
+  const autoName = (id: string) => automacoes.find(a => a.id === id)?.nome || id.slice(0, 8);
+  const projName = (id: string) => projects.find(p => p.id === id)?.name || id;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 flex-wrap">
+        <Select value={filterAuto} onValueChange={setFilterAuto}>
+          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Automação" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas automações</SelectItem>
+            {automacoes.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos status</SelectItem>
+            <SelectItem value="success">✅ Sucesso</SelectItem>
+            <SelectItem value="error">❌ Erro</SelectItem>
+          </SelectContent>
+        </Select>
+        <Badge variant="outline" className="text-xs">{filtered.length} logs</Badge>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">Nenhum log de execução encontrado</p>
+      ) : (
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          {filtered.map(log => (
+            <Card key={log.id} className="bg-card border-border">
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge className={`text-[9px] ${log.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                      {log.status === "success" ? "✅ Sucesso" : "❌ Erro"}
+                    </Badge>
+                    <span className="text-xs font-medium">{autoName(log.automacao_id)}</span>
+                    {log.project_id && <Badge variant="outline" className="text-[9px]">{projName(log.project_id)}</Badge>}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{new Date(log.created_at).toLocaleString("pt-BR")}</span>
+                </div>
+                {log.error_message && (
+                  <p className="text-[11px] text-red-400 bg-red-500/10 px-2 py-1 rounded">{log.error_message}</p>
+                )}
+                {log.acoes_executadas && Array.isArray(log.acoes_executadas) && log.acoes_executadas.length > 0 && (
+                  <div className="flex gap-1 flex-wrap">
+                    {log.acoes_executadas.map((a: any, i: number) => (
+                      <Badge key={i} variant="secondary" className="text-[9px]">{a.tipo || `Step ${i + 1}`}</Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

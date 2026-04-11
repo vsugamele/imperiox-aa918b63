@@ -238,6 +238,16 @@ Deno.serve(async (req) => {
           .eq("id", executionId);
       }
 
+      // Insert execution log
+      await supabase.from("imphq_automacao_logs").insert({
+        automacao_id: auto.id,
+        project_id,
+        trigger_data: { trigger_tipo, lead_data: lead_data || null },
+        acoes_executadas: stepResults,
+        status: status === "failed" ? "error" : "success",
+        error_message: errorMessage,
+      });
+
       results.push({
         automacao_id: auto.id,
         automacao_nome: auto.nome,

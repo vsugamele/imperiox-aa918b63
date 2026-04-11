@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookTemplate, Loader2, FolderOpen } from "lucide-react";
+import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -148,6 +149,21 @@ export default function Projetos() {
     return groups;
   };
 
+  const handleDelete = async (id: string, name: string) => {
+    const tables = [
+      "imphq_leads", "imphq_vendas", "imphq_automacoes", "imphq_ads_spend",
+      "imphq_ads_reports", "imphq_content_library", "imphq_referencias",
+      "imphq_kanban_cards", "imphq_wa_campaigns", "imphq_events",
+    ];
+    for (const table of tables) {
+      await supabase.from(table as any).delete().eq("project_id", id);
+    }
+    const { error } = await supabase.from("imphq_projects").delete().eq("id", id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Projeto excluído", description: `"${name}" foi removido.` });
+    load();
+  };
+
   const handleCreate = async () => {
     if (!form.name) return;
     const id = form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -283,8 +299,8 @@ export default function Projetos() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {group.items.map((p) => (
-              <Card key={p.id} onClick={() => navigate(`/projetos/${p.id}`)} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5">
-                <CardContent className="p-4">
+              <Card key={p.id} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 group relative">
+                <CardContent className="p-4" onClick={() => navigate(`/projetos/${p.id}`)}>
                   <div className="flex items-start justify-between">
                     <span className="text-2xl">{p.icon || "📁"}</span>
                     <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
@@ -292,6 +308,23 @@ export default function Projetos() {
                   <h3 className="mt-2 font-medium text-sm">{p.name}</h3>
                   <p className="text-xs text-muted-foreground mt-1">{p.category || "Sem categoria"}</p>
                 </CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="icon" variant="ghost" className="absolute top-2 right-8 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir "{p.name}"?</AlertDialogTitle>
+                      <AlertDialogDescription>Todos os dados do projeto (leads, vendas, automações, conteúdo) serão removidos permanentemente.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => handleDelete(p.id, p.name)}>Excluir</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </Card>
             ))}
           </div>

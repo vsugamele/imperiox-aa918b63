@@ -36,7 +36,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; color: string }>
   complementar: { label: "Complementar", icon: FileText, color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30" },
 };
 
-type SourceType = "manual" | "library";
+type SourceType = "manual" | "library" | "ads";
 
 interface Ref {
   id: string; project_id?: string; tipo?: string; titulo: string;
@@ -56,7 +56,7 @@ export default function Referencias() {
   const [filterPlat, setFilterPlat] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
   const [filterPasta, setFilterPasta] = useState("all");
-  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library">("all");
+  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
@@ -67,10 +67,11 @@ export default function Referencias() {
   const [newPastaName, setNewPastaName] = useState("");
 
   const load = async () => {
-    const [rRes, lRes, pRes] = await Promise.all([
+    const [rRes, lRes, pRes, adsRes] = await Promise.all([
       supabase.from("imphq_referencias").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_content_library" as any).select("id, project_id, title, file_url, file_type, thumbnail_url, tags, description, content_category, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
+      supabase.from("imphq_ads_spend" as any).select("id, project_id, campanha, conjunto_anuncios, anuncio, plataforma, ctr, impressoes, cliques, data_ref, created_at").order("created_at", { ascending: false }).limit(200),
     ]);
 
     const projs = pRes.data || [];
@@ -100,7 +101,34 @@ export default function Referencias() {
         project_name: projMap[m.project_id] || undefined,
       }));
 
-    setRefs([...manualRefs, ...libraryRefs]);
+    // Aggregate ads by unique ad name per project (top performers by CTR)
+    const adsMap = new Map<string, any>();
+    ((adsRes.data || []) as any[]).forEach((ad: any) => {
+      const key = `${ad.project_id}_${ad.anuncio || ad.conjunto_anuncios || ad.campanha}`;
+      const existing = adsMap.get(key);
+      if (!existing || (ad.ctr && ad.ctr > (existing.ctr || 0))) {
+        adsMap.set(key, ad);
+      }
+    });
+
+    const adsRefs: Ref[] = Array.from(adsMap.values())
+      .filter((ad: any) => ad.anuncio || ad.campanha)
+      .slice(0, 50)
+      .map((ad: any) => ({
+        id: `ads_${ad.id}`,
+        project_id: ad.project_id || undefined,
+        titulo: ad.anuncio || ad.conjunto_anuncios || ad.campanha || "Anúncio",
+        tags: [ad.plataforma, ad.ctr ? `CTR: ${Number(ad.ctr).toFixed(2)}%` : null].filter(Boolean) as string[],
+        notas: `Campanha: ${ad.campanha || "—"} | Impressões: ${ad.impressoes || 0} | Cliques: ${ad.cliques || 0}`,
+        score: ad.ctr >= 2 ? 5 : ad.ctr >= 1 ? 3 : 1,
+        tipo: "criativo" as const,
+        plataforma: ad.plataforma || "Meta Ads",
+        created_at: ad.data_ref || ad.created_at,
+        source: "ads" as SourceType,
+        project_name: projMap[ad.project_id] || undefined,
+      }));
+
+    setRefs([...manualRefs, ...libraryRefs, ...adsRefs]);
   };
 
   useEffect(() => { load(); }, []);
@@ -144,6 +172,7 @@ export default function Referencias() {
 
   const manualCount = refs.filter(r => r.source === "manual").length;
   const libraryCount = refs.filter(r => r.source === "library").length;
+  const adsCount = refs.filter(r => r.source === "ads").length;
 
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
@@ -426,7 +455,7 @@ export default function Referencias() {
         <div>
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">🗂️ Referências <SectionInfo {...sectionHelpTexts.referencias} /></h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos
+            {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos · {adsCount} de ads
           </p>
         </div>
         <div className="flex gap-2">
@@ -448,6 +477,7 @@ export default function Referencias() {
           { key: "all" as const, label: "Todos", count: refs.length },
           { key: "manual" as const, label: "Minhas Refs", count: manualCount },
           { key: "library" as const, label: "Projetos", count: libraryCount },
+          { key: "ads" as const, label: "📊 Ads", count: adsCount },
         ]).map(o => (
           <button
             key={o.key}

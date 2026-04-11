@@ -9876,6 +9876,39 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_automacao_logs: {
+        Row: {
+          acoes_executadas: Json | null
+          automacao_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          project_id: string | null
+          status: string
+          trigger_data: Json | null
+        }
+        Insert: {
+          acoes_executadas?: Json | null
+          automacao_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          project_id?: string | null
+          status?: string
+          trigger_data?: Json | null
+        }
+        Update: {
+          acoes_executadas?: Json | null
+          automacao_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          project_id?: string | null
+          status?: string
+          trigger_data?: Json | null
+        }
+        Relationships: []
+      }
       imphq_automacoes: {
         Row: {
           acoes: Json | null
