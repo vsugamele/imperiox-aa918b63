@@ -102,8 +102,23 @@ export default function Financas() {
 
   // Filtered data
   const fp = filterProject;
+
+  // Calculate days in filter range for prorating recurring global costs
+  const periodDays = useMemo(() => {
+    if (!filterDateFrom && !filterDateTo) return 30; // default: treat as 1 month
+    const from = filterDateFrom ? new Date(filterDateFrom) : new Date(filterDateTo);
+    const to = filterDateTo ? new Date(filterDateTo) : new Date(filterDateFrom);
+    const diff = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
+    return diff;
+  }, [filterDateFrom, filterDateTo]);
+
+  // Global costs are monthly recurring — prorate to period
   const fCustos = custos;
-  const fProjectCosts = (fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp));
+  const custoProrateFactor = periodDays / 30;
+
+  // Project costs filtered by date (using data_pagamento or created_at)
+  const fProjectCosts = (fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp))
+    .filter(c => inDateRange((c as any).data_pagamento || (c as any).created_at));
   const fProjectRevenues = (fp === "all" ? projectRevenues : projectRevenues.filter(r => r.project_id === fp)).filter(r => inDateRange(r.data_ref));
   const fVendas = (fp === "all" ? vendas : vendas.filter(v => v.project_id === fp))
     .filter(v => inDateRange(v.data_venda))
