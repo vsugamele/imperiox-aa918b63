@@ -966,7 +966,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     <CardTitle className="text-sm uppercase tracking-wider text-violet-400 font-sans flex items-center gap-2">
                       <Image className="h-4 w-4" /> Galeria de Criativos
                     </CardTitle>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Input
                         placeholder="Buscar criativo..."
                         className="h-7 text-xs w-40 bg-secondary"
@@ -981,6 +981,18 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                           <SelectItem value="inactive">Inativos</SelectItem>
                         </SelectContent>
                       </Select>
+                      {(() => {
+                        const conjSets = Array.from(new Set(fAds.map(a => a.conjunto_anuncios).filter(Boolean))) as string[];
+                        return conjSets.length > 0 ? (
+                          <Select value={creativeFilterConjunto} onValueChange={setCreativeFilterConjunto}>
+                            <SelectTrigger className="h-7 text-xs w-40 bg-secondary"><SelectValue placeholder="Conjunto" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Todos conjuntos</SelectItem>
+                              {conjSets.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </CardHeader>
