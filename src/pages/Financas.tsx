@@ -126,7 +126,7 @@ export default function Financas() {
   const fAds = (fp === "all" ? ads : ads.filter(a => a.project_id === fp)).filter(a => inDateRange(a.data_ref));
 
   // KPI calculations
-  const custosGlobaisBRL = fCustos.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
+  const custosGlobaisBRL = fCustos.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0) * custoProrateFactor;
   const custosProjetoBRL = fProjectCosts.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
   const adsTotal = fAds.reduce((a, b) => a + b.valor, 0);
 
