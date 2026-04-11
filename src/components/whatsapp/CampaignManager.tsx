@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search } from "lucide-react";
 import { toast } from "sonner";
 import CampaignStepEditor from "./CampaignStepEditor";
 import CampaignLogViewer from "./CampaignLogViewer";
