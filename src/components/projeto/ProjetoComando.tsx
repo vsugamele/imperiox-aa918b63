@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw, Users, ShoppingCart, Clock, CheckCircle2, AlertCircle, TrendingUp, Zap } from "lucide-react";
+import { RefreshCw, Users, ShoppingCart, Clock, CheckCircle2, AlertCircle, TrendingUp, Zap, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 
 interface Props {
@@ -24,19 +24,18 @@ export function ProjetoComando({ projectId, project }: Props) {
 
   const load = async () => {
     setLoading(true);
-    // Range do dia em UTC-3 (horário de Brasília)
     const now = new Date();
     const brOffset = -3 * 60;
     const brNow = new Date(now.getTime() + (brOffset + now.getTimezoneOffset()) * 60000);
     const todayStr = brNow.toISOString().split("T")[0];
-    const dayStart = todayStr + "T03:00:00.000Z"; // meia-noite BR = 03:00 UTC
+    const dayStart = todayStr + "T03:00:00.000Z";
     const dayEnd = new Date(new Date(dayStart).getTime() + 86400000).toISOString();
 
     const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes] = await Promise.all([
       supabase.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
-      supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
+      supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("criado_em", { ascending: false }).limit(10),
       supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
-      supabase.from("imphq_vendas").select("id, status, created_at").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
+      supabase.from("imphq_vendas").select("id, status, created_at, produto_nome, valor, plataforma, lead_id").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
       supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", todayStr).order("start_date", { ascending: true }),
     ]);
 
@@ -70,13 +69,11 @@ export function ProjetoComando({ projectId, project }: Props) {
     return col.includes("conclu") || col.includes("done") || col.includes("finaliz");
   });
 
-  // Product map from vendas pendentes
   const productByLead = new Map<string, string>();
   pendingVendas.forEach((v) => {
     if (v.lead_id && v.produto_nome) productByLead.set(v.lead_id, v.produto_nome);
   });
 
-  // Breakdown de produtos pendentes (pix/carrinho)
   const pixProductBreakdown: Record<string, number> = {};
   pendingVendas.forEach((v) => {
     const nome = v.produto_nome || "Sem produto";
@@ -94,14 +91,13 @@ export function ProjetoComando({ projectId, project }: Props) {
     return null;
   };
 
-  // KPIs calculados a partir de vendas reais
   const now = new Date();
   const brOffset = -3 * 60;
   const brNow = new Date(now.getTime() + (brOffset + now.getTimezoneOffset()) * 60000);
   const todayStr = brNow.toISOString().split("T")[0];
   const dayStartUtc = todayStr + "T03:00:00.000Z";
 
-  const leadsToday = leads.filter(l => l.created_at && l.created_at >= dayStartUtc).length;
+  const leadsToday = leads.filter(l => l.criado_em && l.criado_em >= dayStartUtc).length;
   const pixToday = vendasHoje.filter(v => {
     const s = (v.status || "").toLowerCase();
     return s.includes("pend") || s.includes("pix") || s.includes("waiting") || s.includes("carrinho");
@@ -112,6 +108,11 @@ export function ProjetoComando({ projectId, project }: Props) {
   const briefing = typeof project.data === "object" ? project.data : {};
   const fase = briefing?.status || "Em configuração";
   const lastUpdate = project.updated_at ? format(new Date(project.updated_at), "dd/MM HH:mm") : "—";
+
+  // Valor total vendas do dia
+  const totalVendasHojeValor = vendasHoje
+    .filter(v => (v.status || "").toLowerCase() === "aprovado")
+    .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
 
   if (loading) return <div className="text-muted-foreground text-sm p-4">Carregando comando...</div>;
 
@@ -162,6 +163,64 @@ export function ProjetoComando({ projectId, project }: Props) {
         ))}
       </div>
 
+      {/* Detalhes das Vendas do Dia */}
+      {vendasHoje.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-primary" /> Vendas do Dia ({vendasHoje.length})
+              {totalVendasHojeValor > 0 && (
+                <Badge variant="secondary" className="text-[10px] ml-auto">
+                  R$ {totalVendasHojeValor.toFixed(2)}
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-[10px]">Produto</TableHead>
+                  <TableHead className="text-[10px]">Valor</TableHead>
+                  <TableHead className="text-[10px]">Status</TableHead>
+                  <TableHead className="text-[10px]">Plataforma</TableHead>
+                  <TableHead className="text-[10px]">Horário</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vendasHoje.map((v) => {
+                  const statusLower = (v.status || "").toLowerCase();
+                  const statusColor = statusLower === "aprovado"
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                    : "bg-amber-500/20 text-amber-400 border-amber-500/30";
+                  return (
+                    <TableRow key={v.id}>
+                      <TableCell className="text-xs py-2 font-medium">
+                        {v.produto_nome || "—"}
+                      </TableCell>
+                      <TableCell className="text-xs py-2 font-mono">
+                        {v.valor ? `R$ ${Number(v.valor).toFixed(2)}` : "—"}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Badge variant="outline" className={`text-[9px] ${statusColor}`}>
+                          {v.status || "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground py-2">
+                        {v.plataforma || "—"}
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground py-2">
+                        {v.created_at ? format(new Date(v.created_at), "HH:mm") : "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Breakdown de produtos pendentes */}
       {Object.keys(pixProductBreakdown).length > 0 && (
         <Card className="bg-card border-border">
@@ -206,7 +265,7 @@ export function ProjetoComando({ projectId, project }: Props) {
                     return (
                     <TableRow key={l.id}>
                       <TableCell className="text-xs py-2">
-                        <div>{l.name || l.email || "—"}</div>
+                        <div>{l.nome || l.email || "—"}</div>
                         <div className="text-[10px] text-muted-foreground">{l.email || l.phone || ""}</div>
                       </TableCell>
                       <TableCell className="text-xs py-2">
@@ -220,7 +279,7 @@ export function ProjetoComando({ projectId, project }: Props) {
                         <Badge variant="outline" className="text-[9px]">{l.status || "novo"}</Badge>
                       </TableCell>
                       <TableCell className="text-[10px] text-muted-foreground py-2">
-                        {l.created_at ? format(new Date(l.created_at), "dd/MM HH:mm") : "—"}
+                        {l.criado_em ? format(new Date(l.criado_em), "dd/MM HH:mm") : "—"}
                       </TableCell>
                     </TableRow>
                     );
