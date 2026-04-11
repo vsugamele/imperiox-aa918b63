@@ -6,8 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target } from "lucide-react";
-import { format } from "date-fns";
+import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target, Radio } from "lucide-react";
+import { format, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
@@ -71,6 +71,22 @@ function migrateToMonthly(plan: any): MonthlyPlan {
   return { semana_1: plan, semana_2: empty, semana_3: empty, semana_4: empty };
 }
 
+/** Calculate real dates (dd/MM) for each day of a given week index */
+function getWeekDates(weekIndex: number): string[] {
+  const now = new Date();
+  const som = startOfMonth(now);
+  const dow = getDay(som); // 0=Sun
+  const offsetToMonday = dow === 0 ? 1 : dow === 1 ? 0 : 8 - dow;
+  const firstMonday = new Date(som);
+  firstMonday.setDate(firstMonday.getDate() + offsetToMonday);
+
+  return DAYS.map((_, di) => {
+    const d = new Date(firstMonday);
+    d.setDate(d.getDate() + weekIndex * 7 + di);
+    return format(d, "dd/MM");
+  });
+}
+
 export default function ExpertPortal() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<any>(null);
@@ -125,18 +141,20 @@ export default function ExpertPortal() {
      return DAYS.flatMap(d => (wp[d] || []).map((i: ContentItem) => i.platform));
    });
    const activePlatforms = new Set(allItems).size;
+   const opsStatus = data.operational_status;
+   const movementContext = data.movement_context || "";
 
   // Calendar content dates
   const contentDates = (() => {
     const dates: Date[] = [];
     const today = new Date();
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const som2 = startOfMonth(today);
     WEEKS.forEach((wk, wi) => {
       const wp = (monthlyPlan as any)[wk] || {};
       DAYS.forEach((day, di) => {
         if ((wp[day]?.length || 0) > 0) {
           const dayOffset = wi * 7 + di;
-          const d = new Date(startOfMonth);
+          const d = new Date(som2);
           d.setDate(d.getDate() + dayOffset);
           dates.push(d);
         }
@@ -166,6 +184,55 @@ export default function ExpertPortal() {
               <p key={i} className="text-sm text-foreground ml-6">• {obj}</p>
             ))}
           </div>
+        )}
+
+        {/* Contexto do Movimento */}
+        {movementContext && (
+          <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5">
+            <p className="text-[10px] font-semibold text-amber-500 uppercase mb-1">📋 Contexto do Movimento</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{movementContext}</p>
+          </div>
+        )}
+
+        {/* Status Operacional */}
+        {opsStatus && (opsStatus.ads_connected || opsStatus.wa_campaigns_active > 0) && (
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
+                <Radio className="h-4 w-4" /> Status Operacional
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {opsStatus.ads_connected && (
+                  <div className="p-3 rounded bg-secondary/50 border border-border">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">📊 Tráfego Pago</p>
+                    <Badge variant={opsStatus.ads_active > 0 ? "default" : "secondary"} className="text-[9px]">
+                      {opsStatus.ads_active > 0 ? `✅ ${opsStatus.ads_active} conta(s) ativa(s)` : "⏸ Contas pausadas"}
+                    </Badge>
+                    <div className="mt-1 space-y-0.5">
+                      {opsStatus.ads_accounts?.map((a: any, i: number) => (
+                        <p key={i} className="text-[9px] text-muted-foreground">
+                          {a.platform} — {a.name} {a.active ? "🟢" : "🔴"}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {opsStatus.wa_campaigns_active > 0 && (
+                  <div className="p-3 rounded bg-secondary/50 border border-border">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">💬 Campanhas WhatsApp</p>
+                    <Badge variant="default" className="text-[9px]">✅ {opsStatus.wa_campaigns_active} ativa(s)</Badge>
+                    <div className="mt-1 space-y-0.5">
+                      {opsStatus.wa_campaigns?.map((c: any, i: number) => (
+                        <p key={i} className="text-[9px] text-muted-foreground">• {c.name}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* KPIs */}
@@ -321,9 +388,10 @@ export default function ExpertPortal() {
                 })}
               </TabsList>
 
-              {WEEKS.map(wk => {
+              {WEEKS.map((wk, wi) => {
                 const weekData = (monthlyPlan as any)[wk] || {};
                 const summary = weekSummaries[wk];
+                const dates = getWeekDates(wi);
                 return (
                   <TabsContent key={wk} value={wk} className="space-y-3">
                     {(summary?.focus || summary?.event) && (
@@ -333,9 +401,12 @@ export default function ExpertPortal() {
                       </div>
                     )}
                     <div className="grid grid-cols-7 gap-2">
-                      {DAYS.map(day => (
+                      {DAYS.map((day, di) => (
                         <div key={day} className="space-y-1">
-                          <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
+                          <div className="text-center">
+                            <p className="text-[10px] font-semibold uppercase text-muted-foreground">{day}</p>
+                            <p className="text-[9px] text-muted-foreground/70">{dates[di]}</p>
+                          </div>
                           <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
                             {(weekData[day] || []).map((item: ContentItem) => (
                               <div

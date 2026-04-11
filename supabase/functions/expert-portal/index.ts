@@ -34,10 +34,12 @@ serve(async (req) => {
     const now = new Date();
     const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const [evRes, taskRes, procRes] = await Promise.all([
+    const [evRes, taskRes, procRes, adsRes, waCampRes] = await Promise.all([
       sb.from("imphq_calendar_events").select("id, title, start_date, end_date, type").eq("project_id", project.id).gte("start_date", now.toISOString()).lte("start_date", weekEnd.toISOString()).order("start_date"),
       sb.from("imphq_kanban_cards").select("id, title, priority, due_date, column_id, checklist").contains("tags", [project.id]).order("position").limit(20),
       sb.from("imphq_processes").select("id, title, name, steps").eq("project_id", project.id),
+      sb.from("imphq_ad_accounts").select("id, platform, account_name, is_active").eq("project_id", project.id).limit(10),
+      sb.from("imphq_wa_campaigns").select("id, name, status").eq("project_id", project.id).eq("status", "active").limit(10),
     ]);
 
     // Enrich tasks with checklist summary
@@ -54,12 +56,27 @@ serve(async (req) => {
       };
     });
 
+    // Operational status
+    const adAccounts = adsRes.data || [];
+    const activeAds = adAccounts.filter((a: any) => a.is_active);
+    const waCampaigns = waCampRes.data || [];
+
+    const operational_status = {
+      ads_connected: adAccounts.length > 0,
+      ads_active: activeAds.length,
+      ads_accounts: adAccounts.map((a: any) => ({ platform: a.platform, name: a.account_name, active: a.is_active })),
+      wa_campaigns_active: waCampaigns.length,
+      wa_campaigns: waCampaigns.map((c: any) => ({ name: c.name })),
+    };
+
     const response = {
       project_name: project.name,
       expert: d.expert || null,
       content_plan: d.content_plan || {},
       content_objective: d.content_objective || "",
+      content_objectives: d.content_objectives || [],
       expert_notes: d.expert_notes || "",
+      movement_context: d.movement_context || "",
       brand_kit: project.brand_kit || {},
       events: evRes.data || [],
       tasks,
@@ -68,6 +85,7 @@ serve(async (req) => {
         title: p.title || p.name,
         steps: p.steps || [],
       })),
+      operational_status,
     };
 
     return new Response(JSON.stringify(response), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
