@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, GripVertical, Image, Mic, Video, FileText, Type } from "lucide-react";
 import { toast } from "sonner";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 
 interface Step {
   id: string;
@@ -33,7 +34,13 @@ const MEDIA_ICONS: Record<string, any> = {
   document: FileText,
 };
 
-export default function CampaignStepEditor({ campaignId }: { campaignId: string }) {
+interface CampaignStepEditorProps {
+  campaignId: string;
+  projectId?: string;
+  produto?: string;
+}
+
+export default function CampaignStepEditor({ campaignId, projectId = "", produto = "" }: CampaignStepEditorProps) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -150,7 +157,31 @@ export default function CampaignStepEditor({ campaignId }: { campaignId: string 
                   </div>
 
                   <div>
-                    <Label className="text-[10px]">Mensagem</Label>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-[10px]">Mensagem</Label>
+                      {projectId && (
+                        <AIGenerateButton
+                          projectId={projectId}
+                          action="generate_campaign_message"
+                          label="Gerar"
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-1.5 text-[10px]"
+                          showMenteSelector
+                          extraBody={{
+                            campaign_id: campaignId,
+                            produto,
+                            step_order: step.step_order,
+                            total_steps: steps.length,
+                            media_type: step.media_type,
+                          }}
+                          onResult={(data: any) => {
+                            const text = data?.text || data?.content || "";
+                            if (text) updateStep(step.id, "content", text);
+                          }}
+                        />
+                      )}
+                    </div>
                     <Textarea
                       className="text-xs min-h-[60px]"
                       value={step.content || ""}
