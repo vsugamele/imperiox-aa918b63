@@ -1,82 +1,48 @@
 
 
-# Plano: Criativos no Projeto + Filtros Ads + Atribuição Vendas/Ads + Chat com Imagem e Comandos /
+# Plano: Corrigir Filtros de Produto e Projeto em Finanças
 
-## Contexto dos problemas identificados
+## Problemas identificados
 
-1. **Criativos não aparecem no projeto do Jonathan**: O componente `ProjetoFinancas` lê `project.data.facebook_creatives`, mas o `project` prop vem do state do `ProjetoDetalhe.tsx` que carrega uma única vez no mount. Após a sync, o `project.data` não é re-fetched.
+1. **Filtro de produto não afeta KPIs corretamente**: Quando seleciona um produto (ex: "Código dos Cortes"), apenas `fVendas` é filtrado. Os ads (`fAds`), custos e KPIs continuam mostrando valores de TODOS os produtos — gerando números inconsistentes (ex: ROAS mistura receita de 1 produto com gasto total de ads).
 
-2. **Grupos na campanha**: O `fetchGroups` usa endpoint `group/fetchAllGroups` — funciona, mas o provider_id pode ser null. Precisa validar e exibir feedback quando não há provider configurado.
+2. **Filtro "Todos os Projetos" não reflete nos dados**: Os custos globais (`fCustos`) nunca são filtrados por projeto (linha 105: `const fCustos = custos`). Além disso, ao selecionar produto, os ads deveriam ser proporcionalizados ao produto selecionado.
 
-3. **Chat sem envio de imagem nem comandos /**: O `ChatView` atualmente só envia texto. Não há upload de imagem nem detecção de `/` para autocomplete de comandos.
+## Correções
 
----
+### `src/pages/Financas.tsx`
 
-## 1. Fix Criativos — Re-fetch project após sync
+**A) Proporcionalizar Ads quando filtro de produto ativo:**
+- Quando `filterProduct !== "all"`, calcular a % de receita daquele produto sobre o total de vendas
+- Aplicar essa % ao total de ads para gerar um "ads proporcional" nos KPIs
+- Isso faz ROAS, CPA, Lucro e ROI refletirem corretamente o produto selecionado
 
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
+**B) KPIs contextuais:**
+- `totalReceita` já funciona (vendas filtradas + receita manual)
+- `adsTotal` → quando produto selecionado: `adsTotal * (receitaProduto / receitaTotal)`
+- Lucro, ROI, ROAS recalculados com o ads proporcional
 
-- Após o sync do Facebook (onde chama `supabase.functions.invoke("facebook-ads-sync")`), re-buscar o projeto: `supabase.from("imphq_projects").select("*").eq("id", projectId).single()` e atualizar via um callback prop `onProjectUpdate`
-- Alternativa simples: adicionar prop `onRefresh` ao `ProjetoFinancas` que chama o reload do `ProjetoDetalhe`
+**C) Garantir que custos de projeto filtrem corretamente:**
+- Manter custos globais (ferramentas) sempre visíveis (são da empresa inteira)
+- Custos de projeto e ads já filtram por `filterProject`
 
-**Arquivo**: `src/pages/ProjetoDetalhe.tsx`
+**D) Overview e Performance — propagar filtro de produto:**
+- Passar `filterProduct` como prop para `FinancasOverview` e `FinancasPerformance`
+- No `dailyData`, quando produto filtrado, usar apenas vendas daquele produto
 
-- Passar callback `onRefresh` que re-busca o projeto do DB
+### `src/components/financas/FinancasOverview.tsx`
+- Receber `adsProportional` ao invés de `totalAds` quando produto selecionado
+- ROAS Real e CPA Real usarem o valor proporcionalizado
 
-## 2. Filtros e Status nas tabelas de Ads
-
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
-
-- Adicionar coluna "Status" na tabela de Ads mostrando badge (ACTIVE verde, PAUSED âmbar, etc.) — os dados `effective_status` já são salvos nos criativos
-- Adicionar filtro por `conjunto_anuncios` e `anuncio` na tabela principal de Ads (já existe nos criativos)
-- Adicionar campo de busca por nome de campanha
-
-## 3. Atribuição Vendas vs Ads (ROAS Real)
-
-**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
-
-- No card de KPIs, cruzar `fVendas` (soma de vendas aprovadas) com `fAds` (soma de gastos) para mostrar **ROAS Real** = receita vendas / gasto ads
-- Adicionar card "Atribuição" mostrando: total vendas, total ads, ROAS, custo por venda
-- Isso já é possível com os dados existentes — basta calcular
-
-## 4. Chat: envio de imagem via upload
-
-**Arquivo**: `src/components/whatsapp/ChatView.tsx`
-
-- Adicionar botão de upload (ícone 📎/Image) no input area
-- Ao selecionar arquivo, fazer upload para Supabase Storage (`whatsapp-media` bucket) 
-- Chamar a Edge Function com `media_url` e `media_type: "image"`
-
-**Arquivo**: `supabase/functions/whatsapp-api/index.ts`
-
-- No action `send_message`, aceitar campos `media_url` e `media_type`
-- Se presente, usar endpoint Evolution `/message/sendMedia` ao invés de `/message/sendText`
-- Salvar na DB com `message_type` e `media_url`
-
-## 5. Chat: autocomplete de comandos /
-
-**Arquivo**: `src/components/whatsapp/ChatView.tsx`
-
-- Carregar `imphq_wa_commands` do projeto ativo
-- Detectar quando o texto começa com `/` — mostrar dropdown com comandos filtrados
-- Ao selecionar, preencher o textarea com o `response_text` do comando
-- UI: popup flutuante acima do textarea com lista filtrada
-
-## 6. Campanhas: validação de provider nos grupos
-
-**Arquivo**: `src/components/whatsapp/CampaignManager.tsx`
-
-- No `openGroupSelector`, se `provider_id` é null, mostrar toast de aviso e não abrir o dialog
-
----
+## Resultado esperado
+- Selecionar "Código dos Cortes" → KPIs mostram receita só desse produto, ads proporcionais, ROAS correto
+- Selecionar "Todos os Projetos" → dados completos de todos os projetos
+- Filtros combinam entre si (projeto + produto + data)
 
 ## Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/ProjetoDetalhe.tsx` | Callback `onRefresh` para re-fetch do projeto |
-| `src/components/projeto/ProjetoFinancas.tsx` | Re-fetch após sync + filtros ads + ROAS real |
-| `src/components/whatsapp/ChatView.tsx` | Upload de imagem + autocomplete de comandos / |
-| `supabase/functions/whatsapp-api/index.ts` | Suporte a `sendMedia` no action send_message |
-| `src/components/whatsapp/CampaignManager.tsx` | Validação provider nos grupos |
+| `src/pages/Financas.tsx` | Proporcionalizar ads por produto, corrigir KPIs |
+| `src/components/financas/FinancasOverview.tsx` | Usar ads proporcional nos cálculos |
 
