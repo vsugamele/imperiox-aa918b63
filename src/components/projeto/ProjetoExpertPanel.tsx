@@ -112,7 +112,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiObjective, setAiObjective] = useState("");
   const [aiFrequency, setAiFrequency] = useState("2");
-  const [aiProductName, setAiProductName] = useState("");
+  const [aiProductName, setAiProductName] = useState("__all__");
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
   const [expertLogs, setExpertLogs] = useState<any[]>([]);
@@ -921,7 +921,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 <Select value={aiProductName} onValueChange={setAiProductName}>
                   <SelectTrigger className="bg-secondary"><SelectValue placeholder="Todos os produtos" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os produtos</SelectItem>
+                    <SelectItem value="__all__">Todos os produtos</SelectItem>
                     {products.map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -969,7 +969,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 content_objective: aiObjective,
                 posts_per_day: parseInt(aiFrequency),
                 priority_platforms: aiPlatforms,
-                product_name: aiProductName,
+                product_name: aiProductName === "__all__" ? "" : aiProductName,
               }}
             />
           </DialogFooter>
