@@ -1,34 +1,35 @@
 
 
-# Fix: Aba Comando — KPIs e dados incorretos
+# Plano: Finalizar Checklist + Upload de Vídeo no Portal e Painel
 
-## Problemas identificados
+## Contexto
 
-Analisando o código de `ProjetoComando.tsx` e comparando com o screenshot:
+A lógica de backend (tabela `imphq_expert_logs`, rotas POST na Edge Function) e os handlers no frontend (`ExpertPortal.tsx`) já estão prontos. Falta conectar a UI nos cards de conteúdo.
 
-1. **KPIs "Pix Gerados" e "Vendas Hoje" sempre zero** — Buscam de `imphq_events` (tabela de analytics/pixel) filtrando `event_name === "pix_created"`. Mas os dados de vendas reais estão em `imphq_vendas`. Resultado: sempre 0.
+## O que falta
 
-2. **"Leads Hoje" sempre zero** — Filtra `created_at` com `startsWith(today)` usando hora UTC, que pode não bater com horário BR. Além disso, leads podem estar entrando mas o filtro de data não captura.
+### 1. ExpertPortal.tsx — Adicionar checkbox e botão de upload nos cards
 
-3. **"Eventos Hoje"** — Busca de `imphq_events` (analytics). Deveria ser `imphq_calendar_events` para mostrar compromissos do dia.
+Os cards de conteúdo (linhas 470-489) não mostram o checkbox "Feito" nem o botão "Enviar Vídeo". Precisa adicionar:
 
-4. **"Pendentes" conta leads com status "pend/carrinho/pix"** — Deveria contar vendas pendentes (que já aparecem no breakdown de produtos), não leads.
+- **Checkbox "Feito"** abaixo de cada card, chamando `toggleDone(item.id, wk, day)` ao clicar
+- **Botão "📹 Enviar Vídeo"** que seta `pendingUploadCard` e dispara o `videoInputRef.current.click()`
+- **Indicador de vídeo enviado** quando `getVideoLog(item.id)` retorna algo (badge "📹 Vídeo enviado")
+- **Loading spinner** quando `uploadingId === item.id`
 
-## Solução
+### 2. ProjetoExpertPanel.tsx — Mostrar status dos logs no painel interno
 
-Reescrever as queries e KPIs do `ProjetoComando.tsx`:
+Atualmente o painel interno não busca `imphq_expert_logs`. Precisa:
 
-| KPI | De (errado) | Para (correto) |
-|-----|-------------|-----------------|
-| Pix Gerados | `imphq_events` (pix_created) | `imphq_vendas` where status in (pendente, pix, waiting) criadas hoje |
-| Vendas Hoje | `imphq_events` (approved) | `imphq_vendas` where status = aprovado criadas hoje |
-| Leads Hoje | leads com created_at.startsWith(today) | Usar filtro `.gte()` e `.lt()` com range do dia em UTC-3 |
-| Pendentes | leads com status pend/carrinho | `imphq_vendas` where status != aprovado (count) |
-| Eventos Hoje | `imphq_events` (analytics) | `imphq_calendar_events` com start_date de hoje |
+- Fazer query dos logs ao carregar o componente: `supabase.from("imphq_expert_logs").select("*").eq("project_id", projectId)`
+- Nos cards de conteúdo do calendário, mostrar:
+  - Badge "✅ Feito" (com data) quando há log `mark_done`
+  - Botão "📹 Baixar Vídeo" / preview quando há log `video_upload` (link no `metadata.url`)
 
-## Arquivo afetado
+## Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/projeto/ProjetoComando.tsx` | Corrigir queries (vendas em vez de events), ajustar KPIs, usar calendar_events |
+| `src/pages/ExpertPortal.tsx` | Adicionar checkbox + botão upload + indicadores nos cards de conteúdo |
+| `src/components/projeto/ProjetoExpertPanel.tsx` | Buscar `imphq_expert_logs`, exibir badges de status e link de download nos cards |
 
