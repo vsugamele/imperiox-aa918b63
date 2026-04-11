@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_wa_campaigns ADD COLUMN produto text;

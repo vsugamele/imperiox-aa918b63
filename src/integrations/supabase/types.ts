@@ -12915,6 +12915,7 @@ export type Database = {
           groups: Json
           id: string
           name: string
+          produto: string | null
           project_id: string | null
           provider_id: string | null
           start_date: string | null
@@ -12927,6 +12928,7 @@ export type Database = {
           groups?: Json
           id?: string
           name: string
+          produto?: string | null
           project_id?: string | null
           provider_id?: string | null
           start_date?: string | null
@@ -12939,6 +12941,7 @@ export type Database = {
           groups?: Json
           id?: string
           name?: string
+          produto?: string | null
           project_id?: string | null
           provider_id?: string | null
           start_date?: string | null
