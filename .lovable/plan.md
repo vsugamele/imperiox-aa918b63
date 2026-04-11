@@ -1,29 +1,82 @@
 
 
-# Plano: Deletar Projeto + Logs OpenFlow + Referências com Mídia de Ads
+# Plano: Criativos no Projeto + Filtros Ads + Atribuição Vendas/Ads + Chat com Imagem e Comandos /
 
-## 1. Botão "Excluir Projeto" na página de Projetos
-- Adicionar botão de exclusão (com confirmação via AlertDialog) na listagem de projetos (`Projetos.tsx`)
-- Faz `DELETE FROM imphq_projects WHERE id = ?` — as tabelas dependentes devem ter `ON DELETE CASCADE` ou precisarão de limpeza manual
-- Verificar se as foreign keys já têm CASCADE; se não, criar migration adicionando
+## Contexto dos problemas identificados
 
-## 2. Logs de execução do OpenFlow
-- **Migration**: criar tabela `imphq_automacao_logs` com colunas: `id`, `automacao_id` (FK), `project_id`, `trigger_data` (jsonb), `acoes_executadas` (jsonb), `status` (text: success/error), `error_message`, `created_at`
-- **Edge Function `openflow-executor`**: após executar cada ação, inserir um log na tabela
-- **UI**: adicionar aba/painel "Logs" na página OpenFlow mostrando histórico de execuções com filtro por automação e status
+1. **Criativos não aparecem no projeto do Jonathan**: O componente `ProjetoFinancas` lê `project.data.facebook_creatives`, mas o `project` prop vem do state do `ProjetoDetalhe.tsx` que carrega uma única vez no mount. Após a sync, o `project.data` não é re-fetched.
 
-## 3. Referências — incluir criativos de Ads Reports
-- Verificar se `imphq_ads_reports` tem URLs de criativos (image_url, thumbnail_url)
-- Se sim, incluir no `load()` de `Referencias.tsx` como fonte adicional com `source: "ads"`
-- Se não, buscar da API do Facebook as thumbnails dos criativos na sync e salvar na tabela
+2. **Grupos na campanha**: O `fetchGroups` usa endpoint `group/fetchAllGroups` — funciona, mas o provider_id pode ser null. Precisa validar e exibir feedback quando não há provider configurado.
+
+3. **Chat sem envio de imagem nem comandos /**: O `ChatView` atualmente só envia texto. Não há upload de imagem nem detecção de `/` para autocomplete de comandos.
+
+---
+
+## 1. Fix Criativos — Re-fetch project após sync
+
+**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
+
+- Após o sync do Facebook (onde chama `supabase.functions.invoke("facebook-ads-sync")`), re-buscar o projeto: `supabase.from("imphq_projects").select("*").eq("id", projectId).single()` e atualizar via um callback prop `onProjectUpdate`
+- Alternativa simples: adicionar prop `onRefresh` ao `ProjetoFinancas` que chama o reload do `ProjetoDetalhe`
+
+**Arquivo**: `src/pages/ProjetoDetalhe.tsx`
+
+- Passar callback `onRefresh` que re-busca o projeto do DB
+
+## 2. Filtros e Status nas tabelas de Ads
+
+**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
+
+- Adicionar coluna "Status" na tabela de Ads mostrando badge (ACTIVE verde, PAUSED âmbar, etc.) — os dados `effective_status` já são salvos nos criativos
+- Adicionar filtro por `conjunto_anuncios` e `anuncio` na tabela principal de Ads (já existe nos criativos)
+- Adicionar campo de busca por nome de campanha
+
+## 3. Atribuição Vendas vs Ads (ROAS Real)
+
+**Arquivo**: `src/components/projeto/ProjetoFinancas.tsx`
+
+- No card de KPIs, cruzar `fVendas` (soma de vendas aprovadas) com `fAds` (soma de gastos) para mostrar **ROAS Real** = receita vendas / gasto ads
+- Adicionar card "Atribuição" mostrando: total vendas, total ads, ROAS, custo por venda
+- Isso já é possível com os dados existentes — basta calcular
+
+## 4. Chat: envio de imagem via upload
+
+**Arquivo**: `src/components/whatsapp/ChatView.tsx`
+
+- Adicionar botão de upload (ícone 📎/Image) no input area
+- Ao selecionar arquivo, fazer upload para Supabase Storage (`whatsapp-media` bucket) 
+- Chamar a Edge Function com `media_url` e `media_type: "image"`
+
+**Arquivo**: `supabase/functions/whatsapp-api/index.ts`
+
+- No action `send_message`, aceitar campos `media_url` e `media_type`
+- Se presente, usar endpoint Evolution `/message/sendMedia` ao invés de `/message/sendText`
+- Salvar na DB com `message_type` e `media_url`
+
+## 5. Chat: autocomplete de comandos /
+
+**Arquivo**: `src/components/whatsapp/ChatView.tsx`
+
+- Carregar `imphq_wa_commands` do projeto ativo
+- Detectar quando o texto começa com `/` — mostrar dropdown com comandos filtrados
+- Ao selecionar, preencher o textarea com o `response_text` do comando
+- UI: popup flutuante acima do textarea com lista filtrada
+
+## 6. Campanhas: validação de provider nos grupos
+
+**Arquivo**: `src/components/whatsapp/CampaignManager.tsx`
+
+- No `openGroupSelector`, se `provider_id` é null, mostrar toast de aviso e não abrir o dialog
+
+---
 
 ## Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| Migration (nova) | CASCADE nas FKs de projeto + tabela `imphq_automacao_logs` |
-| `src/pages/Projetos.tsx` | Botão excluir projeto com AlertDialog |
-| `supabase/functions/openflow-executor/index.ts` | Inserir logs após execução |
-| `src/pages/OpenFlow.tsx` | Aba/painel de logs de execução |
-| `src/pages/Referencias.tsx` | Incluir criativos de ads como fonte extra |
+| `src/pages/ProjetoDetalhe.tsx` | Callback `onRefresh` para re-fetch do projeto |
+| `src/components/projeto/ProjetoFinancas.tsx` | Re-fetch após sync + filtros ads + ROAS real |
+| `src/components/whatsapp/ChatView.tsx` | Upload de imagem + autocomplete de comandos / |
+| `supabase/functions/whatsapp-api/index.ts` | Suporte a `sendMedia` no action send_message |
+| `src/components/whatsapp/CampaignManager.tsx` | Validação provider nos grupos |
 
