@@ -835,9 +835,42 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       groups.get(key)!.push(a);
                     });
                     const groupEntries = Array.from(groups.entries());
-                    
-                    if (groupEntries.length > 1) {
-                      return (
+                    return (
+                      <div className="space-y-4">
+                        {/* Filters */}
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div className="flex-1 min-w-[150px] max-w-[250px]">
+                            <Label className="text-[10px] text-muted-foreground">Campanha</Label>
+                            <Input placeholder="Buscar campanha..." className="h-7 text-xs bg-secondary" value={adsSearchCampanha} onChange={e => setAdsSearchCampanha(e.target.value)} />
+                          </div>
+                          {conjuntos.length > 0 && (
+                            <div className="min-w-[160px]">
+                              <Label className="text-[10px] text-muted-foreground">Conjunto</Label>
+                              <Select value={adsFilterConjunto} onValueChange={setAdsFilterConjunto}>
+                                <SelectTrigger className="h-7 text-xs bg-secondary"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos conjuntos</SelectItem>
+                                  {conjuntos.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          {anuncios.length > 0 && (
+                            <div className="min-w-[160px]">
+                              <Label className="text-[10px] text-muted-foreground">Anúncio</Label>
+                              <Select value={adsFilterAnuncio} onValueChange={setAdsFilterAnuncio}>
+                                <SelectTrigger className="h-7 text-xs bg-secondary"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos anúncios</SelectItem>
+                                  {anuncios.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <p className="text-[10px] text-muted-foreground self-end pb-1">{filteredAds.length} de {fAds.length} registros</p>
+                        </div>
+
+                    {groupEntries.length > 1 ? (
                         <Accordion type="multiple" className="space-y-2">
                           {groupEntries.map(([groupName, items]) => {
                             const gTotal = items.reduce((s, a) => s + a.valor, 0);
