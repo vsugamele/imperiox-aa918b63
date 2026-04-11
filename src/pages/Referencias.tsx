@@ -477,6 +477,7 @@ export default function Referencias() {
           { key: "all" as const, label: "Todos", count: refs.length },
           { key: "manual" as const, label: "Minhas Refs", count: manualCount },
           { key: "library" as const, label: "Projetos", count: libraryCount },
+          { key: "ads" as const, label: "📊 Ads", count: adsCount },
         ]).map(o => (
           <button
             key={o.key}
