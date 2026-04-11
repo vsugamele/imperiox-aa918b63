@@ -115,6 +115,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiProductName, setAiProductName] = useState("");
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  const [expertLogs, setExpertLogs] = useState<any[]>([]);
 
   // Operational status
   const [opsStatus, setOpsStatus] = useState<any>(null);
