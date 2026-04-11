@@ -921,7 +921,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 <Select value={aiProductName} onValueChange={setAiProductName}>
                   <SelectTrigger className="bg-secondary"><SelectValue placeholder="Todos os produtos" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os produtos</SelectItem>
+                    <SelectItem value="__all__">Todos os produtos</SelectItem>
                     {products.map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>

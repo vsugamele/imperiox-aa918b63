@@ -90,7 +90,7 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
               <Select value={selectedProductIndex} onValueChange={setSelectedProductIndex}>
                 <SelectTrigger className="h-7 text-[10px] w-[140px]"><SelectValue placeholder="Produto" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="__all__">Todos</SelectItem>
                   {productNames.map((name: string, i: number) => (
                     <SelectItem key={i} value={String(i)}>{name}</SelectItem>
                   ))}
