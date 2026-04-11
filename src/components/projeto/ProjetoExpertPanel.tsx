@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target, Radio, MessageSquare } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target, Radio, MessageSquare, Video, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -115,6 +115,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiProductName, setAiProductName] = useState("");
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  const [expertLogs, setExpertLogs] = useState<any[]>([]);
 
   // Operational status
   const [opsStatus, setOpsStatus] = useState<any>(null);
@@ -163,10 +164,12 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", now.toISOString()).lte("start_date", weekEnd.toISOString()).order("start_date"),
       supabase.from("imphq_kanban_cards").select("id, title, priority, due_date, board, column_id").contains("tags", [projectId]).order("position"),
       supabase.from("imphq_processes" as any).select("*").eq("project_id", projectId),
-    ]).then(([evRes, taskRes, procRes]) => {
+      supabase.from("imphq_expert_logs" as any).select("*").eq("project_id", projectId),
+    ]).then(([evRes, taskRes, procRes, logsRes]) => {
       setEvents(evRes.data || []);
       setTasks(taskRes.data || []);
       setProcesses(procRes.data || []);
+      setExpertLogs(logsRes.data || []);
     });
 
     // Fetch operational status
@@ -185,6 +188,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       });
     });
   }, [projectId]);
+
+  const isLogDone = (contentId: string) => expertLogs.some(l => l.content_id === contentId && l.action === "mark_done");
+  const getLogVideo = (contentId: string) => expertLogs.find(l => l.content_id === contentId && l.action === "video_upload");
 
   const updateMonthlyPlan = useCallback((plan: MonthlyPlan) => {
     onUpdateData({ ...data, content_plan: plan });
@@ -732,26 +738,50 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                             <p className="text-[9px] text-muted-foreground/70">{dates[di]}</p>
                           </div>
                           <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
-                            {items.map(item => (
-                              <div
-                                key={item.id}
-                                className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} group relative cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}
-                                onClick={() => openCardDetail(item, day)}
-                              >
-                                <div className="flex items-center gap-1 mb-0.5">
-                                  <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
-                                  <span className="text-[10px] font-semibold">{item.platform}</span>
-                                </div>
-                                <p className="text-[10px] opacity-80">{item.type}</p>
-                                {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
-                                {item.cross_platforms && item.cross_platforms.length > 0 && (
-                                  <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                                    {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                            {items.map(item => {
+                              const done = isLogDone(item.id);
+                              const videoLog = getLogVideo(item.id);
+                              const videoMeta = videoLog?.metadata as any;
+                              return (
+                                <div
+                                  key={item.id}
+                                  className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} ${done ? "ring-1 ring-green-500/40" : ""} group relative cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}
+                                  onClick={() => openCardDetail(item, day)}
+                                >
+                                  <div className="flex items-center gap-1 mb-0.5">
+                                    <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
+                                    <span className="text-[10px] font-semibold">{item.platform}</span>
                                   </div>
-                                )}
-                                {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
-                              </div>
-                            ))}
+                                  <p className="text-[10px] opacity-80">{item.type}</p>
+                                  {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                                  {item.cross_platforms && item.cross_platforms.length > 0 && (
+                                    <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                                      {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                                    </div>
+                                  )}
+                                  {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
+                                  {/* Expert status badges */}
+                                  {(done || videoLog) && (
+                                    <div className="mt-1 pt-1 border-t border-current/10 flex flex-wrap gap-1">
+                                      {done && <Badge variant="secondary" className="text-[7px] h-3.5 gap-0.5"><CheckCircle2 className="h-2 w-2" /> Feito</Badge>}
+                                      {videoLog && videoMeta?.url && (
+                                        <a
+                                          href={videoMeta.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={e => e.stopPropagation()}
+                                          className="inline-flex"
+                                        >
+                                          <Badge variant="secondary" className="text-[7px] h-3.5 gap-0.5 cursor-pointer hover:bg-primary/20">
+                                            <Video className="h-2 w-2" /> {videoMeta.filename ? "📹 " + videoMeta.filename : "Vídeo"}
+                                          </Badge>
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                             <Button variant="ghost" size="sm" className="w-full h-6 text-[9px] text-muted-foreground" onClick={() => addContentItem(day)}>
                               <Plus className="h-2.5 w-2.5 mr-0.5" /> Adicionar
                             </Button>

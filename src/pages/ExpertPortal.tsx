@@ -467,26 +467,56 @@ export default function ExpertPortal() {
                             <p className="text-[9px] text-muted-foreground/70">{dates[di]}</p>
                           </div>
                           <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
-                            {(weekData[day] || []).map((item: ContentItem) => (
-                              <div
-                                key={item.id}
-                                className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}
-                                onClick={() => setSelectedCard(item)}
-                              >
-                                <div className="flex items-center gap-1 mb-0.5">
-                                  <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
-                                  <span className="text-[10px] font-semibold">{item.platform}</span>
-                                </div>
-                                <p className="text-[10px] opacity-80">{item.type}</p>
-                                {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
-                                {item.cross_platforms && item.cross_platforms.length > 0 && (
-                                  <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                                    {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                            {(weekData[day] || []).map((item: ContentItem) => {
+                              const done = isMarkedDone(item.id);
+                              const videoLog = getVideoLog(item.id);
+                              const isUploading = uploadingId === item.id;
+                              return (
+                                <div key={item.id} className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} ${done ? "opacity-70 ring-1 ring-green-500/40" : ""} cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}>
+                                  <div onClick={() => setSelectedCard(item)}>
+                                    <div className="flex items-center gap-1 mb-0.5">
+                                      <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
+                                      <span className="text-[10px] font-semibold">{item.platform}</span>
+                                    </div>
+                                    <p className="text-[10px] opacity-80">{item.type}</p>
+                                    {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                                    {item.cross_platforms && item.cross_platforms.length > 0 && (
+                                      <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                                        {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                                      </div>
+                                    )}
+                                    {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
                                   </div>
-                                )}
-                                {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
-                              </div>
-                            ))}
+                                  {/* Checklist + Upload actions */}
+                                  <div className="mt-1.5 pt-1.5 border-t border-current/10 space-y-1">
+                                    <label className="flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
+                                      <Checkbox checked={done} onCheckedChange={() => toggleDone(item.id, wk, day)} className="h-3 w-3" />
+                                      <span className="text-[9px]">{done ? "✅ Feito" : "Marcar como feito"}</span>
+                                    </label>
+                                    {videoLog ? (
+                                      <Badge variant="secondary" className="text-[8px] h-4 gap-0.5">
+                                        <Video className="h-2.5 w-2.5" /> Vídeo enviado
+                                      </Badge>
+                                    ) : (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-5 text-[9px] gap-1 p-0 px-1 text-muted-foreground"
+                                        disabled={isUploading}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setPendingUploadCard({ id: item.id, week: wk, day });
+                                          videoInputRef.current?.click();
+                                        }}
+                                      >
+                                        {isUploading ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Upload className="h-2.5 w-2.5" />}
+                                        {isUploading ? "Enviando..." : "Enviar Vídeo"}
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                             {!(weekData[day]?.length) && (
                               <p className="text-[8px] text-muted-foreground text-center pt-6">—</p>
                             )}
