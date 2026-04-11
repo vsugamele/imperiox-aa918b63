@@ -41,9 +41,12 @@ export default function ProjetoDetalhe() {
   const [editingCategory, setEditingCategory] = useState(false);
   const save = useAutoSave(id);
 
-  useEffect(() => {
-    supabase.from("imphq_projects").select("*").eq("id", id).single().then(({ data }) => setProject(data));
+  const refreshProject = useCallback(async () => {
+    const { data } = await supabase.from("imphq_projects").select("*").eq("id", id).single();
+    if (data) setProject(data);
   }, [id]);
+
+  useEffect(() => { refreshProject(); }, [refreshProject]);
 
   const updateField = useCallback((field: string, value: any) => {
     setProject((prev: any) => ({ ...prev, [field]: value }));
@@ -240,7 +243,7 @@ export default function ProjetoDetalhe() {
           <ProjetoCalendario projectId={id!} />
         </TabsContent>
         <TabsContent value="financas" className="mt-4">
-          <ProjetoFinancas projectId={id!} project={project} />
+          <ProjetoFinancas projectId={id!} project={project} onRefresh={refreshProject} />
         </TabsContent>
         <TabsContent value="emails" className="mt-4">
           <ProjetoEmails projectId={id!} project={project} onUpdateData={onUpdateData} />
