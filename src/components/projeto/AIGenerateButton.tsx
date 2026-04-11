@@ -216,7 +216,7 @@ export function AIGenerateButton({
                 )}
               </div>
             )}
-
+            {contextSources.length > 0 && (
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
                   <Database className="h-3 w-3" /> Dados usados como contexto
