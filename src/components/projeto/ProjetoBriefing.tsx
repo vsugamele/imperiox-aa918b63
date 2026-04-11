@@ -675,7 +675,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                           </div>
                           {webhooks.map((wh, wi) => {
                             const PLATAFORMAS_PADRAO = ["Hotmart", "Kiwify", "Ticto", "Eduzz", "Hubla"];
-                            const customPlatforms: string[] = data.custom_platforms || [];
+                            const customPlatforms: string[] = (data.custom_platforms || []).filter((p: string) => p);
                             const allPlatforms = [...PLATAFORMAS_PADRAO, ...customPlatforms];
                             const isCustom = wh.nome && !allPlatforms.includes(wh.nome) && wh.nome !== "__custom__";
                             const whUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}${wh.nome && wh.nome !== "__custom__" ? `&source=${encodeURIComponent(wh.nome)}` : ""}`;
@@ -683,7 +683,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                               <div key={wi} className="p-2 rounded bg-background/50 border border-border/50 space-y-1.5">
                                 <div className="flex gap-2 items-center">
                                   <Select
-                                    value={isCustom ? "__custom__" : (wh.nome || "")}
+                                    value={isCustom ? "__custom__" : (wh.nome || undefined)}
                                     onValueChange={(val) => {
                                       if (val === "__custom__") {
                                         updateWebhook(wi, "nome", "");
