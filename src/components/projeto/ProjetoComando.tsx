@@ -20,21 +20,32 @@ export function ProjetoComando({ projectId, project }: Props) {
   const [pendingVendas, setPendingVendas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [vendasHoje, setVendasHoje] = useState<any[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+
   const load = async () => {
     setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
+    // Range do dia em UTC-3 (horário de Brasília)
+    const now = new Date();
+    const brOffset = -3 * 60;
+    const brNow = new Date(now.getTime() + (brOffset + now.getTimezoneOffset()) * 60000);
+    const todayStr = brNow.toISOString().split("T")[0];
+    const dayStart = todayStr + "T03:00:00.000Z"; // meia-noite BR = 03:00 UTC
+    const dayEnd = new Date(new Date(dayStart).getTime() + 86400000).toISOString();
 
-    const [cardsRes, leadsRes, eventsRes, vendasRes] = await Promise.all([
+    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes] = await Promise.all([
       supabase.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
       supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
-      supabase.from("imphq_events").select("*").eq("project_id", projectId).gte("created_at", today + "T00:00:00").order("created_at", { ascending: false }),
       supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
+      supabase.from("imphq_vendas").select("id, status, created_at").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
+      supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", todayStr).order("start_date", { ascending: true }),
     ]);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
-    setTodayEvents(eventsRes.data || []);
-    setPendingVendas(vendasRes.data || []);
+    setPendingVendas(vendasPendRes.data || []);
+    setVendasHoje(vendasHojeRes.data || []);
+    setCalendarEvents(calEventsRes.data || []);
     setLoading(false);
   };
 
@@ -84,13 +95,20 @@ export function ProjetoComando({ projectId, project }: Props) {
     return null;
   };
 
-  const leadsToday = leads.filter(l => l.created_at?.startsWith(new Date().toISOString().split("T")[0])).length;
-  const pixEvents = todayEvents.filter(e => e.event_name === "pix_created" || e.event_name === "waiting_payment").length;
-  const salesEvents = todayEvents.filter(e => e.event_name === "approved" || e.event_name === "purchase").length;
-  const pendingLeads = leads.filter(l => {
-    const s = (l.status || "").toLowerCase();
-    return s.includes("pend") || s.includes("carrinho") || s.includes("pix") || s.includes("waiting");
+  // KPIs calculados a partir de vendas reais
+  const now = new Date();
+  const brOffset = -3 * 60;
+  const brNow = new Date(now.getTime() + (brOffset + now.getTimezoneOffset()) * 60000);
+  const todayStr = brNow.toISOString().split("T")[0];
+  const dayStartUtc = todayStr + "T03:00:00.000Z";
+
+  const leadsToday = leads.filter(l => l.created_at && l.created_at >= dayStartUtc).length;
+  const pixToday = vendasHoje.filter(v => {
+    const s = (v.status || "").toLowerCase();
+    return s.includes("pend") || s.includes("pix") || s.includes("waiting") || s.includes("carrinho");
   }).length;
+  const salesToday = vendasHoje.filter(v => (v.status || "").toLowerCase() === "aprovado").length;
+  const pendingTotal = pendingVendas.length;
 
   const briefing = typeof project.data === "object" ? project.data : {};
   const fase = briefing?.status || "Em configuração";
