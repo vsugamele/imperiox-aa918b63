@@ -1,66 +1,53 @@
 
 
-# Plano: Melhorias no WhatsApp (4 frentes)
+# Plano: Melhorias no Painel do Expert
 
-## 1. Campanhas: Dia específico (data) além do offset
+## Problemas identificados
 
-**Problema**: Hoje os steps só têm `days_offset` (dia 0, 1, 2...) relativo à `start_date`. O usuário quer poder escolher um dia/data específica.
+1. **Não dá para limpar conteúdo gerado por semana** — sem botão para resetar/limpar uma semana
+2. **Sem datas reais no calendário semanal** — os cards só mostram "seg, ter, qua..." sem indicar qual dia do mês
+3. **Expert não sabe o contexto operacional** — não vê se tráfego está ligado, se tem campanha ativa, se tem automação rodando
 
-**Solução**: Adicionar campo `send_date` (DATE, nullable) na tabela `imphq_wa_campaign_steps`. Se preenchido, usa a data exata; se não, usa o `days_offset` como fallback. No editor, trocar o label "Dia (offset)" por um seletor com duas opções: "Data específica" ou "Offset (dia relativo)". Atualizar o scheduler para checar `send_date` primeiro.
+## Mudanças
 
-**Arquivos**: migration SQL, `CampaignStepEditor.tsx`, `wa-campaign-scheduler/index.ts`
+### 1. Botão "Limpar Semana" no painel interno
 
-## 2. Alerta de saída de grupo (quem saiu → enviar mensagem)
+Adicionar um botão ao lado de cada aba de semana para limpar todos os cards daquela semana. Com confirmação antes de apagar.
 
-**Problema**: Quando alguém sai de um grupo WhatsApp, o sistema não detecta nem reage.
+**Arquivo**: `ProjetoExpertPanel.tsx`
 
-**Solução**: 
-- A Evolution API envia o evento `GROUPS_UPDATE` ou `GROUP_PARTICIPANTS_UPDATE` no webhook quando alguém sai
-- Criar handler no `whatsapp-api` que detecta `action: "remove"` e salva na nova tabela `imphq_wa_group_exits` (group_jid, phone, exited_at, message_sent)
-- Criar UI em Campanhas com campo "Mensagem de saída" por campanha — quando detectada a saída, envia DM automática para o número que saiu
-- Adicionar coluna `exit_message` (TEXT) em `imphq_wa_campaigns`
+### 2. Datas reais nos dias da semana
 
-**Arquivos**: migration SQL, `whatsapp-api/index.ts` (handler de GROUP_PARTICIPANTS_UPDATE), `CampaignManager.tsx` (campo de mensagem de saída)
+Calcular as datas reais (dd/MM) de cada dia baseado no mês corrente e na semana ativa. Exibir abaixo do label "SEG", "TER", etc. tanto no painel interno quanto no portal público.
 
-## 3. WhatsApp Chat: sempre mostrar telefone no header
+**Arquivos**: `ProjetoExpertPanel.tsx`, `ExpertPortal.tsx`
 
-**Problema**: O header do chat mostra `contact_name || phone` — se tem nome, esconde o telefone.
+### 3. Painel de Contexto Operacional (novo card)
 
-**Solução**: Sempre exibir o telefone abaixo do nome no header. Mudar linha 182-184 do `WhatsAppPage.tsx`:
-```
-<h2>{selectedSession.contact_name || selectedSession.phone}</h2>
-<p>{selectedSession.phone} · {projectName(...)}</p>
-```
-Também na lista de conversas (`ConversationList.tsx`), mostrar telefone como subtexto quando há nome.
+Adicionar um card "📡 Status Operacional" visível no painel interno e no portal do expert com:
 
-**Arquivos**: `WhatsAppPage.tsx`, `ConversationList.tsx`
+- **Tráfego**: se há conta de ads vinculada e investimento ativo (query `imphq_ad_accounts` + `imphq_ad_metrics`)
+- **Campanhas WhatsApp**: campanhas ativas do projeto (`imphq_wa_campaigns` com status "active")
+- **Automações**: total de automações ativas (`imphq_automacoes` do projeto)
 
-## 4. Comandos e mini-CRM
-
-**Comandos**: Sistema de auto-resposta baseado em palavras-chave. Nova tabela `imphq_wa_commands` (project_id, trigger_word, response_text, response_media_url, is_active). Quando uma mensagem inbound contém a trigger_word, o webhook responde automaticamente.
-
-**Mini-CRM**: Adicionar campos de qualificação na conversa — tags, estágio do funil (lead/prospect/cliente), notas. Nova tabela `imphq_wa_crm` (conversation_id, stage, tags[], notes, value). Exibir no painel lateral (tab "Info") do chat.
+No **portal público** (ExpertPortal), o edge function `expert-portal` precisa buscar esses dados e retorná-los no JSON.
 
 **Arquivos**:
-- Migration SQL (2 tabelas: `imphq_wa_commands`, `imphq_wa_crm`)
-- `whatsapp-api/index.ts` — auto-resposta por comando
-- Novo `src/components/whatsapp/CommandManager.tsx` — CRUD de comandos
-- `SessionDetailView.tsx` — adicionar seção CRM (stage, tags, notas)
-- `WhatsAppPage.tsx` — nova aba "Comandos"
+- `supabase/functions/expert-portal/index.ts` — adicionar queries para ads, campanhas WA e automações
+- `ProjetoExpertPanel.tsx` — novo card com status operacional (busca client-side)
+- `ExpertPortal.tsx` — exibir o card com dados vindos do edge function
 
----
+### 4. Campo "Contexto do Movimento" (notas rápidas)
+
+Adicionar um campo de texto curto no topo (junto aos objetivos) para o gestor escrever contexto operacional livre: "Tráfego ligado desde dia 5", "Campanha de reengajamento ativa", "Lançamento dia 20". Salvo no JSONB `data.movement_context`. Visível no portal público.
+
+**Arquivos**: `ProjetoExpertPanel.tsx`, `ExpertPortal.tsx`, `expert-portal/index.ts`
 
 ## Resumo de arquivos
 
-| Arquivo | Ação |
+| Arquivo | Mudança |
 |---|---|
-| Migration SQL | 3 mudanças: `send_date` em steps, `exit_message` em campaigns, tabelas `imphq_wa_group_exits`, `imphq_wa_commands`, `imphq_wa_crm` |
-| `wa-campaign-scheduler/index.ts` | Suporte a `send_date` |
-| `whatsapp-api/index.ts` | Handler GROUP_PARTICIPANTS_UPDATE + auto-resposta por comando |
-| `CampaignStepEditor.tsx` | Seletor data/offset |
-| `CampaignManager.tsx` | Campo mensagem de saída |
-| `WhatsAppPage.tsx` | Telefone no header + aba Comandos |
-| `ConversationList.tsx` | Mostrar telefone sempre |
-| `SessionDetailView.tsx` | Seção CRM |
-| Novo `CommandManager.tsx` | CRUD de comandos |
+| `ProjetoExpertPanel.tsx` | Botão limpar semana, datas reais nos dias, card status operacional, campo contexto |
+| `ExpertPortal.tsx` | Datas reais nos dias, card status operacional, campo contexto (read-only) |
+| `expert-portal/index.ts` | Queries de ads, campanhas WA, automações + campo `movement_context` no response |
 
