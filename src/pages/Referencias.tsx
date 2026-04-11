@@ -172,6 +172,7 @@ export default function Referencias() {
 
   const manualCount = refs.filter(r => r.source === "manual").length;
   const libraryCount = refs.filter(r => r.source === "library").length;
+  const adsCount = refs.filter(r => r.source === "ads").length;
 
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
