@@ -455,7 +455,7 @@ export default function Referencias() {
         <div>
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">🗂️ Referências <SectionInfo {...sectionHelpTexts.referencias} /></h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos
+            {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos · {adsCount} de ads
           </p>
         </div>
         <div className="flex gap-2">
