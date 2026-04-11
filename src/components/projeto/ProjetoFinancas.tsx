@@ -57,7 +57,7 @@ const PERIOD_OPTIONS = [
   { key: "custom", label: "Personalizado" },
 ];
 
-export function ProjetoFinancas({ projectId, project }: { projectId: string; project?: any }) {
+export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: string; project?: any; onRefresh?: () => Promise<void> }) {
   const { user } = useAuth();
   const [costs, setCosts] = useState<Cost[]>([]);
   const [revenues, setRevenues] = useState<Revenue[]>([]);
@@ -767,6 +767,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     }
                     toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
                     loadData();
+                    if (onRefresh) await onRefresh();
                   } catch (e: any) {
                     toast.error(getFacebookSyncErrorMessage(undefined, e));
                   }

@@ -24,6 +24,10 @@ interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
 }
 
+interface WaCommand {
+  id: string; command: string; response_text: string;
+}
+
 interface Props {
   conversationId: string;
   phone: string;
@@ -120,14 +124,27 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [showEmoji, setShowEmoji] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [commands, setCommands] = useState<WaCommand[]>([]);
+    const [commandSuggestions, setCommandSuggestions] = useState<WaCommand[]>([]);
+    const [showCommands, setShowCommands] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const initialLoadDone = useRef(false);
     const newestTimestampRef = useRef<string | null>(null);
 
     useEffect(() => {
       supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
     }, []);
+
+    // Load commands for slash autocomplete
+    useEffect(() => {
+      supabase.from("imphq_wa_commands").select("id, command, response_text")
+        .or(`project_id.eq.${projectId},project_id.is.null`)
+        .order("command")
+        .then(({ data }) => setCommands((data as any[]) || []));
+    }, [projectId]);
 
     // Keep newestTimestampRef in sync
     useEffect(() => {
@@ -198,12 +215,92 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Auto-resize textarea
+    // Auto-resize textarea + slash command detection
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setText(e.target.value);
+      const val = e.target.value;
+      setText(val);
       const el = e.target;
       el.style.height = "auto";
       el.style.height = Math.min(el.scrollHeight, 120) + "px";
+
+      // Slash command detection
+      if (val.startsWith("/") && val.length > 0) {
+        const query = val.substring(1).toLowerCase();
+        const matched = commands.filter(c => c.command.toLowerCase().includes(query));
+        setCommandSuggestions(matched);
+        setShowCommands(matched.length > 0);
+      } else {
+        setShowCommands(false);
+        setCommandSuggestions([]);
+      }
+    };
+
+    const selectCommand = (cmd: WaCommand) => {
+      setText(cmd.response_text);
+      setShowCommands(false);
+      setCommandSuggestions([]);
+      textareaRef.current?.focus();
+    };
+
+    // Image upload handler
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!providerId) { toast.error("Nenhum provider configurado"); return; }
+
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) { toast.error("Arquivo muito grande (máx 10MB)"); return; }
+
+      setUploading(true);
+      try {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `chat/${projectId}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("whatsapp-media").upload(path, file, { contentType: file.type });
+        if (upErr) throw upErr;
+
+        const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(path);
+        const mediaUrl = urlData.publicUrl;
+
+        const mediaType = file.type.startsWith("image/") ? "image"
+          : file.type.startsWith("video/") ? "video"
+          : file.type.startsWith("audio/") ? "audio"
+          : "document";
+
+        // Optimistic UI
+        const optimisticMsg: Message = {
+          id: `opt-${Date.now()}`,
+          direction: "outgoing",
+          content: text || file.name,
+          phone,
+          created_at: new Date().toISOString(),
+          status: "sending",
+          message_type: mediaType,
+          media_url: mediaUrl,
+          _optimistic: true,
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
+        const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_message", {
+          body: {
+            provider_id: providerId, phone, content: text || file.name,
+            conversation_id: conversationId, project_id: projectId,
+            media_url: mediaUrl, media_type: mediaType,
+          },
+        });
+        if (error) throw error;
+        if (data?.success === false) {
+          toast.error(data.error || "Erro ao enviar mídia");
+          setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+        } else {
+          setText("");
+          setTimeout(() => pollNew(), 500);
+        }
+      } catch (err: any) {
+        toast.error("Erro ao enviar mídia: " + err.message);
+      } finally {
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
     };
 
     const send = async () => {
@@ -212,6 +309,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
 
       const msgText = text;
       setText("");
+      setShowCommands(false);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
       const optimisticMsg: Message = {
@@ -302,7 +400,6 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                       ${m._optimistic ? "opacity-60" : ""}
                     `}>
                       <MediaContent message={m} />
-                      {/* Don't show text if it's a media-only placeholder and we have media_url */}
                       {!(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
                         <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
                       )}
@@ -337,6 +434,23 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
 
         {/* Input area */}
         <div className="border-t border-border bg-card p-3 shrink-0">
+          {/* Slash command suggestions */}
+          {showCommands && commandSuggestions.length > 0 && (
+            <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[200px] overflow-y-auto">
+              <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos</p>
+              {commandSuggestions.map(cmd => (
+                <button
+                  key={cmd.id}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
+                  onClick={() => selectCommand(cmd)}
+                >
+                  <span className="font-mono text-primary">/{cmd.command}</span>
+                  <span className="text-muted-foreground truncate flex-1">{cmd.response_text.substring(0, 60)}...</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-end gap-2 max-w-3xl mx-auto">
             {/* Emoji picker */}
             <Popover open={showEmoji} onOpenChange={setShowEmoji}>
@@ -356,6 +470,25 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                 </div>
               </PopoverContent>
             </Popover>
+
+            {/* Attach media */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shrink-0 h-9 w-9 rounded-full"
+              title="Enviar mídia"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
+            </Button>
 
             {/* Templates */}
             {templates.length > 0 && (
@@ -382,7 +515,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
               ref={textareaRef}
               value={text}
               onChange={handleTextChange}
-              placeholder="Digite sua mensagem..."
+              placeholder="Digite sua mensagem... (/ para comandos)"
               onKeyDown={e => {
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
               }}

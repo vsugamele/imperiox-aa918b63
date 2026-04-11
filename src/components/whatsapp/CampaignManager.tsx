@@ -112,6 +112,10 @@ export default function CampaignManager({ projects, providers }: Props) {
   };
 
   const openGroupSelector = async (campaign: Campaign) => {
+    if (!campaign.provider_id) {
+      toast.error("Configure um Provider para esta campanha antes de buscar grupos.");
+      return;
+    }
     setShowGroups(campaign);
     setSelectedGroups(Array.isArray(campaign.groups) ? campaign.groups : []);
     const provider = providers.find(p => p.id === campaign.provider_id);

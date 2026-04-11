@@ -97,7 +97,7 @@ serve(async (req) => {
       if (error) console.warn("[updateConversation] Error:", error.message);
     }
 
-    // ── Helper: send via Evolution API ──
+    // ── Helper: send via Evolution API (text) ──
     async function sendEvolution(provider: any, phone: string, text: string) {
       const inst = encodeURIComponent(provider.instance_name);
       const apiUrl = `${provider.api_url}/message/sendText/${inst}`;
@@ -113,12 +113,39 @@ serve(async (req) => {
       const data = await res.json();
       console.log("[sendEvolution] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
       if (!res.ok) {
-        // Check if it's an invalid/non-existent number
         const msgs = data?.response?.message;
         if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
           return { ok: false, error: "invalid_number", details: msgs };
         }
         throw new Error(`Evolution error [${res.status}]: ${JSON.stringify(data)}`);
+      }
+      return data;
+    }
+
+    // ── Helper: send media via Evolution API ──
+    async function sendEvolutionMedia(provider: any, phone: string, mediaUrl: string, mediaType: string, caption?: string) {
+      const inst = encodeURIComponent(provider.instance_name);
+      const endpoint = mediaType === "audio" ? "sendWhatsAppAudio" : "sendMedia";
+      const apiUrl = `${provider.api_url}/message/${endpoint}/${inst}`;
+      console.log("[sendEvolutionMedia] URL:", apiUrl, "phone:", phone, "mediaType:", mediaType);
+      
+      const body: any = { number: phone, mediatype: mediaType, media: mediaUrl };
+      if (caption) body.caption = caption;
+      if (mediaType === "document") body.fileName = caption || "document";
+
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: provider.api_key },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      console.log("[sendEvolutionMedia] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
+      if (!res.ok) {
+        const msgs = data?.response?.message;
+        if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
+          return { ok: false, error: "invalid_number", details: msgs };
+        }
+        throw new Error(`Evolution media error [${res.status}]: ${JSON.stringify(data)}`);
       }
       return data;
     }
@@ -152,12 +179,14 @@ serve(async (req) => {
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone, content, conversation_id, project_id } = body;
+      const { provider_id, phone, content, conversation_id, project_id, media_url, media_type } = body;
       const provider = await getProvider(provider_id);
 
-      // Send via provider
+      // Send via provider (media or text)
       let result;
-      if (provider.provider === "evolution") {
+      if (media_url && provider.provider === "evolution") {
+        result = await sendEvolutionMedia(provider, phone, media_url, media_type || "image", content || undefined);
+      } else if (provider.provider === "evolution") {
         result = await sendEvolution(provider, phone, content);
       } else {
         result = await sendTwilio(provider, phone, content);
@@ -183,16 +212,22 @@ serve(async (req) => {
       if (!conv) throw new Error("Conversa não encontrada nem criada");
 
       // Save message with all required fields
-      const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
+      const msgPayload: any = {
         conversation_id: conv.id,
         direction: "outgoing",
         phone,
-        content,
+        content: content || (media_url ? "Mídia" : ""),
         project_id: project_id || provider.project_id,
         provider: provider.provider,
         provider_message_id: result?.key?.id || result?.sid || null,
         status: "sent",
-      });
+      };
+      if (media_url) {
+        msgPayload.message_type = media_type || "image";
+        msgPayload.media_url = media_url;
+      }
+
+      const { error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload);
 
       if (msgError) {
         console.error("[send_message] DB save error:", msgError.message);
@@ -200,7 +235,7 @@ serve(async (req) => {
       }
 
       // Update conversation metadata
-      await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
+      await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0);
 
       return new Response(JSON.stringify({ success: true, result, conversation_id: conv.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
