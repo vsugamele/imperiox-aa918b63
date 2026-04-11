@@ -114,15 +114,23 @@ export default function Financas() {
   const custosGlobaisBRL = fCustos.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
   const custosProjetoBRL = fProjectCosts.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
   const adsTotal = fAds.reduce((a, b) => a + b.valor, 0);
-  const totalCusto = custosGlobaisBRL + custosProjetoBRL + adsTotal;
 
   const receitaVendas = fVendas.reduce((a, v) => a + v.valor, 0);
   const receitaManual = fProjectRevenues.reduce((a, r) => a + r.valor, 0);
   const totalReceita = receitaVendas + receitaManual;
 
+  // Proporcionalizar ads quando filtro de produto ativo
+  const allVendasFiltered = (fp === "all" ? vendas : vendas.filter(v => v.project_id === fp))
+    .filter(v => inDateRange(v.data_venda));
+  const receitaTotalSemFiltroProduto = allVendasFiltered.reduce((a, v) => a + v.valor, 0);
+  const adsProportional = filterProduct !== "all" && receitaTotalSemFiltroProduto > 0
+    ? adsTotal * (receitaVendas / receitaTotalSemFiltroProduto)
+    : adsTotal;
+
+  const totalCusto = custosGlobaisBRL + custosProjetoBRL + adsProportional;
   const lucro = totalReceita - totalCusto;
   const roi = totalCusto > 0 ? (lucro / totalCusto) * 100 : 0;
-  const roas = adsTotal > 0 ? totalReceita / adsTotal : 0;
+  const roas = adsProportional > 0 ? totalReceita / adsProportional : 0;
 
   // Project summaries (using filtered data)
   const projectSummaries = projects.map(p => {
@@ -177,10 +185,10 @@ export default function Financas() {
   const kpis = [
     { label: "Receita Total", value: `R$ ${totalReceita.toFixed(2)}`, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
     { label: "🏢 Custo Empresa", value: `R$ ${custosGlobaisBRL.toFixed(2)}`, icon: TrendingDown, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400" },
-    { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsTotal).toFixed(2)}`, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
+    { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsProportional).toFixed(2)}`, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
     { label: "Lucro", value: `R$ ${lucro.toFixed(2)}`, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
     { label: "ROI", value: `${roi.toFixed(1)}%`, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
-    ...(adsTotal > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
+    ...(adsProportional > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
   ];
 
   return (
@@ -272,7 +280,7 @@ export default function Financas() {
           <FinancasOverview
             projectSummaries={projectSummaries}
             dailyData={dailyData}
-            totalAds={adsTotal}
+            totalAds={adsProportional}
             totalVendas={receitaVendas}
             totalVendasCount={fVendas.length}
             totalCustos={custosGlobaisBRL + custosProjetoBRL}
