@@ -164,10 +164,12 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", now.toISOString()).lte("start_date", weekEnd.toISOString()).order("start_date"),
       supabase.from("imphq_kanban_cards").select("id, title, priority, due_date, board, column_id").contains("tags", [projectId]).order("position"),
       supabase.from("imphq_processes" as any).select("*").eq("project_id", projectId),
-    ]).then(([evRes, taskRes, procRes]) => {
+      supabase.from("imphq_expert_logs" as any).select("*").eq("project_id", projectId),
+    ]).then(([evRes, taskRes, procRes, logsRes]) => {
       setEvents(evRes.data || []);
       setTasks(taskRes.data || []);
       setProcesses(procRes.data || []);
+      setExpertLogs(logsRes.data || []);
     });
 
     // Fetch operational status
@@ -186,6 +188,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       });
     });
   }, [projectId]);
+
+  const isLogDone = (contentId: string) => expertLogs.some(l => l.content_id === contentId && l.action === "mark_done");
+  const getLogVideo = (contentId: string) => expertLogs.find(l => l.content_id === contentId && l.action === "video_upload");
 
   const updateMonthlyPlan = useCallback((plan: MonthlyPlan) => {
     onUpdateData({ ...data, content_plan: plan });
