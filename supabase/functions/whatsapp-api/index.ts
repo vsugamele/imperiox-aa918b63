@@ -17,6 +17,15 @@ serve(async (req) => {
     const url = new URL(req.url);
     let action = url.searchParams.get("action");
 
+    // Also check body for action (supabase.functions.invoke sends in body)
+    if (!action && req.method === "POST") {
+      try {
+        const cloned = req.clone();
+        const bodyJson = await cloned.json();
+        if (bodyJson?.action) action = bodyJson.action;
+      } catch (_) { /* ignore parse errors */ }
+    }
+
     // ── Detect Evolution "Webhook by Events" paths ──
     // Evolution appends event names to URL path: /whatsapp-api/MESSAGES_UPSERT
     const EVOLUTION_EVENTS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", "CONNECTION_UPDATE", "QRCODE_UPDATED", "SEND_MESSAGE", "CONTACTS_UPSERT", "CONTACTS_UPDATE", "PRESENCE_UPDATE", "CHATS_UPSERT", "CHATS_UPDATE", "CHATS_DELETE", "GROUPS_UPSERT", "GROUPS_UPDATE", "CALL", "TYPEBOT_START", "TYPEBOT_CHANGE_STATUS"];
