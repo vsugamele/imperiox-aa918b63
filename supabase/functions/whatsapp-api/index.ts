@@ -179,12 +179,14 @@ serve(async (req) => {
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone, content, conversation_id, project_id } = body;
+      const { provider_id, phone, content, conversation_id, project_id, media_url, media_type } = body;
       const provider = await getProvider(provider_id);
 
-      // Send via provider
+      // Send via provider (media or text)
       let result;
-      if (provider.provider === "evolution") {
+      if (media_url && provider.provider === "evolution") {
+        result = await sendEvolutionMedia(provider, phone, media_url, media_type || "image", content || undefined);
+      } else if (provider.provider === "evolution") {
         result = await sendEvolution(provider, phone, content);
       } else {
         result = await sendTwilio(provider, phone, content);
@@ -210,16 +212,22 @@ serve(async (req) => {
       if (!conv) throw new Error("Conversa não encontrada nem criada");
 
       // Save message with all required fields
-      const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
+      const msgPayload: any = {
         conversation_id: conv.id,
         direction: "outgoing",
         phone,
-        content,
+        content: content || (media_url ? "Mídia" : ""),
         project_id: project_id || provider.project_id,
         provider: provider.provider,
         provider_message_id: result?.key?.id || result?.sid || null,
         status: "sent",
-      });
+      };
+      if (media_url) {
+        msgPayload.message_type = media_type || "image";
+        msgPayload.media_url = media_url;
+      }
+
+      const { error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload);
 
       if (msgError) {
         console.error("[send_message] DB save error:", msgError.message);
@@ -227,7 +235,7 @@ serve(async (req) => {
       }
 
       // Update conversation metadata
-      await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
+      await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0);
 
       return new Response(JSON.stringify({ success: true, result, conversation_id: conv.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
