@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search } from "lucide-react";
 import { toast } from "sonner";
 import CampaignStepEditor from "./CampaignStepEditor";
 import CampaignLogViewer from "./CampaignLogViewer";
@@ -46,6 +46,7 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [availableGroups, setAvailableGroups] = useState<{ id: string; subject: string }[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupSearch, setGroupSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -258,7 +259,7 @@ export default function CampaignManager({ projects, providers }: Props) {
       </Dialog>
 
       {/* Group Selector Dialog */}
-      <Dialog open={!!showGroups} onOpenChange={() => setShowGroups(null)}>
+      <Dialog open={!!showGroups} onOpenChange={() => { setShowGroups(null); setGroupSearch(""); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Selecionar Grupos — {showGroups?.name}</DialogTitle></DialogHeader>
           {loadingGroups ? (
@@ -266,22 +267,35 @@ export default function CampaignManager({ projects, providers }: Props) {
           ) : availableGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">Nenhum grupo encontrado. Verifique se a instância está conectada.</p>
           ) : (
-            <ScrollArea className="max-h-[400px]">
-              <div className="space-y-1.5">
-                {availableGroups.map(g => (
-                  <label key={g.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedGroups.includes(g.id)}
-                      onChange={() => toggleGroup(g.id)}
-                      className="rounded"
-                    />
-                    <span className="text-sm truncate">{g.subject}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{g.id.slice(0, 15)}...</span>
-                  </label>
-                ))}
+            <>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar grupo..."
+                  value={groupSearch}
+                  onChange={e => setGroupSearch(e.target.value)}
+                  className="pl-8 h-9 text-sm"
+                />
               </div>
-            </ScrollArea>
+              <ScrollArea className="max-h-[350px]">
+                <div className="space-y-1.5">
+                  {availableGroups
+                    .filter(g => !groupSearch || g.subject.toLowerCase().includes(groupSearch.toLowerCase()))
+                    .map(g => (
+                      <label key={g.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedGroups.includes(g.id)}
+                          onChange={() => toggleGroup(g.id)}
+                          className="rounded"
+                        />
+                        <span className="text-sm truncate">{g.subject}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">{g.id.slice(0, 15)}...</span>
+                      </label>
+                    ))}
+                </div>
+              </ScrollArea>
+            </>
           )}
           <DialogFooter>
             <p className="text-xs text-muted-foreground mr-auto">{selectedGroups.length} selecionados</p>
