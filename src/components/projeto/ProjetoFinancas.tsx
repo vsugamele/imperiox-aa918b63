@@ -1008,7 +1008,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     const filtered = creatives.filter((c: any) => {
                       const nameMatch = !creativeSearch || (c.name || c.ad_name || "").toLowerCase().includes(searchLower) || (c.body || "").toLowerCase().includes(searchLower);
                       const statusMatch = creativeFilter === "all" || (creativeFilter === "active" ? c.status === "ACTIVE" : c.status !== "ACTIVE");
-                      return nameMatch && statusMatch;
+                      const conjMatch = creativeFilterConjunto === "all" || fAds.some(a => a.conjunto_anuncios === creativeFilterConjunto && a.anuncio && (c.name || c.ad_name) && (a.anuncio.includes(c.name) || a.anuncio.includes(c.ad_name)));
+                      return nameMatch && statusMatch && conjMatch;
                     });
                     const activeCreatives = filtered.filter((c: any) => c.status === "ACTIVE");
                     const inactiveCreatives = filtered.filter((c: any) => c.status !== "ACTIVE");
