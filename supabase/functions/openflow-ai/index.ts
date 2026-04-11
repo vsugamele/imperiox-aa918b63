@@ -676,6 +676,8 @@ async function handleContentPlan(ctx: string, apiKey: string, model: string, bas
   const postsPerDay = body.posts_per_day || 2;
   const platforms = body.priority_platforms?.length ? body.priority_platforms.join(", ") : "Instagram, YouTube, TikTok, LinkedIn, Blog, Email, WhatsApp";
   const productName = body.product_name || "";
+  const storiesPerDay = body.stories_per_day || 0;
+  const skillSlugsUsed = body.skill_slugs || [];
 
   let productFocus = "";
   if (productName) {
@@ -715,7 +717,7 @@ REGRAS:
 - Para cada semana, inclua um objeto com "focus" (foco estratégico resumido) e "event" (evento central, ex: "Live de autoridade", "Webinário", ou vazio)
 
 ## REGRAS DE FORMATO
-- STORIES: inclua 1-2 Stories por dia (bastidores, enquetes, CTA, quicktips, caixinha de perguntas)
+- STORIES: ${storiesPerDay > 0 ? `inclua EXATAMENTE ${storiesPerDay} Stories SEQUENCIAIS por dia com narrativa encadeada (bastidores, enquetes, CTA, quicktips, caixinha de perguntas). Cada story deve conectar ao anterior formando uma mini-série diária.` : "inclua 1-2 Stories por dia (bastidores, enquetes, CTA, quicktips, caixinha de perguntas)"}
 - REELS: quando criar um Reels, adicione cross_platforms: ["TikTok", "YouTube Shorts"]
 - VIDEO LONGO: para YouTube, inclua pelo menos 1 "Video Longo" por semana
 - Baseie os temas nas dores do avatar, expert, brand kit e arsenal de copy
