@@ -782,11 +782,17 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     const avgFreq = fAds.length > 0 ? fAds.reduce((s, a) => s + (a.frequencia || 0), 0) / fAds.length : 0;
                     const cpm = totalImpr > 0 ? (totalAds / totalImpr) * 1000 : 0;
                     const cpa = totalCompras > 0 ? totalAds / totalCompras : 0;
+                    const vendasReaisCount = fVendas.length;
+                    const receitaVendas = fVendas.reduce((s, v) => s + v.valor, 0);
+                    const roasReal = totalAds > 0 ? receitaVendas / totalAds : 0;
                     const adsKpis = [
                       { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
                       { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
                       { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
-                      { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
+                      { label: "Compras (Pixel)", value: String(totalCompras), color: "text-emerald-400" },
+                      { label: "Vendas Reais", value: String(vendasReaisCount), color: "text-emerald-400" },
+                      { label: "Receita Vendas", value: fmt(receitaVendas), color: "text-emerald-400" },
+                      { label: "ROAS Real", value: roasReal > 0 ? `${roasReal.toFixed(2)}x` : "—", color: "text-emerald-400" },
                       { label: "CPM", value: fmt(cpm), color: "text-cyan-400" },
                       { label: "Freq. Média", value: avgFreq.toFixed(2), color: "text-orange-400" },
                       { label: "Alcance Total", value: totalAlcance.toLocaleString(), color: "text-pink-400" },
