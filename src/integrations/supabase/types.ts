@@ -10926,6 +10926,39 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_expert_logs: {
+        Row: {
+          action: string
+          content_id: string
+          created_at: string | null
+          day: string | null
+          id: string
+          metadata: Json | null
+          project_id: string
+          week: string | null
+        }
+        Insert: {
+          action: string
+          content_id: string
+          created_at?: string | null
+          day?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          week?: string | null
+        }
+        Update: {
+          action?: string
+          content_id?: string
+          created_at?: string | null
+          day?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          week?: string | null
+        }
+        Relationships: []
+      }
       imphq_flow_executions: {
         Row: {
           automacao_id: string
