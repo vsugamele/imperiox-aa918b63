@@ -4,10 +4,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, Brain, Database, UserCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Sparkles, Loader2, Brain, Database, UserCircle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MENTES_DATA } from "@/data/mentesData";
+import { SKILLS_DATA } from "@/data/skillsData";
 
 const MODELS = [
   // --- Lovable Gateway (Gemini + GPT) ---
@@ -41,6 +43,7 @@ interface AIGenerateButtonProps {
   className?: string;
   extraBody?: Record<string, any>;
   showMenteSelector?: boolean;
+  showSkillSelector?: boolean;
 }
 
 export function AIGenerateButton({
@@ -55,11 +58,13 @@ export function AIGenerateButton({
   className = "",
   extraBody = {},
   showMenteSelector = false,
+  showSkillSelector = false,
 }: AIGenerateButtonProps) {
   const [open, setOpen] = useState(false);
   const [model, setModel] = useState(MODELS[0].id);
   const [generating, setGenerating] = useState(false);
   const [selectedMente, setSelectedMente] = useState<string>("none");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   const getOpenRouterKey = (): string | null => {
     try {
@@ -96,6 +101,11 @@ export function AIGenerateButton({
       // Send mente_id if selected
       if (selectedMente && selectedMente !== "none") {
         bodyPayload.mente_id = selectedMente;
+      }
+
+      // Send selected skills
+      if (selectedSkills.length > 0) {
+        bodyPayload.skill_slugs = selectedSkills;
       }
 
       const { data, error } = await supabase.functions.invoke("openflow-ai", {

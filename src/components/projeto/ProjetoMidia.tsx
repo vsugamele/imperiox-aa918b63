@@ -452,16 +452,42 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
               <div>
                 <Label className="text-xs">Categoria</Label>
                 <div className="flex gap-1 flex-wrap mt-1">
-                  {["reels", "stories", "anuncios", "feed", "geral"].map(cat => (
-                    <Badge
-                      key={cat}
-                      variant={(editItem.content_category || "geral") === cat ? "default" : "outline"}
-                      className="cursor-pointer text-xs capitalize"
-                      onClick={() => setEditItem({ ...editItem, content_category: cat })}
-                    >
-                      {cat}
-                    </Badge>
-                  ))}
+                  {["reels", "stories", "anuncios", "feed", "geral"].map(cat => {
+                    const baseCat = (editItem.content_category || "geral").split("/")[0];
+                    return (
+                      <Badge
+                        key={cat}
+                        variant={baseCat === cat ? "default" : "outline"}
+                        className="cursor-pointer text-xs capitalize"
+                        onClick={() => {
+                          const folder = (editItem.content_category || "").split("/")[1];
+                          setEditItem({ ...editItem, content_category: folder ? `${cat}/${folder}` : cat });
+                        }}
+                      >
+                        {cat}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Pasta</Label>
+                <div className="flex gap-2 items-center mt-1">
+                  <Select
+                    value={(editItem.content_category || "").split("/")[1] || "__root__"}
+                    onValueChange={(v) => {
+                      const baseCat = (editItem.content_category || "geral").split("/")[0];
+                      setEditItem({ ...editItem, content_category: v === "__root__" ? baseCat : `${baseCat}/${v}` });
+                    }}
+                  >
+                    <SelectTrigger className="bg-secondary h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__root__">📁 Raiz (sem pasta)</SelectItem>
+                      {getFoldersForTab("todos").map(f => (
+                        <SelectItem key={f} value={f}>📂 {f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div>
@@ -505,6 +531,28 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialog(false)}>Cancelar</Button>
             <Button onClick={updateItem}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Folder Dialog */}
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><FolderPlus className="h-4 w-4" /> Nova Pasta</DialogTitle></DialogHeader>
+          <div>
+            <Label className="text-xs">Nome da pasta</Label>
+            <Input
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              placeholder="Ex: campanha-abril, semana-1..."
+              className="bg-secondary mt-1"
+              onKeyDown={e => e.key === "Enter" && createFolder()}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Letras minúsculas, números e hifens.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setFolderDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={createFolder} disabled={!newFolderName.trim()}>Criar Pasta</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
