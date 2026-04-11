@@ -1,38 +1,29 @@
 
 
-# Plano: Campo Produto na Campanha + Botão IA na Sequência
+# Plano: Deletar Projeto + Logs OpenFlow + Referências com Mídia de Ads
 
-## 1. Migration — coluna `produto`
-```sql
-ALTER TABLE imphq_wa_campaigns ADD COLUMN produto text;
-```
+## 1. Botão "Excluir Projeto" na página de Projetos
+- Adicionar botão de exclusão (com confirmação via AlertDialog) na listagem de projetos (`Projetos.tsx`)
+- Faz `DELETE FROM imphq_projects WHERE id = ?` — as tabelas dependentes devem ter `ON DELETE CASCADE` ou precisarão de limpeza manual
+- Verificar se as foreign keys já têm CASCADE; se não, criar migration adicionando
 
-## 2. CampaignManager.tsx — Campo "Produto" no form
-- Adicionar `produto` ao state `form` e ao `Campaign` interface
-- Incluir campo Input "Produto" no dialog de criação (entre Nome e Projeto)
-- Salvar `produto` no insert e resetar no form
-- Passar `produto` e `project_id` como props ao `CampaignStepEditor`
+## 2. Logs de execução do OpenFlow
+- **Migration**: criar tabela `imphq_automacao_logs` com colunas: `id`, `automacao_id` (FK), `project_id`, `trigger_data` (jsonb), `acoes_executadas` (jsonb), `status` (text: success/error), `error_message`, `created_at`
+- **Edge Function `openflow-executor`**: após executar cada ação, inserir um log na tabela
+- **UI**: adicionar aba/painel "Logs" na página OpenFlow mostrando histórico de execuções com filtro por automação e status
 
-## 3. CampaignStepEditor.tsx — Botão "Gerar com IA"
-- Receber `produto` e `projectId` como props
-- Importar `AIGenerateButton`
-- Em cada step, adicionar botão IA ao lado do label "Mensagem" com:
-  - `action="generate_campaign_message"`
-  - `extraBody={{ produto, step_order, total_steps, media_type }}`
-  - `showMenteSelector={true}`
-  - `onResult` → preenche o textarea do step
-
-## 4. Edge Function `openflow-ai` — action `generate_campaign_message`
-- Buscar nome da campanha de `imphq_wa_campaigns`
-- System prompt: gerar copy persuasiva de WhatsApp para step N de N, produto X, tipo de mídia Y, usando contexto do projeto (briefing, avatar, branding)
-- Retornar `{ text: "mensagem gerada" }`
+## 3. Referências — incluir criativos de Ads Reports
+- Verificar se `imphq_ads_reports` tem URLs de criativos (image_url, thumbnail_url)
+- Se sim, incluir no `load()` de `Referencias.tsx` como fonte adicional com `source: "ads"`
+- Se não, buscar da API do Facebook as thumbnails dos criativos na sync e salvar na tabela
 
 ## Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| Migration (nova) | `ALTER TABLE imphq_wa_campaigns ADD COLUMN produto text` |
-| `src/components/whatsapp/CampaignManager.tsx` | Campo produto no form + passar props |
-| `src/components/whatsapp/CampaignStepEditor.tsx` | Props + AIGenerateButton por step |
-| `supabase/functions/openflow-ai/index.ts` | Handler `generate_campaign_message` |
+| Migration (nova) | CASCADE nas FKs de projeto + tabela `imphq_automacao_logs` |
+| `src/pages/Projetos.tsx` | Botão excluir projeto com AlertDialog |
+| `supabase/functions/openflow-executor/index.ts` | Inserir logs após execução |
+| `src/pages/OpenFlow.tsx` | Aba/painel de logs de execução |
+| `src/pages/Referencias.tsx` | Incluir criativos de ads como fonte extra |
 
