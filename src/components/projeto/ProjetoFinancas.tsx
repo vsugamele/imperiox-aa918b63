@@ -815,9 +815,21 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <p className="text-sm text-muted-foreground">Nenhum dado de Ads importado</p>
                     </div>
                   ) : (() => {
+                    // Unique values for filters
+                    const conjuntos = Array.from(new Set(fAds.map(a => a.conjunto_anuncios).filter(Boolean))) as string[];
+                    const anuncios = Array.from(new Set(fAds.map(a => a.anuncio).filter(Boolean))) as string[];
+
+                    // Apply filters
+                    const filteredAds = fAds.filter(a => {
+                      if (adsSearchCampanha && !(a.campanha || "").toLowerCase().includes(adsSearchCampanha.toLowerCase())) return false;
+                      if (adsFilterConjunto !== "all" && (a.conjunto_anuncios || "") !== adsFilterConjunto) return false;
+                      if (adsFilterAnuncio !== "all" && (a.anuncio || "") !== adsFilterAnuncio) return false;
+                      return true;
+                    });
+
                     // Group by conjunto_anuncios
                     const groups = new Map<string, AdsSpend[]>();
-                    fAds.forEach(a => {
+                    filteredAds.forEach(a => {
                       const key = a.conjunto_anuncios || "Sem conjunto";
                       if (!groups.has(key)) groups.set(key, []);
                       groups.get(key)!.push(a);
