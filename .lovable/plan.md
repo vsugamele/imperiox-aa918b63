@@ -1,73 +1,81 @@
 
 
-# Plano: Pastas em Mídia, Stories no Plano de IA, Seletor de Skills e Contexto Enriquecido
+# Plano: Refatorar Dashboard e Leads em Componentes Menores + Paginação
 
-## Resumo
+## Situação Atual
 
-4 melhorias interligadas: (1) organização por pastas na Mídia, (2) opção de Stories na geração de plano com IA, (3) seletor de Skills no dialog de IA, (4) cruzamento de mais dados de contexto nas gerações.
+- **Dashboard.tsx**: 941 linhas — 1 único componente com ~25 states, queries sequenciais (algumas já em Promise.all), e toda a UI inline
+- **Leads.tsx**: 2029 linhas — 1 único componente com ~40 states, lógica de CRUD, timeline, analytics, filtros, WhatsApp, tudo misturado
+
+## Estratégia
+
+Extrair seções lógicas em componentes filhos, movendo state e queries relacionados. O componente pai fica como orquestrador leve (filtros globais + layout).
 
 ---
 
-## 1. Pastas na Mídia & Conteúdo
+## 1. Dashboard — Dividir em ~6 componentes
 
-**Arquivo**: `src/components/projeto/ProjetoMidia.tsx`
+**Manter em `Dashboard.tsx`** (~150 linhas):
+- States globais: `dashPeriod`, `dashProject`, `allProjects`, `isAdmin`
+- Render: filtros + grid de componentes filhos
 
-Atualmente os conteúdos são organizados apenas por categoria (Reels, Stories, Anúncios, Feed). Adicionar suporte a subpastas:
+**Novos componentes em `src/components/dashboard/`:**
 
-- Adicionar campo `folder` no state local (sem necessidade de migração — usar a coluna `tags` ou `description` como metadata, ou adicionar filtro via prefixo no `content_category` ex: `reels/semana-1`)
-- UI: Acima do grid, mostrar barra de pastas tipo breadcrumb com botão "Nova Pasta"
-- Implementar como filtro client-side — `content_category` vira `tipo/pasta` (ex: `reels/campanha-abril`)
-- Permitir mover itens entre pastas via dialog de edição (já existe o `editDialog`)
-- Mostrar pastas como cards clicáveis antes dos arquivos quando há subpastas
+| Componente | Responsabilidade | States migrados |
+|---|---|---|
+| `DashboardStats.tsx` | 4 KPI cards (Projetos, Tarefas, Leads, Custo) | `stats` |
+| `DashboardRevenue.tsx` | Receita Total + Automações + WhatsApp + Hot Leads | `totalReceita`, `receitaBreakdown`, `autoExecCount`, `waStats`, `hotLeads` |
+| `DashboardAds.tsx` | Ads KPIs + Top Campanhas + Ads por Projeto | `adsGlobal` |
+| `DashboardCharts.tsx` | Leads Trend, Receita vs Custo, Funil, ROAS, Pie charts | `leadsTrend`, `receitaVsCusto`, `funnelData`, `roasData`, `receitaPorProjeto`, `receitaPorProduto` |
+| `DashboardCards.tsx` | Projetos Recentes, Atenção Necessária, Eventos, Oportunidades, Saúde Financeira, Cards Kanban | `recentProjects`, `urgentTasks`, `upcomingEvents`, `opportunities`, `projectFinance`, `recentCards` |
 
-**Abordagem simples**: Usar a coluna existente `content_category` com formato `tipo/subpasta` — sem migração DB.
+Cada componente recebe props: `period`, `projectFilter`, `isAdmin` e faz suas próprias queries internamente via `useEffect`.
 
-## 2. Sequência de Stories no Dialog de IA
+## 2. Leads — Dividir em ~5 componentes
 
-**Arquivo**: `src/components/projeto/ProjetoExpertPanel.tsx`
+**Manter em `Leads.tsx`** (~200 linhas):
+- States globais: filtros, page, leads[], projects[]
+- Função `load()` principal
+- Render: tabs + filtros + componentes filhos
 
-No dialog "Configurar Plano com IA" (linha ~894), adicionar campo:
-- **"Sequência de Stories por dia?"** — Select com opções: "Nenhum", "3 stories", "5 stories", "7 stories", "10 stories"
-- Passar esse valor como `stories_per_day` no `extraBody` do `AIGenerateButton`
-- A Edge Function já recebe `extraBody` e injeta no prompt — basta adicionar instrução: "Inclua X stories sequenciais por dia com narrativa encadeada"
+**Novos componentes em `src/components/leads/`:**
 
-## 3. Seletor de Skills no Dialog de Geração
+| Componente | Responsabilidade | States migrados |
+|---|---|---|
+| `LeadsTable.tsx` | Tabela de leads + seleção + paginação | `selectedIds`, render da tabela |
+| `LeadDetailDialog.tsx` | Dialog de edição + timeline + score + formulários + vendas | `editLead`, `timeline`, `timelineLoading`, `scoreLog`, `formResponses`, `leadAutomationLogs` + `loadTimeline()` |
+| `LeadsAnalytics.tsx` | Tab "Analytics" inteira (KPIs, gráficos, funil, conversão) | `analyticsPeriod`, `periodLeads`, `periodVendas`, `periodAds`, `periodKPIs`, todos os `useMemo` de analytics |
+| `LeadsSidebar.tsx` | Sidebar lateral com projetos/produtos agrupados + leads por mês | `projectProductMap`, `expandedProjects`, `leadsByMonth` |
+| `LeadWhatsAppDialog.tsx` | Dialog de envio rápido de WhatsApp | `showWaDialog`, `waTarget`, `waProviderId`, `waMessage`, `waSending` |
 
-**Arquivo**: `src/components/projeto/AIGenerateButton.tsx`
+## 3. Otimizações de Query
 
-Adicionar prop opcional `showSkillSelector` e um novo campo no dialog:
-- **"Skills a aplicar"** — Multiselect com checkboxes das skills disponíveis (importar `SKILLS_DATA` de `skillsData.ts`)
-- Skills selecionadas são enviadas como `skill_slugs: string[]` no body
-- A Edge Function pode usar os prompts das skills como contexto adicional
-- No dialog "Configurar Plano com IA", ativar `showSkillSelector`
-
-**Arquivo**: `src/components/projeto/ProjetoExpertPanel.tsx`
-- Passar `showSkillSelector` no `AIGenerateButton` do plano mensal
-
-## 4. Enriquecer Dados de Contexto
-
-**Arquivo**: `src/components/projeto/AIGenerateButton.tsx`
-
-Atualmente o `contextSources` é visual (badges). Adicionar mais fontes de dados ao contexto real:
-- Mostrar badges adicionais: "Concorrentes", "Vendas/ROAS", "Dossiê", "Copy Arsenal", "KPIs de Ads"
-- No `ProjetoExpertPanel`, expandir `contextSources` para incluir: `["Briefing", "Avatar", "Expert", "Brand Kit", "Concorrentes", "Vendas", "Copy Arsenal"]`
-
-**Arquivo**: `supabase/functions/openflow-ai/index.ts`
-- Na action `generate_content_plan`, buscar dados adicionais do projeto:
-  - `data.copy_arsenal` (promessa, mecanismo, big idea)
-  - `data.concorrentes` (resumo dos concorrentes)
-  - KPIs de vendas recentes (`imphq_vendas` count + soma)
-  - Dados de ads ativos (CPL, CPA do `imphq_ads_spend`)
-- Injetar no system prompt para gerar conteúdo mais alinhado à estratégia real
+- **Leads.tsx**: `allVendasRaw` carrega TODAS as vendas sem filtro de projeto — adicionar filtro `project_id` quando `projectFilter !== "all"`
+- **Dashboard.tsx**: Queries de funnel (`totalLeads`, `pixLeads`, `buyers`) são feitas sequencialmente após o primeiro Promise.all — mover para dentro do mesmo batch
+- Vendas em Leads: limitar a 1000 registros mais recentes (atualmente sem limit)
 
 ---
 
 ## Arquivos afetados
 
-| Arquivo | Mudança |
+| Arquivo | Ação |
 |---|---|
-| `src/components/projeto/ProjetoMidia.tsx` | Sistema de pastas (filtro por prefixo em content_category) |
-| `src/components/projeto/ProjetoExpertPanel.tsx` | Campo "Stories por dia" + `showSkillSelector` |
-| `src/components/projeto/AIGenerateButton.tsx` | Seletor de Skills (multiselect) |
-| `supabase/functions/openflow-ai/index.ts` | Injetar mais contexto (concorrentes, vendas, arsenal, ads) |
+| `src/pages/Dashboard.tsx` | Reduzir para ~150 linhas (orquestrador) |
+| `src/components/dashboard/DashboardStats.tsx` | Novo — KPI cards |
+| `src/components/dashboard/DashboardRevenue.tsx` | Novo — Receita + WA + Hot Leads |
+| `src/components/dashboard/DashboardAds.tsx` | Novo — Ads performance |
+| `src/components/dashboard/DashboardCharts.tsx` | Novo — Gráficos principais |
+| `src/components/dashboard/DashboardCards.tsx` | Novo — Listas e cards informativos |
+| `src/pages/Leads.tsx` | Reduzir para ~200 linhas (orquestrador) |
+| `src/components/leads/LeadsTable.tsx` | Novo — Tabela paginada |
+| `src/components/leads/LeadDetailDialog.tsx` | Novo — Painel de detalhe do lead |
+| `src/components/leads/LeadsAnalytics.tsx` | Novo — Analytics completo |
+| `src/components/leads/LeadsSidebar.tsx` | Novo — Sidebar projetos/produtos |
+| `src/components/leads/LeadWhatsAppDialog.tsx` | Novo — Dialog WA rápido |
+
+## Resultado
+
+- Dashboard: 941 → ~150 linhas (pai) + 5 componentes de ~150 linhas cada
+- Leads: 2029 → ~200 linhas (pai) + 5 componentes de ~300 linhas cada
+- Melhor manutenção, carregamento mais rápido (queries paralelas), e code splitting natural
 
