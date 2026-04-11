@@ -122,6 +122,29 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
     loadReports();
   };
 
+  const getFacebookSyncErrorMessage = (payload?: any, fallback?: unknown) => {
+    const fallbackMessage = fallback instanceof Error
+      ? fallback.message
+      : typeof fallback === "string"
+        ? fallback
+        : "";
+    const rawMessage = [payload?.error, payload?.details, payload?.action_required, fallbackMessage]
+      .filter(Boolean)
+      .join(" ");
+
+    if (payload?.error_code === "FACEBOOK_MISSING_ADS_PERMISSION" || /ads_management|ads_read/i.test(rawMessage)) {
+      return "Sem permissão no Facebook Ads. Peça ao dono da conta para liberar ads_read/ads_management para este app/token.";
+    }
+
+    if (payload?.error_code === "FACEBOOK_INVALID_TOKEN" || /invalid oauth|access token/i.test(rawMessage)) {
+      return "Token do Facebook inválido ou expirado. Atualize o token da integração e tente novamente.";
+    }
+
+    return [payload?.error, payload?.action_required, payload?.details, fallbackMessage]
+      .filter(Boolean)
+      .join(" · ") || "Erro ao sincronizar com Facebook.";
+  };
+
   const loadData = async () => {
     const [c, r, a, v, p, ev] = await Promise.all([
       supabase.from("imphq_project_costs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
@@ -735,11 +758,18 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       syncBody.date_to = format(now, "yyyy-MM-dd");
                     }
                     const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: syncBody });
-                    if (error) throw error;
-                    if (data?.error) { toast.error(data.error); return; }
+                    if (error) {
+                      throw new Error(getFacebookSyncErrorMessage(undefined, error));
+                    }
+                    if (data?.success === false || data?.error) {
+                      toast.error(getFacebookSyncErrorMessage(data));
+                      return;
+                    }
                     toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
                     loadData();
-                  } catch (e: any) { toast.error("Erro ao sincronizar: " + (e.message || e)); }
+                  } catch (e: any) {
+                    toast.error(getFacebookSyncErrorMessage(undefined, e));
+                  }
                 }}>
                   <Globe className="h-3.5 w-3.5 mr-1" /> Sync Manual
                 </Button>

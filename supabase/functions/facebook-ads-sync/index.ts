@@ -4,13 +4,75 @@ import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2/cors";
 const FB_API_VERSION = "v19.0";
 const FB_BASE = `https://graph.facebook.com/${FB_API_VERSION}`;
 
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
+const parseResponseBody = async (response: Response) => {
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: { message: text || `HTTP ${response.status}` } };
+  }
+};
+
+const buildJsonResponse = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+
+const buildFacebookErrorResponse = (payload: any) => {
+  const fbError = payload?.error ?? payload ?? {};
+  const message = typeof fbError?.message === "string"
+    ? fbError.message
+    : typeof payload === "string"
+      ? payload
+      : "Erro desconhecido da Facebook API";
+  const code = typeof fbError?.code === "number" ? fbError.code : Number(fbError?.code || 0);
+  const normalizedMessage = message.toLowerCase();
+
+  if (
+    code === 200 ||
+    normalizedMessage.includes("ads_management") ||
+    normalizedMessage.includes("ads_read")
+  ) {
+    return buildJsonResponse({
+      success: false,
+      error: "Permissão insuficiente no Facebook Ads",
+      details: message,
+      error_code: "FACEBOOK_MISSING_ADS_PERMISSION",
+      action_required:
+        "Peça ao dono da conta de anúncios para conceder ads_read ou ads_management ao app/token usado neste projeto e depois sincronize novamente.",
+    });
+  }
+
+  if (
+    code === 190 ||
+    normalizedMessage.includes("invalid oauth") ||
+    normalizedMessage.includes("access token")
+  ) {
+    return buildJsonResponse({
+      success: false,
+      error: "Token do Facebook inválido ou expirado",
+      details: message,
+      error_code: "FACEBOOK_INVALID_TOKEN",
+      action_required: "Atualize o Access Token do Facebook nas integrações do projeto e tente novamente.",
+    });
+  }
+
+  return buildJsonResponse({
+    success: false,
+    error: "Facebook API error",
+    details: message,
+    error_code: "FACEBOOK_API_ERROR",
+  }, 400);
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const { project_id, date_from, date_to } = await req.json();
     if (!project_id) {
-      return new Response(JSON.stringify({ error: "project_id obrigatório" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "project_id obrigatório" }), { status: 400, headers: jsonHeaders });
     }
 
     const supabase = createClient(
@@ -21,7 +83,7 @@ Deno.serve(async (req) => {
     // Get project data
     const { data: project, error: pErr } = await supabase.from("imphq_projects").select("data").eq("id", project_id).single();
     if (pErr || !project) {
-      return new Response(JSON.stringify({ error: "Projeto não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Projeto não encontrado" }), { status: 404, headers: jsonHeaders });
     }
 
     // Try secure credentials table first, fallback to JSONB
@@ -44,7 +106,7 @@ Deno.serve(async (req) => {
     const accessToken = rawToken.replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
 
     if (!accessToken || !adAccountId) {
-      return new Response(JSON.stringify({ error: "Configure o Access Token e Ad Account ID nas configurações do projeto" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Configure o Access Token e Ad Account ID nas configurações do projeto" }), { status: 400, headers: jsonHeaders });
     }
 
     // Normalize ad account ID
@@ -59,12 +121,11 @@ Deno.serve(async (req) => {
     const insightsUrl = `${FB_BASE}/${actId}/insights?fields=campaign_name,adset_name,ad_name,spend,impressions,reach,clicks,ctr,frequency,actions&time_range={"since":"${dfrom}","until":"${dto}"}&level=ad&time_increment=1&limit=500&access_token=${accessToken}`;
 
     const insightsRes = await fetch(insightsUrl);
+    const insightsData = await parseResponseBody(insightsRes);
     if (!insightsRes.ok) {
-      const err = await insightsRes.json();
-      return new Response(JSON.stringify({ error: "Facebook API error", details: err.error?.message || err }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return buildFacebookErrorResponse(insightsData);
     }
 
-    const insightsData = await insightsRes.json();
     const rows = insightsData.data || [];
 
     let imported = 0;
@@ -135,9 +196,9 @@ Deno.serve(async (req) => {
     try {
       // Fetch ads with effective_status and creative details
       const adsUrl = `${FB_BASE}/${actId}/ads?fields=name,effective_status,creative{id,name,thumbnail_url,image_url,body,title}&limit=200&access_token=${accessToken}`;
-      const adsRes = await fetch(adsUrl);
+         const adsRes = await fetch(adsUrl);
       if (adsRes.ok) {
-        const adsData = await adsRes.json();
+          const adsData = await parseResponseBody(adsRes);
         const adItems = adsData.data || [];
         
         const creatives = adItems
@@ -172,9 +233,10 @@ Deno.serve(async (req) => {
       creatives: creativesCount,
       period: { from: dfrom, to: dto },
       total_rows: rows.length,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { headers: jsonHeaders });
 
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const message = e instanceof Error ? e.message : String(e);
+    return new Response(JSON.stringify({ error: message }), { status: 500, headers: jsonHeaders });
   }
 });
