@@ -90,6 +90,11 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [viewingReport, setViewingReport] = useState<any>(null);
   const [creativeSearch, setCreativeSearch] = useState("");
   const [creativeFilter, setCreativeFilter] = useState("all");
+  const [adsSearchCampanha, setAdsSearchCampanha] = useState("");
+  const [adsFilterConjunto, setAdsFilterConjunto] = useState("all");
+  const [adsFilterAnuncio, setAdsFilterAnuncio] = useState("all");
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [creativeFilterConjunto, setCreativeFilterConjunto] = useState("all");
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
@@ -777,11 +782,17 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     const avgFreq = fAds.length > 0 ? fAds.reduce((s, a) => s + (a.frequencia || 0), 0) / fAds.length : 0;
                     const cpm = totalImpr > 0 ? (totalAds / totalImpr) * 1000 : 0;
                     const cpa = totalCompras > 0 ? totalAds / totalCompras : 0;
+                    const vendasReaisCount = fVendas.length;
+                    const receitaVendas = fVendas.reduce((s, v) => s + v.valor, 0);
+                    const roasReal = totalAds > 0 ? receitaVendas / totalAds : 0;
                     const adsKpis = [
                       { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
                       { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
                       { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
-                      { label: "Compras", value: String(totalCompras), color: "text-emerald-400" },
+                      { label: "Compras (Pixel)", value: String(totalCompras), color: "text-emerald-400" },
+                      { label: "Vendas Reais", value: String(vendasReaisCount), color: "text-emerald-400" },
+                      { label: "Receita Vendas", value: fmt(receitaVendas), color: "text-emerald-400" },
+                      { label: "ROAS Real", value: roasReal > 0 ? `${roasReal.toFixed(2)}x` : "—", color: "text-emerald-400" },
                       { label: "CPM", value: fmt(cpm), color: "text-cyan-400" },
                       { label: "Freq. Média", value: avgFreq.toFixed(2), color: "text-orange-400" },
                       { label: "Alcance Total", value: totalAlcance.toLocaleString(), color: "text-pink-400" },
@@ -804,17 +815,62 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       <p className="text-sm text-muted-foreground">Nenhum dado de Ads importado</p>
                     </div>
                   ) : (() => {
+                    // Unique values for filters
+                    const conjuntos = Array.from(new Set(fAds.map(a => a.conjunto_anuncios).filter(Boolean))) as string[];
+                    const anuncios = Array.from(new Set(fAds.map(a => a.anuncio).filter(Boolean))) as string[];
+
+                    // Apply filters
+                    const filteredAds = fAds.filter(a => {
+                      if (adsSearchCampanha && !(a.campanha || "").toLowerCase().includes(adsSearchCampanha.toLowerCase())) return false;
+                      if (adsFilterConjunto !== "all" && (a.conjunto_anuncios || "") !== adsFilterConjunto) return false;
+                      if (adsFilterAnuncio !== "all" && (a.anuncio || "") !== adsFilterAnuncio) return false;
+                      return true;
+                    });
+
                     // Group by conjunto_anuncios
                     const groups = new Map<string, AdsSpend[]>();
-                    fAds.forEach(a => {
+                    filteredAds.forEach(a => {
                       const key = a.conjunto_anuncios || "Sem conjunto";
                       if (!groups.has(key)) groups.set(key, []);
                       groups.get(key)!.push(a);
                     });
                     const groupEntries = Array.from(groups.entries());
-                    
-                    if (groupEntries.length > 1) {
-                      return (
+                    return (
+                      <div className="space-y-4">
+                        {/* Filters */}
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div className="flex-1 min-w-[150px] max-w-[250px]">
+                            <Label className="text-[10px] text-muted-foreground">Campanha</Label>
+                            <Input placeholder="Buscar campanha..." className="h-7 text-xs bg-secondary" value={adsSearchCampanha} onChange={e => setAdsSearchCampanha(e.target.value)} />
+                          </div>
+                          {conjuntos.length > 0 && (
+                            <div className="min-w-[160px]">
+                              <Label className="text-[10px] text-muted-foreground">Conjunto</Label>
+                              <Select value={adsFilterConjunto} onValueChange={setAdsFilterConjunto}>
+                                <SelectTrigger className="h-7 text-xs bg-secondary"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos conjuntos</SelectItem>
+                                  {conjuntos.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          {anuncios.length > 0 && (
+                            <div className="min-w-[160px]">
+                              <Label className="text-[10px] text-muted-foreground">Anúncio</Label>
+                              <Select value={adsFilterAnuncio} onValueChange={setAdsFilterAnuncio}>
+                                <SelectTrigger className="h-7 text-xs bg-secondary"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos anúncios</SelectItem>
+                                  {anuncios.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <p className="text-[10px] text-muted-foreground self-end pb-1">{filteredAds.length} de {fAds.length} registros</p>
+                        </div>
+
+                    {groupEntries.length > 1 ? (
                         <Accordion type="multiple" className="space-y-2">
                           {groupEntries.map(([groupName, items]) => {
                             const gTotal = items.reduce((s, a) => s + a.valor, 0);
@@ -865,10 +921,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             );
                           })}
                         </Accordion>
-                      );
-                    }
-                    
-                    return (
+                    ) : (
                       <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
                         <Table>
                           <TableHeader>
@@ -879,7 +932,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {fAds.slice(0, 50).map(a => (
+                            {filteredAds.slice(0, 50).map(a => (
                               <TableRow key={a.id}>
                                 <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
                                 <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
@@ -895,8 +948,10 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             ))}
                           </TableBody>
                         </Table>
-                        {fAds.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {fAds.length - 50} registros</p>}
+                        {filteredAds.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {filteredAds.length - 50} registros</p>}
                       </div>
+                    )}
+                    </div>
                     );
                   })()}
                 </CardContent>
@@ -911,7 +966,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     <CardTitle className="text-sm uppercase tracking-wider text-violet-400 font-sans flex items-center gap-2">
                       <Image className="h-4 w-4" /> Galeria de Criativos
                     </CardTitle>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Input
                         placeholder="Buscar criativo..."
                         className="h-7 text-xs w-40 bg-secondary"
@@ -926,6 +981,18 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                           <SelectItem value="inactive">Inativos</SelectItem>
                         </SelectContent>
                       </Select>
+                      {(() => {
+                        const conjSets = Array.from(new Set(fAds.map(a => a.conjunto_anuncios).filter(Boolean))) as string[];
+                        return conjSets.length > 0 ? (
+                          <Select value={creativeFilterConjunto} onValueChange={setCreativeFilterConjunto}>
+                            <SelectTrigger className="h-7 text-xs w-40 bg-secondary"><SelectValue placeholder="Conjunto" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Todos conjuntos</SelectItem>
+                              {conjSets.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </CardHeader>
@@ -941,7 +1008,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                     const filtered = creatives.filter((c: any) => {
                       const nameMatch = !creativeSearch || (c.name || c.ad_name || "").toLowerCase().includes(searchLower) || (c.body || "").toLowerCase().includes(searchLower);
                       const statusMatch = creativeFilter === "all" || (creativeFilter === "active" ? c.status === "ACTIVE" : c.status !== "ACTIVE");
-                      return nameMatch && statusMatch;
+                      const conjMatch = creativeFilterConjunto === "all" || fAds.some(a => a.conjunto_anuncios === creativeFilterConjunto && a.anuncio && (c.name || c.ad_name) && (a.anuncio.includes(c.name) || a.anuncio.includes(c.ad_name)));
+                      return nameMatch && statusMatch && conjMatch;
                     });
                     const activeCreatives = filtered.filter((c: any) => c.status === "ACTIVE");
                     const inactiveCreatives = filtered.filter((c: any) => c.status !== "ACTIVE");
@@ -960,8 +1028,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       return (
                         <Card key={`${c.name}-${i}`} className={cn("bg-secondary/20 border-border overflow-hidden transition-all", !isActive && "opacity-50 grayscale-[30%]", isActive && "ring-1 ring-emerald-500/30")}>
                           {imgSrc && (
-                            <div className="aspect-video bg-secondary/50 overflow-hidden relative">
-                              <img src={imgSrc} alt={c.name || "Criativo"} className="w-full h-full object-cover" loading="lazy" />
+                            <div className="bg-secondary/50 overflow-hidden relative cursor-pointer" onClick={() => setLightboxImg(imgSrc)}>
+                              <img src={imgSrc} alt={c.name || "Criativo"} className="w-full max-h-[280px] object-contain" loading="lazy" />
                               <div className="absolute top-2 left-2">
                                 <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold", isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-muted/80 text-muted-foreground")}>
                                   {isActive ? "🟢 Ativo" : "⏸ Inativo"}
@@ -1652,6 +1720,13 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+      {/* Lightbox */}
+      <Dialog open={!!lightboxImg} onOpenChange={() => setLightboxImg(null)}>
+        <DialogContent className="max-w-4xl p-2 bg-black/95">
+          <DialogHeader className="sr-only"><DialogTitle>Criativo</DialogTitle><DialogDescription>Visualização em tela cheia</DialogDescription></DialogHeader>
+          {lightboxImg && <img src={lightboxImg} alt="Criativo" className="w-full max-h-[85vh] object-contain rounded" />}
         </DialogContent>
       </Dialog>
     </div>
