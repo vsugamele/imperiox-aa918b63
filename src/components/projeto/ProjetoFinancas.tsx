@@ -921,10 +921,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             );
                           })}
                         </Accordion>
-                      );
-                    }
-                    
-                    return (
+                    ) : (
                       <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
                         <Table>
                           <TableHeader>
@@ -935,7 +932,7 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {fAds.slice(0, 50).map(a => (
+                            {filteredAds.slice(0, 50).map(a => (
                               <TableRow key={a.id}>
                                 <TableCell className="text-xs max-w-[180px] truncate">{a.campanha || "—"}</TableCell>
                                 <TableCell className="text-xs font-mono">{a.data_ref}</TableCell>
@@ -951,8 +948,10 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                             ))}
                           </TableBody>
                         </Table>
-                        {fAds.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {fAds.length - 50} registros</p>}
+                        {filteredAds.length > 50 && <p className="text-xs text-muted-foreground text-center py-2">...e mais {filteredAds.length - 50} registros</p>}
                       </div>
+                    )}
+                    </div>
                     );
                   })()}
                 </CardContent>
