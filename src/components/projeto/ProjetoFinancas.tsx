@@ -90,6 +90,11 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
   const [viewingReport, setViewingReport] = useState<any>(null);
   const [creativeSearch, setCreativeSearch] = useState("");
   const [creativeFilter, setCreativeFilter] = useState("all");
+  const [adsSearchCampanha, setAdsSearchCampanha] = useState("");
+  const [adsFilterConjunto, setAdsFilterConjunto] = useState("all");
+  const [adsFilterAnuncio, setAdsFilterAnuncio] = useState("all");
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [creativeFilterConjunto, setCreativeFilterConjunto] = useState("all");
 
   // Get products from briefing
   const briefingProdutos: any[] = project?.data?.produtos || [];
