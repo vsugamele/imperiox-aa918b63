@@ -16,7 +16,6 @@ interface Props {
 export function ProjetoComando({ projectId, project }: Props) {
   const [cards, setCards] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
-  const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [pendingVendas, setPendingVendas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
