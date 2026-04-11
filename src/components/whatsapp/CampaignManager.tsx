@@ -21,6 +21,7 @@ interface Campaign {
   project_id: string | null;
   provider_id: string | null;
   name: string;
+  produto: string | null;
   status: string;
   groups: string[];
   start_date: string | null;
@@ -41,7 +42,7 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [showSteps, setShowSteps] = useState<Campaign | null>(null);
   const [showLogs, setShowLogs] = useState<Campaign | null>(null);
   const [showGroups, setShowGroups] = useState<Campaign | null>(null);
-  const [form, setForm] = useState({ name: "", project_id: "", provider_id: "", start_date: "" });
+  const [form, setForm] = useState({ name: "", project_id: "", provider_id: "", start_date: "", produto: "" });
   const [availableGroups, setAvailableGroups] = useState<{ id: string; subject: string }[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
@@ -64,14 +65,15 @@ export default function CampaignManager({ projects, providers }: Props) {
       name: form.name,
       project_id: form.project_id || null,
       provider_id: form.provider_id || null,
+      produto: form.produto || null,
       start_date: form.start_date || null,
       status: "draft",
       groups: [] as any,
-    });
+    } as any);
     if (error) { toast.error(error.message); return; }
     toast.success("Campanha criada!");
     setShowCreate(false);
-    setForm({ name: "", project_id: "", provider_id: "", start_date: "" });
+    setForm({ name: "", project_id: "", provider_id: "", start_date: "", produto: "" });
     load();
   };
 
@@ -217,6 +219,7 @@ export default function CampaignManager({ projects, providers }: Props) {
           <DialogHeader><DialogTitle>Nova Campanha</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nome da campanha</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Lançamento Curso X" /></div>
+            <div><Label>Produto</Label><Input value={form.produto} onChange={e => setForm({ ...form, produto: e.target.value })} placeholder="Ex: Mentoria Premium, Curso Y..." /></div>
             <div>
               <Label>Projeto</Label>
               <Select value={form.project_id} onValueChange={v => setForm({ ...form, project_id: v })}>
@@ -293,7 +296,7 @@ export default function CampaignManager({ projects, providers }: Props) {
       <Dialog open={!!showSteps} onOpenChange={() => setShowSteps(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh]">
           <DialogHeader><DialogTitle>Sequência — {showSteps?.name}</DialogTitle></DialogHeader>
-          {showSteps && <CampaignStepEditor campaignId={showSteps.id} />}
+          {showSteps && <CampaignStepEditor campaignId={showSteps.id} projectId={showSteps.project_id || ""} produto={showSteps.produto || ""} />}
         </DialogContent>
       </Dialog>
 
