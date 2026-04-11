@@ -230,6 +230,8 @@ export default function ExpertPortal() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* Hidden video input */}
+        <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
         {/* Objetivos do Movimento */}
         {contentObjectives.length > 0 && (
           <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-1">
