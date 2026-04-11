@@ -113,8 +113,7 @@ export default function CampaignManager({ projects, providers }: Props) {
     }
     setShowGroups(campaign);
     setSelectedGroups(Array.isArray(campaign.groups) ? campaign.groups : []);
-    const provider = providers.find(p => p.id === campaign.provider_id);
-    if (provider) await fetchGroups(provider);
+    await fetchGroups(campaign.provider_id);
   };
 
   const saveGroups = async () => {
