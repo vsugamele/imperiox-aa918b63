@@ -1,53 +1,55 @@
 
 
-# Plano: Melhorias no Painel do Expert
+# Plano: Checklist do Expert + Upload de Vídeos
 
-## Problemas identificados
+## O que será feito
 
-1. **Não dá para limpar conteúdo gerado por semana** — sem botão para resetar/limpar uma semana
-2. **Sem datas reais no calendário semanal** — os cards só mostram "seg, ter, qua..." sem indicar qual dia do mês
-3. **Expert não sabe o contexto operacional** — não vê se tráfego está ligado, se tem campanha ativa, se tem automação rodando
+### 1. Checklist interativo no portal público
 
-## Mudanças
+Cada card de conteúdo ganha um checkbox "Feito" que o expert pode marcar direto no portal público. Ao marcar:
+- Salva o status + timestamp num log persistente via Edge Function
+- O gestor vê no painel interno quais cards foram marcados e quando
 
-### 1. Botão "Limpar Semana" no painel interno
+**Implementação**: Criar tabela `imphq_expert_logs` para persistir ações do expert (content_id, action, timestamp, metadata). A Edge Function `expert-portal` ganha uma rota POST para receber marcações. No portal público, cada card mostra o checkbox. No painel interno, cards marcados ganham um indicador visual (badge "✅ Feito" com data).
 
-Adicionar um botão ao lado de cada aba de semana para limpar todos os cards daquela semana. Com confirmação antes de apagar.
+### 2. Upload de vídeo pelo expert
 
-**Arquivo**: `ProjetoExpertPanel.tsx`
+O expert pode subir o vídeo gravado diretamente pelo portal público, vinculado ao card de conteúdo. O gestor pode baixar/visualizar no painel interno.
 
-### 2. Datas reais nos dias da semana
+**Implementação**: No portal público, cada card ganha um botão "📹 Enviar Vídeo" que faz upload para o bucket `project-media` via URL assinada (sem precisar de auth). A Edge Function `expert-portal` ganha uma rota para gerar upload URL assinada e outra para registrar o arquivo. O vídeo fica salvo na tabela `imphq_expert_logs` (action: "video_upload", metadata: {url, filename}). No painel interno, cards com vídeo mostram botão de download/preview.
 
-Calcular as datas reais (dd/MM) de cada dia baseado no mês corrente e na semana ativa. Exibir abaixo do label "SEG", "TER", etc. tanto no painel interno quanto no portal público.
+## Tabela nova
 
-**Arquivos**: `ProjetoExpertPanel.tsx`, `ExpertPortal.tsx`
+```sql
+create table public.imphq_expert_logs (
+  id uuid primary key default gen_random_uuid(),
+  project_id text not null,
+  content_id text not null,
+  week text,
+  day text,
+  action text not null,        -- "mark_done", "video_upload", "note"
+  metadata jsonb default '{}',
+  created_at timestamptz default now()
+);
+```
 
-### 3. Painel de Contexto Operacional (novo card)
+## Edge Function `expert-portal` — novas rotas
 
-Adicionar um card "📡 Status Operacional" visível no painel interno e no portal do expert com:
+| Método | Ação | Descrição |
+|--------|------|-----------|
+| GET | (existente) | Retorna dados do projeto + logs |
+| POST | mark_done | Expert marca card como feito |
+| POST | upload_url | Gera URL assinada para upload de vídeo |
+| POST | register_upload | Registra o vídeo após upload |
 
-- **Tráfego**: se há conta de ads vinculada e investimento ativo (query `imphq_ad_accounts` + `imphq_ad_metrics`)
-- **Campanhas WhatsApp**: campanhas ativas do projeto (`imphq_wa_campaigns` com status "active")
-- **Automações**: total de automações ativas (`imphq_automacoes` do projeto)
+O GET existente passa a incluir os logs (`imphq_expert_logs`) no response, para o portal e o painel interno saberem quais cards estão marcados e têm vídeo.
 
-No **portal público** (ExpertPortal), o edge function `expert-portal` precisa buscar esses dados e retorná-los no JSON.
-
-**Arquivos**:
-- `supabase/functions/expert-portal/index.ts` — adicionar queries para ads, campanhas WA e automações
-- `ProjetoExpertPanel.tsx` — novo card com status operacional (busca client-side)
-- `ExpertPortal.tsx` — exibir o card com dados vindos do edge function
-
-### 4. Campo "Contexto do Movimento" (notas rápidas)
-
-Adicionar um campo de texto curto no topo (junto aos objetivos) para o gestor escrever contexto operacional livre: "Tráfego ligado desde dia 5", "Campanha de reengajamento ativa", "Lançamento dia 20". Salvo no JSONB `data.movement_context`. Visível no portal público.
-
-**Arquivos**: `ProjetoExpertPanel.tsx`, `ExpertPortal.tsx`, `expert-portal/index.ts`
-
-## Resumo de arquivos
+## Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| `ProjetoExpertPanel.tsx` | Botão limpar semana, datas reais nos dias, card status operacional, campo contexto |
-| `ExpertPortal.tsx` | Datas reais nos dias, card status operacional, campo contexto (read-only) |
-| `expert-portal/index.ts` | Queries de ads, campanhas WA, automações + campo `movement_context` no response |
+| Migration SQL | Tabela `imphq_expert_logs` |
+| `expert-portal/index.ts` | Rotas POST (mark_done, upload) + incluir logs no GET |
+| `ExpertPortal.tsx` | Checkbox "Feito" + botão upload vídeo em cada card |
+| `ProjetoExpertPanel.tsx` | Badge "✅ Feito" + preview/download de vídeo nos cards |
 
