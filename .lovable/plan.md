@@ -1,35 +1,43 @@
 
 
-# Plano: Finalizar Checklist + Upload de Vídeo no Portal e Painel
+# Plano: Corrigir Dados no Comando + Garantir Jornada nos Leads
 
-## Contexto
+## Problemas encontrados
 
-A lógica de backend (tabela `imphq_expert_logs`, rotas POST na Edge Function) e os handlers no frontend (`ExpertPortal.tsx`) já estão prontos. Falta conectar a UI nos cards de conteúdo.
+### 1. Aba Comando — KPI "Pix Gerados" sem detalhes
+A query de vendas do dia (linha 39 de `ProjetoComando.tsx`) só seleciona `id, status, created_at`. Faltam `produto_nome`, `valor`, `plataforma`, `lead_id`. Por isso o KPI mostra "1" mas não diz de qual produto, valor ou data.
 
-## O que falta
+### 2. Aba Comando — Nome do lead não aparece
+Linha 209 usa `l.name` mas a coluna no banco é `nome`. Resultado: nome sempre vazio, mostra só "—".
 
-### 1. ExpertPortal.tsx — Adicionar checkbox e botão de upload nos cards
+### 3. Aba Comando — Ordenação errada dos leads
+Linha 37 ordena por `created_at` mas a coluna real é `criado_em`. Pode causar erro silencioso ou ordem incorreta.
 
-Os cards de conteúdo (linhas 470-489) não mostram o checkbox "Feito" nem o botão "Enviar Vídeo". Precisa adicionar:
+### 4. Leads — Jornada e vendas ESTÃO sendo salvos
+Confirmei nos dados: as vendas têm `produto_nome`, `valor`, `plataforma` corretos. O campo `data.interacoes` nos leads acumula os eventos com produto e valor. A timeline da Jornada carrega de `imphq_events`, `imphq_clicks` e `imphq_vendas`. **Os dados estão sendo persistidos corretamente.** O problema visível é mais no Comando que não mostra os detalhes.
 
-- **Checkbox "Feito"** abaixo de cada card, chamando `toggleDone(item.id, wk, day)` ao clicar
-- **Botão "📹 Enviar Vídeo"** que seta `pendingUploadCard` e dispara o `videoInputRef.current.click()`
-- **Indicador de vídeo enviado** quando `getVideoLog(item.id)` retorna algo (badge "📹 Vídeo enviado")
-- **Loading spinner** quando `uploadingId === item.id`
+## Solução
 
-### 2. ProjetoExpertPanel.tsx — Mostrar status dos logs no painel interno
+### ProjetoComando.tsx — 4 correções
 
-Atualmente o painel interno não busca `imphq_expert_logs`. Precisa:
+| Problema | Fix |
+|---|---|
+| Query vendas do dia sem dados | Adicionar `produto_nome, valor, plataforma, lead_id` no select da linha 39 |
+| `l.name` → `l.nome` | Corrigir referência na linha 209 |
+| Ordenação `created_at` → `criado_em` | Corrigir na linha 37 |
+| KPI sem detalhe | Adicionar seção expansível abaixo dos KPIs mostrando lista dos Pix/Vendas do dia com produto, valor, horário e plataforma |
 
-- Fazer query dos logs ao carregar o componente: `supabase.from("imphq_expert_logs").select("*").eq("project_id", projectId)`
-- Nos cards de conteúdo do calendário, mostrar:
-  - Badge "✅ Feito" (com data) quando há log `mark_done`
-  - Botão "📹 Baixar Vídeo" / preview quando há log `video_upload` (link no `metadata.url`)
+### Seção "Detalhes do Dia" (nova)
+Abaixo dos KPIs, adicionar um card com a lista das vendas de hoje mostrando:
+- Nome do produto
+- Valor (R$)
+- Status (aprovado/pix/pendente)
+- Plataforma
+- Horário
 
-## Arquivos afetados
+## Arquivo afetado
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/ExpertPortal.tsx` | Adicionar checkbox + botão upload + indicadores nos cards de conteúdo |
-| `src/components/projeto/ProjetoExpertPanel.tsx` | Buscar `imphq_expert_logs`, exibir badges de status e link de download nos cards |
+| `src/components/projeto/ProjetoComando.tsx` | Corrigir query, campo nome, ordenação + adicionar detalhes das vendas do dia |
 
