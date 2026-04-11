@@ -1722,6 +1722,13 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
           })()}
         </DialogContent>
       </Dialog>
+      {/* Lightbox */}
+      <Dialog open={!!lightboxImg} onOpenChange={() => setLightboxImg(null)}>
+        <DialogContent className="max-w-4xl p-2 bg-black/95">
+          <DialogHeader className="sr-only"><DialogTitle>Criativo</DialogTitle><DialogDescription>Visualização em tela cheia</DialogDescription></DialogHeader>
+          {lightboxImg && <img src={lightboxImg} alt="Criativo" className="w-full max-h-[85vh] object-contain rounded" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
