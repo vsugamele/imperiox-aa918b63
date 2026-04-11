@@ -9,12 +9,13 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target, Radio, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AIGenerateButton } from "./AIGenerateButton";
 
@@ -75,11 +76,26 @@ const TYPE_COLORS: Record<string, string> = {
   "Video Longo": "bg-cyan-600/20 text-cyan-300 border-cyan-600/30",
 };
 
-// Map briefing link keys to platform names
 const LINK_TO_PLATFORM: Record<string, string> = {
   instagram: "Instagram", youtube: "YouTube", tiktok: "TikTok",
   linkedin: "LinkedIn", blog: "Blog", whatsapp: "WhatsApp",
 };
+
+/** Calculate real dates (dd/MM) for each day of a given week index */
+function getWeekDates(weekIndex: number): string[] {
+  const now = new Date();
+  const som = startOfMonth(now);
+  const dow = getDay(som); // 0=Sun
+  const offsetToMonday = dow === 0 ? 1 : dow === 1 ? 0 : 8 - dow;
+  const firstMonday = new Date(som);
+  firstMonday.setDate(firstMonday.getDate() + offsetToMonday);
+
+  return DAYS.map((_, di) => {
+    const d = new Date(firstMonday);
+    d.setDate(d.getDate() + weekIndex * 7 + di);
+    return format(d, "dd/MM");
+  });
+}
 
 function migrateToMonthly(plan: any): MonthlyPlan {
   const empty: WeekPlan = {};
@@ -100,6 +116,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
 
+  // Operational status
+  const [opsStatus, setOpsStatus] = useState<any>(null);
+
   // Card detail modal state
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
@@ -115,26 +134,23 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const currentWeekPlan: WeekPlan = (monthlyPlan as any)[activeWeek] || {};
   const expertNotes: string = data.expert_notes || "";
   const shareToken: string = data.expert_share_token || "";
-  // Support both old single string and new array format
+  const movementContext: string = data.movement_context || "";
   const contentObjectives: string[] = Array.isArray(data.content_objectives)
     ? data.content_objectives
     : data.content_objective ? [data.content_objective] : [""];
   const weekLabels: Record<string, string> = monthlyPlan.week_labels || {};
   const weekSummaries: Record<string, WeekSummary> = monthlyPlan.week_summaries || {};
 
-  // Derive active platforms from briefing links
   const PLATFORMS = useMemo(() => {
     const links = data.links || {};
     const active = Object.entries(links)
       .filter(([_, v]) => v && String(v).trim() !== "")
       .map(([k]) => LINK_TO_PLATFORM[k.toLowerCase()])
       .filter(Boolean) as string[];
-    // Always include Email
     if (!active.includes("Email")) active.push("Email");
     return active.length > 1 ? active : ALL_PLATFORMS;
   }, [data.links]);
 
-  // Product list from briefing
   const products = useMemo(() => {
     const prods = data.produtos || [];
     return Array.isArray(prods) ? prods.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
@@ -151,6 +167,22 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       setEvents(evRes.data || []);
       setTasks(taskRes.data || []);
       setProcesses(procRes.data || []);
+    });
+
+    // Fetch operational status
+    Promise.all([
+      supabase.from("imphq_ad_accounts" as any).select("id, platform, account_name, is_active").eq("project_id", projectId),
+      supabase.from("imphq_wa_campaigns" as any).select("id, name, status").eq("project_id", projectId).eq("status", "active"),
+    ]).then(([adsRes, waRes]) => {
+      const ads = adsRes.data || [];
+      const activeAds = ads.filter((a: any) => a.is_active);
+      setOpsStatus({
+        ads_connected: ads.length > 0,
+        ads_active: activeAds.length,
+        ads_accounts: ads.map((a: any) => ({ platform: a.platform, name: a.account_name, active: a.is_active })),
+        wa_campaigns_active: (waRes.data || []).length,
+        wa_campaigns: (waRes.data || []).map((c: any) => ({ name: c.name })),
+      });
     });
   }, [projectId]);
 
@@ -186,6 +218,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     updateMonthlyPlan(plan);
   };
 
+  /** Clear all content from a specific week */
+  const clearWeek = (wk: string) => {
+    const plan = { ...monthlyPlan };
+    (plan as any)[wk] = {};
+    updateMonthlyPlan(plan);
+    toast.success("Semana limpa com sucesso!");
+  };
+
   const updateObjectives = (objectives: string[]) => {
     onUpdateData({ ...data, content_objectives: objectives, content_objective: objectives[0] || "" });
   };
@@ -213,7 +253,10 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, expert_notes: notes });
   };
 
-  // Open card detail modal
+  const updateMovementContext = (ctx: string) => {
+    onUpdateData({ ...data, movement_context: ctx });
+  };
+
   const openCardDetail = (item: ContentItem, day: string) => {
     setSelectedCard(item);
     setSelectedDay(day);
@@ -245,7 +288,6 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     toast.success("Card excluído.");
   };
 
-  // Share link
   const generateShareLink = async () => {
     const token = shareToken || crypto.randomUUID();
     if (!shareToken) {
@@ -268,7 +310,6 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     setAiPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
   };
 
-  // AI handlers — MERGE logic: only fill empty days
   const handleContentPlanAI = (result: any) => {
     if (result?.content_plan) {
       const aiPlan = migrateToMonthly(result.content_plan);
@@ -276,7 +317,6 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       let filled = 0;
       let preserved = 0;
 
-      // Merge week_labels and week_summaries from AI
       if (aiPlan.week_labels) {
         currentPlan.week_labels = { ...currentPlan.week_labels, ...aiPlan.week_labels };
       }
@@ -314,7 +354,6 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     }
   };
 
-  // Handle copy generation result
   const handleCopyAI = (result: any) => {
     if (result?.copy) {
       setEditCopy(result.copy);
@@ -335,7 +374,6 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   });
   const activePlatforms = new Set(allItems).size;
 
-  // Count empty days for "fill blanks" button
   const emptyDaysCount = WEEKS.reduce((total, wk) => {
     const wp = monthlyPlan[wk] || {};
     return total + DAYS.reduce((s, d) => (wp[d]?.length || 0) === 0 ? s + 1 : s, 0);
@@ -383,6 +421,68 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           </Card>
         ))}
       </div>
+
+      {/* Status Operacional */}
+      {opsStatus && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
+              <Radio className="h-4 w-4" /> Status Operacional
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Ads */}
+              <div className="p-3 rounded bg-secondary/50 border border-border">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">📊 Tráfego Pago</p>
+                {opsStatus.ads_connected ? (
+                  <>
+                    <Badge variant={opsStatus.ads_active > 0 ? "default" : "secondary"} className="text-[9px]">
+                      {opsStatus.ads_active > 0 ? `✅ ${opsStatus.ads_active} conta(s) ativa(s)` : "⏸ Contas pausadas"}
+                    </Badge>
+                    <div className="mt-1 space-y-0.5">
+                      {opsStatus.ads_accounts.map((a: any, i: number) => (
+                        <p key={i} className="text-[9px] text-muted-foreground">
+                          {a.platform} — {a.name} {a.active ? "🟢" : "🔴"}
+                        </p>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-[9px] text-muted-foreground">Nenhuma conta de ads vinculada</p>
+                )}
+              </div>
+              {/* WA Campaigns */}
+              <div className="p-3 rounded bg-secondary/50 border border-border">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">💬 Campanhas WhatsApp</p>
+                {opsStatus.wa_campaigns_active > 0 ? (
+                  <>
+                    <Badge variant="default" className="text-[9px]">✅ {opsStatus.wa_campaigns_active} ativa(s)</Badge>
+                    <div className="mt-1 space-y-0.5">
+                      {opsStatus.wa_campaigns.map((c: any, i: number) => (
+                        <p key={i} className="text-[9px] text-muted-foreground">• {c.name}</p>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-[9px] text-muted-foreground">Nenhuma campanha ativa</p>
+                )}
+              </div>
+              {/* Movement context */}
+              <div className="p-3 rounded bg-secondary/50 border border-border">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">📋 Contexto do Movimento</p>
+                <Textarea
+                  value={movementContext}
+                  onChange={e => updateMovementContext(e.target.value)}
+                  placeholder="Ex: Tráfego ligado desde dia 5, Lançamento dia 20..."
+                  className="bg-transparent border-none text-xs focus-visible:ring-0 min-h-[60px] p-0 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Agenda */}
@@ -494,10 +594,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                   setCalendarDate(date);
                   if (date) {
                     const dayOfWeek = date.getDay();
-                    const dayMap = [6, 0, 1, 2, 3, 4, 5]; // Sun=6, Mon=0...
+                    const dayMap = [6, 0, 1, 2, 3, 4, 5];
                     const dayIndex = dayMap[dayOfWeek];
                     const dayKey = DAYS[dayIndex];
-                    // Find which week has content for this day
                     for (const wk of WEEKS) {
                       const wp = monthlyPlan[wk] || {};
                       if (wp[dayKey]?.length) {
@@ -512,13 +611,13 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                   hasContent: (() => {
                     const dates: Date[] = [];
                     const today = new Date();
-                    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const som2 = startOfMonth(today);
                     WEEKS.forEach((wk, wi) => {
                       const wp = monthlyPlan[wk] || {};
                       DAYS.forEach((day, di) => {
                         if ((wp[day]?.length || 0) > 0) {
                           const dayOffset = wi * 7 + di;
-                          const d = new Date(startOfMonth);
+                          const d = new Date(som2);
                           d.setDate(d.getDate() + dayOffset);
                           dates.push(d);
                         }
@@ -579,61 +678,91 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
               })}
             </TabsList>
 
-            {WEEKS.map((wk, wi) => (
-              <TabsContent key={wk} value={wk} className="space-y-3">
-                {/* Week label + summary bar */}
-                <div className="flex flex-wrap items-center gap-3 p-2 rounded border border-border bg-secondary/20">
-                  <Input
-                    value={weekLabels[wk] || ""}
-                    onChange={e => updateWeekLabel(wk, e.target.value)}
-                    placeholder={`Fase da ${WEEK_LABELS[wi]} — Ex: Atração, Autoridade, Objeções, Lançamento`}
-                    className="bg-transparent border-none text-xs focus-visible:ring-0 h-7 flex-1 min-w-[200px]"
-                  />
-                  {weekSummaries[wk]?.focus && (
-                    <Badge variant="outline" className="text-[9px]">🎯 {weekSummaries[wk].focus}</Badge>
-                  )}
-                  {weekSummaries[wk]?.event && (
-                    <Badge variant="outline" className="text-[9px]">📅 {weekSummaries[wk].event}</Badge>
-                  )}
-                </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {DAYS.map(day => {
-                    const weekData = monthlyPlan[wk] || {};
-                    const items = weekData[day] || [];
-                    return (
-                      <div key={day} className="space-y-1">
-                        <p className="text-[10px] font-semibold text-center uppercase text-muted-foreground">{day}</p>
-                        <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
-                          {items.map(item => (
-                            <div
-                              key={item.id}
-                              className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} group relative cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}
-                              onClick={() => openCardDetail(item, day)}
-                            >
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
-                                <span className="text-[10px] font-semibold">{item.platform}</span>
-                              </div>
-                              <p className="text-[10px] opacity-80">{item.type}</p>
-                              {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
-                              {item.cross_platforms && item.cross_platforms.length > 0 && (
-                                <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                                  {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
-                                </div>
-                              )}
-                              {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
-                            </div>
-                          ))}
-                          <Button variant="ghost" size="sm" className="w-full h-6 text-[9px] text-muted-foreground" onClick={() => addContentItem(day)}>
-                            <Plus className="h-2.5 w-2.5 mr-0.5" /> Adicionar
+            {WEEKS.map((wk, wi) => {
+              const dates = getWeekDates(wi);
+              const weekItemCount = DAYS.reduce((s, d) => s + (((monthlyPlan as any)[wk] || {})[d]?.length || 0), 0);
+              return (
+                <TabsContent key={wk} value={wk} className="space-y-3">
+                  {/* Week label + summary bar + clear button */}
+                  <div className="flex flex-wrap items-center gap-3 p-2 rounded border border-border bg-secondary/20">
+                    <Input
+                      value={weekLabels[wk] || ""}
+                      onChange={e => updateWeekLabel(wk, e.target.value)}
+                      placeholder={`Fase da ${WEEK_LABELS[wi]} — Ex: Atração, Autoridade, Objeções, Lançamento`}
+                      className="bg-transparent border-none text-xs focus-visible:ring-0 h-7 flex-1 min-w-[200px]"
+                    />
+                    {weekSummaries[wk]?.focus && (
+                      <Badge variant="outline" className="text-[9px]">🎯 {weekSummaries[wk].focus}</Badge>
+                    )}
+                    {weekSummaries[wk]?.event && (
+                      <Badge variant="outline" className="text-[9px]">📅 {weekSummaries[wk].event}</Badge>
+                    )}
+                    {weekItemCount > 0 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" /> Limpar Semana
                           </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Limpar {WEEK_LABELS[wi]}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Isso vai remover todos os {weekItemCount} cards de conteúdo desta semana. Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => clearWeek(wk)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Limpar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-7 gap-2">
+                    {DAYS.map((day, di) => {
+                      const weekData = monthlyPlan[wk] || {};
+                      const items = weekData[day] || [];
+                      return (
+                        <div key={day} className="space-y-1">
+                          <div className="text-center">
+                            <p className="text-[10px] font-semibold uppercase text-muted-foreground">{day}</p>
+                            <p className="text-[9px] text-muted-foreground/70">{dates[di]}</p>
+                          </div>
+                          <div className="min-h-[100px] rounded border border-border bg-secondary/30 p-1 space-y-1.5">
+                            {items.map(item => (
+                              <div
+                                key={item.id}
+                                className={`p-2 rounded border ${TYPE_COLORS[item.type] || "bg-secondary/50 text-foreground border-border"} group relative cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all`}
+                                onClick={() => openCardDetail(item, day)}
+                              >
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <span className="text-xs">{PLATFORM_ICONS[item.platform] || "📌"}</span>
+                                  <span className="text-[10px] font-semibold">{item.platform}</span>
+                                </div>
+                                <p className="text-[10px] opacity-80">{item.type}</p>
+                                {item.description && <p className="text-[10px] mt-0.5 truncate">{item.description}</p>}
+                                {item.cross_platforms && item.cross_platforms.length > 0 && (
+                                  <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                                    {item.cross_platforms.map(cp => <Badge key={cp} variant="outline" className="text-[7px] h-3 px-1">{cp}</Badge>)}
+                                  </div>
+                                )}
+                                {item.copy && <Badge variant="outline" className="text-[7px] h-3 mt-1">📝 copy</Badge>}
+                              </div>
+                            ))}
+                            <Button variant="ghost" size="sm" className="w-full h-6 text-[9px] text-muted-foreground" onClick={() => addContentItem(day)}>
+                              <Plus className="h-2.5 w-2.5 mr-0.5" /> Adicionar
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </TabsContent>
-            ))}
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+              );
+            })}
           </Tabs>
         </CardContent>
       </Card>
