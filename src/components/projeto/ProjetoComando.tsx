@@ -148,9 +148,9 @@ export function ProjetoComando({ projectId, project }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Leads Hoje", value: leadsToday, icon: Users, color: "text-blue-400" },
-          { label: "Pix Gerados", value: pixEvents, icon: Zap, color: "text-amber-400" },
-          { label: "Vendas Hoje", value: salesEvents, icon: ShoppingCart, color: "text-emerald-400" },
-          { label: "Pendentes", value: pendingLeads, icon: AlertCircle, color: "text-rose-400" },
+          { label: "Pix Gerados", value: pixToday, icon: Zap, color: "text-amber-400" },
+          { label: "Vendas Hoje", value: salesToday, icon: ShoppingCart, color: "text-emerald-400" },
+          { label: "Pendentes", value: pendingTotal, icon: AlertCircle, color: "text-rose-400" },
         ].map((kpi) => (
           <Card key={kpi.label} className="bg-card border-border">
             <CardContent className="p-4 text-center">
