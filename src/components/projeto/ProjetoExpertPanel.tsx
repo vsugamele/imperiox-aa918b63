@@ -114,6 +114,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiFrequency, setAiFrequency] = useState("2");
   const [aiProductName, setAiProductName] = useState("__all__");
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
+  const [aiStoriesPerDay, setAiStoriesPerDay] = useState("3");
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
   const [expertLogs, setExpertLogs] = useState<any[]>([]);
 
@@ -949,6 +950,19 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 ))}
               </div>
             </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">📱 Sequência de Stories por dia?</Label>
+              <Select value={aiStoriesPerDay} onValueChange={setAiStoriesPerDay}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Nenhum</SelectItem>
+                  <SelectItem value="3">3 stories</SelectItem>
+                  <SelectItem value="5">5 stories</SelectItem>
+                  <SelectItem value="7">7 stories</SelectItem>
+                  <SelectItem value="10">10 stories</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setAiDialogOpen(false)}>Cancelar</Button>
@@ -960,9 +974,10 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 handleContentPlanAI(result);
                 setAiDialogOpen(false);
               }}
-              contextSources={["Briefing", "Avatar", "Expert", "Brand Kit"]}
+              contextSources={["Briefing", "Avatar", "Expert", "Brand Kit", "Concorrentes", "Vendas", "Copy Arsenal"]}
               fieldsToFill={["Plano de conteúdo 4 semanas"]}
               showMenteSelector
+              showSkillSelector
               size="sm"
               variant="default"
               extraBody={{
@@ -970,6 +985,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                 posts_per_day: parseInt(aiFrequency),
                 priority_platforms: aiPlatforms,
                 product_name: aiProductName === "__all__" ? "" : aiProductName,
+                stories_per_day: parseInt(aiStoriesPerDay),
               }}
             />
           </DialogFooter>

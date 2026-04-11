@@ -191,7 +191,32 @@ export function AIGenerateButton({
               </div>
             )}
 
-            {contextSources.length > 0 && (
+            {showSkillSelector && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                  <Wrench className="h-3 w-3" /> Skills a aplicar
+                </Label>
+                <div className="max-h-[140px] overflow-y-auto space-y-1.5 border border-border rounded-md p-2 bg-secondary/30">
+                  {SKILLS_DATA.map(skill => (
+                    <label key={skill.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-secondary/50 rounded px-1 py-0.5">
+                      <Checkbox
+                        checked={selectedSkills.includes(skill.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedSkills(prev => [...prev, skill.id]);
+                          else setSelectedSkills(prev => prev.filter(s => s !== skill.id));
+                        }}
+                      />
+                      <span>{skill.icone} {skill.nome}</span>
+                      <span className="text-[9px] text-muted-foreground ml-auto">{skill.categoria}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedSkills.length > 0 && (
+                  <p className="text-[10px] text-primary mt-1">{selectedSkills.length} skill(s) selecionada(s)</p>
+                )}
+              </div>
+            )}
+
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
                   <Database className="h-3 w-3" /> Dados usados como contexto
