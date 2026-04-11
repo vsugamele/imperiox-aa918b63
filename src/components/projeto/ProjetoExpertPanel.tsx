@@ -171,8 +171,8 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
     // Fetch operational status
     Promise.all([
-      supabase.from("imphq_ad_accounts").select("id, platform, account_name, is_active").eq("project_id", projectId),
-      supabase.from("imphq_wa_campaigns").select("id, name, status").eq("project_id", projectId).eq("status", "active"),
+      supabase.from("imphq_ad_accounts" as any).select("id, platform, account_name, is_active").eq("project_id", projectId),
+      supabase.from("imphq_wa_campaigns" as any).select("id, name, status").eq("project_id", projectId).eq("status", "active"),
     ]).then(([adsRes, waRes]) => {
       const ads = adsRes.data || [];
       const activeAds = ads.filter((a: any) => a.is_active);
