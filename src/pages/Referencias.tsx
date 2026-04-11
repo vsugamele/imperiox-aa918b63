@@ -56,7 +56,7 @@ export default function Referencias() {
   const [filterPlat, setFilterPlat] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
   const [filterPasta, setFilterPasta] = useState("all");
-  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library">("all");
+  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
