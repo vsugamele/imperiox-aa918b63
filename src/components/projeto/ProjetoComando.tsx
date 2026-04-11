@@ -268,22 +268,22 @@ export function ProjetoComando({ projectId, project }: Props) {
         </Card>
       </div>
 
-      {/* Events timeline */}
-      {todayEvents.length > 0 && (
+      {/* Agenda do dia */}
+      {calendarEvents.length > 0 && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Eventos Hoje ({todayEvents.length})
+              <TrendingUp className="h-4 w-4 text-primary" /> Agenda Hoje ({calendarEvents.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-1.5">
-              {todayEvents.slice(0, 20).map((ev) => (
+              {calendarEvents.slice(0, 20).map((ev: any) => (
                 <Badge key={ev.id} variant="outline" className="text-[9px]">
-                  {ev.event_name} {ev.created_at ? format(new Date(ev.created_at), "HH:mm") : ""}
+                  {ev.title} {ev.start_date ? format(new Date(ev.start_date), "HH:mm") : ""}
                 </Badge>
               ))}
-              {todayEvents.length > 20 && <Badge variant="secondary" className="text-[9px]">+{todayEvents.length - 20}</Badge>}
+              {calendarEvents.length > 20 && <Badge variant="secondary" className="text-[9px]">+{calendarEvents.length - 20}</Badge>}
             </div>
           </CardContent>
         </Card>
