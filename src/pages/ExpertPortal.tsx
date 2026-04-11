@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target, Radio } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target, Radio, Upload, Video } from "lucide-react";
 import { format, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
