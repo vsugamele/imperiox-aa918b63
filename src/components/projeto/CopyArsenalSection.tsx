@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = [] }: Props) {
-  const [selectedProductIndex, setSelectedProductIndex] = useState<string>("");
+  const [selectedProductIndex, setSelectedProductIndex] = useState<string>("__all__");
 
   const productNames = useMemo(() => {
     return Array.isArray(produtos) ? produtos.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
@@ -106,7 +106,7 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
               label="Gerar com IA"
               size="sm"
               showMenteSelector={true}
-              extraBody={selectedProductIndex !== "" ? { product_index: parseInt(selectedProductIndex) } : undefined}
+              extraBody={selectedProductIndex !== "__all__" ? { product_index: parseInt(selectedProductIndex) } : undefined}
             />
           </div>
         )}
