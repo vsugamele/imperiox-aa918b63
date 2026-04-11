@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index, skill_slugs, stories_per_day } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
     // ── Mentes IA Personality Lookup ──
@@ -49,11 +49,22 @@ serve(async (req) => {
     // Fetch relevant skills for context enrichment
     let skillsContext = "";
     try {
-      const { data: skills } = await sb.from("imphq_skills").select("nome, system_prompt, categoria").eq("status", "Ativa").not("system_prompt", "is", null).limit(5);
-      if (skills && skills.length > 0) {
-        skillsContext = "\n## Skills disponíveis para referência:\n";
-        for (const skill of skills) {
-          skillsContext += `- **${skill.nome}** (${skill.categoria || "geral"}): ${(skill.system_prompt || "").slice(0, 300)}\n`;
+      // If specific skills requested, fetch those; otherwise fetch top 5
+      if (skill_slugs && Array.isArray(skill_slugs) && skill_slugs.length > 0) {
+        const { data: skills } = await sb.from("imphq_skills").select("nome, system_prompt, categoria").in("slug", skill_slugs).limit(10);
+        if (skills && skills.length > 0) {
+          skillsContext = "\n## Skills ATIVADAS pelo usuário (aplique obrigatoriamente):\n";
+          for (const skill of skills) {
+            skillsContext += `### ${skill.nome} (${skill.categoria || "geral"})\n${(skill.system_prompt || "").slice(0, 800)}\n\n`;
+          }
+        }
+      } else {
+        const { data: skills } = await sb.from("imphq_skills").select("nome, system_prompt, categoria").eq("status", "Ativa").not("system_prompt", "is", null).limit(5);
+        if (skills && skills.length > 0) {
+          skillsContext = "\n## Skills disponíveis para referência:\n";
+          for (const skill of skills) {
+            skillsContext += `- **${skill.nome}** (${skill.categoria || "geral"}): ${(skill.system_prompt || "").slice(0, 300)}\n`;
+          }
         }
       }
     } catch (e) { console.error("Error fetching skills:", e); }
