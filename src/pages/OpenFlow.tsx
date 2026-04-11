@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 
@@ -212,6 +212,7 @@ export default function OpenFlow() {
       <Tabs defaultValue="automacoes">
         <TabsList>
           <TabsTrigger value="automacoes">Automações</TabsTrigger>
+          <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
           <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia do Webhook</TabsTrigger>
         </TabsList>
 
@@ -303,6 +304,11 @@ export default function OpenFlow() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Logs Tab */}
+        <TabsContent value="logs" className="space-y-4 mt-4">
+          <AutomacaoLogs automacoes={automacoes} projects={projects} />
         </TabsContent>
 
         {/* Webhook Guide Tab */}
