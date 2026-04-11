@@ -942,6 +942,36 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: fetch_groups (Evolution — list groups) ──
+    if (action === "fetch_groups") {
+      const body = await req.json();
+      const { provider_id } = body;
+      if (!provider_id) throw new Error("provider_id required");
+      const provider = await getProvider(provider_id);
+
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ error: "fetch_groups only for Evolution API" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const inst = encodeURIComponent(provider.instance_name);
+      const res = await fetch(
+        `${provider.api_url}/group/fetchAllGroups/${inst}?getParticipants=false`,
+        { headers: { apikey: provider.api_key } }
+      );
+      const data = await res.json();
+      const groups = (Array.isArray(data) ? data : []).map((g: any) => ({
+        id: g.id || g.jid,
+        subject: g.subject || g.name || g.id,
+      }));
+
+      return new Response(JSON.stringify({ success: true, groups }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Action not found: " + action }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

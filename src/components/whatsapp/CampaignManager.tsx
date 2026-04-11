@@ -90,21 +90,16 @@ export default function CampaignManager({ projects, providers }: Props) {
     load();
   };
 
-  const fetchGroups = async (provider: any) => {
-    if (!provider) return;
+  const fetchGroups = async (providerId: string) => {
+    if (!providerId) return;
     setLoadingGroups(true);
     try {
-      const apiUrl = (provider.api_url || "").replace(/\/+$/, "");
-      const res = await fetch(
-        `${apiUrl}/group/fetchAllGroups/${encodeURIComponent(provider.instance_name)}?getParticipants=false`,
-        { headers: { apikey: provider.api_key || "" } }
-      );
-      const data = await res.json();
-      const groups = (Array.isArray(data) ? data : []).map((g: any) => ({
-        id: g.id || g.jid,
-        subject: g.subject || g.name || g.id,
-      }));
-      setAvailableGroups(groups);
+      const { data, error } = await supabase.functions.invoke("whatsapp-api", {
+        body: { action: "fetch_groups", provider_id: providerId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAvailableGroups(data?.groups || []);
     } catch (e: any) {
       toast.error("Erro ao buscar grupos: " + e.message);
     }
@@ -118,8 +113,7 @@ export default function CampaignManager({ projects, providers }: Props) {
     }
     setShowGroups(campaign);
     setSelectedGroups(Array.isArray(campaign.groups) ? campaign.groups : []);
-    const provider = providers.find(p => p.id === campaign.provider_id);
-    if (provider) await fetchGroups(provider);
+    await fetchGroups(campaign.provider_id);
   };
 
   const saveGroups = async () => {
