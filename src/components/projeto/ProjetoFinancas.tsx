@@ -1028,8 +1028,8 @@ export function ProjetoFinancas({ projectId, project }: { projectId: string; pro
                       return (
                         <Card key={`${c.name}-${i}`} className={cn("bg-secondary/20 border-border overflow-hidden transition-all", !isActive && "opacity-50 grayscale-[30%]", isActive && "ring-1 ring-emerald-500/30")}>
                           {imgSrc && (
-                            <div className="aspect-video bg-secondary/50 overflow-hidden relative">
-                              <img src={imgSrc} alt={c.name || "Criativo"} className="w-full h-full object-cover" loading="lazy" />
+                            <div className="bg-secondary/50 overflow-hidden relative cursor-pointer" onClick={() => setLightboxImg(imgSrc)}>
+                              <img src={imgSrc} alt={c.name || "Criativo"} className="w-full max-h-[280px] object-contain" loading="lazy" />
                               <div className="absolute top-2 left-2">
                                 <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold", isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-muted/80 text-muted-foreground")}>
                                   {isActive ? "🟢 Ativo" : "⏸ Inativo"}
