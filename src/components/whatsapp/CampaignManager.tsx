@@ -46,6 +46,7 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [availableGroups, setAvailableGroups] = useState<{ id: string; subject: string }[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupSearch, setGroupSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
