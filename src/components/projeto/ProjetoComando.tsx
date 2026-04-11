@@ -16,25 +16,35 @@ interface Props {
 export function ProjetoComando({ projectId, project }: Props) {
   const [cards, setCards] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
-  const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [pendingVendas, setPendingVendas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [vendasHoje, setVendasHoje] = useState<any[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+
   const load = async () => {
     setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
+    // Range do dia em UTC-3 (horário de Brasília)
+    const now = new Date();
+    const brOffset = -3 * 60;
+    const brNow = new Date(now.getTime() + (brOffset + now.getTimezoneOffset()) * 60000);
+    const todayStr = brNow.toISOString().split("T")[0];
+    const dayStart = todayStr + "T03:00:00.000Z"; // meia-noite BR = 03:00 UTC
+    const dayEnd = new Date(new Date(dayStart).getTime() + 86400000).toISOString();
 
-    const [cardsRes, leadsRes, eventsRes, vendasRes] = await Promise.all([
+    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes] = await Promise.all([
       supabase.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
       supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
-      supabase.from("imphq_events").select("*").eq("project_id", projectId).gte("created_at", today + "T00:00:00").order("created_at", { ascending: false }),
       supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
+      supabase.from("imphq_vendas").select("id, status, created_at").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
+      supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", todayStr).order("start_date", { ascending: true }),
     ]);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
-    setTodayEvents(eventsRes.data || []);
-    setPendingVendas(vendasRes.data || []);
+    setPendingVendas(vendasPendRes.data || []);
+    setVendasHoje(vendasHojeRes.data || []);
+    setCalendarEvents(calEventsRes.data || []);
     setLoading(false);
   };
 
@@ -84,13 +94,20 @@ export function ProjetoComando({ projectId, project }: Props) {
     return null;
   };
 
-  const leadsToday = leads.filter(l => l.created_at?.startsWith(new Date().toISOString().split("T")[0])).length;
-  const pixEvents = todayEvents.filter(e => e.event_name === "pix_created" || e.event_name === "waiting_payment").length;
-  const salesEvents = todayEvents.filter(e => e.event_name === "approved" || e.event_name === "purchase").length;
-  const pendingLeads = leads.filter(l => {
-    const s = (l.status || "").toLowerCase();
-    return s.includes("pend") || s.includes("carrinho") || s.includes("pix") || s.includes("waiting");
+  // KPIs calculados a partir de vendas reais
+  const now = new Date();
+  const brOffset = -3 * 60;
+  const brNow = new Date(now.getTime() + (brOffset + now.getTimezoneOffset()) * 60000);
+  const todayStr = brNow.toISOString().split("T")[0];
+  const dayStartUtc = todayStr + "T03:00:00.000Z";
+
+  const leadsToday = leads.filter(l => l.created_at && l.created_at >= dayStartUtc).length;
+  const pixToday = vendasHoje.filter(v => {
+    const s = (v.status || "").toLowerCase();
+    return s.includes("pend") || s.includes("pix") || s.includes("waiting") || s.includes("carrinho");
   }).length;
+  const salesToday = vendasHoje.filter(v => (v.status || "").toLowerCase() === "aprovado").length;
+  const pendingTotal = pendingVendas.length;
 
   const briefing = typeof project.data === "object" ? project.data : {};
   const fase = briefing?.status || "Em configuração";
@@ -131,9 +148,9 @@ export function ProjetoComando({ projectId, project }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Leads Hoje", value: leadsToday, icon: Users, color: "text-blue-400" },
-          { label: "Pix Gerados", value: pixEvents, icon: Zap, color: "text-amber-400" },
-          { label: "Vendas Hoje", value: salesEvents, icon: ShoppingCart, color: "text-emerald-400" },
-          { label: "Pendentes", value: pendingLeads, icon: AlertCircle, color: "text-rose-400" },
+          { label: "Pix Gerados", value: pixToday, icon: Zap, color: "text-amber-400" },
+          { label: "Vendas Hoje", value: salesToday, icon: ShoppingCart, color: "text-emerald-400" },
+          { label: "Pendentes", value: pendingTotal, icon: AlertCircle, color: "text-rose-400" },
         ].map((kpi) => (
           <Card key={kpi.label} className="bg-card border-border">
             <CardContent className="p-4 text-center">
@@ -251,22 +268,22 @@ export function ProjetoComando({ projectId, project }: Props) {
         </Card>
       </div>
 
-      {/* Events timeline */}
-      {todayEvents.length > 0 && (
+      {/* Agenda do dia */}
+      {calendarEvents.length > 0 && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Eventos Hoje ({todayEvents.length})
+              <TrendingUp className="h-4 w-4 text-primary" /> Agenda Hoje ({calendarEvents.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-1.5">
-              {todayEvents.slice(0, 20).map((ev) => (
+              {calendarEvents.slice(0, 20).map((ev: any) => (
                 <Badge key={ev.id} variant="outline" className="text-[9px]">
-                  {ev.event_name} {ev.created_at ? format(new Date(ev.created_at), "HH:mm") : ""}
+                  {ev.title} {ev.start_date ? format(new Date(ev.start_date), "HH:mm") : ""}
                 </Badge>
               ))}
-              {todayEvents.length > 20 && <Badge variant="secondary" className="text-[9px]">+{todayEvents.length - 20}</Badge>}
+              {calendarEvents.length > 20 && <Badge variant="secondary" className="text-[9px]">+{calendarEvents.length - 20}</Badge>}
             </div>
           </CardContent>
         </Card>
