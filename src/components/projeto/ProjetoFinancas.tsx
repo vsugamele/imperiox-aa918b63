@@ -767,6 +767,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                     }
                     toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
                     loadData();
+                    if (onRefresh) await onRefresh();
                   } catch (e: any) {
                     toast.error(getFacebookSyncErrorMessage(undefined, e));
                   }
