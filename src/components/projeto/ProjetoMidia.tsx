@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon, Paperclip } from "lucide-react";
+import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon, Paperclip, FolderOpen, FolderPlus, ChevronRight, Home } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUpload } from "@/components/FileUpload";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -69,6 +70,11 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
   const [tagInput, setTagInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Folder system state
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
 
   // Task attachments state
   const [taskAttachments, setTaskAttachments] = useState<any[]>([]);
@@ -137,7 +143,8 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
     if (!user) return;
 
     setUploading(true);
-    const category = activeTab === "todos" ? "geral" : activeTab;
+    const baseCategory = activeTab === "todos" ? "geral" : activeTab;
+    const category = currentFolder ? `${baseCategory}/${currentFolder}` : baseCategory;
     let uploaded = 0;
 
     for (const file of Array.from(files)) {
@@ -203,9 +210,49 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
+  // Extract folders from content_category patterns like "reels/folder-name"
+  const getFoldersForTab = (tab: string): string[] => {
+    const relevant = tab === "todos" ? items : items.filter(i => (i.content_category || "geral").startsWith(tab));
+    const folders = new Set<string>();
+    relevant.forEach(item => {
+      const cat = item.content_category || "geral";
+      const parts = cat.split("/");
+      if (parts.length > 1) folders.add(parts[1]);
+    });
+    return Array.from(folders).sort();
+  };
+
   const getFilteredItems = (tab: string) => {
-    if (tab === "todos") return items;
-    return items.filter(i => (i.content_category || "geral") === tab);
+    if (tab === "todos") {
+      if (currentFolder) return items.filter(i => (i.content_category || "").includes(`/${currentFolder}`));
+      return items;
+    }
+    if (currentFolder) {
+      return items.filter(i => (i.content_category || "geral") === `${tab}/${currentFolder}`);
+    }
+    return items.filter(i => {
+      const cat = i.content_category || "geral";
+      return cat === tab || cat.startsWith(`${tab}/`);
+    });
+  };
+
+  const createFolder = () => {
+    const name = newFolderName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
+    if (!name) return;
+    setCurrentFolder(name);
+    setNewFolderName("");
+    setFolderDialogOpen(false);
+    toast.success(`Pasta "${name}" criada. Faça upload de arquivos nela.`);
+  };
+
+  const moveItemToFolder = async (itemId: string, folder: string | null) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    const baseCat = (item.content_category || "geral").split("/")[0];
+    const newCat = folder ? `${baseCat}/${folder}` : baseCat;
+    await supabase.from("imphq_content_library").update({ content_category: newCat }).eq("id", itemId);
+    loadItems();
+    toast.success("Arquivo movido");
   };
 
   return (
@@ -280,19 +327,63 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
         </TabsContent>
 
         {/* Content category tabs */}
-        {CONTENT_TABS.filter(t => t.key !== "fotos").map(tab => (
-          <TabsContent key={tab.key} value={tab.key} className="mt-4">
-            <ContentGrid
-              items={getFilteredItems(tab.key)}
-              uploading={uploading}
-              fileInputRef={fileInputRef}
-              onUpload={handleUpload}
-              onDelete={deleteItem}
-              onEdit={(item) => { setEditItem(item); setEditDialog(true); }}
-              onPreview={setPreviewItem}
-            />
-          </TabsContent>
-        ))}
+        {CONTENT_TABS.filter(t => t.key !== "fotos").map(tab => {
+          const folders = getFoldersForTab(tab.key);
+          return (
+            <TabsContent key={tab.key} value={tab.key} className="mt-4 space-y-3">
+              {/* Folder breadcrumb + controls */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Button size="sm" variant="ghost" className="h-7 px-2 gap-1 text-xs" onClick={() => setCurrentFolder(null)}>
+                    <Home className="h-3 w-3" /> Raiz
+                  </Button>
+                  {currentFolder && (
+                    <>
+                      <ChevronRight className="h-3 w-3" />
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        <FolderOpen className="h-3 w-3" /> {currentFolder}
+                        <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setCurrentFolder(null)} />
+                      </Badge>
+                    </>
+                  )}
+                </div>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setFolderDialogOpen(true)}>
+                  <FolderPlus className="h-3 w-3" /> Nova Pasta
+                </Button>
+              </div>
+
+              {/* Folder cards */}
+              {!currentFolder && folders.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {folders.map(folder => {
+                    const count = items.filter(i => (i.content_category || "").includes(`/${folder}`)).length;
+                    return (
+                      <div
+                        key={folder}
+                        className="flex flex-col items-center gap-1 p-3 rounded-lg border border-border bg-secondary/30 hover:border-primary/40 cursor-pointer transition-colors"
+                        onClick={() => setCurrentFolder(folder)}
+                      >
+                        <FolderOpen className="h-8 w-8 text-primary/70" />
+                        <span className="text-xs font-medium truncate w-full text-center">{folder}</span>
+                        <span className="text-[9px] text-muted-foreground">{count} arquivo(s)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <ContentGrid
+                items={getFilteredItems(tab.key)}
+                uploading={uploading}
+                fileInputRef={fileInputRef}
+                onUpload={handleUpload}
+                onDelete={deleteItem}
+                onEdit={(item) => { setEditItem(item); setEditDialog(true); }}
+                onPreview={setPreviewItem}
+              />
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
       {/* Task Attachments */}
@@ -361,16 +452,42 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
               <div>
                 <Label className="text-xs">Categoria</Label>
                 <div className="flex gap-1 flex-wrap mt-1">
-                  {["reels", "stories", "anuncios", "feed", "geral"].map(cat => (
-                    <Badge
-                      key={cat}
-                      variant={(editItem.content_category || "geral") === cat ? "default" : "outline"}
-                      className="cursor-pointer text-xs capitalize"
-                      onClick={() => setEditItem({ ...editItem, content_category: cat })}
-                    >
-                      {cat}
-                    </Badge>
-                  ))}
+                  {["reels", "stories", "anuncios", "feed", "geral"].map(cat => {
+                    const baseCat = (editItem.content_category || "geral").split("/")[0];
+                    return (
+                      <Badge
+                        key={cat}
+                        variant={baseCat === cat ? "default" : "outline"}
+                        className="cursor-pointer text-xs capitalize"
+                        onClick={() => {
+                          const folder = (editItem.content_category || "").split("/")[1];
+                          setEditItem({ ...editItem, content_category: folder ? `${cat}/${folder}` : cat });
+                        }}
+                      >
+                        {cat}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Pasta</Label>
+                <div className="flex gap-2 items-center mt-1">
+                  <Select
+                    value={(editItem.content_category || "").split("/")[1] || "__root__"}
+                    onValueChange={(v) => {
+                      const baseCat = (editItem.content_category || "geral").split("/")[0];
+                      setEditItem({ ...editItem, content_category: v === "__root__" ? baseCat : `${baseCat}/${v}` });
+                    }}
+                  >
+                    <SelectTrigger className="bg-secondary h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__root__">📁 Raiz (sem pasta)</SelectItem>
+                      {getFoldersForTab("todos").map(f => (
+                        <SelectItem key={f} value={f}>📂 {f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div>
@@ -414,6 +531,28 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialog(false)}>Cancelar</Button>
             <Button onClick={updateItem}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Folder Dialog */}
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><FolderPlus className="h-4 w-4" /> Nova Pasta</DialogTitle></DialogHeader>
+          <div>
+            <Label className="text-xs">Nome da pasta</Label>
+            <Input
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              placeholder="Ex: campanha-abril, semana-1..."
+              className="bg-secondary mt-1"
+              onKeyDown={e => e.key === "Enter" && createFolder()}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Letras minúsculas, números e hifens.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setFolderDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={createFolder} disabled={!newFolderName.trim()}>Criar Pasta</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

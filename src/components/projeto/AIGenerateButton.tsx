@@ -4,10 +4,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, Brain, Database, UserCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Sparkles, Loader2, Brain, Database, UserCircle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MENTES_DATA } from "@/data/mentesData";
+import { SKILLS_DATA } from "@/data/skillsData";
 
 const MODELS = [
   // --- Lovable Gateway (Gemini + GPT) ---
@@ -41,6 +43,7 @@ interface AIGenerateButtonProps {
   className?: string;
   extraBody?: Record<string, any>;
   showMenteSelector?: boolean;
+  showSkillSelector?: boolean;
 }
 
 export function AIGenerateButton({
@@ -55,11 +58,13 @@ export function AIGenerateButton({
   className = "",
   extraBody = {},
   showMenteSelector = false,
+  showSkillSelector = false,
 }: AIGenerateButtonProps) {
   const [open, setOpen] = useState(false);
   const [model, setModel] = useState(MODELS[0].id);
   const [generating, setGenerating] = useState(false);
   const [selectedMente, setSelectedMente] = useState<string>("none");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   const getOpenRouterKey = (): string | null => {
     try {
@@ -96,6 +101,11 @@ export function AIGenerateButton({
       // Send mente_id if selected
       if (selectedMente && selectedMente !== "none") {
         bodyPayload.mente_id = selectedMente;
+      }
+
+      // Send selected skills
+      if (selectedSkills.length > 0) {
+        bodyPayload.skill_slugs = selectedSkills;
       }
 
       const { data, error } = await supabase.functions.invoke("openflow-ai", {
@@ -181,6 +191,31 @@ export function AIGenerateButton({
               </div>
             )}
 
+            {showSkillSelector && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                  <Wrench className="h-3 w-3" /> Skills a aplicar
+                </Label>
+                <div className="max-h-[140px] overflow-y-auto space-y-1.5 border border-border rounded-md p-2 bg-secondary/30">
+                  {SKILLS_DATA.map(skill => (
+                    <label key={skill.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-secondary/50 rounded px-1 py-0.5">
+                      <Checkbox
+                        checked={selectedSkills.includes(skill.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedSkills(prev => [...prev, skill.id]);
+                          else setSelectedSkills(prev => prev.filter(s => s !== skill.id));
+                        }}
+                      />
+                      <span>{skill.icone} {skill.nome}</span>
+                      <span className="text-[9px] text-muted-foreground ml-auto">{skill.categoria}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedSkills.length > 0 && (
+                  <p className="text-[10px] text-primary mt-1">{selectedSkills.length} skill(s) selecionada(s)</p>
+                )}
+              </div>
+            )}
             {contextSources.length > 0 && (
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
