@@ -23,25 +23,40 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
 
   useEffect(() => {
     async function load() {
-      // Leads trend last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Calculate date range from period
+      const now = new Date();
+      const periodDays: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90, "6m": 180 };
+      const days = periodDays[period] || 30;
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - days);
+      const fromISO = fromDate.toISOString();
+
+      // Build vendas query with filters
+      let vendasQ = supabase.from("imphq_vendas").select("valor, status, created_at, produto_nome, project_id").eq("status", "aprovado").gte("created_at", fromISO);
+      if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
+      if (projectFilter && projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
+
+      let costsQ = supabase.from("imphq_project_costs").select("valor, moeda, created_at, project_id").gte("created_at", fromISO);
+      if (projectFilter && projectFilter !== "all") costsQ = costsQ.eq("project_id", projectFilter);
+
+      let adsQ = supabase.from("imphq_ads_spend").select("valor, data, project_id").gte("data", fromDate.toISOString().split("T")[0]);
+      if (projectFilter && projectFilter !== "all") adsQ = adsQ.eq("project_id", projectFilter);
 
       const [leadsRawRes, totalLeadsRes, pixLeadsRes, buyersRes, costsRes, revsRes, vendasRes, adsRes, finResumo] = await Promise.all([
-        supabase.from("imphq_leads").select("created_at").gte("created_at", thirtyDaysAgo.toISOString()),
+        supabase.from("imphq_leads").select("created_at").gte("created_at", fromISO),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).not("data->ultimo_evento", "is", null),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).eq("status", "cliente"),
-        supabase.from("imphq_project_costs").select("valor, moeda, created_at"),
-        supabase.from("imphq_project_revenue").select("valor, created_at"),
-        (() => { let q = supabase.from("imphq_vendas").select("valor, status, created_at, produto_nome").eq("status", "aprovado"); if (productFilter && productFilter !== "all") q = q.eq("produto_nome", productFilter); return q; })(),
-        supabase.from("imphq_ads_spend").select("valor, data"),
+        costsQ,
+        supabase.from("imphq_project_revenue").select("valor, created_at").gte("created_at", fromISO),
+        vendasQ,
+        adsQ,
         supabase.from("vw_financas_resumo").select("*").gt("receita_total", 0).order("lucro_liquido", { ascending: false }).limit(5),
       ]);
 
       // Leads trend
       const leadsByDay: Record<string, number> = {};
-      for (let i = 29; i >= 0; i--) {
+      for (let i = Math.min(days, 60) - 1; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         leadsByDay[d.toISOString().split("T")[0]] = 0;
@@ -59,7 +74,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
         { stage: "Compra", value: buyersRes.count || 0, fill: "hsl(142, 71%, 45%)" },
       ]);
 
-      // Revenue vs Cost by month (last 6 months)
+      // Revenue vs Cost by month (last 6 months always for this chart)
       const monthMap: Record<string, { receita: number; custo: number; ads: number }> = {};
       for (let i = 5; i >= 0; i--) {
         const d = new Date();
