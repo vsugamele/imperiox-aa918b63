@@ -17,6 +17,7 @@ interface AdsGlobal {
 interface Props {
   period: string;
   projectFilter: string;
+  productFilter?: string;
   allProjects: any[];
 }
 
