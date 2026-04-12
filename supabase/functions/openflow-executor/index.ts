@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
                 .replace(/\{\{email\}\}/g, lead_data?.email || "")
                 .replace(/\{\{produto\}\}/g, lead_data?.produto || "");
 
-              const providerId = step.provider_id || auto.provider_id;
+              const providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
               if (!providerId) {
                 stepResult.status = "error";
                 stepResult.reason = "provider_id não configurado";
