@@ -11695,6 +11695,78 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_notification_preferences: {
+        Row: {
+          created_at: string | null
+          disparo_concluido: boolean | null
+          erro_conexao: boolean | null
+          grupo_capacidade: boolean | null
+          id: string
+          novo_lead: boolean | null
+          resposta_ia: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          disparo_concluido?: boolean | null
+          erro_conexao?: boolean | null
+          grupo_capacidade?: boolean | null
+          id?: string
+          novo_lead?: boolean | null
+          resposta_ia?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          disparo_concluido?: boolean | null
+          erro_conexao?: boolean | null
+          grupo_capacidade?: boolean | null
+          id?: string
+          novo_lead?: boolean | null
+          resposta_ia?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_notifications: {
         Row: {
           created_at: string | null
@@ -12943,10 +13015,12 @@ export type Database = {
       }
       imphq_wa_campaigns: {
         Row: {
+          anti_hack: boolean | null
           created_at: string
           exit_message: string | null
           groups: Json
           id: string
+          mention_all: boolean | null
           name: string
           produto: string | null
           project_id: string | null
@@ -12954,12 +13028,15 @@ export type Database = {
           start_date: string | null
           status: string
           updated_at: string
+          welcome_message: string | null
         }
         Insert: {
+          anti_hack?: boolean | null
           created_at?: string
           exit_message?: string | null
           groups?: Json
           id?: string
+          mention_all?: boolean | null
           name: string
           produto?: string | null
           project_id?: string | null
@@ -12967,12 +13044,15 @@ export type Database = {
           start_date?: string | null
           status?: string
           updated_at?: string
+          welcome_message?: string | null
         }
         Update: {
+          anti_hack?: boolean | null
           created_at?: string
           exit_message?: string | null
           groups?: Json
           id?: string
+          mention_all?: boolean | null
           name?: string
           produto?: string | null
           project_id?: string | null
@@ -12980,6 +13060,7 @@ export type Database = {
           start_date?: string | null
           status?: string
           updated_at?: string
+          welcome_message?: string | null
         }
         Relationships: [
           {
