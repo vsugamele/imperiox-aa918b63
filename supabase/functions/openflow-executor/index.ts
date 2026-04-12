@@ -7,6 +7,19 @@ const corsHeaders = {
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// Normalize step fields from editor format to executor format
+function normalizeStep(step: any): any {
+  const tipo = step.tipo === "aguardar" ? "delay" : step.tipo;
+  return {
+    ...step,
+    tipo,
+    // Message: editor uses 'template', executor expects 'mensagem'
+    mensagem: step.mensagem || step.texto || step.template || "",
+    // Delay: editor uses 'delay_min', executor expects 'delay_min'
+    delay_min: step.delay_min || step.minutos || step.delay || 1,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -22,11 +35,20 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Normalize trigger: map UI names to webhook names and vice-versa
+    const triggerAliases: Record<string, string[]> = {
+      lead_novo: ["lead_novo", "lead_capturado"],
+      lead_capturado: ["lead_capturado", "lead_novo"],
+      aguardando_pagamento: ["aguardando_pagamento", "pix_gerado"],
+      pix_gerado: ["pix_gerado", "aguardando_pagamento"],
+    };
+    const triggerVariants = triggerAliases[trigger_tipo] || [trigger_tipo];
+
     // Find matching automations
     let query = supabase
       .from("imphq_automacoes")
       .select("*")
-      .eq("trigger_tipo", trigger_tipo)
+      .in("trigger_tipo", triggerVariants)
       .eq("ativo", true);
 
     if (automacao_id) {
@@ -58,10 +80,13 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const auto of matched) {
-      const steps = auto.etapas || [];
+      // CRITICAL FIX: Read from 'acoes' (editor field) with fallback to 'etapas' (legacy)
+      const rawSteps = auto.acoes || auto.etapas || [];
+      const steps = rawSteps.map(normalizeStep);
       const stepResults: any[] = [];
       let status = "completed";
       let errorMessage: string | null = null;
+      let messagesSent = 0;
 
       // Create execution record
       const { data: execution, error: execErr } = await supabase
@@ -84,6 +109,34 @@ Deno.serve(async (req) => {
 
       const executionId = execution.id;
 
+      if (steps.length === 0) {
+        // No steps configured — mark as failed, not success
+        status = "failed";
+        errorMessage = "Automação sem ações/etapas configuradas";
+        await supabase.from("imphq_flow_executions")
+          .update({ status, error_message: errorMessage, step_results: [] })
+          .eq("id", executionId);
+
+        await supabase.from("imphq_automacao_logs").insert({
+          automacao_id: auto.id,
+          project_id,
+          trigger_data: { trigger_tipo, lead_data: lead_data || null },
+          acoes_executadas: [],
+          status: "error",
+          error_message: errorMessage,
+        });
+
+        results.push({
+          automacao_id: auto.id,
+          automacao_nome: auto.nome,
+          execution_id: executionId,
+          status,
+          steps_executed: 0,
+          error: errorMessage,
+        });
+        continue;
+      }
+
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
         const stepResult: any = { step: i, tipo: step.tipo, started_at: new Date().toISOString() };
@@ -95,7 +148,7 @@ Deno.serve(async (req) => {
             .eq("id", executionId);
 
           if (step.tipo === "delay" || step.tipo === "espera") {
-            const delayMin = step.delay_min || step.minutos || 1;
+            const delayMin = step.delay_min || 1;
             // For delays > 5 min, schedule for later and stop
             if (delayMin > 5) {
               const nextRun = new Date(Date.now() + delayMin * 60000);
@@ -121,14 +174,31 @@ Deno.serve(async (req) => {
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
-              const msgText = (step.mensagem || step.texto || "")
+              const msgText = (step.mensagem || "")
                 .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
                 .replace(/\{\{email\}\}/g, lead_data?.email || "")
-                .replace(/\{\{produto\}\}/g, lead_data?.produto || "");
+                .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
+                .replace(/\{\{telefone\}\}/g, phone || "");
 
+              // Provider hierarchy: step > auto > lead > project-active > global
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
               
-              // Auto-detect: find first active provider if none specified
+              // Try project-specific provider first
+              if (!providerId && project_id) {
+                const { data: projProviders } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("id")
+                  .eq("is_active", true)
+                  .eq("project_id", project_id)
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+                if (projProviders?.length) {
+                  providerId = projProviders[0].id;
+                  console.log("[openflow-executor] Project provider:", providerId);
+                }
+              }
+
+              // Global fallback
               if (!providerId) {
                 const { data: activeProviders } = await supabase
                   .from("imphq_wa_providers")
@@ -138,13 +208,19 @@ Deno.serve(async (req) => {
                   .limit(1);
                 if (activeProviders?.length) {
                   providerId = activeProviders[0].id;
-                  console.log("[openflow-executor] Auto-detected provider:", providerId);
+                  console.log("[openflow-executor] Global provider fallback:", providerId);
                 }
               }
+
+              stepResult.provider_id = providerId || null;
+              stepResult.phone = phone;
+              stepResult.message_preview = msgText.substring(0, 100);
 
               if (!providerId) {
                 stepResult.status = "error";
                 stepResult.reason = "Nenhum provider WhatsApp ativo encontrado";
+                status = "failed";
+                errorMessage = `Step ${i} (whatsapp): Nenhum provider WhatsApp ativo`;
               } else {
                 const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                   method: "POST",
@@ -154,7 +230,7 @@ Deno.serve(async (req) => {
                   },
                   body: JSON.stringify({
                     provider_id: providerId,
-                    phone,
+                    phone: phone.replace(/\D/g, ""),
                     content: msgText,
                     project_id,
                   }),
@@ -162,6 +238,12 @@ Deno.serve(async (req) => {
                 const waData = await waRes.json();
                 stepResult.status = waData.success ? "sent" : "error";
                 stepResult.response = waData;
+                if (waData.success) {
+                  messagesSent++;
+                } else {
+                  status = "failed";
+                  errorMessage = `Step ${i} (whatsapp): ${waData.error || "Falha no envio"}`;
+                }
               }
             }
           }
@@ -192,12 +274,12 @@ Deno.serve(async (req) => {
                 const emailData = await emailRes.json();
                 stepResult.status = emailData.success ? "sent" : "error";
                 stepResult.response = emailData;
+                if (emailData.success) messagesSent++;
               }
             }
           }
 
           else if (step.tipo === "condicao" || step.tipo === "condition") {
-            // Simple condition: check a field value
             const field = step.campo || step.field;
             const operator = step.operador || step.operator || "equals";
             const value = step.valor || step.value;
@@ -214,7 +296,6 @@ Deno.serve(async (req) => {
             stepResult.status = "evaluated";
             stepResult.condition_met = conditionMet;
 
-            // If condition not met and has else_skip, jump steps
             if (!conditionMet && step.else_skip) {
               const skipCount = parseInt(step.else_skip) || 1;
               i += skipCount;
@@ -224,6 +305,7 @@ Deno.serve(async (req) => {
 
           else {
             stepResult.status = "unknown_type";
+            stepResult.reason = `Tipo "${step.tipo}" não reconhecido`;
           }
         } catch (stepErr: any) {
           stepResult.status = "error";
@@ -237,7 +319,7 @@ Deno.serve(async (req) => {
 
         if (status === "failed" || status === "waiting") break;
 
-        // Small delay between steps to avoid overwhelming APIs
+        // Small delay between steps
         if (i < steps.length - 1) await delay(500);
       }
 
@@ -253,11 +335,16 @@ Deno.serve(async (req) => {
           .eq("id", executionId);
       }
 
-      // Insert execution log
+      // Insert execution log with enriched data
       await supabase.from("imphq_automacao_logs").insert({
         automacao_id: auto.id,
         project_id,
-        trigger_data: { trigger_tipo, lead_data: lead_data || null },
+        trigger_data: {
+          trigger_tipo,
+          lead_data: lead_data || null,
+          phone: lead_data?.phone || lead_data?.telefone || null,
+          provider_id: auto.provider_id || null,
+        },
         acoes_executadas: stepResults,
         status: status === "failed" ? "error" : "success",
         error_message: errorMessage,
@@ -269,6 +356,8 @@ Deno.serve(async (req) => {
         execution_id: executionId,
         status,
         steps_executed: stepResults.length,
+        messages_sent: messagesSent,
+        step_results: stepResults,
       });
     }
 
