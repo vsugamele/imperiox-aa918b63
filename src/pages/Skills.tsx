@@ -29,7 +29,7 @@ import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import ReactMarkdown from "react-markdown";
 
 type Status = "Ativo" | "Beta" | "Planejado";
-type Categoria = "Código" | "IA" | "Dados" | "Criativo" | "Automação" | "Pesquisa" | "Infra" | "Outro" | "Pesquisa & Avatar" | "Copy & Persuasão" | "Inteligência Competitiva" | "Estratégia & Posicionamento" | "Vendas High-Ticket";
+type Categoria = "Código" | "IA" | "Dados" | "Criativo" | "Automação" | "Pesquisa" | "Infra" | "Outro" | "Pesquisa & Avatar" | "Copy & Persuasão" | "Inteligência Competitiva" | "Estratégia & Posicionamento" | "Vendas High-Ticket" | "Tráfego & Escala";
 
 interface Skill {
   id: string;
@@ -56,7 +56,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   "⚔️": Swords, "🔍": Search, "🎭": Eye, "✍️": PenTool
 };
 
-const MARKETING_CATS = ["Pesquisa & Avatar", "Copy & Persuasão", "Inteligência Competitiva", "Estratégia & Posicionamento", "Vendas High-Ticket"];
+const MARKETING_CATS = ["Pesquisa & Avatar", "Copy & Persuasão", "Inteligência Competitiva", "Estratégia & Posicionamento", "Vendas High-Ticket", "Tráfego & Escala"];
 const TECH_CATS = ["Código", "IA", "Dados", "Criativo", "Automação", "Pesquisa", "Infra", "Outro"];
 
 const SKILL_FILE_MAP: Record<string, string> = {
@@ -74,6 +74,7 @@ const SKILL_FILE_MAP: Record<string, string> = {
   "dossie-problemas": "dossie-problemas-v2.md",
   "anams-copywriter": "anams-copywriter.md",
   "market-intel": "market-intel-v2.md",
+  "yoshitani-traffic-scale": "yoshitani-traffic-scale.md",
 };
 
 const DEFAULT_SKILLS: Skill[] = [
@@ -105,7 +106,7 @@ const CATEGORIA_ICONS: Record<string, LucideIcon> = {
   "Automação": Zap, "Pesquisa": Search, "Infra": Server, "Outro": Zap,
   "Pesquisa & Avatar": Brain, "Copy & Persuasão": PenTool,
   "Inteligência Competitiva": Globe, "Estratégia & Posicionamento": Target,
-  "Vendas High-Ticket": Shield
+  "Vendas High-Ticket": Shield, "Tráfego & Escala": Swords
 };
 
 const STATUS_STYLES: Record<Status, string> = {
