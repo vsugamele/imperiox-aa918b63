@@ -191,7 +191,7 @@ export default function Leads() {
     else if (projectFilter === "none") leadsQuery = leadsQuery.is("project_id", null);
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    leadsQuery = leadsQuery.order("updated_at", { ascending: false }).range(from, to);
+    leadsQuery = leadsQuery.order("updated_at", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
 
     let vendasQuery = supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }).limit(1000);
     if (projectFilter !== "all" && projectFilter !== "none") {
