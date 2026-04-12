@@ -11,10 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search, Cog } from "lucide-react";
 import { toast } from "sonner";
 import CampaignStepEditor from "./CampaignStepEditor";
 import CampaignLogViewer from "./CampaignLogViewer";
+import CampaignKPICards from "./CampaignKPICards";
+import CampaignAutomationPanel from "./CampaignAutomationPanel";
 
 interface Campaign {
   id: string;
@@ -26,6 +28,9 @@ interface Campaign {
   groups: string[];
   start_date: string | null;
   exit_message: string | null;
+  welcome_message: string | null;
+  anti_hack: boolean;
+  mention_all: boolean;
   created_at: string;
 }
 
@@ -42,6 +47,7 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [showSteps, setShowSteps] = useState<Campaign | null>(null);
   const [showLogs, setShowLogs] = useState<Campaign | null>(null);
   const [showGroups, setShowGroups] = useState<Campaign | null>(null);
+  const [showAutomation, setShowAutomation] = useState<Campaign | null>(null);
   const [form, setForm] = useState({ name: "", project_id: "", provider_id: "", start_date: "", produto: "" });
   const [availableGroups, setAvailableGroups] = useState<{ id: string; subject: string }[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
@@ -153,6 +159,8 @@ export default function CampaignManager({ projects, providers }: Props) {
         </Button>
       </div>
 
+      <CampaignKPICards />
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : campaigns.length === 0 ? (
@@ -191,6 +199,9 @@ export default function CampaignManager({ projects, providers }: Props) {
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowLogs(c)} title="Logs">
                       <History className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowAutomation(c)} title="Automações">
+                      <Cog className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       size="icon"
@@ -317,6 +328,23 @@ export default function CampaignManager({ projects, providers }: Props) {
         <DialogContent className="max-w-2xl max-h-[85vh]">
           <DialogHeader><DialogTitle>Logs — {showLogs?.name}</DialogTitle></DialogHeader>
           {showLogs && <CampaignLogViewer campaignId={showLogs.id} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* Automation Dialog */}
+      <Dialog open={!!showAutomation} onOpenChange={() => setShowAutomation(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Automações — {showAutomation?.name}</DialogTitle></DialogHeader>
+          {showAutomation && (
+            <CampaignAutomationPanel
+              campaignId={showAutomation.id}
+              welcomeMessage={showAutomation.welcome_message}
+              exitMessage={showAutomation.exit_message}
+              antiHack={showAutomation.anti_hack}
+              mentionAll={showAutomation.mention_all}
+              onUpdate={load}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

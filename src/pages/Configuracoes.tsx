@@ -16,6 +16,7 @@ import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { IntegrationStatusTab } from "@/components/configuracoes/IntegrationStatusTab";
 import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
+import { NotificationPreferencesTab } from "@/components/configuracoes/NotificationPreferencesTab";
 
 export default function Configuracoes() {
   const { user, isAdmin } = useAuth();
@@ -439,19 +440,24 @@ function NotificacoesTab() {
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-bold">Preferências de Notificação</h2>
-      <div className="space-y-1">
-        {NOTIFICATIONS.map(n => (
-          <div key={n.key} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-            <div>
-              <p className="text-sm font-medium">{n.label}</p>
-              <p className="text-xs text-muted-foreground">{n.desc}</p>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold">Preferências de Notificação</h2>
+        <div className="space-y-1">
+          {NOTIFICATIONS.map(n => (
+            <div key={n.key} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+              <div>
+                <p className="text-sm font-medium">{n.label}</p>
+                <p className="text-xs text-muted-foreground">{n.desc}</p>
+              </div>
+              <Switch checked={prefs[n.key]} onCheckedChange={() => toggle(n.key)} />
             </div>
-            <Switch checked={prefs[n.key]} onCheckedChange={() => toggle(n.key)} />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+
+      {/* WhatsApp / Campaign Notification Preferences (DB-backed) */}
+      <NotificationPreferencesTab />
     </div>
   );
 }
