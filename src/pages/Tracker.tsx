@@ -444,7 +444,7 @@ export default function Tracker() {
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} />
             <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Total Clicks" value={String(totalClicks)} />
-            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendas)} />
+            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendasCount)} />
           </div>
           {totalGasto === 0 && totalClicks > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
