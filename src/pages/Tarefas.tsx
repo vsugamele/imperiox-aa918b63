@@ -770,7 +770,7 @@ export default function Tarefas() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="routines" className="w-full">
+      <Tabs defaultValue="calendar" className="w-full">
         <TabsList className="w-full justify-start bg-secondary/50">
           <TabsTrigger value="routines" className="gap-1.5">
             <RotateCcw className="h-3.5 w-3.5" /> Rotinas do Dia
