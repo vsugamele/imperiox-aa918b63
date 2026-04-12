@@ -11617,6 +11617,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_mi_favorites: {
+        Row: {
+          created_at: string | null
+          id: string
+          item_key: string
+          notes: string | null
+          project_id: string | null
+          tags: string[] | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          item_key: string
+          notes?: string | null
+          project_id?: string | null
+          tags?: string[] | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          item_key?: string
+          notes?: string | null
+          project_id?: string | null
+          tags?: string[] | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_mi_favorites_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mi_favorites_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_mi_opportunities: {
         Row: {
           ai_analysis: Json | null
