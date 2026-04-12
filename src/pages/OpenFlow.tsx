@@ -38,6 +38,7 @@ const ACAO_TIPOS = [
 interface Automacao {
   id: string; project_id?: string; produto?: string; nome: string;
   trigger_tipo: string; acoes: Acao[]; ativo: boolean; created_at?: string;
+  provider_id?: string;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ export default function OpenFlow() {
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: editing.nome, trigger_tipo: editing.trigger_tipo,
       acoes: editing.acoes as any, ativo: editing.ativo, project_id: editing.project_id,
-      produto: (editing as any).produto || null,
+      produto: (editing as any).produto || null, provider_id: editing.provider_id || null,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
@@ -464,6 +465,16 @@ export default function OpenFlow() {
                     <SelectContent>{TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div>
+                <Label>WhatsApp Padrão</Label>
+                <Select value={editing.provider_id || "auto"} onValueChange={v => setEditing({ ...editing, provider_id: v === "auto" ? undefined : v })}>
+                  <SelectTrigger><SelectValue placeholder="Auto (primeiro ativo)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">🔄 Auto (primeiro ativo)</SelectItem>
+                    {providers.map((p: any) => <SelectItem key={p.id} value={p.id}>📱 {p.instance_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center justify-between">
                 <Label>Ativo</Label>
