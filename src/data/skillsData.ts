@@ -18,6 +18,7 @@ import dossiePrompt from "./skills/dossie-problemas-v2.md?raw";
 import anamsPrompt from "./skills/anams-copywriter.md?raw";
 import webinarRoteiroPrompt from "./skills/webinar-roteiro.md?raw";
 import marketIntelPrompt from "./skills/market-intel-v2.md?raw";
+import yoshitaniPrompt from "./skills/yoshitani-traffic-scale.md?raw";
 
 export interface SkillData {
   id: string;
@@ -212,5 +213,17 @@ export const SKILLS_DATA: SkillData[] = [
     icone: "🕵️",
     cor: "#4895ef",
     system_prompt: marketIntelPrompt,
+  },
+  {
+    id: "yoshitani-traffic-scale",
+    nome: "Yoshitani Traffic Scale",
+    versao: "V1.0",
+    categoria: "Tráfego & Escala",
+    descricao: "Comandante de Divisão de Tráfego baseado no Padrão Yoshitani. Analisa CPA com tendência 7/5/3, localiza gargalos cirúrgicos, decide escala automática e gera briefing de criativos.",
+    gatilho: "[Dados de Ads: CSV ou texto com CPA, taxas e budget]",
+    status: "Ativo",
+    icone: "⚔️",
+    cor: "#e85d3a",
+    system_prompt: yoshitaniPrompt,
   },
 ];
