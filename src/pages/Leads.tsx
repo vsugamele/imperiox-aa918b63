@@ -51,6 +51,13 @@ interface TimelineEvent {
   details?: Record<string, any>;
 }
 
+function getLeadActivityDate(lead: Lead): string | null {
+  const data = (lead.data as any) || {};
+  const interacoes = Array.isArray(data.interacoes) ? data.interacoes : [];
+  const lastInteraction = interacoes.length > 0 ? interacoes[interacoes.length - 1]?.data : null;
+  return data.ultimo_evento_em || lastInteraction || lead.updated_at || lead.criado_em || null;
+}
+
 const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
   PageView: { icon: <Globe className="h-3 w-3" />, color: "bg-blue-500", label: "Página Vista" },
   LeadCapture: { icon: <Users className="h-3 w-3" />, color: "bg-emerald-500", label: "Lead Capturado" },
@@ -184,7 +191,7 @@ export default function Leads() {
     else if (projectFilter === "none") leadsQuery = leadsQuery.is("project_id", null);
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    leadsQuery = leadsQuery.order("criado_em", { ascending: false }).range(from, to);
+    leadsQuery = leadsQuery.order("updated_at", { ascending: false }).range(from, to);
 
     let vendasQuery = supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }).limit(1000);
     if (projectFilter !== "all" && projectFilter !== "none") {
@@ -369,7 +376,7 @@ export default function Leads() {
   const leadsVsAds = useMemo(() => { const dayMap = new Map<string, { leads: number; ads: number; revenue: number }>(); periodLeads.forEach(l => { if (!l.criado_em) return; try { const key = format(parseISO(l.criado_em), "dd/MM"); const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 }; entry.leads++; dayMap.set(key, entry); } catch {} }); periodAds.forEach(a => { if (!a.data_ref) return; try { const key = format(parseISO(a.data_ref), "dd/MM"); const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 }; entry.ads += parseFloat(a.valor) || 0; dayMap.set(key, entry); } catch {} }); periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").forEach(v => { if (!v.created_at) return; try { const key = format(parseISO(v.created_at), "dd/MM"); const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 }; entry.revenue += parseFloat(v.valor) || 0; dayMap.set(key, entry); } catch {} }); return Array.from(dayMap.entries()).map(([day, d]) => ({ day, ...d })).sort((a, b) => a.day.localeCompare(b.day)); }, [periodLeads, periodAds, periodVendas]);
   const funnelData = useMemo(() => { const stages = { lead_capturado: 0, carrinho_abandonado: 0, pix_gerado: 0, compra_aprovada: 0 }; periodLeads.forEach(l => { const stage = getLeadStage(l); if (stage in stages) (stages as any)[stage]++; }); return [ { stage: "Leads", value: stages.lead_capturado, fill: "hsl(var(--primary))" }, { stage: "Carrinho", value: stages.carrinho_abandonado, fill: "#f59e0b" }, { stage: "Pix", value: stages.pix_gerado, fill: "#ef4444" }, { stage: "Clientes", value: stages.compra_aprovada, fill: "#10b981" } ]; }, [periodLeads]);
   const leadsByMonth = useMemo(() => { const map = new Map<string, number>(); leads.forEach(l => { if (!l.criado_em) return; try { const d = parseISO(l.criado_em); if (!isValid(d)) return; const key = format(d, "MMM/yy", { locale: ptBR }); map.set(key, (map.get(key) || 0) + 1); } catch {} }); return Array.from(map.entries()).map(([month, count]) => ({ month, count })).reverse().slice(-12); }, [leads]);
-  const pixHoje = useMemo(() => leads.filter(l => { const stage = getLeadStage(l); if (!["pix_gerado", "aguardando_pagamento"].includes(stage)) return false; if (!l.criado_em) return true; try { return isToday(parseISO(l.criado_em)); } catch { return false; } }), [leads]);
+  const pixHoje = useMemo(() => leads.filter(l => { const stage = getLeadStage(l); if (!["pix_gerado", "aguardando_pagamento"].includes(stage)) return false; const refDate = getLeadActivityDate(l); if (!refDate) return true; try { return isToday(parseISO(refDate)); } catch { return false; } }), [leads]);
 
   const chartConfig = { count: { label: "Leads", color: "hsl(var(--primary))" }, revenue: { label: "Receita", color: "#10b981" }, value: { label: "Qtd", color: "hsl(var(--primary))" }, leads: { label: "Leads", color: "hsl(var(--primary))" }, ads: { label: "Ads R$", color: "#ef4444" } };
 
@@ -390,7 +397,7 @@ export default function Leads() {
             <div className="ml-auto flex items-center gap-2">
               <Button size="sm" variant="outline" onClick={() => {
                 const headers = ["Nome","Email","Telefone","Status","Estágio","Plataforma","Projeto","Produto","Score","Receita","Criado em"];
-                const rows = filtered.map(l => { const vendas = l._vendas || []; const produto = vendas.map(v => v.produto_nome).filter(Boolean).join(", ") || ""; return [l.nome || "", l.email || "", l.phone || "", l.status || "", getLeadStage(l), l.plataforma || "", projects.find(p => p.id === l.project_id)?.name || "", produto, String(l._score || 0), String(l.total_gasto || 0), l.criado_em?.split("T")[0] || ""]; });
+                const rows = filtered.map(l => { const vendas = l._vendas || []; const produto = vendas.map(v => v.produto_nome).filter(Boolean).join(", ") || (l.data as any)?.ultimo_produto || ""; return [l.nome || "", l.email || "", l.phone || "", l.status || "", getLeadStage(l), l.plataforma || "", projects.find(p => p.id === l.project_id)?.name || "", produto, String(l._score || 0), String(l.total_gasto || 0), getLeadActivityDate(l)?.split("T")[0] || ""]; });
                 const csv = [headers, ...rows].map(r => r.map(c => `"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
                 const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
                 const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `leads_${format(periodRange.from, "yyyy-MM-dd")}.csv`; a.click(); URL.revokeObjectURL(url);
@@ -472,7 +479,7 @@ export default function Leads() {
           <TabsContent value="pix_hoje" className="space-y-4">
             <div className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-orange-400 animate-pulse" /><h3 className="font-bold text-sm">Leads com Pix pendente hoje — {pixHoje.length} lead{pixHoje.length !== 1 ? "s" : ""}</h3></div>
             {pixHoje.length === 0 ? (<Card className="bg-card border-border"><CardContent className="p-8 text-center"><p className="text-sm text-muted-foreground">🎉 Nenhum pix pendente hoje!</p></CardContent></Card>) : (
-              <div className="space-y-3">{pixHoje.map(l => { const vendas = l._vendas || []; const produto = vendas[0]?.produto_nome || "—"; const valor = vendas.reduce((s, v) => s + v.valor, 0); return (
+                <div className="space-y-3">{pixHoje.map(l => { const vendas = l._vendas || []; const produto = vendas[0]?.produto_nome || (l.data as any)?.ultimo_produto || "—"; const valor = vendas.reduce((s, v) => s + v.valor, 0) || Number((l.data as any)?.ultimo_valor || 0); return (
                 <Card key={l.id} className="bg-card border-border hover:ring-1 hover:ring-orange-500/30 transition-all"><CardContent className="p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0"><Avatar className="h-10 w-10 bg-secondary shrink-0"><AvatarFallback className="font-bold bg-secondary text-foreground">{(l.nome || "?")[0].toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><p className="font-medium text-sm truncate">{l.nome}</p><p className="text-[10px] text-muted-foreground truncate">{l.email || "—"} • {l.phone || "sem tel."}</p><div className="flex items-center gap-2 mt-0.5"><Badge variant="outline" className="text-[9px]">{produto}</Badge>{valor > 0 && <span className="text-xs font-mono text-primary">R$ {valor.toFixed(2)}</span>}</div></div></div>
                   <div className="flex items-center gap-2 shrink-0">

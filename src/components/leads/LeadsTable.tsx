@@ -15,7 +15,7 @@ interface LeadVenda {
 interface Lead {
   id: string; nome?: string; phone?: string; email?: string; project_id?: string;
   funil_id?: string; plataforma?: string; status?: string; score?: number;
-  tags?: string[]; total_gasto?: number; data?: any; criado_em?: string;
+  tags?: string[]; total_gasto?: number; data?: any; criado_em?: string; updated_at?: string;
   _isNew?: boolean; _vendas?: LeadVenda[]; _score?: number;
 }
 
@@ -31,6 +31,13 @@ const STAGE_LABELS: Record<string, { label: string; color: string }> = {
 function getLeadStage(lead: Lead): string {
   if (lead.status === "cliente") return "compra_aprovada";
   return (lead.data as any)?.ultimo_evento || "lead_capturado";
+}
+
+function getLeadReferenceDate(lead: Lead): string | null {
+  const data = (lead.data as any) || {};
+  const interacoes = Array.isArray(data.interacoes) ? data.interacoes : [];
+  const lastInteraction = interacoes.length > 0 ? interacoes[interacoes.length - 1]?.data : null;
+  return data.ultimo_evento_em || lastInteraction || lead.updated_at || lead.criado_em || null;
 }
 
 interface Props {
@@ -113,7 +120,7 @@ export default function LeadsTable({
                   <TableCell><div className="flex items-center gap-1"><Badge className={cn("text-[10px]", cfg.color, isPending && "animate-pulse ring-1 ring-amber-500/40")}>{cfg.label}</Badge>{isPending && <AlertCircle className="h-3 w-3 text-amber-400" />}</div></TableCell>
                   <TableCell><div className="flex items-center gap-1.5"><div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${l._score || 0}%` }} /></div><span className="text-[10px] font-mono text-muted-foreground">{l._score || 0}</span></div></TableCell>
                   <TableCell className="font-mono text-sm text-primary">{l.total_gasto ? `R$ ${parseFloat(String(l.total_gasto)).toFixed(0)}` : "—"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{l.criado_em ? (() => { try { const d = parseISO(l.criado_em!); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })() : "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{(() => { const refDate = getLeadReferenceDate(l); if (!refDate) return "—"; try { const d = parseISO(refDate); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                       {l.phone && <Button size="icon" variant="ghost" asChild className="h-7 w-7"><a href={`https://wa.me/${l.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener"><MessageCircle className="h-4 w-4 text-emerald-400" /></a></Button>}
