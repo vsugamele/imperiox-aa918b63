@@ -180,7 +180,7 @@ export default function OpenFlow() {
           trigger_tipo: testDialog.trigger_tipo,
           project_id: testDialog.project_id || "test-project",
           automacao_id: testDialog.id,
-          lead_data: { nome: testForm.nome, email: testForm.email, telefone: testForm.telefone, phone: testForm.telefone, produto: testForm.produto, lead_id: "test-lead-" + Date.now() },
+          lead_data: { nome: testForm.nome, email: testForm.email, telefone: testForm.telefone, phone: testForm.telefone.replace(/\D/g, ""), produto: testForm.produto, lead_id: "test-lead-" + Date.now(), provider_id: testForm.provider_id || undefined },
         },
       });
       if (error) throw error;
@@ -499,8 +499,23 @@ export default function OpenFlow() {
               <div className="grid grid-cols-2 gap-2">
                 <div><Label className="text-xs">Nome</Label><Input value={testForm.nome} onChange={e => setTestForm({ ...testForm, nome: e.target.value })} className="h-8 text-xs" /></div>
                 <div><Label className="text-xs">Email</Label><Input value={testForm.email} onChange={e => setTestForm({ ...testForm, email: e.target.value })} className="h-8 text-xs" /></div>
-                <div><Label className="text-xs">Telefone</Label><Input value={testForm.telefone} onChange={e => setTestForm({ ...testForm, telefone: e.target.value })} className="h-8 text-xs" /></div>
+                <div><Label className="text-xs">Telefone</Label><Input value={testForm.telefone} onChange={e => setTestForm({ ...testForm, telefone: e.target.value })} className="h-8 text-xs" placeholder="5511999999999" /></div>
                 <div><Label className="text-xs">Produto</Label><Input value={testForm.produto} onChange={e => setTestForm({ ...testForm, produto: e.target.value })} className="h-8 text-xs" /></div>
+              </div>
+              <div>
+                <Label className="text-xs">WhatsApp Provider (para envio real)</Label>
+                <Select value={testForm.provider_id} onValueChange={v => setTestForm({ ...testForm, provider_id: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione para enviar WhatsApp real..." /></SelectTrigger>
+                  <SelectContent>
+                    {providers.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from || p.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {providers.length === 0 && <p className="text-[10px] text-muted-foreground mt-1">Nenhum provider ativo encontrado.</p>}
+              </div>
               </div>
               {testResult && (
                 <div className={`p-3 rounded border text-xs ${testResult.ok ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"}`}>
