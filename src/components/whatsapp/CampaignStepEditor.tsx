@@ -149,11 +149,17 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
                     </div>
                     <div>
                       <Label className="text-[10px]">Horário</Label>
-                      <Input type="time" className="h-8 text-xs" value={step.send_time?.slice(0, 5) || "09:00"} onChange={e => updateStep(step.id, "send_time", e.target.value)} />
+                      <TimePickerInput
+                        value={step.send_time?.slice(0, 5) || "09:00"}
+                        onChange={v => updateStep(step.id, "send_time", v)}
+                      />
                     </div>
                     <div>
                       <Label className="text-[10px]">Data específica</Label>
-                      <Input type="date" className="h-8 text-xs" value={step.send_date || ""} onChange={e => updateStep(step.id, "send_date", e.target.value || null)} />
+                      <DatePickerInput
+                        value={step.send_date || null}
+                        onChange={v => updateStep(step.id, "send_date", v)}
+                      />
                     </div>
                     <div>
                       <Label className="text-[10px]">{step.send_date ? "Offset (ignorado)" : "Dia (offset)"}</Label>
