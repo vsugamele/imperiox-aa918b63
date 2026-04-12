@@ -49,19 +49,23 @@ Deno.serve(async (req) => {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });
       if (error) throw error;
 
-      // Get roles
+      // Get roles — only ImperioHQ users
       const { data: roles } = await adminClient.from("imphq_user_roles").select("*");
       const roleMap: Record<string, string> = {};
-      (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
+      const imphqUserIds = new Set<string>();
+      (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; imphqUserIds.add(r.user_id); });
 
-      const mapped = users.map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        created_at: u.created_at,
-        last_sign_in_at: u.last_sign_in_at,
-        banned: u.banned_until ? true : false,
-        role: roleMap[u.id] || null,
-      }));
+      // Filter: only show users that have an imphq role
+      const mapped = users
+        .filter((u: any) => imphqUserIds.has(u.id))
+        .map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          created_at: u.created_at,
+          last_sign_in_at: u.last_sign_in_at,
+          banned: u.banned_until ? true : false,
+          role: roleMap[u.id] || null,
+        }));
 
       return new Response(JSON.stringify({ users: mapped }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
