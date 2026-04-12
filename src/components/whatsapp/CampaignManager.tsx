@@ -28,6 +28,9 @@ interface Campaign {
   groups: string[];
   start_date: string | null;
   exit_message: string | null;
+  welcome_message: string | null;
+  anti_hack: boolean;
+  mention_all: boolean;
   created_at: string;
 }
 
@@ -44,6 +47,7 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [showSteps, setShowSteps] = useState<Campaign | null>(null);
   const [showLogs, setShowLogs] = useState<Campaign | null>(null);
   const [showGroups, setShowGroups] = useState<Campaign | null>(null);
+  const [showAutomation, setShowAutomation] = useState<Campaign | null>(null);
   const [form, setForm] = useState({ name: "", project_id: "", provider_id: "", start_date: "", produto: "" });
   const [availableGroups, setAvailableGroups] = useState<{ id: string; subject: string }[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
@@ -154,6 +158,8 @@ export default function CampaignManager({ projects, providers }: Props) {
           <Plus className="h-3.5 w-3.5 mr-1" /> Nova Campanha
         </Button>
       </div>
+
+      <CampaignKPICards />
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
