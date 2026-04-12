@@ -328,6 +328,7 @@ Deno.serve(async (req) => {
           plataforma,
           status: evento === "compra_aprovada" ? "cliente" : "lead",
           project_id: projectId,
+          data: { ultimo_evento: evento, ultimo_produto: produto || null, ultimo_valor: valor || null },
         };
         if (data_compra) leadInsert.criado_em = data_compra;
         await supabase.from("imphq_leads").insert(leadInsert);
@@ -549,7 +550,7 @@ Deno.serve(async (req) => {
           utms: { utm_source: body?.utm_source, utm_medium: body?.utm_medium, utm_campaign: body?.utm_campaign },
         });
         await supabase.from("imphq_leads").update({
-          data: { ...currentData, interacoes, ultimo_evento: evento },
+          data: { ...currentData, interacoes, ultimo_evento: evento, ultimo_produto: produto || currentData.ultimo_produto || null, ultimo_valor: valor || currentData.ultimo_valor || null },
         }).eq("id", leadId);
 
         // Scoring for non-purchase events
