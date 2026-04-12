@@ -9918,6 +9918,7 @@ export type Database = {
           nome: string
           produto: string | null
           project_id: string | null
+          provider_id: string | null
           trigger_tipo: string
           updated_at: string | null
         }
@@ -9929,6 +9930,7 @@ export type Database = {
           nome: string
           produto?: string | null
           project_id?: string | null
+          provider_id?: string | null
           trigger_tipo: string
           updated_at?: string | null
         }
@@ -9940,6 +9942,7 @@ export type Database = {
           nome?: string
           produto?: string | null
           project_id?: string | null
+          provider_id?: string | null
           trigger_tipo?: string
           updated_at?: string | null
         }
