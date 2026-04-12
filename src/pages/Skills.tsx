@@ -74,6 +74,7 @@ const SKILL_FILE_MAP: Record<string, string> = {
   "dossie-problemas": "dossie-problemas-v2.md",
   "anams-copywriter": "anams-copywriter.md",
   "market-intel": "market-intel-v2.md",
+  "yoshitani-traffic-scale": "yoshitani-traffic-scale.md",
 };
 
 const DEFAULT_SKILLS: Skill[] = [
