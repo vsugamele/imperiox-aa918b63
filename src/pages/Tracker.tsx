@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter, Zap, Code } from "lucide-react";
+import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter, Zap, Code, Calendar, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
 interface TrackingLink {
   id: string; nome: string; destino: string; project_id?: string;
@@ -23,6 +24,16 @@ interface TrackingLink {
   utm_content?: string; utm_term?: string; ativo: boolean;
   created_at: string; clickCount?: number;
   data_inicio?: string; data_fim?: string;
+}
+
+interface AdsSpendRow {
+  id: string; project_id: string; plataforma: string; campanha: string;
+  conjunto_anuncios: string; anuncio: string; data_ref: string;
+  valor: number; impressoes: number; cliques: number; leads: number;
+  compras: number; custo_por_compra: number | null; ctr: number;
+  cpm: number; frequencia: number; alcance: number;
+  hook_rate: number | null; hold_rate: number | null; stop_rate: number;
+  checkouts_iniciados: number; cpck: number;
 }
 
 interface KPITargets {
@@ -42,6 +53,7 @@ const PLATAFORMA_COLORS: Record<string, string> = {
   "Afiliado": "bg-amber-500/15 text-amber-400 border-amber-500/30",
   "Email": "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
   "Outro": "bg-gray-500/15 text-gray-400 border-gray-500/30",
+  "Facebook": "bg-blue-500/15 text-blue-400 border-blue-500/30",
 };
 
 const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; utm_campaign: string; utm_content: string; utm_term: string }> = {
@@ -68,9 +80,24 @@ const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; ut
   },
 };
 
+function getDateRange(period: string): { from: string; to: string } {
+  const now = new Date();
+  const to = now.toISOString().slice(0, 10);
+  let from: string;
+  switch (period) {
+    case "7d": from = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10); break;
+    case "14d": from = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10); break;
+    case "30d": from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10); break;
+    case "90d": from = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10); break;
+    case "month": from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10); break;
+    default: from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+  }
+  return { from, to };
+}
+
 export default function Tracker() {
   const [links, setLinks] = useState<TrackingLink[]>([]);
-  const [clicks, setClicks] = useState<any[]>([]);
+  const [adsSpend, setAdsSpend] = useState<AdsSpendRow[]>([]);
   const [vendas, setVendas] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
@@ -79,28 +106,33 @@ export default function Tracker() {
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [filterPlataforma, setFilterPlataforma] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
+  const [datePeriod, setDatePeriod] = useState("30d");
   const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
 
+  const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
+
   const load = async () => {
-    const [lRes, cRes, vRes, pRes] = await Promise.all([
+    const [lRes, adsRes, vRes, pRes] = await Promise.all([
       supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_clicks").select("*"),
-      supabase.from("imphq_vendas").select("*"),
+      supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }),
+      supabase.from("imphq_vendas").select("*").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
       supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
+    // Also get click counts for links
+    const cRes = await supabase.from("imphq_clicks").select("link_id");
     const clicksData = cRes.data || [];
     const enriched = (lRes.data || []).map((l: any) => ({
       ...l, clickCount: clicksData.filter((c: any) => c.link_id === l.id).length,
     }));
     setLinks(enriched);
-    setClicks(clicksData);
+    setAdsSpend((adsRes.data || []) as any);
     setVendas(vRes.data || []);
     setProjects(pRes.data || []);
     const saved = localStorage.getItem("imphq_kpi_targets");
     if (saved) setTargets(JSON.parse(saved));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [dateRange.from, dateRange.to]);
 
   const saveTargets = () => {
     localStorage.setItem("imphq_kpi_targets", JSON.stringify(targets));
@@ -157,30 +189,69 @@ export default function Tracker() {
     if (filterProject !== "all" && l.project_id !== filterProject) return false;
     return true;
   });
-  const filteredClicks = filterPlataforma === "all" && filterProject === "all"
-    ? clicks
-    : clicks.filter(c => filteredLinks.some(l => l.id === c.link_id));
-  const filteredVendas = filterPlataforma === "all" && filterProject === "all"
-    ? vendas
-    : vendas.filter(v => {
-        if (filterProject !== "all" && v.project_id !== filterProject) return false;
-        if (filterPlataforma !== "all" && v.plataforma !== filterPlataforma) return false;
-        return true;
-      });
+  const filteredAds = adsSpend.filter(a => {
+    if (filterProject !== "all" && a.project_id !== filterProject) return false;
+    if (filterPlataforma !== "all") {
+      const plat = filterPlataforma === "Meta Ads" ? "Facebook" : filterPlataforma;
+      if (a.plataforma !== plat) return false;
+    }
+    return true;
+  });
+  const filteredVendas = vendas.filter(v => {
+    if (filterProject !== "all" && v.project_id !== filterProject) return false;
+    return true;
+  });
 
-  // KPIs
-  const totalClicks = filteredClicks.length;
-  const totalVendas = filteredVendas.length;
+  // KPIs from imphq_ads_spend (real ads data)
+  const totalGasto = filteredAds.reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
+  const totalClicks = filteredAds.reduce((s, a) => s + (parseInt(String(a.cliques)) || 0), 0);
+  const totalImpressoes = filteredAds.reduce((s, a) => s + (parseInt(String(a.impressoes)) || 0), 0);
+  const totalAlcance = filteredAds.reduce((s, a) => s + (parseInt(String(a.alcance)) || 0), 0);
+  const totalComprasAds = filteredAds.reduce((s, a) => s + (parseInt(String(a.compras)) || 0), 0);
+  const totalVendasCount = filteredVendas.length;
   const totalReceita = filteredVendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
-  const totalGasto = filteredClicks.reduce((s: number, c: any) => s + (parseFloat(c.custo) || 0), 0);
-  const cpl = totalClicks > 0 ? totalGasto / totalClicks : 0;
-  const cpa = totalVendas > 0 ? totalGasto / totalVendas : 0;
+
   const roas = totalGasto > 0 ? totalReceita / totalGasto : 0;
-  const ctr = totalClicks > 0 ? (totalVendas / totalClicks) * 100 : 0;
-  const cvr = ctr;
-  const cpm = totalClicks > 0 ? (totalGasto / totalClicks) * 1000 : 0;
-  const ltv = totalVendas > 0 ? totalReceita / totalVendas : 0;
+  const cpa = totalVendasCount > 0 ? totalGasto / totalVendasCount : 0;
+  const ctr = totalImpressoes > 0 ? (totalClicks / totalImpressoes) * 100 : 0;
+  const cpm = totalImpressoes > 0 ? (totalGasto / totalImpressoes) * 1000 : 0;
+  const cpl = totalClicks > 0 ? totalGasto / totalClicks : 0;
+  const cvr = totalClicks > 0 ? (totalVendasCount / totalClicks) * 100 : 0;
+  const ltv = totalVendasCount > 0 ? totalReceita / totalVendasCount : 0;
   const cac = cpa;
+  const avgFrequencia = filteredAds.length > 0 ? filteredAds.reduce((s, a) => s + (parseFloat(String(a.frequencia)) || 0), 0) / filteredAds.length : 0;
+
+  // Daily chart data
+  const dailyMap = new Map<string, { gasto: number; receita: number; clicks: number }>();
+  filteredAds.forEach(a => {
+    const d = a.data_ref;
+    const prev = dailyMap.get(d) || { gasto: 0, receita: 0, clicks: 0 };
+    prev.gasto += parseFloat(String(a.valor)) || 0;
+    prev.clicks += parseInt(String(a.cliques)) || 0;
+    dailyMap.set(d, prev);
+  });
+  filteredVendas.forEach(v => {
+    const d = (v.created_at || "").slice(0, 10);
+    const prev = dailyMap.get(d) || { gasto: 0, receita: 0, clicks: 0 };
+    prev.receita += parseFloat(v.valor) || 0;
+    dailyMap.set(d, prev);
+  });
+  const dailyChart = Array.from(dailyMap.entries()).map(([date, v]) => ({ date, ...v })).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Campaign breakdown
+  const campaignMap = new Map<string, { campanha: string; gasto: number; cliques: number; impressoes: number; compras: number; frequencia: number[]; ctr: number[] }>();
+  filteredAds.forEach(a => {
+    const key = a.campanha || "—";
+    const prev = campaignMap.get(key) || { campanha: key, gasto: 0, cliques: 0, impressoes: 0, compras: 0, frequencia: [], ctr: [] };
+    prev.gasto += parseFloat(String(a.valor)) || 0;
+    prev.cliques += parseInt(String(a.cliques)) || 0;
+    prev.impressoes += parseInt(String(a.impressoes)) || 0;
+    prev.compras += parseInt(String(a.compras)) || 0;
+    if (a.frequencia) prev.frequencia.push(parseFloat(String(a.frequencia)));
+    if (a.ctr) prev.ctr.push(parseFloat(String(a.ctr)));
+    campaignMap.set(key, prev);
+  });
+  const campaignBreakdown = Array.from(campaignMap.values()).sort((a, b) => b.gasto - a.gasto);
 
   const getStatus = (real: number, target: number, higherIsBetter: boolean) => {
     if (target === 0) return "neutral";
@@ -343,6 +414,19 @@ export default function Tracker() {
       {/* Global Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <Filter className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
+          {[
+            { value: "7d", label: "7D" },
+            { value: "14d", label: "14D" },
+            { value: "30d", label: "30D" },
+            { value: "90d", label: "90D" },
+            { value: "month", label: "Mês" },
+          ].map(p => (
+            <Button key={p.value} size="sm" variant={datePeriod === p.value ? "default" : "ghost"} className="h-7 text-xs px-2.5" onClick={() => setDatePeriod(p.value)}>
+              {p.label}
+            </Button>
+          ))}
+        </div>
         <Select value={filterPlataforma} onValueChange={setFilterPlataforma}>
           <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
           <SelectContent>
@@ -360,6 +444,7 @@ export default function Tracker() {
         {(filterPlataforma !== "all" || filterProject !== "all") && (
           <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); }}>Limpar filtros</Button>
         )}
+        <span className="text-[10px] text-muted-foreground ml-auto"><Calendar className="h-3 w-3 inline mr-1" />{dateRange.from} → {dateRange.to}</span>
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
@@ -369,36 +454,116 @@ export default function Tracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Top-level metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} />
-            <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Total Clicks" value={String(totalClicks)} />
-            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendas)} />
+            <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Cliques (Ads)" value={totalClicks.toLocaleString("pt-BR")} />
+            <KPICard icon={<Eye className="h-3 w-3" />} label="Impressões" value={totalImpressoes.toLocaleString("pt-BR")} />
+            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendasCount)} />
           </div>
-          {totalGasto === 0 && totalClicks > 0 && (
+
+          {totalGasto === 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-              <p className="text-[11px] text-amber-300">Sem dados de gasto. Os clicks não têm campo <code className="text-amber-400">custo</code> preenchido. Configure gastos via <strong>Finanças → Ads</strong> ou adicione custos nos links.</p>
+              <p className="text-[11px] text-amber-300">Sem dados de gasto no período. Importe dados em <strong>Finanças → Ads</strong> ou configure a sincronização automática do Facebook Ads.</p>
             </div>
           )}
-          {filterProject !== "all" && (
-            <p className="text-xs text-muted-foreground">Filtrando por: <span className="text-primary font-medium">{projectName(filterProject)}</span></p>
-          )}
+
+          {/* KPI targets row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICardTarget label="ROAS" value={roas.toFixed(2)} suffix="x" target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`} status={roasStatus} />
             <KPICardTarget label="CPA" value={`R$ ${cpa.toFixed(2)}`} target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`} status={cpaStatus} />
-            <KPICardTarget label="CTR" value={`${ctr.toFixed(1)}%`} target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`} status={ctrStatus} />
+            <KPICardTarget label="CTR" value={`${ctr.toFixed(2)}%`} target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`} status={ctrStatus} />
             <KPICardTarget label="CPM" value={`R$ ${cpm.toFixed(2)}`} target={targets.cpm_target} targetLabel={`Meta: R$ ${targets.cpm_target}`} status={cpmStatus} />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KPICard icon={<Target className="h-3 w-3" />} label="CPL" value={`R$ ${cpl.toFixed(2)}`} />
-            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(1)}%`} />
+            <KPICard icon={<Target className="h-3 w-3" />} label="CPC" value={`R$ ${cpl.toFixed(2)}`} />
+            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(2)}%`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="LTV" value={`R$ ${ltv.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={`R$ ${cac.toFixed(2)}`} />
           </div>
+
+          {/* Daily chart */}
+          {dailyChart.length > 1 && (
+            <Card className="border-border">
+              <CardContent className="pt-6">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-4">📈 Gasto vs Receita (Timeline)</h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={dailyChart} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
+                    <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2)}`} />
+                    <Legend />
+                    <Area type="monotone" dataKey="receita" name="Receita" stroke="hsl(142 76% 36%)" fill="hsl(142 76% 36% / 0.2)" />
+                    <Area type="monotone" dataKey="gasto" name="Gasto Ads" stroke="hsl(0 84% 60%)" fill="hsl(0 84% 60% / 0.15)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Campaign breakdown */}
+          {campaignBreakdown.length > 0 && (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground">📊 Breakdown por Campanha</h3>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Campanha</TableHead>
+                    <TableHead className="text-right">Gasto</TableHead>
+                    <TableHead className="text-right">Cliques</TableHead>
+                    <TableHead className="text-right">Impressões</TableHead>
+                    <TableHead className="text-right">Compras</TableHead>
+                    <TableHead className="text-right">CPA</TableHead>
+                    <TableHead className="text-right">CTR Médio</TableHead>
+                    <TableHead className="text-right">Freq. Média</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaignBreakdown.map((c, i) => {
+                    const avgCtr = c.ctr.length > 0 ? c.ctr.reduce((a, b) => a + b, 0) / c.ctr.length : 0;
+                    const avgFreq = c.frequencia.length > 0 ? c.frequencia.reduce((a, b) => a + b, 0) / c.frequencia.length : 0;
+                    const campCpa = c.compras > 0 ? c.gasto / c.compras : 0;
+                    return (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium text-xs max-w-[200px] truncate">{c.campanha}</TableCell>
+                        <TableCell className="text-right font-mono text-red-400">R$ {c.gasto.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-blue-400">{c.cliques.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">{c.impressoes.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-right font-mono text-emerald-400">{c.compras}</TableCell>
+                        <TableCell className={`text-right font-mono ${campCpa > 0 && campCpa <= targets.cpa_target ? "text-emerald-400" : campCpa > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                          {campCpa > 0 ? `R$ ${campCpa.toFixed(2)}` : "—"}
+                        </TableCell>
+                        <TableCell className={`text-right font-mono ${avgCtr >= targets.ctr_target ? "text-emerald-400" : "text-amber-400"}`}>{avgCtr.toFixed(2)}%</TableCell>
+                        <TableCell className={`text-right font-mono ${avgFreq > 3 ? "text-red-400" : "text-muted-foreground"}`}>{avgFreq.toFixed(2)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border">
-            <span className="text-[10px] text-muted-foreground">📊 <strong>Origem dos dados:</strong> Receita = <code>imphq_vendas</code> (webhooks) · Gasto = <code>imphq_clicks.custo</code> · Clicks = <code>imphq_clicks</code> filtrados por links UTM</span>
+            <span className="text-[10px] text-muted-foreground">📊 <strong>Origem dos dados:</strong> Receita = <code>imphq_vendas</code> (webhooks) · Gasto/Cliques/Impressões = <code>imphq_ads_spend</code> (sync Facebook Ads)</span>
           </div>
+
+          {/* Performance alerts */}
+          {avgFrequencia > 3 && (
+            <Card className="border-amber-500/50 bg-amber-500/5">
+              <CardContent className="p-4 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-amber-400">Alerta de Saturação</p>
+                  <p className="text-xs text-muted-foreground">Frequência média ({avgFrequencia.toFixed(2)}) acima de 3.0 — considere renovar criativos.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {(roasStatus === "bad" || cpaStatus === "bad") && (
             <Card className="border-destructive/50 bg-destructive/5">
               <CardContent className="p-4 flex items-start gap-3">
