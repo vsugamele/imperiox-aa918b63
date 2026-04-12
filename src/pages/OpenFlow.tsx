@@ -59,7 +59,7 @@ export default function OpenFlow() {
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
   const [kpis, setKpis] = useState({ total: 0, success: 0, errors: 0, rate: 0 });
   const [testDialog, setTestDialog] = useState<Automacao | null>(null);
-  const [testForm, setTestForm] = useState({ nome: "João Teste", email: "joao@teste.com", telefone: "(11) 99999-9999", produto: "Produto Teste" });
+  const [testForm, setTestForm] = useState({ nome: "João Teste", email: "joao@teste.com", telefone: "(11) 99999-9999", produto: "Produto Teste", provider_id: "" });
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
 
