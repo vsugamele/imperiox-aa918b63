@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter, Zap, Code } from "lucide-react";
+import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter, Zap, Code, Calendar, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
 interface TrackingLink {
   id: string; nome: string; destino: string; project_id?: string;
@@ -23,6 +24,16 @@ interface TrackingLink {
   utm_content?: string; utm_term?: string; ativo: boolean;
   created_at: string; clickCount?: number;
   data_inicio?: string; data_fim?: string;
+}
+
+interface AdsSpendRow {
+  id: string; project_id: string; plataforma: string; campanha: string;
+  conjunto_anuncios: string; anuncio: string; data_ref: string;
+  valor: number; impressoes: number; cliques: number; leads: number;
+  compras: number; custo_por_compra: number | null; ctr: number;
+  cpm: number; frequencia: number; alcance: number;
+  hook_rate: number | null; hold_rate: number | null; stop_rate: number;
+  checkouts_iniciados: number; cpck: number;
 }
 
 interface KPITargets {
@@ -42,6 +53,7 @@ const PLATAFORMA_COLORS: Record<string, string> = {
   "Afiliado": "bg-amber-500/15 text-amber-400 border-amber-500/30",
   "Email": "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
   "Outro": "bg-gray-500/15 text-gray-400 border-gray-500/30",
+  "Facebook": "bg-blue-500/15 text-blue-400 border-blue-500/30",
 };
 
 const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; utm_campaign: string; utm_content: string; utm_term: string }> = {
@@ -68,9 +80,24 @@ const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; ut
   },
 };
 
+function getDateRange(period: string): { from: string; to: string } {
+  const now = new Date();
+  const to = now.toISOString().slice(0, 10);
+  let from: string;
+  switch (period) {
+    case "7d": from = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10); break;
+    case "14d": from = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10); break;
+    case "30d": from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10); break;
+    case "90d": from = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10); break;
+    case "month": from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10); break;
+    default: from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+  }
+  return { from, to };
+}
+
 export default function Tracker() {
   const [links, setLinks] = useState<TrackingLink[]>([]);
-  const [clicks, setClicks] = useState<any[]>([]);
+  const [adsSpend, setAdsSpend] = useState<AdsSpendRow[]>([]);
   const [vendas, setVendas] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
@@ -79,28 +106,33 @@ export default function Tracker() {
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [filterPlataforma, setFilterPlataforma] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
+  const [datePeriod, setDatePeriod] = useState("30d");
   const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
 
+  const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
+
   const load = async () => {
-    const [lRes, cRes, vRes, pRes] = await Promise.all([
+    const [lRes, adsRes, vRes, pRes] = await Promise.all([
       supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_clicks").select("*"),
-      supabase.from("imphq_vendas").select("*"),
+      supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }),
+      supabase.from("imphq_vendas").select("*").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
       supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
+    // Also get click counts for links
+    const cRes = await supabase.from("imphq_clicks").select("link_id");
     const clicksData = cRes.data || [];
     const enriched = (lRes.data || []).map((l: any) => ({
       ...l, clickCount: clicksData.filter((c: any) => c.link_id === l.id).length,
     }));
     setLinks(enriched);
-    setClicks(clicksData);
+    setAdsSpend((adsRes.data || []) as any);
     setVendas(vRes.data || []);
     setProjects(pRes.data || []);
     const saved = localStorage.getItem("imphq_kpi_targets");
     if (saved) setTargets(JSON.parse(saved));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [dateRange.from, dateRange.to]);
 
   const saveTargets = () => {
     localStorage.setItem("imphq_kpi_targets", JSON.stringify(targets));
