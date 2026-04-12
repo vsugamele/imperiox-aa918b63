@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 interface Props {
   period: string;
   projectFilter: string;
+  productFilter?: string;
   isAdmin: boolean;
 }
 

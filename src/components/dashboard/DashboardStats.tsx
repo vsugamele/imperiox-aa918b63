@@ -13,6 +13,7 @@ interface Stats {
 interface Props {
   period: string;
   projectFilter: string;
+  productFilter?: string;
 }
 
 export default function DashboardStats({ period, projectFilter }: Props) {
