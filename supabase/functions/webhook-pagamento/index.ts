@@ -320,6 +320,7 @@ Deno.serve(async (req) => {
         leadId = lead.id;
       } else {
         const newId = crypto.randomUUID();
+        const eventTimestamp = data_compra || new Date().toISOString();
         const leadInsert: any = {
           id: newId,
           nome: nome || email,
@@ -328,7 +329,8 @@ Deno.serve(async (req) => {
           plataforma,
           status: evento === "compra_aprovada" ? "cliente" : "lead",
           project_id: projectId,
-          data: { ultimo_evento: evento, ultimo_produto: produto || null, ultimo_valor: valor || null },
+          updated_at: eventTimestamp,
+          data: { ultimo_evento: evento, ultimo_evento_em: eventTimestamp, ultimo_produto: produto || null, ultimo_valor: valor || null },
         };
         if (data_compra) leadInsert.criado_em = data_compra;
         await supabase.from("imphq_leads").insert(leadInsert);
@@ -458,7 +460,7 @@ Deno.serve(async (req) => {
       const newTotal = (salesSum || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
       await supabase
         .from("imphq_leads")
-        .update({ status: "cliente", total_gasto: newTotal })
+        .update({ status: "cliente", total_gasto: newTotal, updated_at: new Date().toISOString() })
         .eq("id", leadId);
 
       // Lead scoring for purchase
@@ -506,7 +508,7 @@ Deno.serve(async (req) => {
         .limit(1);
 
       const newStatus = (remainingSales && remainingSales.length > 0) ? "cliente" : "lead";
-      await supabase.from("imphq_leads").update({ status: newStatus }).eq("id", leadId);
+      await supabase.from("imphq_leads").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", leadId);
     }
 
     // Register journey event in imphq_events
@@ -540,9 +542,10 @@ Deno.serve(async (req) => {
         const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
         const currentData = (leadData?.data as Record<string, any>) || {};
         const interacoes: any[] = currentData.interacoes || [];
+        const eventTimestamp = data_compra || new Date().toISOString();
         interacoes.push({
           evento,
-          data: data_compra || new Date().toISOString(),
+          data: eventTimestamp,
           produto,
           valor,
           plataforma,
@@ -550,7 +553,8 @@ Deno.serve(async (req) => {
           utms: { utm_source: body?.utm_source, utm_medium: body?.utm_medium, utm_campaign: body?.utm_campaign },
         });
         await supabase.from("imphq_leads").update({
-          data: { ...currentData, interacoes, ultimo_evento: evento, ultimo_produto: produto || currentData.ultimo_produto || null, ultimo_valor: valor || currentData.ultimo_valor || null },
+          updated_at: eventTimestamp,
+          data: { ...currentData, interacoes, ultimo_evento: evento, ultimo_evento_em: eventTimestamp, ultimo_produto: produto || currentData.ultimo_produto || null, ultimo_valor: valor || currentData.ultimo_valor || null },
         }).eq("id", leadId);
 
         // Scoring for non-purchase events
