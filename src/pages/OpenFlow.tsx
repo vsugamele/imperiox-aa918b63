@@ -516,7 +516,6 @@ export default function OpenFlow() {
                 </Select>
                 {providers.length === 0 && <p className="text-[10px] text-muted-foreground mt-1">Nenhum provider ativo encontrado.</p>}
               </div>
-              </div>
               {testResult && (
                 <div className={`p-3 rounded border text-xs ${testResult.ok ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"}`}>
                   {testResult.ok ? (
