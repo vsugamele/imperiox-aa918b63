@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, Folder, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
@@ -46,6 +46,14 @@ interface Ref {
   source: SourceType;
   content_category?: string;
   project_name?: string;
+  is_video?: boolean;
+}
+
+/** Check if a URL points to a video file */
+function isVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase();
+  return ["mp4", "webm", "mov", "avi", "mkv"].includes(ext || "");
 }
 
 export default function Referencias() {
@@ -65,6 +73,7 @@ export default function Referencias() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showNewPasta, setShowNewPasta] = useState(false);
   const [newPastaName, setNewPastaName] = useState("");
+  const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
 
   const load = async () => {
     const [rRes, lRes, pRes, adsRes] = await Promise.all([
@@ -81,27 +90,33 @@ export default function Referencias() {
     const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => ({
       ...r,
       source: "manual" as SourceType,
+      is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
     }));
 
     const libraryRefs: Ref[] = ((lRes.data || []) as any[])
       .filter((m: any) => m.file_type === "image" || m.file_type === "video")
-      .map((m: any) => ({
-        id: `lib_${m.id}`,
-        project_id: m.project_id || undefined,
-        titulo: m.title || m.file_url?.split("/").pop() || "Sem título",
-        image_url: m.thumbnail_url || m.file_url,
-        url: m.file_url,
-        tags: m.tags || [],
-        notas: m.description || undefined,
-        score: 0,
-        tipo: m.file_type === "video" ? "video" : "criativo",
-        created_at: m.created_at,
-        content_category: m.content_category || undefined,
-        source: "library" as SourceType,
-        project_name: projMap[m.project_id] || undefined,
-      }));
+      .map((m: any) => {
+        const isVid = m.file_type === "video";
+        const thumbUrl = m.thumbnail_url || (!isVid ? m.file_url : null);
+        return {
+          id: `lib_${m.id}`,
+          project_id: m.project_id || undefined,
+          titulo: m.title || m.file_url?.split("/").pop() || "Sem título",
+          image_url: thumbUrl || undefined,
+          url: m.file_url,
+          tags: m.tags || [],
+          notas: m.description || undefined,
+          score: 0,
+          tipo: isVid ? "video" : "criativo",
+          created_at: m.created_at,
+          content_category: m.content_category || undefined,
+          source: "library" as SourceType,
+          project_name: projMap[m.project_id] || undefined,
+          is_video: isVid,
+        };
+      });
 
-    // Aggregate ads by unique ad name per project (top performers by CTR)
+    // Aggregate ads by unique ad name per project
     const adsMap = new Map<string, any>();
     ((adsRes.data || []) as any[]).forEach((ad: any) => {
       const key = `${ad.project_id}_${ad.anuncio || ad.conjunto_anuncios || ad.campanha}`;
@@ -133,23 +148,58 @@ export default function Referencias() {
 
   useEffect(() => { load(); }, []);
 
-  const pastas = [...new Set(refs.filter(r => r.source === "manual").map(r => r.pasta).filter(Boolean))] as string[];
+  // Build full folder path string from breadcrumb
+  const currentFolderPath = currentFolder.join("/");
+
+  // Extract all pastas (manual refs only)
+  const allPastas = [...new Set(refs.filter(r => r.source === "manual").map(r => r.pasta).filter(Boolean))] as string[];
   const categories = [...new Set(refs.filter(r => r.source === "library").map(r => r.content_category).filter(Boolean))] as string[];
+
+  // Get subfolders and items at current level
+  const getSubfoldersAtLevel = () => {
+    const prefix = currentFolderPath ? currentFolderPath + "/" : "";
+    const subfolders = new Set<string>();
+    allPastas.forEach(p => {
+      if (currentFolderPath) {
+        if (p.startsWith(prefix) && p !== currentFolderPath) {
+          const rest = p.slice(prefix.length);
+          const nextSegment = rest.split("/")[0];
+          if (nextSegment) subfolders.add(nextSegment);
+        }
+      } else {
+        // At root: get top-level folder names
+        const topSegment = p.split("/")[0];
+        if (topSegment) subfolders.add(topSegment);
+      }
+    });
+    return [...subfolders].sort();
+  };
+
+  const subfolders = getSubfoldersAtLevel();
 
   const filtered = refs.filter(r => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
     const mpr = filterProject === "all" || r.project_id === filterProject;
-    const mpa = filterPasta === "all" || r.pasta === filterPasta;
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || r.content_category === filterCategory;
+
+    // Pasta filter: show items in current folder (exact match or items with the folder as prefix)
+    let mpa = true;
+    if (filterPasta !== "all") {
+      mpa = r.pasta === filterPasta;
+    } else if (currentFolder.length > 0) {
+      // Show only items exactly in this folder (not subfolders)
+      mpa = r.pasta === currentFolderPath;
+    }
+
     return ms && mt && mp && mpr && mpa && mo && mc;
   });
 
   // Group by project for display
   const groupedByProject = () => {
-    if (filterProject !== "all") return null; // no grouping when specific project selected
+    if (filterProject !== "all") return null;
     const groups: Record<string, Ref[]> = {};
     const noProject: Ref[] = [];
     for (const r of filtered) {
@@ -177,13 +227,14 @@ export default function Referencias() {
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
     const id = crypto.randomUUID();
+    const pastaValue = form.pasta || (currentFolder.length > 0 ? currentFolderPath : null);
     const { error } = await supabase.from("imphq_referencias").insert({
       id, titulo: form.titulo, tipo: form.tipo || "criativo",
       url: form.url || null, image_url: form.image_url || null,
       tags: form.tags || [], notas: form.notas || null,
       score: form.score || 0, plataforma: form.plataforma || null,
       project_id: filterProject !== "all" ? filterProject : (form.project_id || null),
-      pasta: form.pasta || null, produto: form.produto || null,
+      pasta: pastaValue, produto: form.produto || null,
     } as any);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Referência criada!");
@@ -233,7 +284,7 @@ export default function Referencias() {
         tipo: "criativo",
         image_url: url,
         project_id: filterProject !== "all" ? filterProject : null,
-        pasta: filterPasta !== "all" ? filterPasta : null,
+        pasta: currentFolder.length > 0 ? currentFolderPath : (filterPasta !== "all" ? filterPasta : null),
         tags: [],
         score: 0,
       } as any);
@@ -292,13 +343,15 @@ export default function Referencias() {
         </div>
         <div>
           <Label>Pasta</Label>
-          <Select value={data.pasta || "none"} onValueChange={v => setData({ ...data, pasta: v === "none" ? undefined : v })}>
-            <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhuma</SelectItem>
-              {pastas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-1">
+            <Input
+              value={data.pasta || ""}
+              onChange={e => setData({ ...data, pasta: e.target.value || undefined })}
+              placeholder={currentFolderPath ? `${currentFolderPath}/...` : "Ex: Anúncios/Meta"}
+              className="flex-1"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Use "/" para criar subpastas</p>
         </div>
       </div>
       <div><Label>Produto</Label><Input value={data.produto || ""} onChange={e => setData({ ...data, produto: e.target.value })} placeholder="Ex: Curso X, Mentoria Y..." /></div>
@@ -316,9 +369,82 @@ export default function Referencias() {
     </div>
   );
 
-  const renderCard = (r: Ref, i: number) => {
+  /** Render a thumbnail area — handles images, videos, and fallbacks */
+  const renderThumb = (r: Ref, height: string = "h-36") => {
     const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
     const Icon = style.icon;
+    const isLib = r.source === "library";
+
+    // Has a displayable image
+    if (r.image_url && !isVideoUrl(r.image_url)) {
+      return (
+        <div className={`${height} bg-secondary overflow-hidden relative`}>
+          <img
+            src={r.image_url}
+            alt={r.titulo}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          <button
+            className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+            onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
+          >
+            <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+          </button>
+          {isLib && (
+            <button
+              className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+              title="Salvar como Referência"
+              onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
+            >
+              <BookmarkPlus className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // Video file — show video element or play icon
+    if (r.is_video && (r.url || r.image_url)) {
+      const videoSrc = r.url || r.image_url;
+      return (
+        <div className={`${height} bg-secondary overflow-hidden relative`}>
+          <video
+            src={videoSrc}
+            className="w-full h-full object-cover"
+            muted
+            preload="metadata"
+            onMouseOver={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
+            onMouseOut={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-black/50 rounded-full p-2">
+              <Play className="h-5 w-5 text-white fill-white" />
+            </div>
+          </div>
+          {isLib && (
+            <button
+              className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+              title="Salvar como Referência"
+              onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
+            >
+              <BookmarkPlus className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // Fallback gradient
+    return (
+      <div className={`${height} bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
+        <Icon className="h-10 w-10 text-muted-foreground/20" />
+      </div>
+    );
+  };
+
+  const renderCard = (r: Ref, i: number) => {
+    const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
     const catMeta = r.content_category ? CATEGORY_META[r.content_category] : null;
     const isLib = r.source === "library";
 
@@ -329,30 +455,7 @@ export default function Referencias() {
         style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
         onClick={() => isLib ? setLightboxUrl(r.image_url || r.url || null) : setEditing({ ...r })}
       >
-        {r.image_url ? (
-          <div className="h-36 bg-secondary overflow-hidden relative">
-            <img src={r.image_url} alt={r.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            <button
-              className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
-              onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
-            >
-              <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
-            </button>
-            {isLib && (
-              <button
-                className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
-                title="Salvar como Referência"
-                onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
-              >
-                <BookmarkPlus className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
-            <Icon className="h-10 w-10 text-muted-foreground/20" />
-          </div>
-        )}
+        {renderThumb(r)}
         <CardContent className="p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-medium text-sm line-clamp-2">{r.titulo}</h3>
@@ -406,8 +509,12 @@ export default function Referencias() {
         className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group`}
         onClick={() => isLib ? setLightboxUrl(r.image_url || r.url || null) : setEditing({ ...r })}
       >
-        {r.image_url ? (
+        {r.image_url && !isVideoUrl(r.image_url) ? (
           <img src={r.image_url} alt="" className="h-10 w-14 rounded object-cover shrink-0" />
+        ) : r.is_video ? (
+          <div className="h-10 w-14 rounded bg-secondary flex items-center justify-center shrink-0">
+            <Play className="h-4 w-4 text-violet-400" />
+          </div>
         ) : (
           <div className={`h-10 w-14 rounded bg-gradient-to-br ${style.gradient} flex items-center justify-center shrink-0`}>
             {(() => { const Icon = style.icon; return <Icon className="h-4 w-4 text-muted-foreground/30" />; })()}
@@ -449,6 +556,27 @@ export default function Referencias() {
 
   const grouped = groupedByProject();
 
+  // Folder card component
+  const FolderCard = ({ name }: { name: string }) => {
+    const fullPath = currentFolderPath ? `${currentFolderPath}/${name}` : name;
+    const itemCount = refs.filter(r => r.pasta === fullPath || r.pasta?.startsWith(fullPath + "/")).length;
+    return (
+      <Card
+        className="bg-card border-border hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
+        onClick={() => setCurrentFolder([...currentFolder, name])}
+      >
+        <CardContent className="p-4 flex items-center gap-3">
+          <FolderOpen className="h-8 w-8 text-amber-400" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-sm truncate">{name}</h3>
+            <p className="text-[10px] text-muted-foreground">{itemCount} {itemCount === 1 ? "item" : "itens"}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -467,7 +595,10 @@ export default function Referencias() {
             label="Upload Múltiplo"
             multiple
           />
-          <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Referência</Button>
+          <Button size="sm" onClick={() => {
+            setForm({ titulo: "", tipo: "criativo", tags: [], pasta: currentFolderPath || undefined });
+            setShowNew(true);
+          }}><Plus className="h-4 w-4 mr-1" /> Nova Referência</Button>
         </div>
       </div>
 
@@ -493,7 +624,6 @@ export default function Referencias() {
           </button>
         ))}
 
-        {/* Category chips when origin = library */}
         {(filterOrigem === "library" || filterOrigem === "all") && categories.length > 0 && (
           <>
             <span className="text-muted-foreground/30">|</span>
@@ -519,7 +649,7 @@ export default function Referencias() {
         )}
       </div>
 
-      {/* Type counters (for manual refs) */}
+      {/* Type counters */}
       {filterOrigem !== "library" && (
         <div className="flex items-center gap-2 flex-wrap">
           {TIPOS.map(t => {
@@ -565,11 +695,11 @@ export default function Referencias() {
           </SelectContent>
         </Select>
         {filterOrigem !== "library" && (
-          <Select value={filterPasta} onValueChange={setFilterPasta}>
+          <Select value={filterPasta} onValueChange={v => { setFilterPasta(v); if (v !== "all") setCurrentFolder([]); }}>
             <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Pasta" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas Pastas</SelectItem>
-              {pastas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              {allPastas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
             </SelectContent>
           </Select>
         )}
@@ -586,6 +716,35 @@ export default function Referencias() {
         </div>
         <Badge variant="outline" className="text-xs">{filtered.length} refs</Badge>
       </div>
+
+      {/* Breadcrumb navigation */}
+      {currentFolder.length > 0 && filterPasta === "all" && (
+        <div className="flex items-center gap-1 text-sm">
+          <button onClick={() => setCurrentFolder([])} className="text-primary hover:underline flex items-center gap-1">
+            <Folder className="h-3.5 w-3.5" /> Raiz
+          </button>
+          {currentFolder.map((segment, idx) => (
+            <span key={idx} className="flex items-center gap-1">
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+              <button
+                onClick={() => setCurrentFolder(currentFolder.slice(0, idx + 1))}
+                className={idx === currentFolder.length - 1 ? "font-medium text-foreground" : "text-primary hover:underline"}
+              >
+                {segment}
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Subfolder cards */}
+      {filterPasta === "all" && subfolders.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          {subfolders.map(name => (
+            <FolderCard key={name} name={name} />
+          ))}
+        </div>
+      )}
 
       {viewMode === "grid" ? (
         grouped ? (
@@ -618,7 +777,7 @@ export default function Referencias() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((r, i) => renderCard(r, i))}
-            {filtered.length === 0 && (
+            {filtered.length === 0 && subfolders.length === 0 && (
               <div className="col-span-full text-center py-12 space-y-2">
                 <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
                 <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
@@ -630,7 +789,7 @@ export default function Referencias() {
       ) : (
         <div className="space-y-1">
           {filtered.map(r => renderListRow(r))}
-          {filtered.length === 0 && (
+          {filtered.length === 0 && subfolders.length === 0 && (
             <div className="text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
               <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
@@ -653,10 +812,17 @@ export default function Referencias() {
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing?.source === "library" ? "Visualizar" : "Editar"} Referência</DialogTitle></DialogHeader>
-          {editing && editing.image_url && (
+          {editing && editing.image_url && !isVideoUrl(editing.image_url) && (
             <button onClick={() => setLightboxUrl(editing.image_url!)} className="w-full rounded-lg overflow-hidden border border-border hover:opacity-90 transition-opacity">
               <img src={editing.image_url} alt={editing.titulo} className="w-full max-h-48 object-cover" />
             </button>
+          )}
+          {editing && editing.is_video && (editing.url || editing.image_url) && (
+            <video
+              src={editing.url || editing.image_url}
+              controls
+              className="w-full max-h-48 rounded-lg border border-border"
+            />
           )}
           {editing && editing.source === "library" ? (
             <div className="space-y-3">
@@ -693,7 +859,11 @@ export default function Referencias() {
       <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
         <DialogContent className="max-w-4xl max-h-[95vh] p-2 bg-black/95 border-border">
           {lightboxUrl && (
-            <img src={lightboxUrl} alt="Referência" className="w-full h-full object-contain max-h-[90vh] rounded" />
+            isVideoUrl(lightboxUrl) ? (
+              <video src={lightboxUrl} controls autoPlay className="w-full max-h-[90vh] rounded" />
+            ) : (
+              <img src={lightboxUrl} alt="Referência" className="w-full h-full object-contain max-h-[90vh] rounded" />
+            )
           )}
         </DialogContent>
       </Dialog>
@@ -704,16 +874,24 @@ export default function Referencias() {
           <DialogHeader><DialogTitle>Nova Pasta</DialogTitle></DialogHeader>
           <div>
             <Label>Nome da pasta</Label>
-            <Input value={newPastaName} onChange={e => setNewPastaName(e.target.value)} placeholder="Ex: Anúncios Meta Jan/26" />
+            <Input
+              value={newPastaName}
+              onChange={e => setNewPastaName(e.target.value)}
+              placeholder={currentFolderPath ? `Subpasta em "${currentFolderPath}"` : "Ex: Anúncios/Meta Jan"}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Use "/" para criar hierarquia. Ex: "Anúncios/Meta/Janeiro"</p>
           </div>
           <DialogFooter>
             <Button onClick={() => {
               if (!newPastaName.trim()) { toast.error("Nome obrigatório"); return; }
-              setForm(f => ({ ...f, pasta: newPastaName.trim() }));
-              setFilterPasta(newPastaName.trim());
+              const fullPasta = currentFolderPath
+                ? `${currentFolderPath}/${newPastaName.trim()}`
+                : newPastaName.trim();
+              setForm(f => ({ ...f, pasta: fullPasta }));
+              setFilterPasta(fullPasta);
               setShowNewPasta(false);
               setNewPastaName("");
-              toast.success("Pasta criada! Use-a ao criar novas referências.");
+              toast.success(`Pasta "${fullPasta}" criada! Use-a ao criar novas referências.`);
             }}>Criar</Button>
           </DialogFooter>
         </DialogContent>
