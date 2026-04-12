@@ -530,12 +530,27 @@ export default function OpenFlow() {
               {testResult && (
                 <div className={`p-3 rounded border text-xs ${testResult.ok ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"}`}>
                   {testResult.ok ? (
-                    <div className="space-y-1">
-                      <p className="font-medium text-emerald-500">✅ {testResult.executed} execução(ões)</p>
+                    <div className="space-y-2">
+                      <p className="font-medium text-emerald-500">✅ {testResult.executed} execução(ões) — {testResult.results?.reduce((s: number, r: any) => s + (r.messages_sent || 0), 0) || 0} msg enviada(s)</p>
                       {testResult.results?.map((r: any, i: number) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[9px]">{r.status}</Badge>
-                          <span className="text-[10px] text-muted-foreground">{r.steps_executed} steps</span>
+                        <div key={i} className="space-y-1 border-t border-border/30 pt-1">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[9px]">{r.status}</Badge>
+                            <span className="text-[10px] font-medium">{r.automacao_nome}</span>
+                            <span className="text-[10px] text-muted-foreground">{r.steps_executed} steps</span>
+                          </div>
+                          {r.step_results?.map((step: any, si: number) => (
+                            <div key={si} className="flex items-center gap-2 pl-3 text-[10px]">
+                              <span className="text-muted-foreground">#{si}</span>
+                              <Badge className={`text-[8px] ${step.status === "sent" || step.status === "completed" ? "bg-emerald-500/20 text-emerald-400" : step.status === "error" ? "bg-red-500/20 text-red-400" : "bg-muted text-muted-foreground"}`}>
+                                {step.tipo}: {step.status}
+                              </Badge>
+                              {step.reason && <span className="text-red-400">{step.reason}</span>}
+                              {step.provider_id && <span className="text-muted-foreground">provider: {step.provider_id.slice(0, 8)}…</span>}
+                              {step.message_preview && <span className="text-muted-foreground truncate max-w-[200px]">"{step.message_preview}"</span>}
+                            </div>
+                          ))}
+                          {r.error && <p className="text-red-400 text-[10px] pl-3">❌ {r.error}</p>}
                         </div>
                       ))}
                     </div>
