@@ -39,6 +39,68 @@ const MEDIA_ICONS: Record<string, any> = {
   document: FileText,
 };
 
+// --- Time picker with hour/minute selectors ---
+function TimePickerInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, m] = (value || "09:00").split(":").map(Number);
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+  const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <Select value={String(h).padStart(2, "0")} onValueChange={v => onChange(`${v}:${String(m).padStart(2, "0")}`)}>
+        <SelectTrigger className="h-8 text-xs w-[52px] px-1.5">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="max-h-48">
+          {hours.map(hh => <SelectItem key={hh} value={hh} className="text-xs">{hh}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <span className="text-xs text-muted-foreground font-bold">:</span>
+      <Select value={String(m - (m % 5)).padStart(2, "0")} onValueChange={v => onChange(`${String(h).padStart(2, "0")}:${v}`)}>
+        <SelectTrigger className="h-8 text-xs w-[52px] px-1.5">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="max-h-48">
+          {minutes.map(mm => <SelectItem key={mm} value={mm} className="text-xs">{mm}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// --- Date picker with calendar popover ---
+function DatePickerInput({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const date = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className={cn("h-8 text-xs w-full justify-start font-normal px-2", !value && "text-muted-foreground")}>
+          <CalendarIcon className="h-3 w-3 mr-1 shrink-0" />
+          {date ? format(date, "dd/MM/yyyy") : "Selecionar"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={d => onChange(d ? format(d, "yyyy-MM-dd") : null)}
+          locale={ptBR}
+          className="p-3 pointer-events-auto"
+          initialFocus
+        />
+        {value && (
+          <div className="p-2 pt-0 border-t">
+            <Button variant="ghost" size="sm" className="w-full text-xs h-7" onClick={() => onChange(null)}>
+              Limpar data
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface CampaignStepEditorProps {
   campaignId: string;
   projectId?: string;
