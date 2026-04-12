@@ -1,41 +1,111 @@
 
+Objetivo
 
-## Problemas Identificados
+Fazer o OpenFlow realmente disparar mensagens, permitir envio de WhatsApp a partir de Leads e deixar o registro de trigger/erro/reenvio confiável.
 
-### 1. Pix gerado não salva produto no lead
-Ao receber um webhook com evento `pix_gerado`, o sistema cria/atualiza o lead mas **nunca salva o nome do produto** no registro do lead. O produto só aparece dentro de `data.interacoes` (JSONB aninhado), mas não há campo dedicado visível. O lead fica com `produto_data: null`.
+Diagnóstico que encontrei
 
-**Causa raiz**: Na criação do lead (linha ~323) e na atualização (linha ~551), o campo `produto` não é persistido. Apenas `compra_aprovada` salva em `imphq_vendas`, mas `pix_gerado` não cria venda — e o produto se perde.
+- O problema principal está no motor: o editor salva as automações em `imphq_automacoes.acoes`, mas o `openflow-executor` executa `auto.etapas`. Resultado: a automação é “encontrada”, cria execução/log, mas roda 0 etapas e não envia nada.
+- O schema também não bate:
+  - editor usa `template`, `delay_min` e `tipo: "aguardar"`;
+  - executor espera `mensagem|texto` e `delay|espera`.
+- Em Leads, o disparo manual ainda usa fluxo legado (`auto.data?.actions`) e chama `whatsapp-api` num formato incompatível com o restante do sistema.
+- `LeadWhatsAppDialog` manda `conversation_id` com o telefone; isso não é um id real de conversa e pode impedir o envio interno.
+- `webhook-pagamento` grava `imphq_webhooks.processado = false` e não marca `true` no final, então os logs de trigger ficam enganosos.
+- O executor pode terminar como `success/completed` mesmo quando uma etapa falha.
+- A autoescolha de provider não é segura para múltiplos números/projetos.
+- Execuções com `next_run_at` entram em `waiting`, mas hoje não há retomada automática visível no código.
 
-**Solução**: No bloco de atualização do lead (linha 551-553 do webhook-pagamento), além de salvar `ultimo_evento`, salvar também `produto` e `valor` no campo `data` do lead para TODOS os eventos (não só compra). Isso garante que ao abrir o lead, o produto do Pix gerado aparece.
+Plano de implementação
 
-### 2. Usuários não aparecem em Configurações
-O `admin-users` edge function filtra usuários que têm role em `imphq_user_roles`. Atualmente só existem 3 registros (todos admin). Os membros da equipe (`imphq_team_members`) como Viniicus e Bruno **não possuem registro em `imphq_user_roles`**, por isso não aparecem na lista.
+1. Corrigir o núcleo do OpenFlow
+- Ajustar `openflow-executor` para ler `auto.acoes` como fonte principal e manter fallback para `auto.etapas` legado.
+- Normalizar os tipos/campos que o executor entende:
+  - `whatsapp` usa `template` como mensagem;
+  - `aguardar` usa `delay_min`;
+  - `condicao` continua compatível;
+  - manter leitura de chaves antigas (`mensagem`, `texto`, `delay`, `espera`) para não quebrar dados já salvos.
+- Corrigir o status final da execução:
+  - falha real de etapa => `failed`;
+  - delay futuro => `waiting`;
+  - nunca marcar “sucesso” quando nenhuma mensagem foi enviada de fato.
+- Padronizar ids de trigger entre UI e functions para evitar mismatch silencioso.
 
-**Causa raiz**: Os membros da equipe foram cadastrados em `imphq_team_members` mas nunca tiveram uma role atribuída em `imphq_user_roles`. O filtro do edge function exclui quem não tem role.
+2. Consertar envio pelo módulo Leads
+- Trocar o disparo manual de automação em `Leads.tsx` para chamar o `openflow-executor`, em vez do código legado.
+- Fazer o botão de WhatsApp do lead abrir o envio interno do sistema (e deixar `wa.me` como ação secundária, se fizer sentido).
+- Corrigir `LeadWhatsAppDialog` para:
+  - não enviar `conversation_id` inválido;
+  - enviar `content`, `project_id` e `provider_id` no formato esperado;
+  - pré-selecionar provider quando houver um único ativo ou um provider do projeto do lead;
+  - mostrar erro claro quando não houver provider disponível.
+- Alinhar a UI com o backend para não exibir opções de provider que o `whatsapp-api` não consegue resolver.
 
-**Solução**: Modificar o `admin-users` edge function para também incluir usuários que existem em `imphq_team_members`, fazendo um JOIN/merge entre as duas fontes. Assim, membros da equipe aparecem mesmo sem role explícita (exibindo "user" como padrão).
+3. Melhorar a resolução do provider WhatsApp
+- Manter a hierarquia, mas torná-la segura para multi-instância:
+  1. `step.provider_id`
+  2. `auto.provider_id`
+  3. `lead_data.provider_id`
+  4. provider ativo do mesmo projeto
+  5. fallback global
+- Registrar em cada etapa qual provider foi escolhido/tentado.
+- Se não houver provider válido, falhar explicitamente no teste, na execução e no log.
 
----
+4. Melhorar logs, triggers e reenvio
+- Em `webhook-pagamento`, salvar o webhook, processar e depois atualizar `processado=true` quando o fluxo concluir sem erro.
+- Garantir que erro de processamento seja ligado ao webhook correto e apareça de forma legível.
+- Corrigir o reprocesso do OpenFlow para reenviar o contexto original, inclusive `project_id`.
+- Enriquecer `imphq_automacao_logs`/`imphq_flow_executions` com dados úteis no JSON já existente:
+  - trigger recebido,
+  - telefone,
+  - provider usado,
+  - preview da mensagem,
+  - resposta resumida da API,
+  - motivo do erro.
+- Adicionar ação de “reenviar execução” usando o `trigger_data` já salvo no log da automação.
 
-## Plano de Implementação
+5. Resolver execuções em espera
+- Implementar a retomada das execuções com `status = waiting` e `next_run_at <= now()`.
+- Isso pode ser por uma função/scheduler simples reaproveitando `imphq_flow_executions`, sem inventar outro fluxo paralelo.
 
-### Passo 1 — Atualizar `webhook-pagamento` para salvar produto no lead
-No bloco de atualização do lead (`data.interacoes`), adicionar `produto` e `valor` como campos de topo no JSONB `data`:
-```
-data: { ...currentData, interacoes, ultimo_evento: evento, ultimo_produto: produto, ultimo_valor: valor }
-```
-Também no bloco de criação de lead novo (linha ~323), incluir `produto` no campo `data`:
-```
-data: { produto, valor, ultimo_evento: evento, ... }
-```
+6. Melhorar a experiência de teste no OpenFlow
+- O modal de teste deve mostrar o resultado por etapa, não só “X execuções”.
+- Exibir claramente:
+  - automação encontrada,
+  - provider resolvido,
+  - etapa executada,
+  - etapa que falhou,
+  - resposta do `whatsapp-api`.
 
-### Passo 2 — Atualizar `admin-users` para incluir membros da equipe
-Modificar a ação `list` do edge function para:
-1. Buscar `imphq_team_members` (email dos membros)
-2. Incluir na lista final os auth.users que estão em `imphq_team_members` OU em `imphq_user_roles`
-3. Exibir role padrão "user" para quem está em team_members mas não tem role explícita
+Detalhes técnicos
 
-### Passo 3 — Atualizar frontend do lead para exibir produto
-Na tabela/detalhe de leads, exibir `data.ultimo_produto` quando disponível, para que o produto do Pix gerado seja visível.
+- Arquivos principais:
+  - `supabase/functions/openflow-executor/index.ts`
+  - `supabase/functions/webhook-pagamento/index.ts`
+  - `src/pages/Leads.tsx`
+  - `src/components/leads/LeadWhatsAppDialog.tsx`
+  - `src/pages/OpenFlow.tsx`
+  - `src/components/openflow/ExecutionsPanel.tsx`
+  - `src/components/openflow/AutomacaoLogs.tsx`
+- A prioridade é corrigir usando o schema atual e reaproveitando:
+  - `imphq_webhooks`
+  - `imphq_webhook_errors`
+  - `imphq_flow_executions`
+  - `imphq_automacao_logs`
+- Só faria migração se faltar um vínculo mínimo para rastreabilidade/reenvio.
 
+Validação que vou fazer depois da aprovação
+
+- Teste 1: automação manual com 1 etapa WhatsApp no OpenFlow.
+- Teste 2: clique no WhatsApp de um lead enviando mensagem real.
+- Teste 3: trigger por webhook de `pix/aguardando_pagamento` criando webhook + execução + log.
+- Teste 4: falha proposital sem provider para validar erro visível.
+- Teste 5: delay curto e delay longo para confirmar retomada.
+- Teste 6: cenário com mais de um provider ativo para garantir escolha correta por projeto.
+
+Resultado esperado
+
+- O teste da automação deixa de “passar sem enviar”.
+- O botão de WhatsApp em Leads passa a enviar pelo sistema.
+- Cada trigger fica rastreável.
+- Quando falhar, fica claro onde falhou e existe caminho de reenvio.
