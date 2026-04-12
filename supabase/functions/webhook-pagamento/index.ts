@@ -620,6 +620,9 @@ Deno.serve(async (req) => {
       reembolso: "reembolso",
       lead_capturado: "lead_capturado",
       inicio_checkout: "inicio_checkout",
+      aguardando_pagamento: "aguardando_pagamento",
+      pix_gerado: "aguardando_pagamento",
+      pix_expired: "aguardando_pagamento",
     };
     const triggerTipo = triggerMap[evento];
     if (triggerTipo) {
