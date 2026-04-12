@@ -2,10 +2,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, CartesianGrid } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 import { TrendingUp, TrendingDown, Calendar, Target } from "lucide-react";
 
-interface ProjectSummary { id: string; name: string; receita: number; custo: number; lucro: number; roi: number; }
+interface ProjectSummary { id: string; name: string; receita: number; custo: number; lucro: number; roi: number; ads: number; roas: number; cpa: number; vendasCount: number; }
 interface DailyData { date: string; ads: number; vendas: number; }
 interface Props {
   projectSummaries: ProjectSummary[];
@@ -18,11 +18,6 @@ interface Props {
 }
 
 export function FinancasOverview({ projectSummaries, dailyData = [], totalAds = 0, totalVendas = 0, totalVendasCount = 0, totalCustos = 0, filterDateFrom }: Props) {
-  const chartData = projectSummaries.map(p => ({
-    name: p.name.length > 15 ? p.name.slice(0, 15) + "…" : p.name,
-    Receita: p.receita, Custo: p.custo,
-  }));
-
   const realROAS = totalAds > 0 ? totalVendas / totalAds : 0;
   const realCPA = totalVendasCount > 0 ? totalAds / totalVendasCount : 0;
 
@@ -86,36 +81,39 @@ export function FinancasOverview({ projectSummaries, dailyData = [], totalAds = 
         </CardContent></Card>
       )}
 
-      {chartData.length > 0 && (
-        <Card className="border-border"><CardContent className="pt-6">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4">Receita vs Custo por Projeto</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
-              <XAxis type="number" tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2)}`} />
-              <Legend />
-              <Bar dataKey="Receita" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="Custo" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent></Card>
-      )}
-
+      {/* Project summary table */}
       <div className="rounded-xl border border-border overflow-hidden">
         <Table>
-          <TableHeader><TableRow><TableHead>Projeto</TableHead><TableHead className="text-right">Receita</TableHead><TableHead className="text-right">Custo</TableHead><TableHead className="text-right">Lucro</TableHead><TableHead className="text-right">ROI%</TableHead></TableRow></TableHeader>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Projeto</TableHead>
+              <TableHead className="text-right">Receita</TableHead>
+              <TableHead className="text-right">Investido Ads</TableHead>
+              <TableHead className="text-right">Custos Op.</TableHead>
+              <TableHead className="text-right">Lucro</TableHead>
+              <TableHead className="text-right">ROAS</TableHead>
+              <TableHead className="text-right">CPA</TableHead>
+              <TableHead className="text-right">ROI%</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {projectSummaries.map(p => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell className="text-right font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</TableCell>
-                <TableCell className="text-right font-mono text-red-400">R$ {p.custo.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono text-blue-400">{p.ads > 0 ? `R$ ${p.ads.toFixed(2)}` : "—"}</TableCell>
+                <TableCell className="text-right font-mono text-red-400">R$ {(p.custo - p.ads).toFixed(2)}</TableCell>
                 <TableCell className={`text-right font-mono ${p.lucro >= 0 ? "text-emerald-400" : "text-red-400"}`}>R$ {p.lucro.toFixed(2)}</TableCell>
+                <TableCell className={`text-right font-mono font-bold ${p.roas >= 2 ? "text-emerald-400" : p.roas >= 1 ? "text-yellow-400" : p.roas > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                  {p.roas > 0 ? `${p.roas.toFixed(2)}x` : "—"}
+                </TableCell>
+                <TableCell className="text-right font-mono text-orange-400">
+                  {p.cpa > 0 ? `R$ ${p.cpa.toFixed(2)}` : "—"}
+                </TableCell>
                 <TableCell className={`text-right font-mono font-bold ${p.roi >= 0 ? "text-emerald-400" : "text-red-400"}`}>{p.roi.toFixed(1)}%</TableCell>
               </TableRow>
             ))}
-            {projectSummaries.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum projeto com dados financeiros</TableCell></TableRow>}
+            {projectSummaries.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhum projeto com dados financeiros</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>
