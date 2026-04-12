@@ -200,6 +200,9 @@ export default function CampaignManager({ projects, providers }: Props) {
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowLogs(c)} title="Logs">
                       <History className="h-3.5 w-3.5" />
                     </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowAutomation(c)} title="Automações">
+                      <Cog className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       size="icon"
                       variant="ghost"
