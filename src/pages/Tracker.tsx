@@ -189,30 +189,69 @@ export default function Tracker() {
     if (filterProject !== "all" && l.project_id !== filterProject) return false;
     return true;
   });
-  const filteredClicks = filterPlataforma === "all" && filterProject === "all"
-    ? clicks
-    : clicks.filter(c => filteredLinks.some(l => l.id === c.link_id));
-  const filteredVendas = filterPlataforma === "all" && filterProject === "all"
-    ? vendas
-    : vendas.filter(v => {
-        if (filterProject !== "all" && v.project_id !== filterProject) return false;
-        if (filterPlataforma !== "all" && v.plataforma !== filterPlataforma) return false;
-        return true;
-      });
+  const filteredAds = adsSpend.filter(a => {
+    if (filterProject !== "all" && a.project_id !== filterProject) return false;
+    if (filterPlataforma !== "all") {
+      const plat = filterPlataforma === "Meta Ads" ? "Facebook" : filterPlataforma;
+      if (a.plataforma !== plat) return false;
+    }
+    return true;
+  });
+  const filteredVendas = vendas.filter(v => {
+    if (filterProject !== "all" && v.project_id !== filterProject) return false;
+    return true;
+  });
 
-  // KPIs
-  const totalClicks = filteredClicks.length;
-  const totalVendas = filteredVendas.length;
+  // KPIs from imphq_ads_spend (real ads data)
+  const totalGasto = filteredAds.reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
+  const totalClicks = filteredAds.reduce((s, a) => s + (parseInt(String(a.cliques)) || 0), 0);
+  const totalImpressoes = filteredAds.reduce((s, a) => s + (parseInt(String(a.impressoes)) || 0), 0);
+  const totalAlcance = filteredAds.reduce((s, a) => s + (parseInt(String(a.alcance)) || 0), 0);
+  const totalComprasAds = filteredAds.reduce((s, a) => s + (parseInt(String(a.compras)) || 0), 0);
+  const totalVendasCount = filteredVendas.length;
   const totalReceita = filteredVendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
-  const totalGasto = filteredClicks.reduce((s: number, c: any) => s + (parseFloat(c.custo) || 0), 0);
-  const cpl = totalClicks > 0 ? totalGasto / totalClicks : 0;
-  const cpa = totalVendas > 0 ? totalGasto / totalVendas : 0;
+
   const roas = totalGasto > 0 ? totalReceita / totalGasto : 0;
-  const ctr = totalClicks > 0 ? (totalVendas / totalClicks) * 100 : 0;
-  const cvr = ctr;
-  const cpm = totalClicks > 0 ? (totalGasto / totalClicks) * 1000 : 0;
-  const ltv = totalVendas > 0 ? totalReceita / totalVendas : 0;
+  const cpa = totalVendasCount > 0 ? totalGasto / totalVendasCount : 0;
+  const ctr = totalImpressoes > 0 ? (totalClicks / totalImpressoes) * 100 : 0;
+  const cpm = totalImpressoes > 0 ? (totalGasto / totalImpressoes) * 1000 : 0;
+  const cpl = totalClicks > 0 ? totalGasto / totalClicks : 0;
+  const cvr = totalClicks > 0 ? (totalVendasCount / totalClicks) * 100 : 0;
+  const ltv = totalVendasCount > 0 ? totalReceita / totalVendasCount : 0;
   const cac = cpa;
+  const avgFrequencia = filteredAds.length > 0 ? filteredAds.reduce((s, a) => s + (parseFloat(String(a.frequencia)) || 0), 0) / filteredAds.length : 0;
+
+  // Daily chart data
+  const dailyMap = new Map<string, { gasto: number; receita: number; clicks: number }>();
+  filteredAds.forEach(a => {
+    const d = a.data_ref;
+    const prev = dailyMap.get(d) || { gasto: 0, receita: 0, clicks: 0 };
+    prev.gasto += parseFloat(String(a.valor)) || 0;
+    prev.clicks += parseInt(String(a.cliques)) || 0;
+    dailyMap.set(d, prev);
+  });
+  filteredVendas.forEach(v => {
+    const d = (v.created_at || "").slice(0, 10);
+    const prev = dailyMap.get(d) || { gasto: 0, receita: 0, clicks: 0 };
+    prev.receita += parseFloat(v.valor) || 0;
+    dailyMap.set(d, prev);
+  });
+  const dailyChart = Array.from(dailyMap.entries()).map(([date, v]) => ({ date, ...v })).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Campaign breakdown
+  const campaignMap = new Map<string, { campanha: string; gasto: number; cliques: number; impressoes: number; compras: number; frequencia: number[]; ctr: number[] }>();
+  filteredAds.forEach(a => {
+    const key = a.campanha || "—";
+    const prev = campaignMap.get(key) || { campanha: key, gasto: 0, cliques: 0, impressoes: 0, compras: 0, frequencia: [], ctr: [] };
+    prev.gasto += parseFloat(String(a.valor)) || 0;
+    prev.cliques += parseInt(String(a.cliques)) || 0;
+    prev.impressoes += parseInt(String(a.impressoes)) || 0;
+    prev.compras += parseInt(String(a.compras)) || 0;
+    if (a.frequencia) prev.frequencia.push(parseFloat(String(a.frequencia)));
+    if (a.ctr) prev.ctr.push(parseFloat(String(a.ctr)));
+    campaignMap.set(key, prev);
+  });
+  const campaignBreakdown = Array.from(campaignMap.values()).sort((a, b) => b.gasto - a.gasto);
 
   const getStatus = (real: number, target: number, higherIsBetter: boolean) => {
     if (target === 0) return "neutral";
