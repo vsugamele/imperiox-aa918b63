@@ -49,13 +49,23 @@ Deno.serve(async (req) => {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });
       if (error) throw error;
 
-      // Get roles — only ImperioHQ users
+      // Get roles
       const { data: roles } = await adminClient.from("imphq_user_roles").select("*");
       const roleMap: Record<string, string> = {};
       const imphqUserIds = new Set<string>();
       (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; imphqUserIds.add(r.user_id); });
 
-      // Filter: only show users that have an imphq role
+      // Get team members to include them too
+      const { data: teamMembers } = await adminClient.from("imphq_team_members").select("user_id, name, role");
+      const teamMap: Record<string, { name: string; role: string }> = {};
+      (teamMembers || []).forEach((t: any) => {
+        if (t.user_id) {
+          imphqUserIds.add(t.user_id);
+          teamMap[t.user_id] = { name: t.name, role: t.role };
+        }
+      });
+
+      // Filter: show users that have an imphq role OR are team members
       const mapped = users
         .filter((u: any) => imphqUserIds.has(u.id))
         .map((u: any) => ({
@@ -64,7 +74,9 @@ Deno.serve(async (req) => {
           created_at: u.created_at,
           last_sign_in_at: u.last_sign_in_at,
           banned: u.banned_until ? true : false,
-          role: roleMap[u.id] || null,
+          role: roleMap[u.id] || "user",
+          team_name: teamMap[u.id]?.name || null,
+          team_role: teamMap[u.id]?.role || null,
         }));
 
       return new Response(JSON.stringify({ users: mapped }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
