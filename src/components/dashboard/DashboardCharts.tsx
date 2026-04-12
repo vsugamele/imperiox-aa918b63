@@ -8,11 +8,12 @@ import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cel
 interface Props {
   period: string;
   projectFilter: string;
+  productFilter?: string;
 }
 
 const COLORS_PIE = ["hsl(var(--primary))", "hsl(142, 71%, 45%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(199, 89%, 48%)", "hsl(340, 82%, 52%)"];
 
-export default function DashboardCharts({ period, projectFilter }: Props) {
+export default function DashboardCharts({ period, projectFilter, productFilter }: Props) {
   const [leadsTrend, setLeadsTrend] = useState<any[]>([]);
   const [funnelData, setFunnelData] = useState<any[]>([]);
   const [receitaVsCusto, setReceitaVsCusto] = useState<any[]>([]);
@@ -33,7 +34,7 @@ export default function DashboardCharts({ period, projectFilter }: Props) {
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).eq("status", "cliente"),
         supabase.from("imphq_project_costs").select("valor, moeda, created_at"),
         supabase.from("imphq_project_revenue").select("valor, created_at"),
-        supabase.from("imphq_vendas").select("valor, status, created_at, produto_nome").eq("status", "aprovado"),
+        (() => { let q = supabase.from("imphq_vendas").select("valor, status, created_at, produto_nome").eq("status", "aprovado"); if (productFilter && productFilter !== "all") q = q.eq("produto_nome", productFilter); return q; })(),
         supabase.from("imphq_ads_spend").select("valor, data"),
         supabase.from("vw_financas_resumo").select("*").gt("receita_total", 0).order("lucro_liquido", { ascending: false }).limit(5),
       ]);
@@ -86,7 +87,7 @@ export default function DashboardCharts({ period, projectFilter }: Props) {
       setRoasData(Object.entries(monthMap).map(([month, v]) => { const totalCusto = v.custo + v.ads; return { month: month.slice(5), roas: totalCusto > 0 ? parseFloat((v.receita / totalCusto).toFixed(2)) : 0 }; }));
     }
     load();
-  }, [period, projectFilter]);
+  }, [period, projectFilter, productFilter]);
 
   return (
     <>
