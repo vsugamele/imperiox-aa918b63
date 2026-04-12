@@ -414,6 +414,19 @@ export default function Tracker() {
       {/* Global Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <Filter className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
+          {[
+            { value: "7d", label: "7D" },
+            { value: "14d", label: "14D" },
+            { value: "30d", label: "30D" },
+            { value: "90d", label: "90D" },
+            { value: "month", label: "Mês" },
+          ].map(p => (
+            <Button key={p.value} size="sm" variant={datePeriod === p.value ? "default" : "ghost"} className="h-7 text-xs px-2.5" onClick={() => setDatePeriod(p.value)}>
+              {p.label}
+            </Button>
+          ))}
+        </div>
         <Select value={filterPlataforma} onValueChange={setFilterPlataforma}>
           <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
           <SelectContent>
@@ -431,6 +444,7 @@ export default function Tracker() {
         {(filterPlataforma !== "all" || filterProject !== "all") && (
           <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); }}>Limpar filtros</Button>
         )}
+        <span className="text-[10px] text-muted-foreground ml-auto"><Calendar className="h-3 w-3 inline mr-1" />{dateRange.from} → {dateRange.to}</span>
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
@@ -440,36 +454,116 @@ export default function Tracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Top-level metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} />
-            <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Total Clicks" value={String(totalClicks)} />
+            <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Cliques (Ads)" value={totalClicks.toLocaleString("pt-BR")} />
+            <KPICard icon={<Eye className="h-3 w-3" />} label="Impressões" value={totalImpressoes.toLocaleString("pt-BR")} />
             <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendasCount)} />
           </div>
-          {totalGasto === 0 && totalClicks > 0 && (
+
+          {totalGasto === 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-              <p className="text-[11px] text-amber-300">Sem dados de gasto. Os clicks não têm campo <code className="text-amber-400">custo</code> preenchido. Configure gastos via <strong>Finanças → Ads</strong> ou adicione custos nos links.</p>
+              <p className="text-[11px] text-amber-300">Sem dados de gasto no período. Importe dados em <strong>Finanças → Ads</strong> ou configure a sincronização automática do Facebook Ads.</p>
             </div>
           )}
-          {filterProject !== "all" && (
-            <p className="text-xs text-muted-foreground">Filtrando por: <span className="text-primary font-medium">{projectName(filterProject)}</span></p>
-          )}
+
+          {/* KPI targets row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICardTarget label="ROAS" value={roas.toFixed(2)} suffix="x" target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`} status={roasStatus} />
             <KPICardTarget label="CPA" value={`R$ ${cpa.toFixed(2)}`} target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`} status={cpaStatus} />
-            <KPICardTarget label="CTR" value={`${ctr.toFixed(1)}%`} target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`} status={ctrStatus} />
+            <KPICardTarget label="CTR" value={`${ctr.toFixed(2)}%`} target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`} status={ctrStatus} />
             <KPICardTarget label="CPM" value={`R$ ${cpm.toFixed(2)}`} target={targets.cpm_target} targetLabel={`Meta: R$ ${targets.cpm_target}`} status={cpmStatus} />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KPICard icon={<Target className="h-3 w-3" />} label="CPL" value={`R$ ${cpl.toFixed(2)}`} />
-            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(1)}%`} />
+            <KPICard icon={<Target className="h-3 w-3" />} label="CPC" value={`R$ ${cpl.toFixed(2)}`} />
+            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(2)}%`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="LTV" value={`R$ ${ltv.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={`R$ ${cac.toFixed(2)}`} />
           </div>
+
+          {/* Daily chart */}
+          {dailyChart.length > 1 && (
+            <Card className="border-border">
+              <CardContent className="pt-6">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-4">📈 Gasto vs Receita (Timeline)</h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={dailyChart} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
+                    <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2)}`} />
+                    <Legend />
+                    <Area type="monotone" dataKey="receita" name="Receita" stroke="hsl(142 76% 36%)" fill="hsl(142 76% 36% / 0.2)" />
+                    <Area type="monotone" dataKey="gasto" name="Gasto Ads" stroke="hsl(0 84% 60%)" fill="hsl(0 84% 60% / 0.15)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Campaign breakdown */}
+          {campaignBreakdown.length > 0 && (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground">📊 Breakdown por Campanha</h3>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Campanha</TableHead>
+                    <TableHead className="text-right">Gasto</TableHead>
+                    <TableHead className="text-right">Cliques</TableHead>
+                    <TableHead className="text-right">Impressões</TableHead>
+                    <TableHead className="text-right">Compras</TableHead>
+                    <TableHead className="text-right">CPA</TableHead>
+                    <TableHead className="text-right">CTR Médio</TableHead>
+                    <TableHead className="text-right">Freq. Média</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaignBreakdown.map((c, i) => {
+                    const avgCtr = c.ctr.length > 0 ? c.ctr.reduce((a, b) => a + b, 0) / c.ctr.length : 0;
+                    const avgFreq = c.frequencia.length > 0 ? c.frequencia.reduce((a, b) => a + b, 0) / c.frequencia.length : 0;
+                    const campCpa = c.compras > 0 ? c.gasto / c.compras : 0;
+                    return (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium text-xs max-w-[200px] truncate">{c.campanha}</TableCell>
+                        <TableCell className="text-right font-mono text-red-400">R$ {c.gasto.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-blue-400">{c.cliques.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">{c.impressoes.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-right font-mono text-emerald-400">{c.compras}</TableCell>
+                        <TableCell className={`text-right font-mono ${campCpa > 0 && campCpa <= targets.cpa_target ? "text-emerald-400" : campCpa > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                          {campCpa > 0 ? `R$ ${campCpa.toFixed(2)}` : "—"}
+                        </TableCell>
+                        <TableCell className={`text-right font-mono ${avgCtr >= targets.ctr_target ? "text-emerald-400" : "text-amber-400"}`}>{avgCtr.toFixed(2)}%</TableCell>
+                        <TableCell className={`text-right font-mono ${avgFreq > 3 ? "text-red-400" : "text-muted-foreground"}`}>{avgFreq.toFixed(2)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border">
-            <span className="text-[10px] text-muted-foreground">📊 <strong>Origem dos dados:</strong> Receita = <code>imphq_vendas</code> (webhooks) · Gasto = <code>imphq_clicks.custo</code> · Clicks = <code>imphq_clicks</code> filtrados por links UTM</span>
+            <span className="text-[10px] text-muted-foreground">📊 <strong>Origem dos dados:</strong> Receita = <code>imphq_vendas</code> (webhooks) · Gasto/Cliques/Impressões = <code>imphq_ads_spend</code> (sync Facebook Ads)</span>
           </div>
+
+          {/* Performance alerts */}
+          {avgFrequencia > 3 && (
+            <Card className="border-amber-500/50 bg-amber-500/5">
+              <CardContent className="p-4 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-amber-400">Alerta de Saturação</p>
+                  <p className="text-xs text-muted-foreground">Frequência média ({avgFrequencia.toFixed(2)}) acima de 3.0 — considere renovar criativos.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {(roasStatus === "bad" || cpaStatus === "bad") && (
             <Card className="border-destructive/50 bg-destructive/5">
               <CardContent className="p-4 flex items-start gap-3">
