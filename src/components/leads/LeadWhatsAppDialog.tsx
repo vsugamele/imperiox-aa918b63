@@ -1,11 +1,10 @@
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send } from "lucide-react";
+import { Send, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -22,8 +21,21 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Auto-select provider: prefer project match, then first active
+  useEffect(() => {
+    if (!open || waProviders.length === 0) return;
+    const projectProviders = target?.project_id
+      ? waProviders.filter((p: any) => p.project_id === target.project_id)
+      : [];
+    if (projectProviders.length > 0) {
+      setProviderId(projectProviders[0].id);
+    } else if (waProviders.length === 1) {
+      setProviderId(waProviders[0].id);
+    }
+  }, [open, target?.project_id, waProviders]);
+
   const sendMessage = async () => {
-    if (!target?.phone) return;
+    if (!target?.phone) { toast.error("Lead sem telefone"); return; }
     if (!providerId) { toast.error("Selecione um provider WhatsApp"); return; }
     if (!message.trim()) { toast.error("Digite uma mensagem"); return; }
     setSending(true);
@@ -46,7 +58,6 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
             provider_id: providerId,
             phone: target.phone.replace(/\D/g, ""),
             content: finalMsg,
-            conversation_id: target.phone.replace(/\D/g, ""),
             project_id: target.project_id || null,
           }),
         }
@@ -79,7 +90,7 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
                 ))}
               </SelectContent>
             </Select>
-            {waProviders.length === 0 && <p className="text-[10px] text-muted-foreground mt-1">Nenhum provider configurado.</p>}
+            {waProviders.length === 0 && <p className="text-[10px] text-destructive mt-1">⚠️ Nenhum provider WhatsApp ativo. Configure em WhatsApp Hub.</p>}
           </div>
           {waTemplates.length > 0 && (
             <div>
@@ -99,7 +110,9 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
           </div>
         </div>
         <DialogFooter className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { window.open(`https://wa.me/${target?.phone?.replace(/\D/g, "")}`, "_blank"); }}>Abrir wa.me</Button>
+          <Button variant="outline" size="sm" onClick={() => { window.open(`https://wa.me/${target?.phone?.replace(/\D/g, "")}`, "_blank"); }}>
+            <ExternalLink className="h-3 w-3 mr-1" /> wa.me
+          </Button>
           <Button onClick={sendMessage} disabled={sending || !providerId}>
             <Send className="h-3.5 w-3.5 mr-1" /> {sending ? "Enviando..." : "Enviar"}
           </Button>

@@ -315,14 +315,30 @@ export default function Leads() {
 
   const triggerAutomation = async (lead: Lead, auto: any) => {
     try {
-      const actions = auto.data?.actions || [];
-      for (const action of actions) {
-        if (action.type === "email" && lead.email) { const projectId = lead.project_id || auto.project_id; if (projectId) await supabase.functions.invoke("send-project-email", { body: { project_id: projectId, template_id: action.template_id || "default", to_email: lead.email } }); }
-        else if (action.type === "whatsapp" && lead.phone) { await supabase.functions.invoke("whatsapp-api", { body: { action: "send_message", phone: lead.phone, message: action.message || `Olá ${lead.nome || ""}!` } }); }
-      }
+      const { data, error } = await supabase.functions.invoke("openflow-executor", {
+        body: {
+          trigger_tipo: auto.trigger_tipo,
+          project_id: lead.project_id || auto.project_id || "manual",
+          automacao_id: auto.id,
+          lead_data: {
+            lead_id: lead.id,
+            nome: lead.nome || "",
+            email: lead.email || "",
+            phone: lead.phone || "",
+            telefone: lead.phone || "",
+            produto: (lead.data as any)?.ultimo_produto || "",
+          },
+        },
+      });
+      if (error) throw error;
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) await supabase.from("imphq_activity_log").insert({ action: "automacao_executada", entity_type: "lead", entity_id: lead.id, lead_id: lead.id, user_id: user.id, details: { automacao_nome: auto.nome, automacao_id: auto.id } });
-      toast.success(`Automação "${auto.nome}" executada para ${lead.nome || lead.email}`);
+      if (user) await supabase.from("imphq_activity_log").insert({ action: "automacao_executada", entity_type: "lead", entity_id: lead.id, lead_id: lead.id, user_id: user.id, details: { automacao_nome: auto.nome, automacao_id: auto.id, result: data } });
+      if (data?.ok) {
+        const msgs = data.results?.reduce((s: number, r: any) => s + (r.messages_sent || 0), 0) || 0;
+        toast.success(`Automação "${auto.nome}" executada! ${msgs} msg enviada(s)`);
+      } else {
+        toast.error(`Automação falhou: ${data?.error || "erro desconhecido"}`);
+      }
     } catch (err: any) { toast.error("Erro ao executar automação: " + err.message); }
   };
 

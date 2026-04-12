@@ -339,14 +339,14 @@ Deno.serve(async (req) => {
     }
 
     // Save webhook
-    await supabase.from("imphq_webhooks").insert({
+    const { data: webhookRow } = await supabase.from("imphq_webhooks").insert({
       project_id: projectId,
       plataforma,
       evento,
       payload: body,
       lead_id: leadId,
       processado: false,
-    });
+    }).select("id").single();
 
     // Get project config (CAPI + platform token validation)
     let fbToken: string | undefined;
@@ -613,23 +613,24 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Check automations
-    const triggerMap: Record<string, string> = {
-      compra_aprovada: "compra_aprovada",
-      carrinho_abandonado: "carrinho_abandonado",
-      reembolso: "reembolso",
-      lead_capturado: "lead_capturado",
-      inicio_checkout: "inicio_checkout",
-      aguardando_pagamento: "aguardando_pagamento",
-      pix_gerado: "aguardando_pagamento",
-      pix_expired: "aguardando_pagamento",
+    // Check automations — use aliases so lead_novo matches lead_capturado etc.
+    const triggerAliases: Record<string, string[]> = {
+      compra_aprovada: ["compra_aprovada"],
+      carrinho_abandonado: ["carrinho_abandonado"],
+      reembolso: ["reembolso"],
+      lead_capturado: ["lead_capturado", "lead_novo"],
+      inicio_checkout: ["inicio_checkout"],
+      aguardando_pagamento: ["aguardando_pagamento"],
+      pix_gerado: ["aguardando_pagamento"],
+      pix_expired: ["aguardando_pagamento"],
     };
-    const triggerTipo = triggerMap[evento];
-    if (triggerTipo) {
+    const triggerVariants = triggerAliases[evento] || [evento];
+
+    if (triggerVariants.length > 0) {
       const { data: automacoes } = await supabase
         .from("imphq_automacoes")
         .select("*")
-        .eq("trigger_tipo", triggerTipo)
+        .in("trigger_tipo", triggerVariants)
         .eq("ativo", true);
 
       // Filter by project and product
@@ -639,9 +640,9 @@ Deno.serve(async (req) => {
         return true;
       });
 
+      let executorSuccess = true;
       if (matched.length > 0) {
-        console.log(`[webhook-pagamento] ${matched.length} automações encontradas para ${triggerTipo}`);
-        // Trigger openflow-executor for each matched automation
+        console.log(`[webhook-pagamento] ${matched.length} automações encontradas para ${evento}`);
         try {
           const execRes = await fetch(
             `${Deno.env.get("SUPABASE_URL")}/functions/v1/openflow-executor`,
@@ -652,7 +653,7 @@ Deno.serve(async (req) => {
                 Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
               },
               body: JSON.stringify({
-                trigger_tipo: triggerTipo,
+                trigger_tipo: evento,
                 project_id: projectId,
                 lead_data: {
                   lead_id: leadId,
@@ -669,9 +670,21 @@ Deno.serve(async (req) => {
           );
           const execData = await execRes.json();
           console.log("[webhook-pagamento] openflow-executor result:", JSON.stringify(execData).slice(0, 300));
+          if (!execData.ok) executorSuccess = false;
         } catch (flowErr) {
           console.error("[webhook-pagamento] Erro ao chamar openflow-executor:", flowErr);
+          executorSuccess = false;
         }
+      }
+
+      // Mark webhook as processed
+      if (webhookRow?.id && executorSuccess) {
+        await supabase.from("imphq_webhooks").update({ processado: true }).eq("id", webhookRow.id);
+      }
+    } else {
+      // No trigger mapping — still mark as processed (data was saved)
+      if (webhookRow?.id) {
+        await supabase.from("imphq_webhooks").update({ processado: true }).eq("id", webhookRow.id);
       }
     }
 
