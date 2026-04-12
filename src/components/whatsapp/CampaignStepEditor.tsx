@@ -9,8 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, GripVertical, Image, Mic, Video, FileText, Type } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Plus, Trash2, GripVertical, Image, Mic, Video, FileText, Type, CalendarIcon, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { format, parse } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 
 interface Step {
@@ -33,6 +38,68 @@ const MEDIA_ICONS: Record<string, any> = {
   video: Video,
   document: FileText,
 };
+
+// --- Time picker with hour/minute selectors ---
+function TimePickerInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, m] = (value || "09:00").split(":").map(Number);
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+  const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <Select value={String(h).padStart(2, "0")} onValueChange={v => onChange(`${v}:${String(m).padStart(2, "0")}`)}>
+        <SelectTrigger className="h-8 text-xs w-[52px] px-1.5">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="max-h-48">
+          {hours.map(hh => <SelectItem key={hh} value={hh} className="text-xs">{hh}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <span className="text-xs text-muted-foreground font-bold">:</span>
+      <Select value={String(m - (m % 5)).padStart(2, "0")} onValueChange={v => onChange(`${String(h).padStart(2, "0")}:${v}`)}>
+        <SelectTrigger className="h-8 text-xs w-[52px] px-1.5">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="max-h-48">
+          {minutes.map(mm => <SelectItem key={mm} value={mm} className="text-xs">{mm}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// --- Date picker with calendar popover ---
+function DatePickerInput({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const date = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className={cn("h-8 text-xs w-full justify-start font-normal px-2", !value && "text-muted-foreground")}>
+          <CalendarIcon className="h-3 w-3 mr-1 shrink-0" />
+          {date ? format(date, "dd/MM/yyyy") : "Selecionar"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={d => onChange(d ? format(d, "yyyy-MM-dd") : null)}
+          locale={ptBR}
+          className="p-3 pointer-events-auto"
+          initialFocus
+        />
+        {value && (
+          <div className="p-2 pt-0 border-t">
+            <Button variant="ghost" size="sm" className="w-full text-xs h-7" onClick={() => onChange(null)}>
+              Limpar data
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface CampaignStepEditorProps {
   campaignId: string;
@@ -144,11 +211,17 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
                     </div>
                     <div>
                       <Label className="text-[10px]">Horário</Label>
-                      <Input type="time" className="h-8 text-xs" value={step.send_time?.slice(0, 5) || "09:00"} onChange={e => updateStep(step.id, "send_time", e.target.value)} />
+                      <TimePickerInput
+                        value={step.send_time?.slice(0, 5) || "09:00"}
+                        onChange={v => updateStep(step.id, "send_time", v)}
+                      />
                     </div>
                     <div>
                       <Label className="text-[10px]">Data específica</Label>
-                      <Input type="date" className="h-8 text-xs" value={step.send_date || ""} onChange={e => updateStep(step.id, "send_date", e.target.value || null)} />
+                      <DatePickerInput
+                        value={step.send_date || null}
+                        onChange={v => updateStep(step.id, "send_date", v)}
+                      />
                     </div>
                     <div>
                       <Label className="text-[10px]">{step.send_date ? "Offset (ignorado)" : "Dia (offset)"}</Label>
