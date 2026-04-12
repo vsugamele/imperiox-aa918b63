@@ -152,11 +152,14 @@ export default function Financas() {
     const pCosts = fProjectCosts.filter(c => c.project_id === p.id).reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
     const pAds = fAds.filter(a => a.project_id === p.id).reduce((a, b) => a + b.valor, 0);
     const pVendas = fVendas.filter(v => v.project_id === p.id).reduce((a, v) => a + v.valor, 0);
+    const pVendasCount = fVendas.filter(v => v.project_id === p.id).length;
     const pRevenues = fProjectRevenues.filter(r => r.project_id === p.id).reduce((a, r) => a + r.valor, 0);
     const receita = pVendas + pRevenues;
     const custo = pCosts + pAds;
     const lucro = receita - custo;
-    return { id: p.id, name: p.name, receita, custo, lucro, roi: custo > 0 ? (lucro / custo) * 100 : 0 };
+    const roas = pAds > 0 ? receita / pAds : 0;
+    const cpa = pVendasCount > 0 && pAds > 0 ? pAds / pVendasCount : 0;
+    return { id: p.id, name: p.name, receita, custo, lucro, roi: custo > 0 ? (lucro / custo) * 100 : 0, ads: pAds, roas, cpa, vendasCount: pVendasCount };
   }).filter(p => p.receita > 0 || p.custo > 0);
 
   // Daily timeline data for overview (ads vs vendas)
