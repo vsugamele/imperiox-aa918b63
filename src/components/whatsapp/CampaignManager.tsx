@@ -330,6 +330,23 @@ export default function CampaignManager({ projects, providers }: Props) {
           {showLogs && <CampaignLogViewer campaignId={showLogs.id} />}
         </DialogContent>
       </Dialog>
+
+      {/* Automation Dialog */}
+      <Dialog open={!!showAutomation} onOpenChange={() => setShowAutomation(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Automações — {showAutomation?.name}</DialogTitle></DialogHeader>
+          {showAutomation && (
+            <CampaignAutomationPanel
+              campaignId={showAutomation.id}
+              welcomeMessage={showAutomation.welcome_message}
+              exitMessage={showAutomation.exit_message}
+              antiHack={showAutomation.anti_hack}
+              mentionAll={showAutomation.mention_all}
+              onUpdate={load}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
