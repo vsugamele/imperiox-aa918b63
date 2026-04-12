@@ -1,0 +1,1 @@
+ALTER TABLE imphq_automacoes ADD COLUMN IF NOT EXISTS provider_id text;

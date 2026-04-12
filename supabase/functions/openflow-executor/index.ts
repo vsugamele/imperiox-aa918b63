@@ -126,10 +126,25 @@ Deno.serve(async (req) => {
                 .replace(/\{\{email\}\}/g, lead_data?.email || "")
                 .replace(/\{\{produto\}\}/g, lead_data?.produto || "");
 
-              const providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+              let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+              
+              // Auto-detect: find first active provider if none specified
+              if (!providerId) {
+                const { data: activeProviders } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("id")
+                  .eq("is_active", true)
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+                if (activeProviders?.length) {
+                  providerId = activeProviders[0].id;
+                  console.log("[openflow-executor] Auto-detected provider:", providerId);
+                }
+              }
+
               if (!providerId) {
                 stepResult.status = "error";
-                stepResult.reason = "provider_id não configurado";
+                stepResult.reason = "Nenhum provider WhatsApp ativo encontrado";
               } else {
                 const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                   method: "POST",
