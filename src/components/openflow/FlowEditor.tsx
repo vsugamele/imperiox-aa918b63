@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles, ChevronUp, ChevronDown, GitBranch, SaveAll } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles, ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -34,6 +35,14 @@ const TRIGGERS_MAP: Record<string, { label: string; icon: string }> = {
   aguardando_pagamento: { label: "Aguardando Pagamento / Pix Gerado", icon: "💰" },
   inicio_checkout: { label: "Início de Checkout", icon: "🛍️" },
 };
+
+const DYNAMIC_VARS = [
+  { var: "{{nome}}", label: "Nome" },
+  { var: "{{email}}", label: "Email" },
+  { var: "{{produto}}", label: "Produto" },
+  { var: "{{valor}}", label: "Valor" },
+  { var: "{{telefone}}", label: "Telefone" },
+];
 
 export interface Acao {
   tipo: string;
@@ -73,6 +82,7 @@ interface FlowEditorProps {
 export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGenerating, templates = [], providers = [], projectId, onTemplateSaved }: FlowEditorProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
 
   const saveAsTemplate = async (acao: Acao) => {
     if (!acao.template?.trim()) { toast.error("Escreva uma mensagem antes de salvar"); return; }
@@ -95,6 +105,21 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
     } finally {
       setSavingTemplate(false);
     }
+  };
+
+  const insertVariable = (idx: number, variable: string) => {
+    const updated = [...acoes];
+    updated[idx] = { ...updated[idx], template: (updated[idx].template || "") + variable };
+    onChange(updated);
+  };
+
+  const renderPreview = (text: string) => {
+    return text
+      .replace(/\{\{nome\}\}/g, "João Silva")
+      .replace(/\{\{email\}\}/g, "joao@email.com")
+      .replace(/\{\{produto\}\}/g, "Curso Premium")
+      .replace(/\{\{valor\}\}/g, "R$ 297,00")
+      .replace(/\{\{telefone\}\}/g, "(11) 99999-9999");
   };
 
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
@@ -164,6 +189,7 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
         const isExpanded = expandedIdx === idx;
         const isAguardar = acao.tipo === "aguardar";
         const isCondicao = acao.tipo === "condicao";
+        const showPreview = previewIdx === idx;
 
         return (
           <div key={idx} className="flex flex-col items-center">
@@ -276,23 +302,40 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                     <div>
                       <div className="flex items-center justify-between">
                         <Label className="text-[10px]">Mensagem / Template</Label>
-                        {templates.length > 0 && (
-                          <Select onValueChange={v => {
-                            const tpl = templates.find(t => t.content === v);
-                            if (tpl) updateAcao(idx, "template", tpl.content);
-                          }}>
-                            <SelectTrigger className="h-6 w-[140px] text-[10px] border-primary/30">
-                              <SelectValue placeholder="📋 Usar Template" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {templates.map((t, ti) => (
-                                <SelectItem key={ti} value={t.content}>
-                                  <span className="text-[10px]">{t.source}: {t.label}</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {templates.length > 0 && (
+                            <Select onValueChange={v => {
+                              const tpl = templates.find(t => t.content === v);
+                              if (tpl) updateAcao(idx, "template", tpl.content);
+                            }}>
+                              <SelectTrigger className="h-6 w-[140px] text-[10px] border-primary/30">
+                                <SelectValue placeholder="📋 Usar Template" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {templates.map((t, ti) => (
+                                  <SelectItem key={ti} value={t.content}>
+                                    <span className="text-[10px]">{t.source}: {t.label}</span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => setPreviewIdx(showPreview ? null : idx)}
+                                >
+                                  {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="text-xs">Preview da mensagem</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       </div>
                       <Textarea
                         value={acao.template}
@@ -300,6 +343,34 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                         className="text-xs min-h-[70px] mt-1"
                         placeholder="Olá {{nome}}, notamos que você..."
                       />
+                      {/* Char count */}
+                      <div className="flex items-center justify-between mt-1">
+                        <span className={`text-[9px] ${(acao.template?.length || 0) > 1000 ? "text-destructive" : "text-muted-foreground"}`}>
+                          {acao.template?.length || 0} caracteres
+                        </span>
+                      </div>
+                      {/* Dynamic variable buttons */}
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <Variable className="h-3 w-3 text-muted-foreground" />
+                        {DYNAMIC_VARS.map(v => (
+                          <Button
+                            key={v.var}
+                            variant="outline"
+                            size="sm"
+                            className="h-5 text-[9px] px-1.5 border-primary/20 text-primary hover:bg-primary/10"
+                            onClick={() => insertVariable(idx, v.var)}
+                          >
+                            {v.label}
+                          </Button>
+                        ))}
+                      </div>
+                      {/* Preview panel */}
+                      {showPreview && acao.template && (
+                        <div className="mt-2 p-2 rounded bg-secondary/80 border border-border text-xs whitespace-pre-wrap">
+                          <p className="text-[9px] text-muted-foreground mb-1 font-medium">👁 Preview:</p>
+                          {renderPreview(acao.template)}
+                        </div>
+                      )}
                     </div>
                   )}
 

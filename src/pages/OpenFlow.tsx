@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock, ScrollText } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 
@@ -51,6 +51,11 @@ export default function OpenFlow() {
   const [webhookProject, setWebhookProject] = useState("none");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
+  const [kpis, setKpis] = useState({ total: 0, success: 0, errors: 0, rate: 0 });
+  const [testDialog, setTestDialog] = useState<Automacao | null>(null);
+  const [testForm, setTestForm] = useState({ nome: "João Teste", email: "joao@teste.com", telefone: "(11) 99999-9999", produto: "Produto Teste" });
+  const [testResult, setTestResult] = useState<any>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   const load = async () => {
     const [aRes, wRes, pRes, provRes, hubRes] = await Promise.all([
@@ -63,7 +68,6 @@ export default function OpenFlow() {
     setAutomacoes((aRes.data || []).map((a: any) => ({ ...a, acoes: a.acoes || [] })));
     setWebhooks(wRes.data || []);
     setProjects(pRes.data || []);
-    // Unify providers: Evolution/Twilio + Hub Local sessions
     const hubProviders = (hubRes.data || []).map((s: any) => ({
       id: `hub_${s.id}`,
       provider: "hub_local",
@@ -74,7 +78,18 @@ export default function OpenFlow() {
     setProviders([...(provRes.data || []), ...hubProviders]);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadKpis = async () => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const { data: logs } = await supabase.from("imphq_automacao_logs" as any).select("status").gte("created_at", sevenDaysAgo);
+    if (logs) {
+      const total = logs.length;
+      const success = logs.filter((l: any) => l.status === "success").length;
+      const errors = logs.filter((l: any) => l.status === "error").length;
+      setKpis({ total, success, errors, rate: total > 0 ? Math.round((success / total) * 100) : 0 });
+    }
+  };
+
+  useEffect(() => { load(); loadKpis(); }, []);
 
   const loadTemplates = async () => {
     if (!editing?.project_id) { setProjectTemplates([]); return; }
@@ -109,11 +124,8 @@ export default function OpenFlow() {
     setProjectTemplates(tpls);
   };
 
-  // Fetch templates when editing an automation with a project
-  useEffect(() => {
-    loadTemplates();
-  }, [editing?.project_id]);
-  // Load products when form project changes
+  useEffect(() => { loadTemplates(); }, [editing?.project_id]);
+
   useEffect(() => {
     if (!form.project_id) { setProjectProducts([]); return; }
     supabase.from("imphq_projects").select("data").eq("id", form.project_id).single().then(({ data }) => {
@@ -122,7 +134,6 @@ export default function OpenFlow() {
     });
   }, [form.project_id]);
 
-  // Load products when editing project changes
   useEffect(() => {
     if (!editing?.project_id) { setEditProjectProducts([]); return; }
     supabase.from("imphq_projects").select("data").eq("id", editing.project_id).single().then(({ data }) => {
@@ -163,6 +174,54 @@ export default function OpenFlow() {
   const deleteAutomacao = async (id: string) => {
     await supabase.from("imphq_automacoes").delete().eq("id", id);
     toast.success("Removida"); setEditing(null); load();
+  };
+
+  const duplicateAutomacao = async (auto: Automacao) => {
+    const id = crypto.randomUUID();
+    const { error } = await supabase.from("imphq_automacoes").insert({
+      id, nome: `Cópia de ${auto.nome}`, trigger_tipo: auto.trigger_tipo,
+      project_id: auto.project_id || null, acoes: auto.acoes as any, ativo: false,
+      produto: (auto as any).produto || null,
+    } as any);
+    if (error) { toast.error("Erro ao duplicar: " + error.message); return; }
+    toast.success("Automação duplicada!");
+    load();
+  };
+
+  const testAutomacao = async () => {
+    if (!testDialog) return;
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-executor", {
+        body: {
+          trigger_tipo: testDialog.trigger_tipo,
+          project_id: testDialog.project_id || "test-project",
+          automacao_id: testDialog.id,
+          lead_data: {
+            nome: testForm.nome,
+            email: testForm.email,
+            telefone: testForm.telefone,
+            phone: testForm.telefone,
+            produto: testForm.produto,
+            lead_id: "test-lead-" + Date.now(),
+          },
+        },
+      });
+      if (error) throw error;
+      setTestResult(data);
+      if (data?.ok) {
+        toast.success(`Teste concluído! ${data.executed} automação(ões) executada(s)`);
+      } else {
+        toast.error(data?.error || "Erro no teste");
+      }
+      loadKpis();
+    } catch (e: any) {
+      toast.error("Erro no teste: " + (e?.message || "desconhecido"));
+      setTestResult({ error: e?.message });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const generateWithAI = async () => {
@@ -209,9 +268,50 @@ export default function OpenFlow() {
         <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Automação</Button>
       </div>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10"><Activity className="h-5 w-5 text-primary" /></div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{kpis.total}</p>
+              <p className="text-[10px] text-muted-foreground">Execuções (7d)</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/10"><CheckCircle2 className="h-5 w-5 text-emerald-500" /></div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{kpis.success}</p>
+              <p className="text-[10px] text-muted-foreground">Sucesso</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-red-500/10"><XCircle className="h-5 w-5 text-red-500" /></div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{kpis.errors}</p>
+              <p className="text-[10px] text-muted-foreground">Erros</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/10"><Zap className="h-5 w-5 text-blue-500" /></div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{kpis.rate}%</p>
+              <p className="text-[10px] text-muted-foreground">Taxa de Sucesso</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Tabs defaultValue="automacoes">
         <TabsList>
           <TabsTrigger value="automacoes">Automações</TabsTrigger>
+          <TabsTrigger value="execucoes"><Activity className="h-3 w-3 mr-1" /> Execuções</TabsTrigger>
           <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
           <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia do Webhook</TabsTrigger>
         </TabsList>
@@ -255,7 +355,13 @@ export default function OpenFlow() {
                       <span className="text-lg">{triggerIcon(a.trigger_tipo)}</span>
                       <h3 className="font-medium text-sm">{a.nome}</h3>
                     </div>
-                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setTestDialog(a); setTestResult(null); }}>
+                        <Play className="h-3 w-3 text-primary" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateAutomacao(a)}>
+                        <CopyPlus className="h-3 w-3 text-muted-foreground" />
+                      </Button>
                       <Switch checked={a.ativo} onCheckedChange={v => toggleAtivo(a.id, v)} />
                     </div>
                   </div>
@@ -304,6 +410,11 @@ export default function OpenFlow() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Executions Tab */}
+        <TabsContent value="execucoes" className="space-y-4 mt-4">
+          <ExecutionsPanel automacoes={automacoes} projects={projects} />
         </TabsContent>
 
         {/* Logs Tab */}
@@ -424,6 +535,147 @@ export default function OpenFlow() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Test Dialog */}
+      <Dialog open={!!testDialog} onOpenChange={() => { setTestDialog(null); setTestResult(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>▶ Testar Automação</DialogTitle></DialogHeader>
+          {testDialog && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Enviar dados de teste para <strong>{testDialog.nome}</strong> ({triggerLabel(testDialog.trigger_tipo)})</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-xs">Nome</Label><Input value={testForm.nome} onChange={e => setTestForm({ ...testForm, nome: e.target.value })} className="h-8 text-xs" /></div>
+                <div><Label className="text-xs">Email</Label><Input value={testForm.email} onChange={e => setTestForm({ ...testForm, email: e.target.value })} className="h-8 text-xs" /></div>
+                <div><Label className="text-xs">Telefone</Label><Input value={testForm.telefone} onChange={e => setTestForm({ ...testForm, telefone: e.target.value })} className="h-8 text-xs" /></div>
+                <div><Label className="text-xs">Produto</Label><Input value={testForm.produto} onChange={e => setTestForm({ ...testForm, produto: e.target.value })} className="h-8 text-xs" /></div>
+              </div>
+              {testResult && (
+                <div className={`p-3 rounded border text-xs ${testResult.ok ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                  {testResult.ok ? (
+                    <div className="space-y-1">
+                      <p className="font-medium text-emerald-400">✅ Teste concluído — {testResult.executed} execução(ões)</p>
+                      {testResult.results?.map((r: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px]">{r.status}</Badge>
+                          <span className="text-[10px] text-muted-foreground">{r.steps_executed} steps executados</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-red-400">❌ {testResult.error || "Erro desconhecido"}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={testAutomacao} disabled={isTesting}>
+              {isTesting ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Executando...</> : <><Play className="h-3 w-3 mr-1" /> Executar Teste</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ── Executions Panel Component ───────────────────────────────────
+function ExecutionsPanel({ automacoes, projects }: { automacoes: Automacao[]; projects: any[] }) {
+  const [executions, setExecutions] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadExecs = async () => {
+      const { data } = await supabase.from("imphq_flow_executions" as any).select("*").order("created_at", { ascending: false }).limit(50);
+      setExecutions(data || []);
+    };
+    loadExecs();
+  }, []);
+
+  const autoName = (id: string) => automacoes.find(a => a.id === id)?.nome || id?.slice(0, 8);
+  const projName = (id: string) => projects.find(p => p.id === id)?.name || "";
+
+  const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
+    running: { label: "Executando", className: "bg-blue-500/20 text-blue-400", icon: Loader2 },
+    completed: { label: "Concluído", className: "bg-emerald-500/20 text-emerald-400", icon: CheckCircle2 },
+    failed: { label: "Falhou", className: "bg-red-500/20 text-red-400", icon: XCircle },
+    waiting: { label: "Aguardando", className: "bg-amber-500/20 text-amber-400", icon: Clock },
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="text-xs">{executions.length} execuções recentes</Badge>
+        {executions.filter(e => e.status === "waiting").length > 0 && (
+          <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border-amber-500/30">
+            <Clock className="h-3 w-3 mr-1" />
+            {executions.filter(e => e.status === "waiting").length} aguardando
+          </Badge>
+        )}
+      </div>
+
+      {executions.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma execução registrada</p>
+      ) : (
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          {executions.map(exec => {
+            const sc = statusConfig[exec.status] || statusConfig.completed;
+            const StatusIcon = sc.icon;
+            const isExpanded = expandedId === exec.id;
+
+            return (
+              <Card key={exec.id} className="bg-card border-border cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : exec.id)}>
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge className={`text-[9px] ${sc.className}`}>
+                        <StatusIcon className={`h-3 w-3 mr-1 ${exec.status === "running" ? "animate-spin" : ""}`} />
+                        {sc.label}
+                      </Badge>
+                      <span className="text-xs font-medium">{autoName(exec.automacao_id)}</span>
+                      {exec.project_id && <Badge variant="outline" className="text-[9px]">{projName(exec.project_id)}</Badge>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground">Step {exec.current_step || 0}</span>
+                      <span className="text-[10px] text-muted-foreground">{new Date(exec.created_at).toLocaleString("pt-BR")}</span>
+                    </div>
+                  </div>
+
+                  {exec.status === "waiting" && exec.next_run_at && (
+                    <p className="text-[10px] text-amber-400">
+                      ⏰ Próxima execução: {new Date(exec.next_run_at).toLocaleString("pt-BR")}
+                    </p>
+                  )}
+
+                  {exec.error_message && (
+                    <p className="text-[11px] text-red-400 bg-red-500/10 px-2 py-1 rounded">{exec.error_message}</p>
+                  )}
+
+                  {/* Expanded step details */}
+                  {isExpanded && exec.step_results && Array.isArray(exec.step_results) && (
+                    <div className="border-t border-border/30 pt-2 space-y-1">
+                      <p className="text-[10px] font-medium text-muted-foreground">Detalhes dos Steps:</p>
+                      {exec.step_results.map((step: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-secondary/50 text-[10px]">
+                          <Badge variant="outline" className="text-[8px]">#{step.step ?? i}</Badge>
+                          <span className="font-medium">{step.tipo || "step"}</span>
+                          <Badge className={`text-[8px] ${step.status === "sent" || step.status === "completed" ? "bg-emerald-500/20 text-emerald-400" : step.status === "error" ? "bg-red-500/20 text-red-400" : "bg-muted text-muted-foreground"}`}>
+                            {step.status}
+                          </Badge>
+                          {step.reason && <span className="text-muted-foreground">{step.reason}</span>}
+                          {step.finished_at && (
+                            <span className="text-muted-foreground ml-auto">{new Date(step.finished_at).toLocaleTimeString("pt-BR")}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -552,7 +804,6 @@ function WebhookGuide({ projects }: { projects: any[] }) {
 
   return (
     <div className="space-y-6">
-      {/* Flow Diagram */}
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📐 Fluxo de Dados</CardTitle>
@@ -579,13 +830,12 @@ function WebhookGuide({ projects }: { projects: any[] }) {
         </CardContent>
       </Card>
 
-      {/* URL Generator */}
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔗 Gerar URL por Projeto</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">Cada projeto pode ter sua URL única. Isso permite que o sistema vincule a venda ao projeto correto automaticamente.</p>
+          <p className="text-xs text-muted-foreground">Cada projeto pode ter sua URL única.</p>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <code className="text-xs bg-secondary px-3 py-2 rounded flex-1 font-mono truncate">{baseUrl}</code>
@@ -611,7 +861,6 @@ function WebhookGuide({ projects }: { projects: any[] }) {
         </CardContent>
       </Card>
 
-      {/* Platform Instructions */}
       {platforms.map(platform => (
         <Card key={platform.name} className="bg-card border-border">
           <CardHeader>
@@ -643,7 +892,6 @@ function WebhookGuide({ projects }: { projects: any[] }) {
         </Card>
       ))}
 
-      {/* What Happens */}
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚙️ O que acontece quando o webhook chega?</CardTitle>
