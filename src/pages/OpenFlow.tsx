@@ -2,20 +2,23 @@ import { useEffect, useState } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, ArrowRight, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
+import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
+import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
+import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 
+// ── Constants ────────────────────────────────────────────────────
 const TRIGGERS = [
   { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500" },
   { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅", color: "border-l-emerald-500" },
@@ -34,10 +37,13 @@ const ACAO_TIPOS = [
 
 interface Automacao {
   id: string; project_id?: string; produto?: string; nome: string;
-  trigger_tipo: string; acoes: Acao[]; ativo: boolean;
-  created_at?: string;
+  trigger_tipo: string; acoes: Acao[]; ativo: boolean; created_at?: string;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────
+const triggerMeta = (t: string) => TRIGGERS.find(tr => tr.value === t) || { label: t, icon: "⚡", color: "border-l-primary" };
+
+// ── Main Component ───────────────────────────────────────────────
 export default function OpenFlow() {
   const [automacoes, setAutomacoes] = useState<Automacao[]>([]);
   const [webhooks, setWebhooks] = useState<any[]>([]);
@@ -57,6 +63,7 @@ export default function OpenFlow() {
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
 
+  // ── Data loading ─────────────────────────────────────────────
   const load = async () => {
     const [aRes, wRes, pRes, provRes, hubRes] = await Promise.all([
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
@@ -69,11 +76,8 @@ export default function OpenFlow() {
     setWebhooks(wRes.data || []);
     setProjects(pRes.data || []);
     const hubProviders = (hubRes.data || []).map((s: any) => ({
-      id: `hub_${s.id}`,
-      provider: "hub_local",
-      instance_name: s.session_key,
-      twilio_from: null,
-      project_id: s.tenant_id || null,
+      id: `hub_${s.id}`, provider: "hub_local", instance_name: s.session_key,
+      twilio_from: null, project_id: s.tenant_id || null,
     }));
     setProviders([...(provRes.data || []), ...hubProviders]);
   };
@@ -91,6 +95,7 @@ export default function OpenFlow() {
 
   useEffect(() => { load(); loadKpis(); }, []);
 
+  // ── Templates loading ────────────────────────────────────────
   const loadTemplates = async () => {
     if (!editing?.project_id) { setProjectTemplates([]); return; }
     const [projRes, waRes] = await Promise.all([
@@ -99,28 +104,10 @@ export default function OpenFlow() {
     ]);
     const tpls: ProjectTemplate[] = [];
     const d = (projRes.data?.data || {}) as any;
-
-    if (Array.isArray(d.emails)) {
-      d.emails.forEach((e: any, i: number) => {
-        if (e.body) tpls.push({ label: e.subject || `Email ${i + 1}`, content: e.body, source: "Email" });
-      });
-    }
-    if (d.email_config?.templates && Array.isArray(d.email_config.templates)) {
-      d.email_config.templates.forEach((t: any, i: number) => {
-        if (t.html_body) tpls.push({ label: t.subject || `Resend ${i + 1}`, content: t.html_body, source: "✉️ Resend" });
-      });
-    }
-    if (d.copy_arsenal) {
-      const ca = d.copy_arsenal;
-      if (ca.headlines) tpls.push({ label: "Headlines", content: ca.headlines, source: "Copy" });
-      if (ca.storytelling) tpls.push({ label: "Storytelling", content: ca.storytelling, source: "Copy" });
-      if (ca.ctas) tpls.push({ label: "CTAs", content: ca.ctas, source: "Copy" });
-    }
-    if (waRes.data?.length) {
-      waRes.data.forEach((t: any) => {
-        if (t.content) tpls.push({ label: t.name || "WhatsApp", content: t.content, source: "💬 WhatsApp" });
-      });
-    }
+    if (Array.isArray(d.emails)) d.emails.forEach((e: any, i: number) => { if (e.body) tpls.push({ label: e.subject || `Email ${i + 1}`, content: e.body, source: "Email" }); });
+    if (d.email_config?.templates && Array.isArray(d.email_config.templates)) d.email_config.templates.forEach((t: any, i: number) => { if (t.html_body) tpls.push({ label: t.subject || `Resend ${i + 1}`, content: t.html_body, source: "✉️ Resend" }); });
+    if (d.copy_arsenal) { const ca = d.copy_arsenal; if (ca.headlines) tpls.push({ label: "Headlines", content: ca.headlines, source: "Copy" }); if (ca.storytelling) tpls.push({ label: "Storytelling", content: ca.storytelling, source: "Copy" }); if (ca.ctas) tpls.push({ label: "CTAs", content: ca.ctas, source: "Copy" }); }
+    if (waRes.data?.length) waRes.data.forEach((t: any) => { if (t.content) tpls.push({ label: t.name || "WhatsApp", content: t.content, source: "💬 WhatsApp" }); });
     setProjectTemplates(tpls);
   };
 
@@ -129,24 +116,22 @@ export default function OpenFlow() {
   useEffect(() => {
     if (!form.project_id) { setProjectProducts([]); return; }
     supabase.from("imphq_projects").select("data").eq("id", form.project_id).single().then(({ data }) => {
-      const produtos = ((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean);
-      setProjectProducts(produtos);
+      setProjectProducts(((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean));
     });
   }, [form.project_id]);
 
   useEffect(() => {
     if (!editing?.project_id) { setEditProjectProducts([]); return; }
     supabase.from("imphq_projects").select("data").eq("id", editing.project_id).single().then(({ data }) => {
-      const produtos = ((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean);
-      setEditProjectProducts(produtos);
+      setEditProjectProducts(((data?.data as any)?.produtos || []).map((p: any) => p.nome).filter(Boolean));
     });
   }, [editing?.project_id]);
 
+  // ── CRUD operations ──────────────────────────────────────────
   const createAutomacao = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
-    const id = crypto.randomUUID();
     const { error } = await supabase.from("imphq_automacoes").insert({
-      id, nome: form.nome, trigger_tipo: form.trigger_tipo,
+      id: crypto.randomUUID(), nome: form.nome, trigger_tipo: form.trigger_tipo,
       project_id: form.project_id || null, acoes: [] as any, ativo: true,
       produto: (form as any).produto || null,
     } as any);
@@ -177,51 +162,35 @@ export default function OpenFlow() {
   };
 
   const duplicateAutomacao = async (auto: Automacao) => {
-    const id = crypto.randomUUID();
     const { error } = await supabase.from("imphq_automacoes").insert({
-      id, nome: `Cópia de ${auto.nome}`, trigger_tipo: auto.trigger_tipo,
+      id: crypto.randomUUID(), nome: `Cópia de ${auto.nome}`, trigger_tipo: auto.trigger_tipo,
       project_id: auto.project_id || null, acoes: auto.acoes as any, ativo: false,
       produto: (auto as any).produto || null,
     } as any);
     if (error) { toast.error("Erro ao duplicar: " + error.message); return; }
-    toast.success("Automação duplicada!");
-    load();
+    toast.success("Automação duplicada!"); load();
   };
 
   const testAutomacao = async () => {
     if (!testDialog) return;
-    setIsTesting(true);
-    setTestResult(null);
+    setIsTesting(true); setTestResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("openflow-executor", {
         body: {
           trigger_tipo: testDialog.trigger_tipo,
           project_id: testDialog.project_id || "test-project",
           automacao_id: testDialog.id,
-          lead_data: {
-            nome: testForm.nome,
-            email: testForm.email,
-            telefone: testForm.telefone,
-            phone: testForm.telefone,
-            produto: testForm.produto,
-            lead_id: "test-lead-" + Date.now(),
-          },
+          lead_data: { nome: testForm.nome, email: testForm.email, telefone: testForm.telefone, phone: testForm.telefone, produto: testForm.produto, lead_id: "test-lead-" + Date.now() },
         },
       });
       if (error) throw error;
       setTestResult(data);
-      if (data?.ok) {
-        toast.success(`Teste concluído! ${data.executed} automação(ões) executada(s)`);
-      } else {
-        toast.error(data?.error || "Erro no teste");
-      }
+      toast[data?.ok ? "success" : "error"](data?.ok ? `Teste concluído! ${data.executed} execução(ões)` : data?.error || "Erro");
       loadKpis();
     } catch (e: any) {
-      toast.error("Erro no teste: " + (e?.message || "desconhecido"));
+      toast.error("Erro: " + (e?.message || "desconhecido"));
       setTestResult({ error: e?.message });
-    } finally {
-      setIsTesting(false);
-    }
+    } finally { setIsTesting(false); }
   };
 
   const generateWithAI = async () => {
@@ -229,206 +198,174 @@ export default function OpenFlow() {
     setIsGeneratingAI(true);
     try {
       const { data, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: editing.project_id || null,
-          trigger_tipo: editing.trigger_tipo,
-          num_etapas: 5,
-          produto: editing.produto || null,
-        },
+        body: { project_id: editing.project_id || null, trigger_tipo: editing.trigger_tipo, num_etapas: 5, produto: editing.produto || null },
       });
       if (error) throw error;
       if (data?.error) { toast.error(data.error); return; }
-      if (data?.acoes?.length) {
-        setEditing({ ...editing, acoes: data.acoes });
-        toast.success(`${data.acoes.length} ações geradas pela IA!`);
-      } else {
-        toast.error("IA não retornou ações");
-      }
-    } catch (e: any) {
-      toast.error("Erro ao gerar: " + (e?.message || "erro desconhecido"));
-    } finally {
-      setIsGeneratingAI(false);
-    }
+      if (data?.acoes?.length) { setEditing({ ...editing, acoes: data.acoes }); toast.success(`${data.acoes.length} ações geradas!`); }
+      else toast.error("IA não retornou ações");
+    } catch (e: any) { toast.error("Erro: " + (e?.message || "erro")); }
+    finally { setIsGeneratingAI(false); }
   };
 
+  // ── Derived values ───────────────────────────────────────────
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "";
-  const triggerLabel = (t: string) => TRIGGERS.find(tr => tr.value === t)?.label || t;
-  const triggerIcon = (t: string) => TRIGGERS.find(tr => tr.value === t)?.icon || "⚡";
-  const triggerColor = (t: string) => TRIGGERS.find(tr => tr.value === t)?.color || "border-l-primary";
+  const baseWebhookUrl = "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento";
+  const webhookUrl = webhookProject !== "none" ? `${baseWebhookUrl}?project=${webhookProject}` : baseWebhookUrl;
 
-  const baseWebhookUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento`;
-  const webhookUrl = webhookProject !== "none"
-    ? `${baseWebhookUrl}?project=${webhookProject}`
-    : baseWebhookUrl;
-
+  // ── Render ───────────────────────────────────────────────────
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">⚡ OpenFlow <SectionInfo {...sectionHelpTexts.openflow} /></h1>
-        <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova Automação</Button>
+        <h1 className="font-display text-2xl font-bold text-foreground flex items-center gap-2">
+          ⚡ OpenFlow <SectionInfo {...sectionHelpTexts.openflow} />
+        </h1>
+        <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova</Button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10"><Activity className="h-5 w-5 text-primary" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{kpis.total}</p>
-              <p className="text-[10px] text-muted-foreground">Execuções (7d)</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-500/10"><CheckCircle2 className="h-5 w-5 text-emerald-500" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{kpis.success}</p>
-              <p className="text-[10px] text-muted-foreground">Sucesso</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-500/10"><XCircle className="h-5 w-5 text-red-500" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{kpis.errors}</p>
-              <p className="text-[10px] text-muted-foreground">Erros</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10"><Zap className="h-5 w-5 text-blue-500" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{kpis.rate}%</p>
-              <p className="text-[10px] text-muted-foreground">Taxa de Sucesso</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* KPI Strip */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "Execuções (7d)", value: kpis.total, icon: Activity, iconClass: "text-primary" },
+          { label: "Sucesso", value: kpis.success, icon: CheckCircle2, iconClass: "text-emerald-500" },
+          { label: "Erros", value: kpis.errors, icon: XCircle, iconClass: "text-red-500" },
+          { label: "Taxa", value: `${kpis.rate}%`, icon: Zap, iconClass: "text-blue-500" },
+        ].map(kpi => (
+          <Card key={kpi.label} className="bg-card border-border">
+            <CardContent className="p-3 flex items-center gap-3">
+              <kpi.icon className={`h-4 w-4 ${kpi.iconClass} shrink-0`} />
+              <div className="min-w-0">
+                <p className="text-lg font-semibold text-foreground leading-tight">{kpi.value}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{kpi.label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
+      {/* Tabs */}
       <Tabs defaultValue="automacoes">
         <TabsList>
           <TabsTrigger value="automacoes">Automações</TabsTrigger>
           <TabsTrigger value="execucoes"><Activity className="h-3 w-3 mr-1" /> Execuções</TabsTrigger>
           <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
-          <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia do Webhook</TabsTrigger>
+          <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="automacoes" className="space-y-6 mt-4">
-          {/* Webhook URL info */}
-          <Card className="bg-gradient-to-br from-violet-500/10 to-violet-500/5 border-violet-500/20">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-xs text-muted-foreground mb-1">🔗 URL do Webhook (cole nas plataformas de pagamento):</p>
+        {/* ── Automações Tab ────────────────────────────────────── */}
+        <TabsContent value="automacoes" className="space-y-5 mt-4">
+          {/* Webhook URL */}
+          <Card className="bg-card border-border">
+            <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">🔗 Webhook URL:</span>
                 <Select value={webhookProject} onValueChange={setWebhookProject}>
-                  <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+                  <SelectTrigger className="w-[180px] h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">URL genérica</SelectItem>
+                    <SelectItem value="none">Genérica</SelectItem>
                     {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-secondary px-3 py-1.5 rounded flex-1 truncate font-mono">{webhookUrl}</code>
-                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Copiado!"); }}>
-                  <Copy className="h-3 w-3 mr-1" /> Copiar
+                <Button size="sm" variant="outline" className="h-7" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Copiado!"); }}>
+                  <Copy className="h-3 w-3" />
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground">Compatível com: Hotmart, Kiwify, Ticto, Eduzz e outros</p>
             </CardContent>
           </Card>
 
-          {/* Automações list */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {automacoes.map((a, i) => (
-              <Card
-                key={a.id}
-                className={`bg-card border-border border-l-4 ${triggerColor(a.trigger_tipo)} hover:border-primary/20 cursor-pointer transition-all hover:scale-[1.01] animate-fade-in`}
-                style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
-                onClick={() => setEditing({ ...a })}
-              >
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{triggerIcon(a.trigger_tipo)}</span>
-                      <h3 className="font-medium text-sm">{a.nome}</h3>
+          {/* Automações grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {automacoes.map(a => {
+              const tm = triggerMeta(a.trigger_tipo);
+              return (
+                <Card
+                  key={a.id}
+                  className={`bg-card border-border border-l-4 ${tm.color} hover:border-primary/20 cursor-pointer transition-all`}
+                  onClick={() => setEditing({ ...a })}
+                >
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span>{tm.icon}</span>
+                        <h3 className="font-medium text-sm truncate">{a.nome}</h3>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setTestDialog(a); setTestResult(null); }}>
+                          <Play className="h-3 w-3 text-primary" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateAutomacao(a)}>
+                          <CopyPlus className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                        <Switch checked={a.ativo} onCheckedChange={v => toggleAtivo(a.id, v)} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setTestDialog(a); setTestResult(null); }}>
-                        <Play className="h-3 w-3 text-primary" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateAutomacao(a)}>
-                        <CopyPlus className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                      <Switch checked={a.ativo} onCheckedChange={v => toggleAtivo(a.id, v)} />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-[10px]">{tm.label}</Badge>
+                      {a.project_id && <Badge className="text-[9px] bg-primary/10 text-primary border-0">{projectName(a.project_id)}</Badge>}
+                      {(a as any).produto && <Badge variant="outline" className="text-[9px]">🏷️ {(a as any).produto}</Badge>}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-[10px]">{triggerLabel(a.trigger_tipo)}</Badge>
-                    <Badge variant={a.ativo ? "default" : "secondary"} className="text-[10px]">{a.ativo ? "Ativo" : "Inativo"}</Badge>
-                    {a.project_id && <Badge className="text-[9px] bg-primary/20 text-primary">{projectName(a.project_id)}</Badge>}
-                    {(a as any).produto && <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-400">🏷️ {(a as any).produto}</Badge>}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {a.acoes.map((ac, i) => {
-                      const AcIcon = ACAO_TIPOS.find(t => t.value === ac.tipo)?.icon || Zap;
-                      return (
-                        <div key={i} className="flex items-center gap-1">
-                          <div className="p-1 bg-secondary rounded"><AcIcon className="h-3 w-3 text-primary" /></div>
-                          {ac.delay_min > 0 && <span className="text-[9px] text-muted-foreground">{ac.delay_min}min</span>}
-                          {i < a.acoes.length - 1 && <span className="text-muted-foreground/50">→</span>}
-                        </div>
-                      );
-                    })}
-                    {a.acoes.length === 0 && <span className="text-[10px] text-muted-foreground">Sem ações configuradas</span>}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {automacoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma automação criada</p>}
+                    <div className="flex items-center gap-1">
+                      {a.acoes.map((ac, i) => {
+                        const AcIcon = ACAO_TIPOS.find(t => t.value === ac.tipo)?.icon || Zap;
+                        return (
+                          <div key={i} className="flex items-center gap-1">
+                            <div className="p-1 bg-secondary rounded"><AcIcon className="h-3 w-3 text-muted-foreground" /></div>
+                            {ac.delay_min > 0 && <span className="text-[9px] text-muted-foreground">{ac.delay_min}m</span>}
+                            {i < a.acoes.length - 1 && <span className="text-muted-foreground/40">→</span>}
+                          </div>
+                        );
+                      })}
+                      {a.acoes.length === 0 && <span className="text-[10px] text-muted-foreground italic">Sem ações</span>}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {automacoes.length === 0 && <p className="text-sm text-muted-foreground col-span-full text-center py-8">Nenhuma automação criada</p>}
           </div>
 
           {/* Recent Webhooks */}
           {webhooks.length > 0 && (
-            <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "300ms", animationFillMode: "both" }}>
-              <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📡 Webhooks Recentes</CardTitle></CardHeader>
-              <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
-                {webhooks.slice(0, 20).map(w => (
-                  <div key={w.id} className="flex items-center justify-between p-2 rounded bg-secondary/50 border border-border text-xs">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[9px]">{w.plataforma}</Badge>
-                      <span className="text-muted-foreground">{w.evento}</span>
+            <Card className="bg-card border-border">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Webhooks Recentes</p>
+                <div className="space-y-1 max-h-[240px] overflow-y-auto">
+                  {webhooks.slice(0, 15).map(w => (
+                    <div key={w.id} className="flex items-center justify-between p-2 rounded bg-secondary/50 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[9px]">{w.plataforma}</Badge>
+                        <span className="text-muted-foreground">{w.evento}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {w.processado && <span className="text-emerald-500 text-[9px]">✓</span>}
+                        <span className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString("pt-BR")}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {w.processado && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400">Processado</Badge>}
-                      <span className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString("pt-BR")}</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        {/* Executions Tab */}
-        <TabsContent value="execucoes" className="space-y-4 mt-4">
+        <TabsContent value="execucoes" className="mt-4">
           <ExecutionsPanel automacoes={automacoes} projects={projects} />
         </TabsContent>
 
-        {/* Logs Tab */}
-        <TabsContent value="logs" className="space-y-4 mt-4">
+        <TabsContent value="logs" className="mt-4">
           <AutomacaoLogs automacoes={automacoes} projects={projects} />
         </TabsContent>
 
-        {/* Webhook Guide Tab */}
-        <TabsContent value="guia" className="space-y-6 mt-4">
+        <TabsContent value="guia" className="mt-4">
           <WebhookGuide projects={projects} />
         </TabsContent>
       </Tabs>
 
-      {/* New Dialog */}
+      {/* ── New Automation Dialog ──────────────────────────────── */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent>
           <DialogHeader><DialogTitle>Nova Automação</DialogTitle></DialogHeader>
@@ -438,9 +375,7 @@ export default function OpenFlow() {
               <Label>Trigger</Label>
               <Select value={form.trigger_tipo} onValueChange={v => setForm({ ...form, trigger_tipo: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
@@ -457,10 +392,10 @@ export default function OpenFlow() {
               <div>
                 <Label>Produto</Label>
                 <Select value={form.produto || "none"} onValueChange={v => setForm({ ...form, produto: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="Todos produtos" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Todos os produtos</SelectItem>
-                    {projectProducts.map(p => <SelectItem key={p} value={p}>🏷️ {p}</SelectItem>)}
+                    <SelectItem value="none">Todos</SelectItem>
+                    {projectProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -470,7 +405,7 @@ export default function OpenFlow() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog — Flow Editor */}
+      {/* ── Edit Dialog ───────────────────────────────────────── */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar Automação</DialogTitle></DialogHeader>
@@ -483,7 +418,7 @@ export default function OpenFlow() {
                   <Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v, produto: undefined })}>
                     <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Todos os projetos</SelectItem>
+                      <SelectItem value="none">Todos</SelectItem>
                       {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -492,10 +427,10 @@ export default function OpenFlow() {
                   <div>
                     <Label>Produto</Label>
                     <Select value={editing.produto || "none"} onValueChange={v => setEditing({ ...editing, produto: v === "none" ? undefined : v })}>
-                      <SelectTrigger><SelectValue placeholder="Todos produtos" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Todos os produtos</SelectItem>
-                        {editProjectProducts.map(p => <SelectItem key={p} value={p}>🏷️ {p}</SelectItem>)}
+                        <SelectItem value="none">Todos</SelectItem>
+                        {editProjectProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -504,9 +439,7 @@ export default function OpenFlow() {
                   <Label>Trigger</Label>
                   <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
@@ -514,8 +447,6 @@ export default function OpenFlow() {
                 <Label>Ativo</Label>
                 <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
               </div>
-
-              {/* Visual Flow Editor */}
               <FlowEditor
                 triggerTipo={editing.trigger_tipo}
                 acoes={editing.acoes}
@@ -523,7 +454,7 @@ export default function OpenFlow() {
                 onGenerateAI={generateWithAI}
                 isGenerating={isGeneratingAI}
                 templates={projectTemplates}
-                providers={editing.project_id ? (providers || []).filter((p: any) => p.project_id === editing.project_id) : (providers || [])}
+                providers={editing.project_id ? providers.filter((p: any) => p.project_id === editing.project_id) : providers}
                 projectId={editing.project_id}
                 onTemplateSaved={loadTemplates}
               />
@@ -536,13 +467,13 @@ export default function OpenFlow() {
         </DialogContent>
       </Dialog>
 
-      {/* Test Dialog */}
+      {/* ── Test Dialog ───────────────────────────────────────── */}
       <Dialog open={!!testDialog} onOpenChange={() => { setTestDialog(null); setTestResult(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>▶ Testar Automação</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Testar Automação</DialogTitle></DialogHeader>
           {testDialog && (
             <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">Enviar dados de teste para <strong>{testDialog.nome}</strong> ({triggerLabel(testDialog.trigger_tipo)})</p>
+              <p className="text-xs text-muted-foreground">Testar <strong>{testDialog.nome}</strong></p>
               <div className="grid grid-cols-2 gap-2">
                 <div><Label className="text-xs">Nome</Label><Input value={testForm.nome} onChange={e => setTestForm({ ...testForm, nome: e.target.value })} className="h-8 text-xs" /></div>
                 <div><Label className="text-xs">Email</Label><Input value={testForm.email} onChange={e => setTestForm({ ...testForm, email: e.target.value })} className="h-8 text-xs" /></div>
@@ -553,16 +484,16 @@ export default function OpenFlow() {
                 <div className={`p-3 rounded border text-xs ${testResult.ok ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"}`}>
                   {testResult.ok ? (
                     <div className="space-y-1">
-                      <p className="font-medium text-emerald-400">✅ Teste concluído — {testResult.executed} execução(ões)</p>
+                      <p className="font-medium text-emerald-500">✅ {testResult.executed} execução(ões)</p>
                       {testResult.results?.map((r: any, i: number) => (
                         <div key={i} className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[9px]">{r.status}</Badge>
-                          <span className="text-[10px] text-muted-foreground">{r.steps_executed} steps executados</span>
+                          <span className="text-[10px] text-muted-foreground">{r.steps_executed} steps</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-red-400">❌ {testResult.error || "Erro desconhecido"}</p>
+                    <p className="text-red-400">❌ {testResult.error || "Erro"}</p>
                   )}
                 </div>
               )}
@@ -570,350 +501,11 @@ export default function OpenFlow() {
           )}
           <DialogFooter>
             <Button onClick={testAutomacao} disabled={isTesting}>
-              {isTesting ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Executando...</> : <><Play className="h-3 w-3 mr-1" /> Executar Teste</>}
+              {isTesting ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Executando...</> : <><Play className="h-3 w-3 mr-1" /> Testar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-// ── Executions Panel Component ───────────────────────────────────
-function ExecutionsPanel({ automacoes, projects }: { automacoes: Automacao[]; projects: any[] }) {
-  const [executions, setExecutions] = useState<any[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadExecs = async () => {
-      const { data } = await supabase.from("imphq_flow_executions" as any).select("*").order("created_at", { ascending: false }).limit(50);
-      setExecutions(data || []);
-    };
-    loadExecs();
-  }, []);
-
-  const autoName = (id: string) => automacoes.find(a => a.id === id)?.nome || id?.slice(0, 8);
-  const projName = (id: string) => projects.find(p => p.id === id)?.name || "";
-
-  const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
-    running: { label: "Executando", className: "bg-blue-500/20 text-blue-400", icon: Loader2 },
-    completed: { label: "Concluído", className: "bg-emerald-500/20 text-emerald-400", icon: CheckCircle2 },
-    failed: { label: "Falhou", className: "bg-red-500/20 text-red-400", icon: XCircle },
-    waiting: { label: "Aguardando", className: "bg-amber-500/20 text-amber-400", icon: Clock },
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-xs">{executions.length} execuções recentes</Badge>
-        {executions.filter(e => e.status === "waiting").length > 0 && (
-          <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border-amber-500/30">
-            <Clock className="h-3 w-3 mr-1" />
-            {executions.filter(e => e.status === "waiting").length} aguardando
-          </Badge>
-        )}
-      </div>
-
-      {executions.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma execução registrada</p>
-      ) : (
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-          {executions.map(exec => {
-            const sc = statusConfig[exec.status] || statusConfig.completed;
-            const StatusIcon = sc.icon;
-            const isExpanded = expandedId === exec.id;
-
-            return (
-              <Card key={exec.id} className="bg-card border-border cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : exec.id)}>
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge className={`text-[9px] ${sc.className}`}>
-                        <StatusIcon className={`h-3 w-3 mr-1 ${exec.status === "running" ? "animate-spin" : ""}`} />
-                        {sc.label}
-                      </Badge>
-                      <span className="text-xs font-medium">{autoName(exec.automacao_id)}</span>
-                      {exec.project_id && <Badge variant="outline" className="text-[9px]">{projName(exec.project_id)}</Badge>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">Step {exec.current_step || 0}</span>
-                      <span className="text-[10px] text-muted-foreground">{new Date(exec.created_at).toLocaleString("pt-BR")}</span>
-                    </div>
-                  </div>
-
-                  {exec.status === "waiting" && exec.next_run_at && (
-                    <p className="text-[10px] text-amber-400">
-                      ⏰ Próxima execução: {new Date(exec.next_run_at).toLocaleString("pt-BR")}
-                    </p>
-                  )}
-
-                  {exec.error_message && (
-                    <p className="text-[11px] text-red-400 bg-red-500/10 px-2 py-1 rounded">{exec.error_message}</p>
-                  )}
-
-                  {/* Expanded step details */}
-                  {isExpanded && exec.step_results && Array.isArray(exec.step_results) && (
-                    <div className="border-t border-border/30 pt-2 space-y-1">
-                      <p className="text-[10px] font-medium text-muted-foreground">Detalhes dos Steps:</p>
-                      {exec.step_results.map((step: any, i: number) => (
-                        <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-secondary/50 text-[10px]">
-                          <Badge variant="outline" className="text-[8px]">#{step.step ?? i}</Badge>
-                          <span className="font-medium">{step.tipo || "step"}</span>
-                          <Badge className={`text-[8px] ${step.status === "sent" || step.status === "completed" ? "bg-emerald-500/20 text-emerald-400" : step.status === "error" ? "bg-red-500/20 text-red-400" : "bg-muted text-muted-foreground"}`}>
-                            {step.status}
-                          </Badge>
-                          {step.reason && <span className="text-muted-foreground">{step.reason}</span>}
-                          {step.finished_at && (
-                            <span className="text-muted-foreground ml-auto">{new Date(step.finished_at).toLocaleTimeString("pt-BR")}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Automação Logs Component ─────────────────────────────────────
-function AutomacaoLogs({ automacoes, projects }: { automacoes: Automacao[]; projects: any[] }) {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [filterAuto, setFilterAuto] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
-
-  useEffect(() => {
-    const loadLogs = async () => {
-      const { data } = await supabase.from("imphq_automacao_logs" as any).select("*").order("created_at", { ascending: false }).limit(100);
-      setLogs(data || []);
-    };
-    loadLogs();
-  }, []);
-
-  const filtered = logs.filter(l => {
-    if (filterAuto !== "all" && l.automacao_id !== filterAuto) return false;
-    if (filterStatus !== "all" && l.status !== filterStatus) return false;
-    return true;
-  });
-
-  const autoName = (id: string) => automacoes.find(a => a.id === id)?.nome || id.slice(0, 8);
-  const projName = (id: string) => projects.find(p => p.id === id)?.name || id;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        <Select value={filterAuto} onValueChange={setFilterAuto}>
-          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Automação" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas automações</SelectItem>
-            {automacoes.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos status</SelectItem>
-            <SelectItem value="success">✅ Sucesso</SelectItem>
-            <SelectItem value="error">❌ Erro</SelectItem>
-          </SelectContent>
-        </Select>
-        <Badge variant="outline" className="text-xs">{filtered.length} logs</Badge>
-      </div>
-
-      {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Nenhum log de execução encontrado</p>
-      ) : (
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-          {filtered.map(log => (
-            <Card key={log.id} className="bg-card border-border">
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge className={`text-[9px] ${log.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
-                      {log.status === "success" ? "✅ Sucesso" : "❌ Erro"}
-                    </Badge>
-                    <span className="text-xs font-medium">{autoName(log.automacao_id)}</span>
-                    {log.project_id && <Badge variant="outline" className="text-[9px]">{projName(log.project_id)}</Badge>}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{new Date(log.created_at).toLocaleString("pt-BR")}</span>
-                </div>
-                {log.error_message && (
-                  <p className="text-[11px] text-red-400 bg-red-500/10 px-2 py-1 rounded">{log.error_message}</p>
-                )}
-                {log.acoes_executadas && Array.isArray(log.acoes_executadas) && log.acoes_executadas.length > 0 && (
-                  <div className="flex gap-1 flex-wrap">
-                    {log.acoes_executadas.map((a: any, i: number) => (
-                      <Badge key={i} variant="secondary" className="text-[9px]">{a.tipo || `Step ${i + 1}`}</Badge>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Webhook Guide Component ──────────────────────────────────────
-function WebhookGuide({ projects }: { projects: any[] }) {
-  const baseUrl = "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento";
-
-  const platforms = [
-    {
-      name: "Hotmart",
-      icon: "🟧",
-      steps: [
-        "Acesse Ferramentas → Webhooks no painel da Hotmart",
-        "Clique em 'Configurar Webhook'",
-        "Cole a URL do webhook (com ?project=ID se quiser vincular a um projeto)",
-        "Selecione os eventos: PURCHASE_APPROVED, PURCHASE_REFUNDED, PURCHASE_CANCELED",
-        "Salve e teste com o botão 'Enviar Teste'",
-      ],
-      fields: ["transaction", "product.name", "buyer.name", "buyer.email", "buyer.phone", "purchase.price.value"],
-    },
-    {
-      name: "Kiwify",
-      icon: "🟩",
-      steps: [
-        "Acesse Configurações → Webhooks no painel Kiwify",
-        "Clique em 'Adicionar Webhook'",
-        "Cole a URL do webhook",
-        "Selecione eventos: order_paid, order_refunded",
-        "Salve a configuração",
-      ],
-      fields: ["order_id", "Customer.full_name", "Customer.email", "Customer.mobile", "Product.product_name", "order_status"],
-    },
-    {
-      name: "Ticto",
-      icon: "🟦",
-      steps: [
-        "Acesse Integrações → Webhooks no painel Ticto",
-        "Adicione a URL do webhook",
-        "Configure os eventos desejados (venda aprovada, reembolso)",
-        "Salve e teste",
-      ],
-      fields: ["transaction_id", "customer_name", "customer_email", "customer_phone", "product_name", "amount"],
-    },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📐 Fluxo de Dados</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center gap-2 flex-wrap py-4">
-            {[
-              { label: "Plataforma", sub: "Hotmart / Kiwify / Ticto", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-              null,
-              { label: "POST Webhook", sub: "Edge Function", color: "bg-violet-500/20 text-violet-400 border-violet-500/30" },
-              null,
-              { label: "Processamento", sub: "Lead + Venda + CAPI", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-              null,
-              { label: "Automações", sub: "Email / WA / Telegram", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-            ].map((item, i) => item === null ? (
-              <ArrowRight key={i} className="h-5 w-5 text-muted-foreground shrink-0" />
-            ) : (
-              <div key={i} className={`px-4 py-3 rounded-lg border text-center min-w-[140px] ${item.color}`}>
-                <p className="text-sm font-medium">{item.label}</p>
-                <p className="text-[10px] opacity-80">{item.sub}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔗 Gerar URL por Projeto</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">Cada projeto pode ter sua URL única.</p>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <code className="text-xs bg-secondary px-3 py-2 rounded flex-1 font-mono truncate">{baseUrl}</code>
-              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(baseUrl); toast.success("Copiado!"); }}>
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
-            {projects.map(p => (
-              <div key={p.id} className="flex items-center gap-2">
-                <Badge variant="outline" className="text-[10px] shrink-0">{p.name}</Badge>
-                <code className="text-[10px] bg-secondary px-2 py-1.5 rounded flex-1 font-mono truncate">
-                  {baseUrl}?project={p.id}
-                </code>
-                <Button size="sm" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => {
-                  navigator.clipboard.writeText(`${baseUrl}?project=${p.id}`);
-                  toast.success(`URL de ${p.name} copiada!`);
-                }}>
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {platforms.map(platform => (
-        <Card key={platform.name} className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <span>{platform.icon}</span> {platform.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Passo a passo:</p>
-              <ol className="space-y-1.5">
-                {platform.steps.map((step, i) => (
-                  <li key={i} className="text-xs flex items-start gap-2">
-                    <Badge variant="outline" className="text-[9px] shrink-0 mt-0.5">{i + 1}</Badge>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">Campos extraídos automaticamente:</p>
-              <div className="flex flex-wrap gap-1">
-                {platform.fields.map(f => (
-                  <Badge key={f} variant="secondary" className="text-[9px] font-mono">{f}</Badge>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚙️ O que acontece quando o webhook chega?</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {[
-            { step: "1", text: "O payload é recebido e salvo na tabela imphq_webhooks para auditoria", icon: "📥" },
-            { step: "2", text: "O sistema identifica a plataforma (Hotmart, Kiwify, etc.) pelo formato do payload", icon: "🔍" },
-            { step: "3", text: "Se for uma compra aprovada: cria/atualiza lead + registra venda em imphq_vendas", icon: "💰" },
-            { step: "4", text: "Se o projeto tiver Facebook CAPI configurado: envia evento Purchase para o Meta", icon: "📊" },
-            { step: "5", text: "Automações vinculadas ao trigger são disparadas (email, WhatsApp, Telegram)", icon: "⚡" },
-          ].map(item => (
-            <div key={item.step} className="flex items-start gap-3 p-2 rounded bg-secondary/50 border border-border">
-              <span className="text-lg shrink-0">{item.icon}</span>
-              <div>
-                <Badge variant="outline" className="text-[9px] mb-1">Etapa {item.step}</Badge>
-                <p className="text-xs">{item.text}</p>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </div>
   );
 }
