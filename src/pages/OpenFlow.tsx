@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -339,10 +339,32 @@ export default function OpenFlow() {
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-[9px]">{w.plataforma}</Badge>
                         <span className="text-muted-foreground">{w.evento}</span>
+                        {w.project_id && <Badge className="text-[9px] bg-primary/10 text-primary border-0">{projectName(w.project_id)}</Badge>}
                       </div>
                       <div className="flex items-center gap-2">
                         {w.processado && <span className="text-emerald-500 text-[9px]">✓</span>}
                         <span className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString("pt-BR")}</span>
+                        <Button
+                          variant="ghost" size="icon" className="h-6 w-6"
+                          title="Reprocessar webhook"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              toast.info("Reprocessando...");
+                              const { data, error } = await supabase.functions.invoke("webhook-pagamento", {
+                                body: w.payload,
+                                headers: w.project_id ? { "x-reprocess": "true" } : undefined,
+                              });
+                              if (error) throw error;
+                              toast.success(`Reprocessado! Evento: ${data?.evento || w.evento}`);
+                              load(); loadKpis();
+                            } catch (err: any) {
+                              toast.error("Erro ao reprocessar: " + (err?.message || "desconhecido"));
+                            }
+                          }}
+                        >
+                          <RotateCcw className="h-3 w-3 text-muted-foreground" />
+                        </Button>
                       </div>
                     </div>
                   ))}
