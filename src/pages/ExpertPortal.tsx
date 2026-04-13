@@ -536,7 +536,7 @@ export default function ExpertPortal() {
 
         {/* Card Detail Modal (read-only for portal) */}
         <Dialog open={!!selectedCard} onOpenChange={(open) => !open && setSelectedCard(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg bg-[#1a1816] border-[#c9922a]/30 text-foreground">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {PLATFORM_ICONS[selectedCard?.platform || ""] || "📌"} {selectedCard?.platform} — {selectedCard?.type}
