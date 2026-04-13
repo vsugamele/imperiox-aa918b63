@@ -8,8 +8,11 @@ import { readFileSync } from 'fs';
 const envFile = readFileSync('.env', 'utf-8');
 const env = Object.fromEntries(
   envFile.split('\n')
-    .filter(l => l.includes('='))
-    .map(l => l.split('=').map(s => s.trim()))
+    .filter(l => l.includes('=') && !l.startsWith('#'))
+    .map(l => {
+      const idx = l.indexOf('=');
+      return [l.slice(0, idx).trim(), l.slice(idx + 1).trim().replace(/^["']|["']$/g, '')];
+    })
 );
 
 const SUPABASE_URL = env.VITE_SUPABASE_URL;
@@ -30,7 +33,7 @@ const SKILLS = [
     categoria: "Pesquisa & Avatar",
     descricao: "God-Mode Engine de Engenharia de Avatar. Mapeia desejos, vergonhas, traumas e gatilhos do público-alvo com densidade extrema. Gera o Tomo de Onisciência do Avatar.",
     gatilho: "[Nicho] e/ou [Avatar inicial]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "🧠",
     cor: "#9b5de5",
     system_prompt: `SKILL: AVATAR ARCHITECT V6.0 — THE GOD-MODE ENGINE
@@ -74,7 +77,7 @@ HANDOFF: Ao finalizar, dispare → "Ative a SKILL-DEVASTADOR usando este Dossiê
     categoria: "Copy & Persuasão",
     descricao: "Apocalypse Engine™ — constrói Manifestos de Redenção com engenharia de persuasão em massa. Gera copy densa, emocional e logicamente implacável com headlines de choque, scripts de anúncios (5 ângulos) e value stack.",
     gatilho: "[Briefing do Produto] e [Dossiê do Avatar]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "💣",
     cor: "#e05c5c",
     system_prompt: `SKILL: DEVASTADOR COPY V3.0 — THE APOCALYPSE ENGINE™
@@ -111,7 +114,7 @@ HANDOFF: Ao finalizar → "Ative a SALES ARCHITECT usando este Manifesto e o [Co
     categoria: "Inteligência Competitiva",
     descricao: "Battlefield Engine™ — espiona funis dos concorrentes, extrai ganchos de anúncios, mapeia escadas de valor e identifica as brechas fatais do mercado.",
     gatilho: "[Nicho] ou [URL do Concorrente]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "🕵️",
     cor: "#4895ef",
     system_prompt: `SKILL: FUNNEL HACKER V3.0 — THE BATTLEFIELD ENGINE™
@@ -151,7 +154,7 @@ FORMATO DE SAÍDA:
     categoria: "Copy & Persuasão",
     descricao: "Cria mecanismos de oferta únicos que tornam a concorrência irrelevante. Usa critérios N.E.S.M.E. (Novo, Exclusivo, Superior, Misterioso, Empolgante) e desenvolve narrativa de diferenciação proprietária.",
     gatilho: "[Produto] e [Avatar com frustrações com métodos anteriores]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "⚗️",
     cor: "#00ffc8",
     system_prompt: `SKILL: MECANISMO ÚNICO SUPREMO V2.0
@@ -188,7 +191,7 @@ Template obrigatório:
     categoria: "Estratégia & Posicionamento",
     descricao: "Identifica em qual sub-mercado o avatar está gastando dinheiro atualmente (mesmo insatisfeito) para criar a ponte de transição para a Nova Oportunidade.",
     gatilho: "[Produto/Nicho] e [Perfil do Avatar]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "🎯",
     cor: "#d4a843",
     system_prompt: `SKILL: REPOSICIONAMENTO ESTRATÉGICO DE SUB-MERCADO V1.0
@@ -222,7 +225,7 @@ Crie 10 argumentos persuasivos provando que o método atual é:
     categoria: "Estratégia & Posicionamento",
     descricao: "Criação de ecossistemas de produtos que transformam estranhos em clientes fiéis. Usa os 12 Elementos Fundamentais para construir a jornada psicológica de ascensão com Frontend, Backend e High-Ticket.",
     gatilho: "[Produto principal] e [Visão do Negócio]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "♟️",
     cor: "#f5c842",
     system_prompt: `SKILL: ALQUIMIA DA ESCADA DE VALOR V1.0
@@ -254,7 +257,7 @@ PROTOCOLO:
     categoria: "Copy & Persuasão",
     descricao: "Criação de ofertas de baixo ticket ($7-$97) tão irresistíveis que provocam compra impulsiva. Usa Desejo Ardente Escondido, Materialização do Intangível e Resultado Único Milagre.",
     gatilho: "[Nicho] e [Avatar com dores latentes]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "🪤",
     cor: "#ff6b35",
     system_prompt: `SKILL: TRIPWIRE MATADOR V1.0
@@ -287,7 +290,7 @@ PROTOCOLO:
     categoria: "Copy & Persuasão",
     descricao: "Cria estrutura completa de Landing Pages de alta conversão para infoprodutos. Desenvolve cada bloco narrativo com hook, história de transformação, prova social, mecanismo único e CTA irresistível.",
     gatilho: "[Produto] e [Avatar com Dossiê completo]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "📄",
     cor: "#52b788",
     system_prompt: `SKILL: ARQUITETURA DE LP PERSUASIVA V2.0
@@ -320,7 +323,7 @@ REGRAS DE COPYWRITING:
     categoria: "Vendas High-Ticket",
     descricao: "The Closer's Bible™ — Transforma a IA em Comandante de Fechamento. Gera dossiê tático para calls de vendas High-Ticket (R$3k a R$100k+) usando psicologia de linha reta (Belfort), equação de valor (Hormozi) e extração de dor (Miner).",
     gatilho: "[Briefing do Produto] e [Contexto do Lead]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "⚔️",
     cor: "#5b8dee",
     system_prompt: `SKILL: SALES ARCHITECT V2.0 — THE CLOSER'S BIBLE™
@@ -358,7 +361,7 @@ FASE 4 — ÁRVORE DE NEGOCIAÇÃO
     categoria: "Vendas High-Ticket",
     descricao: "High-Ticket Strategist™ — Gera Dossiê Estratégico de Vendas com scripts word-by-word, árvore de objeções e táticas de negociação para fechar ofertas de R$3k a R$50k+ usando frameworks D.E.E.P, S.T.E.P e C.A.G.E.",
     gatilho: "[Produto/Serviço] e [Dados do Lead]",
-    status: "Ativo",
+    status: "Ativa",
     icone: "🎯",
     cor: "#9b5de5",
     system_prompt: `SKILL: SALES CLOSER V1.0 — HIGH-TICKET STRATEGIST
@@ -400,21 +403,18 @@ async function seed() {
   for (const skill of SKILLS) {
     const { error } = await supabase
       .from('imphq_skills')
-      .upsert(
+      .insert(
         {
           nome: skill.nome,
           descricao: skill.descricao,
           categoria: skill.categoria,
           status: skill.status,
           system_prompt: skill.system_prompt,
-          metadata: {
-            versao: skill.versao,
-            gatilho: skill.gatilho,
-            icone: skill.icone,
-            cor: skill.cor,
-          }
-        },
-        { onConflict: 'nome' }
+          versao: skill.versao,
+          gatilho: skill.gatilho,
+          icone: skill.icone,
+          cor: skill.cor,
+        }
       );
 
     if (error) {
