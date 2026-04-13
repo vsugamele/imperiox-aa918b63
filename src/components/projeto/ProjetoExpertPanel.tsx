@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target, Radio, MessageSquare, Video, Download } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2, X, Sparkles, Target, Radio, MessageSquare, Video } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -166,6 +166,11 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     return Array.isArray(prods) ? prods.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
   }, [data.produtos]);
 
+  const sharedExpertDocs = useMemo(
+    () => allDocs.filter((doc: any) => expertDocIds.includes(doc.id)),
+    [allDocs, expertDocIds]
+  );
+
   useEffect(() => {
     const now = new Date();
     const weekEnd = addDays(now, 7);
@@ -272,14 +277,6 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const updateMovementContext = (ctx: string) => {
     onUpdateData({ ...data, movement_context: ctx });
-  };
-
-  const toggleExpertDoc = (docId: string) => {
-    const current = [...expertDocIds];
-    const idx = current.indexOf(docId);
-    if (idx >= 0) current.splice(idx, 1);
-    else current.push(docId);
-    onUpdateData({ ...data, expert_doc_ids: current });
   };
 
   const openCardDetail = (item: ContentItem, day: string) => {
@@ -1072,25 +1069,21 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-[10px] text-muted-foreground mb-3">Selecione os documentos que o expert poderá visualizar no portal público.</p>
-          {allDocs.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhum documento criado. Vá na aba Docs para criar.</p>
+          <p className="text-[10px] text-muted-foreground mb-3">Aqui aparecem somente os documentos já liberados na aba Docs.</p>
+          {sharedExpertDocs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum documento liberado ainda. Vá na aba Docs e habilite os arquivos que devem aparecer para o expert.</p>
           ) : (
             <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-              {allDocs.map((doc: any) => (
-                <label key={doc.id} className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border cursor-pointer hover:bg-secondary/50 transition-colors">
-                  <Checkbox
-                    checked={expertDocIds.includes(doc.id)}
-                    onCheckedChange={() => toggleExpertDoc(doc.id)}
-                  />
+              {sharedExpertDocs.map((doc: any) => (
+                <div key={doc.id} className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border">
                   <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                   <span className="text-xs truncate">{doc.title}</span>
-                </label>
+                </div>
               ))}
             </div>
           )}
-          {expertDocIds.length > 0 && (
-            <p className="text-[10px] text-muted-foreground mt-2">✅ {expertDocIds.length} documento(s) visível(is) no portal</p>
+          {sharedExpertDocs.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-2">✅ {sharedExpertDocs.length} documento(s) visível(is) no portal</p>
           )}
         </CardContent>
       </Card>
