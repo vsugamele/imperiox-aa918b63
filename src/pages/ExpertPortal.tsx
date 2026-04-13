@@ -557,11 +557,31 @@ export default function ExpertPortal() {
                     <p className="text-sm">{selectedCard.description}</p>
                   </div>
                 )}
+                {selectedCard.hook && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">🪝 Hook (abertura)</p>
+                    <p className="text-sm font-medium">{selectedCard.hook}</p>
+                  </div>
+                )}
                 {selectedCard.copy && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">📝 Copy</p>
                     <div className="whitespace-pre-wrap text-sm bg-secondary/30 rounded p-3 border border-border">
                       {selectedCard.copy}
+                    </div>
+                  </div>
+                )}
+                {selectedCard.cta && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">📢 CTA</p>
+                    <p className="text-sm font-medium text-primary">{selectedCard.cta}</p>
+                  </div>
+                )}
+                {selectedCard.recording_tips && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">🎬 Como Gravar</p>
+                    <div className="whitespace-pre-wrap text-sm bg-secondary/30 rounded p-3 border border-border">
+                      {selectedCard.recording_tips}
                     </div>
                   </div>
                 )}
@@ -571,7 +591,7 @@ export default function ExpertPortal() {
                     <p className="text-sm text-primary">{selectedCard.hashtags}</p>
                   </div>
                 )}
-                {!selectedCard.copy && !selectedCard.description && (
+                {!selectedCard.copy && !selectedCard.description && !selectedCard.hook && (
                   <p className="text-sm text-muted-foreground">Nenhum detalhe adicionado ainda.</p>
                 )}
               </div>
