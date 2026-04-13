@@ -326,35 +326,56 @@ export type Database = {
       }
       appbrabas_clientes: {
         Row: {
+          alergias: string | null
           aniversario: string | null
           celular: string | null
           cpf_cnpj: string | null
           created_at: string
+          densidade: string | null
+          elasticidade: string | null
           email: string | null
           id: string
           nome: string
+          observacoes_capilares: string | null
+          porosidade: string | null
+          tipo_curvatura: string | null
+          tratamentos_anteriores: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          alergias?: string | null
           aniversario?: string | null
           celular?: string | null
           cpf_cnpj?: string | null
           created_at?: string
+          densidade?: string | null
+          elasticidade?: string | null
           email?: string | null
           id?: string
           nome: string
+          observacoes_capilares?: string | null
+          porosidade?: string | null
+          tipo_curvatura?: string | null
+          tratamentos_anteriores?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          alergias?: string | null
           aniversario?: string | null
           celular?: string | null
           cpf_cnpj?: string | null
           created_at?: string
+          densidade?: string | null
+          elasticidade?: string | null
           email?: string | null
           id?: string
           nome?: string
+          observacoes_capilares?: string | null
+          porosidade?: string | null
+          tipo_curvatura?: string | null
+          tratamentos_anteriores?: string | null
           updated_at?: string
           user_id?: string
         }
