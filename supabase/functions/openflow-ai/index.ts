@@ -413,11 +413,18 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
     if (skill?.system_prompt) { systemPrompt = skill.system_prompt; skillCategoria = skill.categoria || ""; }
   }
   if (!systemPrompt && skill_slug) {
-    // Search by slug (nome field, case-insensitive partial match)
-    const { data: skills } = await sb.from("imphq_skills").select("system_prompt, categoria, nome")
+    // First try exact slug match
+    const { data: bySlug } = await sb.from("imphq_skills").select("system_prompt, categoria, nome")
       .eq("status", "Ativa").not("system_prompt", "is", null)
-      .ilike("nome", `%${skill_slug}%`).limit(1);
-    if (skills?.[0]?.system_prompt) { systemPrompt = skills[0].system_prompt; skillCategoria = skills[0].categoria || ""; }
+      .eq("slug", skill_slug).limit(1);
+    if (bySlug?.[0]?.system_prompt) { systemPrompt = bySlug[0].system_prompt; skillCategoria = bySlug[0].categoria || ""; }
+    // Fallback to nome partial match
+    if (!systemPrompt) {
+      const { data: byNome } = await sb.from("imphq_skills").select("system_prompt, categoria, nome")
+        .eq("status", "Ativa").not("system_prompt", "is", null)
+        .ilike("nome", `%${skill_slug}%`).limit(1);
+      if (byNome?.[0]?.system_prompt) { systemPrompt = byNome[0].system_prompt; skillCategoria = byNome[0].categoria || ""; }
+    }
   }
   if (!systemPrompt) throw new Error("Skill sem system_prompt");
 
