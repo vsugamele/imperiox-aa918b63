@@ -27,6 +27,9 @@ interface ContentItem {
   copy?: string;
   hashtags?: string;
   cross_platforms?: string[];
+  hook?: string;
+  cta?: string;
+  recording_tips?: string;
 }
 
 interface WeekPlan {
@@ -137,6 +140,8 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const expertNotes: string = data.expert_notes || "";
   const shareToken: string = data.expert_share_token || "";
   const movementContext: string = data.movement_context || "";
+  const expertDocIds: string[] = data.expert_doc_ids || [];
+  const [allDocs, setAllDocs] = useState<any[]>([]);
   const contentObjectives: string[] = Array.isArray(data.content_objectives)
     ? data.content_objectives
     : data.content_objective ? [data.content_objective] : [""];
