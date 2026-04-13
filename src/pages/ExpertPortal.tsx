@@ -50,6 +50,9 @@ interface ContentItem {
   copy?: string;
   hashtags?: string;
   cross_platforms?: string[];
+  hook?: string;
+  cta?: string;
+  recording_tips?: string;
 }
 
 interface WeekSummary {
@@ -554,11 +557,31 @@ export default function ExpertPortal() {
                     <p className="text-sm">{selectedCard.description}</p>
                   </div>
                 )}
+                {selectedCard.hook && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">🪝 Hook (abertura)</p>
+                    <p className="text-sm font-medium">{selectedCard.hook}</p>
+                  </div>
+                )}
                 {selectedCard.copy && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">📝 Copy</p>
                     <div className="whitespace-pre-wrap text-sm bg-secondary/30 rounded p-3 border border-border">
                       {selectedCard.copy}
+                    </div>
+                  </div>
+                )}
+                {selectedCard.cta && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">📢 CTA</p>
+                    <p className="text-sm font-medium text-primary">{selectedCard.cta}</p>
+                  </div>
+                )}
+                {selectedCard.recording_tips && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">🎬 Como Gravar</p>
+                    <div className="whitespace-pre-wrap text-sm bg-secondary/30 rounded p-3 border border-border">
+                      {selectedCard.recording_tips}
                     </div>
                   </div>
                 )}
@@ -568,13 +591,38 @@ export default function ExpertPortal() {
                     <p className="text-sm text-primary">{selectedCard.hashtags}</p>
                   </div>
                 )}
-                {!selectedCard.copy && !selectedCard.description && (
+                {!selectedCard.copy && !selectedCard.description && !selectedCard.hook && (
                   <p className="text-sm text-muted-foreground">Nenhum detalhe adicionado ainda.</p>
                 )}
               </div>
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Documentos Compartilhados */}
+        {data.shared_docs?.length > 0 && (
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
+                <FileText className="h-4 w-4" /> 📄 Documentos & Roteiros
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {data.shared_docs.map((doc: any) => (
+                <details key={doc.id} className="group">
+                  <summary className="flex items-center gap-2 p-2 rounded bg-secondary/50 border border-border cursor-pointer hover:bg-secondary/70 transition-colors">
+                    <FileText className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span className="text-xs font-medium flex-1">{doc.title}</span>
+                    <span className="text-[9px] text-muted-foreground">clique para ler</span>
+                  </summary>
+                  <div className="mt-2 p-4 rounded bg-secondary/30 border border-border whitespace-pre-wrap text-sm">
+                    {doc.content || "Sem conteúdo."}
+                  </div>
+                </details>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Notas */}
         {data.expert_notes && (

@@ -27,6 +27,9 @@ interface ContentItem {
   copy?: string;
   hashtags?: string;
   cross_platforms?: string[];
+  hook?: string;
+  cta?: string;
+  recording_tips?: string;
 }
 
 interface WeekPlan {
@@ -130,6 +133,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [editDescription, setEditDescription] = useState("");
   const [editPlatform, setEditPlatform] = useState("");
   const [editType, setEditType] = useState("");
+  const [editHook, setEditHook] = useState("");
+  const [editCta, setEditCta] = useState("");
+  const [editRecordingTips, setEditRecordingTips] = useState("");
 
   const data = project.data || {};
   const monthlyPlan = migrateToMonthly(data.content_plan);
@@ -137,6 +143,8 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const expertNotes: string = data.expert_notes || "";
   const shareToken: string = data.expert_share_token || "";
   const movementContext: string = data.movement_context || "";
+  const expertDocIds: string[] = data.expert_doc_ids || [];
+  const [allDocs, setAllDocs] = useState<any[]>([]);
   const contentObjectives: string[] = Array.isArray(data.content_objectives)
     ? data.content_objectives
     : data.content_objective ? [data.content_objective] : [""];
@@ -166,11 +174,13 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       supabase.from("imphq_kanban_cards").select("id, title, priority, due_date, board, column_id").contains("tags", [projectId]).order("position"),
       supabase.from("imphq_processes" as any).select("*").eq("project_id", projectId),
       supabase.from("imphq_expert_logs" as any).select("*").eq("project_id", projectId),
-    ]).then(([evRes, taskRes, procRes, logsRes]) => {
+      supabase.from("imphq_docs").select("id, title").eq("project_id", projectId).order("created_at", { ascending: false }),
+    ]).then(([evRes, taskRes, procRes, logsRes, docsRes]) => {
       setEvents(evRes.data || []);
       setTasks(taskRes.data || []);
       setProcesses(procRes.data || []);
       setExpertLogs(logsRes.data || []);
+      setAllDocs(docsRes.data || []);
     });
 
     // Fetch operational status
@@ -264,6 +274,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, movement_context: ctx });
   };
 
+  const toggleExpertDoc = (docId: string) => {
+    const current = [...expertDocIds];
+    const idx = current.indexOf(docId);
+    if (idx >= 0) current.splice(idx, 1);
+    else current.push(docId);
+    onUpdateData({ ...data, expert_doc_ids: current });
+  };
+
   const openCardDetail = (item: ContentItem, day: string) => {
     setSelectedCard(item);
     setSelectedDay(day);
@@ -272,6 +290,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     setEditDescription(item.description);
     setEditPlatform(item.platform);
     setEditType(item.type);
+    setEditHook(item.hook || "");
+    setEditCta(item.cta || "");
+    setEditRecordingTips(item.recording_tips || "");
     setDetailModalOpen(true);
   };
 
@@ -283,6 +304,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       description: editDescription,
       copy: editCopy,
       hashtags: editHashtags,
+      hook: editHook,
+      cta: editCta,
+      recording_tips: editRecordingTips,
     });
     setDetailModalOpen(false);
     toast.success("Card atualizado!");
@@ -871,12 +895,33 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             </div>
 
             <div>
-              <Label className="text-xs text-muted-foreground mb-1 block"># Hashtags</Label>
+              <Label className="text-xs text-muted-foreground mb-1 block">🪝 Hook (abertura)</Label>
               <Input
-                value={editHashtags}
-                onChange={e => setEditHashtags(e.target.value)}
-                placeholder="#marketing #digital #vendas"
+                value={editHook}
+                onChange={e => setEditHook(e.target.value)}
+                placeholder="Ex: Você sabia que 90% das pessoas erram nisso?"
                 className="bg-secondary"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">📢 CTA (chamada para ação)</Label>
+              <Input
+                value={editCta}
+                onChange={e => setEditCta(e.target.value)}
+                placeholder="Ex: Comente 'EU QUERO' para receber o material"
+                className="bg-secondary"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">🎬 Dicas de Gravação</Label>
+              <Textarea
+                value={editRecordingTips}
+                onChange={e => setEditRecordingTips(e.target.value)}
+                placeholder="Ex: Gravar olhando para câmera, tom motivacional, duração ~30s..."
+                className="bg-secondary min-h-[60px]"
+                rows={2}
               />
             </div>
           </div>
@@ -1016,6 +1061,37 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             className="min-h-[100px] bg-secondary/50"
             rows={5}
           />
+        </CardContent>
+      </Card>
+
+      {/* Documentos Compartilhados com Expert */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
+            <FileText className="h-4 w-4" /> 📄 Documentos para o Expert
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-[10px] text-muted-foreground mb-3">Selecione os documentos que o expert poderá visualizar no portal público.</p>
+          {allDocs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum documento criado. Vá na aba Docs para criar.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+              {allDocs.map((doc: any) => (
+                <label key={doc.id} className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border cursor-pointer hover:bg-secondary/50 transition-colors">
+                  <Checkbox
+                    checked={expertDocIds.includes(doc.id)}
+                    onCheckedChange={() => toggleExpertDoc(doc.id)}
+                  />
+                  <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs truncate">{doc.title}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {expertDocIds.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-2">✅ {expertDocIds.length} documento(s) visível(is) no portal</p>
+          )}
         </CardContent>
       </Card>
     </div>

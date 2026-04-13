@@ -42,10 +42,8 @@ serve(async (req) => {
         if (!content_id) return jsonRes({ error: "content_id obrigatório" }, 400);
 
         if (done === false) {
-          // Remove the mark_done log
           await sb.from("imphq_expert_logs").delete().match({ project_id: projectId, content_id, action: "mark_done" });
         } else {
-          // Upsert: delete old + insert new
           await sb.from("imphq_expert_logs").delete().match({ project_id: projectId, content_id, action: "mark_done" });
           await sb.from("imphq_expert_logs").insert({ project_id: projectId, content_id, week, day, action: "mark_done" });
         }
@@ -95,14 +93,23 @@ serve(async (req) => {
     const now = new Date();
     const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const [evRes, taskRes, procRes, adsRes, waCampRes, logsRes] = await Promise.all([
+    const [evRes, taskRes, procRes, adsRes, waCampRes, logsRes, docsRes] = await Promise.all([
       sb.from("imphq_calendar_events").select("id, title, start_date, end_date, type").eq("project_id", projectId).gte("start_date", now.toISOString()).lte("start_date", weekEnd.toISOString()).order("start_date"),
       sb.from("imphq_kanban_cards").select("id, title, priority, due_date, column_id, checklist").contains("tags", [projectId]).order("position").limit(20),
       sb.from("imphq_processes").select("id, title, name, steps").eq("project_id", projectId),
       sb.from("imphq_ad_accounts").select("id, platform, account_name, is_active").eq("project_id", projectId).limit(10),
       sb.from("imphq_wa_campaigns").select("id, name, status").eq("project_id", projectId).eq("status", "active").limit(10),
       sb.from("imphq_expert_logs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(500),
+      // Fetch docs shared with expert (tagged with expert_visible)
+      sb.from("imphq_docs").select("id, title, content, created_at").eq("project_id", projectId).order("created_at", { ascending: false }),
     ]);
+
+    // Filter docs that are marked as expert_visible in project data
+    const expertDocIds: string[] = d.expert_doc_ids || [];
+    const allDocs = docsRes.data || [];
+    const sharedDocs = expertDocIds.length > 0
+      ? allDocs.filter((doc: any) => expertDocIds.includes(doc.id))
+      : [];
 
     const tasks = (taskRes.data || []).map((t: any) => {
       const checklist = t.checklist || [];
@@ -141,6 +148,12 @@ serve(async (req) => {
       })),
       operational_status,
       expert_logs: logsRes.data || [],
+      shared_docs: sharedDocs.map((doc: any) => ({
+        id: doc.id,
+        title: doc.title,
+        content: doc.content,
+        created_at: doc.created_at,
+      })),
     };
 
     return jsonRes(response);
