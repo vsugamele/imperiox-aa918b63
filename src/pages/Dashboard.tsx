@@ -13,6 +13,8 @@ import DashboardCards from "@/components/dashboard/DashboardCards";
 import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
 import GrowthDashboard from "@/components/dashboard/GrowthDashboard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
+import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -77,9 +79,15 @@ export default function Dashboard() {
         </Select>
       </div>
 
+      <HotLeadAlerts />
       <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardStats period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
+        </div>
+        <ConversionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+      </div>
       <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
       <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />

@@ -200,13 +200,27 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     data_compra = dados.data_compra || dados.criado_em || null;
   }
   // ── Hotmart ──
-  else if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
+  else if (hotmartToken || body?.event?.includes?.("PURCHASE") || body?.event?.includes?.("SUBSCRIPTION") || body?.event?.includes?.("CLUB") || body?.event?.includes?.("SWITCH") || body?.event?.includes?.("TRIAL")) {
     plataforma = "Hotmart";
     const ev = body.event || "";
-    if (ev.includes("APPROVED") || ev.includes("COMPLETE")) evento = "compra_aprovada";
-    else if (ev.includes("REFUND")) evento = "reembolso";
-    else if (ev.includes("ABANDONED") || ev.includes("CHECKOUT")) evento = "carrinho_abandonado";
-    else evento = ev.toLowerCase();
+    const hotmartEventMap: Record<string, string> = {
+      "PURCHASE_APPROVED": "compra_aprovada",
+      "PURCHASE_COMPLETE": "compra_aprovada",
+      "PURCHASE_REFUNDED": "reembolso",
+      "PURCHASE_CANCELED": "compra_cancelada",
+      "PURCHASE_CHARGEBACK": "chargeback",
+      "PURCHASE_EXPIRED": "pagamento_expirado",
+      "PURCHASE_DELAYED": "pagamento_pendente",
+      "PURCHASE_BILLET_PRINTED": "boleto_gerado",
+      "PURCHASE_PROTEST": "chargeback",
+      "PURCHASE_OUT_OF_SHOPPING_CART": "carrinho_abandonado",
+      "SUBSCRIPTION_CANCELLATION": "assinatura_cancelada",
+      "SWITCH_PLAN": "troca_plano",
+      "CLUB_FIRST_ACCESS": "primeiro_acesso",
+      "TRIAL_STARTED": "trial_iniciado",
+    };
+    // Try exact match first, then partial
+    evento = hotmartEventMap[ev] || Object.entries(hotmartEventMap).find(([k]) => ev.includes(k.split("_").slice(1).join("_")))?.[1] || ev.toLowerCase();
 
     const buyer = body.data?.buyer || {};
     email = buyer.email || "";
@@ -524,6 +538,14 @@ Deno.serve(async (req) => {
       inicio_checkout: "AddToCart",
       pagamento_recusado: "PagamentoRecusado",
       pagamento_expirado: "PagamentoExpirado",
+      boleto_gerado: "BoletoGerado",
+      compra_cancelada: "CompraCancelada",
+      chargeback: "Chargeback",
+      pagamento_pendente: "PagamentoPendente",
+      assinatura_cancelada: "AssinaturaCancelada",
+      troca_plano: "TrocaPlano",
+      primeiro_acesso: "PrimeiroAcesso",
+      trial_iniciado: "TrialIniciado",
     };
     const journeyEventName = JOURNEY_EVENT_MAP[evento];
     if (journeyEventName && leadId) {
@@ -571,6 +593,12 @@ Deno.serve(async (req) => {
             lead_capturado: 10,
             pagamento_recusado: 15,
             pagamento_expirado: 12,
+            boleto_gerado: 18,
+            compra_cancelada: -5,
+            chargeback: -10,
+            pagamento_pendente: 15,
+            trial_iniciado: 25,
+            primeiro_acesso: 30,
           };
           const pts = scoreMap[evento];
           if (pts) {
@@ -627,10 +655,18 @@ Deno.serve(async (req) => {
       lead_capturado: ["lead_capturado", "lead_novo"],
       inicio_checkout: ["inicio_checkout"],
       aguardando_pagamento: ["aguardando_pagamento"],
-      pix_gerado: ["aguardando_pagamento"],
-      pix_expired: ["aguardando_pagamento"],
+      pix_gerado: ["aguardando_pagamento", "pix_gerado"],
+      pix_expired: ["aguardando_pagamento", "pagamento_expirado"],
       pagamento_recusado: ["pagamento_recusado", "carrinho_abandonado"],
       pagamento_expirado: ["pagamento_expirado", "carrinho_abandonado"],
+      boleto_gerado: ["boleto_gerado", "aguardando_pagamento"],
+      compra_cancelada: ["compra_cancelada", "reembolso"],
+      chargeback: ["chargeback", "reembolso"],
+      pagamento_pendente: ["pagamento_pendente", "aguardando_pagamento"],
+      assinatura_cancelada: ["assinatura_cancelada"],
+      troca_plano: ["troca_plano"],
+      primeiro_acesso: ["primeiro_acesso", "compra_aprovada"],
+      trial_iniciado: ["trial_iniciado"],
     };
     const triggerVariants = triggerAliases[evento] || [evento];
 
