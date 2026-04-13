@@ -200,13 +200,27 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     data_compra = dados.data_compra || dados.criado_em || null;
   }
   // ── Hotmart ──
-  else if (hotmartToken || body?.event?.includes?.("PURCHASE")) {
+  else if (hotmartToken || body?.event?.includes?.("PURCHASE") || body?.event?.includes?.("SUBSCRIPTION") || body?.event?.includes?.("CLUB") || body?.event?.includes?.("SWITCH") || body?.event?.includes?.("TRIAL")) {
     plataforma = "Hotmart";
     const ev = body.event || "";
-    if (ev.includes("APPROVED") || ev.includes("COMPLETE")) evento = "compra_aprovada";
-    else if (ev.includes("REFUND")) evento = "reembolso";
-    else if (ev.includes("ABANDONED") || ev.includes("CHECKOUT")) evento = "carrinho_abandonado";
-    else evento = ev.toLowerCase();
+    const hotmartEventMap: Record<string, string> = {
+      "PURCHASE_APPROVED": "compra_aprovada",
+      "PURCHASE_COMPLETE": "compra_aprovada",
+      "PURCHASE_REFUNDED": "reembolso",
+      "PURCHASE_CANCELED": "compra_cancelada",
+      "PURCHASE_CHARGEBACK": "chargeback",
+      "PURCHASE_EXPIRED": "pagamento_expirado",
+      "PURCHASE_DELAYED": "pagamento_pendente",
+      "PURCHASE_BILLET_PRINTED": "boleto_gerado",
+      "PURCHASE_PROTEST": "chargeback",
+      "PURCHASE_OUT_OF_SHOPPING_CART": "carrinho_abandonado",
+      "SUBSCRIPTION_CANCELLATION": "assinatura_cancelada",
+      "SWITCH_PLAN": "troca_plano",
+      "CLUB_FIRST_ACCESS": "primeiro_acesso",
+      "TRIAL_STARTED": "trial_iniciado",
+    };
+    // Try exact match first, then partial
+    evento = hotmartEventMap[ev] || Object.entries(hotmartEventMap).find(([k]) => ev.includes(k.split("_").slice(1).join("_")))?.[1] || ev.toLowerCase();
 
     const buyer = body.data?.buyer || {};
     email = buyer.email || "";
