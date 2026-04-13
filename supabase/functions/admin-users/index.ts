@@ -71,18 +71,19 @@ Deno.serve(async (req) => {
       });
 
       // Build user list: auth users that are in imphq scope
+      const authUserIds = new Set(users.map((u: any) => u.id));
       const mapped = users
         .filter((u: any) => imphqUserIds.has(u.id))
         .map((u: any) => {
           const roleInfo = roleMap[u.id];
-          const team = teamMap[u.id];
+          const team = teamMap[u.id] || (u.email ? teamByEmail[u.email.toLowerCase()] : null);
           return {
             id: u.id,
             email: u.email,
             created_at: u.created_at,
             last_sign_in_at: u.last_sign_in_at,
             banned: u.banned_until ? true : false,
-            role: roleInfo?.role || "user",
+            role: roleInfo?.role || (team?.role?.toLowerCase()) || "user",
             status: roleInfo?.status || "approved",
             team_name: team?.name || null,
             team_role: team?.role || null,
@@ -91,18 +92,26 @@ Deno.serve(async (req) => {
           };
         });
 
-      // Also include team members WITHOUT auth accounts (not yet registered)
+      // Include team members whose user_id doesn't match any auth user OR who have no user_id
+      const mappedIds = new Set(mapped.map((m: any) => m.id));
       const authEmails = new Set(users.map((u: any) => u.email?.toLowerCase()));
       const unlinkedTeam = (teamMembers || [])
-        .filter((t: any) => !t.user_id && t.email && !authEmails.has(t.email.toLowerCase()))
+        .filter((t: any) => {
+          // No user_id and email not in auth → truly unlinked
+          if (!t.user_id) return t.email && !authEmails.has(t.email.toLowerCase());
+          // Has user_id but that user_id wasn't found in auth users → stale link
+          if (!authUserIds.has(t.user_id)) return true;
+          // Already included in mapped
+          return false;
+        })
         .map((t: any) => ({
-          id: `team_${t.id}`,
+          id: t.user_id || `team_${t.id}`,
           email: t.email,
           created_at: t.created_at,
           last_sign_in_at: null,
           banned: false,
           role: t.role?.toLowerCase() || "viewer",
-          status: "invited", // not yet registered
+          status: t.user_id ? "approved" : "invited",
           team_name: t.name,
           team_role: t.role,
           team_department: t.department,
