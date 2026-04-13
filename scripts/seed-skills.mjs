@@ -410,12 +410,10 @@ async function seed() {
           categoria: skill.categoria,
           status: skill.status,
           system_prompt: skill.system_prompt,
-          metadata: {
-            versao: skill.versao,
-            gatilho: skill.gatilho,
-            icone: skill.icone,
-            cor: skill.cor,
-          }
+          versao: skill.versao,
+          gatilho: skill.gatilho,
+          icone: skill.icone,
+          cor: skill.cor,
         },
         { onConflict: 'nome' }
       );
