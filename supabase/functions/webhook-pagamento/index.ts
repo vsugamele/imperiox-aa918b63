@@ -164,6 +164,8 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
       chargeback: "chargeback",
       blocked: "bloqueado",
       started: "inicio_checkout",
+      refused: "pagamento_recusado",
+      expired: "pagamento_expirado",
     };
     evento = statusMap[status] || status || "desconhecido";
 
