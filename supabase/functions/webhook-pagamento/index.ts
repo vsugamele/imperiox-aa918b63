@@ -655,10 +655,18 @@ Deno.serve(async (req) => {
       lead_capturado: ["lead_capturado", "lead_novo"],
       inicio_checkout: ["inicio_checkout"],
       aguardando_pagamento: ["aguardando_pagamento"],
-      pix_gerado: ["aguardando_pagamento"],
-      pix_expired: ["aguardando_pagamento"],
+      pix_gerado: ["aguardando_pagamento", "pix_gerado"],
+      pix_expired: ["aguardando_pagamento", "pagamento_expirado"],
       pagamento_recusado: ["pagamento_recusado", "carrinho_abandonado"],
       pagamento_expirado: ["pagamento_expirado", "carrinho_abandonado"],
+      boleto_gerado: ["boleto_gerado", "aguardando_pagamento"],
+      compra_cancelada: ["compra_cancelada", "reembolso"],
+      chargeback: ["chargeback", "reembolso"],
+      pagamento_pendente: ["pagamento_pendente", "aguardando_pagamento"],
+      assinatura_cancelada: ["assinatura_cancelada"],
+      troca_plano: ["troca_plano"],
+      primeiro_acesso: ["primeiro_acesso", "compra_aprovada"],
+      trial_iniciado: ["trial_iniciado"],
     };
     const triggerVariants = triggerAliases[evento] || [evento];
 
