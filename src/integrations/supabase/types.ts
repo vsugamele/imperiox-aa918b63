@@ -12408,6 +12408,7 @@ export type Database = {
           id: string
           nome: string
           owner_id: string | null
+          slug: string | null
           status: string
           system_prompt: string | null
           updated_at: string | null
@@ -12423,6 +12424,7 @@ export type Database = {
           id?: string
           nome: string
           owner_id?: string | null
+          slug?: string | null
           status?: string
           system_prompt?: string | null
           updated_at?: string | null
@@ -12438,6 +12440,7 @@ export type Database = {
           id?: string
           nome?: string
           owner_id?: string | null
+          slug?: string | null
           status?: string
           system_prompt?: string | null
           updated_at?: string | null
