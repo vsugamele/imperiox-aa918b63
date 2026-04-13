@@ -403,7 +403,7 @@ async function seed() {
   for (const skill of SKILLS) {
     const { error } = await supabase
       .from('imphq_skills')
-      .upsert(
+      .insert(
         {
           nome: skill.nome,
           descricao: skill.descricao,
@@ -414,8 +414,7 @@ async function seed() {
           gatilho: skill.gatilho,
           icone: skill.icone,
           cor: skill.cor,
-        },
-        { onConflict: 'nome' }
+        }
       );
 
     if (error) {
