@@ -895,12 +895,33 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             </div>
 
             <div>
-              <Label className="text-xs text-muted-foreground mb-1 block"># Hashtags</Label>
+              <Label className="text-xs text-muted-foreground mb-1 block">🪝 Hook (abertura)</Label>
               <Input
-                value={editHashtags}
-                onChange={e => setEditHashtags(e.target.value)}
-                placeholder="#marketing #digital #vendas"
+                value={editHook}
+                onChange={e => setEditHook(e.target.value)}
+                placeholder="Ex: Você sabia que 90% das pessoas erram nisso?"
                 className="bg-secondary"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">📢 CTA (chamada para ação)</Label>
+              <Input
+                value={editCta}
+                onChange={e => setEditCta(e.target.value)}
+                placeholder="Ex: Comente 'EU QUERO' para receber o material"
+                className="bg-secondary"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">🎬 Dicas de Gravação</Label>
+              <Textarea
+                value={editRecordingTips}
+                onChange={e => setEditRecordingTips(e.target.value)}
+                placeholder="Ex: Gravar olhando para câmera, tom motivacional, duração ~30s..."
+                className="bg-secondary min-h-[60px]"
+                rows={2}
               />
             </div>
           </div>
