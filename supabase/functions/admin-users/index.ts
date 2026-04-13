@@ -77,9 +77,11 @@ Deno.serve(async (req) => {
         .map((u: any) => {
           const roleInfo = roleMap[u.id];
           const team = teamMap[u.id] || (u.email ? teamByEmail[u.email.toLowerCase()] : null);
+          const preferredEmail = team?.email || u.email;
+
           return {
             id: u.id,
-            email: u.email,
+            email: preferredEmail,
             created_at: u.created_at,
             last_sign_in_at: u.last_sign_in_at,
             banned: u.banned_until ? true : false,
