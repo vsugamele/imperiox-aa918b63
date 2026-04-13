@@ -13,6 +13,68 @@ interface Props {
 
 const COLORS_PIE = ["hsl(var(--primary))", "hsl(142, 71%, 45%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(199, 89%, 48%)", "hsl(340, 82%, 52%)"];
 
+const formatCurrency = (value: number) =>
+  `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatRoas = (value: number) =>
+  `${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x`;
+
+interface DashboardTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    color?: string;
+    name?: string;
+    value?: number | string | null;
+    payload?: { fill?: string };
+  }>;
+  label?: string | number;
+  valueFormatter?: (value: number) => string;
+  labelFormatter?: (label: string | number) => string;
+}
+
+function DashboardTooltip({
+  active,
+  payload,
+  label,
+  valueFormatter = (value) => Number(value || 0).toLocaleString("pt-BR"),
+  labelFormatter,
+}: DashboardTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="min-w-[11rem] rounded-xl border border-border bg-secondary px-3 py-2 text-secondary-foreground shadow-xl">
+      {label !== undefined && label !== null ? (
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          {labelFormatter ? labelFormatter(label) : label}
+        </p>
+      ) : null}
+
+      <div className="space-y-1.5">
+        {payload.map((item, index) => {
+          const rawValue = item.value ?? 0;
+          const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
+
+          return (
+            <div key={`${item.name ?? "value"}-${index}`} className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full border border-border/60"
+                  style={{ backgroundColor: item.color || item.payload?.fill || "hsl(var(--primary))" }}
+                />
+                <span className="truncate text-xs font-medium text-secondary-foreground">{item.name || "Valor"}</span>
+              </div>
+
+              <span className="font-mono text-xs font-semibold text-secondary-foreground">
+                {valueFormatter(Number.isFinite(numericValue) ? numericValue : 0)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardCharts({ period, projectFilter, productFilter }: Props) {
   const [leadsTrend, setLeadsTrend] = useState<any[]>([]);
   const [funnelData, setFunnelData] = useState<any[]>([]);
@@ -119,7 +181,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--card-foreground))" }} />
+                <Tooltip content={<DashboardTooltip />} />
                 <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" fill="url(#leadGrad)" strokeWidth={2} name="Leads" />
               </AreaChart>
             </ResponsiveContainer>
@@ -140,7 +202,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--card-foreground))" }} formatter={(v: any) => `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                <Tooltip content={<DashboardTooltip valueFormatter={formatCurrency} />} />
                 <Area type="monotone" dataKey="receita" stroke="#10b981" fill="url(#recGrad)" strokeWidth={2} name="Receita" />
                 <Area type="monotone" dataKey="custo" stroke="#ef4444" fill="url(#custGrad)" strokeWidth={2} name="Custo" />
               </AreaChart>
@@ -189,7 +251,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} width={100} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--card-foreground))" }} formatter={(v: any) => `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                  <Tooltip content={<DashboardTooltip valueFormatter={formatCurrency} />} />
                   <Bar dataKey="value" fill="hsl(142, 71%, 45%)" radius={[0, 4, 4, 0]} name="Receita" />
                 </BarChart>
               </ResponsiveContainer>
@@ -208,7 +270,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                   <Pie data={receitaPorProduto} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} label={({ name, percent }) => `${name.slice(0, 12)} ${(percent * 100).toFixed(0)}%`}>
                     {receitaPorProduto.map((entry: any, i: number) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--card-foreground))" }} formatter={(v: any) => `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                  <Tooltip content={<DashboardTooltip valueFormatter={formatCurrency} />} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -226,7 +288,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--card-foreground))" }} formatter={(v: any) => `${v}x`} />
+                  <Tooltip content={<DashboardTooltip valueFormatter={formatRoas} />} />
                   <Bar dataKey="roas" name="ROAS" radius={[4, 4, 0, 0]}>
                     {roasData.map((entry: any, i: number) => <Cell key={i} fill={entry.roas >= 1 ? "hsl(142, 71%, 45%)" : "hsl(0, 84%, 60%)"} />)}
                   </Bar>
