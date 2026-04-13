@@ -50,6 +50,9 @@ interface ContentItem {
   copy?: string;
   hashtags?: string;
   cross_platforms?: string[];
+  hook?: string;
+  cta?: string;
+  recording_tips?: string;
 }
 
 interface WeekSummary {
