@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RefreshCw, Eye, RotateCcw, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { RefreshCw, Eye, RotateCcw, CheckCircle2, XCircle, Clock, User, Phone, Package } from "lucide-react";
 import { toast } from "sonner";
 
 interface WebhookRow {
@@ -18,6 +18,9 @@ interface WebhookRow {
   created_at: string;
   payload: any;
   error?: { id: string; erro: string; reprocessado: boolean } | null;
+  leadName?: string;
+  leadPhone?: string;
+  product?: string;
 }
 
 export function WebhookLogTab() {
@@ -27,10 +30,22 @@ export function WebhookLogTab() {
   const [viewPayload, setViewPayload] = useState<any>(null);
   const [reprocessing, setReprocessing] = useState<string | null>(null);
 
+  const extractProduct = (payload: any): string => {
+    if (!payload) return "";
+    // Ticto
+    if (payload.product?.name) return payload.product.name;
+    if (payload.items?.[0]?.product?.name) return payload.items[0].product.name;
+    // Hotmart
+    if (payload.data?.product?.name) return payload.data.product.name;
+    // Kiwify
+    if (payload.Product?.product_name) return payload.Product.product_name;
+    if (payload.order_id && payload.product_name) return payload.product_name;
+    return "";
+  };
+
   const load = async () => {
     setLoading(true);
     try {
-      // Load webhooks
       let query = supabase
         .from("imphq_webhooks")
         .select("*")
@@ -43,7 +58,6 @@ export function WebhookLogTab() {
 
       const { data: wh } = await query;
 
-      // Load errors
       const { data: errors } = await supabase
         .from("imphq_webhook_errors")
         .select("id, webhook_id, erro, reprocessado")
@@ -55,10 +69,30 @@ export function WebhookLogTab() {
         if (e.webhook_id) errorMap.set(e.webhook_id, e);
       });
 
-      const rows: WebhookRow[] = (wh || []).map((w: any) => ({
-        ...w,
-        error: errorMap.get(w.id) || null,
-      }));
+      // Collect lead IDs to fetch names/phones
+      const leadIds = [...new Set((wh || []).map((w: any) => w.lead_id).filter(Boolean))];
+      const leadMap = new Map<string, { nome: string; telefone: string }>();
+
+      if (leadIds.length > 0) {
+        const { data: leads } = await supabase
+          .from("imphq_leads")
+          .select("id, nome, telefone")
+          .in("id", leadIds);
+        (leads || []).forEach((l: any) => {
+          leadMap.set(l.id, { nome: l.nome || "", telefone: l.telefone || "" });
+        });
+      }
+
+      const rows: WebhookRow[] = (wh || []).map((w: any) => {
+        const lead = w.lead_id ? leadMap.get(w.lead_id) : null;
+        return {
+          ...w,
+          error: errorMap.get(w.id) || null,
+          leadName: lead?.nome || "",
+          leadPhone: lead?.telefone || "",
+          product: extractProduct(w.payload),
+        };
+      });
 
       setWebhooks(rows);
     } catch {
@@ -75,7 +109,7 @@ export function WebhookLogTab() {
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tkbivipqiewkfnhktmqq";
       const url = `https://${projectId}.supabase.co/functions/v1/webhook-pagamento${wh.project_id ? `?project=${wh.project_id}` : ""}`;
-      
+
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,7 +117,6 @@ export function WebhookLogTab() {
       });
 
       if (res.ok) {
-        // Mark error as reprocessed
         if (wh.error?.id) {
           await supabase.from("imphq_webhook_errors").update({ reprocessado: true, reprocessado_at: new Date().toISOString() }).eq("id", wh.error.id);
         }
@@ -156,18 +189,37 @@ export function WebhookLogTab() {
             <Card key={wh.id} className="bg-card border-border hover:bg-secondary/30 transition-colors">
               <CardContent className="p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-xs font-bold ${platformColor(wh.plataforma)}`}>{wh.plataforma}</span>
                         <Badge variant="outline" className="text-[9px]">{wh.evento}</Badge>
                         {statusBadge(wh)}
                       </div>
+
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {wh.leadName && (
+                          <span className="text-[10px] text-foreground/80 flex items-center gap-0.5">
+                            <User className="h-3 w-3" /> {wh.leadName}
+                          </span>
+                        )}
+                        {wh.leadPhone && (
+                          <span className="text-[10px] text-foreground/80 flex items-center gap-0.5">
+                            <Phone className="h-3 w-3" /> {wh.leadPhone}
+                          </span>
+                        )}
+                        {wh.product && (
+                          <span className="text-[10px] text-primary/80 flex items-center gap-0.5">
+                            <Package className="h-3 w-3" /> {wh.product}
+                          </span>
+                        )}
+                      </div>
+
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-muted-foreground">
                           {new Date(wh.created_at).toLocaleString("pt-BR")}
                         </span>
-                        {wh.lead_id && <span className="text-[10px] text-muted-foreground">· Lead: {wh.lead_id.slice(0, 8)}...</span>}
+                        {wh.lead_id && !wh.leadName && <span className="text-[10px] text-muted-foreground">· Lead: {wh.lead_id.slice(0, 8)}...</span>}
                         {wh.error && !wh.error.reprocessado && (
                           <span className="text-[10px] text-destructive truncate max-w-[200px]">{wh.error.erro}</span>
                         )}
@@ -178,18 +230,16 @@ export function WebhookLogTab() {
                     <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver payload" onClick={() => setViewPayload(wh.payload)}>
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
-                    {wh.error && !wh.error.reprocessado && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-amber-400"
-                        title="Reprocessar"
-                        disabled={reprocessing === wh.id}
-                        onClick={() => reprocess(wh)}
-                      >
-                        <RotateCcw className={`h-3.5 w-3.5 ${reprocessing === wh.id ? "animate-spin" : ""}`} />
-                      </Button>
-                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-amber-400"
+                      title="Reprocessar"
+                      disabled={reprocessing === wh.id}
+                      onClick={() => reprocess(wh)}
+                    >
+                      <RotateCcw className={`h-3.5 w-3.5 ${reprocessing === wh.id ? "animate-spin" : ""}`} />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
