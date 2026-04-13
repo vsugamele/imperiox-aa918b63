@@ -290,6 +290,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     setEditDescription(item.description);
     setEditPlatform(item.platform);
     setEditType(item.type);
+    setEditHook(item.hook || "");
+    setEditCta(item.cta || "");
+    setEditRecordingTips(item.recording_tips || "");
     setDetailModalOpen(true);
   };
 
@@ -301,6 +304,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       description: editDescription,
       copy: editCopy,
       hashtags: editHashtags,
+      hook: editHook,
+      cta: editCta,
+      recording_tips: editRecordingTips,
     });
     setDetailModalOpen(false);
     toast.success("Card atualizado!");
