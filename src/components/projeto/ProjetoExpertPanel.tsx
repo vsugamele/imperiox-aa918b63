@@ -271,6 +271,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, movement_context: ctx });
   };
 
+  const toggleExpertDoc = (docId: string) => {
+    const current = [...expertDocIds];
+    const idx = current.indexOf(docId);
+    if (idx >= 0) current.splice(idx, 1);
+    else current.push(docId);
+    onUpdateData({ ...data, expert_doc_ids: current });
+  };
+
   const openCardDetail = (item: ContentItem, day: string) => {
     setSelectedCard(item);
     setSelectedDay(day);
