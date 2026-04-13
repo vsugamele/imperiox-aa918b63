@@ -13,6 +13,8 @@ import DashboardCards from "@/components/dashboard/DashboardCards";
 import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
 import GrowthDashboard from "@/components/dashboard/GrowthDashboard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
+import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 
 export default function Dashboard() {
   const { user } = useAuth();
