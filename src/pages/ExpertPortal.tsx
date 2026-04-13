@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Calendar, CheckCircle2, Clock, FileText, Loader2, Target, Radio, Upload, Video } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, Download, FileText, Loader2, Target, Radio, Upload, Video } from "lucide-react";
 import { format, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -103,6 +103,7 @@ export default function ExpertPortal() {
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
   const [expertLogs, setExpertLogs] = useState<any[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploadCard, setPendingUploadCard] = useState<{ id: string; week: string; day: string } | null>(null);
 
@@ -144,6 +145,16 @@ export default function ExpertPortal() {
       setExpertLogs(prev => [...prev, { content_id: contentId, action: "mark_done", week, day, created_at: new Date().toISOString() }]);
     }
     await callApi({ action: "mark_done", content_id: contentId, week, day, done: !wasDone });
+  };
+
+  const downloadDoc = (doc: { title?: string; content?: string }) => {
+    const blob = new Blob([doc.content || ""], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(doc.title || "documento").replace(/[^a-zA-Z0-9_-]/g, "_")}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -609,35 +620,57 @@ export default function ExpertPortal() {
             </CardHeader>
             <CardContent className="space-y-3">
               {data.shared_docs.map((doc: any) => (
-                <details key={doc.id} className="group">
-                  <summary className="flex items-center gap-2 p-2 rounded bg-secondary/50 border border-border cursor-pointer hover:bg-secondary/70 transition-colors">
-                    <FileText className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span className="text-xs font-medium flex-1">{doc.title}</span>
-                    <button
-                      className="text-[9px] bg-primary/20 text-primary px-2 py-0.5 rounded hover:bg-primary/30 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const blob = new Blob([doc.content || ""], { type: "text/markdown" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${doc.title || "documento"}.md`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                    >
-                      ⬇ Baixar
-                    </button>
-                    <span className="text-[9px] text-muted-foreground">clique para ler</span>
-                  </summary>
-                  <div className="mt-2 p-4 rounded bg-secondary/30 border border-border whitespace-pre-wrap text-sm leading-relaxed max-h-[60vh] overflow-y-auto">
-                    {doc.content || "Sem conteúdo."}
+                <div key={doc.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 p-3">
+                  <div className="min-w-0 flex items-center gap-3">
+                    <FileText className="h-4 w-4 flex-shrink-0 text-primary" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{doc.title}</p>
+                      <p className="text-xs text-muted-foreground">Abra para ler no portal ou baixe em Markdown.</p>
+                    </div>
                   </div>
-                </details>
+
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setSelectedDoc(doc)}>
+                      <FileText className="mr-1.5 h-3.5 w-3.5" />
+                      Abrir
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => downloadDoc(doc)}>
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Baixar
+                    </Button>
+                  </div>
+                </div>
               ))}
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
+          <DialogContent className="max-w-3xl border-border bg-card text-foreground">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-foreground">
+                <FileText className="h-4 w-4 text-primary" />
+                {selectedDoc?.title || "Documento"}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Leia o conteúdo compartilhado sem sair do Portal do Expert.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="max-h-[70vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-secondary/40 p-4 text-sm leading-7 text-foreground">
+                {selectedDoc?.content || "Sem conteúdo."}
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => selectedDoc && downloadDoc(selectedDoc)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Baixar .md
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Notas */}
         {data.expert_notes && (
