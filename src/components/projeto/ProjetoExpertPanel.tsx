@@ -1063,6 +1063,37 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           />
         </CardContent>
       </Card>
+
+      {/* Documentos Compartilhados com Expert */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
+            <FileText className="h-4 w-4" /> 📄 Documentos para o Expert
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-[10px] text-muted-foreground mb-3">Selecione os documentos que o expert poderá visualizar no portal público.</p>
+          {allDocs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum documento criado. Vá na aba Docs para criar.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+              {allDocs.map((doc: any) => (
+                <label key={doc.id} className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border cursor-pointer hover:bg-secondary/50 transition-colors">
+                  <Checkbox
+                    checked={expertDocIds.includes(doc.id)}
+                    onCheckedChange={() => toggleExpertDoc(doc.id)}
+                  />
+                  <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs truncate">{doc.title}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {expertDocIds.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-2">✅ {expertDocIds.length} documento(s) visível(is) no portal</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
