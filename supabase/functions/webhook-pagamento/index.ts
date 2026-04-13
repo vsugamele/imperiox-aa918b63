@@ -164,6 +164,8 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
       chargeback: "chargeback",
       blocked: "bloqueado",
       started: "inicio_checkout",
+      refused: "pagamento_recusado",
+      expired: "pagamento_expirado",
     };
     evento = statusMap[status] || status || "desconhecido";
 
@@ -520,6 +522,8 @@ Deno.serve(async (req) => {
       reembolso: "Reembolso",
       lead_capturado: "LeadNovo",
       inicio_checkout: "AddToCart",
+      pagamento_recusado: "PagamentoRecusado",
+      pagamento_expirado: "PagamentoExpirado",
     };
     const journeyEventName = JOURNEY_EVENT_MAP[evento];
     if (journeyEventName && leadId) {
@@ -565,6 +569,8 @@ Deno.serve(async (req) => {
             pix_gerado: 20,
             carrinho_abandonado: 10,
             lead_capturado: 10,
+            pagamento_recusado: 15,
+            pagamento_expirado: 12,
           };
           const pts = scoreMap[evento];
           if (pts) {
@@ -623,6 +629,8 @@ Deno.serve(async (req) => {
       aguardando_pagamento: ["aguardando_pagamento"],
       pix_gerado: ["aguardando_pagamento"],
       pix_expired: ["aguardando_pagamento"],
+      pagamento_recusado: ["pagamento_recusado", "carrinho_abandonado"],
+      pagamento_expirado: ["pagamento_expirado", "carrinho_abandonado"],
     };
     const triggerVariants = triggerAliases[evento] || [evento];
 
