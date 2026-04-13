@@ -12420,7 +12420,7 @@ export type Database = {
           descricao?: string | null
           gatilho?: string | null
           icone?: string | null
-          id: string
+          id?: string
           nome: string
           owner_id?: string | null
           status?: string
