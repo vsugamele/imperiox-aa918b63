@@ -627,6 +627,8 @@ Deno.serve(async (req) => {
       aguardando_pagamento: ["aguardando_pagamento"],
       pix_gerado: ["aguardando_pagamento"],
       pix_expired: ["aguardando_pagamento"],
+      pagamento_recusado: ["pagamento_recusado", "carrinho_abandonado"],
+      pagamento_expirado: ["pagamento_expirado", "carrinho_abandonado"],
     };
     const triggerVariants = triggerAliases[evento] || [evento];
 
