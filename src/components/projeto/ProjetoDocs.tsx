@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText, Trash2, Save, Download, Upload } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, FileText, Trash2, Save, Download, Upload, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
   projectId: string;
@@ -14,6 +16,7 @@ interface Props {
 export function ProjetoDocs({ projectId }: Props) {
   const [docs, setDocs] = useState<any[]>([]);
   const [editing, setEditing] = useState<any>(null);
+  const [expertDocIds, setExpertDocIds] = useState<string[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
 
   const fetchDocs = async () => {
@@ -21,7 +24,30 @@ export function ProjetoDocs({ projectId }: Props) {
     setDocs(data || []);
   };
 
-  useEffect(() => { fetchDocs(); }, [projectId]);
+  const fetchExpertDocIds = async () => {
+    const { data } = await supabase.from("imphq_projects").select("data").eq("id", projectId).single();
+    const d = typeof data?.data === "string" ? JSON.parse(data.data) : (data?.data || {});
+    setExpertDocIds(d.expert_doc_ids || []);
+  };
+
+  useEffect(() => { fetchDocs(); fetchExpertDocIds(); }, [projectId]);
+
+  const toggleExpertDoc = async (docId: string) => {
+    const newIds = expertDocIds.includes(docId)
+      ? expertDocIds.filter((id) => id !== docId)
+      : [...expertDocIds, docId];
+
+    // Fetch current project data, merge, and save
+    const { data: proj } = await supabase.from("imphq_projects").select("data").eq("id", projectId).single();
+    const currentData = typeof proj?.data === "string" ? JSON.parse(proj.data) : (proj?.data || {});
+    const updatedData = { ...currentData, expert_doc_ids: newIds };
+
+    const { error } = await supabase.from("imphq_projects").update({ data: updatedData } as any).eq("id", projectId);
+    if (error) { toast.error("Erro ao atualizar visibilidade"); return; }
+
+    setExpertDocIds(newIds);
+    toast.success(newIds.includes(docId) ? "Documento visível no Portal do Expert" : "Documento removido do Portal do Expert");
+  };
 
   const createDoc = async () => {
     const newId = crypto.randomUUID();
@@ -44,6 +70,14 @@ export function ProjetoDocs({ projectId }: Props) {
     await supabase.from("imphq_docs").delete().eq("id", id);
     setDocs(docs.filter((d) => d.id !== id));
     if (editing?.id === id) setEditing(null);
+    // Also remove from expert_doc_ids if present
+    if (expertDocIds.includes(id)) {
+      const newIds = expertDocIds.filter((i) => i !== id);
+      const { data: proj } = await supabase.from("imphq_projects").select("data").eq("id", projectId).single();
+      const currentData = typeof proj?.data === "string" ? JSON.parse(proj.data) : (proj?.data || {});
+      await supabase.from("imphq_projects").update({ data: { ...currentData, expert_doc_ids: newIds } } as any).eq("id", projectId);
+      setExpertDocIds(newIds);
+    }
   };
 
   const downloadDoc = (doc: any) => {
@@ -105,22 +139,44 @@ export function ProjetoDocs({ projectId }: Props) {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        {docs.map((d) => (
-          <div key={d.id} className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-border hover:bg-secondary transition-colors cursor-pointer" onClick={() => setEditing(d)}>
-            <div className="flex items-center gap-3">
-              <FileText className="h-4 w-4 text-primary" />
-              <span className="text-sm">{d.title}</span>
+        {docs.map((d) => {
+          const isShared = expertDocIds.includes(d.id);
+          return (
+            <div key={d.id} className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-border hover:bg-secondary transition-colors cursor-pointer" onClick={() => setEditing(d)}>
+              <div className="flex items-center gap-3">
+                <FileText className="h-4 w-4 text-primary" />
+                <span className="text-sm">{d.title}</span>
+                {isShared && (
+                  <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                    <Eye className="h-3 w-3" /> Expert
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+                      <Switch
+                        checked={isShared}
+                        onCheckedChange={() => toggleExpertDoc(d.id)}
+                        className="scale-75"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">{isShared ? "Visível no Portal do Expert" : "Habilitar para o Expert"}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); downloadDoc(d); }}>
+                  <Download className="h-3 w-3" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteDoc(d.id); }}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); downloadDoc(d); }}>
-                <Download className="h-3 w-3" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteDoc(d.id); }}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {docs.length === 0 && <p className="text-sm text-muted-foreground">Nenhum documento ainda.</p>}
       </CardContent>
     </Card>
