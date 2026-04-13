@@ -522,6 +522,8 @@ Deno.serve(async (req) => {
       reembolso: "Reembolso",
       lead_capturado: "LeadNovo",
       inicio_checkout: "AddToCart",
+      pagamento_recusado: "PagamentoRecusado",
+      pagamento_expirado: "PagamentoExpirado",
     };
     const journeyEventName = JOURNEY_EVENT_MAP[evento];
     if (journeyEventName && leadId) {
