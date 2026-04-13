@@ -21,20 +21,18 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const anonClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Extract user id from token
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user: caller }, error: userError } = await adminClient.auth.getUser(token);
+    if (userError || !caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const callerId = claimsData.claims.sub;
+    const callerId = caller.id;
 
     // Check admin role via security definer function
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: isAdmin } = await adminClient.rpc("is_imphq_admin", { _user_id: callerId });
 
     if (!isAdmin) {
@@ -49,37 +47,69 @@ Deno.serve(async (req) => {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });
       if (error) throw error;
 
-      // Get roles
+      // Get roles with status
       const { data: roles } = await adminClient.from("imphq_user_roles").select("*");
-      const roleMap: Record<string, string> = {};
+      const roleMap: Record<string, { role: string; status: string }> = {};
       const imphqUserIds = new Set<string>();
-      (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; imphqUserIds.add(r.user_id); });
+      (roles || []).forEach((r: any) => {
+        roleMap[r.user_id] = { role: r.role, status: r.status || "approved" };
+        imphqUserIds.add(r.user_id);
+      });
 
-      // Get team members to include them too
-      const { data: teamMembers } = await adminClient.from("imphq_team_members").select("user_id, name, role");
-      const teamMap: Record<string, { name: string; role: string }> = {};
+      // Get team members
+      const { data: teamMembers } = await adminClient.from("imphq_team_members").select("*");
+      const teamMap: Record<string, any> = {};
+      const teamByEmail: Record<string, any> = {};
       (teamMembers || []).forEach((t: any) => {
         if (t.user_id) {
           imphqUserIds.add(t.user_id);
-          teamMap[t.user_id] = { name: t.name, role: t.role };
+          teamMap[t.user_id] = t;
+        }
+        if (t.email) {
+          teamByEmail[t.email.toLowerCase()] = t;
         }
       });
 
-      // Filter: show users that have an imphq role OR are team members
+      // Build user list: auth users that are in imphq scope
       const mapped = users
         .filter((u: any) => imphqUserIds.has(u.id))
-        .map((u: any) => ({
-          id: u.id,
-          email: u.email,
-          created_at: u.created_at,
-          last_sign_in_at: u.last_sign_in_at,
-          banned: u.banned_until ? true : false,
-          role: roleMap[u.id] || "user",
-          team_name: teamMap[u.id]?.name || null,
-          team_role: teamMap[u.id]?.role || null,
+        .map((u: any) => {
+          const roleInfo = roleMap[u.id];
+          const team = teamMap[u.id];
+          return {
+            id: u.id,
+            email: u.email,
+            created_at: u.created_at,
+            last_sign_in_at: u.last_sign_in_at,
+            banned: u.banned_until ? true : false,
+            role: roleInfo?.role || "user",
+            status: roleInfo?.status || "approved",
+            team_name: team?.name || null,
+            team_role: team?.role || null,
+            team_department: team?.department || null,
+            is_team_member: !!team,
+          };
+        });
+
+      // Also include team members WITHOUT auth accounts (not yet registered)
+      const authEmails = new Set(users.map((u: any) => u.email?.toLowerCase()));
+      const unlinkedTeam = (teamMembers || [])
+        .filter((t: any) => !t.user_id && t.email && !authEmails.has(t.email.toLowerCase()))
+        .map((t: any) => ({
+          id: `team_${t.id}`,
+          email: t.email,
+          created_at: t.created_at,
+          last_sign_in_at: null,
+          banned: false,
+          role: t.role?.toLowerCase() || "viewer",
+          status: "invited", // not yet registered
+          team_name: t.name,
+          team_role: t.role,
+          team_department: t.department,
+          is_team_member: true,
         }));
 
-      return new Response(JSON.stringify({ users: mapped }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ users: [...mapped, ...unlinkedTeam] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // CREATE USER
@@ -97,8 +127,12 @@ Deno.serve(async (req) => {
       });
       if (error) throw error;
 
-      if (role && data.user) {
-        await adminClient.from("imphq_user_roles").upsert({ user_id: data.user.id, role }, { onConflict: "user_id,role" });
+      if (data.user) {
+        // Admin-created users are auto-approved
+        await adminClient.from("imphq_user_roles").upsert(
+          { user_id: data.user.id, role: role || "editor", status: "approved" },
+          { onConflict: "user_id,role" }
+        );
       }
 
       return new Response(JSON.stringify({ user: data.user }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -129,7 +163,38 @@ Deno.serve(async (req) => {
       // Delete old role then insert new
       await adminClient.from("imphq_user_roles").delete().eq("user_id", user_id);
       if (role !== "none") {
-        await adminClient.from("imphq_user_roles").insert({ user_id, role });
+        await adminClient.from("imphq_user_roles").insert({ user_id, role, status: "approved" });
+      }
+
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // APPROVE / REJECT USER
+    if (action === "set_status") {
+      const body = await req.json();
+      const { user_id, status } = body;
+      if (!user_id || !status) {
+        return new Response(JSON.stringify({ error: "user_id and status required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      if (!["approved", "rejected", "pending"].includes(status)) {
+        return new Response(JSON.stringify({ error: "Invalid status" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const { error } = await adminClient
+        .from("imphq_user_roles")
+        .update({ status })
+        .eq("user_id", user_id);
+
+      if (error) throw error;
+
+      // If rejecting, also ban
+      if (status === "rejected") {
+        await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" } as any);
+      }
+      // If approving, unban
+      if (status === "approved") {
+        await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" } as any);
       }
 
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -144,7 +209,7 @@ Deno.serve(async (req) => {
       }
 
       const updateData = ban
-        ? { ban_duration: "876000h" } // ~100 years
+        ? { ban_duration: "876000h" }
         : { ban_duration: "none" };
 
       const { error } = await adminClient.auth.admin.updateUserById(user_id, updateData as any);

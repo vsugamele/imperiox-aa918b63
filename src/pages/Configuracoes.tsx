@@ -80,9 +80,194 @@ interface UserRow {
   last_sign_in_at: string | null;
   banned: boolean;
   role: string | null;
+  status: string;
+  team_name: string | null;
+  team_department: string | null;
+  is_team_member: boolean;
 }
 
 function UsuariosTab() {
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState("editor");
+  const [resetPassword, setResetPassword] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const callAdminApi = async (action: string, body?: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Not authenticated");
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tkbivipqiewkfnhktmqq";
+    const url = `https://${projectId}.supabase.co/functions/v1/admin-users?action=${action}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erro na API");
+    return data;
+  };
+
+  const loadUsers = async () => {
+    try { setLoading(true); const data = await callAdminApi("list"); setUsers(data.users || []); }
+    catch (err: any) { toast.error("Erro ao carregar usuários: " + err.message); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
+  const handleCreate = async () => {
+    if (!newEmail || !newPassword) { toast.error("Preencha email e senha"); return; }
+    if (newPassword.length < 6) { toast.error("Senha mínima: 6 caracteres"); return; }
+    try {
+      await callAdminApi("create", { email: newEmail, password: newPassword, role: newRole });
+      toast.success("Usuário criado!"); setCreateOpen(false); setNewEmail(""); setNewPassword(""); setNewRole("editor"); loadUsers();
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleSetPassword = async () => {
+    if (!selectedUser || !resetPassword) return;
+    if (resetPassword.length < 6) { toast.error("Senha mínima: 6 caracteres"); return; }
+    try { await callAdminApi("set_password", { user_id: selectedUser.id, password: resetPassword }); toast.success("Senha atualizada!"); setPasswordOpen(false); setResetPassword(""); }
+    catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleSetRole = async (userId: string, role: string) => {
+    try { await callAdminApi("set_role", { user_id: userId, role }); toast.success("Role atualizada!"); loadUsers(); }
+    catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleSetStatus = async (userId: string, status: string) => {
+    try { await callAdminApi("set_status", { user_id: userId, status }); toast.success(status === "approved" ? "Usuário aprovado!" : "Usuário rejeitado"); loadUsers(); }
+    catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleToggleBan = async (u: UserRow) => {
+    try { await callAdminApi("toggle_ban", { user_id: u.id, ban: !u.banned }); toast.success(u.banned ? "Usuário reativado" : "Usuário desativado"); loadUsers(); }
+    catch (err: any) { toast.error(err.message); }
+  };
+
+  const getRoleBadge = (role: string | null) => {
+    if (role === "admin") return <Badge className="bg-primary/20 text-primary text-[9px]">Admin</Badge>;
+    if (role === "editor") return <Badge className="bg-blue-500/20 text-blue-400 text-[9px]">Editor</Badge>;
+    if (role === "viewer") return <Badge className="bg-muted text-muted-foreground text-[9px]">Viewer</Badge>;
+    return <Badge variant="outline" className="text-[9px]">Sem role</Badge>;
+  };
+
+  const getStatusBadge = (status: string) => {
+    if (status === "pending") return <Badge className="bg-amber-500/20 text-amber-400 text-[9px]">⏳ Pendente</Badge>;
+    if (status === "rejected") return <Badge variant="destructive" className="text-[9px]">❌ Rejeitado</Badge>;
+    if (status === "invited") return <Badge className="bg-blue-500/20 text-blue-400 text-[9px]">📨 Convidado</Badge>;
+    return null;
+  };
+
+  const pendingCount = users.filter(u => u.status === "pending").length;
+  const filtered = statusFilter === "all" ? users : users.filter(u => u.status === statusFilter);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold">Gerenciar Usuários</h2>
+          <SectionInfo {...sectionHelpTexts.usuarios} />
+          {pendingCount > 0 && <Badge className="bg-amber-500/20 text-amber-400 text-[9px]">{pendingCount} pendente(s)</Badge>}
+        </div>
+        <Button onClick={() => setCreateOpen(true)} size="sm"><UserPlus className="h-4 w-4 mr-1" /> Criar Usuário</Button>
+      </div>
+
+      <div className="flex gap-1">
+        {[{ value: "all", label: "Todos" }, { value: "pending", label: "Pendentes" }, { value: "approved", label: "Aprovados" }, { value: "invited", label: "Convidados" }].map(f => (
+          <Button key={f.value} size="sm" variant={statusFilter === f.value ? "default" : "outline"} className="text-xs h-7" onClick={() => setStatusFilter(f.value)}>
+            {f.label}{f.value === "pending" && pendingCount > 0 && <span className="ml-1 bg-amber-500/30 rounded-full px-1.5 text-[9px]">{pendingCount}</span>}
+          </Button>
+        ))}
+      </div>
+
+      {loading ? <p className="text-xs text-muted-foreground">Carregando...</p> : (
+        <div className="space-y-2">
+          {filtered.map(u => (
+            <Card key={u.id} className={`bg-card border-border ${u.status === "pending" ? "border-amber-500/30" : ""}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {u.team_name && <p className="text-sm font-bold">{u.team_name}</p>}
+                      <p className="text-sm font-medium truncate">{u.email}</p>
+                      {getRoleBadge(u.role)}
+                      {getStatusBadge(u.status)}
+                      {u.banned && <Badge variant="destructive" className="text-[9px]">Banido</Badge>}
+                      {u.is_team_member && <Badge className="bg-emerald-500/20 text-emerald-400 text-[9px]">👥 Equipe</Badge>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      {u.team_department && <span className="text-[10px] text-muted-foreground">📁 {u.team_department}</span>}
+                      <p className="text-[10px] text-muted-foreground">
+                        {u.status === "invited" ? "Ainda não se cadastrou" : `Último login: ${u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("pt-BR") : "Nunca"}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {u.status === "pending" && (
+                      <>
+                        <Button size="sm" className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700" onClick={() => handleSetStatus(u.id, "approved")}>✅ Aprovar</Button>
+                        <Button size="sm" variant="destructive" className="h-7 text-[10px]" onClick={() => handleSetStatus(u.id, "rejected")}>❌ Rejeitar</Button>
+                      </>
+                    )}
+                    {u.status !== "invited" && u.status !== "pending" && (
+                      <>
+                        <Select value={u.role || "none"} onValueChange={(v) => handleSetRole(u.id, v)}>
+                          <SelectTrigger className="h-7 w-24 text-[10px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="editor">Editor</SelectItem>
+                            <SelectItem value="viewer">Viewer</SelectItem>
+                            <SelectItem value="none">Sem role</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Redefinir senha" onClick={() => { setSelectedUser(u); setPasswordOpen(true); }}><KeyRound className="h-3.5 w-3.5" /></Button>
+                        <Button size="icon" variant="ghost" className={`h-7 w-7 ${u.banned ? "text-emerald-400" : "text-destructive"}`} title={u.banned ? "Reativar" : "Desativar"} onClick={() => handleToggleBan(u)}><Ban className="h-3.5 w-3.5" /></Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Nenhum usuário encontrado</p>}
+        </div>
+      )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Criar Novo Usuário</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-xs">Email</Label><Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="colaborador@email.com" className="bg-secondary" /></div>
+            <div><Label className="text-xs">Senha</Label><Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="bg-secondary" /></div>
+            <div><Label className="text-xs">Role</Label>
+              <Select value={newRole} onValueChange={setNewRole}><SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="editor">Editor</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter><Button onClick={handleCreate}>Criar Usuário</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Redefinir Senha</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">Definir nova senha para: <strong>{selectedUser?.email}</strong></p>
+          <Input type="password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} placeholder="Nova senha (mínimo 6 caracteres)" className="bg-secondary" />
+          <DialogFooter><Button onClick={handleSetPassword}>Salvar Senha</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);

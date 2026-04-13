@@ -12822,18 +12822,21 @@ export type Database = {
           created_at: string
           id: string
           role: string
+          status: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           role: string
+          status?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           role?: string
+          status?: string
           user_id?: string
         }
         Relationships: [

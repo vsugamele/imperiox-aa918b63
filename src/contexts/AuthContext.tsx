@@ -7,7 +7,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   userRole: string | null;
+  userStatus: string | null;
   isAdmin: boolean;
+  isPending: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -19,17 +21,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userStatus, setUserStatus] = useState<string | null>(null);
 
   const fetchRole = async (userId: string) => {
     try {
       const { data } = await supabase
         .from("imphq_user_roles")
-        .select("role")
+        .select("role, status")
         .eq("user_id", userId)
         .maybeSingle();
       setUserRole(data?.role || null);
+      setUserStatus((data as any)?.status || null);
     } catch {
       setUserRole(null);
+      setUserStatus(null);
     }
   };
 
@@ -42,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(() => fetchRole(session.user.id), 0);
       } else {
         setUserRole(null);
+        setUserStatus(null);
       }
     });
 
@@ -66,8 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const isPending = userStatus === "pending" || userStatus === "rejected";
+
   return (
-    <AuthContext.Provider value={{ session, user, loading, userRole, isAdmin: userRole === "admin", signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, userRole, userStatus, isAdmin: userRole === "admin", isPending, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
