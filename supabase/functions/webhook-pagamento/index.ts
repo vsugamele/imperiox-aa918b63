@@ -593,6 +593,12 @@ Deno.serve(async (req) => {
             lead_capturado: 10,
             pagamento_recusado: 15,
             pagamento_expirado: 12,
+            boleto_gerado: 18,
+            compra_cancelada: -5,
+            chargeback: -10,
+            pagamento_pendente: 15,
+            trial_iniciado: 25,
+            primeiro_acesso: 30,
           };
           const pts = scoreMap[evento];
           if (pts) {
