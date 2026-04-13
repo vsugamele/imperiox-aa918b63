@@ -171,11 +171,13 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
       supabase.from("imphq_kanban_cards").select("id, title, priority, due_date, board, column_id").contains("tags", [projectId]).order("position"),
       supabase.from("imphq_processes" as any).select("*").eq("project_id", projectId),
       supabase.from("imphq_expert_logs" as any).select("*").eq("project_id", projectId),
-    ]).then(([evRes, taskRes, procRes, logsRes]) => {
+      supabase.from("imphq_docs").select("id, title").eq("project_id", projectId).order("created_at", { ascending: false }),
+    ]).then(([evRes, taskRes, procRes, logsRes, docsRes]) => {
       setEvents(evRes.data || []);
       setTasks(taskRes.data || []);
       setProcesses(procRes.data || []);
       setExpertLogs(logsRes.data || []);
+      setAllDocs(docsRes.data || []);
     });
 
     // Fetch operational status
