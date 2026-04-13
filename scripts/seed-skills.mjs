@@ -8,8 +8,11 @@ import { readFileSync } from 'fs';
 const envFile = readFileSync('.env', 'utf-8');
 const env = Object.fromEntries(
   envFile.split('\n')
-    .filter(l => l.includes('='))
-    .map(l => l.split('=').map(s => s.trim()))
+    .filter(l => l.includes('=') && !l.startsWith('#'))
+    .map(l => {
+      const idx = l.indexOf('=');
+      return [l.slice(0, idx).trim(), l.slice(idx + 1).trim().replace(/^["']|["']$/g, '')];
+    })
 );
 
 const SUPABASE_URL = env.VITE_SUPABASE_URL;
