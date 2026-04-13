@@ -613,9 +613,24 @@ export default function ExpertPortal() {
                   <summary className="flex items-center gap-2 p-2 rounded bg-secondary/50 border border-border cursor-pointer hover:bg-secondary/70 transition-colors">
                     <FileText className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                     <span className="text-xs font-medium flex-1">{doc.title}</span>
+                    <button
+                      className="text-[9px] bg-primary/20 text-primary px-2 py-0.5 rounded hover:bg-primary/30 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const blob = new Blob([doc.content || ""], { type: "text/markdown" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${doc.title || "documento"}.md`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      ⬇ Baixar
+                    </button>
                     <span className="text-[9px] text-muted-foreground">clique para ler</span>
                   </summary>
-                  <div className="mt-2 p-4 rounded bg-secondary/30 border border-border whitespace-pre-wrap text-sm">
+                  <div className="mt-2 p-4 rounded bg-secondary/30 border border-border whitespace-pre-wrap text-sm leading-relaxed max-h-[60vh] overflow-y-auto">
                     {doc.content || "Sem conteúdo."}
                   </div>
                 </details>
