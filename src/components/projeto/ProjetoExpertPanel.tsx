@@ -133,6 +133,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [editDescription, setEditDescription] = useState("");
   const [editPlatform, setEditPlatform] = useState("");
   const [editType, setEditType] = useState("");
+  const [editHook, setEditHook] = useState("");
+  const [editCta, setEditCta] = useState("");
+  const [editRecordingTips, setEditRecordingTips] = useState("");
 
   const data = project.data || {};
   const monthlyPlan = migrateToMonthly(data.content_plan);
