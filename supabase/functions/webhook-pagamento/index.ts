@@ -569,6 +569,8 @@ Deno.serve(async (req) => {
             pix_gerado: 20,
             carrinho_abandonado: 10,
             lead_capturado: 10,
+            pagamento_recusado: 15,
+            pagamento_expirado: 12,
           };
           const pts = scoreMap[evento];
           if (pts) {
