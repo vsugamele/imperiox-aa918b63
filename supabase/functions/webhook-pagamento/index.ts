@@ -538,6 +538,14 @@ Deno.serve(async (req) => {
       inicio_checkout: "AddToCart",
       pagamento_recusado: "PagamentoRecusado",
       pagamento_expirado: "PagamentoExpirado",
+      boleto_gerado: "BoletoGerado",
+      compra_cancelada: "CompraCancelada",
+      chargeback: "Chargeback",
+      pagamento_pendente: "PagamentoPendente",
+      assinatura_cancelada: "AssinaturaCancelada",
+      troca_plano: "TrocaPlano",
+      primeiro_acesso: "PrimeiroAcesso",
+      trial_iniciado: "TrialIniciado",
     };
     const journeyEventName = JOURNEY_EVENT_MAP[evento];
     if (journeyEventName && leadId) {
