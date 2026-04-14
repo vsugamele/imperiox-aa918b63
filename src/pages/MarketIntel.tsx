@@ -514,13 +514,98 @@ export default function MarketIntel() {
         </TabsContent>
       </Tabs>
 
-      {/* AI Result — persisted */}
+      {/* Structured Intel Data */}
+      {aiIntelData && (
+        <div className="space-y-4">
+          {aiIntelData.resumo && (
+            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+              <CardContent className="p-4">
+                <h3 className="text-sm font-semibold text-primary mb-2">📊 Resumo Executivo</h3>
+                <p className="text-sm text-muted-foreground">{aiIntelData.resumo}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {aiIntelData.produtos?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Produtos Encontrados ({aiIntelData.produtos.length})</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {aiIntelData.produtos.map((p: any, i: number) => (
+                  <Card key={i} className="border-border hover:border-primary/30 transition-colors">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <h4 className="text-sm font-medium truncate flex-1">{p.nome}</h4>
+                        <span className={`text-lg font-mono font-bold ml-2 ${p.score >= 8 ? "text-emerald-400" : p.score >= 6 ? "text-amber-400" : "text-muted-foreground"}`}>{p.score}</span>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {p.nicho && <Badge variant="outline" className="text-[9px]">{p.nicho}</Badge>}
+                        {p.ticket && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30">{p.ticket}</Badge>}
+                        {p.plataforma && <Badge variant="outline" className="text-[9px]">{p.plataforma}</Badge>}
+                        {p.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
+                      </div>
+                      {p.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {p.mecanismo_unico}</p>}
+                      {p.angulo_copy && <p className="text-[10px] text-muted-foreground">🎯 {p.angulo_copy}</p>}
+                      {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline truncate block">🔗 {p.url}</a>}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {aiIntelData.oportunidades?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2"><Target className="h-4 w-4" /> Oportunidades Recomendadas ({aiIntelData.oportunidades.length})</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {aiIntelData.oportunidades.map((o: any, i: number) => (
+                  <Card key={i} className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-transparent">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <h4 className="text-sm font-medium">{o.nome_sugerido}</h4>
+                        <span className="text-lg font-mono font-bold text-emerald-400">{o.score}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{o.dor_central}</p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {o.ticket_sugerido && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30">{o.ticket_sugerido}</Badge>}
+                        {o.formato && <Badge variant="outline" className="text-[9px]">{o.formato}</Badge>}
+                        {o.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
+                      </div>
+                      {o.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {o.mecanismo_unico}</p>}
+                      {o.justificativa && <p className="text-[10px] text-muted-foreground italic">{o.justificativa}</p>}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {aiIntelData.gaps?.length > 0 && (
+            <Card className="border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent">
+              <CardContent className="p-4">
+                <h3 className="text-sm font-semibold text-amber-400 mb-2">⚡ Gaps de Mercado</h3>
+                <ul className="space-y-1">{aiIntelData.gaps.map((g: string, i: number) => <li key={i} className="text-xs text-muted-foreground">• {g}</li>)}</ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {aiIntelData.tendencias?.length > 0 && (
+            <Card className="border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-transparent">
+              <CardContent className="p-4">
+                <h3 className="text-sm font-semibold text-blue-400 mb-2">📈 Tendências</h3>
+                <ul className="space-y-1">{aiIntelData.tendencias.map((t: string, i: number) => <li key={i} className="text-xs text-muted-foreground">• {t}</li>)}</ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* AI Result markdown — persisted */}
       {aiResult && (
         <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-                <Brain className="h-5 w-5" /> Resultado da Pesquisa IA
+                <Brain className="h-5 w-5" /> Análise Completa IA
               </h2>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-[10px]">{aiResult.length} chars</Badge>
