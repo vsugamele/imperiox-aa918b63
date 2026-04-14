@@ -555,6 +555,12 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   onChange={(updated) => updateProduto(i, "copy_arsenal", updated)}
                   projectId={project.id}
                   produtos={produtos}
+                  onMecanismoGenerated={(mecanismo) => {
+                    if (!(p.mecanismo || "").trim()) updateProduto(i, "mecanismo", mecanismo);
+                  }}
+                  onContextoGenerated={(contexto) => {
+                    if (!(p.contexto || "").trim()) updateProduto(i, "contexto", contexto);
+                  }}
                 />
               </div>
             );
