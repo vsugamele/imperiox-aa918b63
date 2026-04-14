@@ -14,6 +14,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CopyArsenalSection } from "./CopyArsenalSection";
+import { AIGenerateButton } from "./AIGenerateButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const PIPELINE_KEYS = [
