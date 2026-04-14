@@ -31,6 +31,7 @@ import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import LeadsTable, { getLeadStage, STAGE_LABELS, type Lead, type LeadVenda } from "@/components/leads/LeadsTable";
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
+import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
