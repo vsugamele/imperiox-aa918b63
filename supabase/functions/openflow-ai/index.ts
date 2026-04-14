@@ -1202,3 +1202,108 @@ ${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}`;
   const text = result.choices?.[0]?.message?.content || "";
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
+
+async function handleOrganizeFunnel(body: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+  const { extra } = body;
+  const products = extra?.products || [];
+  const projectName = extra?.project_name || "";
+  const nicho = extra?.nicho || "";
+  const existingEtapas = extra?.existing_etapas || [];
+
+  const systemPrompt = `${mentePrefix}Você é um estrategista de funis de marketing digital brasileiro, especialista em escadas de valor e arquitetura de funis de alta conversão.
+
+${projectContext}
+${skillsContext}
+
+## SUA MISSÃO
+Organize um funil de vendas completo e estratégico baseado nos produtos e dados do projeto.
+
+## REGRAS DE ORGANIZAÇÃO
+1. SEMPRE comece com etapas de aquisição (anúncio/criativo → página de captura)
+2. Organize produtos na ordem correta da escada de valor: Tripwire → Produto Principal → Order Bump → Upsell → Downsell
+3. Inclua etapas de nutrição quando relevante (email, WhatsApp)
+4. Posicione visualmente em LINHAS (rows) usando pos_x e pos_y:
+   - Linha de Aquisição (y=80): Anúncios, Landing Pages
+   - Linha de Conversão (y=400): Checkout, Produtos principais
+   - Linha de Maximização (y=720): Upsells, Order Bumps, Downsells
+   - Linha de Retenção (y=1040): Email, WhatsApp, Remarketing
+5. Espaçamento horizontal: 320px entre etapas na mesma linha
+6. connects_to deve formar um fluxo lógico (indices 0-based)
+7. Tipos válidos: criativo, pagina, vsl, checkout, upsell, face_ads, instagram, email, whatsapp, outro
+8. Inclua URLs dos produtos quando disponíveis
+9. Adicione descrições estratégicas explicando o propósito de cada etapa`;
+
+  const userPrompt = `Projeto: ${projectName}
+Nicho: ${nicho}
+Produtos disponíveis: ${JSON.stringify(products)}
+${existingEtapas.length > 0 ? `Etapas existentes (reorganize): ${JSON.stringify(existingEtapas.map((e: any) => ({ nome: e.nome, tipo: e.tipo })))}` : "Crie um funil do zero."}
+
+Organize o funil completo com todas as etapas necessárias.`;
+
+  const isOR = baseUrl.includes("openrouter.ai");
+  const mkH = (key: string, or: boolean): Record<string, string> => {
+    const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    if (or) { h["HTTP-Referer"] = "https://imperiox.lovable.app"; h["X-Title"] = "ImperioHQ"; }
+    return h;
+  };
+
+  const payload = JSON.stringify({
+    model,
+    messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+    tools: [{
+      type: "function",
+      function: {
+        name: "organize_funnel",
+        description: "Organize funnel stages strategically",
+        parameters: {
+          type: "object",
+          properties: {
+            etapas: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  nome: { type: "string", description: "Nome da etapa" },
+                  tipo: { type: "string", enum: ["criativo", "pagina", "vsl", "checkout", "upsell", "face_ads", "instagram", "tiktok", "email", "whatsapp", "blog", "outro"] },
+                  url: { type: "string", description: "URL da etapa (checkout, página, etc)" },
+                  descricao: { type: "string", description: "Descrição estratégica da etapa" },
+                  pos_x: { type: "number", description: "Posição X no canvas (multiplo de 320)" },
+                  pos_y: { type: "number", description: "Posição Y no canvas (80, 400, 720 ou 1040)" },
+                  connects_to: { type: "array", items: { type: "integer" }, description: "Indices das etapas destino (0-based)" },
+                },
+                required: ["nome", "tipo", "pos_x", "pos_y"],
+                additionalProperties: false,
+              },
+            },
+            estrategia: { type: "string", description: "Resumo da estratégia do funil em 2-3 frases" },
+          },
+          required: ["etapas", "estrategia"],
+          additionalProperties: false,
+        },
+      },
+    }],
+    tool_choice: { type: "function", function: { name: "organize_funnel" } },
+  });
+
+  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+
+  if (!isOR && response.status === 402) {
+    const orKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (orKey) {
+      console.log("Lovable gateway 402, falling back to OpenRouter (organize_funnel)");
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+    }
+  }
+
+  if (!response.ok) return handleAIError(response);
+  const result = await response.json();
+  const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) {
+    return new Response(JSON.stringify({ etapas: [], estrategia: "" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const parsed = JSON.parse(toolCall.function.arguments);
+  return new Response(JSON.stringify({ etapas: parsed.etapas || [], estrategia: parsed.estrategia || "" }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
