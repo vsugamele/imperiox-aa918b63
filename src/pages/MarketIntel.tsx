@@ -85,11 +85,12 @@ export default function MarketIntel() {
 
   // Load AI result from project data
   useEffect(() => {
-    if (!selectedProject) { setAiResult(""); setCompetitors([]); return; }
+    if (!selectedProject) { setAiResult(""); setAiIntelData(null); setCompetitors([]); return; }
     const proj = projects.find(p => p.id === selectedProject);
     if (proj?.data?.ai_market_intel) setAiResult(proj.data.ai_market_intel);
     else setAiResult("");
-    // Load competitors for integration
+    if (proj?.data?.ai_market_intel_data) setAiIntelData(proj.data.ai_market_intel_data);
+    else setAiIntelData(null);
     supabase.from("imphq_competitors").select("*").eq("project_id", selectedProject).then(({ data }) => setCompetitors(data || []));
   }, [selectedProject, projects]);
 
