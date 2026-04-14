@@ -82,9 +82,15 @@ const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; ut
 
 function getDateRange(period: string): { from: string; to: string } {
   const now = new Date();
-  const to = now.toISOString().slice(0, 10);
+  const today = now.toISOString().slice(0, 10);
   let from: string;
+  let to = today;
   switch (period) {
+    case "today": from = today; break;
+    case "yesterday": {
+      const y = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+      from = y; to = y; break;
+    }
     case "7d": from = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10); break;
     case "14d": from = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10); break;
     case "30d": from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10); break;
@@ -106,7 +112,9 @@ export default function Tracker() {
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [filterPlataforma, setFilterPlataforma] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
+  const [filterProduct, setFilterProduct] = useState("all");
   const [datePeriod, setDatePeriod] = useState("30d");
+  const [allProducts, setAllProducts] = useState<string[]>([]);
   const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
 
   const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
@@ -128,6 +136,9 @@ export default function Tracker() {
     setAdsSpend((adsRes.data || []) as any);
     setVendas(vRes.data || []);
     setProjects(pRes.data || []);
+    // Extract unique product names
+    const prods = [...new Set((vRes.data || []).map((v: any) => v.produto_nome as string).filter(Boolean))].sort();
+    setAllProducts(prods);
     const saved = localStorage.getItem("imphq_kpi_targets");
     if (saved) setTargets(JSON.parse(saved));
   };
@@ -199,6 +210,7 @@ export default function Tracker() {
   });
   const filteredVendas = vendas.filter(v => {
     if (filterProject !== "all" && v.project_id !== filterProject) return false;
+    if (filterProduct !== "all" && v.produto_nome !== filterProduct) return false;
     return true;
   });
 
@@ -416,6 +428,8 @@ export default function Tracker() {
         <Filter className="h-4 w-4 text-muted-foreground" />
         <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
           {[
+            { value: "today", label: "Hoje" },
+            { value: "yesterday", label: "Ontem" },
             { value: "7d", label: "7D" },
             { value: "14d", label: "14D" },
             { value: "30d", label: "30D" },
@@ -441,8 +455,17 @@ export default function Tracker() {
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {(filterPlataforma !== "all" || filterProject !== "all") && (
-          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); }}>Limpar filtros</Button>
+        {allProducts.length > 0 && (
+          <Select value={filterProduct} onValueChange={setFilterProduct}>
+            <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Produtos</SelectItem>
+              {allProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {(filterPlataforma !== "all" || filterProject !== "all" || filterProduct !== "all") && (
+          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); setFilterProduct("all"); }}>Limpar filtros</Button>
         )}
         <span className="text-[10px] text-muted-foreground ml-auto"><Calendar className="h-3 w-3 inline mr-1" />{dateRange.from} → {dateRange.to}</span>
       </div>
