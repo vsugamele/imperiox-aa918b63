@@ -184,7 +184,19 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const dateRange = getDateRange();
   const inRange = (dateStr: string | undefined | null) => {
     if (!dateRange || !dateStr) return !dateRange;
-    try { return isWithinInterval(new Date(dateStr), { start: dateRange.start, end: dateRange.end }); } catch { return true; }
+    try {
+      // Parse date string explicitly to avoid timezone shifts
+      // For date-only strings (YYYY-MM-DD), treat as local date
+      let d: Date;
+      const isoDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+      if (isoDateOnly) {
+        const [y, m, day] = dateStr.split("-").map(Number);
+        d = new Date(y, m - 1, day);
+      } else {
+        d = new Date(dateStr);
+      }
+      return isWithinInterval(d, { start: dateRange.start, end: dateRange.end });
+    } catch { return true; }
   };
 
   const fCosts = useMemo(() => costs.filter(c => inRange(c.data_pagamento || null)), [costs, period, customFrom, customTo]);
