@@ -1086,26 +1086,97 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                           <CardContent className="p-3 space-y-2">
                             <p className="text-xs font-medium truncate">{c.name || c.ad_name || `Criativo ${i + 1}`}</p>
                             {c.body && <p className="text-[10px] text-muted-foreground line-clamp-3">{c.body}</p>}
-                            {cImpr > 0 && (
-                              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
-                                <div className="rounded bg-secondary/50 p-1.5">
-                                  <span className="text-muted-foreground">Impr.</span>
-                                  <span className="ml-1 text-foreground">{cImpr.toLocaleString()}</span>
-                                </div>
-                                <div className="rounded bg-secondary/50 p-1.5">
-                                  <span className="text-muted-foreground">Cliques</span>
-                                  <span className="ml-1 text-foreground">{cClicks}</span>
-                                </div>
-                                <div className="rounded bg-secondary/50 p-1.5">
-                                  <span className="text-muted-foreground">Gasto</span>
-                                  <span className="ml-1 text-blue-400">{fmt(cSpend)}</span>
-                                </div>
-                                <div className="rounded bg-secondary/50 p-1.5">
-                                  <span className="text-muted-foreground">CTR</span>
-                                  <span className="ml-1 text-primary">{cCTR.toFixed(2)}%</span>
-                                </div>
-                              </div>
-                            )}
+                            {(() => {
+                              const campanha = adMatch.length > 0 ? adMatch[0].campanha : null;
+                              const conjunto = adMatch.length > 0 ? adMatch[0].conjunto_anuncios : null;
+                              const cLeads = adMatch.reduce((s, a) => s + (a.leads || 0), 0);
+                              const cCompras = adMatch.reduce((s, a) => s + ((a as any).compras || 0), 0);
+                              const cAlcance = adMatch.reduce((s, a) => s + ((a as any).alcance || 0), 0);
+                              const cFreq = adMatch.length > 0 ? adMatch.reduce((s, a) => s + ((a as any).frequencia || 0), 0) / adMatch.length : 0;
+                              const cCPM = cImpr > 0 ? (cSpend / cImpr) * 1000 : 0;
+                              const cCPC = cClicks > 0 ? cSpend / cClicks : 0;
+                              const cCPL = cLeads > 0 ? cSpend / cLeads : 0;
+                              return (
+                                <>
+                                  {(campanha || conjunto) && (
+                                    <div className="space-y-0.5">
+                                      {campanha && (
+                                        <div className="flex items-center gap-1 text-[9px]">
+                                          <span className="text-muted-foreground">Campanha:</span>
+                                          <span className="text-violet-400 truncate font-medium">{campanha}</span>
+                                        </div>
+                                      )}
+                                      {conjunto && (
+                                        <div className="flex items-center gap-1 text-[9px]">
+                                          <span className="text-muted-foreground">Conjunto:</span>
+                                          <span className="text-amber-400 truncate font-medium">{conjunto}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {cImpr > 0 && (
+                                    <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                                      <div className="rounded bg-secondary/50 p-1.5">
+                                        <span className="text-muted-foreground">Impr.</span>
+                                        <span className="ml-1 text-foreground">{cImpr.toLocaleString()}</span>
+                                      </div>
+                                      <div className="rounded bg-secondary/50 p-1.5">
+                                        <span className="text-muted-foreground">Cliques</span>
+                                        <span className="ml-1 text-foreground">{cClicks.toLocaleString()}</span>
+                                      </div>
+                                      <div className="rounded bg-secondary/50 p-1.5">
+                                        <span className="text-muted-foreground">Gasto</span>
+                                        <span className="ml-1 text-blue-400">{fmt(cSpend)}</span>
+                                      </div>
+                                      <div className="rounded bg-secondary/50 p-1.5">
+                                        <span className="text-muted-foreground">CTR</span>
+                                        <span className="ml-1 text-primary">{cCTR.toFixed(2)}%</span>
+                                      </div>
+                                      <div className="rounded bg-secondary/50 p-1.5">
+                                        <span className="text-muted-foreground">CPM</span>
+                                        <span className="ml-1 text-foreground">{fmt(cCPM)}</span>
+                                      </div>
+                                      <div className="rounded bg-secondary/50 p-1.5">
+                                        <span className="text-muted-foreground">CPC</span>
+                                        <span className="ml-1 text-foreground">{fmt(cCPC)}</span>
+                                      </div>
+                                      {cAlcance > 0 && (
+                                        <div className="rounded bg-secondary/50 p-1.5">
+                                          <span className="text-muted-foreground">Alcance</span>
+                                          <span className="ml-1 text-foreground">{cAlcance.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {cFreq > 0 && (
+                                        <div className="rounded bg-secondary/50 p-1.5">
+                                          <span className="text-muted-foreground">Freq.</span>
+                                          <span className="ml-1 text-foreground">{cFreq.toFixed(1)}</span>
+                                        </div>
+                                      )}
+                                      {cLeads > 0 && (
+                                        <div className="rounded bg-secondary/50 p-1.5">
+                                          <span className="text-muted-foreground">Leads</span>
+                                          <span className="ml-1 text-emerald-400">{cLeads}</span>
+                                        </div>
+                                      )}
+                                      {cLeads > 0 && (
+                                        <div className="rounded bg-secondary/50 p-1.5">
+                                          <span className="text-muted-foreground">CPL</span>
+                                          <span className="ml-1 text-emerald-400">{fmt(cCPL)}</span>
+                                        </div>
+                                      )}
+                                      {cCompras > 0 && (
+                                        <div className="rounded bg-secondary/50 p-1.5 col-span-2">
+                                          <span className="text-muted-foreground">Compras</span>
+                                          <span className="ml-1 text-emerald-400">{cCompras}</span>
+                                          <span className="text-muted-foreground ml-2">CPA</span>
+                                          <span className="ml-1 text-emerald-400">{fmt(cSpend / cCompras)}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                             <div className="flex gap-1 flex-wrap">
                               {c.title && <Badge variant="outline" className="text-[9px]">{c.title}</Badge>}
                               {(c.body || c.title) && (
