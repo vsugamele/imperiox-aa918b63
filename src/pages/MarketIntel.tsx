@@ -595,14 +595,26 @@ export default function MarketIntel() {
                         <h4 className="text-sm font-medium">{o.nome_sugerido}</h4>
                         <span className="text-lg font-mono font-bold text-emerald-400">{o.score}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">{o.dor_central}</p>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {o.ticket_sugerido && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30">{o.ticket_sugerido}</Badge>}
-                        {o.formato && <Badge variant="outline" className="text-[9px]">{o.formato}</Badge>}
-                        {o.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
-                      </div>
-                      {o.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {o.mecanismo_unico}</p>}
-                      {o.justificativa && <p className="text-[10px] text-muted-foreground italic">{o.justificativa}</p>}
+                       <p className="text-xs text-muted-foreground">{o.dor_central}</p>
+                       <div className="flex gap-1.5 flex-wrap">
+                         {o.ticket_sugerido && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30">{o.ticket_sugerido}</Badge>}
+                         {o.formato && <Badge variant="outline" className="text-[9px]">{o.formato}</Badge>}
+                         {o.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
+                       </div>
+                       {o.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {o.mecanismo_unico}</p>}
+                       {o.justificativa && <p className="text-[10px] text-muted-foreground italic">{o.justificativa}</p>}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="w-full mt-1 h-7 text-[10px] gap-1 text-primary hover:bg-primary/10"
+                         onClick={() => {
+                           setSearchQuery(o.nome_sugerido || o.nicho);
+                           setSearchMode("DEEP_DIVE");
+                           toast.info(`Deep Dive preparado para "${o.nome_sugerido}". Clique em 🎯 Deep Dive para executar.`);
+                         }}
+                       >
+                         <Crosshair className="h-3 w-3" /> Aprofundar este micro-nicho
+                       </Button>
                     </CardContent>
                   </Card>
                 ))}
