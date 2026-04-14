@@ -209,8 +209,9 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
 
       // Build daily data
       const dayMap: Record<string, DailyData> = {};
+      const nowMs = Date.now();
       for (let i = 0; i < 90; i++) {
-        const d = new Date(now.getTime() - i * 86400000);
+        const d = new Date(nowMs - i * 86400000);
         const key = d.toISOString().slice(0, 10);
         dayMap[key] = { dia: key, receita: 0, vendas: 0, leads: 0 };
       }
