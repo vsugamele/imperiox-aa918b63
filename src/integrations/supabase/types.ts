@@ -11145,6 +11145,81 @@ export type Database = {
           },
         ]
       }
+      imphq_generated_contents: {
+        Row: {
+          content: string
+          content_type: string
+          created_at: string
+          custom_prompt: string | null
+          id: string
+          metadata: Json | null
+          model_used: string | null
+          product_name: string | null
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          content_type: string
+          created_at?: string
+          custom_prompt?: string | null
+          id?: string
+          metadata?: Json | null
+          model_used?: string | null
+          product_name?: string | null
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          content_type?: string
+          created_at?: string
+          custom_prompt?: string | null
+          id?: string
+          metadata?: Json | null
+          model_used?: string | null
+          product_name?: string | null
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_generated_contents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_generated_contents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_generated_contents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_generated_contents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_generated_contents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_growth_metrics: {
         Row: {
           category: string
