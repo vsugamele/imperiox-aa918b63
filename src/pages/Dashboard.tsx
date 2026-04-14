@@ -16,7 +16,7 @@ import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
-import { ContentGenerator } from "@/components/dashboard/ContentGenerator";
+
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -54,6 +54,8 @@ export default function Dashboard() {
         <Select value={dashPeriod} onValueChange={setDashPeriod}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="today">Hoje</SelectItem>
+            <SelectItem value="yesterday">Ontem</SelectItem>
             <SelectItem value="7d">7 dias</SelectItem>
             <SelectItem value="30d">30 dias</SelectItem>
             <SelectItem value="90d">90 dias</SelectItem>
@@ -82,10 +84,7 @@ export default function Dashboard() {
       </div>
 
       <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ContentGenerator />
-        <HotLeadAlerts />
-      </div>
+      <HotLeadAlerts />
       <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardStats period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

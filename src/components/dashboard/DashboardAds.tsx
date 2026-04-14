@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Megaphone, Target, ShoppingCart, MousePointerClick } from "lucide-react";
-import { subDays } from "date-fns";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
+import { getPeriodRange } from "@/lib/periodUtils";
 
 interface AdsGlobal {
   gasto: number;
@@ -26,8 +26,8 @@ export default function DashboardAds({ period, projectFilter, allProjects }: Pro
 
   useEffect(() => {
     async function load() {
-      const days = period === "7d" ? 7 : period === "90d" ? 90 : period === "6m" ? 180 : 30;
-      const since = subDays(new Date(), days).toISOString().split("T")[0];
+      const { from } = getPeriodRange(period);
+      const since = from.split("T")[0];
       const { data: adsRaw } = await supabase.from("imphq_ads_spend").select("*").gte("data_ref", since);
       const projMap = new Map((allProjects || []).map((p: any) => [p.id, p]));
       let items = (adsRaw || []) as any[];
@@ -54,7 +54,7 @@ export default function DashboardAds({ period, projectFilter, allProjects }: Pro
       }).sort((a, b) => b.value - a.value).slice(0, 5);
 
       // Frequency alerts
-      const sevenAgo = subDays(new Date(), 7).toISOString().split("T")[0];
+      const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
       const recentAds = items.filter((a: any) => a.data_ref >= sevenAgo);
       const freqAlerts: string[] = [];
       const freqCamp = new Map<string, { freq: number; count: number }>();
