@@ -82,9 +82,15 @@ const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; ut
 
 function getDateRange(period: string): { from: string; to: string } {
   const now = new Date();
-  const to = now.toISOString().slice(0, 10);
+  const today = now.toISOString().slice(0, 10);
   let from: string;
+  let to = today;
   switch (period) {
+    case "today": from = today; break;
+    case "yesterday": {
+      const y = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+      from = y; to = y; break;
+    }
     case "7d": from = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10); break;
     case "14d": from = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10); break;
     case "30d": from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10); break;
@@ -106,7 +112,9 @@ export default function Tracker() {
   const [targets, setTargets] = useState<KPITargets>(DEFAULT_TARGETS);
   const [filterPlataforma, setFilterPlataforma] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
+  const [filterProduct, setFilterProduct] = useState("all");
   const [datePeriod, setDatePeriod] = useState("30d");
+  const [allProducts, setAllProducts] = useState<string[]>([]);
   const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
 
   const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
