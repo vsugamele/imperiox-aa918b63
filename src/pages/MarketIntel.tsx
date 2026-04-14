@@ -193,12 +193,12 @@ export default function MarketIntel() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="font-display text-3xl font-bold text-primary">🧠 Market Intel</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Nicho ou termo para pesquisar..."
-              className="w-[220px] bg-secondary text-sm"
+              placeholder={searchMode === "DEEP_DIVE" ? "Micro-nicho ou oferta para aprofundar..." : searchMode === "TREND_SCAN" ? "Nichos separados por vírgula..." : "Nicho ou termo para pesquisar..."}
+              className="w-[260px] bg-secondary text-sm"
             />
             <Select value={selectedProject} onValueChange={setSelectedProject}>
               <SelectTrigger className="w-[200px] bg-secondary">
@@ -208,11 +208,39 @@ export default function MarketIntel() {
                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  {searchMode === "DISCOVERY" && <><Search className="h-3.5 w-3.5" /> Pesquisa</>}
+                  {searchMode === "TREND_SCAN" && <><Radar className="h-3.5 w-3.5" /> Tendências</>}
+                  {searchMode === "DEEP_DIVE" && <><Crosshair className="h-3.5 w-3.5" /> Deep Dive</>}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setSearchMode("DISCOVERY")}>
+                  <Search className="h-4 w-4 mr-2" /> Pesquisa Profunda
+                  <span className="text-[10px] text-muted-foreground ml-2">Busca geral no nicho</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSearchMode("TREND_SCAN")}>
+                  <Radar className="h-4 w-4 mr-2" /> Varredura de Tendências
+                  <span className="text-[10px] text-muted-foreground ml-2">2025-2027, múltiplos nichos</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSearchMode("DEEP_DIVE")}>
+                  <Crosshair className="h-4 w-4 mr-2" /> Deep Dive Micro-Nicho
+                  <span className="text-[10px] text-muted-foreground ml-2">Análise profunda para decisão</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <AIGenerateButton
               projectId={selectedProject}
               action="market_intel_research"
-              label="🔍 Pesquisa Profunda"
-              extraBody={{ mode: "DISCOVERY", search_query: searchQuery }}
+              label={searchMode === "DEEP_DIVE" ? "🎯 Deep Dive" : searchMode === "TREND_SCAN" ? "📡 Varrer Tendências" : "🔍 Pesquisa Profunda"}
+              extraBody={{
+                mode: searchMode,
+                search_query: searchQuery,
+                ...(searchMode === "DEEP_DIVE" ? { deep_dive_target: searchQuery } : {}),
+              }}
               onResult={handleAiResult}
               contextSources={["Briefing", "Avatar", "Concorrentes", "Produtos", "Vendas"]}
             />
