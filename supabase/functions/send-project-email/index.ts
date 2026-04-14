@@ -59,16 +59,20 @@ Deno.serve(async (req) => {
     }
 
     // Fallback to legacy JSONB storage
+    const emailConfig = (project.data as any)?.email_config || {};
+    const briefingResend = (project.data as any)?.checklist?.resend || {};
     if (!resendApiKey) {
-      const emailConfig = (project.data as any)?.email_config || {};
-      const briefingResend = (project.data as any)?.checklist?.resend || {};
-      resendApiKey = resendApiKey || emailConfig.resend_api_key || briefingResend.resend_api_key || "";
+      resendApiKey = emailConfig.resend_api_key || briefingResend.resend_api_key || "";
       fromEmail = fromEmail || emailConfig.from_email || briefingResend.from_email || "";
       fromName = fromName || emailConfig.from_name || briefingResend.from_name || "";
       replyTo = replyTo || emailConfig.reply_to || briefingResend.reply_to || "";
     }
 
+    console.log("[send-project-email] project_id:", project_id, "template_id:", template_id, "to:", to_email);
+    console.log("[send-project-email] resendApiKey set:", !!resendApiKey, "fromEmail:", fromEmail);
+
     if (!resendApiKey) {
+      console.error("[send-project-email] Resend API Key não configurada");
       return new Response(JSON.stringify({ error: "Resend API Key não configurada neste projeto" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -76,6 +80,7 @@ Deno.serve(async (req) => {
     }
 
     const templates = emailConfig.templates || [];
+    console.log("[send-project-email] Templates disponíveis:", templates.map((t: any) => ({ id: t.id, name: t.name })));
     const template = templates.find((t: any) => t.id === template_id);
     if (!template) {
       return new Response(JSON.stringify({ error: "Template não encontrado" }), {
