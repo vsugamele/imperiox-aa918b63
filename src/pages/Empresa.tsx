@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube } from "lucide-react";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { toast } from "sonner";
 
@@ -25,10 +25,13 @@ interface ContaEmpresa {
     perfil_instagram?: string;
     seguidores?: string;
     bio?: string;
+    channel_url?: string;
+    ativo?: string;
   };
 }
 
 const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
+const YOUTUBE_STATUS = ["Ativo", "Inativo", "Em Análise", "Monetizado"];
 
 export default function Empresa() {
   const [contas, setContas] = useState<ContaEmpresa[]>([]);
@@ -60,6 +63,7 @@ export default function Empresa() {
           <TabsTrigger value="email"><Mail className="h-3.5 w-3.5 mr-1" /> Emails</TabsTrigger>
           <TabsTrigger value="instagram"><Instagram className="h-3.5 w-3.5 mr-1" /> Instagram</TabsTrigger>
           <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
+          <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>
           <TabsTrigger value="ad_accounts"><CreditCard className="h-3.5 w-3.5 mr-1" /> Ad Accounts</TabsTrigger>
         </TabsList>
 
@@ -76,6 +80,11 @@ export default function Empresa() {
         <TabsContent value="tiktok">
           <AccountTable contas={filterByType("tiktok")} tipo="tiktok"
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
+            onRefresh={load} />
+        </TabsContent>
+        <TabsContent value="youtube">
+          <AccountTable contas={filterByType("youtube")} tipo="youtube"
+            columns={["Canal", "URL do Canal", "Inscritos", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="ad_accounts">
@@ -100,7 +109,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
   const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
-    seguidores: "", bio: "",
+    seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -123,6 +132,8 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
       perfil_instagram: conta.extra?.perfil_instagram || "",
       seguidores: conta.extra?.seguidores || "",
       bio: conta.extra?.bio || "",
+      channel_url: conta.extra?.channel_url || "",
+      ativo: conta.extra?.ativo || "Ativo",
     });
     setShowFormPassword(false);
     setShowDialog(true);
@@ -133,7 +144,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
   };
 
   const save = async () => {
-    if (!form.nome.trim()) { toast.error("Nome/Gmail obrigatório"); return; }
+    if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const payload = {
       nome: form.nome,
       tipo,
@@ -146,6 +157,8 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
         perfil_instagram: form.perfil_instagram || null,
         seguidores: form.seguidores || null,
         bio: form.bio || null,
+        channel_url: form.channel_url || null,
+        ativo: form.ativo || null,
       },
     } as any;
 
@@ -170,8 +183,8 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
     onRefresh();
   };
 
-  const labelByTipo = tipo === "email" ? "Email" : tipo === "instagram" ? "Instagram" : "TikTok";
-  const iconByTipo = tipo === "email" ? "📧" : tipo === "instagram" ? "📸" : "🎵";
+  const labelByTipo = tipo === "email" ? "Email" : tipo === "instagram" ? "Instagram" : tipo === "tiktok" ? "TikTok" : "YouTube";
+  const iconByTipo = tipo === "email" ? "📧" : tipo === "instagram" ? "📸" : tipo === "tiktok" ? "🎵" : "📺";
 
   return (
     <div className="space-y-4">
@@ -216,6 +229,24 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.extra?.data_compra || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.extra?.perfil_instagram || "—"}</TableCell>
+                    </>
+                  ) : tipo === "youtube" ? (
+                    <>
+                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {c.extra?.channel_url ? (
+                          <a href={c.extra.channel_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px] block">
+                            {c.extra.channel_url}
+                          </a>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell className="text-xs">{c.extra?.seguidores || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{c.extra?.bio || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[9px] ${c.extra?.ativo === "Ativo" || c.extra?.ativo === "Monetizado" ? "border-emerald-500/30 text-emerald-400" : c.extra?.ativo === "Inativo" ? "border-red-500/30 text-red-400" : ""}`}>
+                          {c.extra?.ativo || "Inativo"}
+                        </Badge>
+                      </TableCell>
                     </>
                   ) : (
                     <>
@@ -282,6 +313,20 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                 </div>
                 <div><Label>Data de Compra</Label><Input type="date" value={form.data_compra} onChange={e => setForm({ ...form, data_compra: e.target.value })} /></div>
                 <div><Label>Perfil Instagram Vinculado</Label><Input value={form.perfil_instagram} onChange={e => setForm({ ...form, perfil_instagram: e.target.value })} placeholder="@nomedoperfil" /></div>
+              </>
+            ) : tipo === "youtube" ? (
+              <>
+                <div><Label>Nome do Canal *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Meu Canal" /></div>
+                <div><Label>URL do Canal</Label><Input value={form.channel_url} onChange={e => setForm({ ...form, channel_url: e.target.value })} placeholder="https://youtube.com/@seucanal" /></div>
+                <div><Label>Inscritos</Label><Input value={form.seguidores} onChange={e => setForm({ ...form, seguidores: e.target.value })} placeholder="Ex: 12.5k" /></div>
+                <div><Label>Descrição / Bio</Label><Input value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} placeholder="Descrição do canal" /></div>
+                <div>
+                  <Label>Status</Label>
+                  <Select value={form.ativo} onValueChange={v => setForm({ ...form, ativo: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{YOUTUBE_STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
               </>
             ) : (
               <>
