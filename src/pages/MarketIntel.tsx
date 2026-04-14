@@ -574,9 +574,21 @@ export default function MarketIntel() {
                         {p.plataforma && <Badge variant="outline" className="text-[9px]">{p.plataforma}</Badge>}
                         {p.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
                       </div>
-                      {p.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {p.mecanismo_unico}</p>}
-                      {p.angulo_copy && <p className="text-[10px] text-muted-foreground">🎯 {p.angulo_copy}</p>}
-                      {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline truncate block">🔗 {p.url}</a>}
+                       {p.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {p.mecanismo_unico}</p>}
+                       {p.angulo_copy && <p className="text-[10px] text-muted-foreground">🎯 {p.angulo_copy}</p>}
+                       {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline truncate block">🔗 {p.url}</a>}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="w-full mt-1 h-7 text-[10px] gap-1 text-primary hover:bg-primary/10"
+                         onClick={() => {
+                           setSearchQuery(p.nome || p.nicho);
+                           setSearchMode("DEEP_DIVE");
+                           toast.info(`Deep Dive preparado para "${p.nome}". Clique em 🎯 Deep Dive.`);
+                         }}
+                       >
+                         <Crosshair className="h-3 w-3" /> Aprofundar
+                       </Button>
                     </CardContent>
                   </Card>
                 ))}
