@@ -16,6 +16,7 @@ import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
+import { ContentGenerator } from "@/components/dashboard/ContentGenerator";
 
 export default function Dashboard() {
   const { user } = useAuth();

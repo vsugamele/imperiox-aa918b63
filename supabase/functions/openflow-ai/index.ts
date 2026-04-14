@@ -165,6 +165,7 @@ serve(async (req) => {
     if (action === "generate_content_plan") return await handleContentPlan(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, body);
     if (action === "generate_expert_notes") return await handleExpertNotes(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_campaign_message") return await handleCampaignMessage(body, projectContext, sb, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_content_pack") return await handleContentPack(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
 
     // Default: automation flow generation
     const triggerLabels: Record<string, string> = {
