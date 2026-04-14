@@ -238,7 +238,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   };
 
   const activeSkill = SKILL_MAP[activeType];
-  const showProductSelector = PRODUCT_REQUIRED_TYPES.includes(activeType);
+  const showProductSelector = true;
 
   return (
     <div className="space-y-4">
