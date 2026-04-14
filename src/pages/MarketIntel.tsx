@@ -62,10 +62,12 @@ export default function MarketIntel() {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [aiResult, setAiResult] = useState<string>("");
+  const [aiIntelData, setAiIntelData] = useState<any>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showFavsOnly, setShowFavsOnly] = useState(false);
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("nichos");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Load data
   useEffect(() => {
