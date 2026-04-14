@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, XCircle, Loader2, Clock, RotateCcw, User, Phone } from "lucide-react";
+import { toast } from "sonner";
 
 interface ExecutionsPanelProps {
   automacoes: { id: string; nome: string }[];
@@ -19,15 +21,59 @@ const statusConfig: Record<string, { label: string; className: string; icon: any
 export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) {
   const [executions, setExecutions] = useState<any[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [leads, setLeads] = useState<Record<string, { nome: string; phone: string }>>({});
+  const [retrying, setRetrying] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase.from("imphq_flow_executions" as any).select("*").order("created_at", { ascending: false }).limit(50)
-      .then(({ data }) => setExecutions(data || []));
-  }, []);
+  const loadExecs = async () => {
+    const { data } = await supabase.from("imphq_flow_executions").select("*").order("created_at", { ascending: false }).limit(50);
+    const execs = data || [];
+    setExecutions(execs);
+
+    // Load lead names for executions that have lead_id
+    const leadIds = [...new Set(execs.map((e: any) => e.lead_id).filter(Boolean))];
+    if (leadIds.length > 0) {
+      const { data: leadRows } = await supabase.from("imphq_leads").select("id, nome, phone").in("id", leadIds);
+      const map: Record<string, { nome: string; phone: string }> = {};
+      (leadRows || []).forEach((l: any) => { map[l.id] = { nome: l.nome || "", phone: l.phone || "" }; });
+      setLeads(map);
+    }
+  };
+
+  useEffect(() => { loadExecs(); }, []);
 
   const autoName = (id: string) => automacoes.find(a => a.id === id)?.nome || id?.slice(0, 8);
   const projName = (id: string) => projects.find(p => p.id === id)?.name || "";
   const waitingCount = executions.filter(e => e.status === "waiting").length;
+
+  const retryExecution = async (exec: any) => {
+    setRetrying(exec.id);
+    try {
+      // Find matching automacao_log to get trigger_data
+      const { data: logData } = await supabase.from("imphq_automacao_logs" as any)
+        .select("trigger_data")
+        .eq("automacao_id", exec.automacao_id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      const triggerData = (logData?.[0] as any)?.trigger_data || {};
+      
+      const { data, error } = await supabase.functions.invoke("openflow-executor", {
+        body: {
+          trigger_tipo: exec.trigger_tipo,
+          project_id: exec.project_id,
+          automacao_id: exec.automacao_id,
+          lead_data: triggerData,
+        },
+      });
+      if (error) throw error;
+      toast[data?.ok ? "success" : "error"](data?.ok ? "Reenvio executado!" : (data?.error || "Erro"));
+      loadExecs();
+    } catch (e: any) {
+      toast.error("Erro: " + (e?.message || "desconhecido"));
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   if (executions.length === 0) {
     return <p className="text-sm text-muted-foreground py-12 text-center">Nenhuma execução registrada</p>;
@@ -49,20 +95,39 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
           const sc = statusConfig[exec.status] || statusConfig.completed;
           const StatusIcon = sc.icon;
           const isExpanded = expandedId === exec.id;
+          const lead = exec.lead_id ? leads[exec.lead_id] : null;
 
           return (
             <Card key={exec.id} className="bg-card border-border cursor-pointer hover:border-primary/20 transition-colors" onClick={() => setExpandedId(isExpanded ? null : exec.id)}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={`text-[9px] ${sc.className}`}>
                       <StatusIcon className={`h-3 w-3 mr-1 ${exec.status === "running" ? "animate-spin" : ""}`} />
                       {sc.label}
                     </Badge>
                     <span className="text-xs font-medium">{autoName(exec.automacao_id)}</span>
                     {exec.project_id && <Badge variant="outline" className="text-[9px]">{projName(exec.project_id)}</Badge>}
+                    {lead && (
+                      <Badge variant="secondary" className="text-[9px] gap-1">
+                        <User className="h-2.5 w-2.5" /> {lead.nome || "—"}
+                        {lead.phone && <><Phone className="h-2.5 w-2.5 ml-1" /> {lead.phone}</> }
+                      </Badge>
+                    )}
                   </div>
-                  <span className="text-[10px] text-muted-foreground">{new Date(exec.created_at).toLocaleString("pt-BR")}</span>
+                  <div className="flex items-center gap-1.5">
+                    {(exec.status === "failed" || exec.status === "completed") && (
+                      <Button
+                        variant="ghost" size="icon" className="h-6 w-6"
+                        title="Reenviar execução"
+                        onClick={(e) => { e.stopPropagation(); retryExecution(exec); }}
+                        disabled={retrying === exec.id}
+                      >
+                        {retrying === exec.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3 text-muted-foreground" />}
+                      </Button>
+                    )}
+                    <span className="text-[10px] text-muted-foreground">{new Date(exec.created_at).toLocaleString("pt-BR")}</span>
+                  </div>
                 </div>
 
                 {exec.status === "waiting" && exec.next_run_at && (
@@ -83,6 +148,8 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
                           {step.status}
                         </Badge>
                         {step.reason && <span className="text-muted-foreground">{step.reason}</span>}
+                        {step.message_preview && <span className="text-muted-foreground truncate max-w-[200px]">"{step.message_preview}"</span>}
+                        {step.provider_id && <span className="text-muted-foreground ml-auto">📱 {step.provider_id.slice(0, 10)}…</span>}
                         {step.finished_at && <span className="text-muted-foreground ml-auto">{new Date(step.finished_at).toLocaleTimeString("pt-BR")}</span>}
                       </div>
                     ))}
