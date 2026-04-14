@@ -261,12 +261,17 @@ Deno.serve(async (req) => {
             if (!toEmail) {
               stepResult.status = "skipped";
               stepResult.reason = "Sem email do lead";
+              console.log(`[openflow-executor] Step ${i} email: skipped - sem email do lead`);
             } else {
               const templateId = step.template_id;
               if (!templateId) {
                 stepResult.status = "error";
-                stepResult.reason = "template_id não configurado";
+                stepResult.reason = "template_id não configurado na ação de email. Configure o template no editor da automação.";
+                status = "failed";
+                errorMessage = `Step ${i} (email): template_id não configurado. Edite a automação e selecione um template de email.`;
+                console.error(`[openflow-executor] Step ${i} email: ERRO - template_id não configurado. Automação: ${auto.id} (${auto.nome})`);
               } else {
+                console.log(`[openflow-executor] Step ${i} email: enviando para ${toEmail}, template: ${templateId}, project: ${project_id}`);
                 const emailRes = await fetch(`${supabaseUrl}/functions/v1/send-project-email`, {
                   method: "POST",
                   headers: {
@@ -282,7 +287,14 @@ Deno.serve(async (req) => {
                 const emailData = await emailRes.json();
                 stepResult.status = emailData.success ? "sent" : "error";
                 stepResult.response = emailData;
-                if (emailData.success) messagesSent++;
+                if (emailData.success) {
+                  messagesSent++;
+                  console.log(`[openflow-executor] Step ${i} email: enviado com sucesso para ${toEmail}`);
+                } else {
+                  status = "failed";
+                  errorMessage = `Step ${i} (email): ${emailData.error || "Erro desconhecido no envio"}`;
+                  console.error(`[openflow-executor] Step ${i} email: ERRO - ${emailData.error || JSON.stringify(emailData)}`);
+                }
               }
             }
           }
