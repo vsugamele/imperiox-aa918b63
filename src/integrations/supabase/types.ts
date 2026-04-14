@@ -12996,6 +12996,60 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_ai_config: {
+        Row: {
+          business_hours_end: string | null
+          business_hours_only: boolean | null
+          business_hours_start: string | null
+          context_sources: string[] | null
+          created_at: string | null
+          enabled: boolean | null
+          escalation_keywords: string[] | null
+          id: string
+          max_tokens: number | null
+          personality: string | null
+          project_id: string
+          response_delay_seconds: number | null
+          tone: string | null
+          updated_at: string | null
+          welcome_message: string | null
+        }
+        Insert: {
+          business_hours_end?: string | null
+          business_hours_only?: boolean | null
+          business_hours_start?: string | null
+          context_sources?: string[] | null
+          created_at?: string | null
+          enabled?: boolean | null
+          escalation_keywords?: string[] | null
+          id?: string
+          max_tokens?: number | null
+          personality?: string | null
+          project_id: string
+          response_delay_seconds?: number | null
+          tone?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Update: {
+          business_hours_end?: string | null
+          business_hours_only?: boolean | null
+          business_hours_start?: string | null
+          context_sources?: string[] | null
+          created_at?: string | null
+          enabled?: boolean | null
+          escalation_keywords?: string[] | null
+          id?: string
+          max_tokens?: number | null
+          personality?: string | null
+          project_id?: string
+          response_delay_seconds?: number | null
+          tone?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
       imphq_wa_campaign_logs: {
         Row: {
           campaign_id: string | null
