@@ -258,7 +258,42 @@ export default function Leads() {
       promises.push(supabase.from("imphq_clicks").select("*").order("created_at", { ascending: false }).limit(50).then(({ data }) => { const leadUtmSource = lead.data?.utms?.utm_source; (data || []).forEach((c: any) => { if (leadUtmSource && c.utm_source === leadUtmSource) events.push({ id: c.id, type: "click", timestamp: c.created_at, title: "Click UTM", subtitle: c.page_url ? new URL(c.page_url).pathname : c.utm_campaign, details: { utm_source: c.utm_source, utm_medium: c.utm_medium, utm_campaign: c.utm_campaign } }); }); }));
     }
     promises.push(supabase.from("imphq_vendas").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).then(({ data }) => { (data || []).forEach((v: any) => { const isRefund = v.status === "reembolsado"; events.push({ id: v.id, type: isRefund ? "Reembolso" : "Purchase", timestamp: v.created_at, title: isRefund ? `Reembolso: ${v.produto_nome || "—"}` : `Compra: ${v.produto_nome || "—"}`, subtitle: `R$ ${parseFloat(v.valor || 0).toFixed(2)} via ${v.plataforma || "—"}`, details: { status: v.status } }); }); }));
-    promises.push(supabase.from("imphq_activity_log").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(50).then(({ data }) => { setLeadAutomationLogs(data || []); }));
+    promises.push(
+      Promise.all([
+        supabase.from("imphq_activity_log").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(50),
+        supabase.from("imphq_automacao_logs" as any).select("*").order("created_at", { ascending: false }).limit(200),
+      ]).then(([actRes, autoLogRes]) => {
+        const actLogs = (actRes.data || []).map((l: any) => ({ ...l, _source: "activity" }));
+        // Filter automacao_logs by lead_id in trigger_data
+        const autoLogs = (autoLogRes.data || []).filter((l: any) => {
+          const td = (l.trigger_data as any) || {};
+          const ld = td.lead_data || td;
+          return ld.lead_id === lead.id || ld.email === lead.email;
+        }).map((l: any) => {
+          const td = (l.trigger_data as any) || {};
+          const ld = td.lead_data || td;
+          const autoNome = automations.find(a => a.id === l.automacao_id)?.nome || l.automacao_id?.slice(0, 8);
+          return {
+            id: l.id,
+            action: l.status === "success" ? "automacao_sucesso" : "automacao_erro",
+            entity_type: "automacao",
+            entity_id: l.automacao_id,
+            lead_id: lead.id,
+            created_at: l.created_at,
+            details: {
+              automacao: autoNome,
+              status: l.status,
+              produto: ld.produto || "",
+              erro: l.error_message || "",
+              acoes: Array.isArray(l.acoes_executadas) ? l.acoes_executadas.map((a: any) => `${a.tipo}:${a.status || "ok"}`).join(", ") : "",
+            },
+            _source: "automacao_log",
+          };
+        });
+        const merged = [...actLogs, ...autoLogs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setLeadAutomationLogs(merged);
+      })
+    );
     const META_FIELDS = new Set(["nome", "email", "phone", "telefone", "name"]);
     promises.push(supabase.from("imphq_lead_responses").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).then(async ({ data }) => {
       const rows = data || [];
