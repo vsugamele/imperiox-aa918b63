@@ -269,15 +269,37 @@ Deno.serve(async (req) => {
               stepResult.reason = "Sem email do lead";
               console.log(`[openflow-executor] Step ${i} email: skipped - sem email do lead`);
             } else {
+              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
               const templateId = step.template_id;
-              if (!templateId) {
-                stepResult.status = "error";
-                stepResult.reason = "template_id não configurado na ação de email. Configure o template no editor da automação.";
-                status = "failed";
-                errorMessage = `Step ${i} (email): template_id não configurado. Edite a automação e selecione um template de email.`;
-                console.error(`[openflow-executor] Step ${i} email: ERRO - template_id não configurado. Automação: ${auto.id} (${auto.nome})`);
-              } else {
-                console.log(`[openflow-executor] Step ${i} email: enviando para ${toEmail}, template: ${templateId}, project: ${project_id}`);
+
+              // Inline message from the editor (field "template" or "mensagem")
+              const inlineMsg = step.mensagem || step.template || step.texto || "";
+
+              // Parse subject from inline message: "Assunto: SUBJECT\n\nBODY"
+              let emailSubject = step.assunto || "";
+              let emailBody = inlineMsg;
+              if (!emailSubject && inlineMsg) {
+                const assuntoMatch = inlineMsg.match(/^Assunto:\s*(.+?)(?:\n|$)/i);
+                if (assuntoMatch) {
+                  emailSubject = assuntoMatch[1].trim();
+                  emailBody = inlineMsg.replace(/^Assunto:\s*.+?\n+/i, "").trim();
+                }
+              }
+
+              // Replace variables in subject and body
+              const replaceVars = (text: string) =>
+                text
+                  .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
+                  .replace(/\{\{email\}\}/g, lead_data?.email || "")
+                  .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
+                  .replace(/\{\{telefone\}\}/g, lead_data?.phone || lead_data?.telefone || "")
+                  .replace(/\{\{link\}\}/g, linkUrl)
+                  .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
+                  .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
+
+              if (templateId) {
+                // Mode 1: Use saved project template by ID
+                console.log(`[openflow-executor] Step ${i} email: enviando via template_id=${templateId} para ${toEmail}`);
                 const emailRes = await fetch(`${supabaseUrl}/functions/v1/send-project-email`, {
                   method: "POST",
                   headers: {
@@ -301,6 +323,107 @@ Deno.serve(async (req) => {
                   errorMessage = `Step ${i} (email): ${emailData.error || "Erro desconhecido no envio"}`;
                   console.error(`[openflow-executor] Step ${i} email: ERRO - ${emailData.error || JSON.stringify(emailData)}`);
                 }
+              } else if (emailBody) {
+                // Mode 2: Inline message — send directly via Resend using project config
+                console.log(`[openflow-executor] Step ${i} email: enviando inline para ${toEmail}, assunto: "${emailSubject}"`);
+
+                // Fetch project Resend config
+                let resendApiKey = "";
+                let fromEmail = "";
+                let fromName = "";
+                let replyTo = "";
+
+                const { data: creds } = await supabase
+                  .from("imphq_integration_credentials")
+                  .select("credentials")
+                  .eq("project_id", project_id)
+                  .eq("provider", "resend")
+                  .maybeSingle();
+
+                if (creds?.credentials) {
+                  resendApiKey = (creds.credentials as any).api_key || "";
+                  fromEmail = (creds.credentials as any).from_email || "";
+                  fromName = (creds.credentials as any).from_name || "";
+                  replyTo = (creds.credentials as any).reply_to || "";
+                }
+
+                // Fallback to legacy JSONB
+                if (!resendApiKey) {
+                  const { data: proj } = await supabase
+                    .from("imphq_projects")
+                    .select("data")
+                    .eq("id", project_id)
+                    .single();
+                  const emailConfig = (proj?.data as any)?.email_config || {};
+                  const briefing = (proj?.data as any)?.checklist?.resend || {};
+                  resendApiKey = emailConfig.resend_api_key || briefing.resend_api_key || "";
+                  fromEmail = fromEmail || emailConfig.from_email || briefing.from_email || "";
+                  fromName = fromName || emailConfig.from_name || briefing.from_name || "";
+                  replyTo = replyTo || emailConfig.reply_to || briefing.reply_to || "";
+                }
+
+                if (!resendApiKey) {
+                  stepResult.status = "error";
+                  stepResult.reason = "Resend API Key não configurada neste projeto";
+                  status = "failed";
+                  errorMessage = `Step ${i} (email): Resend API Key não configurada`;
+                  console.error(`[openflow-executor] Step ${i} email: Resend API Key não configurada`);
+                } else {
+                  const finalSubject = replaceVars(emailSubject || "Mensagem automática");
+                  const finalBody = replaceVars(emailBody);
+                  // Convert plain text body to simple HTML
+                  const htmlBody = finalBody.includes("<") ? finalBody : `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#333">${finalBody.replace(/\n/g, "<br>")}</div>`;
+
+                  const resendRes = await fetch("https://api.resend.com/emails", {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${resendApiKey}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+                      to: [toEmail],
+                      subject: finalSubject,
+                      html: htmlBody,
+                      reply_to: replyTo || undefined,
+                    }),
+                  });
+                  const resendData = await resendRes.json();
+
+                  // Log
+                  await supabase.from("imphq_events").insert({
+                    project_id,
+                    event_name: "email_sent",
+                    page_url: "",
+                    data: {
+                      to_email: toEmail,
+                      template_name: `inline: ${finalSubject.substring(0, 50)}`,
+                      status: resendRes.ok ? "sent" : "error",
+                      error: resendRes.ok ? null : (resendData.message || "Erro"),
+                      resend_id: resendData.id || null,
+                      source: "openflow",
+                    },
+                  });
+
+                  if (resendRes.ok) {
+                    stepResult.status = "sent";
+                    stepResult.resend_id = resendData.id;
+                    messagesSent++;
+                    console.log(`[openflow-executor] Step ${i} email inline: enviado para ${toEmail}, id: ${resendData.id}`);
+                  } else {
+                    stepResult.status = "error";
+                    stepResult.reason = resendData.message || "Erro no Resend";
+                    status = "failed";
+                    errorMessage = `Step ${i} (email): ${resendData.message || "Erro no Resend"}`;
+                    console.error(`[openflow-executor] Step ${i} email inline: ERRO - ${resendData.message || JSON.stringify(resendData)}`);
+                  }
+                }
+              } else {
+                stepResult.status = "error";
+                stepResult.reason = "Nenhum conteúdo de email configurado (nem template_id, nem mensagem inline)";
+                status = "failed";
+                errorMessage = `Step ${i} (email): Sem conteúdo configurado`;
+                console.error(`[openflow-executor] Step ${i} email: sem conteúdo - automação ${auto.id}`);
               }
             }
           }
