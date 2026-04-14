@@ -587,7 +587,23 @@ export default function Referencias() {
             {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos · {adsCount} de ads
           </p>
         </div>
-        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={syncing}
+            onClick={async () => {
+              setSyncing(true);
+              try {
+                await load();
+                toast.success("Referências atualizadas!");
+              } finally {
+                setSyncing(false);
+              }
+            }}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando..." : "Atualizar"}
+          </Button>
           <FileUpload
             bucket="project-media"
             path="referencias"
