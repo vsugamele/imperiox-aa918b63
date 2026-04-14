@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, Folder, FolderOpen } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, Folder, FolderOpen, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
