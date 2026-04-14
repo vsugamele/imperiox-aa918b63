@@ -1098,7 +1098,7 @@ ${projectContext}
 REGRAS:
 - Linguagem conversacional, direta, em português BR
 - Use emojis com moderação
-- Inclua variáveis como {{nome}} quando apropriado
+- Inclua variáveis como {{nome}}, {{link}}, {{produto}}, {{valor}} quando apropriado
 - Para etapa 1: abertura/boas-vindas com gancho
 - Para etapas intermediárias: valor, prova social, storytelling
 - Para última etapa: CTA forte, urgência, escassez
@@ -1153,7 +1153,7 @@ Roteiro 1: Storytelling pessoal. Roteiro 2: Educacional rápido.`,
 
     whatsapp_sequence: `Gere uma SEQUÊNCIA DE 5 MENSAGENS WHATSAPP para o gatilho "${trigger}".
 Para cada mensagem: Texto (máx 300 chars), Delay recomendado, Tipo (texto/áudio/imagem).
-Use variáveis {{nome}}, {{produto}}. Tom conversacional e informal.
+Use variáveis {{nome}}, {{produto}}, {{link}}, {{valor}}. Tom conversacional e informal.
 Msg 1: Imediata. Msg 2: +2h. Msg 3: +24h. Msg 4: +48h. Msg 5: +72h.`,
 
     email_sequence: `Gere uma SEQUÊNCIA DE 5 EMAILS para o gatilho "${trigger}".
