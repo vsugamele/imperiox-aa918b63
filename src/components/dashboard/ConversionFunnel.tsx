@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getPeriodRange } from "@/lib/periodUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowDown, TrendingUp, Eye } from "lucide-react";
@@ -24,8 +25,7 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const daysMap: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90, "6m": 180 };
-      const since = new Date(Date.now() - (daysMap[period] || 30) * 86400000).toISOString();
+      const { from: since } = getPeriodRange(period);
 
       let query = supabase
         .from("imphq_webhooks")
@@ -56,8 +56,8 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
         {
           label: "Início Checkout",
           icon: "🛒",
-          count: counts["inicio_checkout"] || 0,
-          events: ["inicio_checkout"],
+          count: (counts["inicio_checkout"] || 0) + (counts["initiate_checkout"] || 0) + (counts["purchase_out_of_shopping_cart"] || 0),
+          events: ["inicio_checkout", "initiate_checkout", "purchase_out_of_shopping_cart"],
         },
         {
           label: "PIX / Boleto Gerado",
