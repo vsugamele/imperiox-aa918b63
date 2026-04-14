@@ -428,6 +428,8 @@ export default function Tracker() {
         <Filter className="h-4 w-4 text-muted-foreground" />
         <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
           {[
+            { value: "today", label: "Hoje" },
+            { value: "yesterday", label: "Ontem" },
             { value: "7d", label: "7D" },
             { value: "14d", label: "14D" },
             { value: "30d", label: "30D" },
@@ -453,6 +455,15 @@ export default function Tracker() {
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        {allProducts.length > 0 && (
+          <Select value={filterProduct} onValueChange={setFilterProduct}>
+            <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Produtos</SelectItem>
+              {allProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         {(filterPlataforma !== "all" || filterProject !== "all") && (
           <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); }}>Limpar filtros</Button>
         )}
