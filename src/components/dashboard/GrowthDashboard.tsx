@@ -62,7 +62,11 @@ function statusBg(valor: number, meta: number | null): string {
   return "bg-destructive/10";
 }
 
-export default function GrowthDashboard() {
+interface Props {
+  projectFilter?: string;
+}
+
+export default function GrowthDashboard({ projectFilter }: Props) {
   const [metrics, setMetrics] = useState<GrowthMetric[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState("all");
@@ -71,6 +75,13 @@ export default function GrowthDashboard() {
   const [editMeta, setEditMeta] = useState("");
   const { user } = useAuth();
   const weeks = getWeeks(4);
+
+  // Sync selectedProject with parent filter
+  useEffect(() => {
+    if (projectFilter && projectFilter !== "all") {
+      setSelectedProject(projectFilter);
+    }
+  }, [projectFilter]);
 
   const load = async () => {
     const [metricsRes, projRes] = await Promise.all([

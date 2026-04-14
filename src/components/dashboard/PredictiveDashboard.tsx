@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getPeriodRange } from "@/lib/periodUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -189,19 +190,28 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const now = new Date();
-      const d90 = new Date(now.getTime() - 90 * 86400000).toISOString();
+      // Use period for filtering vendas/leads, but always use 90d window for regression
+      const { from: periodFrom } = getPeriodRange(period);
+      const d90 = new Date(Date.now() - 90 * 86400000).toISOString();
+      const fromDate = d90; // regression always needs 90d
 
-      const [vendasRes, leadsRes, adsRes] = await Promise.all([
-        supabase.from("imphq_vendas").select("valor, status, created_at, produto_nome").gte("created_at", d90),
-        supabase.from("imphq_leads").select("id, status, created_at, data").gte("created_at", d90),
-        supabase.from("imphq_ads_spend").select("valor, leads, data").gte("data", d90.slice(0, 10)),
-      ]);
+      let vendasQ = supabase.from("imphq_vendas").select("valor, status, created_at, produto_nome, project_id").gte("created_at", fromDate);
+      if (projectFilter && projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
+      if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
+
+      let leadsQ = supabase.from("imphq_leads").select("id, status, created_at, data, project_id").gte("created_at", fromDate);
+      if (projectFilter && projectFilter !== "all") leadsQ = leadsQ.eq("project_id", projectFilter);
+
+      let adsQ = supabase.from("imphq_ads_spend").select("valor, leads, data_ref, project_id").gte("data_ref", fromDate.slice(0, 10));
+      if (projectFilter && projectFilter !== "all") adsQ = adsQ.eq("project_id", projectFilter);
+
+      const [vendasRes, leadsRes, adsRes] = await Promise.all([vendasQ, leadsQ, adsQ]);
 
       // Build daily data
       const dayMap: Record<string, DailyData> = {};
+      const nowMs = Date.now();
       for (let i = 0; i < 90; i++) {
-        const d = new Date(now.getTime() - i * 86400000);
+        const d = new Date(nowMs - i * 86400000);
         const key = d.toISOString().slice(0, 10);
         dayMap[key] = { dia: key, receita: 0, vendas: 0, leads: 0 };
       }
@@ -245,7 +255,9 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
       const totalLeads = (leadsRes.data || []).length;
       const checkouts = (leadsRes.data || []).filter((l: any) => {
         const evt = (l.data as any)?.ultimo_evento;
-        return evt && ["checkout", "pix_gerado", "boleto_gerado", "cartao_recusado"].includes(evt);
+        return evt && ["checkout", "inicio_checkout", "initiate_checkout", "purchase_out_of_shopping_cart",
+          "pix_gerado", "pix_created", "boleto_gerado", "purchase_billet_printed",
+          "cartao_recusado", "refused", "pagamento_recusado", "aguardando_pagamento", "pendente"].includes(evt);
       }).length;
       const totalVendas = (vendasRes.data || []).filter((v: any) => v.status === "aprovado").length;
       const totalAdsSpend = (adsRes.data || []).reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
