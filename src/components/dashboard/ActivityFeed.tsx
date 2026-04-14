@@ -47,20 +47,33 @@ const actionLabels: Record<string, string> = {
   card_moved: "moveu card",
 };
 
-export default function ActivityFeed() {
+interface Props {
+  period?: string;
+  projectFilter?: string;
+}
+
+export default function ActivityFeed({ period, projectFilter }: Props) {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      let query = supabase
         .from("imphq_activity_log")
         .select("id, user_id, action, entity_type, entity_name, created_at")
         .order("created_at", { ascending: false })
         .limit(15);
+      
+      if (period) {
+        const { getPeriodRange } = await import("@/lib/periodUtils");
+        const { from } = getPeriodRange(period);
+        query = query.gte("created_at", from);
+      }
+
+      const { data } = await query;
       if (data) setActivities(data);
     }
     load();
-  }, []);
+  }, [period, projectFilter]);
 
   if (activities.length === 0) return null;
 

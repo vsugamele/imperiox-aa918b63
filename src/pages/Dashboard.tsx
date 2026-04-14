@@ -84,7 +84,7 @@ export default function Dashboard() {
       </div>
 
       <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      <HotLeadAlerts />
+      <HotLeadAlerts projectFilter={dashProject} />
       <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardStats period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -96,8 +96,8 @@ export default function Dashboard() {
       <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
       <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
-      <ActivityFeed />
-      <GrowthDashboard />
+      <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
+      <GrowthDashboard projectFilter={dashProject} />
     </div>
   );
 }

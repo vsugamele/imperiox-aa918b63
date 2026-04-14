@@ -19,7 +19,11 @@ interface HotLead {
   updated_at: string;
 }
 
-export default function HotLeadAlerts() {
+interface Props {
+  projectFilter?: string;
+}
+
+export default function HotLeadAlerts({ projectFilter }: Props) {
   const [leads, setLeads] = useState<HotLead[]>([]);
 
   useEffect(() => {
@@ -27,13 +31,19 @@ export default function HotLeadAlerts() {
       // Leads that generated PIX/boleto in last 2 hours but didn't buy
       const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
 
-      const { data } = await supabase
+      let query = supabase
         .from("imphq_leads")
         .select("id, nome, phone, email, data, updated_at, total_gasto")
         .neq("status", "cliente")
         .gte("updated_at", twoHoursAgo)
         .order("updated_at", { ascending: false })
         .limit(20);
+      
+      if (projectFilter && projectFilter !== "all") {
+        query = query.eq("project_id", projectFilter);
+      }
+
+      const { data } = await query;
 
       const hot: HotLead[] = [];
       (data || []).forEach((lead: any) => {
@@ -66,7 +76,7 @@ export default function HotLeadAlerts() {
     load();
     const interval = setInterval(load, 60000); // refresh every minute
     return () => clearInterval(interval);
-  }, []);
+  }, [projectFilter]);
 
   if (leads.length === 0) return null;
 
