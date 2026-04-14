@@ -190,36 +190,42 @@ export default function MarketIntel() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="font-display text-3xl font-bold text-primary">🧠 Market Intel</h1>
-        <div className="flex items-center gap-2">
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-[200px] bg-secondary">
-              <SelectValue placeholder="Selecionar projeto..." />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <AIGenerateButton
-            projectId={selectedProject}
-            action="execute_skill"
-            label="Pesquisa de Mercado"
-            extraBody={{ skill_slug: "market-intel", mode: "DISCOVERY" }}
-            onResult={handleAiResult}
-            contextSources={["Briefing", "Avatar", "Concorrentes", "Produtos", "Vendas"]}
-          />
-          <Button variant="outline" size="sm" onClick={handleExport} className="gap-1">
-            <Download className="h-3.5 w-3.5" /> CSV
-          </Button>
-          <Button
-            variant={showFavsOnly ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowFavsOnly(!showFavsOnly)}
-            className="gap-1"
-          >
-            <StarIcon className={`h-3.5 w-3.5 ${showFavsOnly ? "fill-current" : ""}`} />
-            Favoritos
-          </Button>
-        </div>
+          <div className="flex items-center gap-2">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Nicho ou termo para pesquisar..."
+              className="w-[220px] bg-secondary text-sm"
+            />
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <SelectTrigger className="w-[200px] bg-secondary">
+                <SelectValue placeholder="Selecionar projeto..." />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <AIGenerateButton
+              projectId={selectedProject}
+              action="market_intel_research"
+              label="🔍 Pesquisa Profunda"
+              extraBody={{ mode: "DISCOVERY", search_query: searchQuery }}
+              onResult={handleAiResult}
+              contextSources={["Briefing", "Avatar", "Concorrentes", "Produtos", "Vendas"]}
+            />
+            <Button variant="outline" size="sm" onClick={handleExport} className="gap-1">
+              <Download className="h-3.5 w-3.5" /> CSV
+            </Button>
+            <Button
+              variant={showFavsOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFavsOnly(!showFavsOnly)}
+              className="gap-1"
+            >
+              <StarIcon className={`h-3.5 w-3.5 ${showFavsOnly ? "fill-current" : ""}`} />
+              Favoritos
+            </Button>
+          </div>
       </div>
 
       {/* Stat Cards */}
