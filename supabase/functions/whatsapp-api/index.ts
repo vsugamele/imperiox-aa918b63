@@ -720,6 +720,176 @@ serve(async (req) => {
             console.warn("[webhook] Command auto-reply error:", cmdErr.message);
           }
 
+          // ── AI Autoresponder ──
+          try {
+            if (!matched && phone && content && projectId && providerId) {
+              const { data: aiConfig } = await supabase
+                .from("imphq_wa_ai_config")
+                .select("*")
+                .eq("project_id", projectId)
+                .eq("enabled", true)
+                .maybeSingle();
+
+              if (aiConfig) {
+                // Check business hours
+                let withinHours = true;
+                if (aiConfig.business_hours_only) {
+                  const now = new Date();
+                  const brTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+                  const currentHour = brTime.getHours() * 100 + brTime.getMinutes();
+                  const [sh, sm] = (aiConfig.business_hours_start || "08:00").split(":").map(Number);
+                  const [eh, em] = (aiConfig.business_hours_end || "20:00").split(":").map(Number);
+                  const startNum = sh * 100 + sm;
+                  const endNum = eh * 100 + em;
+                  withinHours = currentHour >= startNum && currentHour <= endNum;
+                }
+
+                // Check escalation keywords
+                const lc = content.toLowerCase();
+                const isEscalation = (aiConfig.escalation_keywords || []).some((kw: string) =>
+                  lc.includes(kw.toLowerCase())
+                );
+
+                if (withinHours && !isEscalation) {
+                  // Build context from project
+                  let projectContext = "";
+                  const { data: project } = await supabase
+                    .from("imphq_projects")
+                    .select("name, data, avatar, brand_kit")
+                    .eq("id", projectId)
+                    .single();
+
+                  if (project) {
+                    const sources = aiConfig.context_sources || [];
+                    const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
+                    if (sources.includes("briefing") && d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 600)}\n`;
+                    if (sources.includes("produtos") && d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+                    if (sources.includes("avatar") && project.avatar) projectContext += `Avatar: ${JSON.stringify(project.avatar).slice(0, 400)}\n`;
+                    if (sources.includes("branding") && project.brand_kit) projectContext += `Branding: ${JSON.stringify(project.brand_kit).slice(0, 400)}\n`;
+                    if (sources.includes("copy_arsenal")) {
+                      const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
+                      if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
+                    }
+                  }
+
+                  // Get recent conversation history for context
+                  const { data: recentMsgs } = await supabase
+                    .from("imphq_wa_messages")
+                    .select("direction, content")
+                    .eq("conversation_id", conv.id)
+                    .order("created_at", { ascending: false })
+                    .limit(10);
+
+                  const chatHistory = (recentMsgs || []).reverse().map((m: any) =>
+                    `${m.direction === "incoming" ? "Lead" : "Você"}: ${m.content}`
+                  ).join("\n");
+
+                  const personalityPrompts: Record<string, string> = {
+                    assistente: "Você é um assistente virtual cordial e prestativo.",
+                    vendedor: "Você é um closer de vendas persuasivo mas não agressivo. Foque em entender a dor e apresentar a solução.",
+                    suporte: "Você é um agente de suporte técnico eficiente e empático.",
+                    consultor: "Você é um consultor especialista. Fale com autoridade e dê recomendações valiosas.",
+                  };
+
+                  const toneInstructions: Record<string, string> = {
+                    profissional: "Tom profissional e direto.",
+                    casual: "Tom casual e descontraído, use emojis moderadamente.",
+                    amigavel: "Tom amigável e acolhedor, use emojis.",
+                    formal: "Tom formal e respeitoso.",
+                    urgente: "Tom de urgência e escassez.",
+                  };
+
+                  const systemPrompt = `${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
+Você está respondendo via WhatsApp para a empresa "${project?.name || ""}".
+${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
+${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}
+REGRAS:
+- Responda em português brasileiro
+- Seja CONCISO (máx 2-3 parágrafos curtos)
+- Use WhatsApp formatting: *negrito*, _itálico_
+- NUNCA invente informações sobre produtos/preços que não estejam no contexto
+- Se não souber a resposta, diga que vai encaminhar para um atendente humano
+- Se o lead pedir para falar com humano, diga que está encaminhando`;
+
+                  const messages = [
+                    { role: "system", content: systemPrompt },
+                  ];
+
+                  if (chatHistory) {
+                    messages.push({ role: "user", content: `Histórico recente:\n${chatHistory}\n\nNova mensagem do lead: ${content}` });
+                  } else {
+                    messages.push({ role: "user", content: content });
+                  }
+
+                  // Call AI Gateway
+                  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+                  if (LOVABLE_API_KEY) {
+                    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        model: "google/gemini-3-flash-preview",
+                        messages,
+                        max_tokens: aiConfig.max_tokens || 300,
+                      }),
+                    });
+
+                    if (aiRes.ok) {
+                      const aiData = await aiRes.json();
+                      const aiReply = aiData.choices?.[0]?.message?.content || "";
+
+                      if (aiReply.trim()) {
+                        // Delay before sending
+                        const delay = (aiConfig.response_delay_seconds || 3) * 1000;
+                        if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 10000)));
+
+                        // Send via Evolution
+                        const { data: provAI } = await supabase
+                          .from("imphq_wa_providers")
+                          .select("api_url, api_key, instance_name, provider")
+                          .eq("id", providerId)
+                          .single();
+
+                        if (provAI && provAI.provider === "evolution") {
+                          const aiApiBase = provAI.api_url.replace(/\/+$/, "");
+                          const aiInst = encodeURIComponent(provAI.instance_name);
+                          await fetch(`${aiApiBase}/message/sendText/${aiInst}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", apikey: provAI.api_key },
+                            body: JSON.stringify({ number: phone + "@s.whatsapp.net", text: aiReply }),
+                          });
+
+                          // Save AI response to DB
+                          await supabase.from("imphq_wa_messages").insert({
+                            conversation_id: conv.id,
+                            direction: "outgoing",
+                            phone,
+                            content: aiReply,
+                            message_type: "text",
+                            project_id: projectId,
+                            provider: "evolution",
+                            status: "sent",
+                          });
+
+                          await updateConversationAfterMessage(conv.id, aiReply, (conv.message_count || 0) + 1);
+                          console.log(`[webhook] AI auto-reply sent to ${phone} (${aiReply.length} chars)`);
+                        }
+                      }
+                    } else {
+                      const errText = await aiRes.text();
+                      console.warn(`[webhook] AI gateway error ${aiRes.status}:`, errText.slice(0, 200));
+                    }
+                  }
+                } else if (isEscalation) {
+                  console.log(`[webhook] Escalation keyword detected from ${phone}, skipping AI`);
+                }
+              }
+            }
+          } catch (aiErr: any) {
+            console.warn("[webhook] AI autoresponder error:", aiErr.message);
+          }
+
         return new Response(JSON.stringify({ success: true, event: eventType }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
