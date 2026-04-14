@@ -267,7 +267,141 @@ export default function ExpertPortal() {
           </div>
         )}
 
-        {/* Status Operacional */}
+        {/* Avatar do Público-Alvo */}
+        {data.avatar && (
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-sans uppercase tracking-wider text-primary flex items-center gap-2">
+                👤 Avatar do Público-Alvo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Perfil Psicológico */}
+              {data.avatar.perfil_psicologico && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase">🧠 Perfil Psicológico</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {data.avatar.perfil_psicologico.retrato && (
+                      <div className="p-2 rounded bg-secondary/50 border border-border">
+                        <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">Retrato</p>
+                        <p className="text-xs text-foreground">{data.avatar.perfil_psicologico.retrato}</p>
+                      </div>
+                    )}
+                    {data.avatar.perfil_psicologico.arquetipo && (
+                      <div className="p-2 rounded bg-secondary/50 border border-border">
+                        <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">Arquétipo</p>
+                        <p className="text-xs text-foreground">{data.avatar.perfil_psicologico.arquetipo}</p>
+                      </div>
+                    )}
+                    {data.avatar.perfil_psicologico.ferida_central && (
+                      <div className="p-2 rounded bg-secondary/50 border border-border">
+                        <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">Ferida Central</p>
+                        <p className="text-xs text-foreground">{data.avatar.perfil_psicologico.ferida_central}</p>
+                      </div>
+                    )}
+                    {data.avatar.perfil_psicologico.contradicao && (
+                      <div className="p-2 rounded bg-secondary/50 border border-border">
+                        <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">Contradição Interna</p>
+                        <p className="text-xs text-foreground">{data.avatar.perfil_psicologico.contradicao}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Desejos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {data.avatar.desejo_externo && (
+                  <div className="p-2 rounded bg-secondary/50 border border-border">
+                    <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">💎 Desejo Externo</p>
+                    <p className="text-xs text-foreground">{data.avatar.desejo_externo}</p>
+                  </div>
+                )}
+                {data.avatar.desejo_interno && (
+                  <div className="p-2 rounded bg-secondary/50 border border-border">
+                    <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">❤️ Desejo Interno</p>
+                    <p className="text-xs text-foreground">{data.avatar.desejo_interno}</p>
+                  </div>
+                )}
+                {data.avatar.inimigo && (
+                  <div className="p-2 rounded bg-secondary/50 border border-border">
+                    <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">👹 Inimigo Comum</p>
+                    <p className="text-xs text-foreground">{data.avatar.inimigo}</p>
+                  </div>
+                )}
+                {data.avatar.resultado_sonhado && (
+                  <div className="p-2 rounded bg-secondary/50 border border-border">
+                    <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">🌟 Resultado Sonhado</p>
+                    <p className="text-xs text-foreground">{data.avatar.resultado_sonhado}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Dores */}
+              {data.avatar.dores?.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">🔥 Dores</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.avatar.dores.map((d: any, i: number) => (
+                      <Badge key={i} variant="outline" className="text-[9px] border-destructive/30 text-destructive">
+                        {typeof d === "string" ? d : d.dor || d.nome || d.titulo || JSON.stringify(d)}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Desejos list */}
+              {data.avatar.desejos?.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">💎 Desejos Mapeados</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.avatar.desejos.map((d: any, i: number) => (
+                      <Badge key={i} variant="outline" className="text-[9px] border-primary/30 text-primary">
+                        {typeof d === "string" ? d : d.desejo || d.nome || d.titulo || JSON.stringify(d)}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Gatilhos */}
+              {data.avatar.gatilhos?.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">⚡ Gatilhos Emocionais</p>
+                  <div className="space-y-1">
+                    {data.avatar.gatilhos.map((g: any, i: number) => (
+                      <div key={i} className="text-xs text-foreground p-1.5 rounded bg-secondary/30">
+                        {typeof g === "string" ? g : (
+                          <>
+                            <span className="font-medium">{g.nome || g.gatilho}</span>
+                            {g.situacao && <span className="text-muted-foreground ml-1">— {g.situacao}</span>}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Camadas da Psique */}
+              {data.avatar.camadas_psique && (
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">🧬 Camadas da Psique</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {Object.entries(data.avatar.camadas_psique).map(([key, val]: [string, any]) => (
+                      <div key={key} className="p-2 rounded bg-secondary/50 border border-border">
+                        <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">{key.replace(/_/g, " ").toUpperCase()}</p>
+                        <p className="text-xs text-foreground">{typeof val === "string" ? val : JSON.stringify(val)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {opsStatus && (opsStatus.ads_connected || opsStatus.wa_campaigns_active > 0) && (
           <Card className="bg-card border-border">
             <CardHeader className="pb-2">
