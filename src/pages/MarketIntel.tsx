@@ -111,6 +111,25 @@ export default function MarketIntel() {
 
   // Save AI result persistently
   const handleAiResult = async (data: any) => {
+    // New structured response from market_intel_research
+    if (data?.intel) {
+      const intel = data.intel;
+      setAiResult(intel.analise_markdown || intel.resumo_executivo || "");
+      setAiIntelData({
+        produtos: intel.produtos_encontrados,
+        oportunidades: intel.oportunidades,
+        angulos: intel.angulos_recomendados,
+        gaps: intel.gaps_mercado,
+        tendencias: intel.tendencias,
+        resumo: intel.resumo_executivo,
+        updated_at: new Date().toISOString(),
+      });
+      // Reload opportunities from DB
+      supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data: d }) => setOpps(d || []));
+      toast.success("Pesquisa de mercado completa! Dados salvos.");
+      return;
+    }
+    // Fallback for old execute_skill response
     const result = data?.result || "";
     setAiResult(result);
     if (selectedProject && result) {
