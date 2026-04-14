@@ -30,6 +30,7 @@ import Empresa from "./pages/Empresa";
 import Configuracoes from "./pages/Configuracoes";
 import Cofre from "./pages/Cofre";
 import Guia from "./pages/Guia";
+import ConteudoIA from "./pages/ConteudoIA";
 import Privacy from "./pages/Privacy";
 import ExpertPortal from "./pages/ExpertPortal";
 import NotFound from "./pages/NotFound";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="empresa" element={<Empresa />} />
               <Route path="configuracoes" element={<Configuracoes />} />
               <Route path="cofre" element={<Cofre />} />
+              <Route path="conteudo-ia" element={<ConteudoIA />} />
               <Route path="guia" element={<Guia />} />
             </Route>
             <Route path="*" element={<NotFound />} />

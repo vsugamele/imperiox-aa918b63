@@ -37,7 +37,7 @@ export function ContentGenerator() {
   const [trigger, setTrigger] = useState("carrinho_abandonado");
   const [customPrompt, setCustomPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [results, setResults] = useState<{ type: string; content: string; timestamp: number }[]>([]);
+  const [results, setResults] = useState<{ id?: string; type: string; content: string; timestamp: number; project_name?: string }[]>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -45,7 +45,29 @@ export function ContentGenerator() {
       if (data) setProjects(data);
       if (data?.length && !selectedProject) setSelectedProject(data[0].id);
     });
+    // Load saved history
+    loadHistory();
   }, []);
+
+  const loadHistory = async () => {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user?.user) return;
+    const { data } = await supabase
+      .from("imphq_generated_contents")
+      .select("id, content_type, content, product_name, created_at, project_id")
+      .eq("user_id", user.user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) {
+      setResults(data.map((d: any) => ({
+        id: d.id,
+        type: d.content_type,
+        content: d.content,
+        timestamp: new Date(d.created_at).getTime(),
+        project_name: d.product_name || d.project_id,
+      })));
+    }
+  };
 
   const handleGenerate = async () => {
     if (!selectedProject) { toast.error("Selecione um projeto"); return; }
@@ -63,6 +85,20 @@ export function ContentGenerator() {
       });
       if (error) throw error;
       const content = data?.result || data?.text || JSON.stringify(data);
+      // Save to DB
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        const projName = projects.find(p => p.id === selectedProject)?.name || "";
+        await supabase.from("imphq_generated_contents").insert({
+          project_id: selectedProject,
+          user_id: userData.user.id,
+          content_type: contentType,
+          content,
+          product_name: projName,
+          model_used: "google/gemini-3-flash-preview",
+          metadata: { trigger, custom_prompt: customPrompt },
+        });
+      }
       setResults(prev => [{ type: contentType, content, timestamp: Date.now() }, ...prev]);
       toast.success("Conteúdo gerado com sucesso!");
     } catch (err: any) {

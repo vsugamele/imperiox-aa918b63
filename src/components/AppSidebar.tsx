@@ -27,6 +27,7 @@ const crmItems = [
 
 const aiItems = [
   { title: "Mentes IA", url: "/mentes", icon: Brain, color: "text-violet-400" },
+  { title: "Conteúdo IA", url: "/conteudo-ia", icon: Zap, color: "text-violet-400" },
   { title: "OpenFlow", url: "/openflow", icon: Workflow, color: "text-violet-400" },
 ];
 
