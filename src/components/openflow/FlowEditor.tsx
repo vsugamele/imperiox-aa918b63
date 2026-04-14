@@ -42,6 +42,7 @@ const DYNAMIC_VARS = [
   { var: "{{produto}}", label: "Produto" },
   { var: "{{valor}}", label: "Valor" },
   { var: "{{telefone}}", label: "Telefone" },
+  { var: "{{link}}", label: "Link" },
 ];
 
 export interface Acao {
