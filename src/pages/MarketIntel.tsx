@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, TrendingUp, Target, Zap, ShoppingCart, Sparkles, Heart, Brain, Leaf, PawPrint, Users, Star, Download, StarIcon, FileText, Swords } from "lucide-react";
+import { Search, TrendingUp, Target, Zap, ShoppingCart, Sparkles, Heart, Brain, Leaf, PawPrint, Users, Star, Download, StarIcon, FileText, Swords, Crosshair, Radar, ChevronDown } from "lucide-react";
 import { NICHE_OFFERS, MARKETING_ANGLES, OFFER_FACTORY, UNIQUE_NICHOS } from "@/data/marketIntelData";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -68,6 +69,8 @@ export default function MarketIntel() {
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("nichos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<"DISCOVERY" | "TREND_SCAN" | "DEEP_DIVE">("DISCOVERY");
+  const [deepDiveTarget, setDeepDiveTarget] = useState("");
 
   // Load data
   useEffect(() => {
@@ -190,12 +193,12 @@ export default function MarketIntel() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="font-display text-3xl font-bold text-primary">🧠 Market Intel</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Nicho ou termo para pesquisar..."
-              className="w-[220px] bg-secondary text-sm"
+              placeholder={searchMode === "DEEP_DIVE" ? "Micro-nicho ou oferta para aprofundar..." : searchMode === "TREND_SCAN" ? "Nichos separados por vírgula..." : "Nicho ou termo para pesquisar..."}
+              className="w-[260px] bg-secondary text-sm"
             />
             <Select value={selectedProject} onValueChange={setSelectedProject}>
               <SelectTrigger className="w-[200px] bg-secondary">
@@ -205,11 +208,39 @@ export default function MarketIntel() {
                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  {searchMode === "DISCOVERY" && <><Search className="h-3.5 w-3.5" /> Pesquisa</>}
+                  {searchMode === "TREND_SCAN" && <><Radar className="h-3.5 w-3.5" /> Tendências</>}
+                  {searchMode === "DEEP_DIVE" && <><Crosshair className="h-3.5 w-3.5" /> Deep Dive</>}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setSearchMode("DISCOVERY")}>
+                  <Search className="h-4 w-4 mr-2" /> Pesquisa Profunda
+                  <span className="text-[10px] text-muted-foreground ml-2">Busca geral no nicho</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSearchMode("TREND_SCAN")}>
+                  <Radar className="h-4 w-4 mr-2" /> Varredura de Tendências
+                  <span className="text-[10px] text-muted-foreground ml-2">2025-2027, múltiplos nichos</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSearchMode("DEEP_DIVE")}>
+                  <Crosshair className="h-4 w-4 mr-2" /> Deep Dive Micro-Nicho
+                  <span className="text-[10px] text-muted-foreground ml-2">Análise profunda para decisão</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <AIGenerateButton
               projectId={selectedProject}
               action="market_intel_research"
-              label="🔍 Pesquisa Profunda"
-              extraBody={{ mode: "DISCOVERY", search_query: searchQuery }}
+              label={searchMode === "DEEP_DIVE" ? "🎯 Deep Dive" : searchMode === "TREND_SCAN" ? "📡 Varrer Tendências" : "🔍 Pesquisa Profunda"}
+              extraBody={{
+                mode: searchMode,
+                search_query: searchQuery,
+                ...(searchMode === "DEEP_DIVE" ? { deep_dive_target: searchQuery } : {}),
+              }}
               onResult={handleAiResult}
               contextSources={["Briefing", "Avatar", "Concorrentes", "Produtos", "Vendas"]}
             />
@@ -543,9 +574,21 @@ export default function MarketIntel() {
                         {p.plataforma && <Badge variant="outline" className="text-[9px]">{p.plataforma}</Badge>}
                         {p.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
                       </div>
-                      {p.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {p.mecanismo_unico}</p>}
-                      {p.angulo_copy && <p className="text-[10px] text-muted-foreground">🎯 {p.angulo_copy}</p>}
-                      {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline truncate block">🔗 {p.url}</a>}
+                       {p.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {p.mecanismo_unico}</p>}
+                       {p.angulo_copy && <p className="text-[10px] text-muted-foreground">🎯 {p.angulo_copy}</p>}
+                       {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline truncate block">🔗 {p.url}</a>}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="w-full mt-1 h-7 text-[10px] gap-1 text-primary hover:bg-primary/10"
+                         onClick={() => {
+                           setSearchQuery(p.nome || p.nicho);
+                           setSearchMode("DEEP_DIVE");
+                           toast.info(`Deep Dive preparado para "${p.nome}". Clique em 🎯 Deep Dive.`);
+                         }}
+                       >
+                         <Crosshair className="h-3 w-3" /> Aprofundar
+                       </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -564,14 +607,26 @@ export default function MarketIntel() {
                         <h4 className="text-sm font-medium">{o.nome_sugerido}</h4>
                         <span className="text-lg font-mono font-bold text-emerald-400">{o.score}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">{o.dor_central}</p>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {o.ticket_sugerido && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30">{o.ticket_sugerido}</Badge>}
-                        {o.formato && <Badge variant="outline" className="text-[9px]">{o.formato}</Badge>}
-                        {o.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
-                      </div>
-                      {o.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {o.mecanismo_unico}</p>}
-                      {o.justificativa && <p className="text-[10px] text-muted-foreground italic">{o.justificativa}</p>}
+                       <p className="text-xs text-muted-foreground">{o.dor_central}</p>
+                       <div className="flex gap-1.5 flex-wrap">
+                         {o.ticket_sugerido && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30">{o.ticket_sugerido}</Badge>}
+                         {o.formato && <Badge variant="outline" className="text-[9px]">{o.formato}</Badge>}
+                         {o.sem_rosto && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sem rosto</Badge>}
+                       </div>
+                       {o.mecanismo_unico && <p className="text-[10px] text-muted-foreground">🔑 {o.mecanismo_unico}</p>}
+                       {o.justificativa && <p className="text-[10px] text-muted-foreground italic">{o.justificativa}</p>}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="w-full mt-1 h-7 text-[10px] gap-1 text-primary hover:bg-primary/10"
+                         onClick={() => {
+                           setSearchQuery(o.nome_sugerido || o.nicho);
+                           setSearchMode("DEEP_DIVE");
+                           toast.info(`Deep Dive preparado para "${o.nome_sugerido}". Clique em 🎯 Deep Dive para executar.`);
+                         }}
+                       >
+                         <Crosshair className="h-3 w-3" /> Aprofundar este micro-nicho
+                       </Button>
                     </CardContent>
                   </Card>
                 ))}

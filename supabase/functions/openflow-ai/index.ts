@@ -479,7 +479,7 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, ba
 }
 
 async function handleMarketIntelResearch(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}) {
-  const { mode = "DISCOVERY", search_query } = body;
+  const { mode = "DISCOVERY", search_query, deep_dive_target } = body;
   const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
 
   // Extract nicho from project context
@@ -492,11 +492,38 @@ async function handleMarketIntelResearch(body: any, sb: any, projectContext: str
   const scraped: { url: string; title: string; content: string }[] = [];
 
   if (firecrawlKey && nicho) {
-    const searchQueries = [
-      `${nicho} infoproduto curso online hotmart kiwify 2025`,
-      `${nicho} método curso digital resultado depoimento`,
-      `${nicho} página de vendas oferta checkout`,
-    ];
+    // Build queries based on mode
+    let searchQueries: string[] = [];
+
+    if (mode === "DEEP_DIVE" && deep_dive_target) {
+      // Deep dive into specific micro-niche/offer
+      searchQueries = [
+        `"${deep_dive_target}" infoproduto curso hotmart kiwify eduzz 2025 2026`,
+        `"${deep_dive_target}" página vendas checkout oferta funil`,
+        `"${deep_dive_target}" depoimento resultado aluno case`,
+        `"${deep_dive_target}" concorrente alternativa similar`,
+        `"${deep_dive_target}" preço ticket plano assinatura`,
+      ];
+    } else if (mode === "TREND_SCAN") {
+      // Multi-niche trend scanning
+      const nichos = nicho.split(",").map((n: string) => n.trim()).filter(Boolean);
+      for (const n of nichos.slice(0, 3)) {
+        searchQueries.push(
+          `${n} tendência 2025 2026 infoproduto digital crescimento`,
+          `${n} micro nicho inexplorado oportunidade 2026 2027`,
+          `${n} mercado brasileiro emergente sem rosto faceless`,
+        );
+      }
+    } else {
+      // Standard DISCOVERY mode with trend focus
+      searchQueries = [
+        `${nicho} infoproduto curso online hotmart kiwify 2025 2026`,
+        `${nicho} método curso digital resultado depoimento tendência`,
+        `${nicho} página de vendas oferta checkout funil`,
+        `${nicho} micro nicho emergente oportunidade 2026 2027`,
+        `${nicho} mercado digital tendência previsão crescimento`,
+      ];
+    }
 
     for (const query of searchQueries) {
       try {
@@ -544,6 +571,8 @@ ${searchResults}
 
 ## MODO DE OPERAÇÃO: ${mode}
 ## NICHO/BUSCA: ${nicho}
+${mode === "DEEP_DIVE" ? `## ALVO DO DEEP DIVE: ${deep_dive_target}\nFaça uma análise PROFUNDA deste micro-nicho/oferta específica. Detalhe:\n- Concorrentes diretos e indiretos\n- Ticket médio e variações de preço\n- Order bumps e upsells usados\n- Mecanismos únicos encontrados\n- Ângulos de copy que convertem\n- Gaps e oportunidades inexploradas\n- Público exato (idade, dor, situação)\n- Facilidade de entrada e barreiras\n- Veredicto: entrar ou não entrar (e por quê)` : ""}
+${mode === "TREND_SCAN" ? `## VARREDURA DE TENDÊNCIAS 2025-2027\nFoco em:\n- O que está crescendo AGORA (2025-2026)\n- Micro-nichos emergentes com pouca concorrência\n- Previsões para 2027 baseadas nos padrões atuais\n- Nichos que estão saturando vs. nichos nascendo\n- Oportunidades "sem rosto" / faceless` : ""}
 
 REGRAS CRÍTICAS:
 - Analise TODOS os resultados de pesquisa web acima com profundidade
@@ -552,10 +581,15 @@ REGRAS CRÍTICAS:
 - Identifique gaps e oportunidades que ninguém está explorando
 - Sugira produtos promissores com detalhes concretos (nome, ticket, formato, copy angle)
 - Use os dados REAIS encontrados na pesquisa, não invente
-- Seja extremamente detalhado e específico`;
+- Seja extremamente detalhado e específico
+- Inclua TENDÊNCIAS para 2025, 2026 e previsões 2027`;
 
-  const userMsg = `Execute a pesquisa de mercado completa no modo ${mode} para "${nicho}". 
-Analise os resultados da web, identifique os produtos que estão vendendo, seus funis, tickets, e gere recomendações detalhadas de oportunidades.
+  const userMsg = mode === "DEEP_DIVE"
+    ? `Faça um DEEP DIVE completo no micro-nicho/oferta "${deep_dive_target}" dentro do contexto "${nicho}". Quero uma análise profunda para tomada de decisão: devo entrar nesse micro-nicho? Quais são os riscos, oportunidades e o melhor ângulo de entrada?`
+    : mode === "TREND_SCAN"
+    ? `Execute uma varredura de tendências 2025-2027 nos nichos: "${nicho}". Identifique micro-nichos emergentes, oportunidades inexploradas, e gere recomendações detalhadas para cada um.`
+    : `Execute a pesquisa de mercado completa no modo ${mode} para "${nicho}". 
+Analise os resultados da web, identifique os produtos que estão vendendo, seus funis, tickets, e gere recomendações detalhadas de oportunidades. Foque em tendências 2025-2027.
 Retorne a análise completa via tool call.`;
 
   const intel = await callAI(
