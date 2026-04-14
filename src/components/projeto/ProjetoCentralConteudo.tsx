@@ -269,12 +269,39 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
             })}
           </div>
 
-          {activeType === "lp" && (
+          {/* Product selector - always visible */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Foco / Tema da LP (opcional)</Label>
-              <Input value={lpTopic} onChange={(e) => setLpTopic(e.target.value)} placeholder="Ex: Black Friday, Lançamento..." className="bg-secondary" />
+              <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                <ShoppingCart className="h-3 w-3" /> Produto
+              </Label>
+              {produtos.length > 0 ? (
+                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                  <SelectTrigger className="bg-secondary text-xs">
+                    <SelectValue placeholder="Selecione o produto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {produtos.map((p: any, idx: number) => (
+                      <SelectItem key={idx} value={p.nome || p.name || `produto-${idx}`}>
+                        {p.nome || p.name} {p.tipo ? `(${p.tipo})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-[10px] text-muted-foreground p-2 rounded-md bg-secondary/50 border border-border">
+                  Nenhum produto cadastrado. Adicione em Briefing → Produtos.
+                </p>
+              )}
             </div>
-          )}
+
+            {activeType === "lp" && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Foco / Tema da LP (opcional)</Label>
+                <Input value={lpTopic} onChange={(e) => setLpTopic(e.target.value)} placeholder="Ex: Black Friday, Lançamento..." className="bg-secondary text-xs" />
+              </div>
+            )}
+          </div>
 
           <div>
             <Label className="text-xs">Instruções adicionais (opcional)</Label>
