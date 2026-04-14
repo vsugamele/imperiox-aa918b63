@@ -67,17 +67,18 @@ serve(async (req) => {
       }
 
       if (action === "register_upload") {
-        const { content_id, week, day, file_path, filename } = body;
+        const { content_id, week, day, file_path, filename, upload_type } = body;
         if (!content_id || !file_path) return jsonRes({ error: "content_id e file_path obrigatórios" }, 400);
 
         const { data: urlData } = sb.storage.from("project-media").getPublicUrl(file_path);
+        const logAction = upload_type === "audio_upload" ? "audio_upload" : "video_upload";
 
         await sb.from("imphq_expert_logs").insert({
           project_id: projectId,
           content_id,
           week,
           day,
-          action: "video_upload",
+          action: logAction,
           metadata: { url: urlData.publicUrl, filename: filename || file_path, path: file_path },
         });
 
