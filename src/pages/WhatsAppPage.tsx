@@ -26,6 +26,7 @@ import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 import CampaignManager from "@/components/whatsapp/CampaignManager";
 import CommandManager from "@/components/whatsapp/CommandManager";
+import WhatsAppAIConfig from "@/components/whatsapp/WhatsAppAIConfig";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
@@ -51,7 +52,7 @@ export default function WhatsApp() {
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
 
@@ -142,6 +143,9 @@ export default function WhatsApp() {
         </button>
         <button onClick={() => setActiveTab("comandos")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "comandos" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           ⚡ Comandos
+        </button>
+        <button onClick={() => setActiveTab("ai")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "ai" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          🤖 IA Autônoma
         </button>
         <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <Radio className="h-3 w-3 inline mr-1" />Hub Local (Beta)
