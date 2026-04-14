@@ -9936,6 +9936,7 @@ export type Database = {
           ativo: boolean | null
           created_at: string | null
           id: string
+          link_checkout: string | null
           nome: string
           produto: string | null
           project_id: string | null
@@ -9948,6 +9949,7 @@ export type Database = {
           ativo?: boolean | null
           created_at?: string | null
           id: string
+          link_checkout?: string | null
           nome: string
           produto?: string | null
           project_id?: string | null
@@ -9960,6 +9962,7 @@ export type Database = {
           ativo?: boolean | null
           created_at?: string | null
           id?: string
+          link_checkout?: string | null
           nome?: string
           produto?: string | null
           project_id?: string | null
