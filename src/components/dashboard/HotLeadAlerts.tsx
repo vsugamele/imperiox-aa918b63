@@ -119,7 +119,7 @@ export default function HotLeadAlerts() {
                   </div>
                   {lead.phone && (
                     <a
-                      href={`https://wa.me/${lead.phone.replace(/\D/g, "")}`}
+                      href={`https://wa.me/${(() => { const d = lead.phone!.replace(/\D/g, ""); return d.startsWith("55") ? d : "55" + d; })()}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-emerald-400 hover:text-emerald-300 shrink-0"
