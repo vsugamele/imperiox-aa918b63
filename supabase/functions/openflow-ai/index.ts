@@ -571,6 +571,8 @@ ${searchResults}
 
 ## MODO DE OPERAÇÃO: ${mode}
 ## NICHO/BUSCA: ${nicho}
+${mode === "DEEP_DIVE" ? `## ALVO DO DEEP DIVE: ${deep_dive_target}\nFaça uma análise PROFUNDA deste micro-nicho/oferta específica. Detalhe:\n- Concorrentes diretos e indiretos\n- Ticket médio e variações de preço\n- Order bumps e upsells usados\n- Mecanismos únicos encontrados\n- Ângulos de copy que convertem\n- Gaps e oportunidades inexploradas\n- Público exato (idade, dor, situação)\n- Facilidade de entrada e barreiras\n- Veredicto: entrar ou não entrar (e por quê)` : ""}
+${mode === "TREND_SCAN" ? `## VARREDURA DE TENDÊNCIAS 2025-2027\nFoco em:\n- O que está crescendo AGORA (2025-2026)\n- Micro-nichos emergentes com pouca concorrência\n- Previsões para 2027 baseadas nos padrões atuais\n- Nichos que estão saturando vs. nichos nascendo\n- Oportunidades "sem rosto" / faceless` : ""}
 
 REGRAS CRÍTICAS:
 - Analise TODOS os resultados de pesquisa web acima com profundidade
@@ -579,10 +581,15 @@ REGRAS CRÍTICAS:
 - Identifique gaps e oportunidades que ninguém está explorando
 - Sugira produtos promissores com detalhes concretos (nome, ticket, formato, copy angle)
 - Use os dados REAIS encontrados na pesquisa, não invente
-- Seja extremamente detalhado e específico`;
+- Seja extremamente detalhado e específico
+- Inclua TENDÊNCIAS para 2025, 2026 e previsões 2027`;
 
-  const userMsg = `Execute a pesquisa de mercado completa no modo ${mode} para "${nicho}". 
-Analise os resultados da web, identifique os produtos que estão vendendo, seus funis, tickets, e gere recomendações detalhadas de oportunidades.
+  const userMsg = mode === "DEEP_DIVE"
+    ? `Faça um DEEP DIVE completo no micro-nicho/oferta "${deep_dive_target}" dentro do contexto "${nicho}". Quero uma análise profunda para tomada de decisão: devo entrar nesse micro-nicho? Quais são os riscos, oportunidades e o melhor ângulo de entrada?`
+    : mode === "TREND_SCAN"
+    ? `Execute uma varredura de tendências 2025-2027 nos nichos: "${nicho}". Identifique micro-nichos emergentes, oportunidades inexploradas, e gere recomendações detalhadas para cada um.`
+    : `Execute a pesquisa de mercado completa no modo ${mode} para "${nicho}". 
+Analise os resultados da web, identifique os produtos que estão vendendo, seus funis, tickets, e gere recomendações detalhadas de oportunidades. Foque em tendências 2025-2027.
 Retorne a análise completa via tool call.`;
 
   const intel = await callAI(
