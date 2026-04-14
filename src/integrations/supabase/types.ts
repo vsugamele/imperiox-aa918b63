@@ -11439,6 +11439,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_lead_predictions: {
+        Row: {
+          ai_summary: string | null
+          churn_risk: string | null
+          conversion_probability: number | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          lead_id: string
+          next_best_action: string | null
+          predicted_value: number | null
+          project_id: string | null
+          recommended_actions: string[] | null
+          scoring_factors: Json | null
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          churn_risk?: string | null
+          conversion_probability?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          lead_id: string
+          next_best_action?: string | null
+          predicted_value?: number | null
+          project_id?: string | null
+          recommended_actions?: string[] | null
+          scoring_factors?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          churn_risk?: string | null
+          conversion_probability?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          lead_id?: string
+          next_best_action?: string | null
+          predicted_value?: number | null
+          project_id?: string | null
+          recommended_actions?: string[] | null
+          scoring_factors?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_lead_responses: {
         Row: {
           answer: string
