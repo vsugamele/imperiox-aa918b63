@@ -165,6 +165,7 @@ serve(async (req) => {
     if (action === "generate_content_plan") return await handleContentPlan(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, body);
     if (action === "generate_expert_notes") return await handleExpertNotes(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_campaign_message") return await handleCampaignMessage(body, projectContext, sb, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_content_pack") return await handleContentPack(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
 
     // Default: automation flow generation
     const triggerLabels: Record<string, string> = {
@@ -842,4 +843,74 @@ REGRAS:
   const result = await response.json();
   const text = result.choices?.[0]?.message?.content || "";
   return new Response(JSON.stringify({ text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function handleContentPack(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+  const { content_type, trigger, custom_prompt } = body;
+
+  const typePrompts: Record<string, string> = {
+    recovery_email: `Gere 3 variações de EMAIL DE RECUPERAÇÃO para o gatilho "${trigger}".
+Para cada variação inclua: Assunto (subject), Preview text, Corpo do email (com formatação), CTA.
+Use urgência real, dados do projeto e personalização com {{nome}}, {{produto}}, {{link_checkout}}.
+Variação 1: Tom urgente. Variação 2: Tom empático. Variação 3: Tom de escassez.`,
+
+    ad_copy: `Gere 4 variações de COPY DE ANÚNCIO (Facebook/Instagram Ads) para o contexto "${trigger}".
+Para cada variação: Headline (máx 40 chars), Texto principal (máx 125 chars para feed), Descrição do link, CTA.
+Variação 1: Curiosidade. Variação 2: Prova social. Variação 3: Dor/Agitação. Variação 4: Benefício direto.
+Inclua sugestões de criativo (imagem/vídeo) para cada.`,
+
+    video_script: `Gere 2 ROTEIROS DE VÍDEO CURTO (Reels/TikTok, 30-60 seg) para o contexto "${trigger}".
+Para cada roteiro: Hook (3 seg), Desenvolvimento (20-40 seg), CTA (5 seg).
+Inclua: texto na tela, instruções de gravação, tom sugerido.
+Roteiro 1: Storytelling pessoal. Roteiro 2: Educacional rápido.`,
+
+    whatsapp_sequence: `Gere uma SEQUÊNCIA DE 5 MENSAGENS WHATSAPP para o gatilho "${trigger}".
+Para cada mensagem: Texto (máx 300 chars), Delay recomendado, Tipo (texto/áudio/imagem).
+Use variáveis {{nome}}, {{produto}}. Tom conversacional e informal.
+Msg 1: Imediata. Msg 2: +2h. Msg 3: +24h. Msg 4: +48h. Msg 5: +72h.`,
+
+    email_sequence: `Gere uma SEQUÊNCIA DE 5 EMAILS para o gatilho "${trigger}".
+Para cada email: Assunto, Preview, Corpo formatado, Delay.
+Email 1: Boas-vindas/Urgência. Email 2: Autoridade. Email 3: Prova social. Email 4: Objeções. Email 5: Última chance.`,
+
+    sales_page_blocks: `Gere BLOCOS DE PÁGINA DE VENDAS para o contexto "${trigger}".
+Inclua: 5 Headlines (variações), 10 Bullet points de benefício, 3 CTAs, Seção de prova social, Seção FAQ (5 perguntas), Garantia.
+Use gatilhos emocionais alinhados ao avatar.`,
+  };
+
+  const systemPrompt = `${mentePrefix}Você é um copywriter e estrategista de conteúdo brasileiro de ELITE.
+Especialista em marketing digital, funis de vendas e persuasão avançada.
+${projectContext}
+REGRAS ABSOLUTAS:
+- Use TODOS os dados do projeto (briefing, avatar, branding, produtos, KPIs) para personalizar
+- Linguagem persuasiva em português brasileiro
+- Inclua variáveis dinâmicas ({{nome}}, {{produto}}, {{link}}) onde aplicável
+- Formate com Markdown (headers, bullets, negrito) para fácil leitura
+- Seja específico — NUNCA genérico
+${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}`;
+
+  const userPrompt = typePrompts[content_type] || `Gere conteúdo do tipo "${content_type}" para o gatilho "${trigger}".`;
+
+  const isOR = baseUrl.includes("openrouter.ai");
+  const mkH = (key: string, or: boolean): Record<string, string> => {
+    const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    if (or) { h["HTTP-Referer"] = "https://imperiox.lovable.app"; h["X-Title"] = "ImperioHQ"; }
+    return h;
+  };
+  const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] });
+
+  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+
+  if (!isOR && response.status === 402) {
+    const orKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (orKey) {
+      console.log("Lovable gateway 402, falling back to OpenRouter (content_pack)");
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+    }
+  }
+
+  if (!response.ok) return handleAIError(response);
+  const result = await response.json();
+  const text = result.choices?.[0]?.message?.content || "";
+  return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
