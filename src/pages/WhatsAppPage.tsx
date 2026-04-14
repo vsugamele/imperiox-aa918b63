@@ -278,6 +278,18 @@ export default function WhatsApp() {
           </ScrollArea>
         )}
 
+        {activeTab === "ai" && (
+          <ScrollArea className="h-full">
+            <div className="p-4 max-w-2xl">
+              {filterProject && filterProject !== "all" ? (
+                <WhatsAppAIConfig projectId={filterProject} />
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">Selecione um projeto no filtro acima para configurar a IA Autônoma.</p>
+              )}
+            </div>
+          </ScrollArea>
+        )}
+
         {activeTab === "hub" && (
           <ScrollArea className="h-full">
             <div className="p-4">
