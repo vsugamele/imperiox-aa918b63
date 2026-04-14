@@ -479,7 +479,7 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, ba
 }
 
 async function handleMarketIntelResearch(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}) {
-  const { mode = "DISCOVERY", search_query } = body;
+  const { mode = "DISCOVERY", search_query, deep_dive_target } = body;
   const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
 
   // Extract nicho from project context
@@ -492,11 +492,38 @@ async function handleMarketIntelResearch(body: any, sb: any, projectContext: str
   const scraped: { url: string; title: string; content: string }[] = [];
 
   if (firecrawlKey && nicho) {
-    const searchQueries = [
-      `${nicho} infoproduto curso online hotmart kiwify 2025`,
-      `${nicho} método curso digital resultado depoimento`,
-      `${nicho} página de vendas oferta checkout`,
-    ];
+    // Build queries based on mode
+    let searchQueries: string[] = [];
+
+    if (mode === "DEEP_DIVE" && deep_dive_target) {
+      // Deep dive into specific micro-niche/offer
+      searchQueries = [
+        `"${deep_dive_target}" infoproduto curso hotmart kiwify eduzz 2025 2026`,
+        `"${deep_dive_target}" página vendas checkout oferta funil`,
+        `"${deep_dive_target}" depoimento resultado aluno case`,
+        `"${deep_dive_target}" concorrente alternativa similar`,
+        `"${deep_dive_target}" preço ticket plano assinatura`,
+      ];
+    } else if (mode === "TREND_SCAN") {
+      // Multi-niche trend scanning
+      const nichos = nicho.split(",").map((n: string) => n.trim()).filter(Boolean);
+      for (const n of nichos.slice(0, 3)) {
+        searchQueries.push(
+          `${n} tendência 2025 2026 infoproduto digital crescimento`,
+          `${n} micro nicho inexplorado oportunidade 2026 2027`,
+          `${n} mercado brasileiro emergente sem rosto faceless`,
+        );
+      }
+    } else {
+      // Standard DISCOVERY mode with trend focus
+      searchQueries = [
+        `${nicho} infoproduto curso online hotmart kiwify 2025 2026`,
+        `${nicho} método curso digital resultado depoimento tendência`,
+        `${nicho} página de vendas oferta checkout funil`,
+        `${nicho} micro nicho emergente oportunidade 2026 2027`,
+        `${nicho} mercado digital tendência previsão crescimento`,
+      ];
+    }
 
     for (const query of searchQueries) {
       try {
