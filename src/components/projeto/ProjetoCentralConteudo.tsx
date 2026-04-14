@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,8 +11,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MENTES_DATA } from "@/data/mentesData";
 import {
-  Calendar, Video, Image, FileText, Megaphone, Copy, Download, Loader2, Trash2, Save, Sparkles, Code2, Brain, UserCircle, Zap
+  Calendar, Video, Image, FileText, Megaphone, Copy, Download, Loader2, Trash2, Save, Sparkles, Code2, Brain, UserCircle, Zap, ShoppingCart
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface Props {
   projectId: string;
@@ -50,17 +51,49 @@ const MODELS = [
   { id: "deepseek/deepseek-r1", label: "🔵 DeepSeek R1", via: "openrouter" },
 ];
 
+// Types that should prompt for product selection
+const PRODUCT_REQUIRED_TYPES: ContentType[] = ["webinar", "vsl", "ads_imagem", "ads_video", "lp"];
+
+interface SavedContent {
+  id: string;
+  content_type: string;
+  content: string;
+  product_name: string | null;
+  model_used: string | null;
+  custom_prompt: string | null;
+  created_at: string;
+}
+
 export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Props) {
   const data = project.data || {};
   const [activeType, setActiveType] = useState<ContentType>("semanal");
   const [generating, setGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
-  const [savedItems, setSavedItems] = useState<any[]>(data.central_conteudos || []);
+  const [savedItems, setSavedItems] = useState<SavedContent[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [lpTopic, setLpTopic] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [selectedMente, setSelectedMente] = useState("none");
+  const [selectedProduct, setSelectedProduct] = useState("");
+  const [loadingSaved, setLoadingSaved] = useState(false);
+
+  const produtos: any[] = data.produtos || [];
+
+  // Load saved content from DB
+  const loadSavedContents = useCallback(async () => {
+    setLoadingSaved(true);
+    const { data: rows } = await supabase
+      .from("imphq_generated_contents")
+      .select("id, content_type, content, product_name, model_used, custom_prompt, created_at")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setSavedItems((rows as SavedContent[]) || []);
+    setLoadingSaved(false);
+  }, [projectId]);
+
+  useEffect(() => { loadSavedContents(); }, [loadSavedContents]);
 
   const getOpenRouterKey = (): string | null => {
     try {
@@ -73,13 +106,24 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const getContextSummary = () => {
     const avatar = project.avatar || {};
     const expert = data.expert || {};
-    const produtos = data.produtos || [];
     const arsenal = data.copy_arsenal || {};
     const branding = project.brand_kit || {};
     return { projeto: project.name, expert, avatar, produtos, arsenal, branding };
   };
 
-  const handleOpenDialog = () => setDialogOpen(true);
+  const handleOpenDialog = () => {
+    // Auto-select first product if available
+    if (produtos.length > 0 && !selectedProduct) {
+      setSelectedProduct(produtos[0]?.nome || produtos[0]?.name || "");
+    }
+    setDialogOpen(true);
+  };
+
+  const getProductForPrompt = () => {
+    if (selectedProduct) return selectedProduct;
+    if (produtos.length > 0) return produtos[0]?.nome || produtos[0]?.name || "";
+    return project.name;
+  };
 
   const handleGenerate = async () => {
     const modelObj = MODELS.find(m => m.id === selectedModel);
@@ -100,6 +144,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
     try {
       const ctx = getContextSummary();
       const skill = SKILL_MAP[activeType];
+      const productName = getProductForPrompt();
 
       const bodyPayload: Record<string, any> = {
         project_id: projectId,
@@ -110,23 +155,20 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
       if (selectedMente !== "none") bodyPayload.mente_id = selectedMente;
 
       if (skill) {
-        // Use execute_skill with skill_slug
         bodyPayload.action = "execute_skill";
         bodyPayload.skill_slug = skill.slug;
 
-        // Build extra instructions from context
         const extraParts: string[] = [];
         if (activeType === "lp" && lpTopic) extraParts.push(`Foco/tema: ${lpTopic}`);
         if (activeType === "lp") extraParts.push("Retorne APENAS HTML completo com CSS inline, responsivo e persuasivo.");
-        if (activeType === "ads_imagem") extraParts.push(`Gere 5 variações de copy para anúncios estáticos. Produto: "${ctx.produtos[0]?.nome || ctx.projeto}". Cada com headline (max 40 chars), body (max 125 chars), CTA.`);
-        if (activeType === "ads_video") extraParts.push(`Gere 3 roteiros de vídeo ads (30-60s) para "${ctx.produtos[0]?.nome || ctx.projeto}". Formatos: Hook+Problema+Solução+CTA, UGC storytelling, Antes/depois.`);
-        if (activeType === "vsl") extraParts.push(`Roteiro completo de VSL para "${ctx.produtos[0]?.nome || ctx.projeto}". Blocos: Hook, Problema, Agitação, Mecanismo, Prova social, Oferta, Garantia, CTA.`);
-        if (activeType === "webinar") extraParts.push(`Estrutura completa de webinário para "${ctx.produtos[0]?.nome || ctx.projeto}". Abertura+promessa, Credenciais, 3 blocos educacionais, Transição, Oferta+bônus, Garantia, FAQ, Escassez+CTA.`);
+        if (activeType === "ads_imagem") extraParts.push(`Gere 5 variações de copy para anúncios estáticos. Produto: "${productName}". Cada com headline (max 40 chars), body (max 125 chars), CTA.`);
+        if (activeType === "ads_video") extraParts.push(`Gere 3 roteiros de vídeo ads (30-60s) para "${productName}". Formatos: Hook+Problema+Solução+CTA, UGC storytelling, Antes/depois.`);
+        if (activeType === "vsl") extraParts.push(`Roteiro completo de VSL para "${productName}". Blocos: Hook, Problema, Agitação, Mecanismo, Prova social, Oferta, Garantia, CTA. Use dados do avatar (dores, desejos, objeções) para tornar o roteiro cirúrgico.`);
+        if (activeType === "webinar") extraParts.push(`Estrutura completa de webinário para "${productName}". Abertura+promessa, Credenciais do Expert, 3 blocos educacionais com conteúdo de valor real, Transição sutil para oferta, Apresentação da oferta+bônus, Garantia, FAQ com objeções reais do avatar, Escassez+CTA. Use tom de voz do expert: "${ctx.expert.tom_voz || "profissional"}". Inclua scripts de interação com a audiência (enquetes, perguntas). Dores do avatar: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 5))}. Desejos: ${JSON.stringify((ctx.avatar.desejos || []).slice(0, 5))}.`);
         if (customPrompt) extraParts.push(customPrompt);
 
         bodyPayload.extra_instructions = extraParts.join("\n");
       } else {
-        // semanal: use generate_content action
         bodyPayload.action = "generate_content";
         bodyPayload.content_type = activeType;
 
@@ -140,8 +182,31 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
 
       const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", { body: bodyPayload });
       if (error) throw error;
-      setGeneratedContent(aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData));
-      toast.success("Conteúdo gerado!");
+      const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
+      setGeneratedContent(content);
+
+      // Auto-save to DB
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: saveErr } = await supabase.from("imphq_generated_contents").insert({
+          project_id: projectId,
+          user_id: user.id,
+          content_type: activeType,
+          content,
+          product_name: PRODUCT_REQUIRED_TYPES.includes(activeType) ? productName : null,
+          model_used: selectedModel,
+          custom_prompt: customPrompt || null,
+          metadata: { mente: selectedMente !== "none" ? selectedMente : null },
+        });
+        if (!saveErr) {
+          loadSavedContents();
+          toast.success("Conteúdo gerado e salvo automaticamente!");
+        } else {
+          toast.success("Conteúdo gerado! (erro ao salvar no histórico)");
+        }
+      } else {
+        toast.success("Conteúdo gerado!");
+      }
     } catch (err: any) {
       if (err?.message?.includes("429") || err?.status === 429) {
         toast.error("Rate limit excedido. Tente novamente em alguns segundos.");
@@ -155,19 +220,10 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
     }
   };
 
-  const handleSave = () => {
-    if (!generatedContent.trim()) return;
-    const item = { id: crypto.randomUUID(), type: activeType, content: generatedContent, created_at: new Date().toISOString() };
-    const updated = [...savedItems, item];
-    setSavedItems(updated);
-    onUpdateData({ ...data, central_conteudos: updated });
-    toast.success("Salvo!");
-  };
-
-  const handleDelete = (itemId: string) => {
-    const updated = savedItems.filter((i) => i.id !== itemId);
-    setSavedItems(updated);
-    onUpdateData({ ...data, central_conteudos: updated });
+  const handleDelete = async (itemId: string) => {
+    await supabase.from("imphq_generated_contents").delete().eq("id", itemId);
+    setSavedItems(prev => prev.filter(i => i.id !== itemId));
+    toast.success("Removido!");
   };
 
   const handleCopy = (text: string) => { navigator.clipboard.writeText(text); toast.success("Copiado!"); };
@@ -182,6 +238,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   };
 
   const activeSkill = SKILL_MAP[activeType];
+  const showProductSelector = PRODUCT_REQUIRED_TYPES.includes(activeType);
 
   return (
     <div className="space-y-4">
@@ -190,7 +247,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
             <Sparkles className="h-4 w-4" /> Central de Conteúdo IA
           </CardTitle>
-          <p className="text-xs text-muted-foreground">Geração contextual usando Avatar, Expert, Arsenal de Copy e Produto</p>
+          <p className="text-xs text-muted-foreground">Geração contextual usando Avatar, Expert, Arsenal de Copy e Produto — salva automaticamente</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -241,11 +298,13 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
             <Card className="bg-secondary/50 border-border">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <Badge className="text-[10px]">{CONTENT_TYPES.find((c) => c.value === activeType)?.label}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className="text-[10px]">{CONTENT_TYPES.find((c) => c.value === activeType)?.label}</Badge>
+                    <Badge variant="outline" className="text-[9px]">✅ Salvo</Badge>
+                  </div>
                   <div className="flex gap-1">
                     <Button size="sm" variant="ghost" onClick={() => handleCopy(generatedContent)} className="h-7 gap-1 text-xs"><Copy className="h-3 w-3" /> Copiar</Button>
                     {activeType === "lp" && <Button size="sm" variant="ghost" onClick={() => handleDownloadHTML(generatedContent)} className="h-7 gap-1 text-xs"><Download className="h-3 w-3" /> HTML</Button>}
-                    <Button size="sm" variant="outline" onClick={handleSave} className="h-7 gap-1 text-xs"><Save className="h-3 w-3" /> Salvar</Button>
                   </div>
                 </div>
                 {activeType === "lp" ? (
@@ -259,7 +318,9 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
                     </details>
                   </div>
                 ) : (
-                  <pre className="whitespace-pre-wrap text-xs text-foreground font-sans leading-relaxed max-h-[500px] overflow-auto">{generatedContent}</pre>
+                  <div className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed max-h-[500px] overflow-auto">
+                    <ReactMarkdown>{generatedContent}</ReactMarkdown>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -267,16 +328,43 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         </CardContent>
       </Card>
 
-      {/* Pre-generation dialog with model + mente selector */}
+      {/* Pre-generation dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5 text-primary" /> Gerar {CONTENT_TYPES.find(c => c.value === activeType)?.label}
             </DialogTitle>
-            <DialogDescription>Escolha o modelo e a personalidade IA antes de gerar.</DialogDescription>
+            <DialogDescription>Configure o modelo, produto e personalidade antes de gerar.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Product selector for relevant types */}
+            {showProductSelector && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                  <ShoppingCart className="h-3 w-3" /> Produto
+                </Label>
+                {produtos.length > 0 ? (
+                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                    <SelectTrigger className="bg-secondary">
+                      <SelectValue placeholder="Selecione o produto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {produtos.map((p: any, idx: number) => (
+                        <SelectItem key={idx} value={p.nome || p.name || `produto-${idx}`}>
+                          {p.nome || p.name} {p.tipo ? `(${p.tipo})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="p-2 rounded-md bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+                    Nenhum produto cadastrado. Cadastre produtos no Briefing para gerar conteúdos mais precisos. O nome do projeto será usado como fallback.
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
               <Select value={selectedModel} onValueChange={setSelectedModel}>
@@ -335,6 +423,10 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
                 </div>
               </div>
             )}
+
+            <div className="p-2 rounded-md bg-muted/50 border border-border">
+              <p className="text-[10px] text-muted-foreground">💾 O conteúdo será salvo automaticamente no histórico do projeto.</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setDialogOpen(false)}>Cancelar</Button>
@@ -345,31 +437,38 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         </DialogContent>
       </Dialog>
 
-      {savedItems.length > 0 && (
+      {/* Saved contents from DB */}
+      {(savedItems.length > 0 || loadingSaved) && (
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
-              <FileText className="h-4 w-4" /> Conteúdos Salvos ({savedItems.length})
+              <FileText className="h-4 w-4" /> Histórico de Conteúdos ({savedItems.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {loadingSaved && <p className="text-xs text-muted-foreground text-center py-4"><Loader2 className="h-4 w-4 animate-spin inline mr-1" />Carregando...</p>}
             {savedItems.map((item) => (
               <Card key={item.id} className="bg-secondary/50 border-border">
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">{CONTENT_TYPES.find((c) => c.value === item.type)?.label || item.type}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{new Date(item.created_at).toLocaleDateString("pt-BR")}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-[10px]">{CONTENT_TYPES.find((c) => c.value === item.content_type)?.label || item.content_type}</Badge>
+                      {item.product_name && (
+                        <Badge variant="secondary" className="text-[9px] gap-0.5">
+                          <ShoppingCart className="h-2 w-2" /> {item.product_name}
+                        </Badge>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{new Date(item.created_at).toLocaleDateString("pt-BR")} {new Date(item.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
                     <div className="flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => handleCopy(item.content)} className="h-6 w-6 p-0"><Copy className="h-3 w-3" /></Button>
-                      {item.type === "lp" && <Button size="sm" variant="ghost" onClick={() => handleDownloadHTML(item.content)} className="h-6 w-6 p-0"><Download className="h-3 w-3" /></Button>}
+                      {item.content_type === "lp" && <Button size="sm" variant="ghost" onClick={() => handleDownloadHTML(item.content)} className="h-6 w-6 p-0"><Download className="h-3 w-3" /></Button>}
                       <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)} className="h-6 w-6 p-0 text-destructive"><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
-                  <pre className="whitespace-pre-wrap text-[10px] text-muted-foreground font-sans leading-relaxed max-h-[150px] overflow-auto">
-                    {item.content.slice(0, 500)}{item.content.length > 500 ? "..." : ""}
-                  </pre>
+                  <div className="prose prose-sm prose-invert max-w-none text-[10px] leading-relaxed max-h-[150px] overflow-auto">
+                    <ReactMarkdown>{item.content.slice(0, 800) + (item.content.length > 800 ? "\n\n..." : "")}</ReactMarkdown>
+                  </div>
                 </CardContent>
               </Card>
             ))}
