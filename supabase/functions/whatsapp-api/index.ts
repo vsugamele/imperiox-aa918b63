@@ -185,10 +185,21 @@ serve(async (req) => {
       return data;
     }
 
+    // ── Helper: normalize BR phone (ensure 55 prefix) ──
+    function normalizeBRPhone(raw: string): string {
+      const digits = raw.replace(/\D/g, "");
+      // Already has country code 55
+      if (digits.startsWith("55") && digits.length >= 12) return digits;
+      // Has only DDD + number (10 or 11 digits)
+      if (digits.length === 10 || digits.length === 11) return "55" + digits;
+      return digits;
+    }
+
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone, content, conversation_id, project_id, media_url, media_type } = body;
+      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type } = body;
+      const phone = normalizeBRPhone(rawPhone || "");
       const provider = await getProvider(provider_id);
 
       // Send via provider (media or text)

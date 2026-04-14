@@ -7,6 +7,14 @@ const corsHeaders = {
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// Normalize BR phone (ensure 55 prefix)
+function normalizeBRPhone(raw: string): string {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (digits.startsWith("55") && digits.length >= 12) return digits;
+  if (digits.length === 10 || digits.length === 11) return "55" + digits;
+  return digits;
+}
+
 // Normalize step fields from editor format to executor format
 function normalizeStep(step: any): any {
   const tipo = step.tipo === "aguardar" ? "delay" : step.tipo;
@@ -230,7 +238,7 @@ Deno.serve(async (req) => {
                   },
                   body: JSON.stringify({
                     provider_id: providerId,
-                    phone: phone.replace(/\D/g, ""),
+                    phone: normalizeBRPhone(phone),
                     content: msgText,
                     project_id,
                   }),

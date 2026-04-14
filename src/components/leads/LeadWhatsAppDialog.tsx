@@ -40,6 +40,8 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
     if (!message.trim()) { toast.error("Digite uma mensagem"); return; }
     setSending(true);
     try {
+      const digits = (target.phone || "").replace(/\D/g, "");
+      const normalized = digits.startsWith("55") && digits.length >= 12 ? digits : (digits.length === 10 || digits.length === 11) ? "55" + digits : digits;
       const finalMsg = message
         .replace(/\{\{nome\}\}/g, target.nome || "")
         .replace(/\{\{email\}\}/g, target.email || "")
@@ -56,7 +58,7 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
           },
           body: JSON.stringify({
             provider_id: providerId,
-            phone: target.phone.replace(/\D/g, ""),
+            phone: normalized,
             content: finalMsg,
             project_id: target.project_id || null,
           }),
@@ -110,7 +112,7 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
           </div>
         </div>
         <DialogFooter className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { window.open(`https://wa.me/${target?.phone?.replace(/\D/g, "")}`, "_blank"); }}>
+          <Button variant="outline" size="sm" onClick={() => { const d = (target?.phone || "").replace(/\D/g, ""); const n = d.startsWith("55") ? d : "55" + d; window.open(`https://wa.me/${n}`, "_blank"); }}>
             <ExternalLink className="h-3 w-3 mr-1" /> wa.me
           </Button>
           <Button onClick={sendMessage} disabled={sending || !providerId}>
