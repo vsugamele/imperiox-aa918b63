@@ -22,9 +22,11 @@ interface Props {
   onChange: (updated: Record<string, string | string[]>) => void;
   projectId?: string;
   produtos?: any[];
+  onMecanismoGenerated?: (mecanismo: string) => void;
+  onContextoGenerated?: (contexto: string) => void;
 }
 
-export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = [] }: Props) {
+export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = [], onMecanismoGenerated, onContextoGenerated }: Props) {
   const [selectedProductIndex, setSelectedProductIndex] = useState<string>("__all__");
 
   const productNames = useMemo(() => {
@@ -66,11 +68,19 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
     if (data?.arsenal) {
       const newArsenal = { ...arsenal };
       for (const key of Object.keys(data.arsenal)) {
+        if (key === "mecanismo_unico" || key === "contexto") continue; // handled by parent
         const existing = getVariations(key);
         const hasContent = existing.some((v: string) => v.trim().length > 0);
         if (!hasContent) newArsenal[key] = data.arsenal[key];
       }
       onChange(newArsenal);
+      // Notify parent about mecanismo_unico and contexto if generated
+      if (data.arsenal.mecanismo_unico && onMecanismoGenerated) {
+        onMecanismoGenerated(data.arsenal.mecanismo_unico);
+      }
+      if (data.arsenal.contexto && onContextoGenerated) {
+        onContextoGenerated(data.arsenal.contexto);
+      }
       toast.success("Arsenal de Copy gerado com IA!");
     }
   };

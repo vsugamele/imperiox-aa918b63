@@ -14,6 +14,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CopyArsenalSection } from "./CopyArsenalSection";
+import { AIGenerateButton } from "./AIGenerateButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const PIPELINE_KEYS = [
@@ -424,6 +425,35 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                     <Input type="number" step="0.01" value={p.imposto_pct || ""} onChange={(e) => updateProduto(i, "imposto_pct", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="Ex: 6.49" />
                   </div>
                   <div className="flex items-end gap-1">
+                    <AIGenerateButton
+                      projectId={project.id}
+                      action="generate_product_intel"
+                      onResult={(data: any) => {
+                        if (data?.product_intel) {
+                          const intel = data.product_intel;
+                          if (intel.mecanismo && !(p.mecanismo || "").trim()) updateProduto(i, "mecanismo", intel.mecanismo);
+                          if (intel.contexto && !(p.contexto || "").trim()) updateProduto(i, "contexto", intel.contexto);
+                          if (intel.ofertas_sugeridas?.length > 0) {
+                            const currentOffers = getOffers(p);
+                            if (currentOffers.length === 0) {
+                              const newOffers = intel.ofertas_sugeridas.map((o: any) => ({
+                                nome: o.nome, tipo_oferta: o.tipo_oferta, preco_por: o.preco_sugerido, ativo: true
+                              }));
+                              updateProduto(i, "ofertas", newOffers);
+                            }
+                          }
+                          toast.success("Inteligência do produto gerada com IA!");
+                        }
+                      }}
+                      contextSources={["Briefing", "Links do Produto", "Página de Vendas (scraping)"]}
+                      fieldsToFill={["Mecanismo Único", "Contexto", "Ofertas (Order Bump, Upsell)"]}
+                      label="Analisar Produto"
+                      size="sm"
+                      variant="outline"
+                      showMenteSelector={true}
+                      showSkillSelector={true}
+                      extraBody={{ product_index: i }}
+                    />
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeProduto(i)}><Trash2 className="h-3 w-3" /></Button>
                   </div>
                 </div>
@@ -525,6 +555,12 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   onChange={(updated) => updateProduto(i, "copy_arsenal", updated)}
                   projectId={project.id}
                   produtos={produtos}
+                  onMecanismoGenerated={(mecanismo) => {
+                    if (!(p.mecanismo || "").trim()) updateProduto(i, "mecanismo", mecanismo);
+                  }}
+                  onContextoGenerated={(contexto) => {
+                    if (!(p.contexto || "").trim()) updateProduto(i, "contexto", contexto);
+                  }}
                 />
               </div>
             );

@@ -153,7 +153,8 @@ serve(async (req) => {
     // Route by action — pass mentePrefix for personality injection
     if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content") return await handleGenerateContent(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
+    if (action === "generate_product_intel") return await handleProductIntel(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
     if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_kpis") return await handleKPIs(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
@@ -283,7 +284,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number) {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "") {
   // Enrich context with scraped website content via Firecrawl
   let scrapedContext = "";
   try {
@@ -311,7 +312,7 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
 
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (firecrawlKey && productLinks.length > 0) {
-      const uniqueUrls = [...new Set(productLinks)].slice(0, 2);
+      const uniqueUrls = [...new Set(productLinks)].slice(0, 3);
       for (const url of uniqueUrls) {
         try {
           console.log("Scraping URL for copy arsenal:", url);
@@ -323,7 +324,7 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
           if (scrapeRes.ok) {
             const scrapeData = await scrapeRes.json();
             const md = scrapeData?.data?.markdown || scrapeData?.markdown || "";
-            if (md) scrapedContext += `\n### Conteúdo de ${url}:\n${md.slice(0, 2000)}\n`;
+            if (md) scrapedContext += `\n### Conteúdo de ${url}:\n${md.slice(0, 2500)}\n`;
           }
         } catch (e) { console.error("Firecrawl scrape error:", e); }
       }
@@ -333,14 +334,86 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
   const fullCtx = scrapedContext ? `${ctx}\n\n## Conteúdo scraped do site do produto:\n${scrapedContext}` : ctx;
 
   const arsenal = await callAI(
-    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.\n${fullCtx}\nREGRAS: Use linguagem persuasiva, emocional e direta. Seja específico para este projeto. Se houver conteúdo scraped do site, use-o para criar copy mais precisa e alinhada à página real do produto.`,
-    "Gere o Arsenal de Copy completo.",
+    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.
+${fullCtx}
+${skillsContext}
+REGRAS:
+- Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.
+- Se houver conteúdo scraped do site, use-o para criar copy mais precisa e alinhada à página real do produto.
+- Gere também o mecanismo_unico (o que diferencia este produto de todos os outros no mercado) e o contexto (resumo estratégico do produto).
+- Aplique as Skills disponíveis/ativadas para elevar a qualidade do copy: use frameworks de persuasão, gatilhos emocionais e estruturas de copy profissional.`,
+    "Gere o Arsenal de Copy completo, incluindo mecanismo único e contexto estratégico do produto.",
     apiKey, model,
-    [{ type: "function", function: { name: "generate_copy_arsenal", description: "Generate copy arsenal", parameters: { type: "object", properties: { promessa: { type: "array", items: { type: "string" } }, inimigo_comum: { type: "array", items: { type: "string" } }, efeito_colateral: { type: "array", items: { type: "string" } }, oportunidade: { type: "array", items: { type: "string" } }, metodo_simplificado: { type: "array", items: { type: "string" } }, hora_do_show: { type: "array", items: { type: "string" } } }, required: ["promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo_simplificado", "hora_do_show"], additionalProperties: false } } }],
+    [{ type: "function", function: { name: "generate_copy_arsenal", description: "Generate copy arsenal with mecanismo and contexto", parameters: { type: "object", properties: { mecanismo_unico: { type: "string", description: "O diferencial único do produto que torna a concorrência irrelevante" }, contexto: { type: "string", description: "Resumo estratégico do produto: objetivo, posicionamento e público" }, promessa: { type: "array", items: { type: "string" } }, inimigo_comum: { type: "array", items: { type: "string" } }, efeito_colateral: { type: "array", items: { type: "string" } }, oportunidade: { type: "array", items: { type: "string" } }, metodo_simplificado: { type: "array", items: { type: "string" } }, hora_do_show: { type: "array", items: { type: "string" } } }, required: ["mecanismo_unico", "contexto", "promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo_simplificado", "hora_do_show"], additionalProperties: false } } }],
     "generate_copy_arsenal", baseUrl
   );
   if (arsenal instanceof Response) return arsenal;
   return new Response(JSON.stringify({ arsenal }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function handleProductIntel(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "") {
+  // Scrape product URLs to generate mecanismo, contexto, and suggested offers
+  let scrapedContext = "";
+  try {
+    const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+    const produtos = Array.isArray(d.produtos) ? d.produtos : [];
+    const productLinks: string[] = [];
+    if (typeof productIndex === "number" && produtos[productIndex]) {
+      const prod = produtos[productIndex];
+      if (prod.checkout_urls) {
+        const urls = Array.isArray(prod.checkout_urls) ? prod.checkout_urls : [prod.checkout_urls];
+        productLinks.push(...urls.map((u: any) => typeof u === "string" ? u : u.url).filter(Boolean));
+      }
+      if (prod.links) {
+        const links = typeof prod.links === "object" ? Object.values(prod.links) : [];
+        productLinks.push(...(links as string[]).filter(Boolean));
+      }
+    }
+    if (d.links) {
+      const projLinks = Object.values(d.links).filter(v => v && String(v).trim() !== "" && String(v).startsWith("http")) as string[];
+      productLinks.push(...projLinks);
+    }
+
+    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+    if (firecrawlKey && productLinks.length > 0) {
+      const uniqueUrls = [...new Set(productLinks)].slice(0, 3);
+      for (const url of uniqueUrls) {
+        try {
+          console.log("Scraping URL for product intel:", url);
+          const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
+          });
+          if (scrapeRes.ok) {
+            const scrapeData = await scrapeRes.json();
+            const md = scrapeData?.data?.markdown || scrapeData?.markdown || "";
+            if (md) scrapedContext += `\n### Conteúdo de ${url}:\n${md.slice(0, 3000)}\n`;
+          }
+        } catch (e) { console.error("Firecrawl scrape error:", e); }
+      }
+    }
+  } catch (e) { console.error("Error preparing scrape for product intel:", e); }
+
+  const fullCtx = scrapedContext ? `${ctx}\n\n## Conteúdo scraped do site do produto:\n${scrapedContext}` : ctx;
+
+  const intel = await callAI(
+    `${mentePrefix}Você é um estrategista de infoprodutos brasileiro de alto nível. Analise o conteúdo do site/página de vendas e o contexto do projeto para gerar inteligência completa do produto.
+${fullCtx}
+${skillsContext}
+REGRAS:
+- Extraia o mecanismo único a partir do que está na página (o que diferencia de tudo no mercado)
+- Defina o contexto estratégico do produto (para quem, que problema resolve, posicionamento)
+- Sugira ofertas complementares (order bump, upsell) baseadas no que faz sentido para o produto
+- Cada oferta sugerida deve ter nome, tipo, e faixa de preço sugerida
+- Use dados scraped do site para ser preciso e específico`,
+    "Analise a página do produto e gere mecanismo único, contexto e sugestões de ofertas.",
+    apiKey, model,
+    [{ type: "function", function: { name: "generate_product_intel", description: "Generate product intelligence from page analysis", parameters: { type: "object", properties: { mecanismo: { type: "string", description: "Mecanismo único do produto" }, contexto: { type: "string", description: "Contexto estratégico completo" }, ofertas_sugeridas: { type: "array", items: { type: "object", properties: { nome: { type: "string" }, tipo_oferta: { type: "string", enum: ["order_bump", "upsell", "downsell", "tripwire"] }, preco_sugerido: { type: "string" }, descricao: { type: "string" } }, required: ["nome", "tipo_oferta", "preco_sugerido", "descricao"], additionalProperties: false } } }, required: ["mecanismo", "contexto", "ofertas_sugeridas"], additionalProperties: false } } }],
+    "generate_product_intel", baseUrl
+  );
+  if (intel instanceof Response) return intel;
+  return new Response(JSON.stringify({ product_intel: intel }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function handleBranding(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
