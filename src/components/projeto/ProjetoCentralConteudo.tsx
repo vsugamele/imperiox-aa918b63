@@ -467,7 +467,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
                     </div>
                   </div>
                   <div className="prose prose-sm prose-invert max-w-none text-[10px] leading-relaxed max-h-[150px] overflow-auto">
-                    <ReactMarkdown>{item.content.slice(0, 800)}{item.content.length > 800 ? "\n\n..." : ""}</ReactMarkdown>
+                    <ReactMarkdown>{item.content.slice(0, 800) + (item.content.length > 800 ? "\n\n..." : "")}</ReactMarkdown>
                   </div>
                 </CardContent>
               </Card>
