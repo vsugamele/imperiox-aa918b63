@@ -113,7 +113,7 @@ export default function Funis() {
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
   const [aiOrganizing, setAiOrganizing] = useState(false);
 
-  const aiOrganizeProducts = async () => {
+  const aiOrganizeProducts = async (mode: "create" | "reorganize" = "create") => {
     if (!selectedFunil?.project_id || projectProductsFull.length === 0) {
       toast.error("Selecione um projeto com produtos configurados");
       return;
@@ -130,6 +130,8 @@ export default function Funis() {
         descricao: p.descricao || "",
       }));
 
+      const existingEtapas = mode === "reorganize" ? (selectedFunil.data.etapas || []) : [];
+
       const { data, error } = await supabase.functions.invoke("openflow-ai", {
         body: {
           action: "ai_organize_funnel",
@@ -140,28 +142,42 @@ export default function Funis() {
             products: prodList,
             project_name: proj?.name || "",
             nicho: briefing?.nicho || briefing?.niche || "",
+            existing_etapas: existingEtapas,
           },
         },
       });
 
       if (error) throw error;
 
-      const organized = data?.etapas || data?.stages || [];
-      if (organized.length === 0) {
-        // Fallback: auto-organize using product data directly
+      const organized = data?.etapas || [];
+      const estrategia = data?.estrategia || "";
+
+      if (organized.length > 0) {
+        const aiEtapas: Etapa[] = organized.map((e: any) => ({
+          nome: e.nome || "Etapa",
+          tipo: e.tipo || "outro",
+          visitantes: 0,
+          conversoes: 0,
+          url: e.url || "",
+          pos_x: e.pos_x ?? 80,
+          pos_y: e.pos_y ?? 200,
+          descricao: e.descricao || "",
+          connects_to: e.connects_to || [],
+        }));
+        setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: aiEtapas } });
+        triggerAutoSave();
+        toast.success(`IA organizou ${aiEtapas.length} etapas no funil!${estrategia ? `\n\n📋 ${estrategia}` : ""}`, { duration: 6000 });
+      } else {
+        // Fallback local
         const etapas: Etapa[] = [];
         const spacing = 320;
-        // Add acquisition stage
-        etapas.push({ nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 200 });
-        etapas.push({ nome: "Página de Captura", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 80 + spacing, pos_y: 200, connects_to: [] });
+        etapas.push({ nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 });
+        etapas.push({ nome: "Página de Captura", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 80 + spacing, pos_y: 80, connects_to: [] });
         etapas[0].connects_to = [1];
 
-        // Sort products by funnel position
         const sorted = [...prodList].sort((a, b) => {
           const order: Record<string, number> = { tripwire: 0, principal: 1, "": 1, "order bump": 2, orderbump: 2, upsell: 3 };
-          const aO = order[(a.tipo || "").toLowerCase()] ?? 1;
-          const bO = order[(b.tipo || "").toLowerCase()] ?? 1;
-          return aO - bO;
+          return (order[(a.tipo || "").toLowerCase()] ?? 1) - (order[(b.tipo || "").toLowerCase()] ?? 1);
         });
 
         sorted.forEach((prod, i) => {
@@ -173,74 +189,20 @@ export default function Funis() {
           const idx = etapas.length;
           etapas.push({
             nome: prod.preco ? `${prod.nome} (R$${prod.preco})` : prod.nome,
-            tipo,
-            visitantes: 0,
-            conversoes: 0,
-            url: prod.link,
-            pos_x: 80 + (i + 2) * spacing,
-            pos_y: 200,
+            tipo, visitantes: 0, conversoes: 0, url: prod.link,
+            pos_x: 80 + (i + 2) * spacing, pos_y: 400,
             descricao: prod.descricao || prod.tipo || "",
           });
-          // Connect previous to this
-          if (idx > 0) {
-            etapas[idx - 1].connects_to = [...(etapas[idx - 1].connects_to || []), idx];
-          }
+          if (idx > 0) etapas[idx - 1].connects_to = [...(etapas[idx - 1].connects_to || []), idx];
         });
 
         setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
         triggerAutoSave();
-        toast.success(`${sorted.length} produtos organizados no funil!`);
-      } else {
-        // Use AI response
-        const aiEtapas: Etapa[] = organized.map((e: any, i: number) => ({
-          nome: e.nome || e.name || "Etapa",
-          tipo: e.tipo || "outro",
-          visitantes: 0,
-          conversoes: 0,
-          url: e.url || "",
-          pos_x: 80 + i * 320,
-          pos_y: 200,
-          descricao: e.descricao || "",
-          connects_to: e.connects_to || (i < organized.length - 1 ? [i + 1] : []),
-        }));
-        setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: aiEtapas } });
-        triggerAutoSave();
-        toast.success(`IA organizou ${aiEtapas.length} etapas no funil!`);
+        toast.success(`${sorted.length} produtos organizados no funil (fallback local)`);
       }
     } catch (err: any) {
       console.error("AI organize error:", err);
-      // Fallback: just add all products as stages
-      const etapas: Etapa[] = [
-        { nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 200 },
-        { nome: "Landing Page", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 400, pos_y: 200, connects_to: [] },
-      ];
-      etapas[0].connects_to = [1];
-
-      projectProductsFull.forEach((prod: any, i: number) => {
-        const tipoLower = (prod.tipo_oferta || prod.tipo || "").toLowerCase();
-        let tipo = "checkout";
-        if (tipoLower.includes("upsell")) tipo = "upsell";
-        else if (tipoLower.includes("bump")) tipo = "upsell";
-
-        const idx = etapas.length;
-        const nome = prod.nome || prod.name || "Produto";
-        const preco = prod.preco_por || prod.preco || "";
-        etapas.push({
-          nome: preco ? `${nome} (R$${preco})` : nome,
-          tipo,
-          visitantes: 0,
-          conversoes: 0,
-          url: prod.ofertas?.[0]?.link || prod.link || "",
-          pos_x: 80 + (i + 2) * 320,
-          pos_y: 200,
-          descricao: prod.descricao || prod.tipo_oferta || "",
-        });
-        etapas[idx - 1].connects_to = [...(etapas[idx - 1].connects_to || []), idx];
-      });
-
-      setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
-      triggerAutoSave();
-      toast.success(`${projectProductsFull.length} produtos adicionados ao funil!`);
+      toast.error("Erro ao organizar com IA: " + (err?.message || "tente novamente"));
     } finally {
       setAiOrganizing(false);
     }
