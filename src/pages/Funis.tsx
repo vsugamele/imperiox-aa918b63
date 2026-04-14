@@ -1046,6 +1046,14 @@ export default function Funis() {
           </DropdownMenu>
 
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
+          
+          {selectedFunil.project_id && projectProductsFull.length > 0 && (
+            <Button size="sm" variant="outline" onClick={aiOrganizeProducts} disabled={aiOrganizing} className="gap-1 border-primary/30 text-primary hover:bg-primary/10">
+              {aiOrganizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              {aiOrganizing ? "Organizando..." : "IA: Organizar Produtos"}
+            </Button>
+          )}
+          
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
           <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
         </div>
