@@ -492,6 +492,7 @@ export default function Leads() {
 
           <TabsContent value="formularios" className="space-y-4"><FormBuilder projects={projects} /></TabsContent>
           <TabsContent value="insights" className="space-y-4"><FormInsights projects={projects} /></TabsContent>
+          <TabsContent value="predicoes" className="space-y-4"><LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} /></TabsContent>
 
           {/* TAB: PIX HOJE */}
           <TabsContent value="pix_hoje" className="space-y-4">
