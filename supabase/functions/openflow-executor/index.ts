@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
                   },
                   body: JSON.stringify({
                     provider_id: providerId,
-                    phone: phone.replace(/\D/g, ""),
+                    phone: normalizeBRPhone(phone),
                     content: msgText,
                     project_id,
                   }),
