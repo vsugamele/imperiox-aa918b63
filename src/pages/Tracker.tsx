@@ -464,8 +464,8 @@ export default function Tracker() {
             </SelectContent>
           </Select>
         )}
-        {(filterPlataforma !== "all" || filterProject !== "all") && (
-          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); }}>Limpar filtros</Button>
+        {(filterPlataforma !== "all" || filterProject !== "all" || filterProduct !== "all") && (
+          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterPlataforma("all"); setFilterProject("all"); setFilterProduct("all"); }}>Limpar filtros</Button>
         )}
         <span className="text-[10px] text-muted-foreground ml-auto"><Calendar className="h-3 w-3 inline mr-1" />{dateRange.from} → {dateRange.to}</span>
       </div>
