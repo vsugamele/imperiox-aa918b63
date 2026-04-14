@@ -153,7 +153,8 @@ serve(async (req) => {
     // Route by action — pass mentePrefix for personality injection
     if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content") return await handleGenerateContent(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
+    if (action === "generate_product_intel") return await handleProductIntel(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
     if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_kpis") return await handleKPIs(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
