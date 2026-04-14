@@ -132,9 +132,26 @@ serve(async (req) => {
       wa_campaigns: waCampaigns.map((c: any) => ({ name: c.name })),
     };
 
+    // Build avatar summary for expert (curated, no raw internal data)
+    const avatarRaw = typeof project.avatar === "string" ? JSON.parse(project.avatar) : (project.avatar || {});
+    const avatarSummary: any = {};
+    if (avatarRaw.perfil_psicologico) avatarSummary.perfil_psicologico = avatarRaw.perfil_psicologico;
+    if (avatarRaw.dores && Array.isArray(avatarRaw.dores) && avatarRaw.dores.length > 0) avatarSummary.dores = avatarRaw.dores.slice(0, 10);
+    if (avatarRaw.desejos && Array.isArray(avatarRaw.desejos) && avatarRaw.desejos.length > 0) avatarSummary.desejos = avatarRaw.desejos.slice(0, 10);
+    if (avatarRaw.gatilhos && Array.isArray(avatarRaw.gatilhos) && avatarRaw.gatilhos.length > 0) avatarSummary.gatilhos = avatarRaw.gatilhos.slice(0, 10);
+    if (avatarRaw.voyerismos && Array.isArray(avatarRaw.voyerismos) && avatarRaw.voyerismos.length > 0) avatarSummary.voyerismos = avatarRaw.voyerismos.slice(0, 10);
+    if (avatarRaw.problemas && Array.isArray(avatarRaw.problemas) && avatarRaw.problemas.length > 0) avatarSummary.problemas = avatarRaw.problemas.slice(0, 10);
+    // Top-level avatar fields
+    if (avatarRaw.desejo_externo) avatarSummary.desejo_externo = avatarRaw.desejo_externo;
+    if (avatarRaw.desejo_interno) avatarSummary.desejo_interno = avatarRaw.desejo_interno;
+    if (avatarRaw.inimigo) avatarSummary.inimigo = avatarRaw.inimigo;
+    if (avatarRaw.resultado_sonhado) avatarSummary.resultado_sonhado = avatarRaw.resultado_sonhado;
+    if (avatarRaw.camadas_psique) avatarSummary.camadas_psique = avatarRaw.camadas_psique;
+
     const response = {
       project_name: project.name,
       expert: d.expert || null,
+      avatar: Object.keys(avatarSummary).length > 0 ? avatarSummary : null,
       content_plan: d.content_plan || {},
       content_objective: d.content_objective || "",
       content_objectives: d.content_objectives || [],
