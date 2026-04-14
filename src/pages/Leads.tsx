@@ -31,6 +31,7 @@ import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import LeadsTable, { getLeadStage, STAGE_LABELS, type Lead, type LeadVenda } from "@/components/leads/LeadsTable";
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
+import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
@@ -408,6 +409,7 @@ export default function Leads() {
               <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
               <TabsTrigger value="formularios" className="text-xs">📝 Formulários</TabsTrigger>
               <TabsTrigger value="insights" className="text-xs">💡 Insights</TabsTrigger>
+              <TabsTrigger value="predicoes" className="text-xs">🧠 Predições</TabsTrigger>
               {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs relative">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
@@ -490,6 +492,7 @@ export default function Leads() {
 
           <TabsContent value="formularios" className="space-y-4"><FormBuilder projects={projects} /></TabsContent>
           <TabsContent value="insights" className="space-y-4"><FormInsights projects={projects} /></TabsContent>
+          <TabsContent value="predicoes" className="space-y-4"><LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} /></TabsContent>
 
           {/* TAB: PIX HOJE */}
           <TabsContent value="pix_hoje" className="space-y-4">
