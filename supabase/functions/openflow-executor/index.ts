@@ -182,11 +182,17 @@ Deno.serve(async (req) => {
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
+              // Resolve link: lead_data.link > auto.link_checkout > ""
+              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+
               const msgText = (step.mensagem || "")
                 .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
                 .replace(/\{\{email\}\}/g, lead_data?.email || "")
                 .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
-                .replace(/\{\{telefone\}\}/g, phone || "");
+                .replace(/\{\{telefone\}\}/g, phone || "")
+                .replace(/\{\{link\}\}/g, linkUrl)
+                .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
+                .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
 
               // Provider hierarchy: step > auto > lead > project-active > global
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;

@@ -710,6 +710,7 @@ Deno.serve(async (req) => {
                   valor,
                   plataforma,
                   tipo_venda,
+                  link: body?.checkout_url || body?.order?.checkout_url || body?.data?.purchase?.checkout_url || "",
                 },
               }),
             }
