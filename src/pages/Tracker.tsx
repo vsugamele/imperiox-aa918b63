@@ -136,6 +136,9 @@ export default function Tracker() {
     setAdsSpend((adsRes.data || []) as any);
     setVendas(vRes.data || []);
     setProjects(pRes.data || []);
+    // Extract unique product names
+    const prods = [...new Set((vRes.data || []).map((v: any) => v.produto_nome as string).filter(Boolean))].sort();
+    setAllProducts(prods);
     const saved = localStorage.getItem("imphq_kpi_targets");
     if (saved) setTargets(JSON.parse(saved));
   };
@@ -207,6 +210,7 @@ export default function Tracker() {
   });
   const filteredVendas = vendas.filter(v => {
     if (filterProject !== "all" && v.project_id !== filterProject) return false;
+    if (filterProduct !== "all" && v.produto_nome !== filterProduct) return false;
     return true;
   });
 
