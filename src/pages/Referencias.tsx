@@ -74,6 +74,7 @@ export default function Referencias() {
   const [showNewPasta, setShowNewPasta] = useState(false);
   const [newPastaName, setNewPastaName] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
+  const [syncing, setSyncing] = useState(false);
 
   const load = async () => {
     const [rRes, lRes, pRes, adsRes] = await Promise.all([
