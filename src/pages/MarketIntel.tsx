@@ -69,6 +69,8 @@ export default function MarketIntel() {
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("nichos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<"DISCOVERY" | "TREND_SCAN" | "DEEP_DIVE">("DISCOVERY");
+  const [deepDiveTarget, setDeepDiveTarget] = useState("");
 
   // Load data
   useEffect(() => {
