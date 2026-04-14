@@ -151,6 +151,7 @@ serve(async (req) => {
     }
 
     // Route by action — pass mentePrefix for personality injection
+    if (action === "market_intel_research") return await handleMarketIntelResearch(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData);
     if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content") return await handleGenerateContent(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
@@ -474,6 +475,219 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, ba
   );
   if (avatar_perfil instanceof Response) return avatar_perfil;
   return new Response(JSON.stringify({ avatar_perfil }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function handleMarketIntelResearch(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}) {
+  const { mode = "DISCOVERY", search_query } = body;
+  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+
+  // Extract nicho from project context
+  const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+  const briefing = d.briefing || {};
+  const nicho = search_query || briefing.nicho || briefing.sub_nicho || projectData?.name || "";
+
+  // Step 1: Use Firecrawl Search to find real products in the niche
+  let searchResults = "";
+  const scraped: { url: string; title: string; content: string }[] = [];
+
+  if (firecrawlKey && nicho) {
+    const searchQueries = [
+      `${nicho} infoproduto curso online hotmart kiwify 2025`,
+      `${nicho} método curso digital resultado depoimento`,
+      `${nicho} página de vendas oferta checkout`,
+    ];
+
+    for (const query of searchQueries) {
+      try {
+        console.log("Firecrawl search for market intel:", query);
+        const searchRes = await fetch("https://api.firecrawl.dev/v2/search", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ query, limit: 5, lang: "pt-br", country: "BR", scrapeOptions: { formats: ["markdown"] } }),
+        });
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          const results = searchData?.data || [];
+          for (const r of results) {
+            if (r.url && r.markdown) {
+              scraped.push({ url: r.url, title: r.title || r.url, content: r.markdown.slice(0, 2000) });
+            } else if (r.url && r.title) {
+              scraped.push({ url: r.url, title: r.title, content: r.description || "" });
+            }
+          }
+        }
+      } catch (e) { console.error("Firecrawl search error:", e); }
+    }
+
+    if (scraped.length > 0) {
+      searchResults = "\n\n## RESULTADOS REAIS DE PESQUISA WEB:\n";
+      for (const s of scraped.slice(0, 12)) {
+        searchResults += `\n### ${s.title}\nURL: ${s.url}\n${s.content.slice(0, 1500)}\n---\n`;
+      }
+    }
+  }
+
+  // Step 2: Get market-intel skill prompt from DB
+  let skillPrompt = "";
+  try {
+    const { data: skill } = await sb.from("imphq_skills").select("system_prompt").eq("slug", "market-intel").eq("status", "Ativa").limit(1);
+    if (skill?.[0]?.system_prompt) skillPrompt = skill[0].system_prompt.slice(0, 4000);
+  } catch (e) { console.error("Error fetching market-intel skill:", e); }
+
+  const fullSystem = `${mentePrefix}${skillPrompt || "Você é um analista de inteligência de mercado para infoprodutos brasileiros."}
+
+## CONTEXTO DO PROJETO
+${projectContext}
+${skillsContext}
+${searchResults}
+
+## MODO DE OPERAÇÃO: ${mode}
+## NICHO/BUSCA: ${nicho}
+
+REGRAS CRÍTICAS:
+- Analise TODOS os resultados de pesquisa web acima com profundidade
+- Para cada produto/oferta encontrada, extraia: nome, nicho, ticket, bump, upsell, mecanismo único, ângulo de copy, promessa central, plataforma
+- Gere um SCORE de 1 a 10 para cada oportunidade baseado em: demanda comprovada, concorrência, ticket, potencial sem rosto, facilidade de criação
+- Identifique gaps e oportunidades que ninguém está explorando
+- Sugira produtos promissores com detalhes concretos (nome, ticket, formato, copy angle)
+- Use os dados REAIS encontrados na pesquisa, não invente
+- Seja extremamente detalhado e específico`;
+
+  const userMsg = `Execute a pesquisa de mercado completa no modo ${mode} para "${nicho}". 
+Analise os resultados da web, identifique os produtos que estão vendendo, seus funis, tickets, e gere recomendações detalhadas de oportunidades.
+Retorne a análise completa via tool call.`;
+
+  const intel = await callAI(
+    fullSystem, userMsg, apiKey, model,
+    [{
+      type: "function",
+      function: {
+        name: "market_intel_report",
+        description: "Generate complete market intelligence report with real product data",
+        parameters: {
+          type: "object",
+          properties: {
+            resumo_executivo: { type: "string", description: "Resumo geral do mercado pesquisado" },
+            produtos_encontrados: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  nome: { type: "string" },
+                  url: { type: "string" },
+                  nicho: { type: "string" },
+                  sub_nicho: { type: "string" },
+                  ticket: { type: "string" },
+                  bump: { type: "string" },
+                  upsell: { type: "string" },
+                  plataforma: { type: "string" },
+                  mecanismo_unico: { type: "string" },
+                  angulo_copy: { type: "string" },
+                  promessa: { type: "string" },
+                  score: { type: "number" },
+                  sem_rosto: { type: "boolean" },
+                  observacoes: { type: "string" },
+                },
+                required: ["nome", "nicho", "score"],
+                additionalProperties: false,
+              },
+            },
+            oportunidades: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  nome_sugerido: { type: "string" },
+                  nicho: { type: "string" },
+                  sub_nicho: { type: "string" },
+                  micro_nicho: { type: "string" },
+                  dor_central: { type: "string" },
+                  ticket_sugerido: { type: "string" },
+                  bump_sugerido: { type: "string" },
+                  upsell_sugerido: { type: "string" },
+                  formato: { type: "string" },
+                  mecanismo_unico: { type: "string" },
+                  angulo_copy: { type: "string" },
+                  sem_rosto: { type: "boolean" },
+                  score: { type: "number" },
+                  justificativa: { type: "string" },
+                },
+                required: ["nome_sugerido", "nicho", "dor_central", "score"],
+                additionalProperties: false,
+              },
+            },
+            angulos_recomendados: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  angulo: { type: "string" },
+                  hook_exemplo: { type: "string" },
+                  headline_vsl: { type: "string" },
+                  ctr_esperado: { type: "string" },
+                  melhor_para: { type: "string" },
+                },
+                required: ["angulo", "hook_exemplo"],
+                additionalProperties: false,
+              },
+            },
+            gaps_mercado: { type: "array", items: { type: "string" } },
+            tendencias: { type: "array", items: { type: "string" } },
+            analise_markdown: { type: "string", description: "Análise completa em markdown para exibição" },
+          },
+          required: ["resumo_executivo", "produtos_encontrados", "oportunidades", "analise_markdown"],
+          additionalProperties: false,
+        },
+      },
+    }],
+    "market_intel_report", baseUrl
+  );
+
+  if (intel instanceof Response) return intel;
+
+  // Auto-save opportunities to DB
+  const project_id = body.project_id;
+  if (project_id && intel.oportunidades && Array.isArray(intel.oportunidades)) {
+    try {
+      for (const opp of intel.oportunidades.slice(0, 10)) {
+        await sb.from("imphq_mi_opportunities").upsert({
+          nicho: opp.nicho || nicho,
+          sub_nicho: opp.sub_nicho || opp.micro_nicho || null,
+          produto: opp.nome_sugerido,
+          score: opp.score || 7,
+          ticket: opp.ticket_sugerido ? parseFloat(opp.ticket_sugerido.replace(/[^\d.]/g, "")) || null : null,
+          plataforma: opp.formato || null,
+          sem_rosto: opp.sem_rosto || false,
+          flags: [opp.angulo_copy, opp.mecanismo_unico].filter(Boolean),
+        }, { onConflict: "id" });
+      }
+    } catch (e) { console.error("Error saving opportunities:", e); }
+  }
+
+  // Save full result to project
+  if (project_id) {
+    try {
+      const { data: proj } = await sb.from("imphq_projects").select("data").eq("id", project_id).single();
+      const currentData = (proj?.data as Record<string, any>) || {};
+      await sb.from("imphq_projects").update({
+        data: {
+          ...currentData,
+          ai_market_intel: intel.analise_markdown || JSON.stringify(intel),
+          ai_market_intel_data: {
+            produtos: intel.produtos_encontrados,
+            oportunidades: intel.oportunidades,
+            angulos: intel.angulos_recomendados,
+            gaps: intel.gaps_mercado,
+            tendencias: intel.tendencias,
+            resumo: intel.resumo_executivo,
+            updated_at: new Date().toISOString(),
+          },
+        },
+      }).eq("id", project_id);
+    } catch (e) { console.error("Error saving market intel to project:", e); }
+  }
+
+  return new Response(JSON.stringify({ intel }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
