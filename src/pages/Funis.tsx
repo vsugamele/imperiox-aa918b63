@@ -1010,10 +1010,24 @@ export default function Funis() {
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
           
           {selectedFunil.project_id && projectProductsFull.length > 0 && (
-            <Button size="sm" variant="outline" onClick={aiOrganizeProducts} disabled={aiOrganizing} className="gap-1 border-primary/30 text-primary hover:bg-primary/10">
-              {aiOrganizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-              {aiOrganizing ? "Organizando..." : "IA: Organizar Produtos"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={aiOrganizing} className="gap-1 border-primary/30 text-primary hover:bg-primary/10">
+                  {aiOrganizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {aiOrganizing ? "Organizando..." : "IA: Organizar Funil"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel className="text-xs">Organização com IA</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => aiOrganizeProducts("create")} className="text-xs gap-2">
+                  <Sparkles className="h-3 w-3" /> Criar funil do zero
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => aiOrganizeProducts("reorganize")} disabled={(selectedFunil.data.etapas || []).length === 0} className="text-xs gap-2">
+                  <Network className="h-3 w-3" /> Reorganizar etapas atuais
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
