@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { FolderKanban, ListTodo, DollarSign, Users } from "lucide-react";
+import { getPeriodRange } from "@/lib/periodUtils";
 
 interface Stats {
   projects: number;
@@ -16,15 +17,21 @@ interface Props {
   productFilter?: string;
 }
 
-export default function DashboardStats({ period, projectFilter }: Props) {
+export default function DashboardStats({ period, projectFilter, productFilter }: Props) {
   const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, monthlyCost: 0 });
 
   useEffect(() => {
     async function load() {
+      const { from, to } = getPeriodRange(period);
+
+      let leadsQ = supabase.from("imphq_leads").select("id", { count: "exact", head: true })
+        .gte("criado_em", from).lte("criado_em", to);
+      if (projectFilter !== "all") leadsQ = leadsQ.eq("project_id", projectFilter);
+
       const [projRes, taskRes, leadRes, costRes] = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
-        supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
+        leadsQ,
         supabase.from("imphq_custos").select("valor, moeda"),
       ]);
 

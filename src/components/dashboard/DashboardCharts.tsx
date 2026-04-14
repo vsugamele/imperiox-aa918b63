@@ -85,13 +85,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
 
   useEffect(() => {
     async function load() {
-      // Calculate date range from period
-      const now = new Date();
-      const periodDays: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90, "6m": 180 };
-      const days = periodDays[period] || 30;
-      const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - days);
-      const fromISO = fromDate.toISOString();
+      const { from: fromISO } = (await import("@/lib/periodUtils")).getPeriodRange(period);
 
       // Build vendas query with filters
       let vendasQ = supabase.from("imphq_vendas").select("valor, status, created_at, produto_nome, project_id").eq("status", "aprovado").gte("created_at", fromISO);
