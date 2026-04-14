@@ -587,6 +587,7 @@ export default function Referencias() {
             {refs.length} referências — {manualCount} manuais · {libraryCount} de projetos · {adsCount} de ads
           </p>
         </div>
+        <div className="flex gap-2">
           <Button
             size="sm"
             variant="outline"
