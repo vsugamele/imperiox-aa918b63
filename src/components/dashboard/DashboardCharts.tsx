@@ -95,7 +95,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
       let costsQ = supabase.from("imphq_project_costs").select("valor, moeda, created_at, project_id").gte("created_at", fromISO);
       if (projectFilter && projectFilter !== "all") costsQ = costsQ.eq("project_id", projectFilter);
 
-      let adsQ = supabase.from("imphq_ads_spend").select("valor, data, project_id").gte("data", fromDate.toISOString().split("T")[0]);
+      let adsQ = supabase.from("imphq_ads_spend").select("valor, data, project_id").gte("data", fromISO.split("T")[0]);
       if (projectFilter && projectFilter !== "all") adsQ = adsQ.eq("project_id", projectFilter);
 
       const [leadsRawRes, totalLeadsRes, pixLeadsRes, buyersRes, costsRes, revsRes, vendasRes, adsRes, finResumo] = await Promise.all([
@@ -111,8 +111,10 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
       ]);
 
       // Leads trend
+      const periodDaysMap: Record<string, number> = { "today": 1, "yesterday": 1, "7d": 7, "30d": 30, "90d": 90, "6m": 180 };
+      const numDays = periodDaysMap[period] || 30;
       const leadsByDay: Record<string, number> = {};
-      for (let i = Math.min(days, 60) - 1; i >= 0; i--) {
+      for (let i = Math.min(numDays, 60) - 1; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         leadsByDay[d.toISOString().split("T")[0]] = 0;

@@ -54,7 +54,7 @@ export default function DashboardAds({ period, projectFilter, allProjects }: Pro
       }).sort((a, b) => b.value - a.value).slice(0, 5);
 
       // Frequency alerts
-      const sevenAgo = subDays(new Date(), 7).toISOString().split("T")[0];
+      const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
       const recentAds = items.filter((a: any) => a.data_ref >= sevenAgo);
       const freqAlerts: string[] = [];
       const freqCamp = new Map<string, { freq: number; count: number }>();
