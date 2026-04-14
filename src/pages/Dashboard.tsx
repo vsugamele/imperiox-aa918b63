@@ -15,6 +15,7 @@ import GrowthDashboard from "@/components/dashboard/GrowthDashboard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
+import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -79,6 +80,7 @@ export default function Dashboard() {
         </Select>
       </div>
 
+      <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <HotLeadAlerts />
       <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardStats period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
