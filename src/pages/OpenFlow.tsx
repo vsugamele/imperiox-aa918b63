@@ -468,11 +468,22 @@ export default function OpenFlow() {
               </div>
               <div>
                 <Label>WhatsApp Padrão</Label>
-                <Select value={editing.provider_id || "auto"} onValueChange={v => setEditing({ ...editing, provider_id: v === "auto" ? undefined : v })}>
+                <Select 
+                  key={editing.provider_id || "auto"} 
+                  value={editing.provider_id || "auto"} 
+                  onValueChange={v => {
+                    const newPid = v === "auto" ? undefined : v;
+                    setEditing(prev => prev ? { ...prev, provider_id: newPid } : prev);
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Auto (primeiro ativo)" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="auto">🔄 Auto (primeiro ativo)</SelectItem>
-                    {providers.map((p: any) => <SelectItem key={p.id} value={p.id}>📱 {p.instance_name}</SelectItem>)}
+                    {providers.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from || p.id.slice(0, 12)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
