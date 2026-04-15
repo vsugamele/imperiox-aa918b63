@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight, ImageIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight, ImageIcon, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { FlowMinimap } from "./flowchart/FlowMinimap";
 import { FlowImportDialog } from "./flowchart/FlowImportDialog";
 
