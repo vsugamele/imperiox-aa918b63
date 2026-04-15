@@ -403,6 +403,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Handle checkout intent (inicio_checkout, pix_gerado, boleto_gerado, aguardando_pagamento, pagamento_pendente)
+    const checkoutIntentEvents = ["inicio_checkout", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pagamento_pendente"];
+    if (checkoutIntentEvents.includes(evento) && leadId) {
+      const statusMap: Record<string, string> = {
+        inicio_checkout: "inicio_checkout",
+        pix_gerado: "pix_gerado",
+        boleto_gerado: "boleto_gerado",
+        aguardando_pagamento: "aguardando_pagamento",
+        pagamento_pendente: "pendente",
+      };
+      const vendaStatus = statusMap[evento] || evento;
+
+      // Dedup: don't insert if same lead+product+status exists in last 30 min
+      const { data: dupCheck } = await supabase
+        .from("imphq_vendas")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("status", vendaStatus)
+        .gte("created_at", new Date(Date.now() - 30 * 60000).toISOString())
+        .limit(1);
+
+      if (!dupCheck || dupCheck.length === 0) {
+        const vendaInsert: any = {
+          id: crypto.randomUUID(),
+          lead_id: leadId,
+          project_id: projectId,
+          produto_nome: produto || null,
+          valor: valor || 0,
+          plataforma,
+          status: vendaStatus,
+          tipo_venda: tipo_venda || "principal",
+          data: webhookUtms ? { utms: webhookUtms } : null,
+        };
+        if (data_compra) vendaInsert.created_at = data_compra;
+        const { error: ciErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
+        if (ciErr) console.error("[webhook-pagamento] Erro ao inserir checkout intent:", ciErr);
+        else console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus);
+      }
+    }
+
     // Handle purchase
     if (evento === "compra_aprovada" && leadId && valor > 0) {
       // Deduplication: check if same sale exists within last 5 minutes
