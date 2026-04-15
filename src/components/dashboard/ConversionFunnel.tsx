@@ -29,7 +29,7 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
 
       let query = supabase
         .from("imphq_webhooks")
-        .select("evento")
+        .select("evento, payload")
         .gte("created_at", since);
 
       if (projectFilter && projectFilter !== "all") {
@@ -38,9 +38,15 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
 
       const { data: webhooks } = await query;
 
-      // Count by evento
+      // Count by evento, filtering by product if set
       const counts: Record<string, number> = {};
       (webhooks || []).forEach((w: any) => {
+        // Product filter: check payload for product name
+        if (productFilter && productFilter !== "all") {
+          const p = w.payload;
+          const prodName = p?.item?.product_name || p?.data?.product?.name || p?.product_name || p?.Product?.name || p?.dados?.nome_produto || "";
+          if (prodName && prodName.toLowerCase() !== productFilter.toLowerCase()) return;
+        }
         const ev = w.evento || "desconhecido";
         counts[ev] = (counts[ev] || 0) + 1;
       });

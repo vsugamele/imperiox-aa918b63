@@ -727,6 +727,7 @@ Deno.serve(async (req) => {
       });
 
       let executorSuccess = true;
+      let executorError: string | null = null;
       if (matched.length > 0) {
         console.log(`[webhook-pagamento] ${matched.length} automações encontradas para ${evento}`);
         try {
@@ -757,16 +758,34 @@ Deno.serve(async (req) => {
           );
           const execData = await execRes.json();
           console.log("[webhook-pagamento] openflow-executor result:", JSON.stringify(execData).slice(0, 300));
-          if (!execData.ok) executorSuccess = false;
-        } catch (flowErr) {
+          // Strict check: only true when explicitly ok
+          if (execData.ok !== true) {
+            executorSuccess = false;
+            executorError = execData.error || execData.message || "Executor retornou sem ok=true";
+          }
+        } catch (flowErr: any) {
           console.error("[webhook-pagamento] Erro ao chamar openflow-executor:", flowErr);
           executorSuccess = false;
+          executorError = flowErr.message || String(flowErr);
         }
       }
 
-      // Mark webhook as processed
-      if (webhookRow?.id && executorSuccess) {
-        await supabase.from("imphq_webhooks").update({ processado: true }).eq("id", webhookRow.id);
+      // Mark webhook as processed only when executor succeeded or no automations matched
+      if (webhookRow?.id) {
+        if (executorSuccess) {
+          await supabase.from("imphq_webhooks").update({ processado: true }).eq("id", webhookRow.id);
+        } else if (executorError) {
+          // Log the error linked to this webhook
+          await supabase.from("imphq_webhook_errors").insert({
+            webhook_id: webhookRow.id,
+            plataforma,
+            evento,
+            erro: executorError,
+            payload: body,
+            project_id: projectId,
+          });
+          console.warn(`[webhook-pagamento] Webhook ${webhookRow.id} NOT marked as processed. Error: ${executorError}`);
+        }
       }
     } else {
       // No trigger mapping — still mark as processed (data was saved)

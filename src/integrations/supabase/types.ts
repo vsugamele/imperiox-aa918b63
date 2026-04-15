@@ -1090,6 +1090,60 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_super_admins: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_super_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_super_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_super_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_super_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_super_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_transacoes: {
         Row: {
           categoria: string | null
@@ -26323,6 +26377,7 @@ export type Database = {
         Args: { _salao_id: string; _user_id: string }
         Returns: boolean
       }
+      is_super_admin: { Args: never; Returns: boolean }
       is_user_active: { Args: never; Returns: boolean }
       list_admin_tables: { Args: never; Returns: Json }
       mark_admin_message_read: {
