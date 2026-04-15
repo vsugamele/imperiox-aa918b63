@@ -141,16 +141,39 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
                 {isExpanded && exec.step_results && Array.isArray(exec.step_results) && (
                   <div className="border-t border-border/30 pt-2 space-y-1">
                     {exec.step_results.map((step: any, i: number) => (
-                      <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-secondary/50 text-[10px]">
-                        <Badge variant="outline" className="text-[8px]">#{step.step ?? i}</Badge>
-                        <span className="font-medium">{step.tipo || "step"}</span>
-                        <Badge className={`text-[8px] ${step.status === "sent" || step.status === "completed" ? "bg-emerald-500/20 text-emerald-400" : step.status === "error" ? "bg-red-500/20 text-red-400" : "bg-muted text-muted-foreground"}`}>
-                          {step.status}
-                        </Badge>
-                        {step.reason && <span className="text-muted-foreground">{step.reason}</span>}
-                        {step.message_preview && <span className="text-muted-foreground truncate max-w-[200px]">"{step.message_preview}"</span>}
-                        {step.provider_id && <span className="text-muted-foreground ml-auto">📱 {step.provider_id.slice(0, 10)}…</span>}
-                        {step.finished_at && <span className="text-muted-foreground ml-auto">{new Date(step.finished_at).toLocaleTimeString("pt-BR")}</span>}
+                      <div key={i} className="p-2 rounded bg-secondary/50 text-[10px] space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[8px]">#{step.step ?? i}</Badge>
+                          <span className="font-medium">{step.tipo || "step"}</span>
+                          <Badge className={`text-[8px] ${step.status === "sent" || step.status === "completed" ? "bg-emerald-500/20 text-emerald-400" : step.status === "error" ? "bg-red-500/20 text-red-400" : step.status === "skipped" ? "bg-amber-500/20 text-amber-400" : "bg-muted text-muted-foreground"}`}>
+                            {step.status}
+                          </Badge>
+                          {step.finished_at && <span className="text-muted-foreground ml-auto">{new Date(step.finished_at).toLocaleTimeString("pt-BR")}</span>}
+                        </div>
+                        {step.phone && (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Phone className="h-2.5 w-2.5" /> {step.phone}
+                          </div>
+                        )}
+                        {step.provider_id && (
+                          <div className="text-muted-foreground">📱 Provider: {step.provider_id.slice(0, 12)}…</div>
+                        )}
+                        {step.message_preview && (
+                          <div className="text-muted-foreground italic truncate">"{step.message_preview}"</div>
+                        )}
+                        {step.reason && <div className="text-amber-400">⚠ {step.reason}</div>}
+                        {step.response && !step.response.success && step.response.error && (
+                          <div className="text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">❌ {step.response.error}</div>
+                        )}
+                        {step.response?.success && step.response?.message_id && (
+                          <div className="text-emerald-400">✓ ID: {step.response.message_id}</div>
+                        )}
+                        {step.resend_id && (
+                          <div className="text-emerald-400">✉ Resend: {step.resend_id}</div>
+                        )}
+                        {step.condition_met !== undefined && (
+                          <div className="text-muted-foreground">Condição: {step.condition_met ? "✅ verdadeira" : "❌ falsa"}{step.skipped_steps ? ` (pulou ${step.skipped_steps} etapas)` : ""}</div>
+                        )}
                       </div>
                     ))}
                   </div>
