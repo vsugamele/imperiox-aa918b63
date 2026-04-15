@@ -204,12 +204,27 @@ serve(async (req) => {
 
       // Send via provider (media or text)
       let result;
-      if (media_url && provider.provider === "evolution") {
-        result = await sendEvolutionMedia(provider, phone, media_url, media_type || "image", content || undefined);
-      } else if (provider.provider === "evolution") {
-        result = await sendEvolution(provider, phone, content);
-      } else {
-        result = await sendTwilio(provider, phone, content);
+      try {
+        if (media_url && provider.provider === "evolution") {
+          result = await sendEvolutionMedia(provider, phone, media_url, media_type || "image", content || undefined);
+        } else if (provider.provider === "evolution") {
+          result = await sendEvolution(provider, phone, content);
+        } else {
+          result = await sendTwilio(provider, phone, content);
+        }
+      } catch (sendErr: any) {
+        console.error("[send_message] provider error:", sendErr.message);
+        const isConnectionClosed = sendErr.message?.includes("Connection Closed");
+        return new Response(JSON.stringify({
+          success: false,
+          error: isConnectionClosed
+            ? "Sessão WhatsApp desconectada. Reconecte via QR Code no painel."
+            : `Falha ao enviar: ${sendErr.message}`,
+          fallback: true,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       // Handle invalid number gracefully
