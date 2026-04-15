@@ -25,6 +25,7 @@ import ConversationList from "@/components/whatsapp/ConversationList";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 import CampaignManager from "@/components/whatsapp/CampaignManager";
+import GroupDistributor from "@/components/whatsapp/GroupDistributor";
 import CommandManager from "@/components/whatsapp/CommandManager";
 import WhatsAppAIConfig from "@/components/whatsapp/WhatsAppAIConfig";
 
@@ -269,6 +270,7 @@ export default function WhatsApp() {
         {activeTab === "campanhas" && (
           <ScrollArea className="h-full">
             <CampaignManager projects={projects} providers={providers} />
+            <GroupDistributor campaigns={campaigns} />
           </ScrollArea>
         )}
 
