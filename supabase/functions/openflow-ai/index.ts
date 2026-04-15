@@ -1344,3 +1344,123 @@ Organize o funil completo com todas as etapas necessárias.`;
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+// ── Image Generation ──
+async function handleGenerateImage(body: any, sb: any, projectContext: string, apiKey: string, mentePrefix = "") {
+  const { project_id, prompt, quality = "fast", image_style } = body;
+  const imageModel = quality === "high" ? "google/gemini-3-pro-image-preview" : "google/gemini-2.5-flash-image";
+
+  const systemParts = [mentePrefix, "Você é um designer gráfico especialista em criativos de marketing digital brasileiro."];
+  if (projectContext) systemParts.push(`Contexto do projeto:\n${projectContext.slice(0, 2000)}`);
+  if (image_style) systemParts.push(`Estilo visual desejado: ${image_style}`);
+
+  const userPrompt = `Gere um criativo visual de alta qualidade com base na descrição: "${prompt}". A imagem deve ser profissional, atrativa e adequada para uso em anúncios ou redes sociais.`;
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: imageModel,
+      messages: [
+        { role: "system", content: systemParts.join("\n") },
+        { role: "user", content: userPrompt },
+      ],
+      modalities: ["image", "text"],
+    }),
+  });
+
+  if (!response.ok) return handleAIError(response);
+  const result = await response.json();
+  const imageData = result.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const textResponse = result.choices?.[0]?.message?.content || "";
+
+  if (!imageData) {
+    return new Response(JSON.stringify({ error: "Nenhuma imagem gerada. Tente novamente com um prompt diferente." }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Upload to storage
+  let publicUrl = imageData; // fallback to base64
+  try {
+    const base64 = imageData.replace(/^data:image\/\w+;base64,/, "");
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const filePath = `ai-generated/${project_id}/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+    const { error: uploadErr } = await sb.storage.from("project-content").upload(filePath, bytes, { contentType: "image/png", upsert: true });
+    if (!uploadErr) {
+      const { data: urlData } = sb.storage.from("project-content").getPublicUrl(filePath);
+      publicUrl = urlData.publicUrl;
+    } else {
+      console.error("Storage upload error:", uploadErr);
+    }
+  } catch (e) { console.error("Error uploading generated image:", e); }
+
+  return new Response(JSON.stringify({ image_url: publicUrl, text: textResponse, model: imageModel }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ── Image Editing ──
+async function handleEditImage(body: any, sb: any, projectContext: string, apiKey: string, mentePrefix = "") {
+  const { project_id, source_image_url, instruction } = body;
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-image",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: instruction },
+          { type: "image_url", image_url: { url: source_image_url } },
+        ],
+      }],
+      modalities: ["image", "text"],
+    }),
+  });
+
+  if (!response.ok) return handleAIError(response);
+  const result = await response.json();
+  const imageData = result.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+  if (!imageData) {
+    return new Response(JSON.stringify({ error: "Falha na edição. Tente uma instrução diferente." }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  let publicUrl = imageData;
+  try {
+    const base64 = imageData.replace(/^data:image\/\w+;base64,/, "");
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const filePath = `ai-edited/${project_id}/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+    const { error: uploadErr } = await sb.storage.from("project-content").upload(filePath, bytes, { contentType: "image/png", upsert: true });
+    if (!uploadErr) {
+      const { data: urlData } = sb.storage.from("project-content").getPublicUrl(filePath);
+      publicUrl = urlData.publicUrl;
+    }
+  } catch (e) { console.error("Error uploading edited image:", e); }
+
+  return new Response(JSON.stringify({ image_url: publicUrl, text: result.choices?.[0]?.message?.content || "" }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ── Brainstorm Ideas ──
+async function handleBrainstorm(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+  const { content_focus, num_ideas = 10 } = body;
+  const isOpenRouter = baseUrl.includes("openrouter.ai");
+  const brainstorm = await callAI(
+    `${mentePrefix}Você é um estrategista de conteúdo digital brasileiro altamente criativo.
+${projectContext}
+Gere ${num_ideas} ideias de conteúdo únicas e criativas. Cada uma com título magnético, formato sugerido e gancho de engajamento.
+${content_focus ? `Foco: ${content_focus}` : "Diversifique entre formatos (reels, carrossel, stories, vídeo, email, ads)."}`,
+    `Gere ${num_ideas} ideias de conteúdo criativas e práticas.`,
+    apiKey, model,
+    [{ type: "function", function: { name: "brainstorm_ideas", description: "Generate content brainstorm", parameters: { type: "object", properties: { ideas: { type: "array", items: { type: "object", properties: { titulo: { type: "string" }, formato: { type: "string", enum: ["reels", "carrossel", "stories", "video_longo", "email", "ads_imagem", "ads_video", "thread", "live"] }, gancho: { type: "string" }, nivel_dificuldade: { type: "string", enum: ["facil", "medio", "avancado"] }, potencial_viral: { type: "number" } }, required: ["titulo", "formato", "gancho"], additionalProperties: false } } }, required: ["ideas"], additionalProperties: false } } }],
+    "brainstorm_ideas", baseUrl
+  );
+  if (brainstorm instanceof Response) return brainstorm;
+  return new Response(JSON.stringify({ brainstorm }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
