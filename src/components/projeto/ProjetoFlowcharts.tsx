@@ -115,7 +115,37 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
     updateActive(chart);
   };
 
-  // --- Nodes ---
+  // --- AI Generate ---
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    try {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: project.id, action: "generate_flowchart", description: aiPrompt, num_nodes: 10 },
+      });
+      if (fnError) throw fnError;
+      const nodes: FlowNode[] = fnData?.nodes || [];
+      if (nodes.length === 0) { toast.error("A IA não retornou nós."); return; }
+
+      if (!active) {
+        // Create new flowchart with the nodes
+        const fc: Flowchart = { id: crypto.randomUUID(), name: aiPrompt.slice(0, 40), nodes };
+        const updated = [...flowcharts, fc];
+        onUpdateData({ ...data, flowcharts: updated });
+        setActiveIdx(updated.length - 1);
+      } else {
+        updateActive({ ...active, nodes: [...active.nodes, ...nodes] });
+      }
+      toast.success(`${nodes.length} nós gerados com IA!`);
+      setAiDialogOpen(false);
+      setAiPrompt("");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao gerar fluxograma: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const addNode = (type: FlowNode["type"]) => {
     if (!active) return;
     const rect = canvasRef.current?.getBoundingClientRect();
