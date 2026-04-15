@@ -15,7 +15,7 @@ interface Props {
   isAdmin: boolean;
 }
 
-export default function DashboardRevenue({ period, projectFilter, isAdmin }: Props) {
+export default function DashboardRevenue({ period, projectFilter, productFilter, isAdmin }: Props) {
   const [totalReceita, setTotalReceita] = useState(0);
   const [receitaBreakdown, setReceitaBreakdown] = useState<{ vendas: number; manual: number }>({ vendas: 0, manual: 0 });
   const [autoExecCount, setAutoExecCount] = useState(0);
