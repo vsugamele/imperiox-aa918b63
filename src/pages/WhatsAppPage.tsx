@@ -270,7 +270,7 @@ export default function WhatsApp() {
         {activeTab === "campanhas" && (
           <ScrollArea className="h-full">
             <CampaignManager projects={projects} providers={providers} />
-            <GroupDistributor campaigns={projects.map(p => ({ id: p.id, name: p.name, groups: [] }))} />
+            <GroupDistributor />
           </ScrollArea>
         )}
 

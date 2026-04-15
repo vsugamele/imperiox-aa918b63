@@ -21,12 +21,15 @@ interface Distributor {
   created_at: string;
 }
 
-interface Props {
-  campaigns: { id: string; name: string; groups: string[] }[];
+interface WaCampaign {
+  id: string;
+  name: string;
+  groups: string[];
 }
 
-export default function GroupDistributor({ campaigns }: Props) {
+export default function GroupDistributor() {
   const [distributors, setDistributors] = useState<Distributor[]>([]);
+  const [campaigns, setCampaigns] = useState<WaCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ slug: "", max_per_group: 250, campaign_id: "" });
@@ -35,11 +38,12 @@ export default function GroupDistributor({ campaigns }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("imphq_wa_group_distributors")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setDistributors((data as any[]) || []);
+    const [distRes, campRes] = await Promise.all([
+      supabase.from("imphq_wa_group_distributors").select("*").order("created_at", { ascending: false }),
+      supabase.from("imphq_wa_campaigns").select("id, name, groups").order("name"),
+    ]);
+    setDistributors((distRes.data as any[]) || []);
+    setCampaigns((campRes.data as any[]) || []);
     setLoading(false);
   }, []);
 
