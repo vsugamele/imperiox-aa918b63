@@ -335,6 +335,9 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
               </Button>
             ))}
             <FlowImportDialog onImportNodes={importNodes} projectSlug={project.slug} />
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setAiDialogOpen(true)}>
+              <Sparkles className="h-3 w-3" /> Gerar com IA
+            </Button>
             <div className="ml-auto flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
                 <ZoomOut className="h-3 w-3" />
