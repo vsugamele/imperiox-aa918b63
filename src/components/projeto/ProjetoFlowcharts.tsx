@@ -63,6 +63,7 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
+  const [editingNode, setEditingNode] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
