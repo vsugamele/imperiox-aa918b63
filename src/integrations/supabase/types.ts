@@ -13458,6 +13458,85 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_distributor_clicks: {
+        Row: {
+          created_at: string
+          distributor_id: string
+          group_jid: string
+          id: string
+          ip_hash: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          distributor_id: string
+          group_jid: string
+          id?: string
+          ip_hash?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          distributor_id?: string
+          group_jid?: string
+          id?: string
+          ip_hash?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_distributor_clicks_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_group_distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_group_distributors: {
+        Row: {
+          campaign_id: string | null
+          click_count: number
+          created_at: string
+          id: string
+          is_active: boolean
+          max_per_group: number
+          redirect_order: string[]
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          click_count?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_per_group?: number
+          redirect_order?: string[]
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          click_count?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_per_group?: number
+          redirect_order?: string[]
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_group_distributors_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_group_exits: {
         Row: {
           campaign_id: string | null
