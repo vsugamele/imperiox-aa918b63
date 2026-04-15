@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight, ImageIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight, ImageIcon, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { FlowMinimap } from "./flowchart/FlowMinimap";
 import { FlowImportDialog } from "./flowchart/FlowImportDialog";
 
@@ -63,6 +65,9 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
   const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
   const [editingNode, setEditingNode] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveRef = useRef<NodeJS.Timeout>();
@@ -110,7 +115,37 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
     updateActive(chart);
   };
 
-  // --- Nodes ---
+  // --- AI Generate ---
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    try {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("openflow-ai", {
+        body: { project_id: project.id, action: "generate_flowchart", description: aiPrompt, num_nodes: 10 },
+      });
+      if (fnError) throw fnError;
+      const nodes: FlowNode[] = fnData?.nodes || [];
+      if (nodes.length === 0) { toast.error("A IA não retornou nós."); return; }
+
+      if (!active) {
+        // Create new flowchart with the nodes
+        const fc: Flowchart = { id: crypto.randomUUID(), name: aiPrompt.slice(0, 40), nodes };
+        const updated = [...flowcharts, fc];
+        onUpdateData({ ...data, flowcharts: updated });
+        setActiveIdx(updated.length - 1);
+      } else {
+        updateActive({ ...active, nodes: [...active.nodes, ...nodes] });
+      }
+      toast.success(`${nodes.length} nós gerados com IA!`);
+      setAiDialogOpen(false);
+      setAiPrompt("");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao gerar fluxograma: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const addNode = (type: FlowNode["type"]) => {
     if (!active) return;
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -300,6 +335,9 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
               </Button>
             ))}
             <FlowImportDialog onImportNodes={importNodes} projectSlug={project.slug} />
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setAiDialogOpen(true)}>
+              <Sparkles className="h-3 w-3" /> Gerar com IA
+            </Button>
             <div className="ml-auto flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
                 <ZoomOut className="h-3 w-3" />
@@ -418,12 +456,41 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground text-sm mb-3">Nenhum fluxograma ainda. Crie um para visualizar seus processos estratégicos.</p>
-            <Button onClick={addFlowchart} className="gap-1">
-              <Plus className="h-4 w-4" /> Criar Primeiro Fluxograma
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={addFlowchart} className="gap-1">
+                <Plus className="h-4 w-4" /> Criar Manualmente
+              </Button>
+              <Button variant="outline" className="gap-1 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setAiDialogOpen(true)}>
+                <Sparkles className="h-4 w-4" /> Gerar com IA
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* AI Generation Dialog */}
+      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Gerar Fluxograma com IA</DialogTitle>
+            <DialogDescription>Descreva o processo ou fluxo que deseja criar e a IA vai desenhar os nós e conexões automaticamente.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder="Ex: Funil de vendas com captação de leads, qualificação, proposta, follow-up e fechamento..."
+            className="min-h-[120px] bg-secondary"
+            disabled={aiLoading}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>Cancelar</Button>
+            <Button onClick={handleAiGenerate} disabled={aiLoading || !aiPrompt.trim()} className="gap-1">
+              {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {aiLoading ? "Gerando..." : "Gerar Fluxograma"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

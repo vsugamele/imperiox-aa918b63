@@ -225,6 +225,122 @@ export type Database = {
           },
         ]
       }
+      appbrabas_anamnese_campos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          obrigatorio: boolean
+          opcoes: string[] | null
+          ordem: number
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          obrigatorio?: boolean
+          opcoes?: string[] | null
+          ordem?: number
+          tipo?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          obrigatorio?: boolean
+          opcoes?: string[] | null
+          ordem?: number
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      appbrabas_anamnese_fichas: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string
+          id: string
+          preenchida_em: string | null
+          status: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          id?: string
+          preenchida_em?: string | null
+          status?: string
+          token?: string
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          id?: string
+          preenchida_em?: string | null
+          status?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_anamnese_fichas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_anamnese_respostas: {
+        Row: {
+          campo_id: string
+          created_at: string
+          ficha_id: string
+          id: string
+          valor: string | null
+        }
+        Insert: {
+          campo_id: string
+          created_at?: string
+          ficha_id: string
+          id?: string
+          valor?: string | null
+        }
+        Update: {
+          campo_id?: string
+          created_at?: string
+          ficha_id?: string
+          id?: string
+          valor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_anamnese_respostas_campo_id_fkey"
+            columns: ["campo_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_anamnese_campos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_anamnese_respostas_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_anamnese_fichas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_caixa: {
         Row: {
           abertura: string | null

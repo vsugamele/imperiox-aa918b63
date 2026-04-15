@@ -151,6 +151,7 @@ serve(async (req) => {
     }
 
     // Route by action — pass mentePrefix for personality injection
+    if (action === "generate_flowchart") return await handleGenerateFlowchart(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_image") return await handleGenerateImage(body, sb, projectContext, aiApiKey, mentePrefix);
     if (action === "edit_image") return await handleEditImage(body, sb, projectContext, aiApiKey, mentePrefix);
     if (action === "generate_brainstorm") return await handleBrainstorm(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
@@ -1466,4 +1467,75 @@ ${content_focus ? `Foco: ${content_focus}` : "Diversifique entre formatos (reels
   );
   if (brainstorm instanceof Response) return brainstorm;
   return new Response(JSON.stringify({ brainstorm }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+// ── Generate Flowchart ──
+async function handleGenerateFlowchart(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+  const { description, num_nodes = 8 } = body;
+  if (!description) return new Response(JSON.stringify({ error: "description is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const systemPrompt = `${mentePrefix}Você é um especialista em desenho de processos e fluxogramas estratégicos.
+${projectContext}
+
+O usuário vai descrever um processo/fluxo e você deve gerar os nós (nodes) de um fluxograma visual.
+Cada nó tem: title, subtitle (descrição curta), type (etapa|decisao|resultado|nota), color (hex).
+As conexões entre nós são definidas por connects_to (array de índices dos nós destino, começando em 0).
+Posicione os nós de forma organizada no canvas (pos_x, pos_y). Use espaçamento de ~280px horizontal e ~160px vertical.
+Gere entre 4 e ${num_nodes} nós dependendo da complexidade.`;
+
+  const result = await callAIWithTools(
+    systemPrompt,
+    `Gere um fluxograma para: ${description}`,
+    `Crie os nós do fluxograma de forma clara e conectada.`,
+    apiKey, model,
+    [{
+      type: "function",
+      function: {
+        name: "create_flowchart",
+        description: "Create flowchart nodes with connections",
+        parameters: {
+          type: "object",
+          properties: {
+            nodes: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  subtitle: { type: "string" },
+                  type: { type: "string", enum: ["etapa", "decisao", "resultado", "nota"] },
+                  color: { type: "string" },
+                  pos_x: { type: "number" },
+                  pos_y: { type: "number" },
+                  connects_to: { type: "array", items: { type: "number" } }
+                },
+                required: ["title", "type", "pos_x", "pos_y"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["nodes"],
+          additionalProperties: false
+        }
+      }
+    }],
+    "create_flowchart", baseUrl
+  );
+  if (result instanceof Response) return result;
+  
+  // Convert index-based connects_to to UUID-based
+  const nodesRaw = result.nodes || [];
+  const ids = nodesRaw.map(() => crypto.randomUUID());
+  const nodes = nodesRaw.map((n: any, i: number) => ({
+    id: ids[i],
+    title: n.title || `Nó ${i + 1}`,
+    subtitle: n.subtitle || "",
+    type: n.type || "etapa",
+    color: n.color || "#3b82f6",
+    pos_x: n.pos_x || 100 + (i % 4) * 280,
+    pos_y: n.pos_y || 100 + Math.floor(i / 4) * 180,
+    connects_to: (n.connects_to || []).filter((idx: number) => idx >= 0 && idx < nodesRaw.length && idx !== i).map((idx: number) => ids[idx]),
+  }));
+
+  return new Response(JSON.stringify({ nodes }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
