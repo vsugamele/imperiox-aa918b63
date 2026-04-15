@@ -43,6 +43,15 @@ export default function DashboardStats({ period, projectFilter, productFilter }:
         });
       }
 
+      // Count IC (Initiate Checkout) from imphq_vendas
+      const icStatuses = ["inicio_checkout", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente"];
+      let icQuery = supabase.from("imphq_vendas").select("id", { count: "exact", head: true })
+        .in("status", icStatuses)
+        .gte("created_at", from).lte("created_at", to);
+      if (projectFilter !== "all") icQuery = icQuery.eq("project_id", projectFilter);
+      if (productFilter && productFilter !== "all") icQuery = icQuery.eq("produto_nome", productFilter);
+      const icRes = await icQuery;
+
       setStats({
         projects: projRes.count || 0,
         tasks: taskRes.count || 0,
@@ -51,7 +60,7 @@ export default function DashboardStats({ period, projectFilter, productFilter }:
       });
     }
     load();
-  }, [period, projectFilter]);
+  }, [period, projectFilter, productFilter]);
 
   const statCards = [
     { label: "Projetos", value: stats.projects, icon: FolderKanban, gradient: "from-primary/15 to-primary/5", iconBg: "bg-primary/15 text-primary", textColor: "text-primary" },
