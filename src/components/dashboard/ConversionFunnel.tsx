@@ -25,64 +25,60 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const { from: since } = getPeriodRange(period);
+      const { from: since, to } = getPeriodRange(period);
 
-      let query = supabase
-        .from("imphq_webhooks")
-        .select("evento, payload")
-        .gte("created_at", since);
+      // 1) Leads count from imphq_leads
+      let leadsQ = supabase.from("imphq_leads").select("id", { count: "exact", head: true })
+        .gte("criado_em", since).lte("criado_em", to);
+      if (projectFilter && projectFilter !== "all") leadsQ = leadsQ.eq("project_id", projectFilter);
 
-      if (projectFilter && projectFilter !== "all") {
-        query = query.eq("project_id", projectFilter);
-      }
+      // 2) Sales data from imphq_vendas (much more complete than webhooks)
+      let vendasQ = supabase.from("imphq_vendas").select("status, produto_nome")
+        .gte("created_at", since).lte("created_at", to);
+      if (projectFilter && projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
 
-      const { data: webhooks } = await query;
+      const [leadsRes, vendasRes] = await Promise.all([leadsQ, vendasQ]);
 
-      // Count by evento, filtering by product if set
-      const counts: Record<string, number> = {};
-      (webhooks || []).forEach((w: any) => {
-        // Product filter: check payload for product name
+      const leadCount = leadsRes.count || 0;
+
+      // Count vendas by status, applying product filter
+      const vendas = (vendasRes.data || []) as any[];
+      const statusCounts: Record<string, number> = {};
+      vendas.forEach((v) => {
         if (productFilter && productFilter !== "all") {
-          const p = w.payload;
-          const prodName = p?.item?.product_name || p?.data?.product?.name || p?.product_name || p?.Product?.name || p?.dados?.nome_produto || "";
-          if (prodName && prodName.toLowerCase() !== productFilter.toLowerCase()) return;
+          if (v.produto_nome && v.produto_nome.toLowerCase() !== productFilter.toLowerCase()) return;
         }
-        const ev = w.evento || "desconhecido";
-        counts[ev] = (counts[ev] || 0) + 1;
+        const s = (v.status || "").toLowerCase();
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
       });
 
-      // Build funnel steps
+      const icStatuses = ["inicio_checkout", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente"];
+      const pixStatuses = ["pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente"];
+      const approvedStatuses = ["aprovado"];
+      const lostStatuses = ["expirado", "cancelado", "recusado", "reembolsado", "chargedback"];
+
+      const icCount = Object.entries(statusCounts)
+        .filter(([s]) => icStatuses.includes(s) || approvedStatuses.includes(s) || lostStatuses.includes(s))
+        .reduce((sum, [, c]) => sum + c, 0);
+
+      const pixCount = Object.entries(statusCounts)
+        .filter(([s]) => pixStatuses.includes(s) || approvedStatuses.includes(s) || lostStatuses.some(ls => s.includes(ls)))
+        .reduce((sum, [, c]) => sum + c, 0);
+
+      const approvedCount = Object.entries(statusCounts)
+        .filter(([s]) => approvedStatuses.includes(s))
+        .reduce((sum, [, c]) => sum + c, 0);
+
+      const lostCount = Object.entries(statusCounts)
+        .filter(([s]) => lostStatuses.some(ls => s.includes(ls)))
+        .reduce((sum, [, c]) => sum + c, 0);
+
       const funnelSteps: FunnelStep[] = [
-        {
-          label: "Visualizações / Leads",
-          icon: "👁️",
-          count: (counts["lead_capturado"] || 0) + (counts["desconhecido"] || 0),
-          events: ["lead_capturado", "desconhecido"],
-        },
-        {
-          label: "Início Checkout",
-          icon: "🛒",
-          count: (counts["inicio_checkout"] || 0) + (counts["initiate_checkout"] || 0) + (counts["purchase_out_of_shopping_cart"] || 0),
-          events: ["inicio_checkout", "initiate_checkout", "purchase_out_of_shopping_cart"],
-        },
-        {
-          label: "PIX / Boleto Gerado",
-          icon: "📱",
-          count: (counts["pix_gerado"] || 0) + (counts["pix_created"] || 0) + (counts["aguardando_pagamento"] || 0) + (counts["purchase_billet_printed"] || 0) + (counts["boleto_gerado"] || 0),
-          events: ["pix_gerado", "pix_created", "aguardando_pagamento", "boleto_gerado"],
-        },
-        {
-          label: "Pagamento Aprovado",
-          icon: "✅",
-          count: counts["compra_aprovada"] || 0,
-          events: ["compra_aprovada"],
-        },
-        {
-          label: "Recusado / Expirado",
-          icon: "❌",
-          count: (counts["refused"] || 0) + (counts["pagamento_recusado"] || 0) + (counts["pix_expired"] || 0) + (counts["purchase_expired"] || 0) + (counts["pagamento_expirado"] || 0) + (counts["purchase_canceled"] || 0) + (counts["compra_cancelada"] || 0),
-          events: ["refused", "pagamento_recusado", "pix_expired", "purchase_expired", "pagamento_expirado"],
-        },
+        { label: "Visualizações / Leads", icon: "👁️", count: leadCount, events: [] },
+        { label: "Início Checkout", icon: "🛒", count: icCount, events: [] },
+        { label: "PIX / Boleto Gerado", icon: "📱", count: pixCount, events: [] },
+        { label: "Pagamento Aprovado", icon: "✅", count: approvedCount, events: [] },
+        { label: "Recusado / Expirado", icon: "❌", count: lostCount, events: [] },
       ];
 
       setSteps(funnelSteps);
