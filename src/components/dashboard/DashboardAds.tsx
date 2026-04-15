@@ -90,6 +90,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
 
       let vendas = (vendasRes.data || []) as any[];
       if (projectFilter !== "all") vendas = vendas.filter((v: any) => v.project_id === projectFilter);
+      if (productFilter && productFilter !== "all") vendas = vendas.filter((v: any) => v.produto_nome === productFilter);
 
       const gasto = items.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
       const leads = items.reduce((s: number, a: any) => s + (a.leads || 0), 0);
