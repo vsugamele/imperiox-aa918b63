@@ -81,7 +81,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
       // Parallel fetch: ads + vendas reais
       const [adsRes, vendasRes] = await Promise.all([
         supabase.from("imphq_ads_spend").select("*").gte("data_ref", since),
-        supabase.from("imphq_vendas").select("valor_liquido, produto_nome, project_id").gte("created_at", from).eq("status", "approved"),
+        supabase.from("imphq_vendas").select("valor, produto_nome, project_id").gte("created_at", from).eq("status", "aprovado"),
       ]);
 
       const projMap = new Map((allProjects || []).map((p: any) => [p.id, p]));
@@ -112,7 +112,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
       const cpm = cpmItems.length > 0 ? cpmItems.reduce((s: number, a: any) => s + parseFloat(a.cpm), 0) / cpmItems.length : (impressoes > 0 ? (gasto / impressoes) * 1000 : 0);
 
       // Vendas reais
-      const receitaReal = vendas.reduce((s: number, v: any) => s + (parseFloat(v.valor_liquido) || 0), 0);
+      const receitaReal = vendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
       const vendasReais = vendas.length;
       const roasReal = gasto > 0 ? receitaReal / gasto : 0;
 
