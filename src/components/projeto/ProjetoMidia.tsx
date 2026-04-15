@@ -420,6 +420,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                 onDelete={deleteItem}
                 onEdit={(item) => { setEditItem(item); setEditDialog(true); }}
                 onPreview={setPreviewItem}
+                onAiEdit={(item) => { setAiEditItem(item); setAiEditDialog(true); }}
               />
             </TabsContent>
           );
