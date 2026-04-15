@@ -752,7 +752,10 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
       if (byNome?.[0]?.system_prompt) { systemPrompt = byNome[0].system_prompt; skillCategoria = byNome[0].categoria || ""; }
     }
   }
-  if (!systemPrompt) throw new Error("Skill sem system_prompt");
+  if (!systemPrompt) {
+    console.warn(`[execute_skill] Skill not found: id=${skill_id} slug=${skill_slug}. Using fallback.`);
+    systemPrompt = "Você é um especialista em marketing digital, copy e infoprodutos. Gere conteúdo de alta qualidade baseado no contexto do projeto.";
+  }
 
   // Auto-enrich with complementary skills
   let complementaryContext = "";
