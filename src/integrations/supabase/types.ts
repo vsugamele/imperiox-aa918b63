@@ -567,6 +567,79 @@ export type Database = {
           },
         ]
       }
+      appbrabas_equipe_membros: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          role: string
+          salao_id: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          role?: string
+          salao_id: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          role?: string
+          salao_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_equipe_membros_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_equipe_membros_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_equipe_membros_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_equipe_membros_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_equipe_membros_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_equipe_membros_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_estoque_movimentacoes: {
         Row: {
           created_at: string
@@ -920,6 +993,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      appbrabas_saloes: {
+        Row: {
+          created_at: string
+          endereco: string | null
+          id: string
+          logo_url: string | null
+          nome: string
+          owner_id: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          logo_url?: string | null
+          nome: string
+          owner_id: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          logo_url?: string | null
+          nome?: string
+          owner_id?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_saloes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_saloes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_saloes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_saloes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_saloes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appbrabas_servicos: {
         Row: {
@@ -26148,6 +26290,7 @@ export type Database = {
       }
       get_total_tickets_count: { Args: { user_uuid: string }; Returns: number }
       get_user_points: { Args: { user_uuid: string }; Returns: number }
+      get_user_salao_id: { Args: { _user_id: string }; Returns: string }
       handle_points_deduction: {
         Args: { points_to_deduct: number; user_uuid: string }
         Returns: boolean
@@ -26174,6 +26317,10 @@ export type Database = {
       is_imphq_admin: { Args: { _user_id: string }; Returns: boolean }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_salao_admin: {
+        Args: { _salao_id: string; _user_id: string }
         Returns: boolean
       }
       is_user_active: { Args: never; Returns: boolean }
