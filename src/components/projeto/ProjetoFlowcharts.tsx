@@ -456,12 +456,41 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground text-sm mb-3">Nenhum fluxograma ainda. Crie um para visualizar seus processos estratégicos.</p>
-            <Button onClick={addFlowchart} className="gap-1">
-              <Plus className="h-4 w-4" /> Criar Primeiro Fluxograma
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={addFlowchart} className="gap-1">
+                <Plus className="h-4 w-4" /> Criar Manualmente
+              </Button>
+              <Button variant="outline" className="gap-1 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setAiDialogOpen(true)}>
+                <Sparkles className="h-4 w-4" /> Gerar com IA
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* AI Generation Dialog */}
+      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Gerar Fluxograma com IA</DialogTitle>
+            <DialogDescription>Descreva o processo ou fluxo que deseja criar e a IA vai desenhar os nós e conexões automaticamente.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder="Ex: Funil de vendas com captação de leads, qualificação, proposta, follow-up e fechamento..."
+            className="min-h-[120px] bg-secondary"
+            disabled={aiLoading}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>Cancelar</Button>
+            <Button onClick={handleAiGenerate} disabled={aiLoading || !aiPrompt.trim()} className="gap-1">
+              {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {aiLoading ? "Gerando..." : "Gerar Fluxograma"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
