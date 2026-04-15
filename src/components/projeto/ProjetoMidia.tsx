@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon, Paperclip, FolderOpen, FolderPlus, ChevronRight, Home } from "lucide-react";
+import { Plus, Trash2, Image, Upload, Loader2, Video, FileText, Music, Eye, X, CalendarIcon, Paperclip, FolderOpen, FolderPlus, ChevronRight, Home, Wand2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUpload } from "@/components/FileUpload";
 import { supabase } from "@/integrations/supabase/client";
@@ -78,6 +78,11 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
 
   // Task attachments state
   const [taskAttachments, setTaskAttachments] = useState<any[]>([]);
+  // AI edit state
+  const [aiEditDialog, setAiEditDialog] = useState(false);
+  const [aiEditItem, setAiEditItem] = useState<ContentItem | null>(null);
+  const [aiEditInstruction, setAiEditInstruction] = useState("");
+  const [aiEditing, setAiEditing] = useState(false);
 
   const projectId = project.id;
 
@@ -255,6 +260,41 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
     toast.success("Arquivo movido");
   };
 
+  const handleAiEdit = async () => {
+    if (!aiEditItem || !aiEditInstruction.trim()) return;
+    setAiEditing(true);
+    try {
+      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          project_id: projectId,
+          action: "edit_image",
+          source_image_url: aiEditItem.file_url,
+          instruction: aiEditInstruction,
+        },
+      });
+      if (error) throw error;
+      if (aiData?.image_url) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("imphq_content_library").insert({
+            project_id: projectId,
+            user_id: user.id,
+            title: `${aiEditItem.title} (editado IA)`,
+            file_url: aiData.image_url,
+            file_type: "image",
+            tags: [...(aiEditItem.tags || []), "ia-editado"],
+            content_category: aiEditItem.content_category,
+          });
+        }
+        toast.success("Imagem editada e salva!");
+        loadItems();
+        setAiEditDialog(false);
+        setAiEditInstruction("");
+      } else throw new Error(aiData?.error || "Erro ao editar");
+    } catch (err: any) { toast.error(err.message || "Erro ao editar imagem"); }
+    finally { setAiEditing(false); }
+  };
+
   return (
     <div className="space-y-4">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -380,6 +420,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                 onDelete={deleteItem}
                 onEdit={(item) => { setEditItem(item); setEditDialog(true); }}
                 onPreview={setPreviewItem}
+                onAiEdit={(item) => { setAiEditItem(item); setAiEditDialog(true); }}
               />
             </TabsContent>
           );
@@ -556,12 +597,36 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* AI Edit Dialog */}
+      <Dialog open={aiEditDialog} onOpenChange={setAiEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5 text-primary" /> Editar com IA</DialogTitle>
+            <DialogDescription>Descreva a alteração desejada na imagem.</DialogDescription>
+          </DialogHeader>
+          {aiEditItem && (
+            <div className="space-y-3">
+              <img src={aiEditItem.file_url} alt={aiEditItem.title} className="w-full max-h-[200px] object-contain rounded-lg border border-border" />
+              <Textarea value={aiEditInstruction} onChange={e => setAiEditInstruction(e.target.value)}
+                placeholder='Ex: "Adicione texto OFERTA em vermelho", "Mude o fundo para azul escuro", "Remova o background"'
+                className="min-h-[80px] bg-secondary text-sm" />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setAiEditDialog(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleAiEdit} disabled={aiEditing || !aiEditInstruction.trim()} className="gap-1.5">
+              {aiEditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              {aiEditing ? "Editando..." : "Editar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 /* ── Content Grid Sub-component ── */
-function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdit, onPreview }: {
+function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdit, onPreview, onAiEdit }: {
   items: ContentItem[];
   uploading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
@@ -569,6 +634,7 @@ function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdi
   onDelete: (item: ContentItem) => void;
   onEdit: (item: ContentItem) => void;
   onPreview: (item: ContentItem) => void;
+  onAiEdit?: (item: ContentItem) => void;
 }) {
   const formatSize = (bytes: number | null) => {
     if (!bytes) return "";
@@ -618,6 +684,11 @@ function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdi
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onEdit(item); }}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {isImage && onAiEdit && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onAiEdit(item); }} title="Editar com IA">
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(item); }}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
