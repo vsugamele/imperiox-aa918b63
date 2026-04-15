@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.wa-campaign-scheduler]
 verify_jwt = false
+
+[functions.openflow-resume]
+verify_jwt = false
+
+[functions.wa-health-monitor]
+verify_jwt = false
