@@ -26,12 +26,12 @@ interface Props {
 type ContentType = "semanal" | "ads_imagem" | "ads_video" | "vsl" | "webinar" | "lp" | "ai_image" | "carrossel" | "stories_sequence" | "email_copy" | "headline_variations" | "ideias";
 
 const SKILL_MAP: Record<string, { slug: string; label: string }> = {
-  ads_imagem: { slug: "devastador", label: "Devastador V4" },
-  ads_video: { slug: "devastador", label: "Devastador V4" },
+  ads_imagem: { slug: "devastador-copy", label: "Devastador V4" },
+  ads_video: { slug: "devastador-copy", label: "Devastador V4" },
   vsl: { slug: "lp-persuasiva", label: "LP Persuasiva V2" },
-  webinar: { slug: "webinar-roteiro", label: "Webinar Roteiro" },
+  webinar: { slug: "lp-persuasiva", label: "LP Persuasiva V2" },
   lp: { slug: "lp-persuasiva", label: "LP Persuasiva V2" },
-  headline_variations: { slug: "devastador", label: "Devastador V4" },
+  headline_variations: { slug: "devastador-copy", label: "Devastador V4" },
 };
 
 const CONTENT_TYPES: { value: ContentType; label: string; icon: any; desc: string; isNew?: boolean }[] = [
