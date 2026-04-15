@@ -625,7 +625,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
 }
 
 /* ── Content Grid Sub-component ── */
-function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdit, onPreview }: {
+function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdit, onPreview, onAiEdit }: {
   items: ContentItem[];
   uploading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
@@ -633,6 +633,7 @@ function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdi
   onDelete: (item: ContentItem) => void;
   onEdit: (item: ContentItem) => void;
   onPreview: (item: ContentItem) => void;
+  onAiEdit?: (item: ContentItem) => void;
 }) {
   const formatSize = (bytes: number | null) => {
     if (!bytes) return "";
@@ -682,6 +683,11 @@ function ContentGrid({ items, uploading, fileInputRef, onUpload, onDelete, onEdi
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onEdit(item); }}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {isImage && onAiEdit && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onAiEdit(item); }} title="Editar com IA">
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(item); }}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
