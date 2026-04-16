@@ -1188,6 +1188,39 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_referencias_fotos: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          descricao: string | null
+          foto_url: string
+          id: string
+          tags: string[] | null
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          descricao?: string | null
+          foto_url: string
+          id?: string
+          tags?: string[] | null
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          descricao?: string | null
+          foto_url?: string
+          id?: string
+          tags?: string[] | null
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       appbrabas_saloes: {
         Row: {
           created_at: string
