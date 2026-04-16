@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
+import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,15 +86,12 @@ export default function Financas() {
 
   const setQuickDate = (days: number | "month" | "all") => {
     if (days === "all") { setFilterDateFrom(""); setFilterDateTo(""); return; }
-    const to = new Date();
-    const toStr = to.toISOString().slice(0, 10);
-    setFilterDateTo(toStr);
+    setFilterDateTo(toLocalDateStr());
     if (days === "month") {
-      setFilterDateFrom(new Date(to.getFullYear(), to.getMonth(), 1).toISOString().slice(0, 10));
+      const now = new Date();
+      setFilterDateFrom(toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1)));
     } else {
-      const from = new Date(to);
-      from.setDate(from.getDate() - days);
-      setFilterDateFrom(from.toISOString().slice(0, 10));
+      setFilterDateFrom(localDaysAgo(days as number));
     }
   };
 

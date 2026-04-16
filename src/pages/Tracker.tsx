@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
+import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -81,22 +82,18 @@ const UTM_TEMPLATES: Record<string, { utm_source: string; utm_medium: string; ut
 };
 
 function getDateRange(period: string): { from: string; to: string } {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const today = toLocalDateStr();
   let from: string;
   let to = today;
   switch (period) {
     case "today": from = today; break;
-    case "yesterday": {
-      const y = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
-      from = y; to = y; break;
-    }
-    case "7d": from = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10); break;
-    case "14d": from = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10); break;
-    case "30d": from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10); break;
-    case "90d": from = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10); break;
-    case "month": from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10); break;
-    default: from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+    case "yesterday": { const y = localDaysAgo(1); from = y; to = y; break; }
+    case "7d": from = localDaysAgo(7); break;
+    case "14d": from = localDaysAgo(14); break;
+    case "30d": from = localDaysAgo(30); break;
+    case "90d": from = localDaysAgo(90); break;
+    case "month": { const now = new Date(); from = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1)); break; }
+    default: from = localDaysAgo(30);
   }
   return { from, to };
 }

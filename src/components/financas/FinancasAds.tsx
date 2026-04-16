@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -73,10 +74,9 @@ function calcCpa(items: AdsSpend[]): number {
 }
 
 function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
-  const now = new Date();
-  const d7 = new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
-  const d5 = new Date(now.getTime() - 5 * 86400000).toISOString().split("T")[0];
-  const d3 = new Date(now.getTime() - 3 * 86400000).toISOString().split("T")[0];
+  const d7 = localDaysAgo(7);
+  const d5 = localDaysAgo(5);
+  const d3 = localDaysAgo(3);
 
   const campMap = new Map<string, AdsSpend[]>();
   ads.forEach(a => {
@@ -201,7 +201,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
 
   const openNew = () => {
     setEditing(null);
-    setForm({ project_id: filterProjectId || "", plataforma: "Facebook", campanha: "", data_ref: new Date().toISOString().slice(0, 10), valor: "", impressoes: "0", cliques: "0", leads: "0" });
+    setForm({ project_id: filterProjectId || "", plataforma: "Facebook", campanha: "", data_ref: toLocalDateStr(), valor: "", impressoes: "0", cliques: "0", leads: "0" });
     setShowForm(true);
   };
 
