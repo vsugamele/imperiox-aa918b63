@@ -416,7 +416,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
                         <TableCell className="text-xs">{v.plataforma}</TableCell>
                         <TableCell className="font-mono text-emerald-400 text-xs">R$ {v.valor.toFixed(2)}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{v.utm_source || "—"}</TableCell>
-                        <TableCell className="text-xs font-mono">{v.data_venda?.slice(0, 10)}</TableCell>
+                        <TableCell className="text-xs font-mono">{v.data_venda ? toLocalDateStr(new Date(v.data_venda)) : "—"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
