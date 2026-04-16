@@ -905,7 +905,8 @@ REGRAS:
 }
 
 async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
-  const { project_id, user_prompt } = body;
+  const { project_id, user_prompt, objective, campaign_count, funnel_stage, budget_range, previous_result } = body;
+  const numCampaigns = Math.min(campaign_count || 3, 5);
 
   // Fetch existing ads data for context
   let adsContext = "";
@@ -927,37 +928,80 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
   let copyContext = "";
   if (d.copy_arsenal) copyContext = "\n## Arsenal de Copy:\n" + JSON.stringify(d.copy_arsenal).slice(0, 1000);
 
-  const systemPrompt = `Você é um media buyer brasileiro de alto nível, especialista em Meta Ads (Facebook/Instagram).
-Analise o contexto completo do projeto, incluindo avatar, produtos, copy arsenal e dados históricos de ads.
-Gere drafts de campanhas prontos para serem criados no Gerenciador de Anúncios.
-${projectContext}${adsContext}${creativesContext}${copyContext}
-REGRAS:
-- Gere campanhas realistas e específicas para este projeto
-- Use a linguagem e tom do projeto
-- Sugira públicos baseados no avatar
-- Considere dados históricos para otimizar`;
+  // Previous result for refinement
+  let prevContext = "";
+  if (previous_result) prevContext = "\n## Resultado anterior (para refinar):\n" + previous_result.slice(0, 3000);
 
-  const userMsg = user_prompt || "Gere 3 campanhas de conversão otimizadas para este projeto.";
+  const objectiveLabel = {
+    conversao: "Conversão (vendas diretas)",
+    leads: "Geração de Leads",
+    trafego: "Tráfego para página",
+    alcance: "Alcance e reconhecimento",
+    engajamento: "Engajamento social",
+    retargeting: "Retargeting de visitantes/compradores",
+  }[objective] || "Conversão";
+
+  const funnelLabel = {
+    topo: "Topo de funil (Awareness) — público frio, ainda não conhece a marca",
+    meio: "Meio de funil (Consideração) — público morno, já demonstrou interesse",
+    fundo: "Fundo de funil (Decisão) — público quente, pronto para comprar",
+    retencao: "Retenção/Upsell — clientes existentes",
+    todas: "Todas as etapas do funil",
+  }[funnel_stage] || "Todas";
+
+  const systemPrompt = `Você é um media buyer brasileiro de ALTO nível, especialista em Meta Ads (Facebook/Instagram) com experiência em escalar campanhas de infoprodutos e e-commerce.
+
+${projectContext}${adsContext}${creativesContext}${copyContext}${prevContext}
+
+## PARÂMETROS DO PEDIDO:
+- Objetivo principal: ${objectiveLabel}
+- Etapa do funil: ${funnelLabel}
+- Quantidade de campanhas: ${numCampaigns}
+${budget_range ? `- Range de budget diário: ${budget_range}` : "- Budget: sugerir baseado no contexto"}
+
+## REGRAS OBRIGATÓRIAS:
+1. Gere EXATAMENTE ${numCampaigns} campanhas distintas e complementares
+2. Cada campanha deve ter pelo menos 2 variações de copy (headline + texto primário + CTA)
+3. Sugira conjuntos de anúncios com segmentação detalhada
+4. Para retargeting: especifique janelas de tempo (7d, 14d, 30d visitantes)
+5. Use a linguagem e tom do projeto/avatar
+6. Sugira públicos baseados no avatar e dados históricos
+7. Considere dados de performance anteriores para otimizar
+8. Inclua sugestão de criativo visual detalhada (formato, cores, elementos, estilo)
+9. Justifique cada decisão estratégica`;
+
+  const userMsg = user_prompt || `Gere ${numCampaigns} campanhas de ${objectiveLabel.toLowerCase()} otimizadas para este projeto.`;
 
   const campaigns = await callAI(systemPrompt, userMsg, apiKey, model,
     [{ type: "function", function: { name: "generate_campaign_drafts", description: "Generate campaign drafts", parameters: { type: "object", properties: {
       campaigns: { type: "array", items: { type: "object", properties: {
-        nome: { type: "string" },
-        objetivo: { type: "string", enum: ["conversao", "trafego", "leads", "alcance", "engajamento"] },
+        nome: { type: "string", description: "Nome da campanha" },
+        objetivo: { type: "string", enum: ["conversao", "trafego", "leads", "alcance", "engajamento", "retargeting"] },
+        etapa_funil: { type: "string", enum: ["topo", "meio", "fundo", "retencao"], description: "Etapa do funil" },
         budget_diario: { type: "number" },
         publico: { type: "object", properties: {
           idade_min: { type: "number" }, idade_max: { type: "number" },
           genero: { type: "string", enum: ["todos", "masculino", "feminino"] },
           interesses: { type: "array", items: { type: "string" } },
           exclusoes: { type: "array", items: { type: "string" } },
+          lookalike: { type: "string", description: "Sugestão de público lookalike, se aplicável" },
+          retargeting: { type: "string", description: "Janela e critério de retargeting, se aplicável" },
         }, required: ["idade_min", "idade_max", "genero", "interesses"], additionalProperties: false },
+        conjuntos: { type: "array", items: { type: "object", properties: {
+          nome: { type: "string", description: "Nome do conjunto de anúncios" },
+          segmentacao: { type: "string", description: "Descrição da segmentação" },
+          posicionamento: { type: "string", description: "Feed, Stories, Reels, Automático, etc." },
+        }, required: ["nome", "segmentacao"], additionalProperties: false }, description: "Conjuntos de anúncios sugeridos" },
         copies: { type: "array", items: { type: "object", properties: {
-          headline: { type: "string" }, texto_primario: { type: "string" }, cta: { type: "string" },
+          headline: { type: "string" },
+          texto_primario: { type: "string" },
+          descricao: { type: "string", description: "Descrição/link description do anúncio" },
+          cta: { type: "string" },
         }, required: ["headline", "texto_primario", "cta"], additionalProperties: false } },
-        sugestao_criativo: { type: "string" },
-        justificativa: { type: "string" },
-      }, required: ["nome", "objetivo", "budget_diario", "publico", "copies", "justificativa"], additionalProperties: false } },
-      resumo_estrategico: { type: "string" },
+        sugestao_criativo: { type: "string", description: "Descrição detalhada do criativo visual (formato, estilo, cores, elementos)" },
+        justificativa: { type: "string", description: "Por que esta campanha vai funcionar para este projeto" },
+      }, required: ["nome", "objetivo", "etapa_funil", "budget_diario", "publico", "copies", "sugestao_criativo", "justificativa"], additionalProperties: false } },
+      resumo_estrategico: { type: "string", description: "Visão geral da estratégia e como as campanhas se complementam" },
     }, required: ["campaigns", "resumo_estrategico"], additionalProperties: false } } }],
     "generate_campaign_drafts", baseUrl
   );
