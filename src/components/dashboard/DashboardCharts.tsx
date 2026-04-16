@@ -117,7 +117,8 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
       for (let i = Math.min(numDays, 60) - 1; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        leadsByDay[d.toISOString().split("T")[0]] = 0;
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+        leadsByDay[key] = 0;
       }
       (leadsRawRes.data || []).forEach((l: any) => {
         const day = l.created_at?.split("T")[0];
