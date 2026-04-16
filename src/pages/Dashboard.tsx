@@ -4,7 +4,9 @@ import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Package } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { CalendarIcon, Package, GitCompareArrows } from "lucide-react";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import DashboardRevenue from "@/components/dashboard/DashboardRevenue";
 import DashboardAds from "@/components/dashboard/DashboardAds";
@@ -24,6 +26,7 @@ export default function Dashboard() {
   const [dashPeriod, setDashPeriod] = useState("30d");
   const [dashProject, setDashProject] = useState("all");
   const [dashProduct, setDashProduct] = useState("all");
+  const [compareMode, setCompareMode] = useState(false);
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
 
@@ -81,15 +84,20 @@ export default function Dashboard() {
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2 ml-auto px-3 py-1 rounded-md border border-border bg-secondary/30">
+          <GitCompareArrows className="h-3.5 w-3.5 text-muted-foreground" />
+          <Label htmlFor="compare-toggle" className="text-xs cursor-pointer select-none">Comparar período anterior</Label>
+          <Switch id="compare-toggle" checked={compareMode} onCheckedChange={setCompareMode} />
+        </div>
       </div>
 
       <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <HotLeadAlerts projectFilter={dashProject} />
       <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      <DashboardStats period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+      <DashboardStats period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} compare={compareMode} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
+          <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
         </div>
         <ConversionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       </div>
