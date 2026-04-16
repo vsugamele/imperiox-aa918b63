@@ -39,11 +39,18 @@ interface AdsSpend {
   moeda: string;
 }
 
+interface VendaItem {
+  id: string; project_id: string; produto_nome: string; valor: number;
+  plataforma: string; data_venda: string; tipo_produto?: string;
+  utm_source?: string; utm_campaign?: string;
+}
+
 interface Props {
   ads: AdsSpend[];
   projects: { id: string; name: string }[];
   onRefresh: () => void;
   filterProjectId: string;
+  vendas?: VendaItem[];
 }
 
 interface CampaignDiag {
@@ -147,7 +154,8 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
   return results.sort((a, b) => b.gasto7 - a.gasto7);
 }
 
-export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props) {
+export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas = [] }: Props) {
+  const [showVendas, setShowVendas] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<AdsSpend | null>(null);
