@@ -478,9 +478,17 @@ export default function Tracker() {
 
         <TabsContent value="dashboard" className="space-y-4">
           {/* Top-level metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} />
+            <Card className={`bg-card border-border ${totalReceita - totalGasto > 0 ? "border-emerald-400/20" : "border-destructive/20"}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><TrendingUp className="h-3 w-3" /> Lucro</div>
+                <p className={`text-xl font-bold font-mono ${totalReceita - totalGasto > 0 ? "text-emerald-400" : "text-destructive"}`}>
+                  R$ {(totalReceita - totalGasto).toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
             <KPICard icon={<MousePointerClick className="h-3 w-3" />} label="Cliques (Ads)" value={totalClicks.toLocaleString("pt-BR")} />
             <KPICard icon={<Eye className="h-3 w-3" />} label="Impressões" value={totalImpressoes.toLocaleString("pt-BR")} />
             <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendasCount)} />
