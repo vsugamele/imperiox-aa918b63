@@ -13,6 +13,7 @@ interface Props {
   projectFilter: string;
   productFilter?: string;
   isAdmin: boolean;
+  compare?: boolean;
 }
 
 export default function DashboardRevenue({ period, projectFilter, productFilter, isAdmin }: Props) {

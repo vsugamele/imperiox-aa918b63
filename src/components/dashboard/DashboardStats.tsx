@@ -33,12 +33,10 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
         .gte("data", from.split("T")[0]).lte("data", to.split("T")[0]);
       if (projectFilter !== "all") costQ = costQ.eq("project_id", projectFilter);
 
-      const [projRes, taskRes, leadRes, costRes] = await Promise.all([
-        supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
-        supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
-        leadsQ,
-        costQ,
-      ]);
+      const projRes: any = await supabase.from("imphq_projects").select("id", { count: "exact", head: true });
+      const taskRes: any = await supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done");
+      const leadRes: any = await leadsQ;
+      const costRes: any = await costQ;
 
       let totalCost = 0;
       (costRes.data || []).forEach((c: any) => {
