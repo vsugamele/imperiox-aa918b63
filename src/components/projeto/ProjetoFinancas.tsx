@@ -82,6 +82,12 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const [campaignModel, setCampaignModel] = useState("google/gemini-3-flash-preview");
   const [generatingCampaigns, setGeneratingCampaigns] = useState(false);
   const [campaignDrafts, setCampaignDrafts] = useState<any>(null);
+  const [campaignObjective, setCampaignObjective] = useState("conversao");
+  const [campaignCount, setCampaignCount] = useState("3");
+  const [campaignBudget, setCampaignBudget] = useState("");
+  const [campaignFunnel, setCampaignFunnel] = useState("todas");
+  const [refiningCampaign, setRefiningCampaign] = useState<number | null>(null);
+  const [refinePrompt, setRefinePrompt] = useState("");
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analyzingAds, setAnalyzingAds] = useState(false);
   const [adsAnalysis, setAdsAnalysis] = useState<any>(null);
@@ -376,16 +382,31 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
     { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
   ];
 
-  const handleGenerateCampaigns = async () => {
+  const handleGenerateCampaigns = async (refineIndex?: number, refineText?: string) => {
     setGeneratingCampaigns(true);
     try {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", {
-        body: { project_id: projectId, action: "generate_campaign_drafts", model: campaignModel, user_prompt: campaignPrompt || undefined },
-      });
+      const payload: any = {
+        project_id: projectId,
+        action: "generate_campaign_drafts",
+        model: campaignModel,
+        objective: campaignObjective,
+        campaign_count: parseInt(campaignCount) || 3,
+        funnel_stage: campaignFunnel,
+      };
+      if (campaignBudget) payload.budget_range = campaignBudget;
+      if (refineIndex !== undefined && refineText && campaignDrafts) {
+        payload.user_prompt = `Refine APENAS a campanha "${campaignDrafts.campaigns[refineIndex]?.nome}" com a seguinte instrução: ${refineText}. Mantenha as outras campanhas iguais.`;
+        payload.previous_result = JSON.stringify(campaignDrafts);
+      } else {
+        payload.user_prompt = campaignPrompt || undefined;
+      }
+      const { data, error } = await supabase.functions.invoke("openflow-ai", { body: payload });
       if (error) throw error;
       setCampaignDrafts(data.campaigns);
       setShowCampaignGen(false);
-      toast.success("Campanhas geradas com sucesso!");
+      setRefiningCampaign(null);
+      setRefinePrompt("");
+      toast.success(refineIndex !== undefined ? "Campanha refinada!" : "Campanhas geradas com sucesso!");
     } catch (err: any) {
       if (err?.message?.includes("429")) toast.error("Rate limit excedido. Tente novamente.");
       else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
@@ -1263,18 +1284,23 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                     <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
                       <Sparkles className="h-4 w-4" /> Campanhas Geradas por IA
                     </CardTitle>
-                    <Button size="sm" variant="ghost" onClick={() => {
-                      navigator.clipboard.writeText(JSON.stringify(campaignDrafts, null, 2));
-                      toast.success("Drafts copiados!");
-                    }}>
-                      <Copy className="h-3.5 w-3.5 mr-1" /> Copiar JSON
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => setShowCampaignGen(true)} disabled={generatingCampaigns}>
+                        <Sparkles className="h-3 w-3 mr-1" /> Regenerar
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(campaignDrafts, null, 2));
+                        toast.success("Drafts copiados!");
+                      }}>
+                        <Copy className="h-3.5 w-3.5 mr-1" /> JSON
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {campaignDrafts.resumo_estrategico && (
                       <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 mb-4">
                         <p className="text-xs font-semibold text-primary mb-1">📋 Resumo Estratégico</p>
-                        <p className="text-xs text-muted-foreground">{campaignDrafts.resumo_estrategico}</p>
+                        <p className="text-xs text-muted-foreground whitespace-pre-line">{campaignDrafts.resumo_estrategico}</p>
                       </div>
                     )}
                     <Accordion type="multiple" className="space-y-2">
@@ -1283,6 +1309,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                           <AccordionTrigger className="text-sm hover:no-underline">
                             <div className="flex items-center gap-2 text-left">
                               <Badge variant="outline" className="text-[9px] shrink-0">{camp.objetivo}</Badge>
+                              {camp.etapa_funil && <Badge variant="secondary" className="text-[9px] shrink-0">{camp.etapa_funil}</Badge>}
                               <span className="font-medium">{camp.nome}</span>
                               <Badge variant="secondary" className="text-[9px] ml-auto shrink-0">{fmt(camp.budget_diario)}/dia</Badge>
                             </div>
@@ -1300,6 +1327,28 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                                     ))}
                                   </div>
                                 )}
+                                {camp.publico.exclusoes?.length > 0 && (
+                                  <div className="mt-1">
+                                    <p className="text-[10px] text-muted-foreground">Exclusões: {camp.publico.exclusoes.join(", ")}</p>
+                                  </div>
+                                )}
+                                {camp.publico.lookalike && <p className="text-[10px] text-primary mt-1">🔄 Lookalike: {camp.publico.lookalike}</p>}
+                                {camp.publico.retargeting && <p className="text-[10px] text-amber-400 mt-1">🎯 Retargeting: {camp.publico.retargeting}</p>}
+                              </div>
+                            )}
+                            {/* Conjuntos de Anúncios */}
+                            {camp.conjuntos?.length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Conjuntos de Anúncios ({camp.conjuntos.length})</p>
+                                {camp.conjuntos.map((conj: any, k: number) => (
+                                  <div key={k} className="rounded-lg border border-border/50 bg-secondary/20 p-2.5 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-xs font-medium">{conj.nome}</p>
+                                      {conj.posicionamento && <Badge variant="outline" className="text-[9px]">{conj.posicionamento}</Badge>}
+                                    </div>
+                                    {conj.segmentacao && <p className="text-[10px] text-muted-foreground">{conj.segmentacao}</p>}
+                                  </div>
+                                ))}
                               </div>
                             )}
                             {/* Copies */}
@@ -1315,16 +1364,43 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                                   </Button>
                                 </div>
                                 <p className="text-xs font-bold text-foreground">{copy.headline}</p>
-                                <p className="text-xs text-muted-foreground">{copy.texto_primario}</p>
+                                <p className="text-xs text-muted-foreground whitespace-pre-line">{copy.texto_primario}</p>
+                                {copy.descricao && <p className="text-[10px] text-muted-foreground italic">{copy.descricao}</p>}
                                 <Badge className="text-[9px]">{copy.cta}</Badge>
                               </div>
                             ))}
                             {camp.sugestao_criativo && (
-                              <p className="text-xs text-muted-foreground"><strong>Criativo sugerido:</strong> {camp.sugestao_criativo}</p>
+                              <div className="rounded-lg bg-violet-500/5 border border-violet-500/20 p-2.5">
+                                <p className="text-[10px] font-semibold text-violet-400 uppercase mb-0.5">🎨 Criativo sugerido</p>
+                                <p className="text-xs text-muted-foreground">{camp.sugestao_criativo}</p>
+                              </div>
                             )}
                             {camp.justificativa && (
                               <p className="text-xs text-muted-foreground italic">💡 {camp.justificativa}</p>
                             )}
+                            {/* Iteration buttons */}
+                            <div className="flex gap-2 pt-2 border-t border-border/50">
+                              <Button size="sm" variant="ghost" className="text-[10px] h-7 gap-1" onClick={() => {
+                                const full = `CAMPANHA: ${camp.nome}\nObjetivo: ${camp.objetivo}\nBudget: ${fmt(camp.budget_diario)}/dia\n\nPÚBLICO:\n${camp.publico ? `${camp.publico.genero} | ${camp.publico.idade_min}-${camp.publico.idade_max} anos\nInteresses: ${camp.publico.interesses?.join(", ")}` : ""}\n\n${camp.copies?.map((c: any, j: number) => `COPY ${j+1}:\n${c.headline}\n${c.texto_primario}\nCTA: ${c.cta}`).join("\n\n") || ""}\n\nCriativo: ${camp.sugestao_criativo || ""}`;
+                                navigator.clipboard.writeText(full);
+                                toast.success("Campanha completa copiada!");
+                              }}>
+                                <Copy className="h-3 w-3" /> Copiar Tudo
+                              </Button>
+                              {refiningCampaign === i ? (
+                                <div className="flex-1 flex gap-1.5">
+                                  <Input value={refinePrompt} onChange={e => setRefinePrompt(e.target.value)} placeholder="Ex: Mais urgência na copy, aumentar budget..." className="h-7 text-xs bg-secondary flex-1" />
+                                  <Button size="sm" className="h-7 text-[10px] gap-1" disabled={generatingCampaigns || !refinePrompt} onClick={() => handleGenerateCampaigns(i, refinePrompt)}>
+                                    {generatingCampaigns ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} Refinar
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => { setRefiningCampaign(null); setRefinePrompt(""); }}>✕</Button>
+                                </div>
+                              ) : (
+                                <Button size="sm" variant="ghost" className="text-[10px] h-7 gap-1 text-primary" onClick={() => setRefiningCampaign(i)}>
+                                  <Pencil className="h-3 w-3" /> Refinar com IA
+                                </Button>
+                              )}
+                            </div>
                           </AccordionContent>
                         </AccordionItem>
                       ))}
@@ -1654,12 +1730,56 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
 
       {/* Campaign Generation Dialog */}
       <Dialog open={showCampaignGen} onOpenChange={setShowCampaignGen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Brain className="h-5 w-5 text-primary" /> Gerar Campanhas com IA</DialogTitle>
-            <DialogDescription>Descreva o que você quer ou deixe a IA decidir com base no contexto do projeto.</DialogDescription>
+            <DialogDescription>Configure os parâmetros e a IA criará campanhas completas com base no contexto do projeto.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Objetivo</Label>
+                <Select value={campaignObjective} onValueChange={setCampaignObjective}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="conversao">🎯 Conversão</SelectItem>
+                    <SelectItem value="leads">📋 Geração de Leads</SelectItem>
+                    <SelectItem value="trafego">🔗 Tráfego</SelectItem>
+                    <SelectItem value="alcance">📢 Alcance</SelectItem>
+                    <SelectItem value="engajamento">💬 Engajamento</SelectItem>
+                    <SelectItem value="retargeting">🔄 Retargeting</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Etapa do Funil</Label>
+                <Select value={campaignFunnel} onValueChange={setCampaignFunnel}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas</SelectItem>
+                    <SelectItem value="topo">🔝 Topo (Awareness)</SelectItem>
+                    <SelectItem value="meio">🎯 Meio (Consideração)</SelectItem>
+                    <SelectItem value="fundo">💰 Fundo (Decisão)</SelectItem>
+                    <SelectItem value="retencao">♻️ Retenção/Upsell</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Qtd. Campanhas</Label>
+                <Select value={campaignCount} onValueChange={setCampaignCount}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["1","2","3","4","5"].map(n => <SelectItem key={n} value={n}>{n} {n === "1" ? "campanha" : "campanhas"}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Budget diário (opcional)</Label>
+                <Input value={campaignBudget} onChange={e => setCampaignBudget(e.target.value)} placeholder="Ex: R$ 50-100" className="bg-secondary" />
+              </div>
+            </div>
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
               <Select value={campaignModel} onValueChange={setCampaignModel}>
@@ -1670,14 +1790,14 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">Descrição (opcional)</Label>
-              <Textarea value={campaignPrompt} onChange={e => setCampaignPrompt(e.target.value)} placeholder="Ex: 3 campanhas de conversão para mulheres 25-45 interessadas em skincare..." className="bg-secondary min-h-[80px]" />
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Instruções adicionais (opcional)</Label>
+              <Textarea value={campaignPrompt} onChange={e => setCampaignPrompt(e.target.value)} placeholder="Ex: Focar em mulheres 25-45 interessadas em skincare, usar prova social..." className="bg-secondary min-h-[70px]" />
             </div>
-            <p className="text-[10px] text-muted-foreground">A IA usará avatar, produtos, copy arsenal e dados de ads como contexto.</p>
+            <p className="text-[10px] text-muted-foreground">A IA usará avatar, produtos, copy arsenal, criativos e dados históricos de ads como contexto.</p>
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setShowCampaignGen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleGenerateCampaigns} disabled={generatingCampaigns} className="gap-1.5">
+            <Button size="sm" onClick={() => handleGenerateCampaigns()} disabled={generatingCampaigns} className="gap-1.5">
               {generatingCampaigns ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {generatingCampaigns ? "Gerando..." : "Gerar Campanhas"}
             </Button>
