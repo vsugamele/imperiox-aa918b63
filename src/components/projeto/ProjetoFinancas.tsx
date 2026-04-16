@@ -86,6 +86,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const [campaignCount, setCampaignCount] = useState("3");
   const [campaignBudget, setCampaignBudget] = useState("");
   const [campaignFunnel, setCampaignFunnel] = useState("todas");
+  const [campaignProduct, setCampaignProduct] = useState("");
   const [refiningCampaign, setRefiningCampaign] = useState<number | null>(null);
   const [refinePrompt, setRefinePrompt] = useState("");
   const [showAnalysis, setShowAnalysis] = useState(false);
