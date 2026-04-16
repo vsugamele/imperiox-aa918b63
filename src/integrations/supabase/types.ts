@@ -24911,6 +24911,7 @@ export type Database = {
           fake_viewers_start: number | null
           fallback_url: string | null
           form_fields: Json | null
+          has_quiz: boolean | null
           id: string
           is_panic_active: boolean | null
           landing_button_text: string | null
@@ -24968,6 +24969,7 @@ export type Database = {
           fake_viewers_start?: number | null
           fallback_url?: string | null
           form_fields?: Json | null
+          has_quiz?: boolean | null
           id?: string
           is_panic_active?: boolean | null
           landing_button_text?: string | null
@@ -25025,6 +25027,7 @@ export type Database = {
           fake_viewers_start?: number | null
           fallback_url?: string | null
           form_fields?: Json | null
+          has_quiz?: boolean | null
           id?: string
           is_panic_active?: boolean | null
           landing_button_text?: string | null
