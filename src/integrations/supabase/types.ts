@@ -341,6 +341,84 @@ export type Database = {
           },
         ]
       }
+      appbrabas_atendimentos: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          data: string
+          descricao_voz: string | null
+          diagnostico: Json | null
+          fotos: Json | null
+          id: string
+          mistura: Json | null
+          objetivo: string[] | null
+          procedimentos: string[] | null
+          produtos_usados: Json | null
+          profissional_id: string | null
+          resultado: Json | null
+          salvo_como_protocolo: boolean | null
+          tecnicas: Json | null
+          tempo_acao: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          data?: string
+          descricao_voz?: string | null
+          diagnostico?: Json | null
+          fotos?: Json | null
+          id?: string
+          mistura?: Json | null
+          objetivo?: string[] | null
+          procedimentos?: string[] | null
+          produtos_usados?: Json | null
+          profissional_id?: string | null
+          resultado?: Json | null
+          salvo_como_protocolo?: boolean | null
+          tecnicas?: Json | null
+          tempo_acao?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          data?: string
+          descricao_voz?: string | null
+          diagnostico?: Json | null
+          fotos?: Json | null
+          id?: string
+          mistura?: Json | null
+          objetivo?: string[] | null
+          procedimentos?: string[] | null
+          produtos_usados?: Json | null
+          profissional_id?: string | null
+          resultado?: Json | null
+          salvo_como_protocolo?: boolean | null
+          tecnicas?: Json | null
+          tempo_acao?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_atendimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_atendimentos_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_caixa: {
         Row: {
           abertura: string | null
