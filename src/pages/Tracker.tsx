@@ -240,7 +240,7 @@ export default function Tracker() {
     dailyMap.set(d, prev);
   });
   filteredVendas.forEach(v => {
-    const d = (v.created_at || "").slice(0, 10);
+    const d = v.created_at ? toLocalDateStr(new Date(v.created_at)) : "";
     const prev = dailyMap.get(d) || { gasto: 0, receita: 0, clicks: 0 };
     prev.receita += parseFloat(v.valor) || 0;
     dailyMap.set(d, prev);
