@@ -507,6 +507,149 @@ export default function Tracker() {
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={`R$ ${cac.toFixed(2)}`} />
           </div>
 
+          {/* UTM Source Attribution */}
+          {filteredVendas.length > 0 && (() => {
+            const sourceMap = new Map<string, { cnt: number; receita: number }>();
+            filteredVendas.forEach((v: any) => {
+              const src = v.utm_source || "Direto / Desconhecido";
+              const prev = sourceMap.get(src) || { cnt: 0, receita: 0 };
+              prev.cnt += 1;
+              prev.receita += parseFloat(v.valor) || 0;
+              sourceMap.set(src, prev);
+            });
+            const sources = Array.from(sourceMap.entries()).map(([source, d]) => ({ source, ...d })).sort((a, b) => b.receita - a.receita);
+            return (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                  <h3 className="text-sm font-semibold text-foreground">🔗 Atribuição por UTM Source</h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fonte (utm_source)</TableHead>
+                      <TableHead className="text-right">Vendas</TableHead>
+                      <TableHead className="text-right">Receita</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
+                      <TableHead className="text-right">% Receita</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sources.map((s, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium text-xs">
+                          <Badge variant="outline" className={`text-[10px] ${
+                            s.source.startsWith("FB") ? "bg-blue-500/15 text-blue-400 border-blue-500/30" :
+                            s.source.startsWith("ig") ? "bg-pink-500/15 text-pink-400 border-pink-500/30" :
+                            s.source === "organic" ? "bg-violet-500/15 text-violet-400 border-violet-500/30" :
+                            s.source === "google" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+                            "bg-gray-500/15 text-gray-400 border-gray-500/30"
+                          }`}>{s.source}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-foreground">{s.cnt}</TableCell>
+                        <TableCell className="text-right font-mono text-emerald-400">R$ {s.receita.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">R$ {(s.receita / s.cnt).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">{totalReceita > 0 ? ((s.receita / totalReceita) * 100).toFixed(1) : "0"}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })()}
+
+          {/* Product Breakdown */}
+          {filteredVendas.length > 0 && (() => {
+            const prodMap = new Map<string, { cnt: number; receita: number }>();
+            filteredVendas.forEach((v: any) => {
+              const prod = v.produto_nome || "Sem produto";
+              const prev = prodMap.get(prod) || { cnt: 0, receita: 0 };
+              prev.cnt += 1;
+              prev.receita += parseFloat(v.valor) || 0;
+              prodMap.set(prod, prev);
+            });
+            const prods = Array.from(prodMap.entries()).map(([produto, d]) => ({ produto, ...d })).sort((a, b) => b.receita - a.receita);
+            return (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                  <h3 className="text-sm font-semibold text-foreground">📦 Breakdown por Produto</h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead className="text-right">Vendas</TableHead>
+                      <TableHead className="text-right">Receita</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
+                      <TableHead className="text-right">Tipo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {prods.map((p, i) => {
+                      const tipoMap = new Map<string, number>();
+                      filteredVendas.filter((v: any) => (v.produto_nome || "Sem produto") === p.produto).forEach((v: any) => {
+                        const t = v.tipo_venda || "principal";
+                        tipoMap.set(t, (tipoMap.get(t) || 0) + 1);
+                      });
+                      const tipos = Array.from(tipoMap.entries()).map(([t, c]) => `${t} (${c})`).join(", ");
+                      return (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium text-xs max-w-[200px] truncate">{p.produto}</TableCell>
+                          <TableCell className="text-right font-mono text-foreground">{p.cnt}</TableCell>
+                          <TableCell className="text-right font-mono text-emerald-400">R$ {p.receita.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono text-muted-foreground">R$ {(p.receita / p.cnt).toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-[10px] text-muted-foreground">{tipos}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })()}
+
+          {/* Campaign Attribution (UTM Campaign → Receita) */}
+          {filteredVendas.length > 0 && (() => {
+            const campMap = new Map<string, { cnt: number; receita: number }>();
+            filteredVendas.forEach((v: any) => {
+              const raw = v.utm_campaign;
+              if (!raw) return;
+              const name = raw.split("|")[0].trim() || raw;
+              const prev = campMap.get(name) || { cnt: 0, receita: 0 };
+              prev.cnt += 1;
+              prev.receita += parseFloat(v.valor) || 0;
+              campMap.set(name, prev);
+            });
+            const camps = Array.from(campMap.entries()).map(([campanha, d]) => ({ campanha, ...d })).sort((a, b) => b.receita - a.receita).slice(0, 10);
+            if (camps.length === 0) return null;
+            return (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                  <h3 className="text-sm font-semibold text-foreground">🎯 Atribuição Campanha → Receita (Top 10)</h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Campanha (utm_campaign)</TableHead>
+                      <TableHead className="text-right">Vendas</TableHead>
+                      <TableHead className="text-right">Receita</TableHead>
+                      <TableHead className="text-right">Ticket Médio</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {camps.map((c, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium text-xs max-w-[250px] truncate">{c.campanha}</TableCell>
+                        <TableCell className="text-right font-mono text-foreground">{c.cnt}</TableCell>
+                        <TableCell className="text-right font-mono text-emerald-400">R$ {c.receita.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">R$ {(c.receita / c.cnt).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })()}
+
           {/* Daily chart */}
           {dailyChart.length > 1 && (
             <Card className="border-border">
