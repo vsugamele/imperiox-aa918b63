@@ -459,7 +459,7 @@ export default function Financas() {
               </CardContent>
             </Card>
           )}
-          <FinancasAds ads={fAds} projects={projects} onRefresh={load} filterProjectId={filterProject === "all" ? "" : filterProject} />
+          <FinancasAds ads={fAds} projects={projects} onRefresh={load} filterProjectId={filterProject === "all" ? "" : filterProject} vendas={fVendas} />
         </TabsContent>
 
         <TabsContent value="produtos">
