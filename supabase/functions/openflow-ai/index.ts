@@ -173,6 +173,7 @@ serve(async (req) => {
     if (action === "generate_campaign_message") return await handleCampaignMessage(body, projectContext, sb, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content_pack") return await handleContentPack(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "ai_organize_funnel") return await handleOrganizeFunnel(body, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_funnel_from_prompt") return await handleGenerateFunnelFromPrompt(body, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
 
     // Default: automation flow generation
     const triggerLabels: Record<string, string> = {
