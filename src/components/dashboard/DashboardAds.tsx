@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { getPeriodRange } from "@/lib/periodUtils";
+import { localDaysAgo } from "@/lib/periodUtils";
 
 interface AdsGlobal {
   gasto: number;
