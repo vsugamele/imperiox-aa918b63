@@ -1097,10 +1097,55 @@ export default function Funis() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          <Button size="sm" variant="outline" className="gap-1 border-primary/30 text-primary hover:bg-primary/10" onClick={() => setShowAiGen(true)} disabled={aiGenerating}>
+            {aiGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            Gerar com IA
+          </Button>
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
           <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
         </div>
+
+        {/* AI Generate Funnel Dialog */}
+        <Dialog open={showAiGen} onOpenChange={setShowAiGen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Gerar Funil com IA</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Descreva o funil que deseja</Label>
+                <Textarea
+                  value={aiGenPrompt}
+                  onChange={e => setAiGenPrompt(e.target.value)}
+                  placeholder="Ex: Funil de lançamento com captura → sequência de emails → VSL → checkout com orderbump e upsell de mentoria..."
+                  className="bg-secondary min-h-[100px]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
+                <Select value={aiGenModel} onValueChange={setAiGenModel}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {AI_MODELS.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedFunil?.project_id && projectProductsFull.length > 0 && (
+                <p className="text-[10px] text-emerald-400">✅ Projeto vinculado com {projectProductsFull.length} produto(s) — a IA usará como contexto.</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">A IA criará todas as etapas, conexões e posicionamento visual automaticamente. {(selectedFunil?.data.etapas || []).length > 0 && "⚠️ As etapas atuais serão substituídas."}</p>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setShowAiGen(false)}>Cancelar</Button>
+              <Button size="sm" onClick={handleAiGenerateFunnel} disabled={aiGenerating || !aiGenPrompt.trim()} className="gap-1.5">
+                {aiGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {aiGenerating ? "Gerando..." : "Gerar Funil"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
