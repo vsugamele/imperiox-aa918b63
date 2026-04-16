@@ -25,11 +25,11 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
 
   useEffect(() => {
     async function loadRange(from: string, to: string): Promise<Stats> {
-      let leadsQ = supabase.from("imphq_leads").select("id", { count: "exact", head: true })
+      let leadsQ: any = supabase.from("imphq_leads").select("id", { count: "exact", head: true })
         .gte("criado_em", from).lte("criado_em", to);
       if (projectFilter !== "all") leadsQ = leadsQ.eq("project_id", projectFilter);
 
-      let costQ = supabase.from("imphq_custos").select("valor, moeda")
+      let costQ: any = supabase.from("imphq_custos").select("valor, moeda")
         .gte("data", from.split("T")[0]).lte("data", to.split("T")[0]);
       if (projectFilter !== "all") costQ = costQ.eq("project_id", projectFilter);
 
