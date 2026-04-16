@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -38,11 +39,18 @@ interface AdsSpend {
   moeda: string;
 }
 
+interface VendaItem {
+  id: string; project_id: string; produto_nome: string; valor: number;
+  plataforma: string; data_venda: string; tipo_produto?: string;
+  utm_source?: string; utm_campaign?: string;
+}
+
 interface Props {
   ads: AdsSpend[];
   projects: { id: string; name: string }[];
   onRefresh: () => void;
   filterProjectId: string;
+  vendas?: VendaItem[];
 }
 
 interface CampaignDiag {
@@ -73,10 +81,9 @@ function calcCpa(items: AdsSpend[]): number {
 }
 
 function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
-  const now = new Date();
-  const d7 = new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
-  const d5 = new Date(now.getTime() - 5 * 86400000).toISOString().split("T")[0];
-  const d3 = new Date(now.getTime() - 3 * 86400000).toISOString().split("T")[0];
+  const d7 = localDaysAgo(7);
+  const d5 = localDaysAgo(5);
+  const d3 = localDaysAgo(3);
 
   const campMap = new Map<string, AdsSpend[]>();
   ads.forEach(a => {
@@ -147,7 +154,8 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
   return results.sort((a, b) => b.gasto7 - a.gasto7);
 }
 
-export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props) {
+export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas = [] }: Props) {
+  const [showVendas, setShowVendas] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<AdsSpend | null>(null);
@@ -201,7 +209,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
 
   const openNew = () => {
     setEditing(null);
-    setForm({ project_id: filterProjectId || "", plataforma: "Facebook", campanha: "", data_ref: new Date().toISOString().slice(0, 10), valor: "", impressoes: "0", cliques: "0", leads: "0" });
+    setForm({ project_id: filterProjectId || "", plataforma: "Facebook", campanha: "", data_ref: toLocalDateStr(), valor: "", impressoes: "0", cliques: "0", leads: "0" });
     setShowForm(true);
   };
 
@@ -369,6 +377,54 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId }: Props
               </div>
             ))}
           </CardContent>
+        </Card>
+      )}
+
+      {/* Vendas que geraram receita */}
+      {vendas.length > 0 && (
+        <Card className="border-border">
+          <CardHeader className="pb-2 cursor-pointer" onClick={() => setShowVendas(!showVendas)}>
+            <CardTitle className="text-sm flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-emerald-400" />
+                💰 Vendas no período — R$ {vendas.reduce((s, v) => s + v.valor, 0).toFixed(2)} ({vendas.length} vendas)
+              </span>
+              <span className="text-xs text-muted-foreground">{showVendas ? "▲ Recolher" : "▼ Expandir"}</span>
+            </CardTitle>
+          </CardHeader>
+          {showVendas && (
+            <CardContent className="pt-0">
+              <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Plataforma</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>UTM Source</TableHead>
+                      <TableHead>Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vendas.slice(0, 100).map(v => (
+                      <TableRow key={v.id}>
+                        <TableCell className="text-xs font-medium">{v.produto_nome}</TableCell>
+                        <TableCell className="text-[10px]">
+                          <Badge variant="outline" className="text-[9px]">{v.tipo_produto || "principal"}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">{v.plataforma}</TableCell>
+                        <TableCell className="font-mono text-emerald-400 text-xs">R$ {v.valor.toFixed(2)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{v.utm_source || "—"}</TableCell>
+                        <TableCell className="text-xs font-mono">{v.data_venda?.slice(0, 10)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {vendas.length > 100 && <p className="text-[10px] text-muted-foreground mt-1">Mostrando 100 de {vendas.length}</p>}
+            </CardContent>
+          )}
         </Card>
       )}
 

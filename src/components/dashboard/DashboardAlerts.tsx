@@ -15,7 +15,7 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
   useEffect(() => {
     async function load() {
       const alertList: string[] = [];
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
 
       const [pixTodayRes, costsRes, revsRes, vendasRes, adsRes] = await Promise.all([
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).not("data->ultimo_evento", "is", null).neq("status", "cliente").gte("updated_at", todayStr),

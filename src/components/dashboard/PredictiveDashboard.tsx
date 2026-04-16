@@ -212,7 +212,7 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
       const nowMs = Date.now();
       for (let i = 0; i < 90; i++) {
         const d = new Date(nowMs - i * 86400000);
-        const key = d.toISOString().slice(0, 10);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
         dayMap[key] = { dia: key, receita: 0, vendas: 0, leads: 0 };
       }
 

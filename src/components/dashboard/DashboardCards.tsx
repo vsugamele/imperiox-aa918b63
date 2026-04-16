@@ -25,7 +25,7 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
 
   useEffect(() => {
     async function load() {
-      const today = new Date().toISOString().split("T")[0];
+      const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
 
       const [recentRes, oppRes, eventsRes, urgentCardsRes, columnsRes, membersRes, projListRes, cardsDataRes, finResumo] = await Promise.all([
         supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),

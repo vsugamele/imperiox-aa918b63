@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { getPeriodRange } from "@/lib/periodUtils";
+import { localDaysAgo } from "@/lib/periodUtils";
 
 interface AdsGlobal {
   gasto: number;
@@ -155,7 +156,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
       }).sort((a, b) => b.value - a.value).slice(0, 5);
 
       // Frequency alerts
-      const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+      const sevenAgo = localDaysAgo(7);
       const recentAds = items.filter((a: any) => a.data_ref >= sevenAgo);
       const freqAlerts: string[] = [];
       const freqCamp = new Map<string, { freq: number; count: number }>();
@@ -171,10 +172,9 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
       });
 
       // === Yoshitani 7/5/3 Diagnostic ===
-      const now = new Date();
-      const d7 = new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
-      const d5 = new Date(now.getTime() - 5 * 86400000).toISOString().split("T")[0];
-      const d3 = new Date(now.getTime() - 3 * 86400000).toISOString().split("T")[0];
+      const d7 = localDaysAgo(7);
+      const d5 = localDaysAgo(5);
+      const d3 = localDaysAgo(3);
 
       const diagCampMap = new Map<string, any[]>();
       items.forEach((a: any) => {
