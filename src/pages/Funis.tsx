@@ -112,6 +112,74 @@ export default function Funis() {
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
   const [aiOrganizing, setAiOrganizing] = useState(false);
+  const [showAiGen, setShowAiGen] = useState(false);
+  const [aiGenPrompt, setAiGenPrompt] = useState("");
+  const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  const AI_MODELS = [
+    { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
+    { id: "google/gemini-2.5-pro", label: "Gemini Pro" },
+    { id: "openai/gpt-5-mini", label: "GPT-5 Mini" },
+  ];
+
+  const handleAiGenerateFunnel = async () => {
+    if (!aiGenPrompt.trim()) { toast.error("Descreva o funil que deseja gerar"); return; }
+    if (!selectedFunil) { toast.error("Selecione ou crie um funil primeiro"); return; }
+    setAiGenerating(true);
+    try {
+      const proj = selectedFunil.project_id ? projects.find(p => p.id === selectedFunil.project_id) : null;
+      const briefing = proj?.briefing ? (typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing) : {};
+      const prodList = projectProductsFull.map((p: any) => ({
+        nome: p.nome || p.name,
+        tipo: p.tipo_oferta || p.tipo || "",
+        preco: p.preco_por || p.preco || p.price || "",
+        link: p.ofertas?.[0]?.link || p.link || p.url || "",
+      }));
+
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          action: "generate_funnel_from_prompt",
+          project_id: selectedFunil.project_id || undefined,
+          model: aiGenModel,
+          extra: {
+            prompt: aiGenPrompt,
+            products: prodList.length > 0 ? prodList : undefined,
+            project_name: proj?.name || "",
+            nicho: briefing?.nicho || briefing?.niche || "",
+            existing_etapas: (selectedFunil.data.etapas || []).length > 0 ? selectedFunil.data.etapas : undefined,
+          },
+        },
+      });
+      if (error) throw error;
+
+      const etapas = (data?.etapas || []).map((e: any) => ({
+        nome: e.nome || "Etapa",
+        tipo: e.tipo || "outro",
+        visitantes: 0,
+        conversoes: 0,
+        url: e.url || "",
+        pos_x: e.pos_x ?? 80,
+        pos_y: e.pos_y ?? 200,
+        descricao: e.descricao || "",
+        connects_to: e.connects_to || [],
+      }));
+
+      if (etapas.length > 0) {
+        setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+        triggerAutoSave();
+        setShowAiGen(false);
+        setAiGenPrompt("");
+        toast.success(`IA gerou ${etapas.length} etapas!${data?.estrategia ? `\n📋 ${data.estrategia}` : ""}`, { duration: 6000 });
+      } else {
+        toast.error("A IA não retornou etapas. Tente reformular o prompt.");
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("429")) toast.error("Rate limit excedido.");
+      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(err.message || "Erro ao gerar funil");
+    } finally { setAiGenerating(false); }
+  };
 
   const aiOrganizeProducts = async (mode: "create" | "reorganize" = "create") => {
     if (!selectedFunil?.project_id || projectProductsFull.length === 0) {
