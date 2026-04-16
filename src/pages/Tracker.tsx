@@ -494,7 +494,17 @@ export default function Tracker() {
             <KPICard icon={<TrendingUp className="h-3 w-3" />} label="Vendas" value={String(totalVendasCount)} />
           </div>
 
-          {totalGasto === 0 && (
+          {totalGasto === 0 && totalReceita > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+              <p className="text-[11px] text-amber-300">
+                ⚠️ Receita de <strong>R$ {totalReceita.toFixed(2)}</strong> sem dados de gasto correspondentes no período. O Lucro exibido pode estar inflado.
+                {filterProject !== "all" && " Verifique se a sincronização do Facebook Ads está ativa para este projeto."}
+                {" "}Importe dados em <strong>Finanças → Ads</strong> ou configure a sincronização automática.
+              </p>
+            </div>
+          )}
+          {totalGasto === 0 && totalReceita === 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
               <p className="text-[11px] text-amber-300">Sem dados de gasto no período. Importe dados em <strong>Finanças → Ads</strong> ou configure a sincronização automática do Facebook Ads.</p>
