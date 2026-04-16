@@ -54,3 +54,26 @@ export function getPeriodRange(period: string): { from: string; to: string } {
 
   return { from: from.toISOString(), to: to.toISOString() };
 }
+
+/**
+ * Returns the previous equivalent period range (same duration, immediately before).
+ * Useful for period-over-period comparisons.
+ */
+export function getPreviousPeriodRange(period: string): { from: string; to: string } {
+  const current = getPeriodRange(period);
+  const fromMs = new Date(current.from).getTime();
+  const toMs = new Date(current.to).getTime();
+  const duration = toMs - fromMs;
+  const prevTo = new Date(fromMs - 1);
+  const prevFrom = new Date(fromMs - 1 - duration);
+  return { from: prevFrom.toISOString(), to: prevTo.toISOString() };
+}
+
+/**
+ * Returns delta percentage between current and previous values.
+ * Returns null when previous is 0 (avoids divide-by-zero / infinity).
+ */
+export function calcDelta(current: number, previous: number): number | null {
+  if (!previous || previous === 0) return current > 0 ? 100 : null;
+  return ((current - previous) / previous) * 100;
+}
