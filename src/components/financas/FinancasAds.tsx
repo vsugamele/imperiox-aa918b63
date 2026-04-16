@@ -380,6 +380,54 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
         </Card>
       )}
 
+      {/* Vendas que geraram receita */}
+      {vendas.length > 0 && (
+        <Card className="border-border">
+          <CardHeader className="pb-2 cursor-pointer" onClick={() => setShowVendas(!showVendas)}>
+            <CardTitle className="text-sm flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-emerald-400" />
+                💰 Vendas no período — R$ {vendas.reduce((s, v) => s + v.valor, 0).toFixed(2)} ({vendas.length} vendas)
+              </span>
+              <span className="text-xs text-muted-foreground">{showVendas ? "▲ Recolher" : "▼ Expandir"}</span>
+            </CardTitle>
+          </CardHeader>
+          {showVendas && (
+            <CardContent className="pt-0">
+              <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Plataforma</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>UTM Source</TableHead>
+                      <TableHead>Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vendas.slice(0, 100).map(v => (
+                      <TableRow key={v.id}>
+                        <TableCell className="text-xs font-medium">{v.produto_nome}</TableCell>
+                        <TableCell className="text-[10px]">
+                          <Badge variant="outline" className="text-[9px]">{v.tipo_produto || "principal"}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">{v.plataforma}</TableCell>
+                        <TableCell className="font-mono text-emerald-400 text-xs">R$ {v.valor.toFixed(2)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{v.utm_source || "—"}</TableCell>
+                        <TableCell className="text-xs font-mono">{v.data_venda?.slice(0, 10)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {vendas.length > 100 && <p className="text-[10px] text-muted-foreground mt-1">Mostrando 100 de {vendas.length}</p>}
+            </CardContent>
+          )}
+        </Card>
+      )}
+
       {/* Action Buttons */}
       <div className="flex gap-2">
         <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Novo Gasto</Button>
