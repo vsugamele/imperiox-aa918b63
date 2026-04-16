@@ -247,10 +247,12 @@ export default function Tracker() {
   });
   const dailyChart = Array.from(dailyMap.entries()).map(([date, v]) => ({ date, ...v })).sort((a, b) => a.date.localeCompare(b.date));
 
-  // Campaign breakdown
+  // Campaign breakdown — normalize name by stripping date prefix [DD/MM] to avoid duplicates when campaign is renamed
+  const normalizeCampanha = (name: string) => name.replace(/^\[\d{2}\/\d{2}\]\s*/, "").trim() || name;
   const campaignMap = new Map<string, { campanha: string; gasto: number; cliques: number; impressoes: number; compras: number; frequencia: number[]; ctr: number[] }>();
   filteredAds.forEach(a => {
-    const key = a.campanha || "—";
+    const raw = a.campanha || "—";
+    const key = normalizeCampanha(raw);
     const prev = campaignMap.get(key) || { campanha: key, gasto: 0, cliques: 0, impressoes: 0, compras: 0, frequencia: [], ctr: [] };
     prev.gasto += parseFloat(String(a.valor)) || 0;
     prev.cliques += parseInt(String(a.cliques)) || 0;
