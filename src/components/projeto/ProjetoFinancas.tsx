@@ -393,6 +393,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
         objective: campaignObjective,
         campaign_count: parseInt(campaignCount) || 3,
         funnel_stage: campaignFunnel,
+        produto: campaignProduct || undefined,
       };
       if (campaignBudget) payload.budget_range = campaignBudget;
       if (refineIndex !== undefined && refineText && campaignDrafts) {
@@ -1780,6 +1781,26 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                 <Label className="text-xs text-muted-foreground mb-1.5 block">Budget diário (opcional)</Label>
                 <Input value={campaignBudget} onChange={e => setCampaignBudget(e.target.value)} placeholder="Ex: R$ 50-100" className="bg-secondary" />
               </div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Produto</Label>
+              {briefingProdutos.length > 0 ? (
+                <Select value={campaignProduct || "__none__"} onValueChange={v => setCampaignProduct(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecione o produto..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Todos os produtos</SelectItem>
+                    {briefingProdutos.map((p: any, i: number) => (
+                      <SelectItem key={i} value={p.nome || `Produto ${i + 1}`}>
+                        {p.nome || `Produto ${i + 1}`}
+                        {p.link ? ` — ${p.link.slice(0, 40)}...` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={campaignProduct} onChange={e => setCampaignProduct(e.target.value)} placeholder="Nome do produto..." className="bg-secondary" />
+              )}
+              <p className="text-[10px] text-muted-foreground mt-1">A IA usará link, preço e informações do produto selecionado.</p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
