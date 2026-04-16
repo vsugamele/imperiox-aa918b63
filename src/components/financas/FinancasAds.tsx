@@ -85,9 +85,11 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
   const d5 = localDaysAgo(5);
   const d3 = localDaysAgo(3);
 
+  // Normalize campaign name by stripping date prefix [DD/MM] to merge renamed campaigns
+  const normCamp = (n: string) => n.replace(/^\[\d{2}\/\d{2}\]\s*/, "").trim() || n;
   const campMap = new Map<string, AdsSpend[]>();
   ads.forEach(a => {
-    const name = a.campanha || "Sem nome";
+    const name = normCamp(a.campanha || "Sem nome");
     if (!campMap.has(name)) campMap.set(name, []);
     campMap.get(name)!.push(a);
   });
