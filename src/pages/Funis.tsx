@@ -112,6 +112,74 @@ export default function Funis() {
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
   const [aiOrganizing, setAiOrganizing] = useState(false);
+  const [showAiGen, setShowAiGen] = useState(false);
+  const [aiGenPrompt, setAiGenPrompt] = useState("");
+  const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  const AI_MODELS = [
+    { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
+    { id: "google/gemini-2.5-pro", label: "Gemini Pro" },
+    { id: "openai/gpt-5-mini", label: "GPT-5 Mini" },
+  ];
+
+  const handleAiGenerateFunnel = async () => {
+    if (!aiGenPrompt.trim()) { toast.error("Descreva o funil que deseja gerar"); return; }
+    if (!selectedFunil) { toast.error("Selecione ou crie um funil primeiro"); return; }
+    setAiGenerating(true);
+    try {
+      const proj = selectedFunil.project_id ? projects.find(p => p.id === selectedFunil.project_id) : null;
+      const briefing = proj?.briefing ? (typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing) : {};
+      const prodList = projectProductsFull.map((p: any) => ({
+        nome: p.nome || p.name,
+        tipo: p.tipo_oferta || p.tipo || "",
+        preco: p.preco_por || p.preco || p.price || "",
+        link: p.ofertas?.[0]?.link || p.link || p.url || "",
+      }));
+
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          action: "generate_funnel_from_prompt",
+          project_id: selectedFunil.project_id || undefined,
+          model: aiGenModel,
+          extra: {
+            prompt: aiGenPrompt,
+            products: prodList.length > 0 ? prodList : undefined,
+            project_name: proj?.name || "",
+            nicho: briefing?.nicho || briefing?.niche || "",
+            existing_etapas: (selectedFunil.data.etapas || []).length > 0 ? selectedFunil.data.etapas : undefined,
+          },
+        },
+      });
+      if (error) throw error;
+
+      const etapas = (data?.etapas || []).map((e: any) => ({
+        nome: e.nome || "Etapa",
+        tipo: e.tipo || "outro",
+        visitantes: 0,
+        conversoes: 0,
+        url: e.url || "",
+        pos_x: e.pos_x ?? 80,
+        pos_y: e.pos_y ?? 200,
+        descricao: e.descricao || "",
+        connects_to: e.connects_to || [],
+      }));
+
+      if (etapas.length > 0) {
+        setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+        triggerAutoSave();
+        setShowAiGen(false);
+        setAiGenPrompt("");
+        toast.success(`IA gerou ${etapas.length} etapas!${data?.estrategia ? `\n📋 ${data.estrategia}` : ""}`, { duration: 6000 });
+      } else {
+        toast.error("A IA não retornou etapas. Tente reformular o prompt.");
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("429")) toast.error("Rate limit excedido.");
+      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(err.message || "Erro ao gerar funil");
+    } finally { setAiGenerating(false); }
+  };
 
   const aiOrganizeProducts = async (mode: "create" | "reorganize" = "create") => {
     if (!selectedFunil?.project_id || projectProductsFull.length === 0) {
@@ -1029,10 +1097,55 @@ export default function Funis() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          <Button size="sm" variant="outline" className="gap-1 border-primary/30 text-primary hover:bg-primary/10" onClick={() => setShowAiGen(true)} disabled={aiGenerating}>
+            {aiGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            Gerar com IA
+          </Button>
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
           <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
         </div>
+
+        {/* AI Generate Funnel Dialog */}
+        <Dialog open={showAiGen} onOpenChange={setShowAiGen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Gerar Funil com IA</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Descreva o funil que deseja</Label>
+                <Textarea
+                  value={aiGenPrompt}
+                  onChange={e => setAiGenPrompt(e.target.value)}
+                  placeholder="Ex: Funil de lançamento com captura → sequência de emails → VSL → checkout com orderbump e upsell de mentoria..."
+                  className="bg-secondary min-h-[100px]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
+                <Select value={aiGenModel} onValueChange={setAiGenModel}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {AI_MODELS.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedFunil?.project_id && projectProductsFull.length > 0 && (
+                <p className="text-[10px] text-emerald-400">✅ Projeto vinculado com {projectProductsFull.length} produto(s) — a IA usará como contexto.</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">A IA criará todas as etapas, conexões e posicionamento visual automaticamente. {(selectedFunil?.data.etapas || []).length > 0 && "⚠️ As etapas atuais serão substituídas."}</p>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setShowAiGen(false)}>Cancelar</Button>
+              <Button size="sm" onClick={handleAiGenerateFunnel} disabled={aiGenerating || !aiGenPrompt.trim()} className="gap-1.5">
+                {aiGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {aiGenerating ? "Gerando..." : "Gerar Funil"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

@@ -173,6 +173,7 @@ serve(async (req) => {
     if (action === "generate_campaign_message") return await handleCampaignMessage(body, projectContext, sb, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content_pack") return await handleContentPack(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "ai_organize_funnel") return await handleOrganizeFunnel(body, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_funnel_from_prompt") return await handleGenerateFunnelFromPrompt(body, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
 
     // Default: automation flow generation
     const triggerLabels: Record<string, string> = {
@@ -1389,6 +1390,87 @@ Organize o funil completo com todas as etapas necessárias.`;
 
   const parsed = JSON.parse(toolCall.function.arguments);
   return new Response(JSON.stringify({ etapas: parsed.etapas || [], estrategia: parsed.estrategia || "" }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function handleGenerateFunnelFromPrompt(body: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+  const { extra } = body;
+  const prompt = extra?.prompt || "";
+  const products = extra?.products || [];
+  const projectName = extra?.project_name || "";
+  const nicho = extra?.nicho || "";
+
+  let productsSection = "";
+  if (products.length > 0) {
+    productsSection = `\n## Produtos do projeto:\n${JSON.stringify(products, null, 2)}`;
+  }
+
+  const systemPrompt = `${mentePrefix}Você é um estrategista de funis de marketing digital brasileiro de alto nível. O usuário vai descrever um funil e você deve criar todas as etapas com posicionamento visual no canvas.
+
+${projectContext}
+${skillsContext}
+${productsSection}
+
+## REGRAS DE POSICIONAMENTO VISUAL
+Posicione em LINHAS lógicas usando pos_x e pos_y:
+- Linha de Aquisição (y=80): Anúncios, Landing Pages, Captura
+- Linha de Conversão (y=400): VSL, Webinar, Checkout, Produtos
+- Linha de Maximização (y=720): Upsells, Order Bumps, Downsells
+- Linha de Retenção (y=1040): Email, WhatsApp, Remarketing, Obrigado
+- Espaçamento horizontal: 320px entre etapas na mesma linha (pos_x: 80, 400, 720, 1040, 1360...)
+- connects_to: array de índices 0-based formando o fluxo lógico
+
+## TIPOS VÁLIDOS
+criativo, pagina, vsl, checkout, upsell, face_ads, instagram, tiktok, email, whatsapp, blog, video, imagem, caixa, texto, outro
+
+## REGRAS
+1. Interprete o que o usuário quer e crie TODAS as etapas necessárias
+2. Adicione descrições estratégicas em cada etapa
+3. Conecte as etapas formando o fluxo completo
+4. Se o usuário mencionar produtos específicos, use-os; senão, use nomes genéricos
+5. Inclua etapas de nutrição e follow-up quando relevante
+6. Gere entre 4 e 15 etapas dependendo da complexidade`;
+
+  const userPrompt = `${projectName ? `Projeto: ${projectName}\nNicho: ${nicho}\n` : ""}Crie o seguinte funil: ${prompt}`;
+
+  const result = await callAI(systemPrompt, userPrompt, apiKey, model,
+    [{
+      type: "function",
+      function: {
+        name: "generate_funnel",
+        description: "Generate funnel stages from description",
+        parameters: {
+          type: "object",
+          properties: {
+            etapas: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  nome: { type: "string", description: "Nome da etapa" },
+                  tipo: { type: "string", enum: ["criativo", "pagina", "vsl", "checkout", "upsell", "face_ads", "instagram", "tiktok", "email", "whatsapp", "blog", "video", "imagem", "caixa", "texto", "outro"] },
+                  url: { type: "string", description: "URL se aplicável" },
+                  descricao: { type: "string", description: "Descrição estratégica da etapa" },
+                  pos_x: { type: "number", description: "Posição X no canvas" },
+                  pos_y: { type: "number", description: "Posição Y no canvas" },
+                  connects_to: { type: "array", items: { type: "integer" }, description: "Indices das etapas destino (0-based)" },
+                },
+                required: ["nome", "tipo", "pos_x", "pos_y"],
+                additionalProperties: false,
+              },
+            },
+            estrategia: { type: "string", description: "Resumo da estratégia do funil" },
+          },
+          required: ["etapas", "estrategia"],
+          additionalProperties: false,
+        },
+      },
+    }],
+    "generate_funnel", baseUrl
+  );
+  if (result instanceof Response) return result;
+  return new Response(JSON.stringify({ etapas: result.etapas || [], estrategia: result.estrategia || "" }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
