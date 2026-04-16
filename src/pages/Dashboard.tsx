@@ -18,6 +18,7 @@ import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
+import DailyBriefing from "@/components/dashboard/DailyBriefing";
 
 
 export default function Dashboard() {
@@ -91,6 +92,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <DailyBriefing projectFilter={dashProject} />
       <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <HotLeadAlerts projectFilter={dashProject} />
       <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />

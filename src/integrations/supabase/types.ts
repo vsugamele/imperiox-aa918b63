@@ -11086,6 +11086,36 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_daily_briefings: {
+        Row: {
+          actions: Json
+          briefing_date: string
+          briefing_text: string
+          created_at: string
+          id: string
+          metrics: Json
+          project_id: string | null
+        }
+        Insert: {
+          actions?: Json
+          briefing_date?: string
+          briefing_text: string
+          created_at?: string
+          id?: string
+          metrics?: Json
+          project_id?: string | null
+        }
+        Update: {
+          actions?: Json
+          briefing_date?: string
+          briefing_text?: string
+          created_at?: string
+          id?: string
+          metrics?: Json
+          project_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_daily_routines: {
         Row: {
           category: string | null
