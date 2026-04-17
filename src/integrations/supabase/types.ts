@@ -1421,6 +1421,642 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_banners: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          link_url: string | null
+          position: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          title?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          program_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          program_id: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          program_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_chat_messages_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_lessons: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          is_preview: boolean
+          module_id: string
+          position: number
+          thumbnail_url: string | null
+          title: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          is_preview?: boolean
+          module_id: string
+          position?: number
+          thumbnail_url?: string | null
+          title: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          is_preview?: boolean
+          module_id?: string
+          position?: number
+          thumbnail_url?: string | null
+          title?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_meditations: {
+        Row: {
+          audio_url: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          thumbnail_url: string | null
+          title: string
+        }
+        Insert: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title: string
+        }
+        Update: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_modules: {
+        Row: {
+          created_at: string
+          id: string
+          position: number
+          program_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position?: number
+          program_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: number
+          program_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_modules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_profiles: {
+        Row: {
+          avatar: string | null
+          bio: string | null
+          created_at: string
+          id: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar?: string | null
+          bio?: string | null
+          created_at?: string
+          id: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_program_ai_config: {
+        Row: {
+          avatar: string | null
+          model: string
+          name: string
+          program_id: string
+          suggestions: Json
+          system_prompt: string
+          welcome: string | null
+        }
+        Insert: {
+          avatar?: string | null
+          model?: string
+          name: string
+          program_id: string
+          suggestions?: Json
+          system_prompt: string
+          welcome?: string | null
+        }
+        Update: {
+          avatar?: string | null
+          model?: string
+          name?: string
+          program_id?: string
+          suggestions?: Json
+          system_prompt?: string
+          welcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_program_ai_config_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_programs: {
+        Row: {
+          author_avatar: string | null
+          author_bio: string | null
+          author_name: string | null
+          banner_url: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          duration_min: number
+          enrolled_count: number
+          id: string
+          is_free: boolean
+          is_new: boolean
+          is_published: boolean
+          is_trending: boolean
+          subtitle: string | null
+          thumbnail_url: string | null
+          title: string
+          total_minutes: number
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_bio?: string | null
+          author_name?: string | null
+          banner_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          id?: string
+          is_free?: boolean
+          is_new?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          subtitle?: string | null
+          thumbnail_url?: string | null
+          title: string
+          total_minutes?: number
+        }
+        Update: {
+          author_avatar?: string | null
+          author_bio?: string | null
+          author_name?: string | null
+          banner_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          id?: string
+          is_free?: boolean
+          is_new?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          subtitle?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          total_minutes?: number
+        }
+        Relationships: []
+      }
+      areamembrojp_stories: {
+        Row: {
+          author_name: string
+          author_photo: string | null
+          country: string | null
+          created_at: string
+          id: string
+          profession: string | null
+          program_id: string | null
+          quote: string
+        }
+        Insert: {
+          author_name: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          profession?: string | null
+          program_id?: string | null
+          quote: string
+        }
+        Update: {
+          author_name?: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          profession?: string | null
+          program_id?: string | null
+          quote?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_stories_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_tenant_settings: {
+        Row: {
+          accent_hsl: string
+          app_name: string
+          background_hsl: string
+          body_font: string
+          card_hsl: string
+          default_theme: string
+          favicon_url: string | null
+          foreground_hsl: string
+          heading_font: string
+          home_section_order: Json
+          id: boolean
+          landing_cta_text: string
+          landing_hero_image: string | null
+          landing_subtitle: string
+          landing_title: string
+          logo_url: string | null
+          muted_hsl: string
+          primary_hsl: string
+          updated_at: string
+          welcome_text: string
+        }
+        Insert: {
+          accent_hsl?: string
+          app_name?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          default_theme?: string
+          favicon_url?: string | null
+          foreground_hsl?: string
+          heading_font?: string
+          home_section_order?: Json
+          id?: boolean
+          landing_cta_text?: string
+          landing_hero_image?: string | null
+          landing_subtitle?: string
+          landing_title?: string
+          logo_url?: string | null
+          muted_hsl?: string
+          primary_hsl?: string
+          updated_at?: string
+          welcome_text?: string
+        }
+        Update: {
+          accent_hsl?: string
+          app_name?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          default_theme?: string
+          favicon_url?: string | null
+          foreground_hsl?: string
+          heading_font?: string
+          home_section_order?: Json
+          id?: boolean
+          landing_cta_text?: string
+          landing_hero_image?: string | null
+          landing_subtitle?: string
+          landing_title?: string
+          logo_url?: string | null
+          muted_hsl?: string
+          primary_hsl?: string
+          updated_at?: string
+          welcome_text?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_user_favorites: {
+        Row: {
+          created_at: string
+          program_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          program_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          program_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_favorites_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_user_progress: {
+        Row: {
+          completed_at: string
+          id: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["areamembrojp_app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["areamembrojp_app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["areamembrojp_app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aromatherapy_protocols: {
         Row: {
           created_at: string
@@ -26473,6 +27109,17 @@ export type Database = {
         Returns: boolean
       }
       archive_old_deposits: { Args: never; Returns: undefined }
+      areamembrojp_has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["areamembrojp_app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      areamembrojp_promote_admin_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
       backup_deposits: { Args: { deposit_ids: string[] }; Returns: undefined }
       calculate_adherence_streaks: {
         Args: { p_min_adherence?: number; p_user_id: string }
@@ -26680,6 +27327,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      areamembrojp_app_role: "admin" | "member"
       c_responsible_type: "Vanessa" | "Vinicius" | "Outro"
       c_task_priority: "low" | "medium" | "high"
       c_task_status: "todo" | "in-progress" | "done"
@@ -26839,6 +27487,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      areamembrojp_app_role: ["admin", "member"],
       c_responsible_type: ["Vanessa", "Vinicius", "Outro"],
       c_task_priority: ["low", "medium", "high"],
       c_task_status: ["todo", "in-progress", "done"],
