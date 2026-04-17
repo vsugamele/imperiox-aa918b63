@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_imphq_leads_project_criado ON public.imphq_leads(project_id, criado_em);
