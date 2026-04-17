@@ -62,7 +62,6 @@ export function ProjetoInsights({ projectId }: Props) {
       const since = new Date(Date.now() - days * 86400000).toISOString();
 
       if (source === "vendas") {
-        // Vendas aprovadas com lead_id para cruzar com gênero/uf
         const { data } = await supabase
           .from("imphq_vendas")
           .select("created_at, valor, lead_id")
@@ -70,31 +69,31 @@ export function ProjetoInsights({ projectId }: Props) {
           .eq("status", "aprovado")
           .gte("created_at", since)
           .limit(5000);
-        const vendas = data ?? [];
+        const vendas = (data ?? []) as any[];
         const leadIds = [...new Set(vendas.map(v => v.lead_id).filter(Boolean))] as string[];
         let leadsMap = new Map<string, any>();
         if (leadIds.length) {
-          const { data: leads } = await supabase
+          const { data: leads } = await (supabase as any)
             .from("imphq_leads")
             .select("id, nome, genero, phone, data")
             .in("id", leadIds);
-          (leads ?? []).forEach(l => leadsMap.set(l.id, l));
+          ((leads ?? []) as any[]).forEach((l: any) => leadsMap.set(l.id, l));
         }
         if (cancel) return;
-        setRows(vendas.map(v => ({
+        setRows(vendas.map((v: any) => ({
           ts: v.created_at,
           valor: Number(v.valor || 0),
           lead: leadsMap.get(v.lead_id),
         })));
       } else {
-        const { data } = await supabase
+        const { data } = await (supabase as any)
           .from("imphq_leads")
           .select("criado_em, nome, genero, phone, data")
           .eq("project_id", projectId)
           .gte("criado_em", since)
           .limit(5000);
         if (cancel) return;
-        setRows((data ?? []).map(l => ({ ts: l.criado_em, lead: l })));
+        setRows(((data ?? []) as any[]).map((l: any) => ({ ts: l.criado_em, lead: l })));
       }
       setLoading(false);
     }
