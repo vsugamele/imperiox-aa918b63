@@ -22,26 +22,30 @@ async function gatherMetrics(supabase: any, projectId: string | null) {
   // Vendas 24h
   let vendasQ: any = supabase.from("imphq_vendas").select("valor, produto_nome, status").eq("status", "aprovado").gte("created_at", last24h);
   if (projectId) vendasQ = vendasQ.eq("project_id", projectId);
-  const { data: vendas24h = [] } = await vendasQ;
+  const vendas24hRes: any = await vendasQ;
+  const vendas24h: any[] = vendas24hRes?.data ?? [];
 
   // Vendas 7d
   let vendas7Q: any = supabase.from("imphq_vendas").select("valor").eq("status", "aprovado").gte("created_at", last7d);
   if (projectId) vendas7Q = vendas7Q.eq("project_id", projectId);
-  const { data: vendas7d = [] } = await vendas7Q;
+  const vendas7dRes: any = await vendas7Q;
+  const vendas7d: any[] = vendas7dRes?.data ?? [];
 
   // Hot leads não contactados (score>=70 e sem follow-up nas últimas 2h)
   let leadsQ: any = supabase.from("imphq_leads").select("id, nome, score, ultimo_contato_em").gte("score", 70).gte("created_at", last2h);
   if (projectId) leadsQ = leadsQ.eq("project_id", projectId);
-  const { data: hotLeadsRaw = [] } = await leadsQ;
-  const hotLeads = (hotLeadsRaw as any[]).filter((l) => !l.ultimo_contato_em || new Date(l.ultimo_contato_em).getTime() < Date.now() - 2 * 60 * 60 * 1000);
+  const hotLeadsRes: any = await leadsQ;
+  const hotLeadsRaw: any[] = hotLeadsRes?.data ?? [];
+  const hotLeads = hotLeadsRaw.filter((l) => !l.ultimo_contato_em || new Date(l.ultimo_contato_em).getTime() < Date.now() - 2 * 60 * 60 * 1000);
 
   // Tarefas atrasadas
   let tasksQ: any = supabase.from("imphq_tasks").select("id, titulo, due_date").lt("due_date", new Date().toISOString()).neq("status", "done");
   if (projectId) tasksQ = tasksQ.eq("project_id", projectId);
-  const { data: tarefasAtrasadas = [] } = await tasksQ;
+  const tarefasRes: any = await tasksQ;
+  const tarefasAtrasadas: any[] = tarefasRes?.data ?? [];
 
-  const receita24h = (vendas24h as any[]).reduce((s, v) => s + Number(v.valor || 0), 0);
-  const receita7d = (vendas7d as any[]).reduce((s, v) => s + Number(v.valor || 0), 0);
+  const receita24h = vendas24h.reduce((s, v) => s + Number(v.valor || 0), 0);
+  const receita7d = vendas7d.reduce((s, v) => s + Number(v.valor || 0), 0);
   const mediaDiaria = receita7d / 7;
   const ticketMedio = vendas24h.length > 0 ? receita24h / vendas24h.length : 0;
   const variacao = mediaDiaria > 0 ? ((receita24h - mediaDiaria) / mediaDiaria) * 100 : 0;
