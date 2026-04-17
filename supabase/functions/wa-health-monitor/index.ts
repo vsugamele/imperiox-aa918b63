@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
             project_id: failures[0].project_id || "system",
             event_name: "wa_health_alert_sent",
             page_url: "",
-            data: { failures_count: failures.length, sent_to: "imperiocompanidigital@gmail.com" },
+            data: { failures_count: failures.length, sent_to: "ipcompanidigital@gmail.com" },
           });
         }
       } else {
@@ -243,7 +243,7 @@ async function sendAlertEmail(
       },
       body: JSON.stringify({
         from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
-        to: ["imperiocompanidigital@gmail.com"],
+        to: ["ipcompanidigital@gmail.com"],
         subject: `⚠️ WhatsApp Comprometido — ${failures.length} instância(s) offline`,
         html: htmlBody,
       }),
