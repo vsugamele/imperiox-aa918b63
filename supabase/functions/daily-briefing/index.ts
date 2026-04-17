@@ -59,7 +59,7 @@ async function gatherMetrics(supabase: any, projectId: string | null) {
     hotLeadsCount: hotLeads.length,
     hotLeadsNomes: hotLeads.slice(0, 3).map((l: any) => l.nome).filter(Boolean),
     tarefasAtrasadasCount: tarefasAtrasadas.length,
-    tarefasAtrasadasTitulos: (tarefasAtrasadas as any[]).slice(0, 3).map((t) => t.titulo).filter(Boolean),
+    tarefasAtrasadasTitulos: tarefasAtrasadas.slice(0, 3).map((t: any) => t.titulo).filter(Boolean),
   };
 }
 
