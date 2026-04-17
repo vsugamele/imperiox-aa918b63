@@ -1459,7 +1459,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
-          program_id: string
+          program_id: string | null
           role: string
           user_id: string
         }
@@ -1467,7 +1467,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
-          program_id: string
+          program_id?: string | null
           role: string
           user_id: string
         }
@@ -1475,7 +1475,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
-          program_id?: string
+          program_id?: string | null
           role?: string
           user_id?: string
         }
@@ -1485,6 +1485,208 @@ export type Database = {
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_cta_leads: {
+        Row: {
+          created_at: string
+          cta_id: string | null
+          email: string
+          id: string
+          metadata: Json
+          name: string
+          source_id: string | null
+          source_type: string | null
+          user_id: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          created_at?: string
+          cta_id?: string | null
+          email: string
+          id?: string
+          metadata?: Json
+          name: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          created_at?: string
+          cta_id?: string | null
+          email?: string
+          id?: string
+          metadata?: Json
+          name?: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_cta_leads_cta_id_fkey"
+            columns: ["cta_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_ctas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_ctas: {
+        Row: {
+          button_label: string
+          capture_lead: boolean
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          position: string
+          scope: string
+          scope_id: string | null
+          starts_at: string | null
+          target_url: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          position?: string
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          position?: string
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_events: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1601,6 +1803,266 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_nav_items: {
+        Row: {
+          admin_only: boolean
+          created_at: string
+          href: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_external: boolean
+          label: string
+          position: number
+          scope: string
+          show_in_mobile: boolean
+          updated_at: string
+        }
+        Insert: {
+          admin_only?: boolean
+          created_at?: string
+          href: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label: string
+          position?: number
+          scope: string
+          show_in_mobile?: boolean
+          updated_at?: string
+        }
+        Update: {
+          admin_only?: boolean
+          created_at?: string
+          href?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label?: string
+          position?: number
+          scope?: string
+          show_in_mobile?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_post_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_post_likes: {
+        Row: {
+          created_at: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_posts: {
+        Row: {
+          comments_count: number
+          content: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_hidden: boolean
+          is_pinned: boolean
+          likes_count: number
+          media_type: string | null
+          media_url: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_profiles: {
         Row: {
           avatar: string | null
@@ -1705,8 +2167,10 @@ export type Database = {
       areamembrojp_programs: {
         Row: {
           author_avatar: string | null
+          author_avatar_url: string | null
           author_bio: string | null
           author_name: string | null
+          author_role: string | null
           banner_url: string | null
           category: string | null
           created_at: string
@@ -1718,6 +2182,7 @@ export type Database = {
           is_new: boolean
           is_published: boolean
           is_trending: boolean
+          language: string
           subtitle: string | null
           thumbnail_url: string | null
           title: string
@@ -1725,8 +2190,10 @@ export type Database = {
         }
         Insert: {
           author_avatar?: string | null
+          author_avatar_url?: string | null
           author_bio?: string | null
           author_name?: string | null
+          author_role?: string | null
           banner_url?: string | null
           category?: string | null
           created_at?: string
@@ -1738,6 +2205,7 @@ export type Database = {
           is_new?: boolean
           is_published?: boolean
           is_trending?: boolean
+          language?: string
           subtitle?: string | null
           thumbnail_url?: string | null
           title: string
@@ -1745,8 +2213,10 @@ export type Database = {
         }
         Update: {
           author_avatar?: string | null
+          author_avatar_url?: string | null
           author_bio?: string | null
           author_name?: string | null
+          author_role?: string | null
           banner_url?: string | null
           category?: string | null
           created_at?: string
@@ -1758,12 +2228,73 @@ export type Database = {
           is_new?: boolean
           is_published?: boolean
           is_trending?: boolean
+          language?: string
           subtitle?: string | null
           thumbnail_url?: string | null
           title?: string
           total_minutes?: number
         }
         Relationships: []
+      }
+      areamembrojp_searches: {
+        Row: {
+          created_at: string
+          id: string
+          query: string
+          results_count: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          query: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          query?: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_stories: {
         Row: {
