@@ -25,6 +25,7 @@ import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConte
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
 import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
 import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
+import { ProjetoInsights } from "@/components/projeto/ProjetoInsights";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -206,6 +207,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
           <TabsTrigger value="flowcharts">🗺️ Fluxogramas</TabsTrigger>
           <TabsTrigger value="expert_panel">🧭 Painel Expert</TabsTrigger>
+          <TabsTrigger value="insights">✨ Insights</TabsTrigger>
           <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
         </TabsList>
 
@@ -256,6 +258,9 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="expert_panel" className="mt-4">
           <ProjetoExpertPanel projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="insights" className="mt-4">
+          <ProjetoInsights projectId={id!} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
           <Card className="bg-card border-border">
