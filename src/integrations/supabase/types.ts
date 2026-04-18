@@ -1539,6 +1539,143 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_crm_exports: {
+        Row: {
+          created_at: string
+          exported_by: string | null
+          filters: Json
+          format: string
+          id: string
+          row_count: number
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Update: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_crm_member_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          tag_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          tag_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          tag_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_crm_member_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_crm_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_crm_notes: {
+        Row: {
+          author_id: string | null
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_crm_segments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_crm_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       areamembrojp_cta_leads: {
         Row: {
           created_at: string
