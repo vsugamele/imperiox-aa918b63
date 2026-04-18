@@ -66,10 +66,16 @@ Deno.serve(async (req) => {
 
           if (state !== "open") {
             instanceResult.warning = `Estado: ${state}`;
+
+            // Auto-reconnect proativo (seguro: throttle 10min, só reativa sessão pareada)
+            const reconnected = await tryAutoReconnect(supabase, p, state);
+            instanceResult.auto_reconnect_attempted = reconnected.attempted;
+            instanceResult.auto_reconnect_result = reconnected.result;
+
             failures.push({
               instance: p.instance_name,
               project_id: p.project_id,
-              reason: `Estado da conexão: ${state}`,
+              reason: `Estado da conexão: ${state}${reconnected.attempted ? ` (auto-reconnect: ${reconnected.result})` : ""}`,
               severity: state === "close" ? "critical" : "warning",
             });
           }
