@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarCheck, Clock, Send, XCircle } from "lucide-react";
+import { toLocalDateStr } from "@/lib/periodUtils";
 
 interface KPIData {
   agendados: number;
@@ -15,7 +16,7 @@ export default function CampaignKPICards() {
 
   useEffect(() => {
     const load = async () => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = toLocalDateStr();
 
       // Agendados: active campaigns with future steps
       const { count: agendados } = await supabase

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { TrendingUp, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { toLocalDateStr } from "@/lib/periodUtils";
 
 interface GrowthMetric {
   id: string;
@@ -32,7 +33,7 @@ function getMonday(d: Date): string {
   const day = date.getDay();
   const diff = date.getDate() - day + (day === 0 ? -6 : 1);
   date.setDate(diff);
-  return date.toISOString().split("T")[0];
+  return toLocalDateStr(date);
 }
 
 function getWeeks(count: number): string[] {

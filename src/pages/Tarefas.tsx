@@ -160,7 +160,7 @@ export default function Tarefas() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = toLocalDateStr(today);
 
   const fetchData = useCallback(async () => {
     // Check if admin
