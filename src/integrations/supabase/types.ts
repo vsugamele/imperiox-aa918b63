@@ -1863,12 +1863,14 @@ export type Database = {
         Row: {
           admin_only: boolean
           created_at: string
+          has_megamenu: boolean
           href: string
           icon: string | null
           id: string
           is_active: boolean
           is_external: boolean
           label: string
+          megamenu_config: Json
           position: number
           scope: string
           show_in_mobile: boolean
@@ -1877,12 +1879,14 @@ export type Database = {
         Insert: {
           admin_only?: boolean
           created_at?: string
+          has_megamenu?: boolean
           href: string
           icon?: string | null
           id?: string
           is_active?: boolean
           is_external?: boolean
           label: string
+          megamenu_config?: Json
           position?: number
           scope: string
           show_in_mobile?: boolean
@@ -1891,12 +1895,14 @@ export type Database = {
         Update: {
           admin_only?: boolean
           created_at?: string
+          has_megamenu?: boolean
           href?: string
           icon?: string | null
           id?: string
           is_active?: boolean
           is_external?: boolean
           label?: string
+          megamenu_config?: Json
           position?: number
           scope?: string
           show_in_mobile?: boolean
