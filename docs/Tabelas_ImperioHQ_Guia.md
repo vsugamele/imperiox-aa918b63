@@ -1,45 +1,110 @@
 # Guia de Tabelas do Banco de Dados (Imperio HQ)
 
-Este guia documenta as principais tabelas relacionais do sistema **Imperio HQ**, identificadas pelo prefixo `imphq_`. Elas dão suporte aos variados módulos do painel, desde a gestão de tarefas e automações até análise de inteligência de mercado e CRM.
+Este guia documenta as principais tabelas relacionais do sistema **Imperio HQ**, identificadas pelo prefixo `imphq_`. Elas dão suporte aos variados módulos do painel, desde a gestão de tarefas e automações até análise de inteligência de mercado, CRM, anúncios e área de membros.
+
+> Atualizado: 2026-04 — Reflete arquitetura atual (Edge Functions, OpenFlow, Predictive CRM, Health Monitor, Webhook de Membros, etc).
 
 ## 1. Núcleo e Projetos
-* **`imphq_projects`**: Armazena os diferentes projetos e produtos que estão sendo gerenciados. A maioria das outras tabelas possui uma chave estrangeira (`project_id`) apontando para esta, garantindo a separação de dados por projeto.
-* **`imphq_team_members`**: Cadastros dos membros da equipe, incluindo nome, avatar e função. Utilizada na delegação de tarefas e organização ágil.
+* **`imphq_projects`** — Projetos/produtos gerenciados. Chave-mestra (`project_id`) referenciada pela maioria das demais tabelas. Projetos com status `vendendo` têm prioridade máxima nas análises da IA.
+* **`imphq_team_members`** — Cadastro da equipe (nome, avatar, função). Sincronizado com `imphq_user_roles` para aprovação automática de e-mails convidados.
+* **`imphq_user_roles`** — Papéis de acesso (admin, editor, viewer). Consolidado no painel `/configuracoes` (Gestão de Usuários).
+* **`imphq_integration_credentials`** — **Cofre seguro** para tokens sensíveis (Facebook, Resend, Google, Evolution API). Acessado exclusivamente via Edge Functions; nunca expor no client.
 
-## 2. Tarefas e Kanban (Ágil)
-* **`imphq_tasks`**: Registra as tarefas avulsas (to-do list), com data de entrega, status e responsável.
-* **`imphq_kanban_columns`**: Representa os estágios/fases (colunas) dos quadros no estilo Kanban (ex: A Fazer, Em Progresso, Concluído).
-* **`imphq_kanban_cards`**: Cartões do Kanban. Permitem acompanhamento visual das atividades e podem estar vinculados a membros e projetos.
+## 2. Tarefas, Kanban e Calendário
+* **`imphq_tasks`** — Tarefas avulsas (to-do).
+* **`imphq_kanban_columns`** / **`imphq_kanban_cards`** — Quadros Kanban com colunas e cartões; cards podem ser sincronizados com Google Calendar via marcador `[kanban:card_id]` e `google_event_id`.
+* **`imphq_calendar_events`** — Eventos do painel (reuniões, publicações, vistorias).
 
-## 3. Tracker e Analytics (Rastreamento)
-* **`imphq_tracking_links`**: Links de rastreamento gerados para campanhas, com parametrização UTMs e origem (Orgânico, Ads, etc).
-* **`imphq_clicks`**: Tabela de log que registra cada clique efetuado nos links de rastreamento (contém IP, User Agent, geolocalização).
-* **`imphq_vendas`**: Registra as conversões e vendas atreladas ao rastreamento, para cálculo de ROI e performance.
-* **`imphq_events`**: Grava eventos analíticos unificados da navegação e interação dos leads (ex: visitas a páginas, cliques em botões específicos).
+## 3. Tracker, Eventos e Vendas
+* **`imphq_tracking_links`** — Links UTM com macros do Meta Ads (separador `%7C`, ex: `{{adset.name}}%7C{{adset.id}}`).
+* **`imphq_clicks`** — Log de cliques (IP, UA, geo).
+* **`imphq_events`** — Eventos analíticos unificados (`PageView`, `LeadCapture`, `ViewContent`, `AddToCart`, `ButtonClick`) capturados via `imptrack.js` com `visitor_id`. Também recebe logs de **observabilidade** (Health Monitor, falhas de provedores).
+* **`imphq_vendas`** — Conversões. Categoriza produtos em `principal`, `orderbump`, `upsell`, `downsell`. Usa `item.price` para evitar inflação de receita. Suporta status `aprovada`, `pendente`, `recusada`, `cancelada`, `chargeback`, `reembolsada`.
 
-## 4. OpenFlow (Automações e Integrações)
-* **`imphq_automacoes`**: Representa fluxos e automações cadastradas (integrações com ferramentas como n8n, Make, Zapier).
-* **`imphq_webhooks`**: Histórico/Logs das conexões de Webhooks que entram e saem do sistema, útil para debugar os fluxos.
+## 4. OpenFlow (Automações)
+* **`imphq_automacoes`** — Fluxos visuais (e-mail, WhatsApp e híbridos). Normaliza campos (ex: `to`/`para`).
+* **`imphq_webhooks`** — Logs de webhooks recebidos/enviados. Central de observabilidade exibe os 100 últimos com botão **Reprocessar** para PIX perdidos.
+* **`imphq_flow_executions`** — Execuções com status `running`, `waiting`, `done`, `error`. Cron `openflow-resume` (a cada 2 min) retoma execuções travadas (`waiting` + `next_run_at <= now()`).
 
-## 5. CRM e Atendimento
-* **`imphq_leads`**: Gestão da base de contatos (CRM). Armazena dados dos leads capturados, estágio no funil e informações de vendas.
-* **`imphq_wa_conversations`**: Dados e métricas sobre conversas realizadas no WhatsApp.
+## 5. CRM, Leads e Atendimento
+* **`imphq_leads`** — Base de contatos. Status: `lead`, `cliente`, `vip`, `inativo`, `cancelado`, `chargeback`. Score com teto de 100 (recalculado por `trg_recalc_lead_score`). Persiste `ultimo_produto`/`ultimo_evento`. Ver detalhes em `Detalhes_Imphq_Leads.md`.
+* **`imphq_lead_responses`** — Respostas de formulários. Mapeamento manual entre `form_id` (TEXT) e `imphq_capture_forms.id` (UUID).
+* **`imphq_capture_forms`** — Formulários de captura.
+* **`imphq_lead_predictions`** — **CRM Preditivo**. TTL de 7 dias. IA estima probabilidade de conversão a partir do histórico.
+* **`imphq_lead_scores_log`** — Histórico granular de pontuação (origem, evento, pontos atribuídos).
+* **`imphq_activity_logs`** — Linha do tempo manual unificada com automações na aba **Jornada**.
 
-## 6. Mentes IA (Inteligência Artificial)
-* **`imphq_ai_chats`**: Histórico de sessões de chat com os agentes especialistas de Inteligência Artificial.
-* **`imphq_kb`**: Base de Conhecimento (*Knowledge Base*), armazenando diretrizes, documentos e textos que instruem as respostas das IAs.
-* **`imphq_skills`**: Biblioteca de habilidades (Skills) específicas que podem ser atribuídas tanto aos agentes de IA quanto estruturadas para o time.
+## 6. WhatsApp (Evolution API)
+* **`imphq_wa_conversations`** / **`imphq_wa_messages`** — Conversas e mensagens. Mídia volátil persistida no bucket `whatsapp-media`.
+* **`imphq_wa_instances`** — Instâncias (resolução em hierarquia de 5 níveis: step → auto → lead → projeto ativo → fallback global).
+* **`imphq_wa_campaigns`** / **`imphq_wa_campaign_steps`** — Campanhas em sequência. Geração de copy por IA usa `produto`, briefing e branding. Cron `wa-campaign-scheduler` agenda disparos (`pg_cron` + `net.http_post`).
+* **`imphq_wa_ai_config`** — Chatbot autônomo (Gemini) com horários comerciais e personalidade.
+* **`imphq_wa_group_links`** — Links inteligentes de distribuição (sequencial/balanceada) com log de cliques.
+* **Health Monitor** (`wa-health-monitor`, cron */5min) — Pinga instâncias e alerta por e-mail em falhas.
 
-## 7. Market Intel e Competidores
-* **`imphq_mi_opportunities`**: Tabela essencial na curadoria de oportunidades. Cruza nichos, dores de mercado, ângulos de copy e sugestões de estrutura de funil.
-* **`imphq_competitors`**: Cadastro e análise aprimorada dos concorrentes de cada projeto.
+## 7. Mentes IA / Skills
+* **`imphq_ai_chats`** — Histórico de chats com agentes especialistas. Suporta comando `/ia` que agrega contexto do projeto em `ai_response`.
+* **`imphq_kb`** — Base de conhecimento (diretrizes para IAs).
+* **`imphq_skills`** — Catálogo de habilidades. Usa coluna `slug` para matching exato em Edge Functions (ex: `avatar-architect`, `funnel-hacker`).
 
-## 8. Conteúdo e Referências
-* **`imphq_referencias`**: Biblioteca estruturada de links, criativos e ideias de inspiração (Swipe File do usuário).
-* **`imphq_content_library`**: Repositório (biblioteca) onde são guardados arquivos pesados, assets, imagens e documentos dos projetos.
-* **`imphq_calendar_events`**: Eventos agendados no calendário do painel (como vistorias, publicações ou reuniões), associados aos projetos.
+## 8. Market Intel, Concorrentes e Avatar
+* **`imphq_mi_opportunities`** — Curadoria de oportunidades (nicho, dor, ângulo, estrutura).
+* **`imphq_competitors`** — Análise de concorrentes (stack, páginas, ofertas, score).
+* **`imphq_avatars`** — Sistema de inteligência do avatar. Suporta `data.avatars_por_produto` (múltiplos contextos por projeto). Mapeia psique, voyerismo e Copy Arsenal.
+
+## 9. Conteúdo, Mídia e Referências
+* **`imphq_referencias`** — Swipe File (links, criativos, ideias).
+* **`imphq_content_library`** — Repositório de assets. **Pastas virtuais** emuladas via prefixo em `content_category` (ex: `reels/pasta-1`).
+* **`imphq_growth_metrics`** — Funil de aquisição→retenção→upsell (Growth Dashboard).
+
+## 10. Anúncios e Finanças
+* **`imphq_ads_accounts`** / **`imphq_ads_campaigns`** / **`imphq_ads_insights`** — Sincronização Facebook Ads. Tratamento de erros estruturado (#200, #190).
+* **Atribuição proporcional** — Ads rateados por share de receita do produto; custos fixos por data.
+* **ROAS Real** — Cruzamento de UTM com `imphq_vendas` (bypassa falhas do Pixel).
+* **Diagnóstico Yoshitani 7/5/3** — CPA/Checkout, taxa de LP, taxa de Checkout.
+
+## 11. Área de Membros (novo)
+* **Edge Function `membros-webhook`** (público, `verify_jwt = false`) — Recebe eventos da área de membros externa.
+* **Eventos suportados**: `membro_cadastrado`, `webinar_assistido`, `pesquisa_respondida`, `prova_enviada`, `aula_concluida`.
+* **Segregação de dados**:
+  * Upsert em `imphq_leads` (chave: e-mail) com tag `area-membros`.
+  * Respostas → `imphq_lead_responses` (1 linha por pergunta/resposta).
+  * Interações + UTMs → `imphq_events`.
+  * Pontuação automática → `imphq_lead_scores_log` (ex: webinar +25, prova +20).
+
+## 12. Expert Portal
+* **`imphq_expert_logs`** — RLS público para interações sem autenticação no Portal do Expert.
+
+## 13. Pagamentos e Webhooks
+* **`webhook-pagamento`** (Edge Function) — Recebe Hotmart, Kiwify, Ticto. Detecta plataforma pelo formato. Cria lead + venda + dispara CAPI (com `event_id` para deduplicação) + automações.
+* **Cancelamentos & Chargebacks** — Atualizam `imphq_vendas.status` e `imphq_leads.status` para `cancelado`/`chargeback`, refletindo no estágio do funil em /leads.
+
+---
+
+## Edge Functions ativas (resumo)
+
+| Função | Propósito |
+|---|---|
+| `webhook-pagamento` | Ingestão Hotmart/Kiwify/Ticto |
+| `membros-webhook` | Ingestão da área de membros |
+| `whatsapp-api` | Proxy CORS Evolution + normalização de eventos |
+| `wa-campaign-scheduler` | Cron de disparos |
+| `wa-health-monitor` | Health-check de instâncias |
+| `wa-group-distributor` | Distribuição em grupos |
+| `openflow-executor` / `openflow-resume` / `openflow-ai` | Motor de automações + IA |
+| `facebook-ads-sync` / `facebook-ads-sync-all` | Sync de anúncios |
+| `lead-predict` | CRM Preditivo |
+| `daily-briefing` | Briefing diário por e-mail |
+| `notify-scheduler` | Push e e-mail agendados |
+| `payment-recovery` | Recuperação de PIX/Boleto |
+| `expert-portal` / `expert-research` | Portal do Expert + pesquisa |
+| `google-calendar-sync` | Sync com Google Calendar |
+| `send-project-email` / `send-push` | Envio transacional |
+| `capture-lead` | Captura via formulário |
+| `admin-users` | Gestão de usuários/roles |
+| `imperio-api` | API genérica para integrações externas |
 
 ---
 
 > [!TIP]
-> Caso queira a partir de agora trabalhar na estrutura ou criar novas tabelas a partir do Supabase para novas páginas que estão no roadmap, possuímos um histórico completo de migrações (`supabase/migrations`) para garantir a consistência do modelo de dados em todos os ambientes!
+> Histórico completo em `supabase/migrations`. Para qualquer alteração de schema, crie uma migração — não edite o banco diretamente. IDs: **TEXT** para `projects`/`leads`/`vendas`; **UUID** para os demais.
