@@ -167,6 +167,58 @@ Deno.serve(async (req) => {
   }
 });
 
+/**
+ * Auto-reconnect proativo (SEGURO — não aumenta risco de ban):
+ * - Apenas chama /instance/connect para reativar sessão JÁ pareada
+ * - Throttle de 10min por instância para evitar loops
+ * - Não força novo QR, não envia mensagens, não cria sessão nova
+ */
+async function tryAutoReconnect(
+  supabase: any,
+  provider: any,
+  state: string
+): Promise<{ attempted: boolean; result: string }> {
+  if (state !== "close" && state !== "connecting") {
+    return { attempted: false, result: "skipped" };
+  }
+
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data: recent } = await supabase
+    .from("imphq_events")
+    .select("id")
+    .eq("event_name", "wa_auto_reconnect_attempt")
+    .gte("created_at", tenMinAgo)
+    .filter("data->>instance_name", "eq", provider.instance_name)
+    .limit(1)
+    .maybeSingle();
+
+  if (recent) return { attempted: false, result: "throttled (<10min)" };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(
+      `${provider.api_url}/instance/connect/${provider.instance_name}`,
+      { headers: { apikey: provider.api_key }, signal: controller.signal }
+    );
+    clearTimeout(timeout);
+
+    const result = res.ok ? "success" : `http_${res.status}`;
+    console.log(`[wa-health-monitor] Auto-reconnect ${provider.instance_name}: ${result}`);
+
+    await supabase.from("imphq_events").insert({
+      project_id: provider.project_id || "system",
+      event_name: "wa_auto_reconnect_attempt",
+      page_url: "",
+      data: { instance_name: provider.instance_name, previous_state: state, result, ok: res.ok },
+    });
+
+    return { attempted: true, result };
+  } catch (e: any) {
+    return { attempted: true, result: `error: ${e.message}` };
+  }
+}
+
 async function sendAlertEmail(
   supabase: any,
   failures: any[],
