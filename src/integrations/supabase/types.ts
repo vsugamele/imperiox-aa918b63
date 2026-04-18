@@ -11831,6 +11831,7 @@ export type Database = {
       }
       imphq_ads_spend: {
         Row: {
+          add_to_cart: number | null
           alcance: number | null
           anuncio: string | null
           campanha: string | null
@@ -11850,7 +11851,10 @@ export type Database = {
           hook_rate: number | null
           id: string
           impressoes: number | null
+          init_checkout: number | null
+          landing_page_views: number | null
           leads: number | null
+          link_clicks: number | null
           moeda: string | null
           nivel_veiculacao: string | null
           plataforma: string
@@ -11858,8 +11862,11 @@ export type Database = {
           resultados: number | null
           stop_rate: number | null
           valor: number
+          video_3s_views: number | null
+          video_thruplay: number | null
         }
         Insert: {
+          add_to_cart?: number | null
           alcance?: number | null
           anuncio?: string | null
           campanha?: string | null
@@ -11879,7 +11886,10 @@ export type Database = {
           hook_rate?: number | null
           id?: string
           impressoes?: number | null
+          init_checkout?: number | null
+          landing_page_views?: number | null
           leads?: number | null
+          link_clicks?: number | null
           moeda?: string | null
           nivel_veiculacao?: string | null
           plataforma?: string
@@ -11887,8 +11897,11 @@ export type Database = {
           resultados?: number | null
           stop_rate?: number | null
           valor?: number
+          video_3s_views?: number | null
+          video_thruplay?: number | null
         }
         Update: {
+          add_to_cart?: number | null
           alcance?: number | null
           anuncio?: string | null
           campanha?: string | null
@@ -11908,7 +11921,10 @@ export type Database = {
           hook_rate?: number | null
           id?: string
           impressoes?: number | null
+          init_checkout?: number | null
+          landing_page_views?: number | null
           leads?: number | null
+          link_clicks?: number | null
           moeda?: string | null
           nivel_veiculacao?: string | null
           plataforma?: string
@@ -11916,6 +11932,8 @@ export type Database = {
           resultados?: number | null
           stop_rate?: number | null
           valor?: number
+          video_3s_views?: number | null
+          video_thruplay?: number | null
         }
         Relationships: [
           {

@@ -12,6 +12,15 @@ export function toLocalDateStr(date: Date = new Date()): string {
 }
 
 /**
+ * Returns YYYY-MM-DD in BRT (America/Sao_Paulo) regardless of server timezone.
+ * Use in Edge Functions / scripts where `new Date()` is UTC.
+ */
+export function getBRTDateString(date: Date = new Date()): string {
+  // en-CA gives YYYY-MM-DD format
+  return date.toLocaleString("en-CA", { timeZone: "America/Sao_Paulo" }).split(",")[0];
+}
+
+/**
  * Returns a local-timezone YYYY-MM-DD for `daysAgo` days in the past.
  */
 export function localDaysAgo(daysAgo: number): string {

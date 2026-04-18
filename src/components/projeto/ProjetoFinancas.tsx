@@ -40,6 +40,8 @@ interface AdsSpend {
   anuncio?: string | null; data_ref: string; valor: number; impressoes: number; alcance?: number;
   cliques: number; leads: number; compras?: number; custo_por_compra?: number;
   hook_rate?: number; ctr?: number; frequencia?: number;
+  init_checkout?: number; add_to_cart?: number; landing_page_views?: number;
+  video_3s_views?: number; video_thruplay?: number; link_clicks?: number;
 }
 interface Venda {
   id: string; produto_nome: string; valor: number; plataforma: string; status: string; data_venda: string;
