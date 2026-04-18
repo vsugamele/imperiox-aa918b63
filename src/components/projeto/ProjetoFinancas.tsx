@@ -172,6 +172,10 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       compras: x.compras || 0, custo_por_compra: parseFloat(x.custo_por_compra) || 0,
       hook_rate: parseFloat(x.hook_rate) || 0, ctr: parseFloat(x.ctr) || 0,
       frequencia: parseFloat(x.frequencia) || 0,
+      init_checkout: x.init_checkout || 0, add_to_cart: x.add_to_cart || 0,
+      landing_page_views: x.landing_page_views || 0,
+      video_3s_views: x.video_3s_views || 0, video_thruplay: x.video_thruplay || 0,
+      link_clicks: x.link_clicks || 0,
     })));
     setVendas((v.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
     setProjects((p.data || []) as { id: string; name: string }[]);
@@ -854,10 +858,15 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                     const vendasReaisCount = fVendas.length;
                     const receitaVendas = fVendas.reduce((s, v) => s + v.valor, 0);
                     const roasReal = totalAds > 0 ? receitaVendas / totalAds : 0;
-                    // Métricas Yoshitani
+                    // Métricas Yoshitani + Funil
                     const ctr = totalImpr > 0 ? (totalCliques / totalImpr) * 100 : 0;
-                    const totalCheckouts = fAds.reduce((s, a: any) => s + (a.checkouts || 0), 0);
+                    const totalCheckouts = fAds.reduce((s, a: any) => s + (a.init_checkout || a.checkouts || 0), 0);
+                    const totalLpViews = fAds.reduce((s, a: any) => s + (a.landing_page_views || 0), 0);
+                    const totalVideo3s = fAds.reduce((s, a: any) => s + (a.video_3s_views || 0), 0);
                     const custoPorCheckout = totalCheckouts > 0 ? totalAds / totalCheckouts : 0;
+                    const hookRate = totalImpr > 0 ? (totalVideo3s / totalImpr) * 100 : 0;
+                    const lpToCheckout = totalLpViews > 0 ? (totalCheckouts / totalLpViews) * 100 : 0;
+                    const checkoutToVenda = totalCheckouts > 0 ? (totalCompras / totalCheckouts) * 100 : 0;
                     const ticketMedio = vendasReaisCount > 0 ? receitaVendas / vendasReaisCount : 0;
                     const cpaReal = vendasReaisCount > 0 ? totalAds / vendasReaisCount : 0;
                     const lucroAds = receitaVendas - totalAds;
@@ -883,6 +892,11 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                       { label: "CPM", value: fmt(cpm), color: "text-cyan-400" },
                       { label: "Freq. Média", value: avgFreq.toFixed(2), color: "text-orange-400" },
                       { label: "Alcance Total", value: totalAlcance.toLocaleString(), color: "text-pink-400" },
+                      { label: "Hook Rate", value: hookRate > 0 ? `${hookRate.toFixed(1)}%` : "—", color: "text-amber-400" },
+                      { label: "Init. Checkout", value: String(totalCheckouts), color: "text-orange-400" },
+                      { label: "LP Views", value: totalLpViews.toLocaleString(), color: "text-cyan-400" },
+                      { label: "LP→Checkout", value: lpToCheckout > 0 ? `${lpToCheckout.toFixed(1)}%` : "—", color: "text-violet-400" },
+                      { label: "Checkout→Venda", value: checkoutToVenda > 0 ? `${checkoutToVenda.toFixed(1)}%` : "—", color: "text-emerald-400" },
                     ];
                     return (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

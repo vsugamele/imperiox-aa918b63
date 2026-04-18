@@ -83,6 +83,8 @@ Deno.serve(async (req) => {
         const insightsUrl = `${FB_BASE}/${actId}/insights?fields=${fields}&time_range={"since":"${dfrom}","until":"${dto}"}&time_increment=1&level=ad&limit=500&access_token=${accessToken}`;
         const insightsRes = await fetch(insightsUrl);
         if (!insightsRes.ok) {
+          const errBody = await insightsRes.text();
+          console.error(`[FB Sync] ${proj.name} insights failed (${insightsRes.status}):`, errBody.slice(0, 500));
           results.push({ project_id: proj.id, name: proj.name, imported: 0, errors: 1, creatives: 0 });
           continue;
         }
