@@ -256,7 +256,16 @@ serve(async (req) => {
         }
       } catch (sendErr: any) {
         console.error("[send_message] provider error:", sendErr.message);
-        const isConnectionClosed = sendErr.message?.includes("Connection Closed");
+        const isConnectionClosed = isTransientConnError(sendErr.message || "");
+        if (isConnectionClosed) {
+          // Log para visibilidade no painel de saúde
+          await supabase.from("imphq_events").insert({
+            type: "wa_session_disconnected",
+            entity_type: "wa_provider",
+            entity_id: provider.id,
+            metadata: { instance: provider.instance_name, error: sendErr.message?.slice(0, 300) },
+          }).then(() => {}, () => {});
+        }
         return new Response(JSON.stringify({
           success: false,
           error: isConnectionClosed
