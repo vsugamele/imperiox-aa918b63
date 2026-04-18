@@ -14,7 +14,7 @@ Listagem das principais colunas e suas funções (inferidas a partir do código-
 | `email` | String | E-mail de contato, usado como chave primária de identificação em vários cruzamentos (ex: cliques e rastreamento). |
 | `phone` | String | Telefone/WhatsApp. Usado para a funcionalidade de "Contato Rápido" via `imphq_wa_conversations`. |
 | `plataforma` | String | Origem inicial cadastrada (Manual, Meta, Google, TikTok, Hotmart, Kiwify, Ticto, Orgânico, Indicação). |
-| `status` | String | Estágio do funil: `lead`, `cliente`, `vip`, `inativo`. |
+| `status` | String | Estágio do funil: `lead`, `cliente`, `vip`, `inativo`, `cancelado`, `chargeback`. Atualizado automaticamente pelo `webhook-pagamento` quando há reembolso ou contestação. |
 | `score` | Integer | Pontuação de engajamento (*Lead Scoring*). Leads que abrem mais emails ou clicam mais sobem o score de 0 a 100. |
 | `tags` | Array[String] | Etiquetas customizáveis (ex: "abandono_carrinho", "evento_x"). |
 | `total_gasto` | Numeric | LTV (Lifetime Value). Soma em Reais `R$` do quanto aquele lead já converteu. |
