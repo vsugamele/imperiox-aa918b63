@@ -12947,40 +12947,55 @@ export type Database = {
       }
       imphq_generated_contents: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           content: string
           content_type: string
           created_at: string
           custom_prompt: string | null
+          funnel_stage: string | null
           id: string
           metadata: Json | null
           model_used: string | null
           product_name: string | null
           project_id: string
+          status: string
           user_id: string
+          variation_group: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           content: string
           content_type: string
           created_at?: string
           custom_prompt?: string | null
+          funnel_stage?: string | null
           id?: string
           metadata?: Json | null
           model_used?: string | null
           product_name?: string | null
           project_id: string
+          status?: string
           user_id: string
+          variation_group?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           content?: string
           content_type?: string
           created_at?: string
           custom_prompt?: string | null
+          funnel_stage?: string | null
           id?: string
           metadata?: Json | null
           model_used?: string | null
           product_name?: string | null
           project_id?: string
+          status?: string
           user_id?: string
+          variation_group?: string | null
         }
         Relationships: [
           {
