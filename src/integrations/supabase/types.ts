@@ -1918,6 +1918,51 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_post_comments_v2: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          parent_id: string | null
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          parent_id?: string | null
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          parent_id?: string | null
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_post_comments_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_post_likes: {
         Row: {
           created_at: string
@@ -27639,6 +27684,7 @@ export type Database = {
         Args: { mission_id: string; new_status: string }
         Returns: boolean
       }
+      amjp_is_admin: { Args: { _uid: string }; Returns: boolean }
       archive_old_deposits: { Args: never; Returns: undefined }
       areamembrojp_has_role: {
         Args: {
