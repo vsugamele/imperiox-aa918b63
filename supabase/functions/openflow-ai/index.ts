@@ -1291,7 +1291,7 @@ REGRAS ABSOLUTAS:
 - Inclua variáveis dinâmicas ({{nome}}, {{produto}}, {{link}}) onde aplicável
 - Formate com Markdown (headers, bullets, negrito) para fácil leitura
 - Seja específico — NUNCA genérico
-${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}`;
+${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}${stageNote}`;
 
   const userPrompt = typePrompts[content_type] || `Gere conteúdo do tipo "${content_type}" para o gatilho "${trigger}".`;
 
