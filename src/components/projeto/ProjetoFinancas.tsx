@@ -852,18 +852,35 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                     const vendasReaisCount = fVendas.length;
                     const receitaVendas = fVendas.reduce((s, v) => s + v.valor, 0);
                     const roasReal = totalAds > 0 ? receitaVendas / totalAds : 0;
+                    // Métricas Yoshitani
+                    const ctr = totalImpr > 0 ? (totalCliques / totalImpr) * 100 : 0;
+                    const totalCheckouts = fAds.reduce((s, a: any) => s + (a.checkouts || 0), 0);
+                    const custoPorCheckout = totalCheckouts > 0 ? totalAds / totalCheckouts : 0;
+                    const ticketMedio = vendasReaisCount > 0 ? receitaVendas / vendasReaisCount : 0;
+                    const cpaReal = vendasReaisCount > 0 ? totalAds / vendasReaisCount : 0;
+                    const lucroAds = receitaVendas - totalAds;
+                    // CTR benchmarks: <1% ruim, 1-2% ok, >2% bom
+                    const ctrColor = ctr >= 2 ? "text-emerald-400" : ctr >= 1 ? "text-amber-400" : "text-red-400";
+                    // ROAS Real: <1 prejuízo, 1-2 ok, >2 bom
+                    const roasColor = roasReal >= 2 ? "text-emerald-400" : roasReal >= 1 ? "text-amber-400" : "text-red-400";
+                    const lucroColor = lucroAds >= 0 ? "text-emerald-400" : "text-red-400";
                     const adsKpis = [
                       { label: "Investido", value: fmt(totalAds), color: "text-blue-400" },
+                      { label: "CTR", value: ctr > 0 ? `${ctr.toFixed(2)}%` : "—", color: ctrColor },
                       { label: "CPC", value: fmt(cpc), color: "text-amber-400" },
                       { label: "CPL", value: fmt(cpl), color: "text-violet-400" },
+                      { label: "Custo/Checkout", value: totalCheckouts > 0 ? fmt(custoPorCheckout) : "—", color: "text-orange-400" },
+                      { label: "CPA (Pixel)", value: totalCompras > 0 ? fmt(cpa) : "—", color: "text-red-400" },
+                      { label: "CPA Real", value: vendasReaisCount > 0 ? fmt(cpaReal) : "—", color: "text-red-400" },
                       { label: "Compras (Pixel)", value: String(totalCompras), color: "text-emerald-400" },
                       { label: "Vendas Reais", value: String(vendasReaisCount), color: "text-emerald-400" },
                       { label: "Receita Vendas", value: fmt(receitaVendas), color: "text-emerald-400" },
-                      { label: "ROAS Real", value: roasReal > 0 ? `${roasReal.toFixed(2)}x` : "—", color: "text-emerald-400" },
+                      { label: "Ticket Médio", value: vendasReaisCount > 0 ? fmt(ticketMedio) : "—", color: "text-cyan-400" },
+                      { label: "ROAS Real", value: roasReal > 0 ? `${roasReal.toFixed(2)}x` : "—", color: roasColor },
+                      { label: "Lucro Ads", value: vendasReaisCount > 0 ? fmt(lucroAds) : "—", color: lucroColor },
                       { label: "CPM", value: fmt(cpm), color: "text-cyan-400" },
                       { label: "Freq. Média", value: avgFreq.toFixed(2), color: "text-orange-400" },
                       { label: "Alcance Total", value: totalAlcance.toLocaleString(), color: "text-pink-400" },
-                      { label: "CPA", value: totalCompras > 0 ? fmt(cpa) : "—", color: "text-red-400" },
                     ];
                     return (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
