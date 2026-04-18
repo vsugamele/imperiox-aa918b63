@@ -22,6 +22,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toLocalDateStr } from "@/lib/periodUtils";
 
 interface Cost {
   id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
