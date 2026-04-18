@@ -1576,51 +1576,63 @@ export type Database = {
           button_label: string
           capture_lead: boolean
           created_at: string
+          delay_seconds: number
           description: string | null
           ends_at: string | null
+          frequency: string
           id: string
           image_url: string | null
           is_active: boolean
           position: string
+          random_display: boolean
           scope: string
           scope_id: string | null
           starts_at: string | null
           target_url: string
           title: string
+          trigger_type: string
           updated_at: string
         }
         Insert: {
           button_label?: string
           capture_lead?: boolean
           created_at?: string
+          delay_seconds?: number
           description?: string | null
           ends_at?: string | null
+          frequency?: string
           id?: string
           image_url?: string | null
           is_active?: boolean
           position?: string
+          random_display?: boolean
           scope?: string
           scope_id?: string | null
           starts_at?: string | null
           target_url: string
           title: string
+          trigger_type?: string
           updated_at?: string
         }
         Update: {
           button_label?: string
           capture_lead?: boolean
           created_at?: string
+          delay_seconds?: number
           description?: string | null
           ends_at?: string | null
+          frequency?: string
           id?: string
           image_url?: string | null
           is_active?: boolean
           position?: string
+          random_display?: boolean
           scope?: string
           scope_id?: string | null
           starts_at?: string | null
           target_url?: string
           title?: string
+          trigger_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -2217,6 +2229,7 @@ export type Database = {
           author_name: string | null
           author_role: string | null
           banner_url: string | null
+          bonus_items: Json
           category: string | null
           created_at: string
           description: string | null
@@ -2228,7 +2241,9 @@ export type Database = {
           is_published: boolean
           is_trending: boolean
           language: string
+          long_description: string | null
           subtitle: string | null
+          testimonials: Json
           thumbnail_url: string | null
           title: string
           total_minutes: number
@@ -2240,6 +2255,7 @@ export type Database = {
           author_name?: string | null
           author_role?: string | null
           banner_url?: string | null
+          bonus_items?: Json
           category?: string | null
           created_at?: string
           description?: string | null
@@ -2251,7 +2267,9 @@ export type Database = {
           is_published?: boolean
           is_trending?: boolean
           language?: string
+          long_description?: string | null
           subtitle?: string | null
+          testimonials?: Json
           thumbnail_url?: string | null
           title: string
           total_minutes?: number
@@ -2263,6 +2281,7 @@ export type Database = {
           author_name?: string | null
           author_role?: string | null
           banner_url?: string | null
+          bonus_items?: Json
           category?: string | null
           created_at?: string
           description?: string | null
@@ -2274,12 +2293,125 @@ export type Database = {
           is_published?: boolean
           is_trending?: boolean
           language?: string
+          long_description?: string | null
           subtitle?: string | null
+          testimonials?: Json
           thumbnail_url?: string | null
           title?: string
           total_minutes?: number
         }
         Relationships: []
+      }
+      areamembrojp_quiz_attempts: {
+        Row: {
+          answers: Json
+          completed_at: string
+          id: string
+          passed: boolean
+          quiz_id: string
+          score: number
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id: string
+          score?: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id?: string
+          score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_quiz_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: Json
+          position: number
+          question: string
+          quiz_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question: string
+          quiz_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question?: string
+          quiz_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_quizzes: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          lesson_id: string
+          pass_score: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          lesson_id: string
+          pass_score?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          lesson_id?: string
+          pass_score?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quizzes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_searches: {
         Row: {
