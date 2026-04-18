@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Mail, MessageCircle, Video, Megaphone, Copy, Check, RefreshCw, FileText, ShoppingCart, Zap } from "lucide-react";
+import { Sparkles, Loader2, Mail, MessageCircle, Video, Megaphone, Copy, Check, RefreshCw, FileText, ShoppingCart, Zap, Save } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 
 const CONTENT_TYPES = [
