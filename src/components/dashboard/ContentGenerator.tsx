@@ -6,47 +6,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Mail, MessageCircle, Video, Megaphone, Copy, Check, RefreshCw, FileText, ShoppingCart, Zap, Save } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import ReactMarkdown from "react-markdown";
-
-const CONTENT_TYPES = [
-  { id: "recovery_email", label: "Email de Recuperação", icon: Mail, desc: "Carrinho abandonado, PIX pendente, boleto", color: "text-blue-400" },
-  { id: "ad_copy", label: "Copy de Anúncio", icon: Megaphone, desc: "Facebook/Instagram Ads com variações A/B", color: "text-orange-400" },
-  { id: "video_script", label: "Roteiro de Vídeo", icon: Video, desc: "Reels, TikTok, Stories, YouTube Shorts", color: "text-pink-400" },
-  { id: "whatsapp_sequence", label: "Sequência WhatsApp", icon: MessageCircle, desc: "Follow-up, recuperação, nurturing", color: "text-green-400" },
-  { id: "email_sequence", label: "Sequência de Emails", icon: FileText, desc: "Onboarding, lançamento, nutrição", color: "text-purple-400" },
-  { id: "sales_page_blocks", label: "Blocos de Página", icon: ShoppingCart, desc: "Headlines, CTAs, bullet points, provas", color: "text-yellow-400" },
-];
-
-const TRIGGERS = [
-  { id: "carrinho_abandonado", label: "Carrinho Abandonado" },
-  { id: "pix_pendente", label: "PIX Pendente" },
-  { id: "boleto_pendente", label: "Boleto Pendente" },
-  { id: "lead_novo", label: "Lead Novo" },
-  { id: "compra_aprovada", label: "Pós-Compra" },
-  { id: "reengajamento", label: "Reengajamento" },
-  { id: "lancamento", label: "Lançamento" },
-];
+import { Sparkles, Loader2, Zap, Filter } from "lucide-react";
+import { CONTENT_TYPES, TRIGGERS, FUNNEL_STAGES, type GeneratedItem, type StatusKey } from "./contentGenerator/constants";
+import { ResultCard } from "./contentGenerator/ResultCard";
 
 export function ContentGenerator() {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [contentType, setContentType] = useState("recovery_email");
   const [trigger, setTrigger] = useState("carrinho_abandonado");
+  const [funnelStage, setFunnelStage] = useState("fundo");
   const [customPrompt, setCustomPrompt] = useState("");
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchCount, setBatchCount] = useState(3);
   const [generating, setGenerating] = useState(false);
-  const [results, setResults] = useState<{ id?: string; type: string; content: string; timestamp: number; project_name?: string }[]>([]);
+  const [results, setResults] = useState<GeneratedItem[]>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("todos");
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => {
       if (data) setProjects(data);
       if (data?.length && !selectedProject) setSelectedProject(data[0].id);
     });
-    // Load saved history
     loadHistory();
   }, []);
 
@@ -55,10 +41,10 @@ export function ContentGenerator() {
     if (!user?.user) return;
     const { data } = await supabase
       .from("imphq_generated_contents")
-      .select("id, content_type, content, product_name, created_at, project_id")
+      .select("id, content_type, content, product_name, created_at, project_id, status, funnel_stage, variation_group")
       .eq("user_id", user.user.id)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(80);
     if (data) {
       setResults(data.map((d: any) => ({
         id: d.id,
@@ -66,42 +52,73 @@ export function ContentGenerator() {
         content: d.content,
         timestamp: new Date(d.created_at).getTime(),
         project_name: d.product_name || d.project_id,
+        status: (d.status || "rascunho") as StatusKey,
+        funnel_stage: d.funnel_stage,
+        variation_group: d.variation_group,
       })));
     }
+  };
+
+  const generateOne = async (variationGroup?: string, variationLabel?: string) => {
+    const { data, error } = await supabase.functions.invoke("openflow-ai", {
+      body: {
+        project_id: selectedProject,
+        action: "generate_content_pack",
+        content_type: contentType,
+        trigger,
+        funnel_stage: funnelStage,
+        custom_prompt: variationLabel ? `${customPrompt}\n\n[Variação ${variationLabel} — use ângulo/abordagem distinta das demais]` : customPrompt,
+        model: "google/gemini-3-flash-preview",
+      },
+    });
+    if (error) throw error;
+    const content = data?.result || data?.text || JSON.stringify(data);
+    const { data: userData } = await supabase.auth.getUser();
+    let savedId: string | undefined;
+    if (userData?.user) {
+      const projName = projects.find(p => p.id === selectedProject)?.name || "";
+      const { data: inserted } = await supabase.from("imphq_generated_contents").insert({
+        project_id: selectedProject,
+        user_id: userData.user.id,
+        content_type: contentType,
+        content,
+        product_name: projName,
+        model_used: "google/gemini-3-flash-preview",
+        status: "rascunho",
+        funnel_stage: funnelStage,
+        variation_group: variationGroup || null,
+        metadata: { trigger, custom_prompt: customPrompt, variation_label: variationLabel },
+      }).select("id").single();
+      savedId = inserted?.id;
+    }
+    return { id: savedId, content };
   };
 
   const handleGenerate = async () => {
     if (!selectedProject) { toast.error("Selecione um projeto"); return; }
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: selectedProject,
-          action: "generate_content_pack",
-          content_type: contentType,
-          trigger,
-          custom_prompt: customPrompt,
-          model: "google/gemini-3-flash-preview",
-        },
-      });
-      if (error) throw error;
-      const content = data?.result || data?.text || JSON.stringify(data);
-      // Save to DB
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user) {
-        const projName = projects.find(p => p.id === selectedProject)?.name || "";
-        await supabase.from("imphq_generated_contents").insert({
-          project_id: selectedProject,
-          user_id: userData.user.id,
-          content_type: contentType,
-          content,
-          product_name: projName,
-          model_used: "google/gemini-3-flash-preview",
-          metadata: { trigger, custom_prompt: customPrompt },
-        });
+      if (batchMode) {
+        const groupId = crypto.randomUUID();
+        const newItems: GeneratedItem[] = [];
+        for (let i = 0; i < batchCount; i++) {
+          const label = String.fromCharCode(65 + i); // A, B, C
+          const r = await generateOne(groupId, label);
+          newItems.push({
+            id: r.id, type: contentType, content: r.content, timestamp: Date.now() + i,
+            status: "rascunho", funnel_stage: funnelStage, variation_group: groupId,
+          });
+        }
+        setResults(prev => [...newItems, ...prev]);
+        toast.success(`${batchCount} variações geradas!`);
+      } else {
+        const r = await generateOne();
+        setResults(prev => [{
+          id: r.id, type: contentType, content: r.content, timestamp: Date.now(),
+          status: "rascunho", funnel_stage: funnelStage,
+        }, ...prev]);
+        toast.success("Conteúdo gerado!");
       }
-      setResults(prev => [{ type: contentType, content, timestamp: Date.now() }, ...prev]);
-      toast.success("Conteúdo gerado com sucesso!");
     } catch (err: any) {
       if (err?.message?.includes("429")) toast.error("Rate limit. Tente em alguns segundos.");
       else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
@@ -125,10 +142,7 @@ export function ContentGenerator() {
       id: crypto.randomUUID(),
       project_id: selectedProject,
       title: `[IA] ${typeLabel} — ${new Date().toLocaleDateString("pt-BR")}`,
-      content,
-      body: content,
-      cat: "ia-gerado",
-      tags: [type, "ia", trigger],
+      content, body: content, cat: "ia-gerado", tags: [type, "ia", trigger],
     });
     if (error) toast.error("Erro: " + error.message);
     else toast.success(`Salvo em Docs do projeto!`);
@@ -146,10 +160,24 @@ export function ContentGenerator() {
     produtos[0] = { ...prod, copy_arsenal: ca };
     const { error } = await supabase.from("imphq_projects").update({ data: { ...data, produtos } }).eq("id", selectedProject);
     if (error) toast.error("Erro: " + error.message);
-    else toast.success(`Adicionado ao Copy Arsenal de "${prod.nome || prod.name}"!`);
+    else toast.success(`Adicionado ao Copy Arsenal!`);
+  };
+
+  const changeStatus = async (id: string, status: StatusKey) => {
+    const update: any = { status };
+    if (status === "aprovado") {
+      const { data: u } = await supabase.auth.getUser();
+      update.approved_at = new Date().toISOString();
+      update.approved_by = u?.user?.id;
+    }
+    const { error } = await supabase.from("imphq_generated_contents").update(update).eq("id", id);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    setResults(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    toast.success(`Status: ${status}`);
   };
 
   const selectedType = CONTENT_TYPES.find(t => t.id === contentType);
+  const filteredResults = filterStatus === "todos" ? results : results.filter(r => (r.status || "rascunho") === filterStatus);
 
   return (
     <Card className="border-border/50 bg-card/80 backdrop-blur">
@@ -157,7 +185,7 @@ export function ContentGenerator() {
         <CardTitle className="flex items-center gap-2 text-lg">
           <Zap className="h-5 w-5 text-primary" />
           Gerador de Conteúdo com IA
-          <Badge variant="secondary" className="text-[10px]">Fase 2</Badge>
+          <Badge variant="secondary" className="text-[10px]">Fase 3 — Pipeline</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -168,52 +196,40 @@ export function ContentGenerator() {
           </TabsList>
 
           <TabsContent value="generate" className="space-y-4">
-            {/* Project selector */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Projeto</label>
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger className="bg-secondary/50">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
+                  <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.icon || "📁"} {p.name}
+                    {projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Estágio do Funil</label>
+                <Select value={funnelStage} onValueChange={setFunnelStage}>
+                  <SelectTrigger className="bg-secondary/50"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FUNNEL_STAGES.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex flex-col"><span>{s.label}</span><span className="text-[10px] text-muted-foreground">{s.desc}</span></div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Gatilho / Contexto</label>
                 <Select value={trigger} onValueChange={setTrigger}>
-                  <SelectTrigger className="bg-secondary/50">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="bg-secondary/50"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {TRIGGERS.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Modelo</label>
-                <Select defaultValue="google/gemini-3-flash-preview" disabled>
-                  <SelectTrigger className="bg-secondary/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="google/gemini-3-flash-preview">⚡ Gemini 3 Flash</SelectItem>
+                    {TRIGGERS.map(t => (<SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Content type grid */}
             <div>
               <label className="text-xs text-muted-foreground mb-2 block">Tipo de Conteúdo</label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -221,19 +237,9 @@ export function ContentGenerator() {
                   const Icon = ct.icon;
                   const isActive = contentType === ct.id;
                   return (
-                    <button
-                      key={ct.id}
-                      onClick={() => setContentType(ct.id)}
-                      className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all ${
-                        isActive
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                          : "border-border/50 bg-secondary/30 hover:bg-secondary/60"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className={`h-4 w-4 ${ct.color}`} />
-                        <span className="text-xs font-medium">{ct.label}</span>
-                      </div>
+                    <button key={ct.id} onClick={() => setContentType(ct.id)}
+                      className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all ${isActive ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border/50 bg-secondary/30 hover:bg-secondary/60"}`}>
+                      <div className="flex items-center gap-2"><Icon className={`h-4 w-4 ${ct.color}`} /><span className="text-xs font-medium">{ct.label}</span></div>
                       <span className="text-[10px] text-muted-foreground leading-tight">{ct.desc}</span>
                     </button>
                   );
@@ -241,104 +247,83 @@ export function ContentGenerator() {
               </div>
             </div>
 
-            {/* Custom prompt */}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Instruções extras (opcional)</label>
-              <Textarea
-                value={customPrompt}
-                onChange={e => setCustomPrompt(e.target.value)}
-                placeholder="Ex: Foque em urgência para quem abandonou o checkout há 2h. Tom informal e direto."
-                className="min-h-[60px] bg-secondary/30 text-sm"
-              />
+              <Textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)}
+                placeholder="Ex: Foque em urgência. Tom informal e direto."
+                className="min-h-[60px] bg-secondary/30 text-sm" />
             </div>
 
-            {/* Generate button */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
+              <div className="flex items-center gap-3">
+                <Switch id="batch-mode" checked={batchMode} onCheckedChange={setBatchMode} />
+                <Label htmlFor="batch-mode" className="text-xs cursor-pointer">
+                  🔀 Geração em Lote (variações A/B)
+                </Label>
+              </div>
+              {batchMode && (
+                <Select value={String(batchCount)} onValueChange={v => setBatchCount(Number(v))}>
+                  <SelectTrigger className="w-32 bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 variações</SelectItem>
+                    <SelectItem value="3">3 variações</SelectItem>
+                    <SelectItem value="4">4 variações</SelectItem>
+                    <SelectItem value="5">5 variações</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
             <Button onClick={handleGenerate} disabled={generating} className="w-full gap-2">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {generating ? "Gerando conteúdo..." : `Gerar ${selectedType?.label || "Conteúdo"}`}
+              {generating ? (batchMode ? `Gerando ${batchCount} variações...` : "Gerando conteúdo...") : (batchMode ? `Gerar ${batchCount} variações de ${selectedType?.label}` : `Gerar ${selectedType?.label || "Conteúdo"}`)}
             </Button>
 
-            {/* Context info */}
             <div className="flex flex-wrap gap-1.5">
               <Badge variant="outline" className="text-[9px]">📋 Briefing</Badge>
               <Badge variant="outline" className="text-[9px]">👤 Avatar</Badge>
               <Badge variant="outline" className="text-[9px]">🎨 Branding</Badge>
               <Badge variant="outline" className="text-[9px]">📊 KPIs Reais</Badge>
               <Badge variant="outline" className="text-[9px]">🗡️ Copy Arsenal</Badge>
-              <Badge variant="outline" className="text-[9px]">💰 Dados de Vendas</Badge>
+              <Badge variant="outline" className="text-[9px]">💰 Vendas</Badge>
+              <Badge variant="outline" className="text-[9px]">🎯 Estágio Funil</Badge>
             </div>
           </TabsContent>
 
-          <TabsContent value="history">
-            {results.length === 0 ? (
+          <TabsContent value="history" className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-48 bg-secondary/50"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
+                  <SelectItem value="rascunho">📝 Rascunho</SelectItem>
+                  <SelectItem value="revisao">⏳ Em Revisão</SelectItem>
+                  <SelectItem value="aprovado">✅ Aprovado</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">{filteredResults.length} item(s)</span>
+            </div>
+            {filteredResults.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhum conteúdo gerado ainda. Use a aba "Gerar" para começar.
+                Nenhum conteúdo encontrado para este filtro.
               </p>
             ) : (
-              <ScrollArea className="max-h-[500px]">
+              <ScrollArea className="max-h-[600px]">
                 <div className="space-y-3">
-                  {results.map((r, idx) => {
-                    const typeInfo = CONTENT_TYPES.find(t => t.id === r.type);
-                    const Icon = typeInfo?.icon || FileText;
-                    return (
-                      <Card key={r.timestamp} className="border-border/30 bg-secondary/20">
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Icon className={`h-3.5 w-3.5 ${typeInfo?.color || ""}`} />
-                              <span className="text-xs font-medium">{typeInfo?.label}</span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(r.timestamp).toLocaleTimeString("pt-BR")}
-                              </span>
-                            </div>
-                            <div className="flex gap-1">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button size="icon" variant="ghost" className="h-6 w-6" title="Salvar em…">
-                                    <Save className="h-3 w-3 text-primary" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-52">
-                                  <DropdownMenuLabel className="text-xs">Salvar conteúdo em…</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => saveToDocs(r.content, r.type)} className="text-xs">
-                                    📄 Docs do Projeto
-                                  </DropdownMenuItem>
-                                  {(r.type === "ad_copy" || r.type === "sales_page_blocks") && (
-                                    <DropdownMenuItem onClick={() => saveToCopyArsenal(r.content)} className="text-xs">
-                                      🗡️ Copy Arsenal (1º produto)
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() => copyToClipboard(r.content, idx)}
-                              >
-                                {copiedIdx === idx ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() => {
-                                  setContentType(r.type);
-                                  handleGenerate();
-                                }}
-                              >
-                                <RefreshCw className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed">
-                            <ReactMarkdown>{r.content}</ReactMarkdown>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                  {filteredResults.map((r, idx) => (
+                    <ResultCard
+                      key={r.id || r.timestamp}
+                      item={r}
+                      idx={idx}
+                      copiedIdx={copiedIdx}
+                      onCopy={copyToClipboard}
+                      onRegen={(type) => { setContentType(type); handleGenerate(); }}
+                      onSaveDocs={saveToDocs}
+                      onSaveCopyArsenal={saveToCopyArsenal}
+                      onChangeStatus={changeStatus}
+                    />
+                  ))}
                 </div>
               </ScrollArea>
             )}

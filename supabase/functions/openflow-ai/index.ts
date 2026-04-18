@@ -1244,7 +1244,13 @@ REGRAS:
 }
 
 async function handleContentPack(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
-  const { content_type, trigger, custom_prompt } = body;
+  const { content_type, trigger, custom_prompt, funnel_stage } = body;
+  const stageGuidance: Record<string, string> = {
+    topo: "ESTÁGIO: TOPO DO FUNIL (Awareness). Foco: atrair atenção, educar sobre o problema, gerar curiosidade. NÃO venda diretamente — desperte interesse.",
+    meio: "ESTÁGIO: MEIO DO FUNIL (Consideração). Foco: nutrir o lead, mostrar autoridade, comparar soluções, gerar desejo. CTA suave para próximo passo.",
+    fundo: "ESTÁGIO: FUNDO DO FUNIL (Decisão). Foco: converter, quebrar objeções, urgência real, prova social forte, CTA direto de compra.",
+  };
+  const stageNote = funnel_stage ? `\n\n🎯 ${stageGuidance[funnel_stage] || ""}` : "";
 
   const typePrompts: Record<string, string> = {
     recovery_email: `Gere 3 variações de EMAIL DE RECUPERAÇÃO para o gatilho "${trigger}".
@@ -1285,7 +1291,7 @@ REGRAS ABSOLUTAS:
 - Inclua variáveis dinâmicas ({{nome}}, {{produto}}, {{link}}) onde aplicável
 - Formate com Markdown (headers, bullets, negrito) para fácil leitura
 - Seja específico — NUNCA genérico
-${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}`;
+${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}${stageNote}`;
 
   const userPrompt = typePrompts[content_type] || `Gere conteúdo do tipo "${content_type}" para o gatilho "${trigger}".`;
 
