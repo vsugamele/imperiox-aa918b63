@@ -913,6 +913,41 @@ export type Database = {
           },
         ]
       }
+      appbrabas_feature_flags: {
+        Row: {
+          created_at: string
+          feature: string
+          habilitado: boolean
+          id: string
+          salao_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          feature: string
+          habilitado?: boolean
+          id?: string
+          salao_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          feature?: string
+          habilitado?: boolean
+          id?: string
+          salao_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_feature_flags_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_notas_fiscais: {
         Row: {
           cliente_nome: string | null
@@ -1228,8 +1263,11 @@ export type Database = {
           id: string
           logo_url: string | null
           nome: string
+          observacoes_admin: string | null
           owner_id: string
+          status: string
           telefone: string | null
+          trial_expires_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1238,8 +1276,11 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome: string
+          observacoes_admin?: string | null
           owner_id: string
+          status?: string
           telefone?: string | null
+          trial_expires_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1248,8 +1289,11 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome?: string
+          observacoes_admin?: string | null
           owner_id?: string
+          status?: string
           telefone?: string | null
+          trial_expires_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2532,6 +2576,8 @@ export type Database = {
           landing_subtitle: string
           landing_title: string
           logo_url: string | null
+          meditations_label: string
+          meditations_label_singular: string
           muted_hsl: string
           primary_hsl: string
           updated_at: string
@@ -2554,6 +2600,8 @@ export type Database = {
           landing_subtitle?: string
           landing_title?: string
           logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
           muted_hsl?: string
           primary_hsl?: string
           updated_at?: string
@@ -2576,6 +2624,8 @@ export type Database = {
           landing_subtitle?: string
           landing_title?: string
           logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
           muted_hsl?: string
           primary_hsl?: string
           updated_at?: string
@@ -27984,6 +28034,10 @@ export type Database = {
         Args: { admin_uuid: string; prize_uuid: string }
         Returns: undefined
       }
+      has_feature: {
+        Args: { _feature: string; _salao_id: string }
+        Returns: boolean
+      }
       has_imphq_role: {
         Args: { _role: string; _user_id: string }
         Returns: boolean
@@ -27998,6 +28052,7 @@ export type Database = {
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
+      is_appbrabas_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_diri_admin: { Args: never; Returns: boolean }
       is_imphq_admin: { Args: { _user_id: string }; Returns: boolean }
       is_project_member: {
@@ -28008,6 +28063,7 @@ export type Database = {
         Args: { _salao_id: string; _user_id: string }
         Returns: boolean
       }
+      is_salao_ativo: { Args: { _salao_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_user_active: { Args: never; Returns: boolean }
       list_admin_tables: { Args: never; Returns: Json }
