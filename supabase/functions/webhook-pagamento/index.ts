@@ -567,6 +567,56 @@ Deno.serve(async (req) => {
       await supabase.from("imphq_leads").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", leadId);
     }
 
+    // Handle chargeback / cancelamento — mark sale + lead as cancelado
+    const cancelEvents = ["chargeback", "compra_cancelada", "assinatura_cancelada"];
+    if (cancelEvents.includes(evento) && leadId) {
+      const cancelStatus = evento === "chargeback" ? "chargeback" : "cancelado";
+
+      // Find latest approved sale to mark
+      const { data: existingVenda } = await supabase
+        .from("imphq_vendas")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("status", "aprovado")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingVenda) {
+        await supabase.from("imphq_vendas").update({ status: cancelStatus }).eq("id", existingVenda.id);
+      } else {
+        // Create retroactive cancelled sale for history
+        const vendaInsert: any = {
+          id: crypto.randomUUID(),
+          lead_id: leadId,
+          project_id: projectId,
+          produto_nome: produto,
+          valor,
+          plataforma,
+          status: cancelStatus,
+        };
+        if (data_compra) vendaInsert.created_at = data_compra;
+        await supabase.from("imphq_vendas").insert(vendaInsert);
+      }
+
+      // Recompute total_gasto and lead status
+      const { data: salesSum } = await supabase
+        .from("imphq_vendas")
+        .select("valor")
+        .eq("lead_id", leadId)
+        .eq("status", "aprovado");
+      const newTotal = (salesSum || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
+      const leadStatus = newTotal > 0 ? "cliente" : "cancelado";
+
+      await supabase.from("imphq_leads").update({
+        status: leadStatus,
+        total_gasto: newTotal,
+        updated_at: new Date().toISOString(),
+      }).eq("id", leadId);
+
+      console.log(`[webhook-pagamento] Lead ${leadId} marcado como ${leadStatus} (evento: ${evento})`);
+    }
+
     // Register journey event in imphq_events
     const JOURNEY_EVENT_MAP: Record<string, string> = {
       compra_aprovada: "CompraAprovada",
