@@ -22,6 +22,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toLocalDateStr } from "@/lib/periodUtils";
 
 interface Cost {
   id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
@@ -69,7 +70,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const [editingCost, setEditingCost] = useState<Cost | null>(null);
   const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
   const [costForm, setCostForm] = useState({ nome: "", categoria: "Outro", valor: "", moeda: "BRL", recorrente: true, documento_url: "", produto_nome: "", pix_info: "", data_pagamento: "", beneficiario: "", tipo_recorrencia: "mensal" });
-  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0", imposto_pct: "" });
+  const [revForm, setRevForm] = useState({ descricao: "", valor: "", fonte: "Manual", data_ref: toLocalDateStr(), produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0", imposto_pct: "" });
   const [showFbGuide, setShowFbGuide] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [period, setPeriod] = useState("all");
@@ -300,7 +301,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
 
   const openRevFormForNew = () => {
     setEditingRevenue(null);
-    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: new Date().toISOString().split("T")[0], produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0", imposto_pct: "" });
+    setRevForm({ descricao: "", valor: "", fonte: "Manual", data_ref: toLocalDateStr(), produto_nome: "", documento_url: "", pix_info: "", data_pagamento: "", plataforma: "", quantidade: "1", custo_produto: "0", imposto_pct: "" });
     setShowRevForm(true);
   };
 

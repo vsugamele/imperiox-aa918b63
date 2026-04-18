@@ -132,7 +132,7 @@ export default function Chat() {
 
     if (cmd === "/evento" && args) {
       const dateMatch = args.match(/(\d{4}-\d{2}-\d{2})/);
-      const eventDate = dateMatch ? dateMatch[1] : new Date().toISOString().split("T")[0];
+      const eventDate = dateMatch ? dateMatch[1] : new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
       const title = args.replace(/\d{4}-\d{2}-\d{2}/, "").trim();
       const { data, error } = await supabase.from("imphq_calendar_events").insert({
         id: crypto.randomUUID(), title: title || args, event_date: eventDate, event_type: "general", project_id: activeProject, user_id: user.id,

@@ -31,6 +31,7 @@ import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toLocalDateStr } from "@/lib/periodUtils";
 
 const safeFmt = (v?: string | null, mask = "dd/MM/yyyy") => {
   if (!v) return "—";
@@ -160,7 +161,7 @@ export default function Tarefas() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = toLocalDateStr(today);
 
   const fetchData = useCallback(async () => {
     // Check if admin
