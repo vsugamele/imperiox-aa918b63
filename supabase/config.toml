@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.payment-recovery]
 verify_jwt = false
+
+[functions.membros-webhook]
+verify_jwt = false
