@@ -422,7 +422,15 @@ async function imphqSubmit(e) {
                           📦 {(form.settings as any).product_name}
                         </Badge>
                       )}
+                      {(form.settings as any)?.tag && (
+                        <Badge variant="outline" className="text-[10px] py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                          🏷️ {(form.settings as any).tag}
+                        </Badge>
+                      )}
                     </div>
+                    {(form.settings as any)?.description && (
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{(form.settings as any).description}</p>
+                    )}
                   </div>
                   <Badge variant={form.is_active ? "default" : "secondary"} className="text-[10px]">
                     {form.is_active ? "Ativo" : "Inativo"}
@@ -525,6 +533,16 @@ async function imphqSubmit(e) {
             <div><Label>Nome do Formulário</Label><Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Ex: Captura Webinar" className="bg-secondary" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <Label>Tag (opcional)</Label>
+                <Input value={formTag} onChange={e => setFormTag(e.target.value)} placeholder="Ex: webinar-abril, lancamento" className="bg-secondary" />
+              </div>
+              <div>
+                <Label>Descrição curta (opcional)</Label>
+                <Input value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Sobre o que é este formulário" className="bg-secondary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <Label>Projeto</Label>
                 <Select value={formProject} onValueChange={setFormProject}>
                   <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
@@ -590,8 +608,9 @@ async function imphqSubmit(e) {
                     <Input
                       value={(field.options || []).join(", ")}
                       onChange={e => updateField(idx, { options: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
-                      placeholder="Opções (separar por vírgula)"
-                      className="bg-background h-8 text-[10px] w-36"
+                      placeholder="Opções (separe por vírgula)"
+                      title="Digite as opções separadas por vírgula. Ex: Sim, Não, Talvez"
+                      className="bg-background h-8 text-[10px] flex-1 min-w-[160px]"
                     />
                   )}
                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
