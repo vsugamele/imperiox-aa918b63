@@ -112,13 +112,21 @@ Deno.serve(async (req) => {
     // Normalize ad account ID
     const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
 
-    // Date range — use client-provided dates or default to last 30 days
-    const now = new Date();
-    const dfrom = date_from || new Date(now.getTime() - 30 * 86400000).toISOString().split("T")[0];
-    const dto = date_to || now.toISOString().split("T")[0];
+    // BRT helper — Brazil = UTC-3
+    const brtDateStr = (d: Date = new Date()) =>
+      d.toLocaleString("en-CA", { timeZone: "America/Sao_Paulo" }).split(",")[0];
+    const todayBRT = brtDateStr();
+    const dfrom = date_from || brtDateStr(new Date(Date.now() - 30 * 86400000));
+    const dto = date_to || todayBRT;
 
-    // 1. Fetch insights at ad level, daily
-    const insightsUrl = `${FB_BASE}/${actId}/insights?fields=campaign_name,adset_name,ad_name,spend,impressions,reach,clicks,ctr,frequency,actions&time_range={"since":"${dfrom}","until":"${dto}"}&level=ad&time_increment=1&limit=500&access_token=${accessToken}`;
+    // 1. Fetch insights at ad level, daily — full funnel + video
+    const fields = [
+      "campaign_name", "adset_name", "ad_name",
+      "spend", "impressions", "reach", "clicks", "ctr", "frequency",
+      "actions", "inline_link_clicks",
+      "video_3_sec_watched_actions", "video_thruplay_watched_actions",
+    ].join(",");
+    const insightsUrl = `${FB_BASE}/${actId}/insights?fields=${fields}&time_range={"since":"${dfrom}","until":"${dto}"}&time_increment=1&level=ad&limit=500&access_token=${accessToken}`;
 
     const insightsRes = await fetch(insightsUrl);
     const insightsData = await parseResponseBody(insightsRes);
@@ -137,9 +145,16 @@ Deno.serve(async (req) => {
         const a = actions.find((x: any) => x.action_type === type);
         return a ? parseInt(a.value) : 0;
       };
+      const getActionList = (list: any[]) => Array.isArray(list) && list[0] ? parseInt(list[0].value) : 0;
 
       const leads = getAction("lead") + getAction("offsite_conversion.fb_pixel_lead");
       const compras = getAction("offsite_conversion.fb_pixel_purchase") + getAction("purchase");
+      const initCheckout = getAction("initiate_checkout") + getAction("offsite_conversion.fb_pixel_initiate_checkout");
+      const addToCart = getAction("add_to_cart") + getAction("offsite_conversion.fb_pixel_add_to_cart");
+      const lpViews = getAction("landing_page_view");
+      const video3s = getActionList(row.video_3_sec_watched_actions);
+      const videoThruplay = getActionList(row.video_thruplay_watched_actions);
+      const linkClicks = parseInt(row.inline_link_clicks || "0");
 
       const spend = parseFloat(row.spend || "0");
       const impressoes = parseInt(row.impressions || "0");
@@ -161,6 +176,12 @@ Deno.serve(async (req) => {
         cliques,
         leads,
         compras,
+        init_checkout: initCheckout,
+        add_to_cart: addToCart,
+        landing_page_views: lpViews,
+        video_3s_views: video3s,
+        video_thruplay: videoThruplay,
+        link_clicks: linkClicks,
         custo_por_compra: compras > 0 ? spend / compras : null,
         hook_rate: null,
         ctr,
