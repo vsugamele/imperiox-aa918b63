@@ -106,29 +106,71 @@ serve(async (req) => {
       if (error) console.warn("[updateConversation] Error:", error.message);
     }
 
-    // ── Helper: send via Evolution API (text) ──
+    // ── Helper: detect transient connection errors from Evolution ──
+    function isTransientConnError(payload: string): boolean {
+      const s = payload.toLowerCase();
+      return s.includes("connection closed") || s.includes("connection lost")
+        || s.includes("connection replaced") || s.includes("timed out")
+        || s.includes("timeout") || s.includes("socket") || s.includes("econnreset");
+    }
+
+    // ── Helper: try to wake up Evolution instance (soft reconnect) ──
+    async function tryReconnectInstance(provider: any): Promise<boolean> {
+      try {
+        const inst = encodeURIComponent(provider.instance_name);
+        const url = `${provider.api_url}/instance/connect/${inst}`;
+        const res = await fetch(url, { method: "GET", headers: { apikey: provider.api_key } });
+        console.log("[tryReconnectInstance] status:", res.status);
+        return res.ok;
+      } catch (e) {
+        console.warn("[tryReconnectInstance] failed:", (e as Error).message);
+        return false;
+      }
+    }
+
+    // ── Helper: sleep ──
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+    // ── Helper: send via Evolution API (text) with retry + auto-reconnect ──
     async function sendEvolution(provider: any, phone: string, text: string) {
       const inst = encodeURIComponent(provider.instance_name);
       const apiUrl = `${provider.api_url}/message/sendText/${inst}`;
       console.log("[sendEvolution] URL:", apiUrl, "phone:", phone, "textLen:", text.length);
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: provider.api_key,
-        },
-        body: JSON.stringify({ number: phone, text }),
-      });
-      const data = await res.json();
-      console.log("[sendEvolution] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
-      if (!res.ok) {
+
+      const MAX_ATTEMPTS = 3;
+      let lastErr: string = "";
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: provider.api_key },
+          body: JSON.stringify({ number: phone, text }),
+        });
+        const data = await res.json().catch(() => ({}));
+        console.log(`[sendEvolution] attempt=${attempt} status=${res.status}`, JSON.stringify(data).slice(0, 300));
+
+        if (res.ok) return data;
+
         const msgs = data?.response?.message;
         if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
           return { ok: false, error: "invalid_number", details: msgs };
         }
-        throw new Error(`Evolution error [${res.status}]: ${JSON.stringify(data)}`);
+
+        const payload = JSON.stringify(data);
+        lastErr = `Evolution error [${res.status}]: ${payload}`;
+
+        // Only retry transient connection errors
+        if (!isTransientConnError(payload) && res.status !== 408 && res.status !== 502 && res.status !== 503 && res.status !== 504) {
+          throw new Error(lastErr);
+        }
+
+        if (attempt < MAX_ATTEMPTS) {
+          // Try waking the instance up before next attempt
+          await tryReconnectInstance(provider);
+          await sleep(800 * attempt); // 800ms, 1600ms backoff
+        }
       }
-      return data;
+      throw new Error(lastErr || "Evolution: falha após múltiplas tentativas");
     }
 
     // ── Helper: send media via Evolution API ──
@@ -214,7 +256,16 @@ serve(async (req) => {
         }
       } catch (sendErr: any) {
         console.error("[send_message] provider error:", sendErr.message);
-        const isConnectionClosed = sendErr.message?.includes("Connection Closed");
+        const isConnectionClosed = isTransientConnError(sendErr.message || "");
+        if (isConnectionClosed) {
+          // Log para visibilidade no painel de saúde
+          await supabase.from("imphq_events").insert({
+            type: "wa_session_disconnected",
+            entity_type: "wa_provider",
+            entity_id: provider.id,
+            metadata: { instance: provider.instance_name, error: sendErr.message?.slice(0, 300) },
+          }).then(() => {}, () => {});
+        }
         return new Response(JSON.stringify({
           success: false,
           error: isConnectionClosed
