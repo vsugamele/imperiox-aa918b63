@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -125,6 +126,8 @@ export function FormBuilder({ projects }: Props) {
   const [formStage, setFormStage] = useState("lead_capturado");
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formProduct, setFormProduct] = useState("");
+  const [formTag, setFormTag] = useState("");
+  const [formDescription, setFormDescription] = useState("");
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [listFilterProject, setListFilterProject] = useState("all");
 
@@ -180,6 +183,8 @@ export function FormBuilder({ projects }: Props) {
       { key: "email", label: "Email", type: "email", required: true, placeholder: "seu@email.com" },
     ]);
     setFormProduct("");
+    setFormTag("");
+    setFormDescription("");
     setShowTemplates(false);
     setShowNew(true);
   };
@@ -189,7 +194,10 @@ export function FormBuilder({ projects }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const settings = formProduct ? { product_name: formProduct } : {};
+    const settings: Record<string, any> = {};
+    if (formProduct) settings.product_name = formProduct;
+    if (formTag.trim()) settings.tag = formTag.trim();
+    if (formDescription.trim()) settings.description = formDescription.trim();
 
     const payload = {
       nome: formName,
@@ -220,6 +228,8 @@ export function FormBuilder({ projects }: Props) {
     setFormStage(form.step || "lead_capturado");
     setFormFields((form.fields as any as FormField[]) || []);
     setFormProduct((form.settings as any)?.product_name || "");
+    setFormTag((form.settings as any)?.tag || "");
+    setFormDescription((form.settings as any)?.description || "");
     setShowNew(true);
   };
 
