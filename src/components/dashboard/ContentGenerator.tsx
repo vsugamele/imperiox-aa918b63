@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Mail, MessageCircle, Video, Megaphone, Copy, Check, RefreshCw, FileText, ShoppingCart, Zap } from "lucide-react";
+import { Sparkles, Loader2, Mail, MessageCircle, Video, Megaphone, Copy, Check, RefreshCw, FileText, ShoppingCart, Zap, Save } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 
 const CONTENT_TYPES = [
@@ -115,6 +116,37 @@ export function ContentGenerator() {
     setCopiedIdx(idx);
     toast.success("Copiado!");
     setTimeout(() => setCopiedIdx(null), 2000);
+  };
+
+  const saveToDocs = async (content: string, type: string) => {
+    if (!selectedProject) return;
+    const typeLabel = CONTENT_TYPES.find(t => t.id === type)?.label || type;
+    const { error } = await supabase.from("imphq_docs").insert({
+      id: crypto.randomUUID(),
+      project_id: selectedProject,
+      title: `[IA] ${typeLabel} — ${new Date().toLocaleDateString("pt-BR")}`,
+      content,
+      body: content,
+      cat: "ia-gerado",
+      tags: [type, "ia", trigger],
+    });
+    if (error) toast.error("Erro: " + error.message);
+    else toast.success(`Salvo em Docs do projeto!`);
+  };
+
+  const saveToCopyArsenal = async (content: string) => {
+    if (!selectedProject) return;
+    const { data: project } = await supabase.from("imphq_projects").select("data").eq("id", selectedProject).single();
+    const data = (project?.data as any) || {};
+    const produtos = data.produtos || [];
+    if (produtos.length === 0) { toast.error("Crie um produto no projeto antes."); return; }
+    const prod = produtos[0];
+    const ca = prod.copy_arsenal || {};
+    ca.headlines = [...(ca.headlines || []), { texto: content.slice(0, 500), origem: "ia-gerado", data: new Date().toISOString() }];
+    produtos[0] = { ...prod, copy_arsenal: ca };
+    const { error } = await supabase.from("imphq_projects").update({ data: { ...data, produtos } }).eq("id", selectedProject);
+    if (error) toast.error("Erro: " + error.message);
+    else toast.success(`Adicionado ao Copy Arsenal de "${prod.nome || prod.name}"!`);
   };
 
   const selectedType = CONTENT_TYPES.find(t => t.id === contentType);
@@ -260,13 +292,32 @@ export function ContentGenerator() {
                               </span>
                             </div>
                             <div className="flex gap-1">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" title="Salvar em…">
+                                    <Save className="h-3 w-3 text-primary" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  <DropdownMenuLabel className="text-xs">Salvar conteúdo em…</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => saveToDocs(r.content, r.type)} className="text-xs">
+                                    📄 Docs do Projeto
+                                  </DropdownMenuItem>
+                                  {(r.type === "ad_copy" || r.type === "sales_page_blocks") && (
+                                    <DropdownMenuItem onClick={() => saveToCopyArsenal(r.content)} className="text-xs">
+                                      🗡️ Copy Arsenal (1º produto)
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               <Button
                                 size="icon"
                                 variant="ghost"
                                 className="h-6 w-6"
                                 onClick={() => copyToClipboard(r.content, idx)}
                               >
-                                {copiedIdx === idx ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                                {copiedIdx === idx ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
                               </Button>
                               <Button
                                 size="icon"

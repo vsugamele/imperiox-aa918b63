@@ -125,29 +125,53 @@ serve(async (req) => {
         if (Object.keys(bk).length > 0) projectContext += `Brand Kit: ${JSON.stringify(bk).slice(0, 800)}\n`;
       }
 
-      const { data: vendas } = await sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", project_id).limit(50);
-      if (vendas && vendas.length > 0) {
-        const produtos = [...new Set(vendas.map((v: any) => v.produto_nome).filter(Boolean))];
-        if (produtos.length > 0) projectContext += `Produtos vendidos: ${produtos.join(", ")}\n`;
-        const totalVendas = vendas.filter((v: any) => v.status === "aprovado").reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
-        projectContext += `Total vendas aprovadas: R$ ${totalVendas.toFixed(2)}\n`;
-      }
+      // ── KPIs REAIS calculados (últimos 30d quando aplicável) ──
+      const since30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-      const { data: leads, count: leadsCount } = await sb.from("imphq_leads").select("id", { count: "exact" }).eq("project_id", project_id);
-      if (leadsCount) projectContext += `Total leads: ${leadsCount}\n`;
+      const { data: vendas } = await sb.from("imphq_vendas").select("produto_nome, valor, status, created_at").eq("project_id", project_id).limit(500);
+      const vendasAprovadas = (vendas || []).filter((v: any) => v.status === "aprovado");
+      const totalVendas = vendasAprovadas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+      const totalVendasCount = vendasAprovadas.length;
+      const ticketMedio = totalVendasCount > 0 ? totalVendas / totalVendasCount : 0;
+      const produtosVendidos = [...new Set((vendas || []).map((v: any) => v.produto_nome).filter(Boolean))];
+      const vendas30d = vendasAprovadas.filter((v: any) => v.created_at >= since30d);
+      const receita30d = vendas30d.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
 
-      const { data: costs } = await sb.from("imphq_project_costs").select("nome, valor, categoria").eq("project_id", project_id).limit(20);
-      if (costs && costs.length > 0) {
-        const totalCosts = costs.reduce((s: number, c: any) => s + (parseFloat(c.valor) || 0), 0);
-        projectContext += `Custos do projeto: R$ ${totalCosts.toFixed(2)}\n`;
-      }
+      const { count: leadsCount } = await sb.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", project_id);
+      const { count: leads30d } = await sb.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", project_id).gte("created_at", since30d);
 
-      const { data: adsData } = await sb.from("imphq_ads_spend").select("valor, leads, cliques").eq("project_id", project_id).limit(50);
-      if (adsData && adsData.length > 0) {
-        const totalAds = adsData.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
-        const totalAdsLeads = adsData.reduce((s: number, a: any) => s + (a.leads || 0), 0);
-        projectContext += `Investimento em Ads: R$ ${totalAds.toFixed(2)}, Leads de Ads: ${totalAdsLeads}\n`;
-      }
+      const { data: costs } = await sb.from("imphq_project_costs").select("valor").eq("project_id", project_id).limit(100);
+      const totalCosts = (costs || []).reduce((s: number, c: any) => s + (parseFloat(c.valor) || 0), 0);
+
+      const { data: adsData } = await sb.from("imphq_ads_spend").select("valor, leads, cliques, impressoes, data").eq("project_id", project_id).limit(200);
+      const totalAds = (adsData || []).reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
+      const totalAdsLeads = (adsData || []).reduce((s: number, a: any) => s + (a.leads || 0), 0);
+      const totalCliques = (adsData || []).reduce((s: number, a: any) => s + (a.cliques || 0), 0);
+      const totalImpr = (adsData || []).reduce((s: number, a: any) => s + (a.impressoes || 0), 0);
+      const ads30d = (adsData || []).filter((a: any) => a.data >= since30d.slice(0, 10));
+      const spend30d = ads30d.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
+
+      // KPIs derivados
+      const cpl = totalAdsLeads > 0 ? totalAds / totalAdsLeads : 0;
+      const cac = totalVendasCount > 0 ? totalAds / totalVendasCount : 0;
+      const ctr = totalImpr > 0 ? (totalCliques / totalImpr) * 100 : 0;
+      const roas = totalAds > 0 ? totalVendas / totalAds : 0;
+      const lucro = totalVendas - totalAds - totalCosts;
+      const margem = totalVendas > 0 ? (lucro / totalVendas) * 100 : 0;
+      const txConv = (leadsCount || 0) > 0 ? (totalVendasCount / (leadsCount || 1)) * 100 : 0;
+
+      projectContext += `\n## 📊 KPIs REAIS DO PROJETO (calculados agora)\n`;
+      projectContext += `Receita total aprovada: R$ ${totalVendas.toFixed(2)} (${totalVendasCount} vendas)\n`;
+      projectContext += `Receita últimos 30d: R$ ${receita30d.toFixed(2)} (${vendas30d.length} vendas)\n`;
+      projectContext += `Ticket médio: R$ ${ticketMedio.toFixed(2)}\n`;
+      projectContext += `Total leads: ${leadsCount || 0} | Leads últimos 30d: ${leads30d || 0}\n`;
+      projectContext += `Investimento Ads: R$ ${totalAds.toFixed(2)} (últimos 30d: R$ ${spend30d.toFixed(2)})\n`;
+      projectContext += `Custos operacionais: R$ ${totalCosts.toFixed(2)}\n`;
+      projectContext += `**CPL**: R$ ${cpl.toFixed(2)} | **CAC**: R$ ${cac.toFixed(2)} | **CTR**: ${ctr.toFixed(2)}% | **ROAS**: ${roas.toFixed(2)}x\n`;
+      projectContext += `**Taxa de Conversão Lead→Venda**: ${txConv.toFixed(2)}%\n`;
+      projectContext += `**Lucro estimado**: R$ ${lucro.toFixed(2)} | **Margem**: ${margem.toFixed(1)}%\n`;
+      if (produtosVendidos.length > 0) projectContext += `Produtos com vendas: ${produtosVendidos.join(", ")}\n`;
+      projectContext += `\n👉 USE ESSES NÚMEROS REAIS no copy quando fizer sentido (provas, urgência, ROI, ofertas baseadas em ticket médio).\n`;
     }
 
     // Route by action — pass mentePrefix for personality injection
