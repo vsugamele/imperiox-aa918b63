@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.daily-briefing]
 verify_jwt = false
+
+[functions.payment-recovery]
+verify_jwt = false
