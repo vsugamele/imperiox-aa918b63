@@ -292,13 +292,32 @@ export function ContentGenerator() {
                               </span>
                             </div>
                             <div className="flex gap-1">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" title="Salvar em…">
+                                    <Save className="h-3 w-3 text-primary" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  <DropdownMenuLabel className="text-xs">Salvar conteúdo em…</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => saveToDocs(r.content, r.type)} className="text-xs">
+                                    📄 Docs do Projeto
+                                  </DropdownMenuItem>
+                                  {(r.type === "ad_copy" || r.type === "sales_page_blocks") && (
+                                    <DropdownMenuItem onClick={() => saveToCopyArsenal(r.content)} className="text-xs">
+                                      🗡️ Copy Arsenal (1º produto)
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               <Button
                                 size="icon"
                                 variant="ghost"
                                 className="h-6 w-6"
                                 onClick={() => copyToClipboard(r.content, idx)}
                               >
-                                {copiedIdx === idx ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                                {copiedIdx === idx ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
                               </Button>
                               <Button
                                 size="icon"
