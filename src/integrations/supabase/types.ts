@@ -2112,6 +2112,48 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_payment_webhooks: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          matched_program_id: string | null
+          matched_user_id: string | null
+          processed: boolean
+          processed_at: string | null
+          provider: string
+          raw_payload: Json
+          user_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider: string
+          raw_payload: Json
+          user_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider?: string
+          raw_payload?: Json
+          user_email?: string | null
+        }
+        Relationships: []
+      }
       areamembrojp_post_comments: {
         Row: {
           content: string
@@ -2483,6 +2525,7 @@ export type Database = {
           banner_url: string | null
           bonus_items: Json
           category: string | null
+          checkout_url: string | null
           created_at: string
           description: string | null
           duration_min: number
@@ -2490,15 +2533,18 @@ export type Database = {
           id: string
           is_free: boolean
           is_new: boolean
+          is_premium: boolean
           is_published: boolean
           is_trending: boolean
           language: string
           long_description: string | null
+          price_brl: number | null
           subtitle: string | null
           testimonials: Json
           thumbnail_url: string | null
           title: string
           total_minutes: number
+          trailer_url: string | null
         }
         Insert: {
           author_avatar?: string | null
@@ -2509,6 +2555,7 @@ export type Database = {
           banner_url?: string | null
           bonus_items?: Json
           category?: string | null
+          checkout_url?: string | null
           created_at?: string
           description?: string | null
           duration_min?: number
@@ -2516,15 +2563,18 @@ export type Database = {
           id?: string
           is_free?: boolean
           is_new?: boolean
+          is_premium?: boolean
           is_published?: boolean
           is_trending?: boolean
           language?: string
           long_description?: string | null
+          price_brl?: number | null
           subtitle?: string | null
           testimonials?: Json
           thumbnail_url?: string | null
           title: string
           total_minutes?: number
+          trailer_url?: string | null
         }
         Update: {
           author_avatar?: string | null
@@ -2535,6 +2585,7 @@ export type Database = {
           banner_url?: string | null
           bonus_items?: Json
           category?: string | null
+          checkout_url?: string | null
           created_at?: string
           description?: string | null
           duration_min?: number
@@ -2542,15 +2593,18 @@ export type Database = {
           id?: string
           is_free?: boolean
           is_new?: boolean
+          is_premium?: boolean
           is_published?: boolean
           is_trending?: boolean
           language?: string
           long_description?: string | null
+          price_brl?: number | null
           subtitle?: string | null
           testimonials?: Json
           thumbnail_url?: string | null
           title?: string
           total_minutes?: number
+          trailer_url?: string | null
         }
         Relationships: []
       }
@@ -2725,6 +2779,27 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       areamembrojp_stories: {
         Row: {
           author_name: string
@@ -2840,6 +2915,59 @@ export type Database = {
           welcome_text?: string
         }
         Relationships: []
+      }
+      areamembrojp_user_entitlements: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          program_id: string | null
+          scope: string
+          source: string
+          source_ref: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_entitlements_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_user_favorites: {
         Row: {
@@ -28087,6 +28215,10 @@ export type Database = {
     Functions: {
       admin_update_mission: {
         Args: { mission_id: string; new_status: string }
+        Returns: boolean
+      }
+      amjp_has_program_access: {
+        Args: { _program_id: string; _user_id: string }
         Returns: boolean
       }
       amjp_is_admin: { Args: { _uid: string }; Returns: boolean }
