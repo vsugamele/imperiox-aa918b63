@@ -132,11 +132,40 @@ export default function ExpertPortal() {
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
-        else { setData(d); setExpertLogs(d.expert_logs || []); }
+        else {
+          setData(d);
+          setExpertLogs(d.expert_logs || []);
+          setChatMessages(d.chat_messages || []);
+        }
       })
       .catch(() => setError("Erro ao carregar dados"))
       .finally(() => setLoading(false));
   }, [token, supabaseUrl]);
+
+  const sendChatMessage = useCallback(async (content: string, contentId?: string) => {
+    const optimistic = {
+      from: "expert" as const,
+      content,
+      content_id: contentId || null,
+      created_at: new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, optimistic]);
+    await callApi({ action: "send_message", content, content_id: contentId });
+  }, [callApi]);
+
+  const uploadRecordedFile = useCallback(async (file: File, contentId: string, week: string, day: string, mode: "video" | "audio") => {
+    setUploadingId(contentId);
+    try {
+      const action = mode === "audio" ? "audio_upload" : "video_upload";
+      const { signed_url, path, error: urlError } = await callApi({ action: "upload_url", content_id: contentId, filename: file.name });
+      if (urlError) throw new Error(urlError);
+      await fetch(signed_url, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      const { url } = await callApi({ action: "register_upload", content_id: contentId, week, day, file_path: path, filename: file.name, upload_type: action });
+      setExpertLogs(prev => [...prev, { content_id: contentId, action, metadata: { url, filename: file.name, path }, created_at: new Date().toISOString() }]);
+    } finally {
+      setUploadingId(null);
+    }
+  }, [callApi]);
 
   // Detect current week automatically
   useEffect(() => {
