@@ -95,6 +95,14 @@ Deno.serve(async (req) => {
       let status = "completed";
       let errorMessage: string | null = null;
       let messagesSent = 0;
+      let stepsFailed = 0;
+      const failureMessages: string[] = [];
+
+      // Steps that should HALT the flow on failure (critical). All comm channels continue.
+      const isCriticalStep = (tipo: string) => {
+        const critical = ["criar_venda", "create_sale", "stop", "abortar"];
+        return critical.includes(tipo);
+      };
 
       // Create execution record
       const { data: execution, error: execErr } = await supabase
@@ -233,8 +241,8 @@ Deno.serve(async (req) => {
               if (!providerId) {
                 stepResult.status = "error";
                 stepResult.reason = "Nenhum provider WhatsApp ativo encontrado";
-                status = "failed";
-                errorMessage = `Step ${i} (whatsapp): Nenhum provider WhatsApp ativo`;
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (whatsapp): Nenhum provider ativo`);
               } else {
                 const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                   method: "POST",
@@ -255,8 +263,9 @@ Deno.serve(async (req) => {
                 if (waData.success) {
                   messagesSent++;
                 } else {
-                  status = "failed";
-                  errorMessage = `Step ${i} (whatsapp): ${waData.error || "Falha no envio"}`;
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (whatsapp): ${waData.error || "Falha no envio"}`);
+                  console.warn(`[openflow-executor] WhatsApp falhou no step ${i}, continuando para próximos steps (e-mails etc.)`);
                 }
               }
             }
@@ -319,9 +328,9 @@ Deno.serve(async (req) => {
                   messagesSent++;
                   console.log(`[openflow-executor] Step ${i} email: enviado com sucesso para ${toEmail}`);
                 } else {
-                  status = "failed";
-                  errorMessage = `Step ${i} (email): ${emailData.error || "Erro desconhecido no envio"}`;
-                  console.error(`[openflow-executor] Step ${i} email: ERRO - ${emailData.error || JSON.stringify(emailData)}`);
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (email): ${emailData.error || "Erro desconhecido"}`);
+                  console.error(`[openflow-executor] Step ${i} email: ERRO (continuando) - ${emailData.error || JSON.stringify(emailData)}`);
                 }
               } else if (emailBody) {
                 // Mode 2: Inline message — send directly via Resend using project config
@@ -365,9 +374,9 @@ Deno.serve(async (req) => {
                 if (!resendApiKey) {
                   stepResult.status = "error";
                   stepResult.reason = "Resend API Key não configurada neste projeto";
-                  status = "failed";
-                  errorMessage = `Step ${i} (email): Resend API Key não configurada`;
-                  console.error(`[openflow-executor] Step ${i} email: Resend API Key não configurada`);
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (email): Resend API Key não configurada`);
+                  console.error(`[openflow-executor] Step ${i} email: Resend API Key não configurada (continuando)`);
                 } else {
                   const finalSubject = replaceVars(emailSubject || "Mensagem automática");
                   const finalBody = replaceVars(emailBody);
@@ -413,16 +422,16 @@ Deno.serve(async (req) => {
                   } else {
                     stepResult.status = "error";
                     stepResult.reason = resendData.message || "Erro no Resend";
-                    status = "failed";
-                    errorMessage = `Step ${i} (email): ${resendData.message || "Erro no Resend"}`;
-                    console.error(`[openflow-executor] Step ${i} email inline: ERRO - ${resendData.message || JSON.stringify(resendData)}`);
+                    stepsFailed++;
+                    failureMessages.push(`Step ${i} (email): ${resendData.message || "Erro no Resend"}`);
+                    console.error(`[openflow-executor] Step ${i} email inline: ERRO (continuando) - ${resendData.message || JSON.stringify(resendData)}`);
                   }
                 }
               } else {
                 stepResult.status = "error";
                 stepResult.reason = "Nenhum conteúdo de email configurado (nem template_id, nem mensagem inline)";
-                status = "failed";
-                errorMessage = `Step ${i} (email): Sem conteúdo configurado`;
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (email): Sem conteúdo configurado`);
                 console.error(`[openflow-executor] Step ${i} email: sem conteúdo - automação ${auto.id}`);
               }
             }
@@ -459,17 +468,29 @@ Deno.serve(async (req) => {
         } catch (stepErr: any) {
           stepResult.status = "error";
           stepResult.error = stepErr.message;
-          status = "failed";
-          errorMessage = `Step ${i} (${step.tipo}): ${stepErr.message}`;
+          stepsFailed++;
+          failureMessages.push(`Step ${i} (${step.tipo}): ${stepErr.message}`);
+          // Só interrompe o fluxo se o step for crítico
+          if (isCriticalStep(step.tipo)) {
+            status = "failed";
+            errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${stepErr.message}`;
+          }
         }
 
         stepResult.finished_at = new Date().toISOString();
         stepResults.push(stepResult);
 
+        // Só interrompe em waiting (delay longo) ou em falha de step crítico
         if (status === "failed" || status === "waiting") break;
 
         // Small delay between steps
         if (i < steps.length - 1) await delay(500);
+      }
+
+      // Status agregado: se rodou tudo mas alguns steps falharam → "partial"
+      if (status === "completed" && stepsFailed > 0) {
+        status = "partial";
+        errorMessage = failureMessages.join(" | ");
       }
 
       // Final update
@@ -495,7 +516,7 @@ Deno.serve(async (req) => {
           provider_id: auto.provider_id || null,
         },
         acoes_executadas: stepResults,
-        status: status === "failed" ? "error" : "success",
+        status: status === "failed" ? "error" : (status === "partial" ? "partial" : "success"),
         error_message: errorMessage,
       });
 

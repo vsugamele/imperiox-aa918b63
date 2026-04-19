@@ -1943,6 +1943,36 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_link_presets: {
+        Row: {
+          created_at: string
+          href: string
+          id: string
+          is_active: boolean
+          label: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          href: string
+          id?: string
+          is_active?: boolean
+          label: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          href?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_meditations: {
         Row: {
           audio_url: string | null
@@ -2115,6 +2145,39 @@ export type Database = {
           media_url?: string | null
           title?: string
           type?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_pages: {
+        Row: {
+          blocks: Json
+          created_at: string
+          id: string
+          is_published: boolean
+          seo_description: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }

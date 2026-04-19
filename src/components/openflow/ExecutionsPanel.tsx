@@ -14,6 +14,7 @@ interface ExecutionsPanelProps {
 const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
   running: { label: "Executando", className: "bg-blue-500/20 text-blue-400", icon: Loader2 },
   completed: { label: "Concluído", className: "bg-emerald-500/20 text-emerald-400", icon: CheckCircle2 },
+  partial: { label: "Parcial", className: "bg-amber-500/20 text-amber-400", icon: CheckCircle2 },
   failed: { label: "Falhou", className: "bg-red-500/20 text-red-400", icon: XCircle },
   waiting: { label: "Aguardando", className: "bg-amber-500/20 text-amber-400", icon: Clock },
 };
