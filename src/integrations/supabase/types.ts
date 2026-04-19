@@ -2160,6 +2160,116 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_plan_external_products: {
+        Row: {
+          created_at: string
+          external_product_id: string
+          id: string
+          notes: string | null
+          plan_id: string
+          provider: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_id: string
+          id?: string
+          notes?: string | null
+          plan_id: string
+          provider: string
+        }
+        Update: {
+          created_at?: string
+          external_product_id?: string
+          id?: string
+          notes?: string | null
+          plan_id?: string
+          provider?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plan_external_products_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_plan_programs: {
+        Row: {
+          created_at: string
+          plan_id: string
+          program_id: string
+        }
+        Insert: {
+          created_at?: string
+          plan_id: string
+          program_id: string
+        }
+        Update: {
+          created_at?: string
+          plan_id?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plan_programs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_plan_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_plans: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          grants_all_programs: boolean
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          slug: string
+          tier_level: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          grants_all_programs?: boolean
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          slug: string
+          tier_level?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          grants_all_programs?: boolean
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          slug?: string
+          tier_level?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_post_comments: {
         Row: {
           content: string
@@ -3046,6 +3156,7 @@ export type Database = {
           id: string
           is_active: boolean
           metadata: Json
+          plan_id: string | null
           program_id: string | null
           scope: string
           source: string
@@ -3060,6 +3171,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           metadata?: Json
+          plan_id?: string | null
           program_id?: string | null
           scope?: string
           source?: string
@@ -3074,6 +3186,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           metadata?: Json
+          plan_id?: string | null
           program_id?: string | null
           scope?: string
           source?: string
@@ -3081,6 +3194,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_entitlements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "areamembrojp_user_entitlements_program_id_fkey"
             columns: ["program_id"]
