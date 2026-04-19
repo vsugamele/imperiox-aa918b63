@@ -328,9 +328,9 @@ Deno.serve(async (req) => {
                   messagesSent++;
                   console.log(`[openflow-executor] Step ${i} email: enviado com sucesso para ${toEmail}`);
                 } else {
-                  status = "failed";
-                  errorMessage = `Step ${i} (email): ${emailData.error || "Erro desconhecido no envio"}`;
-                  console.error(`[openflow-executor] Step ${i} email: ERRO - ${emailData.error || JSON.stringify(emailData)}`);
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (email): ${emailData.error || "Erro desconhecido"}`);
+                  console.error(`[openflow-executor] Step ${i} email: ERRO (continuando) - ${emailData.error || JSON.stringify(emailData)}`);
                 }
               } else if (emailBody) {
                 // Mode 2: Inline message — send directly via Resend using project config
