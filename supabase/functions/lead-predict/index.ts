@@ -162,7 +162,20 @@ REGRAS:
         next_best_action: pred.next_best_action,
       }).select().single();
 
-      if (!error && inserted) results.push(inserted);
+      if (!error && inserted) {
+        results.push(inserted);
+        // Hot lead push notification when conversion >= 70 or churn high with high value
+        if (pred.conversion_probability >= 70) {
+          const recipients = await resolveProjectRecipients(supabase, lead.project_id);
+          await pushNotifyByPref({
+            supabase,
+            prefKey: "hot_lead",
+            title: `🔥 Lead quente: ${lead.nome || lead.email || "sem nome"}`,
+            message: `${pred.conversion_probability}% de conversão • ${pred.next_best_action || pred.ai_summary || ""}`.slice(0, 180),
+            user_ids: recipients,
+          });
+        }
+      }
     }
 
     return new Response(JSON.stringify({ ok: true, predictions: results, count: results.length }), {
