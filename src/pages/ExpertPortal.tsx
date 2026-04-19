@@ -1052,7 +1052,37 @@ export default function ExpertPortal() {
               </Card>
             )}
           </TabsContent>
+
+          {/* ══════════════ TAB: CHAT ══════════════ */}
+          <TabsContent value="chat" className="space-y-4">
+            <ExpertChat
+              messages={chatMessages}
+              onSend={sendChatMessage}
+              contextLabel="Converse direto com a gestão"
+            />
+          </TabsContent>
         </Tabs>
+
+        {/* Teleprompter Modal */}
+        {teleprompterCard && (
+          <ExpertTeleprompter
+            open={!!teleprompterCard}
+            onOpenChange={(o) => !o && setTeleprompterCard(null)}
+            text={teleprompterCard.roteiro || teleprompterCard.copy || teleprompterCard.description || ""}
+            title={teleprompterCard.description || teleprompterCard.type}
+          />
+        )}
+
+        {/* Recorder Modal */}
+        {recorderState && (
+          <ExpertRecorder
+            open={!!recorderState}
+            onOpenChange={(o) => !o && setRecorderState(null)}
+            mode={recorderState.mode}
+            contentId={recorderState.id}
+            onUpload={(file) => uploadRecordedFile(file, recorderState.id, recorderState.week, recorderState.day, recorderState.mode)}
+          />
+        )}
 
         {/* Card Detail Modal */}
         <Dialog open={!!selectedCard} onOpenChange={(open) => !open && setSelectedCard(null)}>
