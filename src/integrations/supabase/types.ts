@@ -1973,6 +1973,51 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_lives: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          host_name: string | null
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          link_url: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_meditations: {
         Row: {
           audio_url: string | null
@@ -2155,6 +2200,7 @@ export type Database = {
           id: string
           is_published: boolean
           seo_description: string | null
+          seo_image_url: string | null
           slug: string
           title: string
           updated_at: string
@@ -2165,6 +2211,7 @@ export type Database = {
           id?: string
           is_published?: boolean
           seo_description?: string | null
+          seo_image_url?: string | null
           slug: string
           title: string
           updated_at?: string
@@ -2175,6 +2222,7 @@ export type Database = {
           id?: string
           is_published?: boolean
           seo_description?: string | null
+          seo_image_url?: string | null
           slug?: string
           title?: string
           updated_at?: string
