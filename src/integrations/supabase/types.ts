@@ -2847,6 +2847,121 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_survey_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: Json
+          position: number
+          question: string
+          required: boolean
+          survey_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question: string
+          required?: boolean
+          survey_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question?: string
+          required?: boolean
+          survey_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_survey_responses: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          id: string
+          scope_id: string | null
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_surveys: {
+        Row: {
+          created_at: string
+          description: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          title: string
+          trigger_scope_id: string | null
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_tenant_settings: {
         Row: {
           accent_hsl: string
