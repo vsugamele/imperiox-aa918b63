@@ -504,7 +504,7 @@ export default function ExpertPortal() {
       <main className="max-w-3xl mx-auto px-4 py-4">
         {/* Main Navigation */}
         <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-4">
-          <TabsList className="w-full grid grid-cols-5">
+          <TabsList className="w-full grid grid-cols-6">
             <TabsTrigger value="hoje" className="text-xs gap-1">
               <Flame className="h-3 w-3" /> Hoje
               {todayContent.length > 0 && <Badge variant="destructive" className="text-[8px] h-3.5 px-1 ml-0.5">{todayContent.length}</Badge>}
@@ -520,6 +520,10 @@ export default function ExpertPortal() {
             </TabsTrigger>
             <TabsTrigger value="docs" className="text-xs gap-1">
               <FileText className="h-3 w-3" /> Docs
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="text-xs gap-1">
+              <MessageSquare className="h-3 w-3" /> Chat
+              {chatMessages.length > 0 && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 ml-0.5">{chatMessages.length}</Badge>}
             </TabsTrigger>
           </TabsList>
 
