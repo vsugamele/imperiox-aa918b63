@@ -11,11 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Calendar, CheckCircle2, Clock, Download, FileText, Loader2, Target,
   Radio, Upload, Video, Mic, Camera, Flame, TrendingUp, Eye, Megaphone,
-  ChevronRight, Play, Sparkles, ListChecks
+  ChevronRight, Play, Sparkles, ListChecks, MessageSquare, Type
 } from "lucide-react";
 import { format, startOfMonth, getDay, isToday, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { ExpertChat } from "@/components/expert/ExpertChat";
+import { ExpertTeleprompter } from "@/components/expert/ExpertTeleprompter";
+import { ExpertRecorder } from "@/components/expert/ExpertRecorder";
 
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
@@ -103,9 +106,12 @@ export default function ExpertPortal() {
   const [activeWeek, setActiveWeek] = useState("semana_1");
   const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
   const [expertLogs, setExpertLogs] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [mainTab, setMainTab] = useState("hoje");
+  const [teleprompterCard, setTeleprompterCard] = useState<ContentItem | null>(null);
+  const [recorderState, setRecorderState] = useState<{ id: string; week: string; day: string; mode: "video" | "audio" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploadCard, setPendingUploadCard] = useState<{ id: string; week: string; day: string } | null>(null);
 
@@ -126,11 +132,40 @@ export default function ExpertPortal() {
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
-        else { setData(d); setExpertLogs(d.expert_logs || []); }
+        else {
+          setData(d);
+          setExpertLogs(d.expert_logs || []);
+          setChatMessages(d.chat_messages || []);
+        }
       })
       .catch(() => setError("Erro ao carregar dados"))
       .finally(() => setLoading(false));
   }, [token, supabaseUrl]);
+
+  const sendChatMessage = useCallback(async (content: string, contentId?: string) => {
+    const optimistic = {
+      from: "expert" as const,
+      content,
+      content_id: contentId || null,
+      created_at: new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, optimistic]);
+    await callApi({ action: "send_message", content, content_id: contentId });
+  }, [callApi]);
+
+  const uploadRecordedFile = useCallback(async (file: File, contentId: string, week: string, day: string, mode: "video" | "audio") => {
+    setUploadingId(contentId);
+    try {
+      const action = mode === "audio" ? "audio_upload" : "video_upload";
+      const { signed_url, path, error: urlError } = await callApi({ action: "upload_url", content_id: contentId, filename: file.name });
+      if (urlError) throw new Error(urlError);
+      await fetch(signed_url, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      const { url } = await callApi({ action: "register_upload", content_id: contentId, week, day, file_path: path, filename: file.name, upload_type: action });
+      setExpertLogs(prev => [...prev, { content_id: contentId, action, metadata: { url, filename: file.name, path }, created_at: new Date().toISOString() }]);
+    } finally {
+      setUploadingId(null);
+    }
+  }, [callApi]);
 
   // Detect current week automatically
   useEffect(() => {
@@ -379,47 +414,49 @@ export default function ExpertPortal() {
             </div>
           )}
 
-          {/* Actions: Upload + View Details */}
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+          {/* Actions: Upload + Teleprompter + Record + Details */}
+          <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-border/50">
             {mediaLog ? (
               <Badge variant="secondary" className="text-[9px] h-5 gap-1">
                 {mediaLog.action === "audio_upload" ? <Mic className="h-3 w-3" /> : <Video className="h-3 w-3" />}
                 {mediaLog.action === "audio_upload" ? "Áudio enviado" : "Vídeo enviado"}
               </Badge>
             ) : (
-              <div className="flex gap-1">
+              <>
+                {item.roteiro && (
+                  <Button
+                    variant="outline" size="sm"
+                    className="h-6 text-[10px] gap-1"
+                    onClick={(e) => { e.stopPropagation(); setTeleprompterCard(item); }}
+                    title="Abrir teleprompter"
+                  >
+                    <Type className="h-3 w-3" /> Teleprompter
+                  </Button>
+                )}
                 <Button
                   variant="outline" size="sm"
                   className="h-6 text-[10px] gap-1"
                   disabled={isUploading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPendingUploadCard({ id: item.id, week, day });
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = "video/*";
-                      fileInputRef.current.click();
-                    }
-                  }}
+                  onClick={(e) => { e.stopPropagation(); setRecorderState({ id: item.id, week, day, mode: "video" }); }}
+                  title="Gravar pelo navegador"
                 >
                   {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Video className="h-3 w-3" />}
-                  Vídeo
+                  Gravar
                 </Button>
                 <Button
-                  variant="outline" size="sm"
+                  variant="ghost" size="sm"
                   className="h-6 text-[10px] gap-1"
                   disabled={isUploading}
                   onClick={(e) => {
                     e.stopPropagation();
                     setPendingUploadCard({ id: item.id, week, day });
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = "audio/*";
-                      fileInputRef.current.click();
-                    }
+                    if (fileInputRef.current) { fileInputRef.current.accept = "video/*,audio/*"; fileInputRef.current.click(); }
                   }}
+                  title="Enviar arquivo existente"
                 >
-                  <Mic className="h-3 w-3" /> Áudio
+                  <Upload className="h-3 w-3" /> Upload
                 </Button>
-              </div>
+              </>
             )}
             {!expanded && (item.copy || item.recording_tips || item.roteiro) && (
               <Button
@@ -467,7 +504,7 @@ export default function ExpertPortal() {
       <main className="max-w-3xl mx-auto px-4 py-4">
         {/* Main Navigation */}
         <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-4">
-          <TabsList className="w-full grid grid-cols-5">
+          <TabsList className="w-full grid grid-cols-6">
             <TabsTrigger value="hoje" className="text-xs gap-1">
               <Flame className="h-3 w-3" /> Hoje
               {todayContent.length > 0 && <Badge variant="destructive" className="text-[8px] h-3.5 px-1 ml-0.5">{todayContent.length}</Badge>}
@@ -483,6 +520,10 @@ export default function ExpertPortal() {
             </TabsTrigger>
             <TabsTrigger value="docs" className="text-xs gap-1">
               <FileText className="h-3 w-3" /> Docs
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="text-xs gap-1">
+              <MessageSquare className="h-3 w-3" /> Chat
+              {chatMessages.length > 0 && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 ml-0.5">{chatMessages.length}</Badge>}
             </TabsTrigger>
           </TabsList>
 
@@ -1011,7 +1052,37 @@ export default function ExpertPortal() {
               </Card>
             )}
           </TabsContent>
+
+          {/* ══════════════ TAB: CHAT ══════════════ */}
+          <TabsContent value="chat" className="space-y-4">
+            <ExpertChat
+              messages={chatMessages}
+              onSend={sendChatMessage}
+              contextLabel="Converse direto com a gestão"
+            />
+          </TabsContent>
         </Tabs>
+
+        {/* Teleprompter Modal */}
+        {teleprompterCard && (
+          <ExpertTeleprompter
+            open={!!teleprompterCard}
+            onOpenChange={(o) => !o && setTeleprompterCard(null)}
+            text={teleprompterCard.roteiro || teleprompterCard.copy || teleprompterCard.description || ""}
+            title={teleprompterCard.description || teleprompterCard.type}
+          />
+        )}
+
+        {/* Recorder Modal */}
+        {recorderState && (
+          <ExpertRecorder
+            open={!!recorderState}
+            onOpenChange={(o) => !o && setRecorderState(null)}
+            mode={recorderState.mode}
+            contentId={recorderState.id}
+            onUpload={(file) => uploadRecordedFile(file, recorderState.id, recorderState.week, recorderState.day, recorderState.mode)}
+          />
+        )}
 
         {/* Card Detail Modal */}
         <Dialog open={!!selectedCard} onOpenChange={(open) => !open && setSelectedCard(null)}>
