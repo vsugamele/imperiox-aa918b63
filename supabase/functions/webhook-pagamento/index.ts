@@ -549,6 +549,56 @@ Deno.serve(async (req) => {
         const scoreRows: any[] = [{ lead_id: leadId, acao: `compra_${tipo_venda}`, pontos: tipo_venda === "principal" ? 50 : tipo_venda === "upsell" ? 30 : tipo_venda === "orderbump" ? 20 : 50 }];
         await supabase.from("imphq_lead_scores_log").insert(scoreRows);
       } catch (e) { console.warn("[webhook-pagamento] Score error:", e); }
+
+      // Push notification: venda aprovada
+      const recipients = await resolveProjectRecipients(supabase, projectId);
+      await pushNotifyByPref({
+        supabase,
+        prefKey: "venda_aprovada",
+        title: `💰 Venda aprovada — R$ ${valor.toFixed(2)}`,
+        message: `${nome || email || "Cliente"}${produto ? ` • ${produto}` : ""}${tipo_venda && tipo_venda !== "principal" ? ` (${tipo_venda})` : ""}`,
+        user_ids: recipients,
+      });
+
+      // Daily revenue goal check (one notification per day per project)
+      if (projectId) {
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const { data: projGoal } = await supabase
+            .from("imphq_projects")
+            .select("daily_revenue_goal, meta_diaria_notified_date, name")
+            .eq("id", projectId)
+            .maybeSingle();
+          const goal = projGoal?.daily_revenue_goal ? Number(projGoal.daily_revenue_goal) : 0;
+          if (goal > 0 && projGoal?.meta_diaria_notified_date !== today) {
+            // Sum today's approved sales for this project
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const { data: todaySales } = await supabase
+              .from("imphq_vendas")
+              .select("valor")
+              .eq("project_id", projectId)
+              .eq("status", "aprovado")
+              .gte("created_at", startOfDay.toISOString());
+            const todayTotal = (todaySales || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
+            if (todayTotal >= goal) {
+              await supabase
+                .from("imphq_projects")
+                .update({ meta_diaria_notified_date: today })
+                .eq("id", projectId);
+              await pushNotifyByPref({
+                supabase,
+                prefKey: "meta_diaria_atingida",
+                title: `🎯 Meta diária batida — ${projGoal.name || "Projeto"}`,
+                message: `R$ ${todayTotal.toFixed(2)} faturado hoje (meta: R$ ${goal.toFixed(2)}).`,
+                user_ids: recipients,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[webhook-pagamento] Meta diária check error:", e);
+        }
+      }
     }
 
     // Handle refund
