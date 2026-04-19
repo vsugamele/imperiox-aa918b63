@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Bell, Users, Send, Wifi, Bot } from "lucide-react";
+import { Bell, Users, Send, Wifi, Bot, DollarSign, XCircle, RotateCcw, Target, Flame, UserCheck, CheckCircle2, Video, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 interface Prefs {
@@ -13,6 +12,15 @@ interface Prefs {
   disparo_concluido: boolean;
   erro_conexao: boolean;
   resposta_ia: boolean;
+  venda_aprovada: boolean;
+  venda_recusada: boolean;
+  reembolso_solicitado: boolean;
+  meta_diaria_atingida: boolean;
+  hot_lead: boolean;
+  lead_inativo_voltou: boolean;
+  expert_marcou_done: boolean;
+  expert_subiu_video: boolean;
+  expert_mensagem: boolean;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -21,6 +29,15 @@ const DEFAULT_PREFS: Prefs = {
   disparo_concluido: true,
   erro_conexao: true,
   resposta_ia: false,
+  venda_aprovada: true,
+  venda_recusada: true,
+  reembolso_solicitado: true,
+  meta_diaria_atingida: true,
+  hot_lead: true,
+  lead_inativo_voltou: false,
+  expert_marcou_done: true,
+  expert_subiu_video: true,
+  expert_mensagem: true,
 };
 
 export function NotificationPreferencesTab() {

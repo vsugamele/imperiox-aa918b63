@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { pushNotifyByPref, resolveProjectRecipients } from "../_shared/push-notify.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -440,7 +441,31 @@ Deno.serve(async (req) => {
         const { error: ciErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
         if (ciErr) console.error("[webhook-pagamento] Erro ao inserir checkout intent:", ciErr);
         else console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus);
+
+        // Hot lead notification: Pix gerado is high-intent
+        if (evento === "pix_gerado") {
+          const recipients = await resolveProjectRecipients(supabase, projectId);
+          await pushNotifyByPref({
+            supabase,
+            prefKey: "hot_lead",
+            title: "🔥 Lead quente — Pix gerado",
+            message: `${nome || email || "Um lead"} gerou um Pix${produto ? ` para ${produto}` : ""}${valor ? ` (R$ ${valor.toFixed(2)})` : ""}.`,
+            user_ids: recipients,
+          });
+        }
       }
+    }
+
+    // Notify on payment failure / expiration
+    if (["pagamento_recusado", "pagamento_expirado"].includes(evento) && leadId) {
+      const recipients = await resolveProjectRecipients(supabase, projectId);
+      await pushNotifyByPref({
+        supabase,
+        prefKey: "venda_recusada",
+        title: evento === "pagamento_recusado" ? "❌ Venda recusada" : "⌛ Pagamento expirado",
+        message: `${nome || email || "Cliente"}${produto ? ` • ${produto}` : ""}${valor ? ` • R$ ${valor.toFixed(2)}` : ""}`,
+        user_ids: recipients,
+      });
     }
 
     // Handle purchase
@@ -524,6 +549,56 @@ Deno.serve(async (req) => {
         const scoreRows: any[] = [{ lead_id: leadId, acao: `compra_${tipo_venda}`, pontos: tipo_venda === "principal" ? 50 : tipo_venda === "upsell" ? 30 : tipo_venda === "orderbump" ? 20 : 50 }];
         await supabase.from("imphq_lead_scores_log").insert(scoreRows);
       } catch (e) { console.warn("[webhook-pagamento] Score error:", e); }
+
+      // Push notification: venda aprovada
+      const recipients = await resolveProjectRecipients(supabase, projectId);
+      await pushNotifyByPref({
+        supabase,
+        prefKey: "venda_aprovada",
+        title: `💰 Venda aprovada — R$ ${valor.toFixed(2)}`,
+        message: `${nome || email || "Cliente"}${produto ? ` • ${produto}` : ""}${tipo_venda && tipo_venda !== "principal" ? ` (${tipo_venda})` : ""}`,
+        user_ids: recipients,
+      });
+
+      // Daily revenue goal check (one notification per day per project)
+      if (projectId) {
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const { data: projGoal } = await supabase
+            .from("imphq_projects")
+            .select("daily_revenue_goal, meta_diaria_notified_date, name")
+            .eq("id", projectId)
+            .maybeSingle();
+          const goal = projGoal?.daily_revenue_goal ? Number(projGoal.daily_revenue_goal) : 0;
+          if (goal > 0 && projGoal?.meta_diaria_notified_date !== today) {
+            // Sum today's approved sales for this project
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const { data: todaySales } = await supabase
+              .from("imphq_vendas")
+              .select("valor")
+              .eq("project_id", projectId)
+              .eq("status", "aprovado")
+              .gte("created_at", startOfDay.toISOString());
+            const todayTotal = (todaySales || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
+            if (todayTotal >= goal) {
+              await supabase
+                .from("imphq_projects")
+                .update({ meta_diaria_notified_date: today })
+                .eq("id", projectId);
+              await pushNotifyByPref({
+                supabase,
+                prefKey: "meta_diaria_atingida",
+                title: `🎯 Meta diária batida — ${projGoal.name || "Projeto"}`,
+                message: `R$ ${todayTotal.toFixed(2)} faturado hoje (meta: R$ ${goal.toFixed(2)}).`,
+                user_ids: recipients,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[webhook-pagamento] Meta diária check error:", e);
+        }
+      }
     }
 
     // Handle refund
@@ -565,6 +640,16 @@ Deno.serve(async (req) => {
 
       const newStatus = (remainingSales && remainingSales.length > 0) ? "cliente" : "lead";
       await supabase.from("imphq_leads").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", leadId);
+
+      // Push notification: reembolso
+      const recipients = await resolveProjectRecipients(supabase, projectId);
+      await pushNotifyByPref({
+        supabase,
+        prefKey: "reembolso_solicitado",
+        title: `↩️ Reembolso — R$ ${(valor || 0).toFixed(2)}`,
+        message: `${nome || email || "Cliente"}${produto ? ` • ${produto}` : ""}`,
+        user_ids: recipients,
+      });
     }
 
     // Handle chargeback / cancelamento — mark sale + lead as cancelado
