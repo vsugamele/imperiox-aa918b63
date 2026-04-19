@@ -14472,34 +14472,61 @@ export type Database = {
           created_at: string | null
           disparo_concluido: boolean | null
           erro_conexao: boolean | null
+          expert_marcou_done: boolean
+          expert_mensagem: boolean
+          expert_subiu_video: boolean
           grupo_capacidade: boolean | null
+          hot_lead: boolean
           id: string
+          lead_inativo_voltou: boolean
+          meta_diaria_atingida: boolean
           novo_lead: boolean | null
+          reembolso_solicitado: boolean
           resposta_ia: boolean | null
           updated_at: string | null
           user_id: string
+          venda_aprovada: boolean
+          venda_recusada: boolean
         }
         Insert: {
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
+          expert_marcou_done?: boolean
+          expert_mensagem?: boolean
+          expert_subiu_video?: boolean
           grupo_capacidade?: boolean | null
+          hot_lead?: boolean
           id?: string
+          lead_inativo_voltou?: boolean
+          meta_diaria_atingida?: boolean
           novo_lead?: boolean | null
+          reembolso_solicitado?: boolean
           resposta_ia?: boolean | null
           updated_at?: string | null
           user_id: string
+          venda_aprovada?: boolean
+          venda_recusada?: boolean
         }
         Update: {
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
+          expert_marcou_done?: boolean
+          expert_mensagem?: boolean
+          expert_subiu_video?: boolean
           grupo_capacidade?: boolean | null
+          hot_lead?: boolean
           id?: string
+          lead_inativo_voltou?: boolean
+          meta_diaria_atingida?: boolean
           novo_lead?: boolean | null
+          reembolso_solicitado?: boolean
           resposta_ia?: boolean | null
           updated_at?: string | null
           user_id?: string
+          venda_aprovada?: boolean
+          venda_recusada?: boolean
         }
         Relationships: [
           {
@@ -14802,6 +14829,7 @@ export type Database = {
           clarity_id: string | null
           color: string | null
           created_at: string | null
+          daily_revenue_goal: number | null
           data: Json | null
           description: string | null
           fb_access_token: string | null
@@ -14812,6 +14840,7 @@ export type Database = {
           id: string
           is_archived: boolean | null
           members: Json | null
+          meta_diaria_notified_date: string | null
           name: string
           parent_id: string | null
           pipeline: Json | null
@@ -14826,6 +14855,7 @@ export type Database = {
           clarity_id?: string | null
           color?: string | null
           created_at?: string | null
+          daily_revenue_goal?: number | null
           data?: Json | null
           description?: string | null
           fb_access_token?: string | null
@@ -14836,6 +14866,7 @@ export type Database = {
           id: string
           is_archived?: boolean | null
           members?: Json | null
+          meta_diaria_notified_date?: string | null
           name: string
           parent_id?: string | null
           pipeline?: Json | null
@@ -14850,6 +14881,7 @@ export type Database = {
           clarity_id?: string | null
           color?: string | null
           created_at?: string | null
+          daily_revenue_goal?: number | null
           data?: Json | null
           description?: string | null
           fb_access_token?: string | null
@@ -14860,6 +14892,7 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           members?: Json | null
+          meta_diaria_notified_date?: string | null
           name?: string
           parent_id?: string | null
           pipeline?: Json | null
