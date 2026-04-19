@@ -1892,8 +1892,10 @@ export type Database = {
       }
       areamembrojp_lessons: {
         Row: {
+          attachments: Json
           created_at: string
           description: string | null
+          description_html: string | null
           duration_min: number
           id: string
           is_preview: boolean
@@ -1904,8 +1906,10 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          attachments?: Json
           created_at?: string
           description?: string | null
+          description_html?: string | null
           duration_min?: number
           id?: string
           is_preview?: boolean
@@ -1916,8 +1920,10 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          attachments?: Json
           created_at?: string
           description?: string | null
+          description_html?: string | null
           duration_min?: number
           id?: string
           is_preview?: boolean

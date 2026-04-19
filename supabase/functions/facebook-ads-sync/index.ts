@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
       "campaign_name", "adset_name", "ad_name",
       "spend", "impressions", "reach", "clicks", "ctr", "frequency",
       "actions", "inline_link_clicks",
-      "video_3_sec_watched_actions", "video_thruplay_watched_actions",
+      "video_play_actions", "video_thruplay_watched_actions",
     ].join(",");
     const insightsUrl = `${FB_BASE}/${actId}/insights?fields=${fields}&time_range={"since":"${dfrom}","until":"${dto}"}&time_increment=1&level=ad&limit=500&access_token=${accessToken}`;
 
@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
       const initCheckout = getAction("initiate_checkout") + getAction("offsite_conversion.fb_pixel_initiate_checkout");
       const addToCart = getAction("add_to_cart") + getAction("offsite_conversion.fb_pixel_add_to_cart");
       const lpViews = getAction("landing_page_view");
-      const video3s = getActionList(row.video_3_sec_watched_actions);
+      const video3s = getActionList(row.video_play_actions);
       const videoThruplay = getActionList(row.video_thruplay_watched_actions);
       const linkClicks = parseInt(row.inline_link_clicks || "0");
 
