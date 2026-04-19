@@ -1,9 +1,10 @@
-import { Mail, MessageCircle, Video, Megaphone, FileText, ShoppingCart } from "lucide-react";
+import { Mail, MessageCircle, Video, Megaphone, FileText, ShoppingCart, Film } from "lucide-react";
 
 export const CONTENT_TYPES = [
   { id: "recovery_email", label: "Email de Recuperação", icon: Mail, desc: "Carrinho abandonado, PIX pendente, boleto", color: "text-blue-400" },
   { id: "ad_copy", label: "Copy de Anúncio", icon: Megaphone, desc: "Facebook/Instagram Ads com variações A/B", color: "text-orange-400" },
   { id: "video_script", label: "Roteiro de Vídeo", icon: Video, desc: "Reels, TikTok, Stories, YouTube Shorts", color: "text-pink-400" },
+  { id: "reels_viral", label: "Roteiro Viral Reels", icon: Film, desc: "60+ estruturas testadas (Dica, React, Antes/Depois...)", color: "text-rose-400" },
   { id: "whatsapp_sequence", label: "Sequência WhatsApp", icon: MessageCircle, desc: "Follow-up, recuperação, nurturing", color: "text-green-400" },
   { id: "email_sequence", label: "Sequência de Emails", icon: FileText, desc: "Onboarding, lançamento, nutrição", color: "text-purple-400" },
   { id: "sales_page_blocks", label: "Blocos de Página", icon: ShoppingCart, desc: "Headlines, CTAs, bullet points, provas", color: "text-yellow-400" },

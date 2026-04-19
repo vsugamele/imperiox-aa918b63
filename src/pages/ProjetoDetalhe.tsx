@@ -22,6 +22,7 @@ import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
+import { RoteirosViraisLibrary } from "@/components/projeto/RoteirosViraisLibrary";
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
 import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
 import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
@@ -205,6 +206,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
           <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
+          <TabsTrigger value="reels">🎬 Roteiros Reels</TabsTrigger>
           <TabsTrigger value="flowcharts">🗺️ Fluxogramas</TabsTrigger>
           <TabsTrigger value="expert_panel">🧭 Painel Expert</TabsTrigger>
           <TabsTrigger value="insights">✨ Insights</TabsTrigger>
@@ -252,6 +254,9 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="central" className="mt-4">
           <ProjetoCentralConteudo projectId={id!} project={project} onUpdateData={onUpdateData} />
+        </TabsContent>
+        <TabsContent value="reels" className="mt-4">
+          <RoteirosViraisLibrary projectId={id!} project={project} />
         </TabsContent>
         <TabsContent value="flowcharts" className="mt-4">
           <ProjetoFlowcharts project={project} onUpdateData={onUpdateData} />
