@@ -414,47 +414,49 @@ export default function ExpertPortal() {
             </div>
           )}
 
-          {/* Actions: Upload + View Details */}
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+          {/* Actions: Upload + Teleprompter + Record + Details */}
+          <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-border/50">
             {mediaLog ? (
               <Badge variant="secondary" className="text-[9px] h-5 gap-1">
                 {mediaLog.action === "audio_upload" ? <Mic className="h-3 w-3" /> : <Video className="h-3 w-3" />}
                 {mediaLog.action === "audio_upload" ? "Áudio enviado" : "Vídeo enviado"}
               </Badge>
             ) : (
-              <div className="flex gap-1">
+              <>
+                {item.roteiro && (
+                  <Button
+                    variant="outline" size="sm"
+                    className="h-6 text-[10px] gap-1"
+                    onClick={(e) => { e.stopPropagation(); setTeleprompterCard(item); }}
+                    title="Abrir teleprompter"
+                  >
+                    <Type className="h-3 w-3" /> Teleprompter
+                  </Button>
+                )}
                 <Button
                   variant="outline" size="sm"
                   className="h-6 text-[10px] gap-1"
                   disabled={isUploading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPendingUploadCard({ id: item.id, week, day });
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = "video/*";
-                      fileInputRef.current.click();
-                    }
-                  }}
+                  onClick={(e) => { e.stopPropagation(); setRecorderState({ id: item.id, week, day, mode: "video" }); }}
+                  title="Gravar pelo navegador"
                 >
                   {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Video className="h-3 w-3" />}
-                  Vídeo
+                  Gravar
                 </Button>
                 <Button
-                  variant="outline" size="sm"
+                  variant="ghost" size="sm"
                   className="h-6 text-[10px] gap-1"
                   disabled={isUploading}
                   onClick={(e) => {
                     e.stopPropagation();
                     setPendingUploadCard({ id: item.id, week, day });
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = "audio/*";
-                      fileInputRef.current.click();
-                    }
+                    if (fileInputRef.current) { fileInputRef.current.accept = "video/*,audio/*"; fileInputRef.current.click(); }
                   }}
+                  title="Enviar arquivo existente"
                 >
-                  <Mic className="h-3 w-3" /> Áudio
+                  <Upload className="h-3 w-3" /> Upload
                 </Button>
-              </div>
+              </>
             )}
             {!expanded && (item.copy || item.recording_tips || item.roteiro) && (
               <Button
