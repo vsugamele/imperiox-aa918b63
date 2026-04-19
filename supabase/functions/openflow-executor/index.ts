@@ -95,6 +95,14 @@ Deno.serve(async (req) => {
       let status = "completed";
       let errorMessage: string | null = null;
       let messagesSent = 0;
+      let stepsFailed = 0;
+      const failureMessages: string[] = [];
+
+      // Steps that should HALT the flow on failure (critical). All comm channels continue.
+      const isCriticalStep = (tipo: string) => {
+        const critical = ["criar_venda", "create_sale", "stop", "abortar"];
+        return critical.includes(tipo);
+      };
 
       // Create execution record
       const { data: execution, error: execErr } = await supabase
