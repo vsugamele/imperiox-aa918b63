@@ -1,67 +1,35 @@
 
-Vou analisar as duas perguntas:
+O usuário enviou um arquivo `.skill` com 60+ templates de roteiros virais para Reels. Pelo contexto do projeto (Império HQ tem `imphq_skills`, `ProjetoCentralConteudo`, `ContentGenerator`, e área de Mídia/Reels), o melhor uso é transformar isso em uma **Skill de IA nativa** + **biblioteca de templates** disponível no Gerador de Conteúdo.
 
-**1. Métricas que podem não estar 100%:**
-Olhando o screenshot e o `DashboardStats.tsx` + memórias:
-- **Custo/Checkout: —** → Falta porque não temos `Initiate Checkout` vindo do Pixel/CAPI sincronizado em `imphq_ads_spend`
-- **Init. Checkout: 0** → Mesmo problema, o sync do FB não captura `actions: initiate_checkout`
-- **LP→Checkout: 0.0%** e **Checkout→Venda: 0.0%** → Dependem do Init Checkout
-- **CPL: —** → Faltam leads atribuídos por campanha (precisaria mapear UTM→ads ou capturar `lead` action do Pixel)
-- **Hook Rate: —** → Precisa de `video_3_sec_watched` / `video_thruplay_watched` (não fetcheamos esses fields)
-- **CPM Médio** → Calculado, ok
-- **Frequência: 1.46** → Ok
+## Plano
 
-Causa raiz: a função `facebook-ads-sync-all` só busca `actions: lead, purchase`. Não pega: `initiate_checkout`, `video_view`, `video_3_sec_watched`, `add_to_cart`, `landing_page_view`.
+**1. Salvar o arquivo como skill markdown**
+- Copiar `user-uploads://roteiros-virais-reels_2.skill` → `src/data/skills/roteiros-virais-reels.md`
+- Adicionar entrada em `src/data/skillsData.ts` (id: `roteiros-virais-reels`, categoria: "Copy & Persuasão", ícone 🎬)
 
-**2. Horário BRT:**
-Olhando `lib/periodUtils.ts` (não vi mas inferir das memórias) e o sync:
-- `facebook-ads-sync-all` usa `new Date().toISOString().split("T")[0]` → isso é UTC, não BRT. Às 21h BRT já vira "amanhã" UTC.
-- `data_ref: row.date_start` vem do FB que respeita o timezone da conta de anúncios
-- Filtros do dashboard usam `getPeriodRange` — preciso verificar se converte para BRT
+**2. Registrar skill no banco (`imphq_skills`)**
+- Migration insert com slug `roteiros-virais-reels` para que Edge Functions a reconheçam
 
-Vou apresentar o diagnóstico + plano de fix.
+**3. Integrar no Gerador de Conteúdo (ContentGenerator)**
+- Adicionar tipo de conteúdo "Roteiro Viral de Reels" 
+- Dropdown com as 63 estruturas (Dica Direta / Esquema / Passo a Passo / React / Antes-Depois / Provocação)
+- IA preenche os `[colchetes]` com contexto do projeto (avatar + branding + produto)
 
----
+**4. Criar componente `RoteirosViraisLibrary.tsx`**
+- Acessível em `ProjetoCentralConteudo` aba "Roteiros Virais"
+- Lista categorizada com busca, exibe estrutura + exemplos + métricas
+- Botão "Gerar com IA" → chama `openflow-ai` com a skill + estrutura escolhida
 
-# Plano: Métricas faltantes + Timezone BRT
+## Arquivos
+- `src/data/skills/roteiros-virais-reels.md` (novo)
+- `src/data/skillsData.ts` (entrada nova)
+- `src/components/projeto/RoteirosViraisLibrary.tsx` (novo)
+- `src/components/projeto/ProjetoCentralConteudo.tsx` (nova aba)
+- `src/components/dashboard/ContentGenerator.tsx` (novo tipo)
+- Migration: insert em `imphq_skills`
 
-## Parte 1 — Métricas que estão "—" ou zeradas
-
-**Causa**: A função `facebook-ads-sync-all` (e `facebook-ads-sync`) só extrai 2 ações do Pixel: `lead` e `purchase`. Não captura `initiate_checkout`, `add_to_cart`, `landing_page_view`, nem métricas de vídeo (`video_3_sec_watched`, `video_thruplay_watched`) — por isso **Hook Rate**, **Init Checkout**, **Custo/Checkout**, **LP→Checkout** e **Checkout→Venda** ficam zerados.
-
-**Fix**:
-1. Expandir o `fields` da chamada Insights do FB para incluir: `video_3_sec_watched_actions`, `video_thruplay_watched_actions`, `inline_link_clicks`.
-2. Expandir o parser de `actions` para extrair: `initiate_checkout`, `offsite_conversion.fb_pixel_initiate_checkout`, `add_to_cart`, `landing_page_view`, `view_content`.
-3. Adicionar colunas em `imphq_ads_spend`: `init_checkout`, `add_to_cart`, `landing_page_views`, `video_3s_views`, `video_thruplay`, `link_clicks`.
-4. Atualizar o cálculo dos KPIs em `ProjetoFinancas.tsx`:
-   - **Hook Rate** = `video_3s_views / impressoes * 100`
-   - **Custo/Checkout** = `spend / init_checkout`
-   - **LP→Checkout** = `init_checkout / landing_page_views * 100`
-   - **Checkout→Venda** = `compras / init_checkout * 100`
-   - **CPL real** = `spend / leads` (já temos leads, só não estava sendo dividido quando 0)
-
-## Parte 2 — Timezone BRT
-
-**Problema identificado**:
-- `facebook-ads-sync-all` calcula `dfrom`/`dto` com `new Date().toISOString().split("T")[0]` → isso retorna **data UTC**. Às 22h BRT (01h UTC do dia seguinte), o range já pula 1 dia inteiro.
-- Resultado: vendas/ads de "hoje BRT 21h-23h59" caem no balde do dia seguinte UTC.
-
-**Fix**:
-1. Criar helper `getBRTDateString()` que faz `new Date().toLocaleString("en-CA", { timeZone: "America/Sao_Paulo" })` para gerar `YYYY-MM-DD` em BRT.
-2. Aplicar em: `facebook-ads-sync-all`, `facebook-ads-sync`, `daily-briefing`, `payment-recovery`, e qualquer função que calcule "hoje".
-3. Verificar `src/lib/periodUtils.ts` — se usar `new Date()` direto para "hoje/ontem/semana", converter para BRT antes de cortar a string.
-4. Passar `time_range` para o FB com `time_zone: "America/Sao_Paulo"` (a API aceita essa flag, garante alinhamento).
-
-## Arquivos a editar
-- `supabase/functions/facebook-ads-sync-all/index.ts` (campos + ações + BRT)
-- `supabase/functions/facebook-ads-sync/index.ts` (mesma coisa)
-- `src/lib/periodUtils.ts` (helper BRT)
-- `src/components/projeto/ProjetoFinancas.tsx` (novos KPIs com fórmulas reais)
-- Migration: ALTER TABLE `imphq_ads_spend` ADD COLUMN `init_checkout`, `add_to_cart`, `landing_page_views`, `video_3s_views`, `video_thruplay`, `link_clicks`
-
-## Ordem de execução
-1. Migration (colunas novas)
-2. Edge functions FB sync (capturar dados + BRT)
-3. periodUtils helper BRT
-4. ProjetoFinancas KPIs reais
-5. Re-sync manual para popular dados históricos
+## Ordem
+1. Salvar markdown + atualizar skillsData
+2. Migration (insert na tabela)
+3. Componente da biblioteca + aba
+4. Integração no ContentGenerator
