@@ -1,35 +1,44 @@
 
-O usuário enviou um arquivo `.skill` com 60+ templates de roteiros virais para Reels. Pelo contexto do projeto (Império HQ tem `imphq_skills`, `ProjetoCentralConteudo`, `ContentGenerator`, e área de Mídia/Reels), o melhor uso é transformar isso em uma **Skill de IA nativa** + **biblioteca de templates** disponível no Gerador de Conteúdo.
+## Análise
+
+**Pedido 1**: Criar um guia explicando como usar webhooks/API/snippet pra receber dados de leads de áreas de membros e webinars externos.
+
+**Pedido 2**: Roberta e Maria aparecem como aprovadas com valor dentro, mas a coluna "Receita" no painel não mostra. Vou investigar.
+
+## Investigação rápida
+
+Já temos `membros-webhook` (criado anteriormente) + `capture-lead` + `webhook-pagamento`. O guia precisa documentar tudo isso de forma clara, no contexto certo (página Leads → aba Formulários).
+
+Para a receita não aparecer: provavelmente vendas dela não têm `lead_id` linkado (vendas vêm pelo webhook de pagamento, mas o match com lead é por email/phone). O `LeadsTable` mostra `total_gasto` direto da coluna do lead. Se as vendas não estão linkadas via `lead_id`, o `total_gasto` continua zero mesmo após o recálculo da migration anterior.
 
 ## Plano
 
-**1. Salvar o arquivo como skill markdown**
-- Copiar `user-uploads://roteiros-virais-reels_2.skill` → `src/data/skills/roteiros-virais-reels.md`
-- Adicionar entrada em `src/data/skillsData.ts` (id: `roteiros-virais-reels`, categoria: "Copy & Persuasão", ícone 🎬)
+### 1. Componente `MembrosWebhookGuide.tsx` (novo)
+Guia visual completo dentro de `src/components/leads/` com:
+- **Aba "Webhook"**: URL pronta (`https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/membros-webhook`), exemplos de payload por evento (membro_cadastrado, webinar_inscrito, webinar_assistido, prova_enviada, pesquisa_respondida), botão copiar
+- **Aba "API JS"**: snippet `fetch()` pronto pra colar em qualquer site/área de membros
+- **Aba "Snippet HTML"**: tag `<script>` plug-and-play que captura form submit
+- **Aba "Tags & UTMs"**: como passar `tags`, `utm_source`, `origem` para segregação
+- **Aba "Eventos"**: tabela com cada `event_type` + pontos atribuídos + status resultante
 
-**2. Registrar skill no banco (`imphq_skills`)**
-- Migration insert com slug `roteiros-virais-reels` para que Edge Functions a reconheçam
+### 2. Integrar no `Leads.tsx`
+Adicionar botão "📡 Integrações Externas" na aba Formulários que abre o guia em Sheet/Dialog.
 
-**3. Integrar no Gerador de Conteúdo (ContentGenerator)**
-- Adicionar tipo de conteúdo "Roteiro Viral de Reels" 
-- Dropdown com as 63 estruturas (Dica Direta / Esquema / Passo a Passo / React / Antes-Depois / Provocação)
-- IA preenche os `[colchetes]` com contexto do projeto (avatar + branding + produto)
+### 3. Fix de receita não aparecendo (Roberta/Maria)
+Investigar via SQL se vendas dela têm `lead_id` preenchido. Se não, criar migration de **backfill** que faz match retroativo por email/phone:
+```sql
+UPDATE imphq_vendas v 
+SET lead_id = l.id
+FROM imphq_leads l
+WHERE v.lead_id IS NULL 
+  AND (LOWER(v.email) = LOWER(l.email) OR v.phone = l.phone);
+```
+Depois re-rodar o recálculo de `total_gasto`.
 
-**4. Criar componente `RoteirosViraisLibrary.tsx`**
-- Acessível em `ProjetoCentralConteudo` aba "Roteiros Virais"
-- Lista categorizada com busca, exibe estrutura + exemplos + métricas
-- Botão "Gerar com IA" → chama `openflow-ai` com a skill + estrutura escolhida
+Também ajustar `webhook-pagamento` para sempre tentar linkar `lead_id` no momento da venda.
 
 ## Arquivos
-- `src/data/skills/roteiros-virais-reels.md` (novo)
-- `src/data/skillsData.ts` (entrada nova)
-- `src/components/projeto/RoteirosViraisLibrary.tsx` (novo)
-- `src/components/projeto/ProjetoCentralConteudo.tsx` (nova aba)
-- `src/components/dashboard/ContentGenerator.tsx` (novo tipo)
-- Migration: insert em `imphq_skills`
-
-## Ordem
-1. Salvar markdown + atualizar skillsData
-2. Migration (insert na tabela)
-3. Componente da biblioteca + aba
-4. Integração no ContentGenerator
+- `src/components/leads/MembrosWebhookGuide.tsx` (novo)
+- `src/pages/Leads.tsx` (botão + dialog)
+- Migration: backfill `lead_id` em vendas órfãs + recalcular `total_gasto`
+- `supabase/functions/webhook-pagamento/index.ts` (garantir match lead_id)
