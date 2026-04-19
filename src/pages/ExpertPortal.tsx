@@ -11,11 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Calendar, CheckCircle2, Clock, Download, FileText, Loader2, Target,
   Radio, Upload, Video, Mic, Camera, Flame, TrendingUp, Eye, Megaphone,
-  ChevronRight, Play, Sparkles, ListChecks
+  ChevronRight, Play, Sparkles, ListChecks, MessageSquare, Type
 } from "lucide-react";
 import { format, startOfMonth, getDay, isToday, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { ExpertChat } from "@/components/expert/ExpertChat";
+import { ExpertTeleprompter } from "@/components/expert/ExpertTeleprompter";
+import { ExpertRecorder } from "@/components/expert/ExpertRecorder";
 
 const DAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const WEEKS = ["semana_1", "semana_2", "semana_3", "semana_4"] as const;
