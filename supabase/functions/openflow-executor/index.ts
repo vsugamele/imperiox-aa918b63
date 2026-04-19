@@ -468,17 +468,29 @@ Deno.serve(async (req) => {
         } catch (stepErr: any) {
           stepResult.status = "error";
           stepResult.error = stepErr.message;
-          status = "failed";
-          errorMessage = `Step ${i} (${step.tipo}): ${stepErr.message}`;
+          stepsFailed++;
+          failureMessages.push(`Step ${i} (${step.tipo}): ${stepErr.message}`);
+          // Só interrompe o fluxo se o step for crítico
+          if (isCriticalStep(step.tipo)) {
+            status = "failed";
+            errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${stepErr.message}`;
+          }
         }
 
         stepResult.finished_at = new Date().toISOString();
         stepResults.push(stepResult);
 
+        // Só interrompe em waiting (delay longo) ou em falha de step crítico
         if (status === "failed" || status === "waiting") break;
 
         // Small delay between steps
         if (i < steps.length - 1) await delay(500);
+      }
+
+      // Status agregado: se rodou tudo mas alguns steps falharam → "partial"
+      if (status === "completed" && stepsFailed > 0) {
+        status = "partial";
+        errorMessage = failureMessages.join(" | ");
       }
 
       // Final update
@@ -504,7 +516,7 @@ Deno.serve(async (req) => {
           provider_id: auto.provider_id || null,
         },
         acoes_executadas: stepResults,
-        status: status === "failed" ? "error" : "success",
+        status: status === "failed" ? "error" : (status === "partial" ? "partial" : "success"),
         error_message: errorMessage,
       });
 
