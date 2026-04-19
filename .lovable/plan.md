@@ -1,72 +1,92 @@
 
 ## Análise
 
-3 pedidos:
-1. **OpenFlow resiliente**: se WhatsApp falhar, o fluxo continua nos próximos passos (especialmente e-mails)
-2. **Mapear gatilhos** disponíveis e propor novos
-3. **Telegram via número**: viável?
+Duas frentes:
+1. **Mais notificações push (PWA)** — que eventos podemos disparar
+2. **Melhorias no Portal do Expert**
 
-## Investigação rápida (via memória + arquivos conhecidos)
+Já temos: `send-push` edge function, `PushOptIn`, `imphq_push_subscriptions`, `imphq_notification_preferences` (com 5 tipos: novo_lead, grupo_capacidade, disparo_concluido, erro_conexao, resposta_ia).
 
-- `openflow-executor` é quem roda os steps. Precisa ver como trata erro de WhatsApp hoje.
-- OpenFlow já tem hierarquia de 5 níveis pra resolver provider WhatsApp (pode marcar como "falha" e parar tudo).
-- Telegram: **não dá para enviar mensagem só com número de telefone**. Bots do Telegram exigem que o usuário **inicie conversa com o bot primeiro** (envie /start) — limitação dura da API. Só com número não rola.
+Já existe Portal do Expert com: avatar resumido, content_plan, eventos da semana, tasks, processos, status operacional, docs compartilhados, logs (mark_done, video/audio upload).
 
-## Plano
+---
 
-### 1. OpenFlow — Continuidade em caso de falha (resiliente)
+## Parte 1 — Novas notificações push
 
-**Mudanças em `supabase/functions/openflow-executor/index.ts`:**
-- Envolver execução de cada step de WhatsApp (`wa_send`, `wa_template`, etc.) em try/catch isolado
-- Em caso de erro: 
-  - Logar como `step_failed` no `imphq_openflow_logs` (com motivo)
-  - Marcar step como `failed` mas **continuar para o próximo step**
-  - Adicionar campo `continue_on_error: true` (default true para canais de comunicação)
-- Em `FlowEditor.tsx`: adicionar toggle por step "Continuar em caso de falha" (default ON para WhatsApp/Telegram, OFF para steps críticos como "criar venda")
-- Em `ExecutionsPanel.tsx`: badge visual amarelo "Parcial" quando execução completou com steps falhos
+Adicionar ao `imphq_notification_preferences` + disparar via `send-push` nos pontos certos:
 
-### 2. Catálogo de Gatilhos — atual + novos
+**Vendas e dinheiro (alta prioridade):**
+- `venda_aprovada` — toda venda aprovada (com valor)
+- `venda_recusada` — quando uma venda falha (cartão recusado/Pix expirado)
+- `reembolso_solicitado` — refund/chargeback
+- `meta_diaria_atingida` — quando bate meta de receita do dia
 
-**Já existem (mapear da UI atual):**
-- Lead capturado, Pix gerado, Boleto gerado, Venda aprovada, Venda recusada, Reembolso, Carrinho abandonado, Webhook custom
+**Leads quentes:**
+- `hot_lead` — lead com score ≥ 70 ou Pix gerado
+- `lead_respondeu_whatsapp` — cliente respondeu campanha
+- `lead_inativo_voltou` — lead inativo voltou a interagir
 
-**Propor novos gatilhos de alto valor:**
-- `lead_inativo_X_dias` — lead sem interação há N dias (re-engajamento)
-- `cliente_aniversario` — data de nascimento do lead
-- `score_atingiu_X` — quando score do lead cruza um patamar (ex: 70+ = hot)
-- `tag_adicionada` — quando tag específica é aplicada manualmente ou via automação
-- `formulario_respondido` — quando lead responde formulário X
-- `webinar_inscrito` / `webinar_assistido` / `webinar_nao_assistiu`
-- `produto_visualizado_sem_compra` (via tracker UTM)
-- `mensagem_recebida_whatsapp` — gatilho reativo (cliente respondeu palavra-chave)
-- `compra_aniversario_X_dias` — N dias após primeira compra (upsell/renovação)
-- `status_mudou` — qualquer transição de status do lead
+**Operacional:**
+- `ads_anomalia` — CPA subiu 2σ ou CTR despencou (já temos detecção)
+- `ads_pausado_automaticamente` — quando regra pausa anúncio
+- `webhook_falhou` — pagamento webhook com erro
+- `instancia_desconectou` — já existe `erro_conexao`, mas separar por instância
 
-→ Implementação: estender enum/lista de triggers no `FlowEditor` + handler em `openflow-executor` + cron job (`openflow-trigger-scheduler`) para gatilhos baseados em tempo (inativo, aniversário, X dias após).
+**Expert / equipe:**
+- `expert_marcou_done` — expert marcou conteúdo como feito (no portal)
+- `expert_subiu_video` — expert subiu vídeo/áudio
+- `tarefa_atribuida` — alguém te atribuiu uma task no Kanban
+- `mencao_chat` — alguém te mencionou no chat da equipe
 
-### 3. Telegram — Realidade técnica
+**Calendário:**
+- `evento_em_1h` — lembrete 1h antes de evento/live
+- `live_comecando` — 5 min antes da live
 
-**Limitação dura da API do Telegram:** bots **não conseguem** enviar mensagem para alguém apenas com o número de telefone. O usuário precisa **primeiro abrir conversa com o seu bot** (clicar em link `t.me/seu_bot` ou escanear QR e enviar /start). Só depois disso o bot consegue mandar mensagens.
+→ Implementação: estender `Prefs` interface + adicionar disparos nos handlers existentes (`webhook-pagamento`, `lead-predict`, `expert-portal`, `notify-scheduler`).
 
-**O que dá para fazer (caminho viável):**
-1. Criar bot no Telegram (BotFather → token)
-2. Adicionar step `telegram_send` no OpenFlow
-3. Em formulários/landing pages: incluir botão "Receber atualizações no Telegram" → abre `t.me/seu_bot?start=LEAD_ID_ENCODED`
-4. Bot recebe `/start` com payload, salva `telegram_chat_id` no `imphq_leads`
-5. A partir daí, fluxos podem enviar mensagem no Telegram da pessoa
+---
 
-→ É uma feature legítima, mas **exige opt-in ativo do lead**. Não dá para "puxar pelo número" como WhatsApp/SMS.
+## Parte 2 — Melhorias no Portal do Expert
 
-**Alternativa por número (se objetivo é ter mais um canal):** SMS via Twilio — esse sim funciona só com o número.
+Hoje o portal mostra dados, mas é mais "leitura". Propor:
 
-### Pergunta de decisão
+**Comunicação bidirecional:**
+- **Chat direto com você** dentro do portal (sem precisar WhatsApp) — usa `imphq_expert_logs` com action=`message`
+- **Comentários por conteúdo** — expert pode deixar dúvida em cada item do plano
+- **Sistema de aprovação** — você sobe roteiro, expert aprova/pede ajuste
 
-Antes de partir pra implementação, preciso confirmar prioridade — são 3 frentes grandes:
+**Ferramentas de gravação:**
+- **Teleprompter integrado** — exibe roteiro em tela cheia com scroll auto-ajustável
+- **Gravação direta no navegador** — usa MediaRecorder API, sem precisar app externo
+- **Marcação de takes** — expert marca "este é o melhor" entre múltiplas gravações
 
-## Arquivos previstos
-- `supabase/functions/openflow-executor/index.ts` (resiliência + novos triggers)
-- `supabase/functions/openflow-trigger-scheduler/index.ts` (novo, cron-based triggers)
-- Migration: cron job + colunas `telegram_chat_id` em `imphq_leads`, `continue_on_error` em steps
-- `src/components/openflow/FlowEditor.tsx` (toggle + novos triggers + step Telegram)
-- `src/components/openflow/ExecutionsPanel.tsx` (badge "Parcial")
-- `supabase/functions/telegram-bot/index.ts` (novo, recebe /start + envia mensagens)
+**Briefing visual rico:**
+- **Mini-player de referências** — vídeos exemplo embutidos por conteúdo
+- **Moodboard** — imagens de referência por tema
+- **Hooks sugeridos pela IA** — 3 ganchos de abertura por roteiro
+
+**Performance e gamificação:**
+- **Dashboard "como meus conteúdos performaram"** — views, leads gerados, vendas atribuídas
+- **Streak de gravação** — X dias consecutivos cumprindo plano
+- **Ranking semanal** — quanto do plano foi entregue (ex: 8/10 vídeos)
+
+**Operacional:**
+- **Lembretes push** — expert também ativa PWA e recebe notificação dos próximos conteúdos
+- **Calendário próprio do expert** — só o que ele precisa gravar, com horários
+- **Modo offline** — PWA do portal pra ele revisar roteiros sem internet
+- **QR code de acesso** — gerar QR pro expert escanear e abrir o portal direto no celular
+
+**Segurança:**
+- **Token com expiração** — hoje token é eterno, adicionar `expires_at`
+- **Revogar/regenerar token** com 1 clique
+- **Log de acessos** — IP, device, horários
+
+---
+
+## Pergunta de decisão
+
+São muitas opções. Pra não fazer um plano gigante de tudo, sugiro escolher por bloco:
+
+## Arquivos previstos (depende da escolha)
+- Notificações: `imphq_notification_preferences` (migration), `send-push` (sem mudança), handlers em `webhook-pagamento`, `lead-predict`, `expert-portal`, `notify-scheduler`, `NotificationPreferencesTab.tsx`
+- Portal Expert: `supabase/functions/expert-portal/index.ts`, novo componente `ExpertChat.tsx`, `ExpertTeleprompter.tsx`, `ExpertRecorder.tsx`, `ExpertPerformance.tsx` na página `ExpertPortal.tsx`
