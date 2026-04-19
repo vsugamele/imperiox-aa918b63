@@ -441,7 +441,31 @@ Deno.serve(async (req) => {
         const { error: ciErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
         if (ciErr) console.error("[webhook-pagamento] Erro ao inserir checkout intent:", ciErr);
         else console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus);
+
+        // Hot lead notification: Pix gerado is high-intent
+        if (evento === "pix_gerado") {
+          const recipients = await resolveProjectRecipients(supabase, projectId);
+          await pushNotifyByPref({
+            supabase,
+            prefKey: "hot_lead",
+            title: "🔥 Lead quente — Pix gerado",
+            message: `${nome || email || "Um lead"} gerou um Pix${produto ? ` para ${produto}` : ""}${valor ? ` (R$ ${valor.toFixed(2)})` : ""}.`,
+            user_ids: recipients,
+          });
+        }
       }
+    }
+
+    // Notify on payment failure / expiration
+    if (["pagamento_recusado", "pagamento_expirado"].includes(evento) && leadId) {
+      const recipients = await resolveProjectRecipients(supabase, projectId);
+      await pushNotifyByPref({
+        supabase,
+        prefKey: "venda_recusada",
+        title: evento === "pagamento_recusado" ? "❌ Venda recusada" : "⌛ Pagamento expirado",
+        message: `${nome || email || "Cliente"}${produto ? ` • ${produto}` : ""}${valor ? ` • R$ ${valor.toFixed(2)}` : ""}`,
+        user_ids: recipients,
+      });
     }
 
     // Handle purchase
