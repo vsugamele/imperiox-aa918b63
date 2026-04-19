@@ -242,7 +242,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   else if (body?.webhook_event_type || body?.order_status) {
     plataforma = "Kiwify";
     const status = body.order_status || body.webhook_event_type || "";
-    if (status === "paid" || status === "approved") evento = "compra_aprovada";
+    if (status === "paid" || status === "approved" || status === "aprovado" || status === "aprovada") evento = "compra_aprovada";
     else if (status === "refunded") evento = "reembolso";
     else if (status === "waiting_payment") evento = "carrinho_abandonado";
     else evento = status;
