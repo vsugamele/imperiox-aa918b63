@@ -93,6 +93,13 @@ export default function LeadsTable({
               const tipoCls: Record<string, string> = { orderbump: "bg-amber-500/20 text-amber-400 border-amber-500/30", upsell: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", downsell: "bg-rose-500/20 text-rose-400 border-rose-500/30" };
               const pgto = vendas.find((v: any) => v.data?.metodo_pagamento)?.data?.metodo_pagamento;
               const ultimoProduto = (l.data as any)?.ultimo_produto;
+              // Receita: usa total_gasto se houver, senão soma vendas aprovadas como fallback
+              const APROVADOS = ["aprovado","aprovada","approved","paid","pago","completed","complete","succeeded"];
+              const totalGastoNum = l.total_gasto != null ? parseFloat(String(l.total_gasto)) : 0;
+              const vendasAprovadasTotal = vendas
+                .filter((v: any) => APROVADOS.includes(String(v.status || "").toLowerCase()))
+                .reduce((acc: number, v: any) => acc + (parseFloat(String(v.valor || 0)) || 0), 0);
+              const receitaExibir = totalGastoNum > 0 ? totalGastoNum : vendasAprovadasTotal;
 
               return (
                 <TableRow key={l.id} className={cn("cursor-pointer hover:bg-secondary/50 transition-all", l._isNew && "animate-pulse bg-emerald-500/10 ring-1 ring-emerald-500/30", selectedIds.has(l.id) && "bg-primary/5")} onClick={() => onEditLead({ ...l })}>
