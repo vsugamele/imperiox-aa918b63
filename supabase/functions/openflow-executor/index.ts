@@ -374,9 +374,9 @@ Deno.serve(async (req) => {
                 if (!resendApiKey) {
                   stepResult.status = "error";
                   stepResult.reason = "Resend API Key não configurada neste projeto";
-                  status = "failed";
-                  errorMessage = `Step ${i} (email): Resend API Key não configurada`;
-                  console.error(`[openflow-executor] Step ${i} email: Resend API Key não configurada`);
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (email): Resend API Key não configurada`);
+                  console.error(`[openflow-executor] Step ${i} email: Resend API Key não configurada (continuando)`);
                 } else {
                   const finalSubject = replaceVars(emailSubject || "Mensagem automática");
                   const finalBody = replaceVars(emailBody);
