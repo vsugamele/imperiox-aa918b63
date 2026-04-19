@@ -241,8 +241,8 @@ Deno.serve(async (req) => {
               if (!providerId) {
                 stepResult.status = "error";
                 stepResult.reason = "Nenhum provider WhatsApp ativo encontrado";
-                status = "failed";
-                errorMessage = `Step ${i} (whatsapp): Nenhum provider WhatsApp ativo`;
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (whatsapp): Nenhum provider ativo`);
               } else {
                 const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                   method: "POST",
@@ -263,8 +263,9 @@ Deno.serve(async (req) => {
                 if (waData.success) {
                   messagesSent++;
                 } else {
-                  status = "failed";
-                  errorMessage = `Step ${i} (whatsapp): ${waData.error || "Falha no envio"}`;
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (whatsapp): ${waData.error || "Falha no envio"}`);
+                  console.warn(`[openflow-executor] WhatsApp falhou no step ${i}, continuando para próximos steps (e-mails etc.)`);
                 }
               }
             }
