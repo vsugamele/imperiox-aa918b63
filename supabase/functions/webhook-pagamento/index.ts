@@ -640,6 +640,16 @@ Deno.serve(async (req) => {
 
       const newStatus = (remainingSales && remainingSales.length > 0) ? "cliente" : "lead";
       await supabase.from("imphq_leads").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", leadId);
+
+      // Push notification: reembolso
+      const recipients = await resolveProjectRecipients(supabase, projectId);
+      await pushNotifyByPref({
+        supabase,
+        prefKey: "reembolso_solicitado",
+        title: `↩️ Reembolso — R$ ${(valor || 0).toFixed(2)}`,
+        message: `${nome || email || "Cliente"}${produto ? ` • ${produto}` : ""}`,
+        user_ids: recipients,
+      });
     }
 
     // Handle chargeback / cancelamento — mark sale + lead as cancelado
