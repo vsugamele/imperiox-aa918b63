@@ -106,9 +106,12 @@ export default function ExpertPortal() {
   const [activeWeek, setActiveWeek] = useState("semana_1");
   const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
   const [expertLogs, setExpertLogs] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [mainTab, setMainTab] = useState("hoje");
+  const [teleprompterCard, setTeleprompterCard] = useState<ContentItem | null>(null);
+  const [recorderState, setRecorderState] = useState<{ id: string; week: string; day: string; mode: "video" | "audio" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploadCard, setPendingUploadCard] = useState<{ id: string; week: string; day: string } | null>(null);
 
