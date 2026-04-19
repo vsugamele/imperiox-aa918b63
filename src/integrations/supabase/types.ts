@@ -28678,6 +28678,10 @@ export type Database = {
         Returns: Record<string, unknown>[]
       }
       postgres_fdw_handler: { Args: never; Returns: unknown }
+      recalc_lead_total_gasto: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       reset_all_tickets: { Args: never; Returns: undefined }
       reset_daily_water_intake: { Args: never; Returns: undefined }
       reset_weekly_exercise_data: { Args: never; Returns: undefined }
