@@ -10,6 +10,33 @@ function jsonRes(body: any, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+async function notifyManagers(sb: any, projectId: string, prefKey: string, title: string, message: string) {
+  try {
+    // Find users that should be notified (project owners / team)
+    const { data: project } = await sb.from("imphq_projects").select("user_id").eq("id", projectId).maybeSingle();
+    const userIds = new Set<string>();
+    if (project?.user_id) userIds.add(project.user_id);
+
+    const { data: members } = await sb.from("imphq_team_members").select("user_id").eq("project_id", projectId);
+    (members || []).forEach((m: any) => m.user_id && userIds.add(m.user_id));
+
+    if (userIds.size === 0) return;
+
+    const { data: prefs } = await sb
+      .from("imphq_notification_preferences")
+      .select("user_id")
+      .in("user_id", Array.from(userIds))
+      .eq(prefKey, true);
+
+    const targets = (prefs || []).map((p: any) => p.user_id);
+    for (const uid of targets) {
+      await sb.functions.invoke("send-push", { body: { user_id: uid, title, message } });
+    }
+  } catch (e) {
+    console.error("[expert-portal] notify error:", e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -20,7 +47,6 @@ serve(async (req) => {
     const token = url.searchParams.get("token");
     if (!token) return jsonRes({ error: "Token obrigatório" }, 400);
 
-    // Resolve project from token
     const { data: projects, error } = await sb
       .from("imphq_projects")
       .select("id, name, data, avatar, brand_kit")
@@ -46,6 +72,7 @@ serve(async (req) => {
         } else {
           await sb.from("imphq_expert_logs").delete().match({ project_id: projectId, content_id, action: "mark_done" });
           await sb.from("imphq_expert_logs").insert({ project_id: projectId, content_id, week, day, action: "mark_done" });
+          notifyManagers(sb, projectId, "expert_marcou_done", "✅ Expert marcou conteúdo", `Conteúdo ${content_id} foi marcado como feito`);
         }
         return jsonRes({ ok: true });
       }
@@ -82,7 +109,22 @@ serve(async (req) => {
           metadata: { url: urlData.publicUrl, filename: filename || file_path, path: file_path },
         });
 
+        notifyManagers(sb, projectId, "expert_subiu_video", logAction === "audio_upload" ? "🎙️ Expert subiu áudio" : "🎬 Expert subiu vídeo", `${filename || "arquivo"} disponível no portal`);
+
         return jsonRes({ ok: true, url: urlData.publicUrl });
+      }
+
+      if (action === "send_message") {
+        const { content, content_id } = body;
+        if (!content || !content.trim()) return jsonRes({ error: "Mensagem vazia" }, 400);
+        await sb.from("imphq_expert_logs").insert({
+          project_id: projectId,
+          content_id: content_id || null,
+          action: "message",
+          metadata: { content: content.trim(), from: "expert", at: new Date().toISOString() },
+        });
+        notifyManagers(sb, projectId, "expert_mensagem", "💬 Expert enviou mensagem", content.trim().slice(0, 100));
+        return jsonRes({ ok: true });
       }
 
       return jsonRes({ error: "Ação desconhecida" }, 400);
@@ -101,11 +143,9 @@ serve(async (req) => {
       sb.from("imphq_ad_accounts").select("id, platform, account_name, is_active").eq("project_id", projectId).limit(10),
       sb.from("imphq_wa_campaigns").select("id, name, status").eq("project_id", projectId).eq("status", "active").limit(10),
       sb.from("imphq_expert_logs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(500),
-      // Fetch docs shared with expert (tagged with expert_visible)
       sb.from("imphq_docs").select("id, title, content, created_at").eq("project_id", projectId).order("created_at", { ascending: false }),
     ]);
 
-    // Filter docs that are marked as expert_visible in project data
     const expertDocIds: string[] = d.expert_doc_ids || [];
     const allDocs = docsRes.data || [];
     const sharedDocs = expertDocIds.length > 0
@@ -133,7 +173,6 @@ serve(async (req) => {
       wa_campaigns: waCampaigns.map((c: any) => ({ name: c.name })),
     };
 
-    // Build avatar summary for expert (curated, no raw internal data)
     const avatarRaw = typeof project.avatar === "string" ? JSON.parse(project.avatar) : (project.avatar || {});
     const avatarSummary: any = {};
     if (avatarRaw.perfil_psicologico) avatarSummary.perfil_psicologico = avatarRaw.perfil_psicologico;
@@ -142,12 +181,24 @@ serve(async (req) => {
     if (avatarRaw.gatilhos && Array.isArray(avatarRaw.gatilhos) && avatarRaw.gatilhos.length > 0) avatarSummary.gatilhos = avatarRaw.gatilhos.slice(0, 10);
     if (avatarRaw.voyerismos && Array.isArray(avatarRaw.voyerismos) && avatarRaw.voyerismos.length > 0) avatarSummary.voyerismos = avatarRaw.voyerismos.slice(0, 10);
     if (avatarRaw.problemas && Array.isArray(avatarRaw.problemas) && avatarRaw.problemas.length > 0) avatarSummary.problemas = avatarRaw.problemas.slice(0, 10);
-    // Top-level avatar fields
     if (avatarRaw.desejo_externo) avatarSummary.desejo_externo = avatarRaw.desejo_externo;
     if (avatarRaw.desejo_interno) avatarSummary.desejo_interno = avatarRaw.desejo_interno;
     if (avatarRaw.inimigo) avatarSummary.inimigo = avatarRaw.inimigo;
     if (avatarRaw.resultado_sonhado) avatarSummary.resultado_sonhado = avatarRaw.resultado_sonhado;
     if (avatarRaw.camadas_psique) avatarSummary.camadas_psique = avatarRaw.camadas_psique;
+
+    // Build chat messages from logs (action=message OR manager_message)
+    const allLogs = logsRes.data || [];
+    const chatMessages = allLogs
+      .filter((l: any) => l.action === "message" || l.action === "manager_message")
+      .map((l: any) => ({
+        id: l.id,
+        from: l.action === "manager_message" ? "manager" : "expert",
+        content: l.metadata?.content || "",
+        content_id: l.content_id,
+        created_at: l.created_at,
+      }))
+      .reverse(); // chronological
 
     const response = {
       project_name: project.name,
@@ -165,7 +216,8 @@ serve(async (req) => {
         id: p.id, title: p.title || p.name, steps: p.steps || [],
       })),
       operational_status,
-      expert_logs: logsRes.data || [],
+      expert_logs: allLogs,
+      chat_messages: chatMessages,
       shared_docs: sharedDocs.map((doc: any) => ({
         id: doc.id,
         title: doc.title,
