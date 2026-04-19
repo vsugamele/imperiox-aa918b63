@@ -2085,6 +2085,7 @@ export type Database = {
       }
       areamembrojp_nav_items: {
         Row: {
+          action_type: string
           admin_only: boolean
           created_at: string
           has_megamenu: boolean
@@ -2099,8 +2100,10 @@ export type Database = {
           scope: string
           show_in_mobile: boolean
           updated_at: string
+          visibility: string
         }
         Insert: {
+          action_type?: string
           admin_only?: boolean
           created_at?: string
           has_megamenu?: boolean
@@ -2115,8 +2118,10 @@ export type Database = {
           scope: string
           show_in_mobile?: boolean
           updated_at?: string
+          visibility?: string
         }
         Update: {
+          action_type?: string
           admin_only?: boolean
           created_at?: string
           has_megamenu?: boolean
@@ -2131,6 +2136,7 @@ export type Database = {
           scope?: string
           show_in_mobile?: boolean
           updated_at?: string
+          visibility?: string
         }
         Relationships: []
       }
