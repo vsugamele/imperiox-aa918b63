@@ -27,6 +27,7 @@ import { ptBR } from "date-fns/locale";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
 import { FormBuilder } from "@/components/leads/FormBuilder";
 import { FormInsights } from "@/components/leads/FormInsights";
+import { MembrosWebhookGuide } from "@/components/leads/MembrosWebhookGuide";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import LeadsTable, { getLeadStage, STAGE_LABELS, type Lead, type LeadVenda } from "@/components/leads/LeadsTable";
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
@@ -525,7 +526,10 @@ export default function Leads() {
             </div>
           </TabsContent>
 
-          <TabsContent value="formularios" className="space-y-4"><FormBuilder projects={projects} /></TabsContent>
+          <TabsContent value="formularios" className="space-y-4">
+            <MembrosWebhookGuide projectId={projectFilter !== "all" ? projectFilter : undefined} />
+            <FormBuilder projects={projects} />
+          </TabsContent>
           <TabsContent value="insights" className="space-y-4"><FormInsights projects={projects} /></TabsContent>
           <TabsContent value="predicoes" className="space-y-4"><LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} /></TabsContent>
 
