@@ -19,6 +19,7 @@ import anamsPrompt from "./skills/anams-copywriter.md?raw";
 import webinarRoteiroPrompt from "./skills/webinar-roteiro.md?raw";
 import marketIntelPrompt from "./skills/market-intel-v2.md?raw";
 import yoshitaniPrompt from "./skills/yoshitani-traffic-scale.md?raw";
+import roteirosViraisPrompt from "./skills/roteiros-virais-reels.md?raw";
 
 export interface SkillData {
   id: string;
@@ -225,5 +226,17 @@ export const SKILLS_DATA: SkillData[] = [
     icone: "⚔️",
     cor: "#e85d3a",
     system_prompt: yoshitaniPrompt,
+  },
+  {
+    id: "roteiros-virais-reels",
+    nome: "Roteiros Virais Reels",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Biblioteca de 60+ estruturas testadas de roteiros virais para Reels/TikTok/Shorts (Dica Direta, Esquema, Passo a Passo, React, Antes/Depois, Provocação). A IA preenche os colchetes [...] com contexto do nicho/avatar/produto.",
+    gatilho: "[Estrutura escolhida] + [Contexto do projeto]",
+    status: "Ativo",
+    icone: "🎬",
+    cor: "#ff3366",
+    system_prompt: roteirosViraisPrompt,
   },
 ];
