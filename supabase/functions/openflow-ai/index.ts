@@ -1280,6 +1280,23 @@ Email 1: Boas-vindas/Urgência. Email 2: Autoridade. Email 3: Prova social. Emai
     sales_page_blocks: `Gere BLOCOS DE PÁGINA DE VENDAS para o contexto "${trigger}".
 Inclua: 5 Headlines (variações), 10 Bullet points de benefício, 3 CTAs, Seção de prova social, Seção FAQ (5 perguntas), Garantia.
 Use gatilhos emocionais alinhados ao avatar.`,
+
+    reels_viral: `Gere 3 ROTEIROS VIRAIS DE REELS (15-60 seg) para o contexto "${trigger}", usando estruturas testadas das categorias: Dica Direta, Esquema, Passo a Passo, React, Antes/Depois e Provocação.
+
+Para cada roteiro, retorne:
+**Roteiro [N] — [Categoria] — [Nome da Estrutura]**
+- 🎯 Hook (0-3s): frase de impacto que para o scroll
+- 📜 Desenvolvimento (3-45s): aplique a estrutura escolhida preenchendo TODOS os [colchetes] com contexto REAL do projeto (avatar, dores, produto, mecanismo único)
+- 🎬 CTA (últimos 5s): comando claro (comenta, salva, segue, link bio)
+- 📝 Texto na tela: legendas curtas para cada cena
+- 🎥 Direção: como gravar (close, plano médio, B-roll), tom de voz, ritmo
+- #️⃣ 5 hashtags estratégicas
+
+REGRAS CRÍTICAS:
+- NUNCA deixe [colchetes] sem preencher — use sempre dados reais do projeto
+- Tom: nativo do TikTok/Reels, conversacional, sem "marketês"
+- Cada roteiro deve usar uma CATEGORIA DIFERENTE para diversificar
+- Inclua quebras de padrão a cada 5-7s para reter audiência`,
   };
 
   const systemPrompt = `${mentePrefix}Você é um copywriter e estrategista de conteúdo brasileiro de ELITE.
