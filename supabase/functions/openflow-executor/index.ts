@@ -422,16 +422,16 @@ Deno.serve(async (req) => {
                   } else {
                     stepResult.status = "error";
                     stepResult.reason = resendData.message || "Erro no Resend";
-                    status = "failed";
-                    errorMessage = `Step ${i} (email): ${resendData.message || "Erro no Resend"}`;
-                    console.error(`[openflow-executor] Step ${i} email inline: ERRO - ${resendData.message || JSON.stringify(resendData)}`);
+                    stepsFailed++;
+                    failureMessages.push(`Step ${i} (email): ${resendData.message || "Erro no Resend"}`);
+                    console.error(`[openflow-executor] Step ${i} email inline: ERRO (continuando) - ${resendData.message || JSON.stringify(resendData)}`);
                   }
                 }
               } else {
                 stepResult.status = "error";
                 stepResult.reason = "Nenhum conteúdo de email configurado (nem template_id, nem mensagem inline)";
-                status = "failed";
-                errorMessage = `Step ${i} (email): Sem conteúdo configurado`;
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (email): Sem conteúdo configurado`);
                 console.error(`[openflow-executor] Step ${i} email: sem conteúdo - automação ${auto.id}`);
               }
             }
