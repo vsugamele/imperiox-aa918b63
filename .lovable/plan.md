@@ -1,44 +1,46 @@
 
-## Análise
+Objetivo: corrigir a coluna Receita em Leads para sempre mostrar os valores certos.
 
-**Pedido 1**: Criar um guia explicando como usar webhooks/API/snippet pra receber dados de leads de áreas de membros e webinars externos.
+1. Confirmar a causa no fluxo atual
+- A tabela `LeadsTable` mostra só `lead.total_gasto`.
+- O `webhook-pagamento` já recalcula `total_gasto`.
+- O `LeadImportDialog` insere vendas aprovadas em `imphq_vendas`, mas não recalcula `imphq_leads.total_gasto`.
+- Resultado: lead pode aparecer como “Compra ✓”, mas a coluna Receita fica `—`.
 
-**Pedido 2**: Roberta e Maria aparecem como aprovadas com valor dentro, mas a coluna "Receita" no painel não mostra. Vou investigar.
+2. Corrigir a origem do problema
+- Criar uma migration com função/trigger no banco em `imphq_vendas` para recalcular automaticamente:
+  - `imphq_leads.total_gasto`
+  - `imphq_leads.status`
+- Disparar em `INSERT`, `UPDATE` e `DELETE`.
+- Regra de soma: considerar status aprovados (`aprovado`, `aprovada`, `approved`, `paid`, etc.) para evitar novas inconsistências.
 
-## Investigação rápida
+3. Fazer backfill dos dados antigos
+- Na mesma entrega, rodar atualização dos leads já existentes para sincronizar:
+  - somar vendas aprovadas por `lead_id`
+  - zerar quem não tem venda aprovada
+  - manter `cliente` só quando houver venda válida
 
-Já temos `membros-webhook` (criado anteriormente) + `capture-lead` + `webhook-pagamento`. O guia precisa documentar tudo isso de forma clara, no contexto certo (página Leads → aba Formulários).
+4. Ajustar a UI como proteção
+- Em `LeadsTable.tsx`, trocar a regra visual da coluna Receita para não depender só de “truthy/falsy”.
+- Exibir `R$ 0` quando for zero real e usar fallback opcional pela soma de `_vendas` aprovadas enquanto o dado sincroniza.
+- Isso evita continuar mostrando `—` quando houver dado parcial.
 
-Para a receita não aparecer: provavelmente vendas dela não têm `lead_id` linkado (vendas vêm pelo webhook de pagamento, mas o match com lead é por email/phone). O `LeadsTable` mostra `total_gasto` direto da coluna do lead. Se as vendas não estão linkadas via `lead_id`, o `total_gasto` continua zero mesmo após o recálculo da migration anterior.
+5. Revisar os outros pontos que criam venda
+- Verificar `LeadImportDialog.tsx` e qualquer outro fluxo que insere em `imphq_vendas`.
+- Se necessário, simplificar esses pontos para confiar no trigger e evitar lógica duplicada.
 
-## Plano
+6. Validação final
+- Testar um lead importado com venda aprovada.
+- Testar um lead vindo por webhook.
+- Testar refund/cancelamento para garantir que a Receita diminui corretamente.
+- Conferir a lista `/leads`, o card total de Receita e o detalhe do lead.
 
-### 1. Componente `MembrosWebhookGuide.tsx` (novo)
-Guia visual completo dentro de `src/components/leads/` com:
-- **Aba "Webhook"**: URL pronta (`https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/membros-webhook`), exemplos de payload por evento (membro_cadastrado, webinar_inscrito, webinar_assistido, prova_enviada, pesquisa_respondida), botão copiar
-- **Aba "API JS"**: snippet `fetch()` pronto pra colar em qualquer site/área de membros
-- **Aba "Snippet HTML"**: tag `<script>` plug-and-play que captura form submit
-- **Aba "Tags & UTMs"**: como passar `tags`, `utm_source`, `origem` para segregação
-- **Aba "Eventos"**: tabela com cada `event_type` + pontos atribuídos + status resultante
+Arquivos previstos
+- `src/components/leads/LeadsTable.tsx`
+- `src/components/leads/LeadImportDialog.tsx` (se precisar ajuste local)
+- nova migration em `supabase/migrations/`
 
-### 2. Integrar no `Leads.tsx`
-Adicionar botão "📡 Integrações Externas" na aba Formulários que abre o guia em Sheet/Dialog.
-
-### 3. Fix de receita não aparecendo (Roberta/Maria)
-Investigar via SQL se vendas dela têm `lead_id` preenchido. Se não, criar migration de **backfill** que faz match retroativo por email/phone:
-```sql
-UPDATE imphq_vendas v 
-SET lead_id = l.id
-FROM imphq_leads l
-WHERE v.lead_id IS NULL 
-  AND (LOWER(v.email) = LOWER(l.email) OR v.phone = l.phone);
-```
-Depois re-rodar o recálculo de `total_gasto`.
-
-Também ajustar `webhook-pagamento` para sempre tentar linkar `lead_id` no momento da venda.
-
-## Arquivos
-- `src/components/leads/MembrosWebhookGuide.tsx` (novo)
-- `src/pages/Leads.tsx` (botão + dialog)
-- Migration: backfill `lead_id` em vendas órfãs + recalcular `total_gasto`
-- `supabase/functions/webhook-pagamento/index.ts` (garantir match lead_id)
+Detalhe técnico
+- Hoje não existe um mecanismo central no banco para manter `total_gasto` sincronizado.
+- O sistema depende de alguns fluxos recalcularem manualmente e outros não fazem isso.
+- A correção mais segura é mover essa responsabilidade para o banco, deixando a coluna Receita consistente em qualquer origem de venda.
