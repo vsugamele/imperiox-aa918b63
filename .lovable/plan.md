@@ -1,92 +1,147 @@
 
-## Análise
+## Visão geral
 
-Duas frentes:
-1. **Mais notificações push (PWA)** — que eventos podemos disparar
-2. **Melhorias no Portal do Expert**
-
-Já temos: `send-push` edge function, `PushOptIn`, `imphq_push_subscriptions`, `imphq_notification_preferences` (com 5 tipos: novo_lead, grupo_capacidade, disparo_concluido, erro_conexao, resposta_ia).
-
-Já existe Portal do Expert com: avatar resumido, content_plan, eventos da semana, tasks, processos, status operacional, docs compartilhados, logs (mark_done, video/audio upload).
+Você perguntou 4 coisas — respondo cada uma como plano de evolução do Império HQ. Nada disso é trivial, então proponho **blocos independentes** que você pode aprovar separadamente.
 
 ---
 
-## Parte 1 — Novas notificações push
+## 1) Novas Skills que eu desenvolveria
 
-Adicionar ao `imphq_notification_preferences` + disparar via `send-push` nos pontos certos:
+Hoje você tem 17 skills (Avatar Architect, Devastador, Funnel Hacker, etc). Faltam skills que fecham a operação ponta-a-ponta:
 
-**Vendas e dinheiro (alta prioridade):**
-- `venda_aprovada` — toda venda aprovada (com valor)
-- `venda_recusada` — quando uma venda falha (cartão recusado/Pix expirado)
-- `reembolso_solicitado` — refund/chargeback
-- `meta_diaria_atingida` — quando bate meta de receita do dia
+**Criativos & Ads**
+- **Creative Factory** — gera imagens de anúncio (Nano Banana Pro) com múltiplos ângulos do mesmo produto: "expert falando", "resultado antes/depois", "prova social", "objeção destruída", "curiosidade". Entrada: foto do expert + briefing. Saída: 10-20 variações prontas pro Meta Ads.
+- **Ads Copy Multiplier** — dado 1 ângulo vencedor, gera 15 variações (headline/primary/description) pra teste A/B em escala.
+- **Video Hook Generator** — gera 10 ganchos de abertura (3 seg) pra Reels/VSL com base em Avatar + produto. Já existe `roteiros-virais-reels` mas focado em estrutura; este foca só em **hook**.
+- **Thumbnail Architect** — gera thumbnails pra YouTube/VSL com regra dos 3 elementos (rosto + texto + objeto).
 
-**Leads quentes:**
-- `hot_lead` — lead com score ≥ 70 ou Pix gerado
-- `lead_respondeu_whatsapp` — cliente respondeu campanha
-- `lead_inativo_voltou` — lead inativo voltou a interagir
+**Vendas & Retenção**
+- **Objection Destroyer** — dado o produto, lista as 20 objeções reais do avatar + script de quebra pra cada uma (pra WhatsApp, call, email).
+- **Churn Predictor Skill** — analisa leads que compraram mas vão cancelar/pedir reembolso, gera sequência de retenção.
+- **Upsell Matcher** — dado um cliente que comprou X, sugere o próximo produto da escada + copy personalizada.
+- **DM Closer** — responde DMs de Instagram/WhatsApp no tom da marca, fechando venda ou qualificando.
 
-**Operacional:**
-- `ads_anomalia` — CPA subiu 2σ ou CTR despencou (já temos detecção)
-- `ads_pausado_automaticamente` — quando regra pausa anúncio
-- `webhook_falhou` — pagamento webhook com erro
-- `instancia_desconectou` — já existe `erro_conexao`, mas separar por instância
+**Inteligência**
+- **Competitor Watchdog** — roda diário, pega anúncios novos dos concorrentes (via Facebook Ad Library), resume mudanças de ângulo.
+- **Trend Hunter** — busca trending topics do nicho no Google Trends + TikTok, sugere conteúdos pra surfar.
+- **Review Miner** — raspa reviews de produtos concorrentes (Hotmart, Amazon, Udemy), extrai dores/desejos reais em massa.
 
-**Expert / equipe:**
-- `expert_marcou_done` — expert marcou conteúdo como feito (no portal)
-- `expert_subiu_video` — expert subiu vídeo/áudio
-- `tarefa_atribuida` — alguém te atribuiu uma task no Kanban
-- `mencao_chat` — alguém te mencionou no chat da equipe
-
-**Calendário:**
-- `evento_em_1h` — lembrete 1h antes de evento/live
-- `live_comecando` — 5 min antes da live
-
-→ Implementação: estender `Prefs` interface + adicionar disparos nos handlers existentes (`webhook-pagamento`, `lead-predict`, `expert-portal`, `notify-scheduler`).
+**Operação**
+- **Daily Briefing Pro** — relatório diário às 8h com: vendas ontem, ads ruins, leads quentes parados, tarefas vencidas, 1 ação prioritária do dia.
+- **WhatsApp Persona Clone** — aprende seu estilo de escrita no WhatsApp e responde leads como você.
 
 ---
 
-## Parte 2 — Melhorias no Portal do Expert
+## 2) Ajustes no sistema (o que mais apertar)
 
-Hoje o portal mostra dados, mas é mais "leitura". Propor:
+**Dashboard**
+- **Modo "Comando Único"** — tela inicial com 1 número que importa hoje (ex: "faltam R$ 2.3k pra bater meta") + 3 ações recomendadas pela IA
+- **Heatmap de horários** — quando suas vendas acontecem vs quando seus ads rodam (descasamento = dinheiro perdido)
+- **Comparativo semana vs semana** em todo KPI (hoje só tem mês)
 
-**Comunicação bidirecional:**
-- **Chat direto com você** dentro do portal (sem precisar WhatsApp) — usa `imphq_expert_logs` com action=`message`
-- **Comentários por conteúdo** — expert pode deixar dúvida em cada item do plano
-- **Sistema de aprovação** — você sobe roteiro, expert aprova/pede ajuste
+**Leads & CRM**
+- **Auto-follow-up** — lead parado há X dias → IA dispara mensagem personalizada com base no histórico
+- **Lead scoring visual** — coluna "temperatura" (🔥 quente / 🌡️ morno / 🧊 frio) na tabela
+- **Fusão de leads duplicados** — mesmo email/telefone vira 1 registro com timeline unificada
 
-**Ferramentas de gravação:**
-- **Teleprompter integrado** — exibe roteiro em tela cheia com scroll auto-ajustável
-- **Gravação direta no navegador** — usa MediaRecorder API, sem precisar app externo
-- **Marcação de takes** — expert marca "este é o melhor" entre múltiplas gravações
+**Ads**
+- **Botão "pausar automaticamente"** — regra: se CPA > X por 3 dias → pausa sozinho
+- **Sugestão de realocação de budget** — IA diz "tira R$ 50 do adset A e coloca no B"
+- **Diff de criativos** — compara top vs bottom e explica o porquê (cor, texto, rosto, gancho)
 
-**Briefing visual rico:**
-- **Mini-player de referências** — vídeos exemplo embutidos por conteúdo
-- **Moodboard** — imagens de referência por tema
-- **Hooks sugeridos pela IA** — 3 ganchos de abertura por roteiro
+**WhatsApp**
+- **Tags automáticas** de conversa (dúvida, objeção, quente, frio) via IA
+- **Resumo de conversa** — botão que resume thread de 50 msgs em 3 bullets
+- **Resposta sugerida inline** — IA sugere 3 respostas abaixo do input
 
-**Performance e gamificação:**
-- **Dashboard "como meus conteúdos performaram"** — views, leads gerados, vendas atribuídas
-- **Streak de gravação** — X dias consecutivos cumprindo plano
-- **Ranking semanal** — quanto do plano foi entregue (ex: 8/10 vídeos)
-
-**Operacional:**
-- **Lembretes push** — expert também ativa PWA e recebe notificação dos próximos conteúdos
-- **Calendário próprio do expert** — só o que ele precisa gravar, com horários
-- **Modo offline** — PWA do portal pra ele revisar roteiros sem internet
-- **QR code de acesso** — gerar QR pro expert escanear e abrir o portal direto no celular
-
-**Segurança:**
-- **Token com expiração** — hoje token é eterno, adicionar `expires_at`
-- **Revogar/regenerar token** com 1 clique
-- **Log de acessos** — IP, device, horários
+**Financeiro**
+- **Fluxo de caixa projetado** (60/90 dias) com sazonalidade
+- **Alerta de queima de caixa** — "se o ROAS continuar assim, quebra em X dias"
 
 ---
 
-## Pergunta de decisão
+## 3) Mais métricas / controle / autonomia
 
-São muitas opções. Pra não fazer um plano gigante de tudo, sugiro escolher por bloco:
+**Métricas que faltam**
+- **LTV por canal de aquisição** (Instagram orgânico vs Ads vs Indicação)
+- **Tempo médio lead → venda** (velocidade do funil)
+- **Taxa de resposta do WhatsApp** por horário/dia
+- **ROI por conteúdo** (quanto cada Reels gerou em vendas — via UTM ou pixel)
+- **Cohort de retenção** — % de alunos que chegam ao módulo X
+- **Saturação de audiência** (frequency vs CPA)
+- **Share of voice** — % de anúncios seus vs concorrentes no nicho
 
-## Arquivos previstos (depende da escolha)
-- Notificações: `imphq_notification_preferences` (migration), `send-push` (sem mudança), handlers em `webhook-pagamento`, `lead-predict`, `expert-portal`, `notify-scheduler`, `NotificationPreferencesTab.tsx`
-- Portal Expert: `supabase/functions/expert-portal/index.ts`, novo componente `ExpertChat.tsx`, `ExpertTeleprompter.tsx`, `ExpertRecorder.tsx`, `ExpertPerformance.tsx` na página `ExpertPortal.tsx`
+**Controle**
+- **Modo read-only** pra freelancers (ver sem editar)
+- **Aprovação em 2 passos** pra disparos massa > 500 pessoas
+- **Rate limit por usuário** (pra não estourar cota de IA)
+- **Audit log global** — quem fez o quê, quando, onde (reverter com 1 clique)
+- **Backups automáticos** de projetos (export JSON semanal)
+
+**Autonomia (a IA age sozinha)**
+- **Agentes autônomos 24/7** — rodam em cron, executam playbook: "todo dia 9h verifique ads, pause os ruins, me mande resumo"
+- **Auto-resposta de leads por horário** — fora do expediente, IA responde e qualifica
+- **Auto-criação de campanhas WhatsApp** — nova venda aprovada → dispara sequência de onboarding sem você tocar
+- **Auto-segmentação** — leads são etiquetados automaticamente conforme comportamento
+
+---
+
+## 4) "Quero rodar um ads, ele cria imagens e vídeos"
+
+Esse é o pedido mais concreto. Proponho **Creative Factory** como módulo novo:
+
+**Fluxo de uso**
+```text
+┌─ /criativos (nova rota)
+│
+├─ 1. Briefing
+│    - Seleciona projeto (puxa Avatar + Produto + Branding)
+│    - Cola 2-3 fotos do expert (base pra variações)
+│    - Cola URL de 1-3 anúncios de referência (scrape via Firecrawl)
+│    - Escolhe ângulos (check-list: Dor, Desejo, Prova, Autoridade, Curiosidade, Antes/Depois)
+│
+├─ 2. IA gera (Nano Banana Pro — gemini-3-pro-image-preview)
+│    - Variação por ângulo × cor de fundo × enquadramento
+│    - Ex: 6 ângulos × 3 fundos = 18 imagens
+│    - Cada imagem com texto overlay (headline curta gerada pela skill Ads Copy Multiplier)
+│
+├─ 3. Review & Edit
+│    - Galeria tipo Midjourney (grid)
+│    - Editar imagem: "mude o fundo pra azul", "tira o texto" — edição via Nano Banana edit
+│    - Favoritar / reprovar
+│
+├─ 4. Export & Upload
+│    - Download zip ou upload direto na biblioteca do projeto (imphq_midias)
+│    - Pronto pra Meta Ads (especifico 1080×1080, 1080×1350, 1080×1920)
+```
+
+**Arquitetura técnica**
+- Nova tabela `imphq_creative_batches` (id, project_id, briefing_json, referencias_urls[], status, created_at)
+- Nova tabela `imphq_creative_assets` (id, batch_id, prompt_usado, angulo, image_url, aprovado, headline_copy)
+- Bucket `creative-assets` no Supabase Storage
+- Edge Function `creative-factory` que:
+  - recebe briefing
+  - chama Firecrawl pra scraping das referências
+  - monta prompts por ângulo (usa skill nova **Creative Factory** como system prompt)
+  - chama Nano Banana Pro em loop (com rate limit 1/seg)
+  - salva cada imagem gerada no bucket + tabela
+  - retorna batch_id pra UI fazer polling
+- Edge Function `creative-edit` pra edições pontuais (pega imagem existente + instrução → Nano Banana edit)
+- Páginas: `/criativos` (list), `/criativos/:batchId` (galeria), `/criativos/novo` (wizard)
+
+**Para vídeos** (fase 2): integrar com Kling/Runway/Veo 3 via API — mas custo alto, sugiro começar só com imagem estática primeiro.
+
+**Custo estimado**: ~$0.04/imagem Nano Banana Pro × 20 imagens/batch = $0.80 por geração. Se você gerar 5 batches/dia = $4/dia = $120/mês.
+
+---
+
+## Decisão
+
+São 4 frentes grandes. Pra não virar um PR monstro, sugiro priorizar assim:
+
+1. **Creative Factory (imagens)** — resposta direta ao pedido explícito
+2. **Skills novas de Ads** (Copy Multiplier + Hook Generator + Objection Destroyer)
+3. **Auto-follow-up de leads + tags automáticas WhatsApp**
+4. **Dashboard "Comando Único" + métricas LTV/cohort**
+
+Me diz qual bloco quer primeiro que eu faço um plano detalhado só dele.
