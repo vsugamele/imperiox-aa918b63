@@ -33,6 +33,9 @@ import Guia from "./pages/Guia";
 import ConteudoIA from "./pages/ConteudoIA";
 import Privacy from "./pages/Privacy";
 import ExpertPortal from "./pages/ExpertPortal";
+import Criativos from "./pages/Criativos";
+import CriativoNovo from "./pages/CriativoNovo";
+import CriativoDetalhe from "./pages/CriativoDetalhe";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +76,9 @@ const App = () => (
               <Route path="cofre" element={<Cofre />} />
               <Route path="conteudo-ia" element={<ConteudoIA />} />
               <Route path="guia" element={<Guia />} />
+              <Route path="criativos" element={<Criativos />} />
+              <Route path="criativos/novo" element={<CriativoNovo />} />
+              <Route path="criativos/:batchId" element={<CriativoDetalhe />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

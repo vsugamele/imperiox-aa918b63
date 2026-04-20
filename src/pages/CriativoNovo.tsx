@@ -50,8 +50,8 @@ export default function CriativoNovo() {
     (async () => {
       const { data } = await supabase
         .from("imphq_projects")
-        .select("id, nome")
-        .order("nome", { ascending: true });
+        .select("id, name")
+        .order("name", { ascending: true });
       setProjetos((data as Projeto[]) || []);
     })();
   }, []);
@@ -154,7 +154,7 @@ export default function CriativoNovo() {
             <SelectContent>
               {projetos.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.nome}
+                  {p.name}
                 </SelectItem>
               ))}
             </SelectContent>
