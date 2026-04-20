@@ -318,9 +318,15 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
+    if (action === "start" && !bodyParsed) {
+      // body wasn't parsed yet because edit_asset block above already ran. fallback handled below.
+    }
+
+    // Re-route based on finalAction set later in code, but we still need start before edit_asset block.
+    // For backwards-compat, if action=start (no bodyParsed yet), parse here.
     if (action === "start") {
-      const body = await req.json();
-      const { project_id, nome, briefing, referencias_urls, expert_fotos, angulos, formato } = body || {};
+      const body = bodyParsed || {};
+      const { project_id, nome, briefing, referencias_urls, expert_fotos, angulos, formato } = body;
       if (!project_id) {
         return new Response(JSON.stringify({ error: "project_id required" }), {
           status: 400,
@@ -352,8 +358,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // dispara processamento em background
-      // @ts-ignore EdgeRuntime existe no deploy
+      // @ts-ignore
       if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
         // @ts-ignore
         EdgeRuntime.waitUntil(processBatch(batch.id));
