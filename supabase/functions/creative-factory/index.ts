@@ -297,7 +297,11 @@ Deno.serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const action = url.searchParams.get("action") || (req.method === "POST" ? "start" : "get");
+    let bodyParsed: any = null;
+    if (req.method === "POST") {
+      try { bodyParsed = await req.json(); } catch { bodyParsed = null; }
+    }
+    const action = bodyParsed?.action || url.searchParams.get("action") || (req.method === "POST" ? "start" : "get");
 
     // Autenticação baseada no JWT do caller
     const authHeader = req.headers.get("Authorization") || "";
@@ -318,12 +322,6 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    if (action === "start" && !bodyParsed) {
-      // body wasn't parsed yet because edit_asset block above already ran. fallback handled below.
-    }
-
-    // Re-route based on finalAction set later in code, but we still need start before edit_asset block.
-    // For backwards-compat, if action=start (no bodyParsed yet), parse here.
     if (action === "start") {
       const body = bodyParsed || {};
       const { project_id, nome, briefing, referencias_urls, expert_fotos, angulos, formato } = body;
