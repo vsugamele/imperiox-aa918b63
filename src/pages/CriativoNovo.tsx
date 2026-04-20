@@ -23,7 +23,7 @@ const ANGULOS = [
 
 interface Projeto {
   id: string;
-  nome: string;
+  name: string;
 }
 
 export default function CriativoNovo() {
