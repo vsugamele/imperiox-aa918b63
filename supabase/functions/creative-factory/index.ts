@@ -366,9 +366,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (action === "edit_asset") {
-      const body = await req.json();
-      const { asset_id, instruction } = body || {};
+    // Allow action to come from body too (for supabase.functions.invoke compatibility)
+    let bodyParsed: any = null;
+    if (req.method === "POST") {
+      try {
+        bodyParsed = await req.json();
+      } catch {
+        bodyParsed = null;
+      }
+    }
+    const finalAction = bodyParsed?.action || action;
+
+    if (finalAction === "edit_asset") {
+      const { asset_id, instruction } = bodyParsed || {};
       if (!asset_id || !instruction) {
         return new Response(JSON.stringify({ error: "asset_id and instruction required" }), {
           status: 400,
