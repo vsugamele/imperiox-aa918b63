@@ -2693,6 +2693,7 @@ export type Database = {
           likes_count: number
           media_type: string | null
           media_url: string | null
+          pinned_until: string | null
           type: string
           updated_at: string
           user_id: string
@@ -2708,6 +2709,7 @@ export type Database = {
           likes_count?: number
           media_type?: string | null
           media_url?: string | null
+          pinned_until?: string | null
           type?: string
           updated_at?: string
           user_id: string
@@ -2723,6 +2725,7 @@ export type Database = {
           likes_count?: number
           media_type?: string | null
           media_url?: string | null
+          pinned_until?: string | null
           type?: string
           updated_at?: string
           user_id?: string
@@ -3356,6 +3359,8 @@ export type Database = {
           meditations_label: string
           meditations_label_singular: string
           muted_hsl: string
+          notify_on_admin_post: boolean
+          onboarding_step: number
           primary_hsl: string
           programs_section_order: Json
           programs_sections_enabled: Json
@@ -3387,6 +3392,8 @@ export type Database = {
           meditations_label?: string
           meditations_label_singular?: string
           muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
           primary_hsl?: string
           programs_section_order?: Json
           programs_sections_enabled?: Json
@@ -3418,6 +3425,8 @@ export type Database = {
           meditations_label?: string
           meditations_label_singular?: string
           muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
           primary_hsl?: string
           programs_section_order?: Json
           programs_sections_enabled?: Json
