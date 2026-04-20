@@ -13422,12 +13422,15 @@ export type Database = {
           aprovado: boolean
           batch_id: string
           created_at: string
+          edit_instruction: string | null
+          exported_to_midia: boolean
           favorito: boolean
           formato: string
           headline_copy: string | null
           id: string
           image_url: string
           metadata: Json | null
+          midia_id: string | null
           parent_asset_id: string | null
           project_id: string
           prompt_usado: string
@@ -13435,18 +13438,22 @@ export type Database = {
           storage_path: string | null
           updated_at: string
           user_id: string
+          version: number
         }
         Insert: {
           angulo: string
           aprovado?: boolean
           batch_id: string
           created_at?: string
+          edit_instruction?: string | null
+          exported_to_midia?: boolean
           favorito?: boolean
           formato?: string
           headline_copy?: string | null
           id?: string
           image_url: string
           metadata?: Json | null
+          midia_id?: string | null
           parent_asset_id?: string | null
           project_id: string
           prompt_usado: string
@@ -13454,18 +13461,22 @@ export type Database = {
           storage_path?: string | null
           updated_at?: string
           user_id: string
+          version?: number
         }
         Update: {
           angulo?: string
           aprovado?: boolean
           batch_id?: string
           created_at?: string
+          edit_instruction?: string | null
+          exported_to_midia?: boolean
           favorito?: boolean
           formato?: string
           headline_copy?: string | null
           id?: string
           image_url?: string
           metadata?: Json | null
+          midia_id?: string | null
           parent_asset_id?: string | null
           project_id?: string
           prompt_usado?: string
@@ -13473,6 +13484,7 @@ export type Database = {
           storage_path?: string | null
           updated_at?: string
           user_id?: string
+          version?: number
         }
         Relationships: [
           {
