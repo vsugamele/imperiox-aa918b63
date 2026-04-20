@@ -1465,6 +1465,45 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_authors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          position: number
+          role: string | null
+          social_links: Json
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_banners: {
         Row: {
           created_at: string
@@ -1601,6 +1640,7 @@ export type Database = {
       areamembrojp_crm_notes: {
         Row: {
           author_id: string | null
+          category: string
           content: string
           created_at: string
           id: string
@@ -1609,6 +1649,7 @@ export type Database = {
         }
         Insert: {
           author_id?: string | null
+          category?: string
           content: string
           created_at?: string
           id?: string
@@ -1617,6 +1658,7 @@ export type Database = {
         }
         Update: {
           author_id?: string | null
+          category?: string
           content?: string
           created_at?: string
           id?: string
@@ -1821,6 +1863,48 @@ export type Database = {
           title?: string
           trigger_type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_custom_palettes: {
+        Row: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at: string
+          created_by: string | null
+          foreground_hsl: string
+          id: string
+          mode: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Insert: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl: string
+          id?: string
+          mode?: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Update: {
+          accent_hsl?: string
+          background_hsl?: string
+          card_hsl?: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl?: string
+          id?: string
+          mode?: string
+          muted_hsl?: string
+          name?: string
+          primary_hsl?: string
         }
         Relationships: []
       }
@@ -2282,25 +2366,37 @@ export type Database = {
           created_at: string
           external_product_id: string
           id: string
+          is_active: boolean
           notes: string | null
-          plan_id: string
+          plan_id: string | null
+          program_id: string | null
           provider: string
+          scope: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
           external_product_id: string
           id?: string
+          is_active?: boolean
           notes?: string | null
-          plan_id: string
+          plan_id?: string | null
+          program_id?: string | null
           provider: string
+          scope?: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
           external_product_id?: string
           id?: string
+          is_active?: boolean
           notes?: string | null
-          plan_id?: string
+          plan_id?: string | null
+          program_id?: string | null
           provider?: string
+          scope?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2308,6 +2404,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_plan_external_products_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
             referencedColumns: ["id"]
           },
         ]
@@ -2347,40 +2450,55 @@ export type Database = {
       }
       areamembrojp_plans: {
         Row: {
+          billing_period: string
           color: string
           created_at: string
+          currency: string
           description: string | null
+          exclusion_program_ids: string[]
           grants_all_programs: boolean
           id: string
+          inclusion_program_ids: string[]
           is_active: boolean
           is_default: boolean
           name: string
+          price_cents: number
           slug: string
           tier_level: number
           updated_at: string
         }
         Insert: {
+          billing_period?: string
           color?: string
           created_at?: string
+          currency?: string
           description?: string | null
+          exclusion_program_ids?: string[]
           grants_all_programs?: boolean
           id?: string
+          inclusion_program_ids?: string[]
           is_active?: boolean
           is_default?: boolean
           name: string
+          price_cents?: number
           slug: string
           tier_level?: number
           updated_at?: string
         }
         Update: {
+          billing_period?: string
           color?: string
           created_at?: string
+          currency?: string
           description?: string | null
+          exclusion_program_ids?: string[]
           grants_all_programs?: boolean
           id?: string
+          inclusion_program_ids?: string[]
           is_active?: boolean
           is_default?: boolean
           name?: string
+          price_cents?: number
           slug?: string
           tier_level?: number
           updated_at?: string
@@ -2716,6 +2834,7 @@ export type Database = {
           model: string
           name: string
           program_id: string
+          provider: string
           suggestions: Json
           system_prompt: string
           welcome: string | null
@@ -2725,6 +2844,7 @@ export type Database = {
           model?: string
           name: string
           program_id: string
+          provider?: string
           suggestions?: Json
           system_prompt: string
           welcome?: string | null
@@ -2734,6 +2854,7 @@ export type Database = {
           model?: string
           name?: string
           program_id?: string
+          provider?: string
           suggestions?: Json
           system_prompt?: string
           welcome?: string | null
@@ -2753,6 +2874,7 @@ export type Database = {
           author_avatar: string | null
           author_avatar_url: string | null
           author_bio: string | null
+          author_id: string | null
           author_name: string | null
           author_role: string | null
           banner_url: string | null
@@ -2763,6 +2885,8 @@ export type Database = {
           description: string | null
           duration_min: number
           enrolled_count: number
+          hero_media_type: string
+          hero_media_url: string | null
           id: string
           is_free: boolean
           is_new: boolean
@@ -2783,6 +2907,7 @@ export type Database = {
           author_avatar?: string | null
           author_avatar_url?: string | null
           author_bio?: string | null
+          author_id?: string | null
           author_name?: string | null
           author_role?: string | null
           banner_url?: string | null
@@ -2793,6 +2918,8 @@ export type Database = {
           description?: string | null
           duration_min?: number
           enrolled_count?: number
+          hero_media_type?: string
+          hero_media_url?: string | null
           id?: string
           is_free?: boolean
           is_new?: boolean
@@ -2813,6 +2940,7 @@ export type Database = {
           author_avatar?: string | null
           author_avatar_url?: string | null
           author_bio?: string | null
+          author_id?: string | null
           author_name?: string | null
           author_role?: string | null
           banner_url?: string | null
@@ -2823,6 +2951,8 @@ export type Database = {
           description?: string | null
           duration_min?: number
           enrolled_count?: number
+          hero_media_type?: string
+          hero_media_url?: string | null
           id?: string
           is_free?: boolean
           is_new?: boolean
@@ -2839,7 +2969,15 @@ export type Database = {
           total_minutes?: number
           trailer_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_programs_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_authors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_quiz_attempts: {
         Row: {
@@ -2955,6 +3093,7 @@ export type Database = {
       areamembrojp_searches: {
         Row: {
           created_at: string
+          had_results: boolean | null
           id: string
           query: string
           results_count: number
@@ -2962,6 +3101,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          had_results?: boolean | null
           id?: string
           query: string
           results_count?: number
@@ -2969,6 +3109,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          had_results?: boolean | null
           id?: string
           query?: string
           results_count?: number
@@ -3201,9 +3342,14 @@ export type Database = {
           foreground_hsl: string
           heading_font: string
           home_section_order: Json
+          home_sections_enabled: Json
           id: boolean
           landing_cta_text: string
+          landing_footer_html: string | null
           landing_hero_image: string | null
+          landing_logo_url: string | null
+          landing_signin_label: string
+          landing_signup_label: string
           landing_subtitle: string
           landing_title: string
           logo_url: string | null
@@ -3211,6 +3357,8 @@ export type Database = {
           meditations_label_singular: string
           muted_hsl: string
           primary_hsl: string
+          programs_section_order: Json
+          programs_sections_enabled: Json
           updated_at: string
           welcome_text: string
         }
@@ -3225,9 +3373,14 @@ export type Database = {
           foreground_hsl?: string
           heading_font?: string
           home_section_order?: Json
+          home_sections_enabled?: Json
           id?: boolean
           landing_cta_text?: string
+          landing_footer_html?: string | null
           landing_hero_image?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
           logo_url?: string | null
@@ -3235,6 +3388,8 @@ export type Database = {
           meditations_label_singular?: string
           muted_hsl?: string
           primary_hsl?: string
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
           updated_at?: string
           welcome_text?: string
         }
@@ -3249,9 +3404,14 @@ export type Database = {
           foreground_hsl?: string
           heading_font?: string
           home_section_order?: Json
+          home_sections_enabled?: Json
           id?: boolean
           landing_cta_text?: string
+          landing_footer_html?: string | null
           landing_hero_image?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
           logo_url?: string | null
@@ -3259,6 +3419,8 @@ export type Database = {
           meditations_label_singular?: string
           muted_hsl?: string
           primary_hsl?: string
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
           updated_at?: string
           welcome_text?: string
         }
@@ -3508,6 +3670,83 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      areamembrojp_welcome_popup_views: {
+        Row: {
+          dismissed_at: string
+          popup_id: string
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          popup_id: string
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          popup_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_welcome_popup_views_popup_id_fkey"
+            columns: ["popup_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_welcome_popups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_welcome_popups: {
+        Row: {
+          audience: string
+          body_html: string | null
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          display_mode: string
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          position: number
+          starts_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       aromatherapy_protocols: {
         Row: {
