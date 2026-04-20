@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, Heart, Loader2, Pencil, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Download, FolderInput, Heart, History, Loader2, Package, Pencil, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
+import JSZip from "jszip";
 
 interface Batch {
   id: string;
@@ -26,6 +27,11 @@ interface Asset {
   favorito: boolean;
   reprovado: boolean;
   formato: string;
+  parent_asset_id: string | null;
+  version: number;
+  edit_instruction: string | null;
+  exported_to_midia: boolean;
+  created_at: string;
 }
 
 export default function CriativoDetalhe() {
@@ -36,6 +42,9 @@ export default function CriativoDetalhe() {
   const [editInstruction, setEditInstruction] = useState("");
   const [editing, setEditing] = useState(false);
   const [viewer, setViewer] = useState<Asset | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<Asset | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [zipping, setZipping] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -61,6 +70,27 @@ export default function CriativoDetalhe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, batch?.status]);
 
+  // Mostra apenas a versão mais recente de cada cadeia (latest leaf por raiz)
+  const visibleAssets = useMemo(() => {
+    const byId = new Map(assets.map((a) => [a.id, a]));
+    const hasChild = new Set<string>();
+    for (const a of assets) if (a.parent_asset_id) hasChild.add(a.parent_asset_id);
+    return assets.filter((a) => !hasChild.has(a.id));
+  }, [assets]);
+
+  function getHistory(asset: Asset): Asset[] {
+    const chain: Asset[] = [asset];
+    let cur: Asset | undefined = asset;
+    const byId = new Map(assets.map((a) => [a.id, a]));
+    while (cur?.parent_asset_id) {
+      const parent = byId.get(cur.parent_asset_id);
+      if (!parent) break;
+      chain.unshift(parent);
+      cur = parent;
+    }
+    return chain;
+  }
+
   async function toggleFavorito(a: Asset) {
     await supabase.from("imphq_creative_assets").update({ favorito: !a.favorito }).eq("id", a.id);
     load();
@@ -75,11 +105,11 @@ export default function CriativoDetalhe() {
     if (!editTarget || !editInstruction.trim()) return;
     setEditing(true);
     try {
-      const { error } = await supabase.functions.invoke("creative-factory?action=edit_asset", {
-        body: { asset_id: editTarget.id, instruction: editInstruction },
+      const { error } = await supabase.functions.invoke("creative-factory", {
+        body: { action: "edit_asset", asset_id: editTarget.id, instruction: editInstruction },
       });
       if (error) throw error;
-      toast.success("Nova variação gerada!");
+      toast.success("Nova versão gerada!");
       setEditTarget(null);
       setEditInstruction("");
       load();
@@ -90,18 +120,86 @@ export default function CriativoDetalhe() {
     }
   }
 
+  async function exportarParaMidia(asset: Asset) {
+    setExporting(true);
+    try {
+      const { error } = await supabase.functions.invoke("creative-factory", {
+        body: { action: "export_to_midia", asset_ids: [asset.id] },
+      });
+      if (error) throw error;
+      toast.success("Enviado pra biblioteca de mídias");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao exportar");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function exportarAprovados() {
+    const aprovados = visibleAssets.filter((a) => !a.reprovado && !a.exported_to_midia);
+    if (aprovados.length === 0) {
+      toast.info("Nenhum criativo aprovado novo pra exportar");
+      return;
+    }
+    setExporting(true);
+    try {
+      const { error } = await supabase.functions.invoke("creative-factory", {
+        body: { action: "export_to_midia", asset_ids: aprovados.map((a) => a.id) },
+      });
+      if (error) throw error;
+      toast.success(`${aprovados.length} criativo(s) enviado(s) pra mídias`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao exportar");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function downloadZip() {
+    const aprovados = visibleAssets.filter((a) => !a.reprovado);
+    if (aprovados.length === 0) {
+      toast.info("Nenhum criativo aprovado");
+      return;
+    }
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      let i = 0;
+      for (const a of aprovados) {
+        try {
+          const res = await fetch(a.image_url);
+          const blob = await res.blob();
+          const ext = (blob.type.split("/")[1] || "png").split(";")[0];
+          zip.file(`${String(++i).padStart(2, "0")}-${a.angulo}-v${a.version}.${ext}`, blob);
+        } catch (e) {
+          console.error("zip fetch fail", a.id, e);
+        }
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${batch?.nome || "criativos"}.zip`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast.success(`${i} criativo(s) baixado(s)`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha no ZIP");
+    } finally {
+      setZipping(false);
+    }
+  }
+
   const pct = batch && batch.total_planejado > 0
-    ? Math.round((batch.total_gerado / batch.total_planejado) * 100)
-    : 0;
+    ? Math.round((batch.total_gerado / batch.total_planejado) * 100) : 0;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link to="/criativos">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-            </Link>
+            <Link to="/criativos"><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Link>
           </Button>
           <div>
             <h1 className="font-serif text-2xl text-primary">{batch?.nome || "..."}</h1>
@@ -110,30 +208,38 @@ export default function CriativoDetalhe() {
                 {batch?.status === "processing" && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 {batch?.status || "..."}
               </Badge>
-              <span>
-                {batch?.total_gerado || 0}/{batch?.total_planejado || 0} ({pct}%)
-              </span>
+              <span>{batch?.total_gerado || 0}/{batch?.total_planejado || 0} ({pct}%)</span>
             </div>
           </div>
         </div>
+
+        {visibleAssets.length > 0 && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={exportarAprovados} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderInput className="h-4 w-4" />}
+              Enviar aprovados pra Mídias
+            </Button>
+            <Button size="sm" onClick={downloadZip} disabled={zipping}>
+              {zipping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+              Baixar ZIP
+            </Button>
+          </div>
+        )}
       </div>
 
       {batch?.error_message && (
         <Card className="p-3 border-destructive bg-destructive/10 text-sm">{batch.error_message}</Card>
       )}
 
-      {assets.length === 0 ? (
+      {visibleAssets.length === 0 ? (
         <Card className="p-12 text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
           <p className="text-muted-foreground">Gerando seus criativos... Isso pode levar alguns minutos.</p>
         </Card>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {assets.map((a) => (
-            <Card
-              key={a.id}
-              className={`overflow-hidden group relative ${a.reprovado ? "opacity-40" : ""}`}
-            >
+          {visibleAssets.map((a) => (
+            <Card key={a.id} className={`overflow-hidden group relative ${a.reprovado ? "opacity-40" : ""}`}>
               <button className="block w-full" onClick={() => setViewer(a)}>
                 <div className="relative aspect-square bg-muted">
                   <img src={a.image_url} alt={a.angulo} className="w-full h-full object-cover" />
@@ -142,25 +248,39 @@ export default function CriativoDetalhe() {
                       <p className="text-white text-xs font-medium line-clamp-2">{a.headline_copy}</p>
                     </div>
                   )}
+                  {a.version > 1 && (
+                    <Badge className="absolute top-2 right-2 text-[10px]" variant="secondary">v{a.version}</Badge>
+                  )}
+                  {a.exported_to_midia && (
+                    <Badge className="absolute top-2 left-2 text-[10px]" variant="default">
+                      <FolderInput className="h-3 w-3 mr-1" />Exportado
+                    </Badge>
+                  )}
                 </div>
               </button>
               <div className="p-2 flex items-center justify-between gap-1">
-                <Badge variant="outline" className="text-[10px] capitalize">
-                  {a.angulo}
-                </Badge>
-                <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => toggleFavorito(a)}>
+                <Badge variant="outline" className="text-[10px] capitalize">{a.angulo}</Badge>
+                <div className="flex gap-0.5">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => toggleFavorito(a)} title="Favoritar">
                     <Heart className={`h-4 w-4 ${a.favorito ? "fill-primary text-primary" : ""}`} />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditTarget(a)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditTarget(a)} title="Editar com IA">
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
+                  {a.version > 1 && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setHistoryTarget(a)} title="Histórico">
+                      <History className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => exportarParaMidia(a)} disabled={a.exported_to_midia || exporting} title="Enviar pra Mídias">
+                    <FolderInput className={`h-4 w-4 ${a.exported_to_midia ? "text-primary" : ""}`} />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" asChild title="Download">
                     <a href={a.image_url} download target="_blank" rel="noreferrer">
                       <Download className="h-4 w-4" />
                     </a>
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => reprovar(a)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => reprovar(a)} title="Reprovar">
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -174,7 +294,7 @@ export default function CriativoDetalhe() {
       <Dialog open={!!viewer} onOpenChange={(o) => !o && setViewer(null)}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="capitalize">{viewer?.angulo}</DialogTitle>
+            <DialogTitle className="capitalize">{viewer?.angulo} {viewer && viewer.version > 1 && `· v${viewer.version}`}</DialogTitle>
           </DialogHeader>
           {viewer && (
             <div className="space-y-3">
@@ -185,6 +305,40 @@ export default function CriativoDetalhe() {
                   <div className="font-medium">{viewer.headline_copy}</div>
                 </div>
               )}
+              {viewer.edit_instruction && (
+                <div className="p-3 bg-muted rounded">
+                  <div className="text-xs text-muted-foreground mb-1">Edição aplicada</div>
+                  <div className="text-sm italic">"{viewer.edit_instruction}"</div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* History */}
+      <Dialog open={!!historyTarget} onOpenChange={(o) => !o && setHistoryTarget(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" /> Histórico de versões
+            </DialogTitle>
+          </DialogHeader>
+          {historyTarget && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {getHistory(historyTarget).map((v) => (
+                <Card key={v.id} className="overflow-hidden">
+                  <div className="aspect-square bg-muted">
+                    <img src={v.image_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="p-2 space-y-1">
+                    <Badge variant="outline" className="text-[10px]">v{v.version}</Badge>
+                    {v.edit_instruction && (
+                      <p className="text-xs text-muted-foreground italic line-clamp-2">"{v.edit_instruction}"</p>
+                    )}
+                  </div>
+                </Card>
+              ))}
             </div>
           )}
         </DialogContent>
