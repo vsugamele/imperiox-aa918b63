@@ -13416,6 +13416,138 @@ export type Database = {
           },
         ]
       }
+      imphq_creative_assets: {
+        Row: {
+          angulo: string
+          aprovado: boolean
+          batch_id: string
+          created_at: string
+          favorito: boolean
+          formato: string
+          headline_copy: string | null
+          id: string
+          image_url: string
+          metadata: Json | null
+          parent_asset_id: string | null
+          project_id: string
+          prompt_usado: string
+          reprovado: boolean
+          storage_path: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          angulo: string
+          aprovado?: boolean
+          batch_id: string
+          created_at?: string
+          favorito?: boolean
+          formato?: string
+          headline_copy?: string | null
+          id?: string
+          image_url: string
+          metadata?: Json | null
+          parent_asset_id?: string | null
+          project_id: string
+          prompt_usado: string
+          reprovado?: boolean
+          storage_path?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          angulo?: string
+          aprovado?: boolean
+          batch_id?: string
+          created_at?: string
+          favorito?: boolean
+          formato?: string
+          headline_copy?: string | null
+          id?: string
+          image_url?: string
+          metadata?: Json | null
+          parent_asset_id?: string | null
+          project_id?: string
+          prompt_usado?: string
+          reprovado?: boolean
+          storage_path?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_creative_assets_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_creative_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_creative_assets_parent_asset_id_fkey"
+            columns: ["parent_asset_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_creative_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_creative_batches: {
+        Row: {
+          angulos: string[] | null
+          briefing: Json
+          created_at: string
+          error_message: string | null
+          expert_fotos: string[] | null
+          formato: string
+          id: string
+          nome: string
+          project_id: string
+          referencias_context: string | null
+          referencias_urls: string[] | null
+          status: string
+          total_gerado: number
+          total_planejado: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          angulos?: string[] | null
+          briefing?: Json
+          created_at?: string
+          error_message?: string | null
+          expert_fotos?: string[] | null
+          formato?: string
+          id?: string
+          nome?: string
+          project_id: string
+          referencias_context?: string | null
+          referencias_urls?: string[] | null
+          status?: string
+          total_gerado?: number
+          total_planejado?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          angulos?: string[] | null
+          briefing?: Json
+          created_at?: string
+          error_message?: string | null
+          expert_fotos?: string[] | null
+          formato?: string
+          id?: string
+          nome?: string
+          project_id?: string
+          referencias_context?: string | null
+          referencias_urls?: string[] | null
+          status?: string
+          total_gerado?: number
+          total_planejado?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_custos: {
         Row: {
           id: string
