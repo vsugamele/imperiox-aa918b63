@@ -297,7 +297,11 @@ Deno.serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const action = url.searchParams.get("action") || (req.method === "POST" ? "start" : "get");
+    let bodyParsed: any = null;
+    if (req.method === "POST") {
+      try { bodyParsed = await req.json(); } catch { bodyParsed = null; }
+    }
+    const action = bodyParsed?.action || url.searchParams.get("action") || (req.method === "POST" ? "start" : "get");
 
     // Autenticação baseada no JWT do caller
     const authHeader = req.headers.get("Authorization") || "";
@@ -319,8 +323,8 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     if (action === "start") {
-      const body = await req.json();
-      const { project_id, nome, briefing, referencias_urls, expert_fotos, angulos, formato } = body || {};
+      const body = bodyParsed || {};
+      const { project_id, nome, briefing, referencias_urls, expert_fotos, angulos, formato } = body;
       if (!project_id) {
         return new Response(JSON.stringify({ error: "project_id required" }), {
           status: 400,
@@ -352,8 +356,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // dispara processamento em background
-      // @ts-ignore EdgeRuntime existe no deploy
+      // @ts-ignore
       if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
         // @ts-ignore
         EdgeRuntime.waitUntil(processBatch(batch.id));
@@ -366,9 +369,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (action === "edit_asset") {
-      const body = await req.json();
-      const { asset_id, instruction } = body || {};
+    // Allow action to come from body too (for supabase.functions.invoke compatibility)
+    let bodyParsed: any = null;
+    if (req.method === "POST") {
+      try {
+        bodyParsed = await req.json();
+      } catch {
+        bodyParsed = null;
+      }
+    }
+    const finalAction = bodyParsed?.action || action;
+
+    if (finalAction === "edit_asset") {
+      const { asset_id, instruction } = bodyParsed || {};
       if (!asset_id || !instruction) {
         return new Response(JSON.stringify({ error: "asset_id and instruction required" }), {
           status: 400,
