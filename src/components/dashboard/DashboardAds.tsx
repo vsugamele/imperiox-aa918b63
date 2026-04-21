@@ -267,12 +267,12 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
 
   // KPI cards — Yoshitani priority (CPA first, diagnostic metrics, then vanity)
   const kpis = [
-    { label: "CPA (Métrica-Mãe)", value: adsGlobal.cpa > 0 ? `R$ ${adsGlobal.cpa.toFixed(2)}` : "—", icon: Target, color: "text-red-400", bg: "from-red-500/15 to-red-500/5" },
-    { label: "Custo/Checkout", value: adsGlobal.custoCheckout > 0 ? `R$ ${adsGlobal.custoCheckout.toFixed(2)}` : "—", icon: ShoppingCart, color: "text-orange-400", bg: "from-orange-500/15 to-orange-500/5" },
-    { label: "ROAS Real", value: adsGlobal.roasReal > 0 ? `${adsGlobal.roasReal.toFixed(2)}x` : "—", icon: TrendingUp, color: adsGlobal.roasReal >= 2 ? "text-emerald-400" : "text-amber-400", bg: adsGlobal.roasReal >= 2 ? "from-emerald-500/15 to-emerald-500/5" : "from-amber-500/15 to-amber-500/5" },
-    { label: "Investido", value: `R$ ${adsGlobal.gasto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Zap, color: "text-red-400", bg: "from-red-500/15 to-red-500/5" },
-    { label: "Receita Vendas", value: `R$ ${adsGlobal.receitaReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Megaphone, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
-    { label: "Vendas Reais", value: String(adsGlobal.vendasReais), icon: ShoppingCart, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
+    { label: "CPA (Métrica-Mãe)", value: adsGlobal.cpa > 0 ? `R$ ${adsGlobal.cpa.toFixed(2)}` : "—", icon: Target, color: "text-red-400", bg: "from-red-500/15 to-red-500/5", drill: "ads_cpa" as DrillMetric },
+    { label: "Custo/Checkout", value: adsGlobal.custoCheckout > 0 ? `R$ ${adsGlobal.custoCheckout.toFixed(2)}` : "—", icon: ShoppingCart, color: "text-orange-400", bg: "from-orange-500/15 to-orange-500/5", drill: "ads_checkout" as DrillMetric },
+    { label: "ROAS Real", value: adsGlobal.roasReal > 0 ? `${adsGlobal.roasReal.toFixed(2)}x` : "—", icon: TrendingUp, color: adsGlobal.roasReal >= 2 ? "text-emerald-400" : "text-amber-400", bg: adsGlobal.roasReal >= 2 ? "from-emerald-500/15 to-emerald-500/5" : "from-amber-500/15 to-amber-500/5", drill: "roas" as DrillMetric },
+    { label: "Investido", value: `R$ ${adsGlobal.gasto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Zap, color: "text-red-400", bg: "from-red-500/15 to-red-500/5", drill: "ads_spend" as DrillMetric },
+    { label: "Receita Vendas", value: `R$ ${adsGlobal.receitaReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Megaphone, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5", drill: "revenue" as DrillMetric },
+    { label: "Vendas Reais", value: String(adsGlobal.vendasReais), icon: ShoppingCart, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5", drill: "sales" as DrillMetric },
     { label: "Compras (Pixel)", value: String(adsGlobal.compras), icon: ShoppingCart, color: "text-blue-400", bg: "from-blue-500/15 to-blue-500/5" },
     { label: "Init. Checkout", value: String(adsGlobal.checkouts), icon: Activity, color: "text-violet-400", bg: "from-violet-500/15 to-violet-500/5" },
     { label: "LP → Checkout", value: `${adsGlobal.lpToCko.toFixed(1)}%`, icon: Activity, color: adsGlobal.lpToCko > 0 && adsGlobal.lpToCko < 10 ? "text-red-400" : "text-emerald-400", bg: adsGlobal.lpToCko > 0 && adsGlobal.lpToCko < 10 ? "from-red-500/15 to-red-500/5" : "from-emerald-500/15 to-emerald-500/5" },
@@ -448,6 +448,16 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
           )}
         </div>
       )}
+
+      <DashboardDrillSheet
+        open={drillOpen}
+        onOpenChange={setDrillOpen}
+        metric={drillMetric}
+        period={period}
+        projectFilter={projectFilter}
+        productFilter={productFilter}
+        campaignName={drillCampaign}
+      />
     </>
   );
 }

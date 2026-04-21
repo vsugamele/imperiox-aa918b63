@@ -2611,27 +2611,36 @@ export type Database = {
           created_at: string
           id: string
           is_hidden: boolean
+          is_seed: boolean
           parent_id: string | null
           post_id: string
-          user_id: string
+          scheduled_for: string | null
+          seed_persona_id: string | null
+          user_id: string | null
         }
         Insert: {
           content: string
           created_at?: string
           id?: string
           is_hidden?: boolean
+          is_seed?: boolean
           parent_id?: string | null
           post_id: string
-          user_id: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
         }
         Update: {
           content?: string
           created_at?: string
           id?: string
           is_hidden?: boolean
+          is_seed?: boolean
           parent_id?: string | null
           post_id?: string
-          user_id?: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2648,23 +2657,39 @@ export type Database = {
             referencedRelation: "areamembrojp_posts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_seed_personas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       areamembrojp_post_likes: {
         Row: {
           created_at: string
+          id: string
+          is_seed: boolean
           post_id: string
-          user_id: string
+          seed_persona_id: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string
+          id?: string
+          is_seed?: boolean
           post_id: string
-          user_id: string
+          seed_persona_id?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string
+          id?: string
+          is_seed?: boolean
           post_id?: string
-          user_id?: string
+          seed_persona_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2672,6 +2697,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "areamembrojp_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_seed_personas"
             referencedColumns: ["id"]
           },
           {
@@ -2720,13 +2752,16 @@ export type Database = {
           id: string
           is_hidden: boolean
           is_pinned: boolean
+          is_seed: boolean
           likes_count: number
           media_type: string | null
           media_url: string | null
           pinned_until: string | null
+          scheduled_for: string | null
+          seed_persona_id: string | null
           type: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           comments_count?: number
@@ -2736,13 +2771,16 @@ export type Database = {
           id?: string
           is_hidden?: boolean
           is_pinned?: boolean
+          is_seed?: boolean
           likes_count?: number
           media_type?: string | null
           media_url?: string | null
           pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
           type?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           comments_count?: number
@@ -2752,15 +2790,25 @@ export type Database = {
           id?: string
           is_hidden?: boolean
           is_pinned?: boolean
+          is_seed?: boolean
           likes_count?: number
           media_type?: string | null
           media_url?: string | null
           pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
           type?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "areamembrojp_posts_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_seed_personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "areamembrojp_posts_user_id_fkey"
             columns: ["user_id"]
@@ -2797,6 +2845,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      areamembrojp_presence_signals: {
+        Row: {
+          created_at: string
+          entity_label: string | null
+          entity_url: string | null
+          id: string
+          is_seed: boolean
+          persona_avatar: string | null
+          persona_name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name?: string
+          type?: string
+        }
+        Relationships: []
       }
       areamembrojp_profiles: {
         Row: {
@@ -3186,6 +3267,42 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_seed_personas: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          country: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          profession: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_settings: {
         Row: {
           key: string
@@ -3395,6 +3512,12 @@ export type Database = {
           program_card_aspect: string
           programs_section_order: Json
           programs_sections_enabled: Json
+          seed_engine_enabled: boolean
+          seed_likes_per_hour: number
+          seed_online_offset: number
+          seed_presence_frequency_seconds: number
+          seed_show_online_count: boolean
+          seed_show_ticker: boolean
           updated_at: string
           welcome_text: string
         }
@@ -3429,6 +3552,12 @@ export type Database = {
           program_card_aspect?: string
           programs_section_order?: Json
           programs_sections_enabled?: Json
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
           updated_at?: string
           welcome_text?: string
         }
@@ -3463,6 +3592,12 @@ export type Database = {
           program_card_aspect?: string
           programs_section_order?: Json
           programs_sections_enabled?: Json
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
           updated_at?: string
           welcome_text?: string
         }
