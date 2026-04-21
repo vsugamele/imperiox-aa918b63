@@ -251,7 +251,12 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const handleColumnChange = async (v: string) => {
     if (!card) return;
     setColumnId(v);
-    await supabase.from("imphq_kanban_cards").update({ column_id: v } as any).eq("id", card.id);
+    const target = columns.find(c => c.id === v);
+    const updates: any = { column_id: v };
+    if (target && target.board && target.board !== card.board) {
+      updates.board = target.board;
+    }
+    await supabase.from("imphq_kanban_cards").update(updates).eq("id", card.id);
     onUpdate();
   };
 
