@@ -94,7 +94,7 @@ interface CardDetailPanelProps {
   onUpdate: () => void;
   columns: Column[];
   members: TeamMember[];
-  projects?: { id: string; name: string }[];
+  projects?: { id: string; name: string; data?: any }[];
 }
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
