@@ -407,9 +407,35 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
 
   if (!card) return null;
 
-  const boardColumns = columns
-    .filter(c => c.board === card.board)
-    .filter((c, i, arr) => arr.findIndex(x => x.title === c.title) === i);
+  // Disambiguate duplicate column titles within the same board (keep all real columns)
+  const labelColumns = (cols: Column[]) => {
+    const counts = new Map<string, number>();
+    cols.forEach(c => counts.set(c.title, (counts.get(c.title) || 0) + 1));
+    const seen = new Map<string, number>();
+    return cols.map(c => {
+      if ((counts.get(c.title) || 0) > 1) {
+        const idx = (seen.get(c.title) || 0) + 1;
+        seen.set(c.title, idx);
+        return { ...c, displayTitle: `${c.title} (${idx})` };
+      }
+      return { ...c, displayTitle: c.title };
+    });
+  };
+  const rawBoardColumns = columns.filter(c => c.board === card.board);
+  const boardColumns = labelColumns(rawBoardColumns);
+  const useFallback = boardColumns.length === 0;
+  if (useFallback) {
+    console.warn(`[Kanban] Board "${card.board}" sem colunas — exibindo fallback multi-board`);
+  }
+  // Group all columns by board for fallback
+  const columnsByBoard = columns.reduce<Record<string, Column[]>>((acc, c) => {
+    const b = c.board || "outros";
+    (acc[b] = acc[b] || []).push(c);
+    return acc;
+  }, {});
+  // Ensure current column is always selectable
+  const currentCol = columns.find(c => c.id === columnId);
+  const currentInList = boardColumns.some(c => c.id === columnId);
   const doneCount = checklist.filter(c => c.is_done).length;
   const totalCheck = checklist.length;
   const checkProgress = totalCheck > 0 ? (doneCount / totalCheck) * 100 : 0;
