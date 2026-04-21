@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { FolderKanban, ListTodo, DollarSign, Users, TrendingUp, Wallet, Target, ShoppingCart } from "lucide-react";
 import { getPeriodRange, getPreviousPeriodRange, calcDelta } from "@/lib/periodUtils";
 import { DeltaBadge } from "./DeltaBadge";
+import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
 
 interface Stats {
   projects: number;
@@ -23,8 +25,13 @@ interface Props {
 }
 
 export default function DashboardStats({ period, projectFilter, productFilter, compare = false }: Props) {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0 });
   const [prevStats, setPrevStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0 });
+  const [drillOpen, setDrillOpen] = useState(false);
+  const [drillMetric, setDrillMetric] = useState<DrillMetric | null>(null);
+
+  const openDrill = (m: DrillMetric) => { setDrillMetric(m); setDrillOpen(true); };
 
   useEffect(() => {
     async function loadRange(from: string, to: string): Promise<Stats> {
@@ -100,38 +107,56 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
   const fmtBRL = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const statCards = [
-    { label: "Receita", value: stats.revenue, prev: prevStats.revenue, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400", inverse: false, formatted: fmtBRL(stats.revenue) },
-    { label: "Lucro", value: profit, prev: prevProfit, icon: Wallet, gradient: profit >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: profit >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: profit >= 0 ? "text-emerald-400" : "text-red-400", inverse: false, formatted: fmtBRL(profit) },
-    { label: "ROAS Real", value: roas, prev: prevRoas, icon: Target, gradient: roas >= 2 ? "from-emerald-500/15 to-emerald-500/5" : roas >= 1 ? "from-amber-500/15 to-amber-500/5" : "from-red-500/15 to-red-500/5", iconBg: roas >= 2 ? "bg-emerald-500/15 text-emerald-400" : roas >= 1 ? "bg-amber-500/15 text-amber-400" : "bg-red-500/15 text-red-400", textColor: roas >= 2 ? "text-emerald-400" : roas >= 1 ? "text-amber-400" : "text-red-400", inverse: false, formatted: roas > 0 ? `${roas.toFixed(2)}x` : "—" },
-    { label: "Custo Total", value: totalCost, prev: prevTotalCost, icon: DollarSign, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400", inverse: true, formatted: fmtBRL(totalCost), sub: `Ads ${fmtBRL(stats.adsCost)} · Op ${fmtBRL(stats.opCost)}` },
-    { label: "Vendas", value: stats.salesCount, prev: prevStats.salesCount, icon: ShoppingCart, gradient: "from-primary/15 to-primary/5", iconBg: "bg-primary/15 text-primary", textColor: "text-primary", inverse: false, formatted: String(stats.salesCount) },
-    { label: "Leads", value: stats.leads, prev: prevStats.leads, icon: Users, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400", inverse: false, formatted: String(stats.leads) },
-    { label: "Tarefas Pend.", value: stats.tasks, prev: prevStats.tasks, icon: ListTodo, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400", inverse: true, formatted: String(stats.tasks) },
-    { label: "Projetos", value: stats.projects, prev: prevStats.projects, icon: FolderKanban, gradient: "from-secondary/30 to-secondary/10", iconBg: "bg-secondary text-foreground", textColor: "text-foreground", inverse: false, formatted: String(stats.projects) },
-  ];
+    { label: "Receita", drill: "revenue" as DrillMetric, value: stats.revenue, prev: prevStats.revenue, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400", inverse: false, formatted: fmtBRL(stats.revenue) },
+    { label: "Lucro", drill: "profit" as DrillMetric, value: profit, prev: prevProfit, icon: Wallet, gradient: profit >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: profit >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: profit >= 0 ? "text-emerald-400" : "text-red-400", inverse: false, formatted: fmtBRL(profit) },
+    { label: "ROAS Real", drill: "roas" as DrillMetric, value: roas, prev: prevRoas, icon: Target, gradient: roas >= 2 ? "from-emerald-500/15 to-emerald-500/5" : roas >= 1 ? "from-amber-500/15 to-amber-500/5" : "from-red-500/15 to-red-500/5", iconBg: roas >= 2 ? "bg-emerald-500/15 text-emerald-400" : roas >= 1 ? "bg-amber-500/15 text-amber-400" : "bg-red-500/15 text-red-400", textColor: roas >= 2 ? "text-emerald-400" : roas >= 1 ? "text-amber-400" : "text-red-400", inverse: false, formatted: roas > 0 ? `${roas.toFixed(2)}x` : "—" },
+    { label: "Custo Total", drill: "cost" as DrillMetric, value: totalCost, prev: prevTotalCost, icon: DollarSign, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400", inverse: true, formatted: fmtBRL(totalCost), sub: `Ads ${fmtBRL(stats.adsCost)} · Op ${fmtBRL(stats.opCost)}` },
+    { label: "Vendas", drill: "sales" as DrillMetric, value: stats.salesCount, prev: prevStats.salesCount, icon: ShoppingCart, gradient: "from-primary/15 to-primary/5", iconBg: "bg-primary/15 text-primary", textColor: "text-primary", inverse: false, formatted: String(stats.salesCount) },
+    { label: "Leads", drill: "leads" as DrillMetric, value: stats.leads, prev: prevStats.leads, icon: Users, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400", inverse: false, formatted: String(stats.leads) },
+    { label: "Tarefas Pend.", nav: "/tarefas", value: stats.tasks, prev: prevStats.tasks, icon: ListTodo, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400", inverse: true, formatted: String(stats.tasks) },
+    { label: "Projetos", nav: "/projetos", value: stats.projects, prev: prevStats.projects, icon: FolderKanban, gradient: "from-secondary/30 to-secondary/10", iconBg: "bg-secondary text-foreground", textColor: "text-foreground", inverse: false, formatted: String(stats.projects) },
+  ] as any[];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {statCards.map((s, i) => (
-        <Card key={s.label} className={`bg-gradient-to-br ${s.gradient} border-border hover:scale-[1.03] transition-all duration-200 cursor-default animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
-          <CardContent className="flex items-start gap-3 p-4">
-            <div className={`p-2.5 rounded-xl ${s.iconBg} shrink-0`}>
-              <s.icon className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-muted-foreground truncate">{s.label}</p>
-              <p className={`text-xl font-mono font-bold ${s.textColor} truncate`}>{s.formatted}</p>
-              {(s as any).sub && <p className="text-[9px] text-muted-foreground truncate mt-0.5">{(s as any).sub}</p>}
-              {compare && (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <DeltaBadge delta={calcDelta(s.value, s.prev)} inverse={s.inverse} />
-                  <span className="text-[9px] text-muted-foreground">vs anterior</span>
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {statCards.map((s, i) => {
+          const clickable = !!(s.drill || s.nav);
+          return (
+            <Card
+              key={s.label}
+              onClick={clickable ? () => { s.drill ? openDrill(s.drill) : navigate(s.nav); } : undefined}
+              className={`bg-gradient-to-br ${s.gradient} border-border hover:scale-[1.03] transition-all duration-200 ${clickable ? "cursor-pointer" : "cursor-default"} animate-fade-in`}
+              style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
+            >
+              <CardContent className="flex items-start gap-3 p-4">
+                <div className={`p-2.5 rounded-xl ${s.iconBg} shrink-0`}>
+                  <s.icon className="h-4 w-4" />
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted-foreground truncate">{s.label}</p>
+                  <p className={`text-xl font-mono font-bold ${s.textColor} truncate`}>{s.formatted}</p>
+                  {s.sub && <p className="text-[9px] text-muted-foreground truncate mt-0.5">{s.sub}</p>}
+                  {compare && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <DeltaBadge delta={calcDelta(s.value, s.prev)} inverse={s.inverse} />
+                      <span className="text-[9px] text-muted-foreground">vs anterior</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+      <DashboardDrillSheet
+        open={drillOpen}
+        onOpenChange={setDrillOpen}
+        metric={drillMetric}
+        period={period}
+        projectFilter={projectFilter}
+        productFilter={productFilter}
+      />
+    </>
   );
 }
