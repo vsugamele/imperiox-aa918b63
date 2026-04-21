@@ -354,6 +354,24 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     onUpdate();
   };
 
+  const downloadAttachment = async (att: Attachment) => {
+    try {
+      const res = await fetch(att.file_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = att.file_name || "arquivo";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: open in new tab if fetch blocked by CORS
+      window.open(att.file_url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   // Relations
   const addRelation = async (relatedCardId: string) => {
     if (!card) return;
