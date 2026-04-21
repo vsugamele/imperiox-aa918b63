@@ -3392,6 +3392,7 @@ export type Database = {
           notify_on_admin_post: boolean
           onboarding_step: number
           primary_hsl: string
+          program_card_aspect: string
           programs_section_order: Json
           programs_sections_enabled: Json
           updated_at: string
@@ -3425,6 +3426,7 @@ export type Database = {
           notify_on_admin_post?: boolean
           onboarding_step?: number
           primary_hsl?: string
+          program_card_aspect?: string
           programs_section_order?: Json
           programs_sections_enabled?: Json
           updated_at?: string
@@ -3458,6 +3460,7 @@ export type Database = {
           notify_on_admin_post?: boolean
           onboarding_step?: number
           primary_hsl?: string
+          program_card_aspect?: string
           programs_section_order?: Json
           programs_sections_enabled?: Json
           updated_at?: string

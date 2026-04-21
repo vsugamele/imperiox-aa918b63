@@ -437,7 +437,10 @@ Deno.serve(async (req) => {
           tipo_venda: tipo_venda || "principal",
           data: webhookUtms ? { utms: webhookUtms } : null,
         };
-        if (data_compra) vendaInsert.created_at = data_compra;
+        if (data_compra) {
+          vendaInsert.created_at = data_compra;
+          vendaInsert.data_venda = data_compra;
+        }
         const { error: ciErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
         if (ciErr) console.error("[webhook-pagamento] Erro ao inserir checkout intent:", ciErr);
         else console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus);
@@ -499,7 +502,10 @@ Deno.serve(async (req) => {
           tipo_venda,
           data: Object.keys(vendaData).length > 0 ? vendaData : null,
         };
-        if (data_compra) vendaInsert.created_at = data_compra;
+        if (data_compra) {
+          vendaInsert.created_at = data_compra;
+          vendaInsert.data_venda = data_compra;
+        }
         const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
         if (vendaErr) {
           console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
@@ -525,7 +531,7 @@ Deno.serve(async (req) => {
               status: "aprovado",
               tipo_venda: "orderbump",
               data: { tipo_venda: "orderbump" },
-              ...(data_compra ? { created_at: data_compra } : {}),
+              ...(data_compra ? { created_at: data_compra, data_venda: data_compra } : {}),
             });
             console.log("[webhook-pagamento] Bump inserido:", bumpId, bumpProduto, bumpValor);
           }
@@ -626,7 +632,10 @@ Deno.serve(async (req) => {
           plataforma,
           status: "reembolsado",
         };
-        if (data_compra) vendaInsert.created_at = data_compra;
+        if (data_compra) {
+          vendaInsert.created_at = data_compra;
+          vendaInsert.data_venda = data_compra;
+        }
         await supabase.from("imphq_vendas").insert(vendaInsert);
       }
 
@@ -680,7 +689,10 @@ Deno.serve(async (req) => {
           plataforma,
           status: cancelStatus,
         };
-        if (data_compra) vendaInsert.created_at = data_compra;
+        if (data_compra) {
+          vendaInsert.created_at = data_compra;
+          vendaInsert.data_venda = data_compra;
+        }
         await supabase.from("imphq_vendas").insert(vendaInsert);
       }
 

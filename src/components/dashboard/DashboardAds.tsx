@@ -9,6 +9,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { localDaysAgo } from "@/lib/periodUtils";
+import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
 
 interface AdsGlobal {
   gasto: number;
@@ -73,6 +74,14 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
     lpToCko: 0, ckoToSale: 0, custoCheckout: 0,
     topCampanhas: [], adsByProject: [], freqAlerts: [], diagnosticos: [],
   });
+  const [drillOpen, setDrillOpen] = useState(false);
+  const [drillMetric, setDrillMetric] = useState<DrillMetric | null>(null);
+  const [drillCampaign, setDrillCampaign] = useState<string | undefined>(undefined);
+  const openDrill = (m: DrillMetric, campaign?: string) => {
+    setDrillMetric(m);
+    setDrillCampaign(campaign);
+    setDrillOpen(true);
+  };
 
   useEffect(() => {
     async function load() {
@@ -297,15 +306,22 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-            {kpis.map(k => (
-              <div key={k.label} className={`rounded-lg border border-border bg-gradient-to-br ${k.bg} p-3`}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <k.icon className={`h-3.5 w-3.5 shrink-0 ${k.color}`} />
-                  <p className="text-[10px] text-muted-foreground leading-tight truncate">{k.label}</p>
+            {kpis.map((k: any) => {
+              const clickable = !!k.drill;
+              return (
+                <div
+                  key={k.label}
+                  onClick={clickable ? () => openDrill(k.drill) : undefined}
+                  className={`rounded-lg border border-border bg-gradient-to-br ${k.bg} p-3 ${clickable ? "cursor-pointer hover:scale-[1.03] transition-transform" : ""}`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <k.icon className={`h-3.5 w-3.5 shrink-0 ${k.color}`} />
+                    <p className="text-[10px] text-muted-foreground leading-tight truncate">{k.label}</p>
+                  </div>
+                  <p className={`text-sm font-mono font-bold ${k.color} truncate`}>{k.value}</p>
                 </div>
-                <p className={`text-sm font-mono font-bold ${k.color} truncate`}>{k.value}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -412,7 +428,11 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
               </CardHeader>
               <CardContent className="space-y-2">
                 {adsGlobal.topCampanhas.map((c: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50">
+                  <button
+                    key={i}
+                    onClick={() => openDrill("campaign", c.name)}
+                    className="w-full text-left flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{c.name}</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -421,7 +441,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
                       </p>
                     </div>
                     <span className="text-sm font-mono font-bold text-blue-400 shrink-0 ml-2">R$ {c.gasto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                  </div>
+                  </button>
                 ))}
               </CardContent>
             </Card>
