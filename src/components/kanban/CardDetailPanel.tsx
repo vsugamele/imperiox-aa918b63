@@ -553,10 +553,27 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                     <Columns className="h-3 w-3" /> Coluna
                   </Label>
                   <Select value={columnId} onValueChange={handleColumnChange}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Selecionar coluna" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {boardColumns.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                      {!useFallback && currentCol && !currentInList && (
+                        <SelectItem value={currentCol.id}>
+                          {currentCol.title} (atual)
+                        </SelectItem>
+                      )}
+                      {!useFallback && boardColumns.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.displayTitle}</SelectItem>
+                      ))}
+                      {useFallback && Object.entries(columnsByBoard).map(([boardName, cols]) => (
+                        <SelectGroup key={boardName}>
+                          <SelectLabel className="capitalize">{boardName}</SelectLabel>
+                          {labelColumns(cols).map(c => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.displayTitle}{c.id === columnId ? " (atual)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>
