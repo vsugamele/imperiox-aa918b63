@@ -51,7 +51,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Github, Terminal, Sparkles, Eye, AudioLines, PenTool,
   Sheet, CloudSun, BarChart3, ShoppingCart, Banana, ImagePlus,
   Film, FrameIcon, Send, Youtube, Globe, HeartPulse, Plus, Pencil,
-  Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield,
+  Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield, Megaphone, Video,
   "🧠": Brain, "💣": Bomb, "🕵️": Search, "⚗️": Sparkles,
   "🎯": Target, "♟️": Target, "🪤": MousePointer2, "📄": FileText,
   "⚔️": Swords, "🔍": Search, "🎭": Eye, "✍️": PenTool
