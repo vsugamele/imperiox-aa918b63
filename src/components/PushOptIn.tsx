@@ -4,6 +4,17 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+const VAPID_PUBLIC_KEY = "BLSx5jJeDYyBAq6dIN18oTfD0sv8JjSWGeQ0N8z0P74SJLrRcO_DMDFh9oPP5Yf0t0F-ZlciudxgCigyLQ3Toyo";
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 export function PushOptIn() {
   const [supported, setSupported] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
@@ -47,16 +58,11 @@ export function PushOptIn() {
         const reg = await navigator.serviceWorker?.ready;
         if (!reg) { setLoading(false); return; }
 
-        const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-        if (!vapidKey) {
-          toast.error("VAPID key não configurada");
-          setLoading(false);
-          return;
-        }
+        const vapidKey = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) || VAPID_PUBLIC_KEY;
 
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: vapidKey,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
         });
         const json = sub.toJSON();
         const { data: { user } } = await supabase.auth.getUser();
