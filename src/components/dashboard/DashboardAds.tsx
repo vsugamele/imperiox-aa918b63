@@ -448,6 +448,16 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
           )}
         </div>
       )}
+
+      <DashboardDrillSheet
+        open={drillOpen}
+        onOpenChange={setDrillOpen}
+        metric={drillMetric}
+        period={period}
+        projectFilter={projectFilter}
+        productFilter={productFilter}
+        campaignName={drillCampaign}
+      />
     </>
   );
 }
