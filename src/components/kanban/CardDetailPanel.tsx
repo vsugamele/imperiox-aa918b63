@@ -17,7 +17,7 @@ import { FileUpload } from "@/components/FileUpload";
 import {
   Trash2, Plus, Send, CheckSquare, MessageSquare,
   Calendar, User, Columns, Paperclip, X, FolderOpen,
-  Clock, Tag, Link2, ArrowRight, Search
+  Clock, Tag, Link2, ArrowRight, Search, Download, UserCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateCalendarEventForCard, removeCalendarEventForCard } from "@/lib/calendarSync";
