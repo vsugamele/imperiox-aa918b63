@@ -538,6 +538,45 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                 </div>
               )}
 
+              {/* Expert (derived from project) — change project to switch expert */}
+              {projects.length > 0 && (() => {
+                const expertMap = new Map<string, { id: string; name: string }[]>();
+                projects.forEach(p => {
+                  const exp = p.data?.expert?.nome || "Sem Expert";
+                  if (!expertMap.has(exp)) expertMap.set(exp, []);
+                  expertMap.get(exp)!.push({ id: p.id, name: p.name });
+                });
+                const currentProj = projects.find(p => p.id === projectId);
+                const currentExpert = currentProj?.data?.expert?.nome || "none";
+                const handleExpertChange = (expertName: string) => {
+                  if (expertName === "none") { handleProjectChange("none"); return; }
+                  const projsOfExpert = expertMap.get(expertName) || [];
+                  // Keep current project if already belongs to this expert; otherwise pick the first
+                  const stay = projsOfExpert.find(p => p.id === projectId);
+                  const target = stay?.id || projsOfExpert[0]?.id;
+                  if (target) handleProjectChange(target);
+                };
+                return (
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                      <UserCircle2 className="h-3 w-3" /> Expert
+                    </Label>
+                    <Select value={currentExpert} onValueChange={handleExpertChange}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sem expert" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem expert</SelectItem>
+                        {Array.from(expertMap.keys()).filter(n => n !== "Sem Expert").map(name => (
+                          <SelectItem key={name} value={name}>{name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Trocar o expert reatribui o projeto do card automaticamente.
+                    </p>
+                  </div>
+                );
+              })()}
+
               {/* Tags */}
               <div>
                 <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1.5">
