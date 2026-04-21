@@ -1,55 +1,53 @@
 
 
-## Fix: Notificações Push não chegam no smartphone
+## Plano: corrigir contagem "Vendas" + tornar dashboard navegável
 
-### Causa raiz (3 bugs combinados)
+### 1. Por que aparece 3 vendas hoje em vez de 2
 
-**1. Service Worker não tem listener `push`**
-O VitePWA gera um SW (Workbox) só pra cache offline — ele **não escuta o evento `push`**. Quando o servidor envia push, o navegador recebe, mas como o SW não trata, **nada aparece na tela**. Esse é o bug principal.
+Conferi `imphq_vendas`. Hoje (21/04) há **3 registros aprovados** com `data_venda = hoje`:
 
-**2. `send-push` envia payload sem criptografia VAPID**
-A função em `supabase/functions/send-push/index.ts` faz um `fetch` direto pro endpoint do FCM/Apple com `body: JSON.stringify(...)`. Web Push **exige criptografia ECDH (aes128gcm) + JWT VAPID assinado** no header `Authorization`. Sem isso, FCM responde **401/400** e descarta a mensagem. Os logs mostram função sendo chamada mas sem confirmação de entrega.
+| Produto | Plataforma | Tipo | Valor | created_at original |
+|---|---|---|---|---|
+| Código dos Cortes Perfeitos | Ticto | principal | R$ 47,00 | 21/04 |
+| A Arte da Cobertura de Tatuagem | Hotmart | upsell | R$ 49,90 | **14/04** |
+| A Arte da Cobertura de Tatuagem | Hotmart | upsell | R$ 49,90 | **13/04** |
 
-**3. `applicationServerKey` em formato errado**
-`PushOptIn.tsx` passa `vapidKey` como **string base64 crua** pro `pushManager.subscribe`. A API exige **Uint8Array** (base64-url decoded). No Chrome Android isso falha silenciosamente ou gera subscription inválida.
+O sistema está contando certo do ponto de vista do banco — são 3 linhas com `data_venda` hoje. O problema é que **upsells antigos tiveram `data_venda` reescrita para a data do reprocessamento do webhook**, inflando a contagem do dia.
 
-**Bônus:** `VITE_VAPID_PUBLIC_KEY` provavelmente nem está no `.env`, e os secrets `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` não existem no Supabase.
+**Causa**: em `webhook-pagamento`, ao receber um update de status (PIX virando aprovado, ou retry da plataforma), o campo `data_venda` está sendo setado para `now()` em vez de preservar a data original da transação. Vou verificar e corrigir para usar a data efetiva do pagamento que vem no payload (Hotmart manda `purchase.approved_date` / Ticto manda `paid_at`).
 
-### Solução
+**Correção**:
+- Em `supabase/functions/webhook-pagamento/index.ts`, ao fazer upsert/update, manter `data_venda` = data de aprovação do payload. Se já existir registro, **não sobrescrever** `data_venda` no update (só atualiza status/valor).
+- Métrica "Vendas" do `DashboardStats` passa a separar **Principal vs Upsell** opcional via tooltip, pra deixar claro o mix.
+- Bônus: filtrar `tipo_venda = 'principal'` no card "Vendas" (e mostrar upsells em sublinha "+N upsells"), evitando confusão semelhante no futuro.
 
-**a) Criar Service Worker customizado** `public/sw-push.js`
-- Listener `push`: lê payload JSON, chama `self.registration.showNotification(title, { body, icon, badge, data })`
-- Listener `notificationclick`: foca/abre janela do app na URL do payload
-- Registrar via `injectManifest` no `vite.config.ts` (substitui o `generateSW` do Workbox), preservando cache + denylist `/~oauth`
+### 2. Cards e seções clicáveis com drill-down
 
-**b) Reescrever `supabase/functions/send-push/index.ts`** com Web Push real
-- Usar `npm:web-push@3.6` (compatível com Deno via `npm:` specifier)
-- `webpush.setVapidDetails(subject, public, private)`
-- `webpush.sendNotification({ endpoint, keys: { p256dh, auth } }, payload)`
-- Tratar `410/404` → deletar subscription (já existe)
-- Tratar erros 401/403 → log claro pra debug
+Hoje os cards do dashboard são `cursor-default`. Vou tornar os principais navegáveis abrindo um **painel lateral (Sheet)** com o detalhamento da métrica:
 
-**c) Corrigir `PushOptIn.tsx`**
-- Adicionar `urlBase64ToUint8Array(vapidKey)` antes de passar pro `subscribe`
-- Validar permissão em iOS PWA (Safari só permite push depois de "Add to Home Screen" + usuário abrir o app instalado)
+**Cards interativos no `DashboardStats`:**
+- **Receita** → lista das vendas do período (produto, valor, plataforma, data, lead)
+- **Lucro** → breakdown receita − ads − operacional
+- **ROAS Real** → tabela de campanhas com gasto + receita atribuída + ROAS individual
+- **Custo Total** → split Ads/Operacional com origem (campanha / categoria)
+- **Vendas** → lista detalhada (mesma da Receita, agrupada por produto)
+- **Leads** → top leads recentes com link pro CRM
+- **Tarefas Pend.** → link direto pra `/tarefas`
+- **Projetos** → link pra `/projetos`
 
-**d) Configurar secrets**
-- Gerar par VAPID (script Node ou via web-push CLI) → adicionar no Supabase: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (mailto)
-- Adicionar `VITE_VAPID_PUBLIC_KEY` no `.env` (mesma chave pública)
-- Avisar usuário pra **revogar e re-assinar** push em todos dispositivos (subscriptions antigas ficam órfãs)
+**No `DashboardAds` (Investimento em Ads):**
+- Cada KPI (CPA, ROAS Real, Investido, etc.) abre um Sheet com a **lista de campanhas** que compõem aquele número, ordenada por contribuição.
+- Linhas de campanha já existentes ganham clique → expandem mostrando: adsets, criativos, gasto diário (sparkline), vendas atribuídas via UTM, CTR/CPC histórico.
 
-**e) Testar**
-- Botão "Testar push" em Configurações → chama `send-push` com `user_id` próprio
-- Verificar logs `send-push` mostrando `201 Created` do FCM/Apple
+**Componente novo**: `DashboardDrillSheet.tsx` — um Sheet reutilizável que recebe `metric`, `period`, `projectFilter`, `productFilter` e renderiza a tabela apropriada. Evita duplicar Sheets em cada componente.
 
-### Detalhes técnicos
-- **iOS**: push só funciona se PWA estiver **instalado via "Add to Home Screen"** (Safari 16.4+). Web push em browser comum no iOS **não existe**.
-- **Android Chrome**: funciona em browser e PWA instalado.
-- Manter guard de iframe/preview existente (já correto).
-- Sem migrations — tabela `imphq_push_subscriptions` já está OK.
+### Arquivos afetados
+- `supabase/functions/webhook-pagamento/index.ts` — preservar `data_venda` original
+- `src/components/dashboard/DashboardStats.tsx` — cards clicáveis + sheet
+- `src/components/dashboard/DashboardAds.tsx` — KPIs e linhas de campanha clicáveis
+- `src/components/dashboard/DashboardDrillSheet.tsx` — **novo**, sheet de drill-down
 
 ### Fora de escopo
-- Push agendado/recorrente
-- Notification grouping/badges complexos
-- Suporte a SMS fallback
+- Migration retroativa pra corrigir `data_venda` dos 2 upsells antigos (posso fazer numa próxima se quiser — preciso confirmar a data correta de cada um).
+- Drill-down do Funil de Conversão e Leads Quentes (já têm navegação parcial).
 
