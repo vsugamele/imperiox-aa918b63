@@ -17,7 +17,7 @@ import { FileUpload } from "@/components/FileUpload";
 import {
   Trash2, Plus, Send, CheckSquare, MessageSquare,
   Calendar, User, Columns, Paperclip, X, FolderOpen,
-  Clock, Tag, Link2, ArrowRight, Search
+  Clock, Tag, Link2, ArrowRight, Search, Download, UserCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateCalendarEventForCard, removeCalendarEventForCard } from "@/lib/calendarSync";
@@ -94,7 +94,7 @@ interface CardDetailPanelProps {
   onUpdate: () => void;
   columns: Column[];
   members: TeamMember[];
-  projects?: { id: string; name: string }[];
+  projects?: { id: string; name: string; data?: any }[];
 }
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
@@ -354,6 +354,24 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     onUpdate();
   };
 
+  const downloadAttachment = async (att: Attachment) => {
+    try {
+      const res = await fetch(att.file_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = att.file_name || "arquivo";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: open in new tab if fetch blocked by CORS
+      window.open(att.file_url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   // Relations
   const addRelation = async (relatedCardId: string) => {
     if (!card) return;
@@ -538,6 +556,45 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                 </div>
               )}
 
+              {/* Expert (derived from project) — change project to switch expert */}
+              {projects.length > 0 && (() => {
+                const expertMap = new Map<string, { id: string; name: string }[]>();
+                projects.forEach(p => {
+                  const exp = p.data?.expert?.nome || "Sem Expert";
+                  if (!expertMap.has(exp)) expertMap.set(exp, []);
+                  expertMap.get(exp)!.push({ id: p.id, name: p.name });
+                });
+                const currentProj = projects.find(p => p.id === projectId);
+                const currentExpert = currentProj?.data?.expert?.nome || "none";
+                const handleExpertChange = (expertName: string) => {
+                  if (expertName === "none") { handleProjectChange("none"); return; }
+                  const projsOfExpert = expertMap.get(expertName) || [];
+                  // Keep current project if already belongs to this expert; otherwise pick the first
+                  const stay = projsOfExpert.find(p => p.id === projectId);
+                  const target = stay?.id || projsOfExpert[0]?.id;
+                  if (target) handleProjectChange(target);
+                };
+                return (
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                      <UserCircle2 className="h-3 w-3" /> Expert
+                    </Label>
+                    <Select value={currentExpert} onValueChange={handleExpertChange}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sem expert" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem expert</SelectItem>
+                        {Array.from(expertMap.keys()).filter(n => n !== "Sem Expert").map(name => (
+                          <SelectItem key={name} value={name}>{name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Trocar o expert reatribui o projeto do card automaticamente.
+                    </p>
+                  </div>
+                );
+              })()}
+
               {/* Tags */}
               <div>
                 <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1.5">
@@ -693,9 +750,22 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                           </a>
                         )}
                         <p className="text-[9px] text-muted-foreground truncate px-1.5 py-1">{att.file_name}</p>
-                        <button onClick={() => deleteAttachment(att.id)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-destructive/80 text-destructive-foreground rounded-full p-0.5 transition-opacity">
-                          <X className="h-3 w-3" />
-                        </button>
+                        <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); downloadAttachment(att); }}
+                            className="bg-background/80 hover:bg-background text-foreground rounded-full p-1 backdrop-blur-sm"
+                            title="Baixar"
+                          >
+                            <Download className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteAttachment(att.id); }}
+                            className="bg-destructive/80 hover:bg-destructive text-destructive-foreground rounded-full p-1"
+                            title="Excluir"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
