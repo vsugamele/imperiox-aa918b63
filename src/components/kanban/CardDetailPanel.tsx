@@ -750,9 +750,22 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
                           </a>
                         )}
                         <p className="text-[9px] text-muted-foreground truncate px-1.5 py-1">{att.file_name}</p>
-                        <button onClick={() => deleteAttachment(att.id)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-destructive/80 text-destructive-foreground rounded-full p-0.5 transition-opacity">
-                          <X className="h-3 w-3" />
-                        </button>
+                        <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); downloadAttachment(att); }}
+                            className="bg-background/80 hover:bg-background text-foreground rounded-full p-1 backdrop-blur-sm"
+                            title="Baixar"
+                          >
+                            <Download className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteAttachment(att.id); }}
+                            className="bg-destructive/80 hover:bg-destructive text-destructive-foreground rounded-full p-1"
+                            title="Excluir"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
