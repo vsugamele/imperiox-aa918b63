@@ -209,6 +209,123 @@ export function ProjetoComando({ projectId, project }: Props) {
         </Button>
       </div>
 
+      {/* ===== 1. Pulso de Hoje ===== */}
+      <div>
+        <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-2">
+          <Zap className="h-3.5 w-3.5 text-primary" /> Pulso de Hoje
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiHeroCard
+            label="Receita Hoje"
+            value={totalVendasHojeValor}
+            previousValue={receitaOntem}
+            format="currency"
+            icon={<DollarSign className="h-3 w-3" />}
+            tooltip="Soma das vendas aprovadas hoje vs ontem."
+          />
+          <KpiHeroCard
+            label="Leads Hoje"
+            value={leadsToday}
+            previousValue={leads7dAvg}
+            format="number"
+            icon={<Users className="h-3 w-3" />}
+            tooltip="Leads capturados hoje comparados à média dos últimos 7 dias."
+          />
+          <KpiHeroCard
+            label="Vendas Hoje"
+            value={salesToday}
+            format="number"
+            icon={<ShoppingCart className="h-3 w-3" />}
+            tooltip="Quantidade de vendas aprovadas hoje."
+          />
+          <KpiHeroCard
+            label="Gasto Ads Hoje"
+            value={adsHojeTotal}
+            previousValue={adsOntemTotal}
+            format="currency"
+            inverse
+            icon={<TrendingUp className="h-3 w-3" />}
+            tooltip="Investimento em ads hoje vs ontem (menor é melhor se receita estável)."
+          />
+        </div>
+      </div>
+
+      {/* ===== 2. Top 3 Produtos do mês ===== */}
+      {topProdutos.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" /> Top 3 Produtos do Mês
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {topProdutos.map((p, i) => (
+              <button
+                key={p.nome}
+                onClick={() => setDrawerProduto(p.nome)}
+                className="text-left rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 transition-colors p-3 group"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="outline" className="text-[9px]">#{i + 1}</Badge>
+                  <span className="text-[9px] text-muted-foreground group-hover:text-primary">Ver detalhes →</span>
+                </div>
+                <p className="text-sm font-semibold truncate mb-1">{p.nome}</p>
+                <p className="text-lg font-mono font-bold text-primary">R$ {p.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
+                  <span>{p.vendas} vendas</span>
+                  <span>Ticket: R$ {p.ticket.toFixed(2)}</span>
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ===== 3. Alertas Inteligentes + 4. Próximas Ações ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" /> Alertas Inteligentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DashboardAlerts period="30d" projectFilter={projectId} />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-primary" /> Próximas 48h
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {tarefasUrgentes.length === 0 && events48h.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic">Nenhuma tarefa ou evento próximo.</p>
+            )}
+            {tarefasUrgentes.map((t: any) => (
+              <div key={`task-${t.id}`} className="flex items-center justify-between gap-2 text-xs p-2 rounded bg-secondary/30 border border-border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 className="h-3 w-3 text-amber-400 shrink-0" />
+                  <span className="truncate">{t.title}</span>
+                </div>
+                <Badge variant="outline" className="text-[9px] shrink-0">{format(new Date(t.due_date), "dd/MM")}</Badge>
+              </div>
+            ))}
+            {events48h.slice(0, 6).map((ev: any) => (
+              <div key={`ev-${ev.id}`} className="flex items-center justify-between gap-2 text-xs p-2 rounded bg-secondary/30 border border-border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CalendarClock className="h-3 w-3 text-blue-400 shrink-0" />
+                  <span className="truncate">{ev.title}</span>
+                </div>
+                <Badge variant="outline" className="text-[9px] shrink-0">{ev.start_date ? format(new Date(ev.start_date), "dd/MM HH:mm") : "—"}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Progress bar */}
       <Card className="bg-card border-border">
         <CardContent className="p-4">
