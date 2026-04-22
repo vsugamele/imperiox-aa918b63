@@ -18,6 +18,7 @@ import {
   DAYS, UF_REGION_EMOJI, type AudienceRow, type AdsRow,
 } from "./insights/aggregations";
 import { ProductInsightDrawer } from "./insights/ProductInsightDrawer";
+import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
 
 const ALL_PRODUCTS = "__all__";
 
