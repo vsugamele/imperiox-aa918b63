@@ -1,53 +1,50 @@
 
 
-## Plano: corrigir contagem "Vendas" + tornar dashboard navegável
+## Diagnóstico: 3 vendas hoje, mas só 1 aparece
 
-### 1. Por que aparece 3 vendas hoje em vez de 2
+Confirmei no banco — hoje (21/04) há **3 registros** do "Código dos Cortes Perfeitos" (JP Freitas):
 
-Conferi `imphq_vendas`. Hoje (21/04) há **3 registros aprovados** com `data_venda = hoje`:
+| Hora | Status | Aparece? |
+|---|---|---|
+| 14:37 | `aprovado` ✅ | Sim |
+| 12:52 | `pix_gerado` ⏳ | Não |
+| 22:25 | `pix_gerado` ⏳ | Não |
 
-| Produto | Plataforma | Tipo | Valor | created_at original |
-|---|---|---|---|---|
-| Código dos Cortes Perfeitos | Ticto | principal | R$ 47,00 | 21/04 |
-| A Arte da Cobertura de Tatuagem | Hotmart | upsell | R$ 49,90 | **14/04** |
-| A Arte da Cobertura de Tatuagem | Hotmart | upsell | R$ 49,90 | **13/04** |
+**Causa**: o sistema todo (Dashboard, Finanças, Charts, Alerts) filtra `status = 'aprovado'`. PIX gerado mas não pago **não conta como venda** — o que é o comportamento correto financeiramente (não pode contabilizar receita de PIX que pode expirar).
 
-O sistema está contando certo do ponto de vista do banco — são 3 linhas com `data_venda` hoje. O problema é que **upsells antigos tiveram `data_venda` reescrita para a data do reprocessamento do webhook**, inflando a contagem do dia.
+Se a Ticto realmente confirmou o pagamento dos 3, o webhook de aprovação **não chegou** ou **não atualizou** os 2 registros de `pix_gerado` → `aprovado`.
 
-**Causa**: em `webhook-pagamento`, ao receber um update de status (PIX virando aprovado, ou retry da plataforma), o campo `data_venda` está sendo setado para `now()` em vez de preservar a data original da transação. Vou verificar e corrigir para usar a data efetiva do pagamento que vem no payload (Hotmart manda `purchase.approved_date` / Ticto manda `paid_at`).
+### Plano de correção
 
-**Correção**:
-- Em `supabase/functions/webhook-pagamento/index.ts`, ao fazer upsert/update, manter `data_venda` = data de aprovação do payload. Se já existir registro, **não sobrescrever** `data_venda` no update (só atualiza status/valor).
-- Métrica "Vendas" do `DashboardStats` passa a separar **Principal vs Upsell** opcional via tooltip, pra deixar claro o mix.
-- Bônus: filtrar `tipo_venda = 'principal'` no card "Vendas" (e mostrar upsells em sublinha "+N upsells"), evitando confusão semelhante no futuro.
+**1. Diagnóstico do webhook (read-only primeiro)**
+- Conferir `imphq_webhook_logs` das últimas 24h pra ver se a Ticto enviou eventos de aprovação pros 2 PIX órfãos (12:52 e 22:25).
+- Se enviou e falhou → bug no `webhook-pagamento` ao casar transação existente.
+- Se não enviou → problema do lado da Ticto (webhook de aprovação não configurado ou pagamento não confirmado de fato).
 
-### 2. Cards e seções clicáveis com drill-down
+**2. Botão "Reprocessar PIX pendentes"** (Finanças → Visão Geral)
+- Lista todos os PIX/Boleto com `status = 'pix_gerado'` das últimas 48h.
+- Permite **forçar consulta de status** na Ticto/Hotmart via API e atualizar pra `aprovado` se já foi pago.
+- Útil pra recuperar webhooks perdidos sem depender de retry da plataforma.
 
-Hoje os cards do dashboard são `cursor-default`. Vou tornar os principais navegáveis abrindo um **painel lateral (Sheet)** com o detalhamento da métrica:
+**3. KPI "PIX pendentes" no Dashboard**
+- Card extra no `DashboardStats` mostrando: **N PIX gerados hoje (R$ X em pipeline)**.
+- Clique abre o `DashboardDrillSheet` listando os PIX com link pra contato (WhatsApp do lead) e botão de reprocessar.
+- Resolve o ponto cego — você vai enxergar PIX em aberto que precisam de follow-up.
 
-**Cards interativos no `DashboardStats`:**
-- **Receita** → lista das vendas do período (produto, valor, plataforma, data, lead)
-- **Lucro** → breakdown receita − ads − operacional
-- **ROAS Real** → tabela de campanhas com gasto + receita atribuída + ROAS individual
-- **Custo Total** → split Ads/Operacional com origem (campanha / categoria)
-- **Vendas** → lista detalhada (mesma da Receita, agrupada por produto)
-- **Leads** → top leads recentes com link pro CRM
-- **Tarefas Pend.** → link direto pra `/tarefas`
-- **Projetos** → link pra `/projetos`
-
-**No `DashboardAds` (Investimento em Ads):**
-- Cada KPI (CPA, ROAS Real, Investido, etc.) abre um Sheet com a **lista de campanhas** que compõem aquele número, ordenada por contribuição.
-- Linhas de campanha já existentes ganham clique → expandem mostrando: adsets, criativos, gasto diário (sparkline), vendas atribuídas via UTM, CTR/CPC histórico.
-
-**Componente novo**: `DashboardDrillSheet.tsx` — um Sheet reutilizável que recebe `metric`, `period`, `projectFilter`, `productFilter` e renderiza a tabela apropriada. Evita duplicar Sheets em cada componente.
+**4. Edge Function `payment-recovery` (já existe!)** 
+- Verificar se está rodando e se tem cron ativo. Pode estar parada — os logs mostram só `shutdown`.
+- Reativar o cron pra polling automático de PIX pendentes a cada X horas.
 
 ### Arquivos afetados
-- `supabase/functions/webhook-pagamento/index.ts` — preservar `data_venda` original
-- `src/components/dashboard/DashboardStats.tsx` — cards clicáveis + sheet
-- `src/components/dashboard/DashboardAds.tsx` — KPIs e linhas de campanha clicáveis
-- `src/components/dashboard/DashboardDrillSheet.tsx` — **novo**, sheet de drill-down
+- `supabase/functions/payment-recovery/index.ts` — revisar lógica de polling Ticto
+- `src/components/financas/FinancasOverview.tsx` — botão "Reprocessar PIX pendentes"
+- `src/components/dashboard/DashboardStats.tsx` — card "PIX pendentes hoje"
+- `src/components/dashboard/DashboardDrillSheet.tsx` — nova métrica `pix_pendentes`
+- Migration: cron `pg_cron` chamando `payment-recovery` a cada 30min (se não existir)
+
+### Resposta direta à pergunta
+**Não apareceu porque 2 das 3 vendas estão como `pix_gerado`, não `aprovado`.** O sistema só conta venda quando o pagamento é confirmado. Se você confirma na Ticto que os 3 já pagaram, o webhook de aprovação falhou e precisamos reprocessar.
 
 ### Fora de escopo
-- Migration retroativa pra corrigir `data_venda` dos 2 upsells antigos (posso fazer numa próxima se quiser — preciso confirmar a data correta de cada um).
-- Drill-down do Funil de Conversão e Leads Quentes (já têm navegação parcial).
+- Mudar a regra global pra contar PIX gerado como venda (seria errado — infla receita).
 
