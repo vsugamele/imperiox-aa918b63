@@ -10,6 +10,10 @@ import { format } from "date-fns";
 import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
 import { ProductInsightDrawer } from "@/components/projeto/insights/ProductInsightDrawer";
 import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
+import { HealthScoreCard } from "@/components/projeto/HealthScoreCard";
+import { ProjetoMetaCard } from "@/components/projeto/ProjetoMetaCard";
+import { ProjetoNotasCard } from "@/components/projeto/ProjetoNotasCard";
+import { calcHealthScore } from "@/lib/healthScore";
 
 interface Props {
   projectId: string;
