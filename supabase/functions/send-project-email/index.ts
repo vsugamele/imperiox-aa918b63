@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { project_id, template_id, to_email } = await req.json();
+    const { project_id, template_id, to_email, inline } = await req.json();
 
-    if (!project_id || !template_id || !to_email) {
-      return new Response(JSON.stringify({ error: "project_id, template_id e to_email são obrigatórios" }), {
+    if (!project_id || !to_email || (!template_id && !inline)) {
+      return new Response(JSON.stringify({ error: "project_id, to_email e (template_id ou inline) são obrigatórios" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
