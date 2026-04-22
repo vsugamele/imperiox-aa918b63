@@ -68,6 +68,14 @@ export default function DashboardDrillSheet({
   const [custos, setCustos] = useState<any[]>([]);
   const [breakdown, setBreakdown] = useState<{ revenue: number; ads: number; op: number } | null>(null);
   const [campaignDetail, setCampaignDetail] = useState<{ adsets: any[]; criativos: any[]; vendasUtm: any[] } | null>(null);
+  const [pixPending, setPixPending] = useState<any[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  async function reprocessPix(vendaId: string) {
+    const { error } = await supabase.from("imphq_vendas").update({ status: "aprovado" }).eq("id", vendaId);
+    if (error) toast.error("Erro ao aprovar manualmente");
+    else { toast.success("Marcado como aprovado"); setReloadKey(k => k + 1); }
+  }
 
   useEffect(() => {
     if (!open || !metric) return;
