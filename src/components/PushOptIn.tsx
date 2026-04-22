@@ -86,8 +86,11 @@ export function PushOptIn() {
 
   if (!supported) return null;
 
-  const isPreview = window.location.hostname.includes("id-preview--") || window.location.hostname.includes("lovableproject.com");
-  if (isPreview) return null;
+  // Only hide in iframes (Lovable editor preview), not on the preview domain itself
+  const isInIframe = (() => {
+    try { return window.self !== window.top; } catch { return true; }
+  })();
+  if (isInIframe) return null;
 
   return (
     <Button variant="ghost" size="icon" onClick={toggle} disabled={loading} className="h-8 w-8" title={subscribed ? "Desativar push" : "Ativar notificações push"}>
