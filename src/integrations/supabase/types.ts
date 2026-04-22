@@ -2984,8 +2984,11 @@ export type Database = {
         Row: {
           avatar: string | null
           bio: string | null
+          blocked_at: string | null
+          blocked_reason: string | null
           created_at: string
           id: string
+          is_blocked: boolean
           name: string | null
           push_enabled: boolean
           updated_at: string
@@ -2993,8 +2996,11 @@ export type Database = {
         Insert: {
           avatar?: string | null
           bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
           created_at?: string
           id: string
+          is_blocked?: boolean
           name?: string | null
           push_enabled?: boolean
           updated_at?: string
@@ -3002,8 +3008,11 @@ export type Database = {
         Update: {
           avatar?: string | null
           bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
           created_at?: string
           id?: string
+          is_blocked?: boolean
           name?: string | null
           push_enabled?: boolean
           updated_at?: string

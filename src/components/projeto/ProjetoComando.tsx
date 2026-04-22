@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw, Users, ShoppingCart, Clock, CheckCircle2, AlertCircle, TrendingUp, Zap, DollarSign } from "lucide-react";
+import { RefreshCw, Users, ShoppingCart, Clock, CheckCircle2, AlertCircle, TrendingUp, Zap, DollarSign, Package, Bell, CalendarClock } from "lucide-react";
 import { format } from "date-fns";
+import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
+import { ProductInsightDrawer } from "@/components/projeto/insights/ProductInsightDrawer";
+import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
 
 interface Props {
   projectId: string;
@@ -22,6 +25,19 @@ export function ProjetoComando({ projectId, project }: Props) {
   const [vendasHoje, setVendasHoje] = useState<any[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
 
+  // Pulso / comparativos
+  const [vendasOntem, setVendasOntem] = useState<any[]>([]);
+  const [leads7d, setLeads7d] = useState<any[]>([]);
+  const [adsHoje, setAdsHoje] = useState<any[]>([]);
+  const [adsOntem, setAdsOntem] = useState<any[]>([]);
+
+  // Top produtos do mês
+  const [vendasMes, setVendasMes] = useState<any[]>([]);
+  const [drawerProduto, setDrawerProduto] = useState<string | null>(null);
+
+  // Próximas ações: eventos próximas 48h
+  const [events48h, setEvents48h] = useState<any[]>([]);
+
   const load = async () => {
     setLoading(true);
     const now = new Date();
@@ -30,20 +46,38 @@ export function ProjetoComando({ projectId, project }: Props) {
     const todayStr = brNow.toISOString().split("T")[0];
     const dayStart = todayStr + "T03:00:00.000Z";
     const dayEnd = new Date(new Date(dayStart).getTime() + 86400000).toISOString();
+    const yStart = new Date(new Date(dayStart).getTime() - 86400000).toISOString();
+    const sevenDaysAgo = new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString();
+    const monthStart = `${todayStr.slice(0, 7)}-01T03:00:00.000Z`;
+    const in48h = new Date(brNow.getTime() + 2 * 86400000).toISOString().split("T")[0];
 
-    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes] = await Promise.all([
-      supabase.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
-      supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("criado_em", { ascending: false }).limit(10),
-      supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
-      supabase.from("imphq_vendas").select("id, status, created_at, produto_nome, valor, plataforma, lead_id").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
-      supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", todayStr).order("start_date", { ascending: true }),
-    ]);
+    const sb: any = supabase;
+    const promises: PromiseLike<any>[] = [
+      sb.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
+      sb.from("imphq_leads").select("*").eq("project_id", projectId).order("criado_em", { ascending: false }).limit(10),
+      sb.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
+      sb.from("imphq_vendas").select("id, status, created_at, produto_nome, valor, plataforma, lead_id").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
+      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", todayStr).order("start_date", { ascending: true }),
+      sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("created_at", yStart).lt("created_at", dayStart),
+      sb.from("imphq_leads").select("criado_em").eq("project_id", projectId).gte("criado_em", sevenDaysAgo),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")),
+      sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
+      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", in48h).order("start_date", { ascending: true }),
+    ];
+    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes] = await Promise.all(promises);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
     setPendingVendas(vendasPendRes.data || []);
     setVendasHoje(vendasHojeRes.data || []);
     setCalendarEvents(calEventsRes.data || []);
+    setVendasOntem(vendasOntemRes.data || []);
+    setLeads7d(leads7dRes.data || []);
+    setAdsHoje(adsHojeRes.data || []);
+    setAdsOntem(adsOntemRes.data || []);
+    setVendasMes(vendasMesRes.data || []);
+    setEvents48h(events48hRes.data || []);
     setLoading(false);
   };
 
@@ -114,6 +148,48 @@ export function ProjetoComando({ projectId, project }: Props) {
     .filter(v => (v.status || "").toLowerCase() === "aprovado")
     .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
 
+  // ===== Pulso de Hoje =====
+  const receitaOntem = useMemo(() => vendasOntem
+    .filter((v: any) => (v.status || "").toLowerCase() === "aprovado")
+    .reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0), [vendasOntem]);
+
+  const leads7dAvg = useMemo(() => {
+    const arr = leads7d || [];
+    return arr.length / 7;
+  }, [leads7d]);
+
+  const adsHojeTotal = useMemo(() => (adsHoje || []).reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0), [adsHoje]);
+  const adsOntemTotal = useMemo(() => (adsOntem || []).reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0), [adsOntem]);
+
+  // ===== Top 3 Produtos do mês =====
+  const topProdutos = useMemo(() => {
+    const map = new Map<string, { receita: number; vendas: number }>();
+    vendasMes.forEach((v: any) => {
+      const nome = v.produto_nome || "Sem produto";
+      const cur = map.get(nome) || { receita: 0, vendas: 0 };
+      cur.receita += Number(v.valor) || 0;
+      cur.vendas += 1;
+      map.set(nome, cur);
+    });
+    return Array.from(map.entries())
+      .map(([nome, d]) => ({ nome, ...d, ticket: d.vendas > 0 ? d.receita / d.vendas : 0 }))
+      .sort((a, b) => b.receita - a.receita)
+      .slice(0, 3);
+  }, [vendasMes]);
+
+  // ===== Próximas ações =====
+  const tarefasUrgentes = useMemo(() => {
+    const arr = cards.filter((c: any) => {
+      const col = (c.imphq_kanban_columns?.title || "").toLowerCase();
+      const isDone = col.includes("conclu") || col.includes("done") || col.includes("finaliz");
+      if (isDone) return false;
+      if (!c.due_date) return false;
+      const due = new Date(c.due_date);
+      return due.getTime() <= Date.now() + 3 * 86400000;
+    });
+    return arr.sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 6);
+  }, [cards]);
+
   if (loading) return <div className="text-muted-foreground text-sm p-4">Carregando comando...</div>;
 
   return (
@@ -131,6 +207,123 @@ export function ProjetoComando({ projectId, project }: Props) {
         <Button size="sm" variant="outline" onClick={load} className="gap-1.5">
           <RefreshCw className="h-3 w-3" /> Atualizar
         </Button>
+      </div>
+
+      {/* ===== 1. Pulso de Hoje ===== */}
+      <div>
+        <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-2">
+          <Zap className="h-3.5 w-3.5 text-primary" /> Pulso de Hoje
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiHeroCard
+            label="Receita Hoje"
+            value={totalVendasHojeValor}
+            previousValue={receitaOntem}
+            format="currency"
+            icon={<DollarSign className="h-3 w-3" />}
+            tooltip="Soma das vendas aprovadas hoje vs ontem."
+          />
+          <KpiHeroCard
+            label="Leads Hoje"
+            value={leadsToday}
+            previousValue={leads7dAvg}
+            format="number"
+            icon={<Users className="h-3 w-3" />}
+            tooltip="Leads capturados hoje comparados à média dos últimos 7 dias."
+          />
+          <KpiHeroCard
+            label="Vendas Hoje"
+            value={salesToday}
+            format="number"
+            icon={<ShoppingCart className="h-3 w-3" />}
+            tooltip="Quantidade de vendas aprovadas hoje."
+          />
+          <KpiHeroCard
+            label="Gasto Ads Hoje"
+            value={adsHojeTotal}
+            previousValue={adsOntemTotal}
+            format="currency"
+            inverse
+            icon={<TrendingUp className="h-3 w-3" />}
+            tooltip="Investimento em ads hoje vs ontem (menor é melhor se receita estável)."
+          />
+        </div>
+      </div>
+
+      {/* ===== 2. Top 3 Produtos do mês ===== */}
+      {topProdutos.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" /> Top 3 Produtos do Mês
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {topProdutos.map((p, i) => (
+              <button
+                key={p.nome}
+                onClick={() => setDrawerProduto(p.nome)}
+                className="text-left rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 transition-colors p-3 group"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="outline" className="text-[9px]">#{i + 1}</Badge>
+                  <span className="text-[9px] text-muted-foreground group-hover:text-primary">Ver detalhes →</span>
+                </div>
+                <p className="text-sm font-semibold truncate mb-1">{p.nome}</p>
+                <p className="text-lg font-mono font-bold text-primary">R$ {p.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
+                  <span>{p.vendas} vendas</span>
+                  <span>Ticket: R$ {p.ticket.toFixed(2)}</span>
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ===== 3. Alertas Inteligentes + 4. Próximas Ações ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" /> Alertas Inteligentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DashboardAlerts period="30d" projectFilter={projectId} />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-primary" /> Próximas 48h
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {tarefasUrgentes.length === 0 && events48h.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic">Nenhuma tarefa ou evento próximo.</p>
+            )}
+            {tarefasUrgentes.map((t: any) => (
+              <div key={`task-${t.id}`} className="flex items-center justify-between gap-2 text-xs p-2 rounded bg-secondary/30 border border-border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 className="h-3 w-3 text-amber-400 shrink-0" />
+                  <span className="truncate">{t.title}</span>
+                </div>
+                <Badge variant="outline" className="text-[9px] shrink-0">{format(new Date(t.due_date), "dd/MM")}</Badge>
+              </div>
+            ))}
+            {events48h.slice(0, 6).map((ev: any) => (
+              <div key={`ev-${ev.id}`} className="flex items-center justify-between gap-2 text-xs p-2 rounded bg-secondary/30 border border-border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CalendarClock className="h-3 w-3 text-blue-400 shrink-0" />
+                  <span className="truncate">{ev.title}</span>
+                </div>
+                <Badge variant="outline" className="text-[9px] shrink-0">{ev.start_date ? format(new Date(ev.start_date), "dd/MM HH:mm") : "—"}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Progress bar */}
@@ -347,6 +540,14 @@ export function ProjetoComando({ projectId, project }: Props) {
           </CardContent>
         </Card>
       )}
+      <ProductInsightDrawer
+        open={!!drawerProduto}
+        onClose={() => setDrawerProduto(null)}
+        projectId={projectId}
+        produto={drawerProduto}
+        source="vendas"
+        period="30d"
+      />
     </div>
   );
 }
