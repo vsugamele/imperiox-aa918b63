@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTriangle, ShoppingCart, Zap, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "./AdsImportDialog";
+import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AdsSpend {
   id: string;
