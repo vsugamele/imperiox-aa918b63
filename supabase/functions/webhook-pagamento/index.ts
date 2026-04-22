@@ -537,6 +537,7 @@ Deno.serve(async (req) => {
           console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
         }
       }
+      } // end of else (no promotable pending sale)
 
       // Handle Ticto bumps as separate sales
       if (plataforma === "Ticto" && body?.order?.bumps && Array.isArray(body.order.bumps)) {
