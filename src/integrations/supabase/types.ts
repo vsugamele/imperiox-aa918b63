@@ -3197,6 +3197,78 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          platform: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_quiz_attempts: {
         Row: {
           answers: Json
