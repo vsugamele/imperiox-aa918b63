@@ -85,6 +85,78 @@ export function FinancasOverview({ projectSummaries, dailyData = [], totalAds = 
         </CardContent></Card>
       )}
 
+      {/* === MINI-FUNIL: Investido → Cliques → Checkouts → Vendas → Receita → Lucro === */}
+      {(totalAds > 0 || totalVendas > 0) && (() => {
+        const lucro = totalVendas - totalAds - totalCustos;
+        const steps = [
+          { label: "Investido", value: `R$ ${totalAds.toFixed(0)}`, raw: totalAds, color: "text-red-400", bg: "bg-red-500/10 border-red-500/20" },
+          { label: "Cliques", value: totalCliques > 0 ? totalCliques.toLocaleString("pt-BR") : "—", raw: totalCliques, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },
+          { label: "Checkouts", value: totalCheckouts > 0 ? totalCheckouts.toLocaleString("pt-BR") : "—", raw: totalCheckouts, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
+          { label: "Vendas", value: totalVendasCount.toLocaleString("pt-BR"), raw: totalVendasCount, color: "text-primary", bg: "bg-primary/10 border-primary/30" },
+          { label: "Receita", value: `R$ ${totalVendas.toFixed(0)}`, raw: totalVendas, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+          { label: "Lucro", value: `R$ ${lucro.toFixed(0)}`, raw: lucro, color: lucro >= 0 ? "text-emerald-400" : "text-red-400", bg: lucro >= 0 ? "bg-emerald-500/15 border-emerald-500/30" : "bg-red-500/15 border-red-500/30" },
+        ];
+        return (
+          <Card className="border-border">
+            <CardContent className="p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" /> Mini-Funil Financeiro
+                <Badge variant="outline" className="text-[10px] ml-auto">Investido → Lucro</Badge>
+              </h3>
+              <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1">
+                {steps.map((s, i) => (
+                  <div key={s.label} className="flex items-center gap-1.5 flex-1 min-w-[110px]">
+                    <div className={`flex-1 rounded-lg border p-3 ${s.bg}`}>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
+                      <p className={`text-base font-mono font-bold ${s.color} truncate`}>{s.value}</p>
+                    </div>
+                    {i < steps.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* === EFICIÊNCIA POR CAMPANHA (cruzamento Ads × Vendas via UTM) === */}
+      {campaignEfficiency.length > 0 && (
+        <Card className="border-border">
+          <CardContent className="p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" /> Eficiência por Campanha
+              <Badge variant="outline" className="text-[10px] ml-auto">Top 10 · ordenado por ROAS</Badge>
+            </h3>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Campanha</TableHead>
+                    <TableHead className="text-right">Gasto</TableHead>
+                    <TableHead className="text-right">Vendas</TableHead>
+                    <TableHead className="text-right">Receita</TableHead>
+                    <TableHead className="text-right">ROAS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaignEfficiency.slice(0, 10).map((c) => (
+                    <TableRow key={c.campanha}>
+                      <TableCell className="text-xs max-w-[280px] truncate font-medium">{c.campanha}</TableCell>
+                      <TableCell className="text-right font-mono text-red-400 text-xs">R$ {c.gasto.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{c.vendas}</TableCell>
+                      <TableCell className="text-right font-mono text-emerald-400 text-xs">R$ {c.receita.toFixed(2)}</TableCell>
+                      <TableCell className={`text-right font-mono font-bold text-xs ${c.roas >= 2 ? "text-emerald-400" : c.roas >= 1 ? "text-amber-400" : "text-red-400"}`}>
+                        {c.roas > 0 ? `${c.roas.toFixed(2)}x` : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Project summary table */}
       <div className="rounded-xl border border-border overflow-hidden">
         <Table>
