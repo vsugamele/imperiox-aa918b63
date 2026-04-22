@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { project_id, template_id, to_email } = await req.json();
+    const { project_id, template_id, to_email, inline } = await req.json();
 
-    if (!project_id || !template_id || !to_email) {
-      return new Response(JSON.stringify({ error: "project_id, template_id e to_email são obrigatórios" }), {
+    if (!project_id || !to_email || (!template_id && !inline)) {
+      return new Response(JSON.stringify({ error: "project_id, to_email e (template_id ou inline) são obrigatórios" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -79,14 +79,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const templates = emailConfig.templates || [];
-    console.log("[send-project-email] Templates disponíveis:", templates.map((t: any) => ({ id: t.id, name: t.name })));
-    const template = templates.find((t: any) => t.id === template_id);
-    if (!template) {
-      return new Response(JSON.stringify({ error: "Template não encontrado" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let template: any = null;
+    if (inline) {
+      template = { name: inline.name || "inline", subject: inline.subject, html_body: inline.html_body };
+    } else {
+      const templates = emailConfig.templates || [];
+      console.log("[send-project-email] Templates disponíveis:", templates.map((t: any) => ({ id: t.id, name: t.name })));
+      template = templates.find((t: any) => t.id === template_id);
+      if (!template) {
+        return new Response(JSON.stringify({ error: "Template não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Send via Resend

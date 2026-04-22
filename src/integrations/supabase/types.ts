@@ -14839,6 +14839,71 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_lead_sequence_enrollments: {
+        Row: {
+          cadencia_atual: string | null
+          convertido_em: string | null
+          created_at: string
+          data_inicio: string
+          dia_atual: number
+          dias_sem_abertura: number
+          id: string
+          lead_id: string
+          pausado_em: string | null
+          pausado_motivo: string | null
+          proximo_envio_em: string | null
+          receita_gerada: number | null
+          sequence_id: string
+          status: string
+          ultimo_envio_em: string | null
+          updated_at: string
+        }
+        Insert: {
+          cadencia_atual?: string | null
+          convertido_em?: string | null
+          created_at?: string
+          data_inicio?: string
+          dia_atual?: number
+          dias_sem_abertura?: number
+          id?: string
+          lead_id: string
+          pausado_em?: string | null
+          pausado_motivo?: string | null
+          proximo_envio_em?: string | null
+          receita_gerada?: number | null
+          sequence_id: string
+          status?: string
+          ultimo_envio_em?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cadencia_atual?: string | null
+          convertido_em?: string | null
+          created_at?: string
+          data_inicio?: string
+          dia_atual?: number
+          dias_sem_abertura?: number
+          id?: string
+          lead_id?: string
+          pausado_em?: string | null
+          pausado_motivo?: string | null
+          proximo_envio_em?: string | null
+          receita_gerada?: number | null
+          sequence_id?: string
+          status?: string
+          ultimo_envio_em?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_lead_sequence_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_nurture_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_leads: {
         Row: {
           criado_em: string | null
@@ -15277,6 +15342,150 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_nurture_emails: {
+        Row: {
+          aberto_em: string | null
+          agendado_para: string
+          assunto: string
+          clicado_em: string | null
+          contexto_usado: Json | null
+          corpo_html: string
+          corpo_texto: string | null
+          created_at: string
+          dia_numero: number
+          enrollment_id: string
+          enviado_em: string | null
+          erro: string | null
+          estagio: string | null
+          gerado_por_ia: boolean
+          id: string
+          lead_id: string
+          modelo_ia: string | null
+          resend_id: string | null
+          sequence_id: string
+          status: string
+        }
+        Insert: {
+          aberto_em?: string | null
+          agendado_para?: string
+          assunto: string
+          clicado_em?: string | null
+          contexto_usado?: Json | null
+          corpo_html: string
+          corpo_texto?: string | null
+          created_at?: string
+          dia_numero: number
+          enrollment_id: string
+          enviado_em?: string | null
+          erro?: string | null
+          estagio?: string | null
+          gerado_por_ia?: boolean
+          id?: string
+          lead_id: string
+          modelo_ia?: string | null
+          resend_id?: string | null
+          sequence_id: string
+          status?: string
+        }
+        Update: {
+          aberto_em?: string | null
+          agendado_para?: string
+          assunto?: string
+          clicado_em?: string | null
+          contexto_usado?: Json | null
+          corpo_html?: string
+          corpo_texto?: string | null
+          created_at?: string
+          dia_numero?: number
+          enrollment_id?: string
+          enviado_em?: string | null
+          erro?: string | null
+          estagio?: string | null
+          gerado_por_ia?: boolean
+          id?: string
+          lead_id?: string
+          modelo_ia?: string | null
+          resend_id?: string | null
+          sequence_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_nurture_emails_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_lead_sequence_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_nurture_emails_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_nurture_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_nurture_sequences: {
+        Row: {
+          ativa: boolean
+          cadencia: string
+          cadencia_custom_dias: number[] | null
+          created_at: string
+          duracao_dias: number
+          id: string
+          modelo_ia: string
+          nome: string
+          objetivo: string | null
+          produto_nome: string
+          project_id: string
+          receita_atribuida: number
+          tom_mente_id: string | null
+          total_conversoes: number
+          total_emails_enviados: number
+          total_leads_ativos: number
+          updated_at: string
+        }
+        Insert: {
+          ativa?: boolean
+          cadencia?: string
+          cadencia_custom_dias?: number[] | null
+          created_at?: string
+          duracao_dias?: number
+          id?: string
+          modelo_ia?: string
+          nome: string
+          objetivo?: string | null
+          produto_nome: string
+          project_id: string
+          receita_atribuida?: number
+          tom_mente_id?: string | null
+          total_conversoes?: number
+          total_emails_enviados?: number
+          total_leads_ativos?: number
+          updated_at?: string
+        }
+        Update: {
+          ativa?: boolean
+          cadencia?: string
+          cadencia_custom_dias?: number[] | null
+          created_at?: string
+          duracao_dias?: number
+          id?: string
+          modelo_ia?: string
+          nome?: string
+          objetivo?: string | null
+          produto_nome?: string
+          project_id?: string
+          receita_atribuida?: number
+          tom_mente_id?: string | null
+          total_conversoes?: number
+          total_emails_enviados?: number
+          total_leads_ativos?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       imphq_processes: {
         Row: {
