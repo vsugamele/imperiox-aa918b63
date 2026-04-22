@@ -79,14 +79,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const templates = emailConfig.templates || [];
-    console.log("[send-project-email] Templates disponíveis:", templates.map((t: any) => ({ id: t.id, name: t.name })));
-    const template = templates.find((t: any) => t.id === template_id);
-    if (!template) {
-      return new Response(JSON.stringify({ error: "Template não encontrado" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let template: any = null;
+    if (inline) {
+      template = { name: inline.name || "inline", subject: inline.subject, html_body: inline.html_body };
+    } else {
+      const templates = emailConfig.templates || [];
+      console.log("[send-project-email] Templates disponíveis:", templates.map((t: any) => ({ id: t.id, name: t.name })));
+      template = templates.find((t: any) => t.id === template_id);
+      if (!template) {
+        return new Response(JSON.stringify({ error: "Template não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Send via Resend
