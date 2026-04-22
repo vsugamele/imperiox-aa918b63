@@ -2987,6 +2987,7 @@ export type Database = {
           created_at: string
           id: string
           name: string | null
+          push_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -2995,6 +2996,7 @@ export type Database = {
           created_at?: string
           id: string
           name?: string | null
+          push_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -3003,6 +3005,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string | null
+          push_enabled?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -29811,6 +29814,34 @@ export type Database = {
       recalc_lead_total_gasto: {
         Args: { p_lead_id: string }
         Returns: undefined
+      }
+      register_lead: {
+        Args: {
+          p_email: string
+          p_metadata?: Json
+          p_name: string
+          p_phone: string
+          p_project_id: string
+          p_webinar_id: string
+        }
+        Returns: {
+          attended: boolean | null
+          email: string
+          id: string
+          metadata: Json | null
+          name: string
+          phone: string | null
+          project_id: string
+          purchase_value: number | null
+          registered_at: string | null
+          webinar_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "webi_leads"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       reset_all_tickets: { Args: never; Returns: undefined }
       reset_daily_water_intake: { Args: never; Returns: undefined }

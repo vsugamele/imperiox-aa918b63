@@ -8,14 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MENTES_DATA } from "@/data/mentesData";
 import {
   Calendar, Video, Image, FileText, Megaphone, Copy, Download, Loader2, Trash2, Save, Sparkles, Code2, Brain, UserCircle, Zap, ShoppingCart,
-  Palette, LayoutGrid, Mail, Lightbulb, RefreshCw, Wand2, Expand, Search, Filter
+  Palette, LayoutGrid, Mail, Lightbulb, RefreshCw, Wand2, Expand, Search, Filter, Film
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { RoteirosViraisLibrary } from "./RoteirosViraisLibrary";
 
 interface Props {
   projectId: string;
@@ -374,7 +376,15 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   });
 
   return (
-    <div className="space-y-4">
+    <Tabs defaultValue="gerador" className="space-y-4">
+      <TabsList className="bg-secondary">
+        <TabsTrigger value="gerador" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Gerador IA</TabsTrigger>
+        <TabsTrigger value="roteiros" className="gap-1.5"><Film className="h-3.5 w-3.5" /> Roteiros Virais</TabsTrigger>
+      </TabsList>
+      <TabsContent value="roteiros" className="mt-2">
+        <RoteirosViraisLibrary projectId={projectId} project={project} />
+      </TabsContent>
+      <TabsContent value="gerador" className="mt-2 space-y-4">
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
@@ -716,6 +726,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
           </CardContent>
         </Card>
       )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
