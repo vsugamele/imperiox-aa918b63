@@ -21,7 +21,7 @@ interface Props {
   campaignEfficiency?: CampaignEfficiency[];
 }
 
-export function FinancasOverview({ projectSummaries, dailyData = [], totalAds = 0, totalVendas = 0, totalVendasCount = 0, totalCustos = 0, filterDateFrom }: Props) {
+export function FinancasOverview({ projectSummaries, dailyData = [], totalAds = 0, totalVendas = 0, totalVendasCount = 0, totalCustos = 0, filterDateFrom, totalCliques = 0, totalCheckouts = 0, campaignEfficiency = [] }: Props) {
   const realROAS = totalAds > 0 ? totalVendas / totalAds : 0;
   const realCPA = totalVendasCount > 0 ? totalAds / totalVendasCount : 0;
 
