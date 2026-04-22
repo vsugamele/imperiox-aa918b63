@@ -312,6 +312,17 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
         </div>
       )}
 
+      {/* Sub-tabs internas */}
+      <Tabs defaultValue="visao" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsTrigger value="visao" className="text-xs gap-1.5"><Target className="h-3 w-3" /> Visão</TabsTrigger>
+          <TabsTrigger value="campanhas" className="text-xs gap-1.5"><Activity className="h-3 w-3" /> Campanhas</TabsTrigger>
+          <TabsTrigger value="criativos" className="text-xs gap-1.5"><Eye className="h-3 w-3" /> Criativos</TabsTrigger>
+          <TabsTrigger value="logs" className="text-xs gap-1.5"><BarChart3 className="h-3 w-3" /> Logs</TabsTrigger>
+        </TabsList>
+
+        {/* === VISÃO: Diagnóstico Yoshitani === */}
+        <TabsContent value="visao" className="space-y-4 mt-0">
       {/* === DIAGNÓSTICO YOSHITANI === */}
       {diagnosticos.length > 0 && (
         <Card className="border-border">
