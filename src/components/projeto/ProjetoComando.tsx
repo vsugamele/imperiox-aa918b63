@@ -148,6 +148,48 @@ export function ProjetoComando({ projectId, project }: Props) {
     .filter(v => (v.status || "").toLowerCase() === "aprovado")
     .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
 
+  // ===== Pulso de Hoje =====
+  const receitaOntem = useMemo(() => vendasOntem
+    .filter((v: any) => (v.status || "").toLowerCase() === "aprovado")
+    .reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0), [vendasOntem]);
+
+  const leads7dAvg = useMemo(() => {
+    const arr = leads7d || [];
+    return arr.length / 7;
+  }, [leads7d]);
+
+  const adsHojeTotal = useMemo(() => (adsHoje || []).reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0), [adsHoje]);
+  const adsOntemTotal = useMemo(() => (adsOntem || []).reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0), [adsOntem]);
+
+  // ===== Top 3 Produtos do mês =====
+  const topProdutos = useMemo(() => {
+    const map = new Map<string, { receita: number; vendas: number }>();
+    vendasMes.forEach((v: any) => {
+      const nome = v.produto_nome || "Sem produto";
+      const cur = map.get(nome) || { receita: 0, vendas: 0 };
+      cur.receita += Number(v.valor) || 0;
+      cur.vendas += 1;
+      map.set(nome, cur);
+    });
+    return Array.from(map.entries())
+      .map(([nome, d]) => ({ nome, ...d, ticket: d.vendas > 0 ? d.receita / d.vendas : 0 }))
+      .sort((a, b) => b.receita - a.receita)
+      .slice(0, 3);
+  }, [vendasMes]);
+
+  // ===== Próximas ações =====
+  const tarefasUrgentes = useMemo(() => {
+    const arr = cards.filter((c: any) => {
+      const col = (c.imphq_kanban_columns?.title || "").toLowerCase();
+      const isDone = col.includes("conclu") || col.includes("done") || col.includes("finaliz");
+      if (isDone) return false;
+      if (!c.due_date) return false;
+      const due = new Date(c.due_date);
+      return due.getTime() <= Date.now() + 3 * 86400000;
+    });
+    return arr.sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 6);
+  }, [cards]);
+
   if (loading) return <div className="text-muted-foreground text-sm p-4">Carregando comando...</div>;
 
   return (
