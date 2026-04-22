@@ -15723,6 +15723,81 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_project_goals: {
+        Row: {
+          ano: number
+          created_at: string
+          id: string
+          mes: number
+          meta_leads: number
+          meta_receita: number
+          meta_roas: number
+          meta_vendas: number
+          observacoes: string | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          ano: number
+          created_at?: string
+          id?: string
+          mes: number
+          meta_leads?: number
+          meta_receita?: number
+          meta_roas?: number
+          meta_vendas?: number
+          observacoes?: string | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          meta_leads?: number
+          meta_receita?: number
+          meta_roas?: number
+          meta_vendas?: number
+          observacoes?: string | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_project_notes: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          content: string
+          created_at: string
+          id: string
+          pinned: boolean
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_project_revenue: {
         Row: {
           created_at: string | null
