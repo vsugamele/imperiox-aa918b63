@@ -42,6 +42,12 @@ export function ProjetoComando({ projectId, project }: Props) {
   // Próximas ações: eventos próximas 48h
   const [events48h, setEvents48h] = useState<any[]>([]);
 
+  // Health Score inputs
+  const [adsMes, setAdsMes] = useState<any[]>([]);
+  const [leadsMes, setLeadsMes] = useState<any[]>([]);
+  const [vendas7dArr, setVendas7dArr] = useState<any[]>([]);
+  const [conteudos14d, setConteudos14d] = useState<number>(0);
+
   const load = async () => {
     setLoading(true);
     const now = new Date();
