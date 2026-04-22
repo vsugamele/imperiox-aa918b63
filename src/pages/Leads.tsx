@@ -33,6 +33,7 @@ import LeadsTable, { getLeadStage, STAGE_LABELS, type Lead, type LeadVenda } fro
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
+import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
@@ -576,6 +577,7 @@ export default function Leads() {
                   <TabsTrigger value="qualificacao" className="flex-1 text-xs">🎯 Qualificação</TabsTrigger>
                   <TabsTrigger value="jornada" className="flex-1 text-xs">🗺️ Jornada ({timeline.length})</TabsTrigger>
                   <TabsTrigger value="automacoes" className="flex-1 text-xs">⚡ Automações</TabsTrigger>
+                  <TabsTrigger value="nutricao" className="flex-1 text-xs">📧 Nutrição</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="dados" className="space-y-3">
@@ -607,6 +609,10 @@ export default function Leads() {
                 <TabsContent value="automacoes" className="space-y-4">
                   <div className="space-y-2"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">⚡ Disparar Automação</p>{(() => { const filteredAutos = editLead?.project_id ? automations.filter(a => !a.project_id || a.project_id === editLead.project_id) : automations; return filteredAutos.length === 0 ? (<p className="text-xs text-muted-foreground">Nenhuma automação cadastrada. Crie em OpenFlow.</p>) : (<div className="grid grid-cols-2 gap-2">{filteredAutos.map(a => (<Button key={a.id} size="sm" variant="outline" className="text-xs justify-start" onClick={() => editLead && triggerAutomation(editLead, a)}><Play className="h-3 w-3 mr-1" /> {a.nome}</Button>))}</div>); })()}</div>
                   <div className="space-y-2 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Histórico de Ações</p>{leadAutomationLogs.length === 0 ? (<p className="text-xs text-muted-foreground text-center py-4">Nenhuma ação registrada</p>) : (<div className="space-y-2 max-h-[250px] overflow-y-auto">{leadAutomationLogs.map(log => (<div key={log.id} className="p-2 bg-secondary/50 rounded-lg"><div className="flex items-center justify-between"><span className="text-xs font-medium">{log.action}</span><span className="text-[10px] text-muted-foreground">{log.created_at ? (() => { try { const d = new Date(log.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })() : ""}</span></div>{log.details && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(log.details as Record<string, any>).filter(([, v]) => v).map(([k, v]) => (<Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 25)}</Badge>))}</div>)}</div>))}</div>)}</div>
+                </TabsContent>
+
+                <TabsContent value="nutricao" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {editLead?.id && <LeadNurtureTimeline leadId={editLead.id} />}
                 </TabsContent>
               </Tabs>
             )}
