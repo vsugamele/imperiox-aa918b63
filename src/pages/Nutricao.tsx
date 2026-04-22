@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Mail, Plus, Play, Pause, Users, TrendingUp } from "lucide-react";
+import { Mail, Plus, Play, Pause, Users, TrendingUp, UserPlus } from "lucide-react";
+import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
 
 interface Sequence {
   id: string;
@@ -31,6 +32,7 @@ export default function Nutricao() {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [form, setForm] = useState({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria" });
 
   const load = async () => {
@@ -81,6 +83,7 @@ export default function Nutricao() {
           <p className="text-muted-foreground mt-1">Sequências de e-mail por produto. Lead → Comprador em até 1 ano.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkOpen(true)}><UserPlus className="h-4 w-4 mr-2" /> Inscrição em massa</Button>
           <Button variant="outline" onClick={runScheduler}>Rodar agora</Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -169,6 +172,13 @@ export default function Nutricao() {
           ))}
         </div>
       )}
+
+      <BulkEnrollDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        sequences={sequences.map(s => ({ id: s.id, nome: s.nome, produto: s.produto_nome }))}
+        onDone={load}
+      />
     </div>
   );
 }
