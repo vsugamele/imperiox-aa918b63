@@ -1504,6 +1504,51 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_badge_definitions: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          is_active: boolean
+          position: number
+          rule_type: string
+          rule_value: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_banners: {
         Row: {
           created_at: string
@@ -2999,6 +3044,7 @@ export type Database = {
           description: string | null
           duration_min: number
           enrolled_count: number
+          hair_types: string[]
           hero_media_type: string
           hero_media_url: string | null
           id: string
@@ -3032,6 +3078,7 @@ export type Database = {
           description?: string | null
           duration_min?: number
           enrolled_count?: number
+          hair_types?: string[]
           hero_media_type?: string
           hero_media_url?: string | null
           id?: string
@@ -3065,6 +3112,7 @@ export type Database = {
           description?: string | null
           duration_min?: number
           enrolled_count?: number
+          hair_types?: string[]
           hero_media_type?: string
           hero_media_url?: string | null
           id?: string
@@ -3493,6 +3541,7 @@ export type Database = {
           heading_font: string
           home_section_order: Json
           home_sections_enabled: Json
+          home_welcome_image: string | null
           id: boolean
           landing_cta_text: string
           landing_footer_html: string | null
@@ -3533,6 +3582,7 @@ export type Database = {
           heading_font?: string
           home_section_order?: Json
           home_sections_enabled?: Json
+          home_welcome_image?: string | null
           id?: boolean
           landing_cta_text?: string
           landing_footer_html?: string | null
@@ -3573,6 +3623,7 @@ export type Database = {
           heading_font?: string
           home_section_order?: Json
           home_sections_enabled?: Json
+          home_welcome_image?: string | null
           id?: boolean
           landing_cta_text?: string
           landing_footer_html?: string | null
@@ -3602,6 +3653,35 @@ export type Database = {
           welcome_text?: string
         }
         Relationships: []
+      }
+      areamembrojp_user_badges: {
+        Row: {
+          badge_id: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_badge_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_user_entitlements: {
         Row: {
