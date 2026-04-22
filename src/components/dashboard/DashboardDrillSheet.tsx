@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
-import { ExternalLink, ShoppingCart, Users, DollarSign, TrendingUp, Wallet, Target, Megaphone, Activity, Zap } from "lucide-react";
+import { ExternalLink, ShoppingCart, Users, DollarSign, TrendingUp, Wallet, Target, Megaphone, Activity, Zap, Clock, MessageCircle, RefreshCw } from "lucide-react";
 import { getPeriodRange } from "@/lib/periodUtils";
+import { toast } from "sonner";
 
 export type DrillMetric =
   | "revenue"
@@ -19,7 +21,8 @@ export type DrillMetric =
   | "ads_cpa"
   | "ads_checkout_cost"
   | "ads_purchases"
-  | "campaign";
+  | "campaign"
+  | "pix_pending";
 
 interface Props {
   open: boolean;
