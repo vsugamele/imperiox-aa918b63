@@ -268,6 +268,27 @@ export function ProjetoComando({ projectId, project }: Props) {
         </div>
       </div>
 
+      {/* ===== Estratégia: Health + Meta + Notas ===== */}
+      {(() => {
+        const receitaMes = vendasMes.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0);
+        const gastoMes = adsMes.reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0);
+        const roas = gastoMes > 0 ? receitaMes / gastoMes : 0;
+        const health = calcHealthScore({
+          roas,
+          leadsRecent: leadsMes.length,
+          vendasRecent: vendasMes.length,
+          vendas7d: vendas7dArr.length,
+          conteudos14d,
+        });
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <HealthScoreCard health={health} />
+            <ProjetoMetaCard projectId={projectId} receitaMes={receitaMes} leadsMes={leadsMes.length} vendasMes={vendasMes.length} />
+            <ProjetoNotasCard projectId={projectId} />
+          </div>
+        );
+      })()}
+
       {/* ===== 2. Top 3 Produtos do mês ===== */}
       {topProdutos.length > 0 && (
         <Card className="bg-card border-border">
