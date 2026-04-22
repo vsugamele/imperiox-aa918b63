@@ -25,6 +25,19 @@ export function ProjetoComando({ projectId, project }: Props) {
   const [vendasHoje, setVendasHoje] = useState<any[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
 
+  // Pulso / comparativos
+  const [vendasOntem, setVendasOntem] = useState<any[]>([]);
+  const [leads7d, setLeads7d] = useState<any[]>([]);
+  const [adsHoje, setAdsHoje] = useState<any[]>([]);
+  const [adsOntem, setAdsOntem] = useState<any[]>([]);
+
+  // Top produtos do mês
+  const [vendasMes, setVendasMes] = useState<any[]>([]);
+  const [drawerProduto, setDrawerProduto] = useState<string | null>(null);
+
+  // Próximas ações: eventos próximas 48h
+  const [events48h, setEvents48h] = useState<any[]>([]);
+
   const load = async () => {
     setLoading(true);
     const now = new Date();
@@ -33,13 +46,23 @@ export function ProjetoComando({ projectId, project }: Props) {
     const todayStr = brNow.toISOString().split("T")[0];
     const dayStart = todayStr + "T03:00:00.000Z";
     const dayEnd = new Date(new Date(dayStart).getTime() + 86400000).toISOString();
+    const yStart = new Date(new Date(dayStart).getTime() - 86400000).toISOString();
+    const sevenDaysAgo = new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString();
+    const monthStart = `${todayStr.slice(0, 7)}-01T03:00:00.000Z`;
+    const in48h = new Date(brNow.getTime() + 2 * 86400000).toISOString().split("T")[0];
 
-    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes] = await Promise.all([
+    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes] = await Promise.all([
       supabase.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
       supabase.from("imphq_leads").select("*").eq("project_id", projectId).order("criado_em", { ascending: false }).limit(10),
       supabase.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
       supabase.from("imphq_vendas").select("id, status, created_at, produto_nome, valor, plataforma, lead_id").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
       supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", todayStr).order("start_date", { ascending: true }),
+      supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("created_at", yStart).lt("created_at", dayStart),
+      supabase.from("imphq_leads").select("criado_em").eq("project_id", projectId).gte("criado_em", sevenDaysAgo),
+      supabase.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr),
+      supabase.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")),
+      supabase.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
+      supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", in48h).order("start_date", { ascending: true }),
     ]);
 
     setCards(cardsRes.data || []);
@@ -47,6 +70,12 @@ export function ProjetoComando({ projectId, project }: Props) {
     setPendingVendas(vendasPendRes.data || []);
     setVendasHoje(vendasHojeRes.data || []);
     setCalendarEvents(calEventsRes.data || []);
+    setVendasOntem(vendasOntemRes.data || []);
+    setLeads7d(leads7dRes.data || []);
+    setAdsHoje(adsHojeRes.data || []);
+    setAdsOntem(adsOntemRes.data || []);
+    setVendasMes(vendasMesRes.data || []);
+    setEvents48h(events48hRes.data || []);
     setLoading(false);
   };
 
