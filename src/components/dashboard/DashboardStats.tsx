@@ -15,6 +15,8 @@ interface Stats {
   opCost: number;
   revenue: number;
   salesCount: number;
+  pixPendingCount: number;
+  pixPendingValue: number;
 }
 
 interface Props {
@@ -26,8 +28,8 @@ interface Props {
 
 export default function DashboardStats({ period, projectFilter, productFilter, compare = false }: Props) {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0 });
-  const [prevStats, setPrevStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0 });
+  const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0, pixPendingCount: 0, pixPendingValue: 0 });
+  const [prevStats, setPrevStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0, pixPendingCount: 0, pixPendingValue: 0 });
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillMetric, setDrillMetric] = useState<DrillMetric | null>(null);
 
@@ -56,10 +58,16 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
       if (projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
       if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
 
-      const [projRes, taskRes, leadRes, costRes, adsRes, vendasRes]: any = await Promise.all([
+      let pixQ: any = supabase.from("imphq_vendas").select("valor, status")
+        .gte("data_venda", from).lte("data_venda", to)
+        .in("status", ["pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente"]);
+      if (projectFilter !== "all") pixQ = pixQ.eq("project_id", projectFilter);
+      if (productFilter && productFilter !== "all") pixQ = pixQ.eq("produto_nome", productFilter);
+
+      const [projRes, taskRes, leadRes, costRes, adsRes, vendasRes, pixRes]: any = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
-        leadsQ, costQ, adsQ, vendasQ,
+        leadsQ, costQ, adsQ, vendasQ, pixQ,
       ]);
 
       const sumByCurrency = (rows: any[], field = "valor") => rows.reduce((acc, r) => {
@@ -71,6 +79,8 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
       const adsCost = sumByCurrency(adsRes.data || []);
       const vendas = vendasRes.data || [];
       const revenue = vendas.reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
+      const pixRows = pixRes.data || [];
+      const pixPendingValue = pixRows.reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
 
       return {
         projects: projRes.count || 0,
@@ -80,6 +90,8 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
         opCost,
         revenue,
         salesCount: vendas.length,
+        pixPendingCount: pixRows.length,
+        pixPendingValue,
       };
     }
 
