@@ -473,13 +473,37 @@ Deno.serve(async (req) => {
 
     // Handle purchase
     if (evento === "compra_aprovada" && leadId && valor > 0) {
-      // Deduplication: check if same sale exists within last 5 minutes
+      // STEP 1: try to PROMOTE an existing pending sale (pix_gerado / boleto_gerado / aguardando_pagamento / pendente / inicio_checkout)
+      // for the same lead+product within the last 7 days. This avoids creating a duplicate row when Ticto/Hotmart
+      // first sends pix_created and later sends authorized for the same transaction.
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      let pendingQ: any = supabase
+        .from("imphq_vendas")
+        .select("id, status, valor, data_venda")
+        .eq("lead_id", leadId)
+        .in("status", ["pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente", "inicio_checkout"])
+        .gte("created_at", sevenDaysAgo)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (produto) pendingQ = pendingQ.eq("produto_nome", produto);
+      const { data: pendingRows } = await pendingQ;
+      const promotable = (pendingRows || []).find((r: any) => Math.abs((parseFloat(r.valor) || 0) - valor) < 0.01) || (pendingRows || [])[0];
+
+      if (promotable) {
+        const upd: any = { status: "aprovado" };
+        if (data_compra) upd.data_venda = data_compra;
+        await supabase.from("imphq_vendas").update(upd).eq("id", promotable.id);
+        console.log("[webhook-pagamento] Promoted pending sale to aprovado:", promotable.id);
+      } else {
+
+      // Deduplication: check if same APPROVED sale exists within last 5 minutes
       const { data: existingDup } = await supabase
         .from("imphq_vendas")
         .select("id")
         .eq("lead_id", leadId)
         .eq("produto_nome", produto)
         .eq("valor", valor)
+        .eq("status", "aprovado")
         .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString())
         .limit(1);
 
@@ -513,6 +537,7 @@ Deno.serve(async (req) => {
           console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
         }
       }
+      } // end of else (no promotable pending sale)
 
       // Handle Ticto bumps as separate sales
       if (plataforma === "Ticto" && body?.order?.bumps && Array.isArray(body.order.bumps)) {
