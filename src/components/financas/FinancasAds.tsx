@@ -415,7 +415,24 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
           </CardContent>
         </Card>
       )}
+        </TabsContent>
 
+        {/* === CAMPANHAS placeholder (lista vem do diagnóstico em Visão) === */}
+        <TabsContent value="campanhas" className="mt-0">
+          <Card className="border-border border-dashed"><CardContent className="p-10 text-center text-sm text-muted-foreground">
+            Análise por campanha consolidada na aba <strong>Visão</strong> (Diagnóstico Yoshitani).
+          </CardContent></Card>
+        </TabsContent>
+
+        {/* === CRIATIVOS placeholder === */}
+        <TabsContent value="criativos" className="mt-0">
+          <Card className="border-border border-dashed"><CardContent className="p-10 text-center text-sm text-muted-foreground">
+            Análise por criativo em breve. Use a aba <strong>Logs</strong> para ver dados granulares.
+          </CardContent></Card>
+        </TabsContent>
+
+        {/* === LOGS: Vendas + tabela bruta + ações === */}
+        <TabsContent value="logs" className="space-y-4 mt-0">
       {/* Vendas que geraram receita */}
       {vendas.length > 0 && (
         <Card className="border-border">
