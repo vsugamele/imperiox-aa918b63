@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw, Users, ShoppingCart, Clock, CheckCircle2, AlertCircle, TrendingUp, Zap, DollarSign } from "lucide-react";
+import { RefreshCw, Users, ShoppingCart, Clock, CheckCircle2, AlertCircle, TrendingUp, Zap, DollarSign, Package, Bell, CalendarClock } from "lucide-react";
 import { format } from "date-fns";
+import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
+import { ProductInsightDrawer } from "@/components/projeto/insights/ProductInsightDrawer";
+import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
 
 interface Props {
   projectId: string;
