@@ -18,6 +18,7 @@ import {
   DAYS, UF_REGION_EMOJI, type AudienceRow, type AdsRow,
 } from "./insights/aggregations";
 import { ProductInsightDrawer } from "./insights/ProductInsightDrawer";
+import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
 
 const ALL_PRODUCTS = "__all__";
 
@@ -508,10 +509,48 @@ export function ProjetoInsights({ projectId }: Props) {
                 </div>
               </SectionCard>
 
-              {/* KPIs */}
+              {/* KPIs Hero com semáforo */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <KpiHeroCard
+                  label="ROAS"
+                  value={adsAgg.spend > 0 && insights.totalValor > 0 ? insights.totalValor / adsAgg.spend : 0}
+                  format="multiplier"
+                  benchmark={{ good: 2, warn: 1 }}
+                  tooltip="Receita de vendas dividido pelo gasto em ads. ≥2x é saudável; <1x você está perdendo dinheiro."
+                  icon={<DollarSign className="h-3 w-3" />}
+                />
+                <KpiHeroCard
+                  label="CPA"
+                  value={adsAgg.compras > 0 ? adsAgg.spend / adsAgg.compras : 0}
+                  format="currency"
+                  inverse
+                  benchmark={{ good: 50, warn: 100 }}
+                  tooltip="Custo por aquisição. Gasto total ÷ número de compras. Quanto menor, melhor."
+                  icon={<Target className="h-3 w-3" />}
+                />
+                <KpiHeroCard
+                  label="Hook Rate"
+                  value={adsAgg.hook}
+                  format="percent"
+                  benchmark={{ good: 25, warn: 15 }}
+                  tooltip={semaforoBenchmark.hook}
+                  icon={<Zap className="h-3 w-3" />}
+                />
+                <KpiHeroCard
+                  label="Frequência"
+                  value={adsAgg.freq}
+                  format="multiplier"
+                  inverse
+                  benchmark={{ good: 1.8, warn: 3 }}
+                  tooltip={semaforoBenchmark.freq}
+                  icon={<Activity className="h-3 w-3" />}
+                />
+              </div>
+
+              {/* KPIs detalhados (existentes) */}
               <SectionCard
                 icon={<BarChart3 className="h-4 w-4 text-primary" />}
-                title="KPIs com Semáforo"
+                title="KPIs Detalhados com Semáforo"
                 desc="Métricas-chave com benchmarks de mercado"
               >
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-2">

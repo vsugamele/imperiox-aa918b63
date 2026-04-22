@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTriangle, ShoppingCart, Zap, Activity } from "lucide-react";
+import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTriangle, ShoppingCart, Zap, Activity, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "./AdsImportDialog";
+import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AdsSpend {
   id: string;
@@ -266,19 +268,40 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards - Yoshitani Priority */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        {kpis.map(k => (
-          <Card key={k.label} className="border-border">
-            <CardContent className="flex items-center gap-3 p-4">
-              <k.icon className={`h-5 w-5 shrink-0 ${k.color}`} />
-              <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground leading-tight">{k.label}</p>
-                <p className={`text-base font-mono font-bold ${k.color} truncate`}>{k.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* KPI Hero Cards (4 principais com semáforo) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiHeroCard
+          label="ROAS Real"
+          value={totalGasto > 0 && vendas.length > 0 ? vendas.reduce((s, v) => s + v.valor, 0) / totalGasto : 0}
+          format="multiplier"
+          benchmark={{ good: 2, warn: 1 }}
+          tooltip="Receita atribuída ÷ Investimento em ads. ≥2x saudável; <1x está perdendo dinheiro."
+          icon={<Zap className="h-3 w-3" />}
+        />
+        <KpiHeroCard
+          label="CPA Médio"
+          value={cpa}
+          format="currency"
+          inverse
+          benchmark={{ good: 50, warn: 100 }}
+          tooltip="Custo por aquisição: gasto total ÷ compras. Quanto menor, melhor."
+          icon={<Target className="h-3 w-3" />}
+        />
+        <KpiHeroCard
+          label="Investido"
+          value={totalGasto}
+          format="currency"
+          tooltip="Total gasto em ads no período filtrado."
+          icon={<DollarSign className="h-3 w-3" />}
+        />
+        <KpiHeroCard
+          label="Lucro Ads"
+          value={vendas.reduce((s, v) => s + v.valor, 0) - totalGasto}
+          format="currency"
+          benchmark={{ good: 0, warn: -100 }}
+          tooltip="Receita atribuída – gasto em ads. Lucro bruto direto da campanha."
+          icon={<BarChart3 className="h-3 w-3" />}
+        />
       </div>
 
       {/* Frequência Alert */}
@@ -289,6 +312,17 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
         </div>
       )}
 
+      {/* Sub-tabs internas */}
+      <Tabs defaultValue="visao" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsTrigger value="visao" className="text-xs gap-1.5"><Target className="h-3 w-3" /> Visão</TabsTrigger>
+          <TabsTrigger value="campanhas" className="text-xs gap-1.5"><Activity className="h-3 w-3" /> Campanhas</TabsTrigger>
+          <TabsTrigger value="criativos" className="text-xs gap-1.5"><Eye className="h-3 w-3" /> Criativos</TabsTrigger>
+          <TabsTrigger value="logs" className="text-xs gap-1.5"><BarChart3 className="h-3 w-3" /> Logs</TabsTrigger>
+        </TabsList>
+
+        {/* === VISÃO: Diagnóstico Yoshitani === */}
+        <TabsContent value="visao" className="space-y-4 mt-0">
       {/* === DIAGNÓSTICO YOSHITANI === */}
       {diagnosticos.length > 0 && (
         <Card className="border-border">
@@ -381,7 +415,24 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
           </CardContent>
         </Card>
       )}
+        </TabsContent>
 
+        {/* === CAMPANHAS placeholder (lista vem do diagnóstico em Visão) === */}
+        <TabsContent value="campanhas" className="mt-0">
+          <Card className="border-border border-dashed"><CardContent className="p-10 text-center text-sm text-muted-foreground">
+            Análise por campanha consolidada na aba <strong>Visão</strong> (Diagnóstico Yoshitani).
+          </CardContent></Card>
+        </TabsContent>
+
+        {/* === CRIATIVOS placeholder === */}
+        <TabsContent value="criativos" className="mt-0">
+          <Card className="border-border border-dashed"><CardContent className="p-10 text-center text-sm text-muted-foreground">
+            Análise por criativo em breve. Use a aba <strong>Logs</strong> para ver dados granulares.
+          </CardContent></Card>
+        </TabsContent>
+
+        {/* === LOGS: Vendas + tabela bruta + ações === */}
+        <TabsContent value="logs" className="space-y-4 mt-0">
       {/* Vendas que geraram receita */}
       {vendas.length > 0 && (
         <Card className="border-border">
@@ -506,8 +557,10 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
           </div>
         </div>
       )}
+        </TabsContent>
+      </Tabs>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar Gasto" : "Novo Gasto de Ads"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
