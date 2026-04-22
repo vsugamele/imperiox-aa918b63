@@ -8,14 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MENTES_DATA } from "@/data/mentesData";
 import {
   Calendar, Video, Image, FileText, Megaphone, Copy, Download, Loader2, Trash2, Save, Sparkles, Code2, Brain, UserCircle, Zap, ShoppingCart,
-  Palette, LayoutGrid, Mail, Lightbulb, RefreshCw, Wand2, Expand, Search, Filter
+  Palette, LayoutGrid, Mail, Lightbulb, RefreshCw, Wand2, Expand, Search, Filter, Film
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { RoteirosViraisLibrary } from "./RoteirosViraisLibrary";
 
 interface Props {
   projectId: string;
