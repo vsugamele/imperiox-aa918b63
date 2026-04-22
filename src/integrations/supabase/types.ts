@@ -948,6 +948,62 @@ export type Database = {
           },
         ]
       }
+      appbrabas_feedback: {
+        Row: {
+          created_at: string
+          descricao: string
+          id: string
+          nota_admin: string | null
+          prioridade: string | null
+          rota: string | null
+          salao_id: string | null
+          status: string
+          tipo: string
+          titulo: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descricao: string
+          id?: string
+          nota_admin?: string | null
+          prioridade?: string | null
+          rota?: string | null
+          salao_id?: string | null
+          status?: string
+          tipo: string
+          titulo: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string
+          id?: string
+          nota_admin?: string | null
+          prioridade?: string | null
+          rota?: string | null
+          salao_id?: string | null
+          status?: string
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_feedback_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_notas_fiscais: {
         Row: {
           cliente_nome: string | null
