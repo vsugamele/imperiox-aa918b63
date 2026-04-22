@@ -100,6 +100,61 @@ Deno.serve(async (req) => {
         return json({ success: true, context });
       }
 
+      // ── list_products ──
+      // Agrega produtos distintos das vendas; aceita ?project_id=... opcional
+      if (action === "list_products") {
+        const projectId = url.searchParams.get("project_id");
+        let q = supabase
+          .from("imphq_vendas")
+          .select("produto_nome, produto_tipo, valor, status, project_id, data_venda")
+          .not("produto_nome", "is", null);
+        if (projectId) q = q.eq("project_id", projectId);
+        const { data: vendas, error } = await q.limit(10000);
+        if (error) throw error;
+
+        // Buscar nomes de projetos para enriquecer resposta
+        const projectIds = Array.from(new Set((vendas || []).map((v: any) => v.project_id).filter(Boolean)));
+        const projectsMap: Record<string, string> = {};
+        if (projectIds.length > 0) {
+          const { data: projs } = await supabase.from("imphq_projects").select("id,name").in("id", projectIds);
+          (projs || []).forEach((p: any) => { projectsMap[p.id] = p.name; });
+        }
+
+        // Agrupar por (project_id, produto_nome)
+        const agg: Record<string, any> = {};
+        (vendas || []).forEach((v: any) => {
+          const key = `${v.project_id || "sem_projeto"}::${v.produto_nome}`;
+          if (!agg[key]) {
+            agg[key] = {
+              project_id: v.project_id,
+              project_name: projectsMap[v.project_id] || null,
+              produto_nome: v.produto_nome,
+              produto_tipo: v.produto_tipo || null,
+              total_vendas: 0,
+              vendas_aprovadas: 0,
+              receita_total: 0,
+              ticket_medio: 0,
+              ultima_venda: null as string | null,
+            };
+          }
+          const item = agg[key];
+          item.total_vendas += 1;
+          if (v.status === "aprovado") {
+            item.vendas_aprovadas += 1;
+            item.receita_total += parseFloat(v.valor) || 0;
+          }
+          if (!item.ultima_venda || v.data_venda > item.ultima_venda) item.ultima_venda = v.data_venda;
+        });
+
+        const products = Object.values(agg).map((p: any) => ({
+          ...p,
+          receita_total: Math.round(p.receita_total * 100) / 100,
+          ticket_medio: p.vendas_aprovadas > 0 ? Math.round((p.receita_total / p.vendas_aprovadas) * 100) / 100 : 0,
+        })).sort((a: any, b: any) => b.receita_total - a.receita_total);
+
+        return json({ success: true, total: products.length, products });
+      }
+
       // ── list_columns ──
       if (action === "list_columns") {
         const board = url.searchParams.get("board") || "agentes";
