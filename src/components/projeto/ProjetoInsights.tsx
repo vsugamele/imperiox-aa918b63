@@ -137,23 +137,29 @@ export function ProjetoInsights({ projectId }: Props) {
   const totalRecords = rows.length;
   const maxProductValor = Math.max(1, ...insights.topProducts.map(p => p.valor || p.count));
 
+  const audienceEmpty = !loading && totalRecords === 0;
+  const adsEmpty = !adsLoading && adsRows.length === 0;
+  const lpSlow = adsAgg.linkClicks > 0 && adsAgg.lp_views > 0 && adsAgg.clickToLpRatio > 1.4;
+
   return (
-    <div className="space-y-4">
-      {/* ===================== AUDIÊNCIA ===================== */}
-      <Card className="bg-card border-border">
-        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
-          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
-            <Sparkles className="h-4 w-4" /> Insights de Audiência
-          </CardTitle>
+    <div className="space-y-6">
+      {/* ========== 1. BARRA DE FILTROS (sticky) ========== */}
+      <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/85 backdrop-blur-md border-b border-border">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="text-sm uppercase tracking-wider text-primary font-sans font-semibold">Insights de Audiência</h2>
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
             <Tabs value={source} onValueChange={(v) => setSource(v as any)}>
-              <TabsList className="h-7">
-                <TabsTrigger value="vendas" className="text-xs h-6">Vendas</TabsTrigger>
-                <TabsTrigger value="leads" className="text-xs h-6">Leads</TabsTrigger>
+              <TabsList className="h-8">
+                <TabsTrigger value="vendas" className="text-xs h-7">Vendas</TabsTrigger>
+                <TabsTrigger value="leads" className="text-xs h-7">Leads</TabsTrigger>
               </TabsList>
             </Tabs>
             <Select value={produto} onValueChange={setProduto}>
-              <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
+              <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_PRODUCTS}>Todos os produtos</SelectItem>
                 {produtos.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -169,298 +175,280 @@ export function ProjetoInsights({ projectId }: Props) {
               </SelectContent>
             </Select>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        {(loading || adsLoading) && (progress > 0 || adsProgress > 0) && (
+          <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1.5">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Carregando {fmtNum(progress + adsProgress)} registros…
+          </p>
+        )}
+      </div>
+
+      {/* ========== 2. RESUMO EXECUTIVO ========== */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <SummaryKpi label="Registros" value={loading ? null : fmtNum(totalRecords)} icon={<Users className="h-3.5 w-3.5" />} />
+        <SummaryKpi
+          label={source === "vendas" ? "Faturado" : "Leads capturados"}
+          value={loading ? null : (source === "vendas" ? fmtMoney(insights.totalValor) : fmtNum(totalRecords))}
+          icon={<DollarSign className="h-3.5 w-3.5" />}
+          accent
+        />
+        <SummaryKpi
+          label="Ticket médio"
+          value={loading ? null : (source === "vendas" ? fmtMoney(insights.ticketMedio) : "—")}
+          icon={<BarChart3 className="h-3.5 w-3.5" />}
+        />
+        <SummaryKpi
+          label="Melhor janela"
+          value={loading ? null : (totalRecords > 0 ? `${DAYS[insights.peakDay]} · ${String(insights.peakHour).padStart(2, "0")}h` : "—")}
+          icon={<Clock className="h-3.5 w-3.5" />}
+        />
+      </div>
+
+      {/* ========== 3. TABS NAVEGÁVEIS ========== */}
+      <Tabs defaultValue="audiencia" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl">
+          <TabsTrigger value="audiencia" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Audiência</TabsTrigger>
+          <TabsTrigger value="ads" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Tráfego & Ads</TabsTrigger>
+          <TabsTrigger value="produtos" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Produtos</TabsTrigger>
+        </TabsList>
+
+        {/* ---------- TAB 1: AUDIÊNCIA ---------- */}
+        <TabsContent value="audiencia" className="space-y-4 mt-0">
           {loading ? (
-            <div className="flex items-center justify-center py-10 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              {progress > 0 ? `Carregando ${fmtNum(progress)} registros…` : "Carregando insights..."}
-            </div>
-          ) : totalRecords === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Sem dados de {source === "vendas" ? "vendas" : "leads"} no período para gerar insights.
-            </p>
+            <LoadingGrid />
+          ) : audienceEmpty ? (
+            <EmptyState message={`Sem dados de ${source === "vendas" ? "vendas" : "leads"} no período selecionado.`} />
           ) : (
-            <>
-              {/* Resumo */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                <div className="p-3 rounded-md bg-secondary/40 border border-border">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Registros</p>
-                  <p className="text-xl font-bold text-foreground">{fmtNum(totalRecords)}</p>
-                </div>
-                {source === "vendas" && (
-                  <>
-                    <div className="p-3 rounded-md bg-secondary/40 border border-border">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Faturado</p>
-                      <p className="text-xl font-bold text-primary">{fmtMoney(insights.totalValor)}</p>
-                    </div>
-                    <div className="p-3 rounded-md bg-secondary/40 border border-border">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ticket médio</p>
-                      <p className="text-xl font-bold text-foreground">{fmtMoney(insights.ticketMedio)}</p>
-                    </div>
-                  </>
-                )}
-                <div className="p-3 rounded-md bg-secondary/40 border border-border">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Melhor janela</p>
-                  <p className="text-sm font-bold text-foreground">{DAYS[insights.peakDay]} · {String(insights.peakHour).padStart(2, "0")}h</p>
-                </div>
-              </div>
-
-              {/* Top Produtos clicáveis */}
-              {produto === ALL_PRODUCTS && insights.topProducts.length > 0 && (
-                <div className="mb-4 p-4 rounded-md bg-secondary/30 border border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold">Top Produtos · clique para drill-down</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* QUANDO — Heatmap horário */}
+              <SectionCard
+                icon={<Clock className="h-4 w-4 text-primary" />}
+                title="Horários de Pico (BRT)"
+                desc="Distribuição por hora do dia · top 3 destacados"
+                action={
+                  <div className="flex gap-1">
+                    {insights.hourRanking.slice(0, 3).map((x, i) => (
+                      <Badge key={x.h} variant={i === 0 ? "default" : "outline"} className="text-[10px]">
+                        {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"} {String(x.h).padStart(2, "0")}h
+                      </Badge>
+                    ))}
                   </div>
-                  <div className="space-y-1">
-                    {insights.topProducts.map(p => {
-                      const ref = p.valor || p.count;
-                      const pct = (ref / maxProductValor) * 100;
-                      return (
-                        <button
-                          key={p.nome}
-                          onClick={() => setDrillProduct(p.nome)}
-                          className="w-full flex items-center gap-2 group hover:bg-secondary/60 rounded px-2 py-1.5 transition-colors text-left"
-                        >
-                          <span className="text-xs flex-1 truncate text-foreground group-hover:text-primary">{p.nome}</span>
-                          <div className="w-32 h-3 rounded bg-secondary relative overflow-hidden">
-                            <div className="absolute inset-y-0 left-0 bg-primary/70" style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="text-[10px] text-muted-foreground w-16 text-right tabular-nums">{p.count} reg.</span>
-                          {p.valor > 0 && (
-                            <span className="text-[10px] text-primary w-20 text-right tabular-nums">{fmtMoney(p.valor)}</span>
-                          )}
-                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Heatmap horário 2 linhas (AM/PM) com HoverCard */}
-                <div className="space-y-2 p-4 rounded-md bg-secondary/30 border border-border">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold">Horários de Pico (BRT)</h3>
-                    <div className="ml-auto flex gap-1">
-                      {insights.hourRanking.slice(0, 3).map((x, i) => (
-                        <Badge key={x.h} variant={i === 0 ? "default" : "outline"} className="text-[10px]">
-                          {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"} {String(x.h).padStart(2, "0")}h
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  {[0, 1].map(row => (
-                    <div key={row}>
-                      <p className="text-[9px] text-muted-foreground mb-0.5">{row === 0 ? "AM (00–11h)" : "PM (12–23h)"}</p>
-                      <div className="grid grid-cols-12 gap-0.5">
-                        {insights.hourly.slice(row * 12, row * 12 + 12).map((v, idx) => {
-                          const h = row * 12 + idx;
-                          const intensity = v / maxHour;
-                          const rank = insights.hourRanking.findIndex(x => x.h === h);
-                          const valor = insights.hourlyValor[h];
-                          const pctTotal = totalRecords ? (v / totalRecords) * 100 : 0;
-                          return (
-                            <HoverCard key={h} openDelay={0}>
-                              <HoverCardTrigger asChild>
-                                <div
-                                  className={`aspect-square rounded-sm border flex items-center justify-center cursor-default ${rank >= 0 && rank < 3 ? "border-primary" : "border-border/40"}`}
-                                  style={{ background: `hsl(var(--primary) / ${0.08 + intensity * 0.85})` }}
-                                >
-                                  <span className="text-[8px] font-bold text-foreground/70">{h}</span>
-                                </div>
-                              </HoverCardTrigger>
-                              <HoverCardContent className="w-60 text-xs space-y-1">
-                                <p className="font-bold flex items-center gap-1">
-                                  {String(h).padStart(2, "0")}:00 BRT
-                                  {rank >= 0 && rank < 3 && (
-                                    <Badge variant="default" className="ml-1 text-[9px]">
-                                      {rank === 0 ? "🥇" : rank === 1 ? "🥈" : "🥉"} #{rank + 1}
-                                    </Badge>
-                                  )}
-                                </p>
-                                <p>Contagem: <span className="font-semibold">{v}</span> ({pctTotal.toFixed(1)}% do total)</p>
-                                {source === "vendas" && valor > 0 && (
-                                  <>
-                                    <p>Faturado: <span className="text-primary font-semibold">{fmtMoney(valor)}</span></p>
-                                    <p className="text-muted-foreground">Ticket médio: {fmtMoney(v ? valor / v : 0)}</p>
-                                  </>
-                                )}
-                                {v === 0 && <p className="text-muted-foreground italic">Nenhum registro nesta hora.</p>}
-                              </HoverCardContent>
-                            </HoverCard>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Dias da semana */}
-                <div className="space-y-2 p-4 rounded-md bg-secondary/30 border border-border">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold">Dias da Semana</h3>
-                    <Badge variant="outline" className="ml-auto text-[10px]">Melhor: {DAYS[insights.peakDay]}</Badge>
-                  </div>
-                  <div className="space-y-1.5">
-                    {insights.weekday.map((v, w) => {
-                      const valor = insights.weekdayValor[w];
-                      const pctTotal = totalRecords ? (v / totalRecords) * 100 : 0;
-                      return (
-                        <HoverCard key={w} openDelay={0}>
-                          <HoverCardTrigger asChild>
-                            <div className="flex items-center gap-2 cursor-default">
-                              <span className="text-xs text-muted-foreground w-10">{DAYS[w]}</span>
-                              <div className="flex-1 h-5 rounded bg-secondary relative overflow-hidden">
-                                <div className="absolute inset-y-0 left-0 transition-all" style={{
-                                  width: `${(v / maxDay) * 100}%`,
-                                  background: "linear-gradient(90deg, hsl(var(--primary) / 0.4), hsl(var(--primary) / 0.9))",
-                                }} />
-                                <span className="absolute inset-0 flex items-center justify-end pr-2 text-[10px] font-medium gap-2">
-                                  {source === "vendas" && valor > 0 && (
-                                    <span className="text-primary/90">{fmtMoney(valor)}</span>
-                                  )}
-                                  <span>{v}</span>
-                                </span>
-                              </div>
-                            </div>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="text-xs w-56 space-y-1">
-                            <p className="font-bold">{DAYS[w]}</p>
-                            <p>Contagem: <span className="font-semibold">{v}</span> ({pctTotal.toFixed(1)}% do total)</p>
-                            {source === "vendas" && valor > 0 && (
-                              <>
-                                <p>Faturado: <span className="text-primary font-semibold">{fmtMoney(valor)}</span></p>
-                                <p className="text-muted-foreground">Ticket médio: {fmtMoney(v ? valor / v : 0)}</p>
-                              </>
-                            )}
-                          </HoverCardContent>
-                        </HoverCard>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Gênero — donut */}
-                <div className="space-y-2 p-4 rounded-md bg-secondary/30 border border-border">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold">Gênero</h3>
-                    <Badge variant="outline" className="ml-auto text-[10px]">Inferido por nome</Badge>
-                  </div>
-                  <div className="flex items-center justify-center gap-6 py-2">
-                    <Donut f={insights.gender.F} m={insights.gender.M} u={insights.gender.U} total={insights.totalGender} />
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-pink-500"/> <span className="text-pink-400 font-bold w-10">{insights.gender.F}</span> Feminino · {Math.round((insights.gender.F / insights.totalGender) * 100)}%</div>
-                      <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"/> <span className="text-blue-400 font-bold w-10">{insights.gender.M}</span> Masculino · {Math.round((insights.gender.M / insights.totalGender) * 100)}%</div>
-                      <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-muted-foreground"/> <span className="text-muted-foreground font-bold w-10">{insights.gender.U}</span> N/D · {Math.round((insights.gender.U / insights.totalGender) * 100)}%</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Faixa Etária + UFs */}
-                <div className="space-y-2 p-4 rounded-md bg-secondary/30 border border-border">
-                  <div className="flex items-center gap-2">
-                    <Cake className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold">Faixa Etária</h3>
-                  </div>
-                  {(() => {
-                    const ageEntries = Object.entries(insights.ageBuckets).filter(([k, v]) => k !== "?" && v > 0);
-                    const total = ageEntries.reduce((a, [, v]) => a + v, 0);
-                    const maxBucket = Math.max(1, ...ageEntries.map(([, v]) => v));
-                    if (!ageEntries.length) return <p className="text-[10px] text-muted-foreground italic">Sem dados de idade.</p>;
-                    return (
-                      <div className="space-y-1">
-                        {ageEntries.map(([range, v]) => {
-                          const pct = total > 0 ? (v / total) * 100 : 0;
-                          const isMax = v === maxBucket;
-                          return (
-                            <div key={range} className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground w-12">{range}</span>
-                              <div className="flex-1 h-4 rounded bg-secondary relative overflow-hidden">
-                                <div className={`absolute inset-y-0 left-0 ${isMax ? "bg-primary" : "bg-primary/50"}`} style={{ width: `${pct}%` }} />
-                              </div>
-                              <span className="text-[10px] w-20 text-right tabular-nums">{v} · {pct.toFixed(0)}%</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                  {insights.ageBuckets["?"] > 0 && (
-                    <p className="text-[10px] text-muted-foreground italic">{insights.ageBuckets["?"]} sem data de nascimento.</p>
-                  )}
-
-                  <div className="flex items-center gap-2 pt-3 border-t border-border mt-3">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold">Top 10 Estados (DDD)</h3>
-                  </div>
-                  {insights.topUFs.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground italic">Sem telefones com DDD válido.</p>
-                  ) : (
-                    <div className="space-y-1 pt-1">
-                      {insights.topUFs.map(([uf, n]) => {
-                        const pct = (n / maxUF) * 100;
+                }
+              >
+                {[0, 1].map(row => (
+                  <div key={row}>
+                    <p className="text-[9px] text-muted-foreground mb-0.5">{row === 0 ? "AM (00–11h)" : "PM (12–23h)"}</p>
+                    <div className="grid grid-cols-12 gap-0.5">
+                      {insights.hourly.slice(row * 12, row * 12 + 12).map((v, idx) => {
+                        const h = row * 12 + idx;
+                        const intensity = v / maxHour;
+                        const rank = insights.hourRanking.findIndex(x => x.h === h);
+                        const valor = insights.hourlyValor[h];
+                        const pctTotal = totalRecords ? (v / totalRecords) * 100 : 0;
                         return (
-                          <div key={uf} className="flex items-center gap-2">
-                            <span className="text-xs w-14 flex items-center gap-1">
-                              <span>{UF_REGION_EMOJI[uf] || "📍"}</span>
-                              <span className="font-bold">{uf}</span>
-                            </span>
-                            <div className="flex-1 h-3.5 rounded bg-secondary relative overflow-hidden">
-                              <div className="absolute inset-y-0 left-0 bg-primary/70" style={{ width: `${pct}%` }} />
+                          <HoverCard key={h} openDelay={0}>
+                            <HoverCardTrigger asChild>
+                              <div
+                                className={`aspect-square rounded-sm border flex items-center justify-center cursor-default ${rank >= 0 && rank < 3 ? "border-primary" : "border-border/40"}`}
+                                style={{ background: `hsl(var(--primary) / ${0.08 + intensity * 0.85})` }}
+                              >
+                                <span className="text-[8px] font-bold text-foreground/70">{h}</span>
+                              </div>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-60 text-xs space-y-1">
+                              <p className="font-bold flex items-center gap-1">
+                                {String(h).padStart(2, "0")}:00 BRT
+                                {rank >= 0 && rank < 3 && (
+                                  <Badge variant="default" className="ml-1 text-[9px]">
+                                    {rank === 0 ? "🥇" : rank === 1 ? "🥈" : "🥉"} #{rank + 1}
+                                  </Badge>
+                                )}
+                              </p>
+                              <p>Contagem: <span className="font-semibold">{v}</span> ({pctTotal.toFixed(1)}% do total)</p>
+                              {source === "vendas" && valor > 0 && (
+                                <>
+                                  <p>Faturado: <span className="text-primary font-semibold">{fmtMoney(valor)}</span></p>
+                                  <p className="text-muted-foreground">Ticket médio: {fmtMoney(v ? valor / v : 0)}</p>
+                                </>
+                              )}
+                              {v === 0 && <p className="text-muted-foreground italic">Nenhum registro nesta hora.</p>}
+                            </HoverCardContent>
+                          </HoverCard>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </SectionCard>
+
+              {/* QUANDO — Dias da semana */}
+              <SectionCard
+                icon={<Calendar className="h-4 w-4 text-primary" />}
+                title="Dias da Semana"
+                desc="Volume e receita por dia"
+                action={<Badge variant="outline" className="text-[10px]">Melhor: {DAYS[insights.peakDay]}</Badge>}
+              >
+                <div className="space-y-1.5">
+                  {insights.weekday.map((v, w) => {
+                    const valor = insights.weekdayValor[w];
+                    const pctTotal = totalRecords ? (v / totalRecords) * 100 : 0;
+                    return (
+                      <HoverCard key={w} openDelay={0}>
+                        <HoverCardTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-default">
+                            <span className="text-xs text-muted-foreground w-10">{DAYS[w]}</span>
+                            <div className="flex-1 h-5 rounded bg-secondary relative overflow-hidden">
+                              <div className="absolute inset-y-0 left-0 transition-all" style={{
+                                width: `${(v / maxDay) * 100}%`,
+                                background: "linear-gradient(90deg, hsl(var(--primary) / 0.4), hsl(var(--primary) / 0.9))",
+                              }} />
+                              <span className="absolute inset-0 flex items-center justify-end pr-2 text-[10px] font-medium gap-2">
+                                {source === "vendas" && valor > 0 && (
+                                  <span className="text-primary/90">{fmtMoney(valor)}</span>
+                                )}
+                                <span>{v}</span>
+                              </span>
                             </div>
-                            <span className="text-[10px] w-10 text-right tabular-nums">{n}</span>
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="text-xs w-56 space-y-1">
+                          <p className="font-bold">{DAYS[w]}</p>
+                          <p>Contagem: <span className="font-semibold">{v}</span> ({pctTotal.toFixed(1)}% do total)</p>
+                          {source === "vendas" && valor > 0 && (
+                            <>
+                              <p>Faturado: <span className="text-primary font-semibold">{fmtMoney(valor)}</span></p>
+                              <p className="text-muted-foreground">Ticket médio: {fmtMoney(v ? valor / v : 0)}</p>
+                            </>
+                          )}
+                        </HoverCardContent>
+                      </HoverCard>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+
+              {/* QUEM — Gênero */}
+              <SectionCard
+                icon={<Users className="h-4 w-4 text-primary" />}
+                title="Gênero"
+                desc="Distribuição inferida pelo nome"
+                action={<Badge variant="outline" className="text-[10px]">Inferido</Badge>}
+              >
+                <div className="flex items-center justify-center gap-6 py-2">
+                  <Donut f={insights.gender.F} m={insights.gender.M} u={insights.gender.U} total={insights.totalGender} />
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-pink-500"/> <span className="text-pink-400 font-bold w-10">{insights.gender.F}</span> Feminino · {Math.round((insights.gender.F / insights.totalGender) * 100)}%</div>
+                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"/> <span className="text-blue-400 font-bold w-10">{insights.gender.M}</span> Masculino · {Math.round((insights.gender.M / insights.totalGender) * 100)}%</div>
+                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-muted-foreground"/> <span className="text-muted-foreground font-bold w-10">{insights.gender.U}</span> N/D · {Math.round((insights.gender.U / insights.totalGender) * 100)}%</div>
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* QUEM & ONDE — Faixa Etária + UFs */}
+              <SectionCard
+                icon={<Cake className="h-4 w-4 text-primary" />}
+                title="Faixa Etária & Localização"
+                desc="Idade calculada e top estados pelo DDD"
+              >
+                {(() => {
+                  const ageEntries = Object.entries(insights.ageBuckets).filter(([k, v]) => k !== "?" && v > 0);
+                  const total = ageEntries.reduce((a, [, v]) => a + v, 0);
+                  const maxBucket = Math.max(1, ...ageEntries.map(([, v]) => v));
+                  if (!ageEntries.length) return <p className="text-[10px] text-muted-foreground italic">Sem dados de idade.</p>;
+                  return (
+                    <div className="space-y-1">
+                      {ageEntries.map(([range, v]) => {
+                        const pct = total > 0 ? (v / total) * 100 : 0;
+                        const isMax = v === maxBucket;
+                        return (
+                          <div key={range} className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground w-12">{range}</span>
+                            <div className="flex-1 h-4 rounded bg-secondary relative overflow-hidden">
+                              <div className={`absolute inset-y-0 left-0 ${isMax ? "bg-primary" : "bg-primary/50"}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-[10px] w-20 text-right tabular-nums">{v} · {pct.toFixed(0)}%</span>
                           </div>
                         );
                       })}
                     </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                  );
+                })()}
+                {insights.ageBuckets["?"] > 0 && (
+                  <p className="text-[10px] text-muted-foreground italic">{insights.ageBuckets["?"]} sem data de nascimento.</p>
+                )}
 
-      {/* ===================== ADS — FUNIL DE TRÁFEGO ===================== */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans flex items-center gap-2">
-            <Activity className="h-4 w-4" /> Insights de Ads — Funil de Tráfego
-            {produto !== ALL_PRODUCTS && (
-              <Badge variant="outline" className="ml-2 text-[10px] normal-case">Filtro: {produto}</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {adsLoading ? (
-            <div className="flex items-center justify-center py-10 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              {adsProgress > 0 ? `Carregando ${fmtNum(adsProgress)} registros…` : "Carregando ads..."}
+                <div className="flex items-center gap-2 pt-3 border-t border-border mt-3">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <h4 className="text-xs font-semibold">Top 10 Estados (DDD)</h4>
+                </div>
+                {insights.topUFs.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground italic">Sem telefones com DDD válido.</p>
+                ) : (
+                  <div className="space-y-1 pt-1">
+                    {insights.topUFs.map(([uf, n]) => {
+                      const pct = (n / maxUF) * 100;
+                      return (
+                        <div key={uf} className="flex items-center gap-2">
+                          <span className="text-xs w-14 flex items-center gap-1">
+                            <span>{UF_REGION_EMOJI[uf] || "📍"}</span>
+                            <span className="font-bold">{uf}</span>
+                          </span>
+                          <div className="flex-1 h-3.5 rounded bg-secondary relative overflow-hidden">
+                            <div className="absolute inset-y-0 left-0 bg-primary/70" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-[10px] w-10 text-right tabular-nums">{n}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </SectionCard>
             </div>
-          ) : adsRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Nenhum dado de Ads para este projeto/período{produto !== ALL_PRODUCTS ? " com esse produto" : ""}.
-            </p>
+          )}
+        </TabsContent>
+
+        {/* ---------- TAB 2: TRÁFEGO & ADS ---------- */}
+        <TabsContent value="ads" className="space-y-4 mt-0">
+          {adsLoading ? (
+            <LoadingGrid />
+          ) : adsEmpty ? (
+            <EmptyState message={`Sem dados de Ads no período${produto !== ALL_PRODUCTS ? " com esse produto" : ""}. Verifique a sincronização do Facebook Ads.`} />
           ) : (
             <>
-              {/* KPIs auxiliares com HoverCard de benchmark */}
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                <KpiBox label="Investido" value={fmtMoney(adsAgg.spend)} icon={<DollarSign className="h-3 w-3" />} />
-                <KpiBox label="CTR médio" value={`${adsAgg.ctr.toFixed(2)}%`} color={semColor(semaforo("ctr", adsAgg.ctr))} hint={semaforoBenchmark.ctr} status={semaforo("ctr", adsAgg.ctr)} />
-                <KpiBox label="CPM" value={fmtMoney(adsAgg.cpm)} hint="Custo por mil impressões." />
-                <KpiBox label="Hook Rate" value={`${adsAgg.hook.toFixed(1)}%`} color={semColor(semaforo("hook", adsAgg.hook))} hint={semaforoBenchmark.hook} status={semaforo("hook", adsAgg.hook)} />
-                <KpiBox label="Hold Rate" value={`${adsAgg.hold.toFixed(1)}%`} color={semColor(semaforo("hold", adsAgg.hold))} hint={semaforoBenchmark.hold} status={semaforo("hold", adsAgg.hold)} />
-                <KpiBox label="Frequência" value={adsAgg.freq.toFixed(2)} color={semColor(semaforo("freq", adsAgg.freq))} hint={semaforoBenchmark.freq} status={semaforo("freq", adsAgg.freq)} />
-              </div>
+              {/* Diagnóstico automático no topo */}
+              <SectionCard
+                icon={<Zap className="h-4 w-4 text-primary" />}
+                title="Diagnóstico Automático"
+                desc="Sinais detectados no funil de tráfego"
+              >
+                <div className="space-y-2">
+                  {diagnostics.map((d, i) => (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-md border flex items-start gap-2 ${
+                        d.severity === "danger" ? "border-red-500/40 bg-red-500/5" :
+                        d.severity === "warn" ? "border-amber-500/40 bg-amber-500/5" :
+                        "border-emerald-500/40 bg-emerald-500/5"
+                      }`}
+                    >
+                      {d.severity === "danger" ? <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" /> :
+                       d.severity === "warn" ? <TrendingDown className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" /> :
+                       <Sparkles className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />}
+                      <div>
+                        <p className={`text-sm font-semibold ${
+                          d.severity === "danger" ? "text-red-300" :
+                          d.severity === "warn" ? "text-amber-300" : "text-emerald-300"
+                        }`}>{d.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{d.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
 
-              {/* Detector de lentidão — alerta destacado */}
-              {adsAgg.linkClicks > 0 && adsAgg.lp_views > 0 && adsAgg.clickToLpRatio > 1.4 && (
+              {/* Alerta destacado de LP lenta */}
+              {lpSlow && (
                 <div className="p-4 rounded-md border-2 border-red-500/60 bg-red-500/10 flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
                   <div className="flex-1">
@@ -473,11 +461,12 @@ export function ProjetoInsights({ projectId }: Props) {
                 </div>
               )}
 
-              {/* Funil horizontal com HoverCard */}
-              <div>
-                <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                  <Target className="h-3.5 w-3.5" /> Funil de conversão (etapa → próxima)
-                </h3>
+              {/* Funil */}
+              <SectionCard
+                icon={<Target className="h-4 w-4 text-primary" />}
+                title="Funil de Conversão"
+                desc="6 etapas · passe o mouse para detalhes"
+              >
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                   {funnelSteps.map((step) => {
                     const dropBad = step.drop != null && step.drop > 70;
@@ -517,41 +506,67 @@ export function ProjetoInsights({ projectId }: Props) {
                     );
                   })}
                 </div>
-              </div>
+              </SectionCard>
 
-              {/* Diagnósticos */}
-              <div>
-                <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                  <Zap className="h-3.5 w-3.5" /> Diagnóstico automático
-                </h3>
-                <div className="space-y-2">
-                  {diagnostics.map((d, i) => (
-                    <div
-                      key={i}
-                      className={`p-3 rounded-md border flex items-start gap-2 ${
-                        d.severity === "danger" ? "border-red-500/40 bg-red-500/5" :
-                        d.severity === "warn" ? "border-amber-500/40 bg-amber-500/5" :
-                        "border-emerald-500/40 bg-emerald-500/5"
-                      }`}
-                    >
-                      {d.severity === "danger" ? <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" /> :
-                       d.severity === "warn" ? <TrendingDown className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" /> :
-                       <Sparkles className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />}
-                      <div>
-                        <p className={`text-sm font-semibold ${
-                          d.severity === "danger" ? "text-red-300" :
-                          d.severity === "warn" ? "text-amber-300" : "text-emerald-300"
-                        }`}>{d.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{d.detail}</p>
-                      </div>
-                    </div>
-                  ))}
+              {/* KPIs */}
+              <SectionCard
+                icon={<BarChart3 className="h-4 w-4 text-primary" />}
+                title="KPIs com Semáforo"
+                desc="Métricas-chave com benchmarks de mercado"
+              >
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                  <KpiBox label="Investido" value={fmtMoney(adsAgg.spend)} icon={<DollarSign className="h-3 w-3" />} />
+                  <KpiBox label="CTR médio" value={`${adsAgg.ctr.toFixed(2)}%`} color={semColor(semaforo("ctr", adsAgg.ctr))} hint={semaforoBenchmark.ctr} status={semaforo("ctr", adsAgg.ctr)} />
+                  <KpiBox label="CPM" value={fmtMoney(adsAgg.cpm)} hint="Custo por mil impressões." />
+                  <KpiBox label="Hook Rate" value={`${adsAgg.hook.toFixed(1)}%`} color={semColor(semaforo("hook", adsAgg.hook))} hint={semaforoBenchmark.hook} status={semaforo("hook", adsAgg.hook)} />
+                  <KpiBox label="Hold Rate" value={`${adsAgg.hold.toFixed(1)}%`} color={semColor(semaforo("hold", adsAgg.hold))} hint={semaforoBenchmark.hold} status={semaforo("hold", adsAgg.hold)} />
+                  <KpiBox label="Frequência" value={adsAgg.freq.toFixed(2)} color={semColor(semaforo("freq", adsAgg.freq))} hint={semaforoBenchmark.freq} status={semaforo("freq", adsAgg.freq)} />
                 </div>
-              </div>
+              </SectionCard>
             </>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        {/* ---------- TAB 3: PRODUTOS ---------- */}
+        <TabsContent value="produtos" className="space-y-4 mt-0">
+          {loading ? (
+            <LoadingGrid />
+          ) : insights.topProducts.length === 0 ? (
+            <EmptyState message="Sem produtos com registros no período. Tente ampliar o período ou limpar o filtro." />
+          ) : (
+            <SectionCard
+              icon={<Package className="h-4 w-4 text-primary" />}
+              title="Ranking de Produtos"
+              desc="Clique em um produto para abrir o drill-down completo"
+            >
+              <div className="space-y-1">
+                {insights.topProducts.map(p => {
+                  const ref = p.valor || p.count;
+                  const pct = (ref / maxProductValor) * 100;
+                  const pctTotal = totalRecords ? (p.count / totalRecords) * 100 : 0;
+                  return (
+                    <button
+                      key={p.nome}
+                      onClick={() => setDrillProduct(p.nome)}
+                      className="w-full flex items-center gap-3 group hover:bg-secondary/60 rounded-md px-3 py-2.5 transition-colors text-left border border-transparent hover:border-border"
+                    >
+                      <span className="text-xs flex-1 truncate text-foreground group-hover:text-primary font-medium">{p.nome}</span>
+                      <div className="w-40 h-2.5 rounded bg-secondary relative overflow-hidden">
+                        <div className="absolute inset-y-0 left-0 bg-primary/70" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground w-24 text-right tabular-nums">{p.count} reg · {pctTotal.toFixed(0)}%</span>
+                      {p.valor > 0 && (
+                        <span className="text-xs text-primary w-24 text-right tabular-nums font-semibold">{fmtMoney(p.valor)}</span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                    </button>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <ProductInsightDrawer
         open={drillProduct !== null}
@@ -562,6 +577,75 @@ export function ProjetoInsights({ projectId }: Props) {
         period={period}
       />
     </div>
+  );
+}
+
+// ===== Subcomponentes de layout =====
+function SectionCard({
+  icon, title, desc, action, children,
+}: { icon: React.ReactNode; title: string; desc?: string; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Card className="bg-card border-border">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5">{icon}</div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+              {desc && <p className="text-[11px] text-muted-foreground">{desc}</p>}
+            </div>
+          </div>
+          {action}
+        </div>
+        <div className="space-y-2">{children}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SummaryKpi({
+  label, value, icon, accent,
+}: { label: string; value: string | null; icon: React.ReactNode; accent?: boolean }) {
+  return (
+    <Card className="bg-card border-border">
+      <CardContent className="p-4">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          {icon} {label}
+        </p>
+        {value === null ? (
+          <Skeleton className="h-7 w-24 mt-1.5" />
+        ) : (
+          <p className={`text-2xl font-bold tabular-nums mt-1 ${accent ? "text-primary" : "text-foreground"}`}>{value}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function LoadingGrid() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {[0, 1, 2, 3].map(i => (
+        <Card key={i} className="bg-card border-border">
+          <CardContent className="p-4 space-y-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-48" />
+            <Skeleton className="h-32 w-full" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <Card className="bg-card border-border border-dashed">
+      <CardContent className="p-10 flex flex-col items-center justify-center text-center gap-2">
+        <AlertTriangle className="h-8 w-8 text-muted-foreground/60" />
+        <p className="text-sm text-muted-foreground max-w-sm">{message}</p>
+      </CardContent>
+    </Card>
   );
 }
 
