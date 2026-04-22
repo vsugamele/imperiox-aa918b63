@@ -3,10 +3,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
-import { TrendingUp, TrendingDown, Calendar, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, Calendar, Target, ChevronRight, Zap } from "lucide-react";
 
 interface ProjectSummary { id: string; name: string; receita: number; custo: number; lucro: number; roi: number; ads: number; roas: number; cpa: number; vendasCount: number; }
 interface DailyData { date: string; ads: number; vendas: number; }
+interface CampaignEfficiency { campanha: string; gasto: number; vendas: number; receita: number; roas: number; }
 interface Props {
   projectSummaries: ProjectSummary[];
   dailyData?: DailyData[];
@@ -15,6 +16,9 @@ interface Props {
   totalVendasCount?: number;
   totalCustos?: number;
   filterDateFrom?: string;
+  totalCliques?: number;
+  totalCheckouts?: number;
+  campaignEfficiency?: CampaignEfficiency[];
 }
 
 export function FinancasOverview({ projectSummaries, dailyData = [], totalAds = 0, totalVendas = 0, totalVendasCount = 0, totalCustos = 0, filterDateFrom }: Props) {
