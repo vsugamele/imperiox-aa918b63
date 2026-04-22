@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
-import { ExternalLink, ShoppingCart, Users, DollarSign, TrendingUp, Wallet, Target, Megaphone, Activity, Zap } from "lucide-react";
+import { ExternalLink, ShoppingCart, Users, DollarSign, TrendingUp, Wallet, Target, Megaphone, Activity, Zap, Clock, MessageCircle, RefreshCw } from "lucide-react";
 import { getPeriodRange } from "@/lib/periodUtils";
+import { toast } from "sonner";
 
 export type DrillMetric =
   | "revenue"
@@ -19,7 +21,8 @@ export type DrillMetric =
   | "ads_cpa"
   | "ads_checkout_cost"
   | "ads_purchases"
-  | "campaign";
+  | "campaign"
+  | "pix_pending";
 
 interface Props {
   open: boolean;
@@ -46,6 +49,7 @@ const titleMap: Record<DrillMetric, { title: string; desc: string; icon: any }> 
   ads_checkout_cost: { title: "Custo por Checkout", desc: "Detalhamento por campanha", icon: ShoppingCart },
   ads_purchases: { title: "Compras (Pixel)", desc: "Compras atribuídas pelo Pixel", icon: ShoppingCart },
   campaign: { title: "Detalhe da campanha", desc: "Adsets, criativos e métricas", icon: Megaphone },
+  pix_pending: { title: "PIX / Boleto pendentes", desc: "Pagamentos em pipeline aguardando confirmação", icon: Clock },
 };
 
 export default function DashboardDrillSheet({
@@ -64,6 +68,14 @@ export default function DashboardDrillSheet({
   const [custos, setCustos] = useState<any[]>([]);
   const [breakdown, setBreakdown] = useState<{ revenue: number; ads: number; op: number } | null>(null);
   const [campaignDetail, setCampaignDetail] = useState<{ adsets: any[]; criativos: any[]; vendasUtm: any[] } | null>(null);
+  const [pixPending, setPixPending] = useState<any[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  async function reprocessPix(vendaId: string) {
+    const { error } = await supabase.from("imphq_vendas").update({ status: "aprovado" }).eq("id", vendaId);
+    if (error) toast.error("Erro ao aprovar manualmente");
+    else { toast.success("Marcado como aprovado"); setReloadKey(k => k + 1); }
+  }
 
   useEffect(() => {
     if (!open || !metric) return;

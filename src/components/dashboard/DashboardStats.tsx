@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { FolderKanban, ListTodo, DollarSign, Users, TrendingUp, Wallet, Target, ShoppingCart } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, TrendingUp, Wallet, Target, ShoppingCart, Clock } from "lucide-react";
 import { getPeriodRange, getPreviousPeriodRange, calcDelta } from "@/lib/periodUtils";
 import { DeltaBadge } from "./DeltaBadge";
 import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
@@ -15,6 +15,8 @@ interface Stats {
   opCost: number;
   revenue: number;
   salesCount: number;
+  pixPendingCount: number;
+  pixPendingValue: number;
 }
 
 interface Props {
@@ -26,8 +28,8 @@ interface Props {
 
 export default function DashboardStats({ period, projectFilter, productFilter, compare = false }: Props) {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0 });
-  const [prevStats, setPrevStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0 });
+  const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0, pixPendingCount: 0, pixPendingValue: 0 });
+  const [prevStats, setPrevStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0, pixPendingCount: 0, pixPendingValue: 0 });
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillMetric, setDrillMetric] = useState<DrillMetric | null>(null);
 
@@ -56,10 +58,16 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
       if (projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
       if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
 
-      const [projRes, taskRes, leadRes, costRes, adsRes, vendasRes]: any = await Promise.all([
+      let pixQ: any = supabase.from("imphq_vendas").select("valor, status")
+        .gte("data_venda", from).lte("data_venda", to)
+        .in("status", ["pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente"]);
+      if (projectFilter !== "all") pixQ = pixQ.eq("project_id", projectFilter);
+      if (productFilter && productFilter !== "all") pixQ = pixQ.eq("produto_nome", productFilter);
+
+      const [projRes, taskRes, leadRes, costRes, adsRes, vendasRes, pixRes]: any = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
-        leadsQ, costQ, adsQ, vendasQ,
+        leadsQ, costQ, adsQ, vendasQ, pixQ,
       ]);
 
       const sumByCurrency = (rows: any[], field = "valor") => rows.reduce((acc, r) => {
@@ -71,6 +79,8 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
       const adsCost = sumByCurrency(adsRes.data || []);
       const vendas = vendasRes.data || [];
       const revenue = vendas.reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
+      const pixRows = pixRes.data || [];
+      const pixPendingValue = pixRows.reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
 
       return {
         projects: projRes.count || 0,
@@ -80,6 +90,8 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
         opCost,
         revenue,
         salesCount: vendas.length,
+        pixPendingCount: pixRows.length,
+        pixPendingValue,
       };
     }
 
@@ -112,6 +124,7 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
     { label: "ROAS Real", drill: "roas" as DrillMetric, value: roas, prev: prevRoas, icon: Target, gradient: roas >= 2 ? "from-emerald-500/15 to-emerald-500/5" : roas >= 1 ? "from-amber-500/15 to-amber-500/5" : "from-red-500/15 to-red-500/5", iconBg: roas >= 2 ? "bg-emerald-500/15 text-emerald-400" : roas >= 1 ? "bg-amber-500/15 text-amber-400" : "bg-red-500/15 text-red-400", textColor: roas >= 2 ? "text-emerald-400" : roas >= 1 ? "text-amber-400" : "text-red-400", inverse: false, formatted: roas > 0 ? `${roas.toFixed(2)}x` : "—" },
     { label: "Custo Total", drill: "cost" as DrillMetric, value: totalCost, prev: prevTotalCost, icon: DollarSign, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400", inverse: true, formatted: fmtBRL(totalCost), sub: `Ads ${fmtBRL(stats.adsCost)} · Op ${fmtBRL(stats.opCost)}` },
     { label: "Vendas", drill: "sales" as DrillMetric, value: stats.salesCount, prev: prevStats.salesCount, icon: ShoppingCart, gradient: "from-primary/15 to-primary/5", iconBg: "bg-primary/15 text-primary", textColor: "text-primary", inverse: false, formatted: String(stats.salesCount) },
+    { label: "PIX Pendentes", drill: "pix_pending" as DrillMetric, value: stats.pixPendingCount, prev: prevStats.pixPendingCount, icon: Clock, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400", inverse: true, formatted: String(stats.pixPendingCount), sub: stats.pixPendingValue > 0 ? `${fmtBRL(stats.pixPendingValue)} em pipeline` : undefined },
     { label: "Leads", drill: "leads" as DrillMetric, value: stats.leads, prev: prevStats.leads, icon: Users, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400", inverse: false, formatted: String(stats.leads) },
     { label: "Tarefas Pend.", nav: "/tarefas", value: stats.tasks, prev: prevStats.tasks, icon: ListTodo, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400", inverse: true, formatted: String(stats.tasks) },
     { label: "Projetos", nav: "/projetos", value: stats.projects, prev: prevStats.projects, icon: FolderKanban, gradient: "from-secondary/30 to-secondary/10", iconBg: "bg-secondary text-foreground", textColor: "text-foreground", inverse: false, formatted: String(stats.projects) },
