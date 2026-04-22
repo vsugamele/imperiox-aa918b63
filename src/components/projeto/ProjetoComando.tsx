@@ -540,6 +540,14 @@ export function ProjetoComando({ projectId, project }: Props) {
           </CardContent>
         </Card>
       )}
+      <ProductInsightDrawer
+        open={!!drawerProduto}
+        onClose={() => setDrawerProduto(null)}
+        projectId={projectId}
+        produto={drawerProduto}
+        source="vendas"
+        period="30d"
+      />
     </div>
   );
 }
