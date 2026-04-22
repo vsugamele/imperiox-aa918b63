@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { FolderKanban, ListTodo, DollarSign, Users, TrendingUp, Wallet, Target, ShoppingCart } from "lucide-react";
+import { FolderKanban, ListTodo, DollarSign, Users, TrendingUp, Wallet, Target, ShoppingCart, Clock } from "lucide-react";
 import { getPeriodRange, getPreviousPeriodRange, calcDelta } from "@/lib/periodUtils";
 import { DeltaBadge } from "./DeltaBadge";
 import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
