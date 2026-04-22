@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTriangle, ShoppingCart, Zap, Activity } from "lucide-react";
+import { Plus, Trash2, Pencil, Upload, MousePointerClick, Eye, Target, BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTriangle, ShoppingCart, Zap, Activity, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { AdsImportDialog } from "./AdsImportDialog";
 import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
