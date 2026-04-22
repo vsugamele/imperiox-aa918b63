@@ -7,10 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { ProjetoBriefing } from "@/components/projeto/ProjetoBriefing";
+import { ProjetoIdentidade } from "@/components/projeto/ProjetoIdentidade";
 import { ProjetoExpert } from "@/components/projeto/ProjetoExpert";
 import { ProjetoAvatar } from "@/components/projeto/ProjetoAvatar";
-import { ProjetoBranding } from "@/components/projeto/ProjetoBranding";
 import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
 // ProjetoPesquisa removed — unified into ProjetoPesquisaInteligente
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
@@ -22,7 +21,6 @@ import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
-import { RoteirosViraisLibrary } from "@/components/projeto/RoteirosViraisLibrary";
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
 import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
 import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
@@ -193,10 +191,9 @@ export default function ProjetoDetalhe() {
       <Tabs defaultValue="comando">
         <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="comando">🎯 Comando</TabsTrigger>
-          <TabsTrigger value="briefing">📋 Briefing</TabsTrigger>
+          <TabsTrigger value="identidade">🎨 Identidade</TabsTrigger>
           <TabsTrigger value="expert">👤 Expert</TabsTrigger>
           <TabsTrigger value="avatar">🎭 Avatar</TabsTrigger>
-          <TabsTrigger value="branding">🎨 Branding</TabsTrigger>
           <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
           <TabsTrigger value="pesquisa">🔍 Pesquisa</TabsTrigger>
           <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
@@ -205,8 +202,7 @@ export default function ProjetoDetalhe() {
           <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
           <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
           <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
-          <TabsTrigger value="central">✍️ Conteúdo IA</TabsTrigger>
-          <TabsTrigger value="reels">🎬 Roteiros Reels</TabsTrigger>
+          <TabsTrigger value="central">✍️ Conteúdo</TabsTrigger>
           <TabsTrigger value="flowcharts">🗺️ Fluxogramas</TabsTrigger>
           <TabsTrigger value="expert_panel">🧭 Painel Expert</TabsTrigger>
           <TabsTrigger value="insights">✨ Insights</TabsTrigger>
@@ -216,17 +212,19 @@ export default function ProjetoDetalhe() {
         <TabsContent value="comando" className="mt-4">
           <ProjetoComando projectId={id!} project={project} />
         </TabsContent>
-        <TabsContent value="briefing" className="mt-4">
-          <ProjetoBriefing project={project} onUpdateData={onUpdateData} onUpdatePipeline={onUpdatePipeline} />
+        <TabsContent value="identidade" className="mt-4">
+          <ProjetoIdentidade
+            project={project}
+            onUpdateData={onUpdateData}
+            onUpdatePipeline={onUpdatePipeline}
+            onUpdateBrandKit={onUpdateBrandKit}
+          />
         </TabsContent>
         <TabsContent value="expert" className="mt-4">
           <ProjetoExpert project={project} onUpdateData={onUpdateData} />
         </TabsContent>
         <TabsContent value="avatar" className="mt-4">
           <ProjetoAvatar project={project} onUpdateData={onUpdateData} onUpdateAvatar={onUpdateAvatar} />
-        </TabsContent>
-        <TabsContent value="branding" className="mt-4">
-          <ProjetoBranding project={project} onUpdateBrandKit={onUpdateBrandKit} />
         </TabsContent>
         <TabsContent value="kpis" className="mt-4">
           <ProjetoKPIs project={project} onUpdateData={onUpdateData} />
@@ -254,9 +252,6 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="central" className="mt-4">
           <ProjetoCentralConteudo projectId={id!} project={project} onUpdateData={onUpdateData} />
-        </TabsContent>
-        <TabsContent value="reels" className="mt-4">
-          <RoteirosViraisLibrary projectId={id!} project={project} />
         </TabsContent>
         <TabsContent value="flowcharts" className="mt-4">
           <ProjetoFlowcharts project={project} onUpdateData={onUpdateData} />
