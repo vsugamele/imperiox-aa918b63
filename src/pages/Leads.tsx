@@ -576,6 +576,7 @@ export default function Leads() {
                   <TabsTrigger value="qualificacao" className="flex-1 text-xs">🎯 Qualificação</TabsTrigger>
                   <TabsTrigger value="jornada" className="flex-1 text-xs">🗺️ Jornada ({timeline.length})</TabsTrigger>
                   <TabsTrigger value="automacoes" className="flex-1 text-xs">⚡ Automações</TabsTrigger>
+                  <TabsTrigger value="nutricao" className="flex-1 text-xs">📧 Nutrição</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="dados" className="space-y-3">
