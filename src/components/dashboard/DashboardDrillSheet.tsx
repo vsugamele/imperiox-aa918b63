@@ -49,6 +49,7 @@ const titleMap: Record<DrillMetric, { title: string; desc: string; icon: any }> 
   ads_checkout_cost: { title: "Custo por Checkout", desc: "Detalhamento por campanha", icon: ShoppingCart },
   ads_purchases: { title: "Compras (Pixel)", desc: "Compras atribuídas pelo Pixel", icon: ShoppingCart },
   campaign: { title: "Detalhe da campanha", desc: "Adsets, criativos e métricas", icon: Megaphone },
+  pix_pending: { title: "PIX / Boleto pendentes", desc: "Pagamentos em pipeline aguardando confirmação", icon: Clock },
 };
 
 export default function DashboardDrillSheet({
