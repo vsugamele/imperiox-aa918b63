@@ -100,7 +100,7 @@ Retorne JSON: { "assunto": "...", "corpo_html": "...", "corpo_texto": "..." }`;
     const nome = lead.nome || (lead.email || "").split("@")[0];
     const renderVar = (s: string) => (s || "").replaceAll("{{nome}}", nome).replaceAll("{{produto}}", sequence.produto_nome);
     const assunto = renderVar(parsed.assunto || `Dia ${dia_numero}`).slice(0, 80);
-    const corpo_html = renderVar(parsed.corpo_html || "<p>Conteúdo</p>");
+    let corpo_html = renderVar(parsed.corpo_html || "<p>Conteúdo</p>");
     const corpo_texto = renderVar(parsed.corpo_texto || corpo_html.replace(/<[^>]+>/g, ""));
 
     const { data: newEmail, error: insErr } = await supabase.from("imphq_nurture_emails").insert({
@@ -114,6 +114,21 @@ Retorne JSON: { "assunto": "...", "corpo_html": "...", "corpo_texto": "..." }`;
     }).select().single();
 
     if (insErr) throw insErr;
+
+    // Inject tracking pixel + rewrite links now that we have the email ID
+    const trackBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/nurture-track`;
+    const eid = newEmail.id;
+    // Rewrite anchor hrefs (skip mailto/anchors and unsubscribe)
+    corpo_html = corpo_html.replace(/<a\s+([^>]*?)href="([^"]+)"([^>]*)>/gi, (match, pre, url, post) => {
+      if (url.startsWith("mailto:") || url.startsWith("#") || url.includes("unsubscribe_url")) return match;
+      const wrapped = `${trackBase}?eid=${eid}&type=click&url=${encodeURIComponent(url)}`;
+      return `<a ${pre}href="${wrapped}"${post}>`;
+    });
+    // Append tracking pixel
+    corpo_html += `<img src="${trackBase}?eid=${eid}&type=open" width="1" height="1" alt="" style="display:none" />`;
+
+    await supabase.from("imphq_nurture_emails").update({ corpo_html } as any).eq("id", eid);
+    newEmail.corpo_html = corpo_html;
 
     return new Response(JSON.stringify({ success: true, email: newEmail }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
