@@ -557,8 +557,10 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
           </div>
         </div>
       )}
+        </TabsContent>
+      </Tabs>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar Gasto" : "Novo Gasto de Ads"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
