@@ -27781,6 +27781,7 @@ export type Database = {
           created_at: string | null
           custom_domain: string | null
           id: string
+          imperio_project_id: string | null
           logo_url: string | null
           name: string
           openrouter_api_key: string | null
@@ -27796,6 +27797,7 @@ export type Database = {
           created_at?: string | null
           custom_domain?: string | null
           id?: string
+          imperio_project_id?: string | null
           logo_url?: string | null
           name: string
           openrouter_api_key?: string | null
@@ -27811,6 +27813,7 @@ export type Database = {
           created_at?: string | null
           custom_domain?: string | null
           id?: string
+          imperio_project_id?: string | null
           logo_url?: string | null
           name?: string
           openrouter_api_key?: string | null
