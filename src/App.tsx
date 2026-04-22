@@ -31,6 +31,7 @@ import Configuracoes from "./pages/Configuracoes";
 import Cofre from "./pages/Cofre";
 import Guia from "./pages/Guia";
 import ConteudoIA from "./pages/ConteudoIA";
+import Nutricao from "./pages/Nutricao";
 import Privacy from "./pages/Privacy";
 import ExpertPortal from "./pages/ExpertPortal";
 import Criativos from "./pages/Criativos";
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="configuracoes" element={<Configuracoes />} />
               <Route path="cofre" element={<Cofre />} />
               <Route path="conteudo-ia" element={<ConteudoIA />} />
+              <Route path="nutricao" element={<Nutricao />} />
               <Route path="guia" element={<Guia />} />
               <Route path="criativos" element={<Criativos />} />
               <Route path="criativos/novo" element={<CriativoNovo />} />
