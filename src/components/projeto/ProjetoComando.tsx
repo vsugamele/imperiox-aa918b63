@@ -74,8 +74,12 @@ export function ProjetoComando({ projectId, project }: Props) {
       sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")),
       sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
       sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", in48h).order("start_date", { ascending: true }),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).gte("data", monthStart.slice(0, 10)),
+      sb.from("imphq_leads").select("id, criado_em").eq("project_id", projectId).gte("criado_em", monthStart),
+      sb.from("imphq_vendas").select("id, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString()),
+      sb.from("imphq_content").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", new Date(new Date(dayStart).getTime() - 14 * 86400000).toISOString()),
     ];
-    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes] = await Promise.all(promises);
+    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes, adsMesRes, leadsMesRes, vendas7dRes, conteudos14dRes] = await Promise.all(promises);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
@@ -88,6 +92,10 @@ export function ProjetoComando({ projectId, project }: Props) {
     setAdsOntem(adsOntemRes.data || []);
     setVendasMes(vendasMesRes.data || []);
     setEvents48h(events48hRes.data || []);
+    setAdsMes(adsMesRes.data || []);
+    setLeadsMes(leadsMesRes.data || []);
+    setVendas7dArr(vendas7dRes.data || []);
+    setConteudos14d((conteudos14dRes as any).count || 0);
     setLoading(false);
   };
 
