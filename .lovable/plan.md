@@ -1,116 +1,104 @@
 
 
-## Análise das 4 perguntas + plano de evolução
+## Creative Factory 2.0 — Integração total com o projeto
 
-### 1. Diagnóstico Yoshitani — está funcionando?
+### Diagnóstico do que existe hoje
 
-**Funciona, mas com limitações sérias.** Olhei a lógica em `FinancasAds.tsx`:
+**O que funciona:**
+- Geração via Gemini Image (`google/gemini-3-pro-image-preview`) com 7 ângulos.
+- Edição de imagem por instrução textual.
+- Versionamento (parent → child) e ZIP/export pra Mídias.
+- Upload de fotos do expert + scrape de referências (Firecrawl).
 
-**O que está certo:**
-- Tendência 7/5/3 calculada corretamente (CPA 3d < 5d < 7d = MELHORANDO).
-- Normaliza nome de campanha removendo `[DD/MM]` pra não duplicar quando renomeia.
-- Detecta gargalo (Anúncio / Página / Checkout / Técnico) e sugere manobra.
-
-**O que está quebrado (visível no seu print):**
-- **Campanhas novas (3-5 dias) sempre aparecem como "INSTÁVEL"** porque exige `cpa3 && cpa5 && cpa7` simultâneos. Sua campanha "[NOVA PAGINA] 21/04" tem só 2 dias → marca instável mesmo estando OK.
-- **CPA 7d = R$ 36 mas marca PAUSE IMEDIATO** — porque `metaCpa = cpa7 * 0.8` quando não há compras suficientes, criando meta artificial absurdamente baixa. Campanha com 10 compras e CPA R$ 36 não devia receber pause.
-- **"$/Checkout", "LP→CKO", "CKO→Venda" mostram "—"** porque depende de `checkouts_iniciados` vir do Facebook — e geralmente não vem (só vem `compras` e `landing_page_views`). Sem isso, 3 dos 4 diagnósticos de gargalo ficam cegos.
-- **Meta CPA não tem âncora real**: devia vir do **ticket médio do produto × margem alvo** (ex: ticket R$ 297, margem 60% → CPA teto R$ 178), não de "80% do CPA atual".
-- **Não considera idade da campanha** — campanha com 1 dia não pode ser comparada com campanha de 14 dias.
-
-**Correções propostas (Sprint A):**
-- Adicionar campo `meta_cpa` no produto (ou calcular: `ticket_medio × 0.4`).
-- Período mínimo: 7 dias e ≥3 compras pra dar veredito "PAUSE". Antes disso = "OBSERVANDO".
-- Fallback quando `checkouts_iniciados` = 0: usar **CPA vs meta + frequência + CTR** como sinais, não invocar gargalo de checkout/página.
-- Badge "CAMPANHA NOVA (Xd)" pra campanhas <7 dias.
-- Tooltip explicando cada veredito ("Por que PAUSE?").
+**O que tá fraco:**
+1. **Briefing 100% manual** — usuário re-digita produto/dor/desejo toda vez, mesmo já existindo no Avatar/Briefing do projeto.
+2. **Não usa o Avatar** — perde dores, desejos, gatilhos, copy arsenal e camadas C1-C4 já mapeadas.
+3. **Não usa concorrentes escalados** — perde melhor referência de mercado disponível.
+4. **Não usa fotos do expert salvas no projeto** — expert_fotos é upload avulso.
+5. **Não usa identidade visual** (cores, tipografia, logo) salva em `ProjetoBranding`.
+6. **Headlines isoladas** — não puxam Copy Arsenal já validado.
+7. **Sem opção de provider** — só Gemini. Sem GPT-Image-1 da OpenAI (que costuma render texto/rosto melhor).
+8. **Saída não volta pro projeto** — vai pra biblioteca de mídias global, sem categoria/pasta por batch nem vínculo com um produto específico.
 
 ---
 
-### 2. Painel Expert + IA pra Stories diários
+### Plano em 3 sprints
 
-**Hoje:** o Painel mostra o plano mensal já gerado. Stories aparecem por sequência, **mas não há gerador de ideias diárias com base em contexto fresco.**
+#### Sprint E1 — Auto-preenchimento do projeto (alto impacto, baixo esforço)
 
-**Plano (Sprint B):**
-- **Botão "Gerar 5 ideias de Stories pra hoje"** no topo do painel.
-- Edge function consulta:
-  - Avatar + dores top 3 do projeto
-  - Vendas das últimas 24h (pra "comemorar" ou "puxar gancho")
-  - Leads quentes do dia (pra fazer story sobre objeção comum)
-  - Notícia do nicho (Firecrawl em fonte definida no briefing)
-  - Conteúdo já postado nos últimos 7 dias (pra não repetir)
-- Retorna 5 stories formatados: **Hook (3s) → Tensão → CTA**, prontos pra teleprompter.
-- Botão "Adicionar ao plano de hoje" salva direto no `expert_logs`.
-- **Modo "Stories de bastidor"**: gera ideias baseadas em algo que aconteceu hoje no negócio (ex: "Acabei de fechar 3 vendas em 1h — story sobre isso").
+**Em `CriativoNovo.tsx`:**
+- Ao escolher projeto, **carregar automaticamente**:
+  - Avatar ativo do produto (se houver) → preenche dor/desejo/mecanismo.
+  - Briefing do projeto → produto, público.
+  - Branding → cores e estilo visual no campo "extras".
+  - Top 3 dores e desejos → mostra como "puxar" (chips clicáveis).
+  - Headlines do Copy Arsenal → mostra abaixo pra reaproveitar.
+  - Fotos do expert salvas em `imphq_content_library` com tag `expert` → checkboxes ao invés de upload.
+  - Top concorrentes escalados → URLs pré-preenchidas como referência.
+- Toggle "**Modo Automático**": sem briefing — IA monta o briefing sozinha a partir do projeto + produto escolhido.
+- Seletor de **Produto específico** (lista de `imphq_products`) → IA usa ticket/promessa do produto.
 
----
-
-### 3. Aprofundamento de conteúdos
-
-**Hoje:** ContentGenerator gera copy isolado, sem encadeamento estratégico.
-
-**Plano (Sprint C):**
-- **Modo "Cluster de Conteúdo"**: dado 1 dor central, gera 1 mês de conteúdo encadeado:
-  - 4 Reels (um por semana, ângulo diferente da mesma dor)
-  - 8 Stories de apoio (sequências de 3-5 stories cada)
-  - 2 Posts educacionais
-  - 1 Live de fechamento
-  - 1 Email/WhatsApp de conversão
-- **"Aprofundar este conteúdo"** em qualquer item do plano:
-  - Gera roteiro completo (300-600 palavras) com gancho, desenvolvimento, prova, CTA
-  - Sugere 3 B-rolls + thumbnail + 5 hooks alternativos pra teste
-  - Cita a fonte (avatar/dor/concorrente) que embasou
-- **Análise de performance**: depois de postado, o usuário marca "bombou" / "morreu" → IA usa esse feedback pra próximos clusters.
+**Resultado:** usuário escolhe projeto + produto + ângulos → clica gerar. Zero digitação.
 
 ---
 
-### 4. Como a IA constrói o Avatar hoje + como melhorar
+#### Sprint E2 — Provider OpenAI (gpt-image-1) + escolha por job
 
-**Como funciona hoje** (`generate_avatar_perfil` em `openflow-ai/index.ts`):
+**Por que:** gpt-image-1 da OpenAI renderiza **texto na imagem** muito melhor que Gemini (essencial pra criativos com headline overlay) e mantém **fidelidade de rosto** com referência.
 
-1. Recebe `projectContext` (briefing + pesquisa + dores + desejos + concorrentes que já estão salvos no projeto).
-2. Manda pra Gemini com prompt: *"Você é psicólogo de consumo brasileiro. Com base nas pesquisas, dores, desejos e concorrentes, preencha o perfil psicológico completo."*
-3. Tool calling com schema rígido pedindo: retrato, arquétipo, ferida central, padrão, contradição, desejo externo/interno, inimigo, resultado sonhado, trigger event, fase de consciência, crença bloqueadora/necessária, epifania central, camadas C1-C4 da psique.
-4. Retorna JSON estruturado e salva.
+**Implementação:**
+- Adicionar campo `provider` no `imphq_creative_batches` (`gemini` | `openai`).
+- Adicionar secret `OPENAI_API_KEY` no Supabase (peço aprovação na execução).
+- Em `creative-factory/index.ts`, criar `generateImageOpenAI()` que chama `https://api.openai.com/v1/images/generations` com `model: "gpt-image-1"`, `quality: "high"`, `size` mapeado por formato (1024x1024 / 1024x1536 / 1536x1024).
+- Para edição com referência (expert_fotos), usar `https://api.openai.com/v1/images/edits` (suporta image input + prompt).
+- UI: toggle no `CriativoNovo` "Provider: Gemini (rápido/barato) | OpenAI gpt-image-1 (premium, melhor texto+rosto)".
+- Fallback automático: se OpenAI falhar (rate/credits), tenta Gemini e marca o asset.
 
-**Problemas:**
-- **Garbage in, garbage out**: se o briefing tá vazio ou genérico, o avatar vira clichê ("empreendedor frustrado que quer liberdade").
-- **Não usa concorrentes escalados** mesmo eles estando no projeto — perde o melhor sinal de mercado.
-- **Não usa transcrições/voyerismos reais** (frases literais de cliente).
-- **Sem validação cruzada**: a IA não confronta o que ela mesma escreveu.
-- **Single-shot**: uma chamada só, sem refinamento.
+**Custo transparente:** mostrar estimativa por provider antes de gerar (~$0.04 Gemini vs ~$0.19 OpenAI HD).
 
-**Plano (Sprint D) — Avatar 3.0:**
+---
 
-**Etapa 1 — Coleta enriquecida (pré-IA):**
-- Puxar **transcrições de voyerismo** (frases literais de cliente) se existirem.
-- Puxar **dossiês de concorrentes escalados** (oferta + dor que atacam + arquétipo).
-- Puxar **comentários reais** dos top 3 concorrentes via Firecrawl.
-- Puxar **histórico de vendas** (quem comprou — perfil demográfico se houver).
+#### Sprint E3 — Salvar de volta no projeto (loop fechado)
 
-**Etapa 2 — Pipeline em 3 passos (chain of thought):**
-- **Passo 1 — Pesquisador**: extrai 20 frases literais que o avatar diria (com fonte: comentário X, transcrição Y).
-- **Passo 2 — Psicólogo**: dado essas 20 frases, mapeia camadas C1-C4 e ferida central. **Cita evidência** pra cada conclusão.
-- **Passo 3 — Crítico**: revisa o avatar gerado. Marca campos clichê/genéricos e regenera só esses.
+**Hoje:** export joga em `imphq_content_library` sem categoria → some na biblioteca.
 
-**Etapa 3 — Score de confiança:**
-- Cada campo do avatar ganha badge: 🟢 Validado por evidência | 🟡 Inferido | 🔴 Especulativo.
-- Usuário vê onde IA chutou vs. onde tem base real.
+**Mudanças:**
+- Cada batch vira uma **pasta virtual em Mídias**: `content_category = "criativos/{batch_nome}"` (já segue padrão de pastas virtuais existente).
+- Cada asset salvo carrega tags: `criativo`, `ia`, `{angulo}`, `{produto}`, `{provider}`.
+- Adicionar **aba "Criativos IA"** dentro de `ProjetoDetalhe` (`ProjetoCentralConteudo` ou nova aba) listando todos os batches do projeto, com mini-grid de aprovados.
+- Botão "**Reutilizar este criativo**" em qualquer asset → leva pro `Criativos > novo` com briefing pré-preenchido daquele batch.
+- Ao publicar criativo no Meta Ads (futuro hook), marcar `imphq_creative_assets.published_at` pra fechar loop performance ↔ criativo.
 
-**Etapa 4 — Avatar vivo:**
-- Reprocessa quando: novo voyerismo importado, novo concorrente escalado, ou vendas cruzam X marcos.
-- Mantém histórico de versões pra comparar evolução.
+**Banco (migration pequena):**
+```sql
+ALTER TABLE imphq_creative_batches
+  ADD COLUMN provider TEXT DEFAULT 'gemini',
+  ADD COLUMN product_id TEXT,
+  ADD COLUMN auto_briefing BOOLEAN DEFAULT false;
+
+ALTER TABLE imphq_creative_assets
+  ADD COLUMN provider TEXT,
+  ADD COLUMN published_at TIMESTAMPTZ;
+```
 
 ---
 
 ### Ordem sugerida de execução
 
-| Sprint | Foco | Tamanho |
+| Sprint | Foco | Esforço |
 |---|---|---|
-| **A** | Corrigir Yoshitani (meta CPA real, gate de período, fallback de gargalo) | Pequeno (1 arquivo) |
-| **B** | Stories diários por IA no Painel Expert | Médio (1 edge function nova + UI) |
-| **C** | Cluster de conteúdo + aprofundamento | Grande (refator do ContentGenerator) |
-| **D** | Avatar 3.0 com pipeline em 3 passos + score de confiança | Grande (refator do `handleAvatarPerfil` + UI de evidências) |
+| **E1** | Auto-preencher do Avatar/Briefing/Branding/Concorrentes | Médio (1 arquivo + queries) |
+| **E2** | Provider OpenAI gpt-image-1 + seletor | Médio (edge function + UI + secret) |
+| **E3** | Salvar como pasta no projeto + aba "Criativos IA" no projeto | Médio (migration + 1 componente novo) |
 
-**Pergunta:** começo por **A** (correção rápida do diagnóstico) e **B** (stories diários, alto valor)? Ou prefere atacar direto o Avatar 3.0 (D) que é mais estratégico mas demora mais?
+### Fora de escopo (próxima rodada)
+- Geração de **vídeo** (Sora/Runway).
+- A/B test automático no Meta Ads.
+- Score preditivo de CTR antes de publicar (precisa histórico).
+
+### Pergunta antes de executar
+
+Provider OpenAI: ativo **gpt-image-1** (melhor mas pago — você precisa colocar `OPENAI_API_KEY`) ou prefere ficar só no Gemini por enquanto e adicionar OpenAI depois?
+
+Aprova começar por **E1** (auto-preenchimento — ganho imediato, sem dependência externa) e seguir E2 → E3?
 
