@@ -60,6 +60,10 @@ const titleMap: Record<DrillMetric, { title: string; desc: string; icon: any }> 
   ads_purchases: { title: "Compras (Pixel)", desc: "Compras atribuídas pelo Pixel", icon: ShoppingCart },
   campaign: { title: "Detalhe da campanha", desc: "Adsets, criativos e métricas", icon: Megaphone },
   pix_pending: { title: "PIX / Boleto pendentes", desc: "Pagamentos em pipeline aguardando confirmação", icon: Clock },
+  funnel_stage: { title: "Etapa do funil", desc: "Leads / vendas que compõem esta etapa", icon: Activity },
+  product: { title: "Detalhe do produto", desc: "Vendas e leads relacionados", icon: ShoppingCart },
+  project_revenue: { title: "Receita do projeto", desc: "Vendas do projeto no período", icon: TrendingUp },
+  day_revenue: { title: "Receita do dia", desc: "Vendas detalhadas do dia selecionado", icon: TrendingUp },
 };
 
 export default function DashboardDrillSheet({
