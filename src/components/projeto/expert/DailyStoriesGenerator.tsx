@@ -211,8 +211,8 @@ export function DailyStoriesGenerator({ projectId, onAddToToday }: Props) {
                     <p className="text-muted-foreground">{s.tensao}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase text-amber-500 font-semibold">CTA</span>
-                    <p className="text-amber-500/90">{s.cta}</p>
+                    <span className="text-[10px] uppercase text-primary font-semibold">CTA</span>
+                    <p className="text-primary/90">{s.cta}</p>
                   </div>
                 </div>
               </CardContent>
