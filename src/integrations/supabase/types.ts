@@ -3275,6 +3275,7 @@ export type Database = {
           category: string | null
           checkout_url: string | null
           created_at: string
+          curriculum_intro: string | null
           description: string | null
           duration_min: number
           enrolled_count: number
@@ -3313,6 +3314,7 @@ export type Database = {
           category?: string | null
           checkout_url?: string | null
           created_at?: string
+          curriculum_intro?: string | null
           description?: string | null
           duration_min?: number
           enrolled_count?: number
@@ -3351,6 +3353,7 @@ export type Database = {
           category?: string | null
           checkout_url?: string | null
           created_at?: string
+          curriculum_intro?: string | null
           description?: string | null
           duration_min?: number
           enrolled_count?: number
