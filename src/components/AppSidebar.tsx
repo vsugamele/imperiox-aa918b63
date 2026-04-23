@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, MessageCircle, BookOpen, Sparkles, Mail, LifeBuoy
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, MessageCircle, BookOpen, Sparkles, Mail, LifeBuoy, Layers
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +26,7 @@ const crmItems = [
   { title: "Metas", url: "/metas", icon: Target, color: "text-emerald-400" },
   { title: "Nutrição", url: "/nutricao", icon: Mail, color: "text-emerald-400" },
   { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy, color: "text-emerald-400" },
+  { title: "Cohort & LTV", url: "/cohort", icon: Layers, color: "text-emerald-400" },
 ];
 
 const aiItems = [
