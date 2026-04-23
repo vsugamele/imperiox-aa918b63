@@ -267,6 +267,9 @@ export function ProjetoComando({ projectId, project }: Props) {
             tooltip="Investimento em ads hoje vs ontem (menor é melhor se receita estável)."
           />
         </div>
+        <div className="mt-3">
+          <RecoveryKpiBlock projectId={projectId} />
+        </div>
       </div>
 
       {/* ===== Estratégia: Health + Meta + Notas ===== */}
