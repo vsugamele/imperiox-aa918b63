@@ -1,125 +1,100 @@
 
 
-## Plano: Próximas evoluções estratégicas para o Imperio HQ
+## Sprint 2: Retenção & Recuperação
 
-Análise do estado atual + 6 frentes de evolução priorizadas por **impacto no negócio × esforço**. Tudo aqui é proposta — você escolhe o que entra na próxima rodada.
-
----
-
-### Visão geral do que você já tem (forte)
-- CRM de leads com scoring + predição IA
-- Finanças com atribuição proporcional + projeção mensal
-- Ads com Yoshitani 7/5/3 + ROAS real via UTM
-- WhatsApp completo (campanhas, IA autônoma, grupos, alertas)
-- OpenFlow (automação visual)
-- Conteúdo IA + Criativos IA + Roteiros virais
-- Dashboard preditivo + alertas inteligentes
-- Identidade unificada (briefing + branding)
-
-### O que falta pra virar uma "central de comando" de verdade
+Próximo passo da ordem combinada. Foco: recuperar dinheiro que está vazando hoje (PIX/boleto não pago, carrinho abandonado, reembolsos).
 
 ---
 
-### 🎯 Frente 1 — Metas & OKRs (ALTO impacto, baixo esforço)
+### 1. Nova página `/recuperacao`
 
-**Problema**: Você tem dados, mas não tem **alvo**. Receita "boa" ou "ruim" depende de meta.
+Dashboard dedicado com 4 buckets visuais (cards no topo + lista detalhada abaixo):
 
-**Proposta**:
-- Tabela `imphq_project_goals`: meta mensal de receita, leads, vendas, ROAS por projeto.
-- Card "Meta do Mês" no Comando: progresso visual (barra) + projeção se vai bater (verde/amarelo/vermelho) + dias restantes.
-- Página `/metas` consolidada com todos os projetos.
-- Alerta automático quando ritmo está abaixo do necessário pra bater meta.
+- **PIX pendente** — gerado e não pago, separado em 2 faixas:
+  - 🔥 Urgente: 0–2h (alta chance de conversão)
+  - ⏰ Esfriando: 2–24h
+- **Boleto a vencer** — vence nas próximas 48h
+- **Carrinho abandonado** — checkout iniciado sem venda nos últimos 7d
+- **Reembolso/Chargeback** — últimos 30d (análise de causa)
 
----
-
-### 📊 Frente 2 — Cohort & LTV (ALTO impacto, médio esforço)
-
-**Problema**: Você vê receita do mês, mas não sabe **quanto cada cohort de lead retorna ao longo do tempo**.
-
-**Proposta**:
-- Análise de cohort por mês de captura: M0, M1, M2, M3 de receita.
-- LTV médio por origem (orgânico vs ads vs indicação).
-- Payback period: quantos dias pra recuperar CAC.
-- Aba nova em Finanças: "Cohort & LTV".
+Cada card mostra: contagem, valor total em risco, taxa de recuperação histórica.
 
 ---
 
-### 🤖 Frente 3 — Copilot Estratégico (ALTO impacto, alto esforço)
+### 2. Lista detalhada por bucket
 
-**Problema**: Dados estão espalhados. Você precisa de um "consultor IA" que olhe tudo e diga **o que fazer agora**.
+Tabela com: lead, produto, valor, tempo no bucket, último contato, ações rápidas.
 
-**Proposta**:
-- Chat lateral global (botão flutuante) com contexto do projeto ativo.
-- Acessa: vendas, ads, leads, branding, briefing, alertas.
-- Comandos sugeridos: "O que tá travando minha conversão?", "Onde investir mais R$ 1.000?", "Qual produto escalar?".
-- Resposta com **ação concreta** + link pra tela relevante.
-
----
-
-### 📅 Frente 4 — Planejamento & Calendário Editorial (MÉDIO impacto)
-
-**Problema**: Conteúdo IA gera, mas não tem **plano de publicação**.
-
-**Proposta**:
-- Calendário editorial visual (semana/mês) por projeto.
-- Drag-and-drop de roteiros/conteúdos pras datas.
-- Integração com lembretes (push/email).
-- Status: rascunho → revisão → publicado → métricas.
-- Vincular post publicado com KPIs (alcance, leads gerados).
+Ações por linha:
+- 📱 Enviar WhatsApp (template pronto)
+- 📧 Enviar e-mail (template pronto)
+- ✏️ Marcar como recuperado / perdido manualmente
+- 🔗 Abrir lead no CRM
 
 ---
 
-### 🔁 Frente 5 — Retenção & Recuperação (ALTO impacto)
+### 3. Templates de mensagens
 
-**Problema**: Você capta bem, mas **carrinho abandonado / boleto não pago / churn** não tem fluxo automatizado por padrão.
-
-**Proposta**:
-- Dashboard "Recuperação" com 4 buckets:
-  - PIX gerado e não pago (>2h, >24h)
-  - Boleto vencendo
-  - Carrinho abandonado (checkout iniciado, sem venda)
-  - Reembolso/chargeback
-- Templates de mensagens prontas (WhatsApp + email) por bucket.
-- Automação: trigger automático no OpenFlow ao entrar no bucket.
-- KPI: taxa de recuperação por canal.
+Tabela `imphq_recovery_templates` (por projeto):
+- Tipo (pix_2h, pix_24h, boleto, carrinho, reembolso)
+- Canal (whatsapp / email)
+- Assunto + corpo (com variáveis: {nome}, {produto}, {valor}, {link_pagamento})
+- Editáveis pelo usuário, com defaults sugeridos pela IA Imperius.
 
 ---
 
-### 🧪 Frente 6 — A/B Testing & Experimentos (MÉDIO impacto)
+### 4. Integração com OpenFlow
 
-**Problema**: Criativos e roteiros são gerados, mas não tem **framework de teste** estruturado.
-
-**Proposta**:
-- Tabela `imphq_experiments`: variante A vs B, métrica alvo, status.
-- Suporta: criativos de ad, headlines de LP, copies de WhatsApp, assuntos de email.
-- Resultado automático: vencedor estatístico (chi-square ou bayesiano).
-- Histórico de aprendizados ("o que funciona pro meu avatar").
+Botão "Automatizar este bucket" cria automaticamente um fluxo no OpenFlow:
+- Trigger: lead entra no bucket
+- Ação: enviar template após X minutos
+- Retry: re-enviar após Y horas se não houver pagamento
 
 ---
 
-### ⚡ Quick wins (1-2h cada, pode entrar junto)
-1. **Modo apresentação** no Dashboard (tela cheia, dados grandes, atualiza sozinho — pra reuniões).
-2. **Export PDF/CSV** de qualquer relatório (Finanças, Insights, Leads).
-3. **Comparar projetos** lado a lado (selecionar 2-3 e ver KPIs comparativos).
-4. **Notas estratégicas** por projeto (markdown + timestamp — diário de bordo do dono).
-5. **Atalhos de teclado globais** (Ctrl+K já tem busca, faltam ações: novo lead, nova venda, etc).
-6. **Health Score do projeto** (0-100): combina ROAS, conversão, NPS de leads, frequência de conteúdo. Card no topo do Comando.
+### 5. KPI de recuperação no Comando
+
+Novo mini-bloco no `ProjetoComando`:
+- **Recuperado este mês**: R$ X (Y vendas)
+- **Em risco agora**: R$ Z
+- Link "Ver detalhes" → `/recuperacao?projeto=X`
 
 ---
 
-### Minha recomendação de ordem (se fosse priorizar)
+### Banco de dados
 
-**Sprint 1 (semana)**: Frente 1 (Metas) + Quick wins #4 e #6 (Notas + Health Score) — dá direção e foco imediato.
+Nova tabela `imphq_recovery_templates` (project_id, tipo, canal, assunto, corpo, ativo).
 
-**Sprint 2**: Frente 5 (Recuperação) — recupera dinheiro que tá vazando hoje.
+Nova tabela `imphq_recovery_logs` (lead_id, bucket, ação tomada, canal, status, timestamp) — pra calcular taxa de recuperação histórica.
 
-**Sprint 3**: Frente 2 (Cohort/LTV) — entende qual canal vale a pena escalar.
-
-**Sprint 4**: Frente 3 (Copilot) — depois que dados estão maduros, IA tem o que analisar.
+Reaproveita dados existentes:
+- `imphq_vendas` com status "pendente" / "pix_gerado" / "boleto_gerado" → buckets PIX e boleto
+- `imphq_leads` com `ultimo_evento = 'checkout_iniciado'` sem venda → carrinho abandonado
+- `imphq_vendas` com status "reembolsado" / "chargeback" → reembolso
 
 ---
 
-### Pergunta pra você
+### Arquivos
 
-Qual dessas frentes faz mais sentido pro seu momento agora? Posso detalhar plano técnico completo da que você escolher.
+**Novos**:
+- `src/pages/Recuperacao.tsx`
+- `src/components/recuperacao/BucketCard.tsx`
+- `src/components/recuperacao/RecoveryTable.tsx`
+- `src/components/recuperacao/TemplateEditor.tsx`
+- `src/components/recuperacao/RecoveryKpiBlock.tsx` (mini-bloco pro Comando)
+- `src/lib/recoveryBuckets.ts` (lógica de classificação)
+
+**Editados**:
+- `src/App.tsx` (rota `/recuperacao`)
+- `src/components/AppSidebar.tsx` (item de menu)
+- `src/components/projeto/ProjetoComando.tsx` (mini-bloco recuperação)
+
+**Migration**: criar `imphq_recovery_templates` + `imphq_recovery_logs` com RLS.
+
+---
+
+### Fora de escopo (fica pra depois)
+- Disparo automático sem aprovação (segurança).
+- Análise preditiva de qual lead tem maior chance de recuperar (entra no Sprint 4 / Copilot).
+- Integração com gateway pra reenviar link de pagamento atualizado (depende de cada provedor).
 
