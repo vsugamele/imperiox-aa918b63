@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Sparkles, X, Wand2, Image as ImageIcon, Target, Palette } from "lucide-react";
 import { toast } from "sonner";
 
 const ANGULOS = [
@@ -21,9 +23,27 @@ const ANGULOS = [
   { value: "objecao", label: "Objeção Destruída" },
 ];
 
+const AVATAR_PRINCIPAL = "__principal__";
+
 interface Projeto {
   id: string;
   name: string;
+  avatar: any;
+  brand_kit: any;
+  data: any;
+}
+
+interface ExpertFoto {
+  id: string;
+  url: string;
+  title: string;
+}
+
+interface Concorrente {
+  id: string;
+  name: string;
+  url: string;
+  score_escala: number | null;
 }
 
 export default function CriativoNovo() {
@@ -32,6 +52,9 @@ export default function CriativoNovo() {
   const [loading, setLoading] = useState(false);
 
   const [projectId, setProjectId] = useState<string>("");
+  const [selectedProductIdx, setSelectedProductIdx] = useState<string>(AVATAR_PRINCIPAL);
+  const [autoMode, setAutoMode] = useState(true);
+
   const [nome, setNome] = useState("");
   const [produto, setProduto] = useState("");
   const [publico, setPublico] = useState("");
@@ -46,15 +69,151 @@ export default function CriativoNovo() {
   const [expertFotos, setExpertFotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  // Project context
+  const [expertLibrary, setExpertLibrary] = useState<ExpertFoto[]>([]);
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<Set<string>>(new Set());
+  const [concorrentes, setConcorrentes] = useState<Concorrente[]>([]);
+  const [selectedConcorrentes, setSelectedConcorrentes] = useState<Set<string>>(new Set());
+
+  const currentProject = useMemo(() => projetos.find((p) => p.id === projectId), [projetos, projectId]);
+  const produtos: any[] = currentProject?.data?.produtos || [];
+
+  const currentAvatar = useMemo(() => {
+    if (!currentProject) return null;
+    if (selectedProductIdx === AVATAR_PRINCIPAL) return currentProject.avatar || {};
+    const map = currentProject.data?.avatars_por_produto || {};
+    return map[selectedProductIdx] || {};
+  }, [currentProject, selectedProductIdx]);
+
+  const currentProduct = useMemo(() => {
+    if (selectedProductIdx === AVATAR_PRINCIPAL) return null;
+    return produtos[Number(selectedProductIdx)] || null;
+  }, [selectedProductIdx, produtos]);
+
+  // Load projects
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("imphq_projects")
-        .select("id, name")
+        .select("id, name, avatar, brand_kit, data")
         .order("name", { ascending: true });
       setProjetos((data as Projeto[]) || []);
     })();
   }, []);
+
+  // Load project-scoped resources when project changes
+  useEffect(() => {
+    if (!projectId) {
+      setExpertLibrary([]);
+      setConcorrentes([]);
+      setSelectedLibraryIds(new Set());
+      setSelectedConcorrentes(new Set());
+      return;
+    }
+    (async () => {
+      const [libRes, compRes] = await Promise.all([
+        supabase
+          .from("imphq_content_library")
+          .select("id, title, file_url, file_type, tags")
+          .eq("project_id", projectId)
+          .eq("file_type", "image")
+          .limit(60)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("imphq_competitors")
+          .select("id, name, url, score_escala")
+          .eq("project_id", projectId)
+          .order("score_escala", { ascending: false, nullsFirst: false })
+          .limit(10),
+      ]);
+      const libImages: ExpertFoto[] = ((libRes.data as any[]) || [])
+        .filter((r) => {
+          const tags: string[] = r.tags || [];
+          return tags.some((t) => /expert|rosto|pessoa|self/i.test(t)) || /expert|self/i.test(r.title || "");
+        })
+        .map((r) => ({ id: r.id, url: r.file_url, title: r.title || "Expert" }));
+      // fallback: if zero "expert"-tagged, just expose latest 12 images so user can pick
+      const fallback: ExpertFoto[] =
+        libImages.length === 0
+          ? ((libRes.data as any[]) || []).slice(0, 12).map((r) => ({ id: r.id, url: r.file_url, title: r.title || "Imagem" }))
+          : libImages;
+      setExpertLibrary(fallback);
+      setConcorrentes((compRes.data as Concorrente[]) || []);
+      setSelectedProductIdx(AVATAR_PRINCIPAL);
+    })();
+  }, [projectId]);
+
+  // Auto-fill from project + avatar + product when source changes
+  useEffect(() => {
+    if (!currentProject) return;
+    const briefing = currentProject.data?.briefing || {};
+    const brandKit = currentProject.brand_kit || {};
+    const avatar = currentAvatar || {};
+    const perfil = avatar.perfil_psicologico || {};
+
+    // Top dores/desejos from avatar arrays (if exist)
+    const doresArr: any[] = avatar.dores || [];
+    const desejosArr: any[] = avatar.desejos || [];
+    const topDor = doresArr[0]?.descricao || doresArr[0]?.text || avatar.dor_principal || perfil.ferida_central || "";
+    const topDesejo =
+      desejosArr[0]?.descricao || desejosArr[0]?.text || avatar.desejo_externo || avatar.resultado_sonhado || "";
+
+    const novoProduto =
+      currentProduct?.nome ||
+      currentProduct?.name ||
+      briefing.produto ||
+      currentProject.name ||
+      "";
+    const novoPublico = avatar.publico || perfil.retrato || briefing.publico_alvo || "";
+    const novoMecanismo = currentProduct?.mecanismo || avatar.mecanismo_unico || brandKit.mecanismo_unico || "";
+
+    setProduto(novoProduto);
+    setPublico(novoPublico);
+    setDor(topDor);
+    setDesejo(topDesejo);
+    setMecanismo(novoMecanismo);
+
+    // Branding → extras
+    const cores = brandKit.cores || brandKit.paleta || [];
+    const arquetipo = brandKit.arquetipo || "";
+    const tom = brandKit.tom_voz || brandKit.tom || "";
+    const hintsBrand = [
+      arquetipo && `arquétipo ${arquetipo}`,
+      tom && `tom ${tom}`,
+      Array.isArray(cores) && cores.length > 0 && `paleta ${cores.slice(0, 3).join(", ")}`,
+    ]
+      .filter(Boolean)
+      .join("; ");
+    setExtras(hintsBrand);
+
+    // Pre-fill nome do batch
+    if (novoProduto && !nome) {
+      setNome(`${novoProduto} — ${new Date().toLocaleDateString("pt-BR")}`);
+    }
+  }, [currentProject, currentAvatar, currentProduct]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync selected library photos into expertFotos URLs
+  useEffect(() => {
+    const urls = expertLibrary.filter((p) => selectedLibraryIds.has(p.id)).map((p) => p.url);
+    setExpertFotos((prev) => {
+      // keep manual uploads (not in library) + selected library urls
+      const libraryAll = new Set(expertLibrary.map((p) => p.url));
+      const manual = prev.filter((u) => !libraryAll.has(u));
+      return [...manual, ...urls];
+    });
+  }, [selectedLibraryIds, expertLibrary]);
+
+  // Sync selected concorrentes into referencias
+  useEffect(() => {
+    const urls = concorrentes.filter((c) => selectedConcorrentes.has(c.id)).map((c) => c.url).filter(Boolean);
+    if (urls.length > 0) {
+      setReferenciasText((prev) => {
+        const lines = prev.split(/\s+/).filter((s) => s.startsWith("http"));
+        const merged = Array.from(new Set([...lines, ...urls])).slice(0, 3);
+        return merged.join("\n");
+      });
+    }
+  }, [selectedConcorrentes, concorrentes]);
 
   async function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -89,9 +248,34 @@ export default function CriativoNovo() {
     setAngulos((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
   }
 
+  function toggleLibrary(id: string) {
+    setSelectedLibraryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleConcorrente(id: string) {
+    setSelectedConcorrentes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function pullDor(text: string) {
+    setDor(text);
+  }
+  function pullDesejo(text: string) {
+    setDesejo(text);
+  }
+
   async function handleSubmit() {
     if (!projectId) return toast.error("Selecione um projeto");
-    if (!produto.trim()) return toast.error("Descreva o produto");
+    if (!autoMode && !produto.trim()) return toast.error("Descreva o produto ou ative Modo Automático");
     if (angulos.length === 0) return toast.error("Escolha pelo menos 1 ângulo");
 
     setLoading(true);
@@ -101,11 +285,30 @@ export default function CriativoNovo() {
         .filter((s) => s.startsWith("http"))
         .slice(0, 3);
 
-      const { data, error } = await supabase.functions.invoke("creative-factory", {
-        body: {
-          project_id: projectId,
-          nome: nome || `${produto} — ${new Date().toLocaleDateString("pt-BR")}`,
-          briefing: {
+      // Auto-briefing: build a richer briefing from project context if mode = automático
+      const avatar = currentAvatar || {};
+      const perfil = avatar.perfil_psicologico || {};
+      const brandKit = currentProject?.brand_kit || {};
+
+      const briefing = autoMode
+        ? {
+            produto: produto || currentProduct?.nome || currentProject?.name || "",
+            publico: publico || perfil.retrato || "",
+            dor: dor || avatar.dor_principal || perfil.ferida_central || "",
+            desejo: desejo || avatar.desejo_externo || avatar.resultado_sonhado || "",
+            mecanismo: mecanismo || brandKit.mecanismo_unico || "",
+            extras,
+            ticket: currentProduct?.preco || currentProduct?.ticket || null,
+            promessa: currentProduct?.promessa || avatar.epifania_central || "",
+            arquetipo: brandKit.arquetipo || "",
+            tom_voz: brandKit.tom_voz || brandKit.tom || "",
+            paleta: brandKit.cores || brandKit.paleta || [],
+            inimigo: avatar.inimigo || "",
+            crenca_necessaria: avatar.crenca_necessaria || "",
+            variacoes_por_angulo: variacoes,
+            auto_briefing: true,
+          }
+        : {
             produto,
             publico,
             dor,
@@ -113,11 +316,19 @@ export default function CriativoNovo() {
             mecanismo,
             extras,
             variacoes_por_angulo: variacoes,
-          },
+          };
+
+      const { data, error } = await supabase.functions.invoke("creative-factory", {
+        body: {
+          project_id: projectId,
+          product_id: selectedProductIdx === AVATAR_PRINCIPAL ? null : selectedProductIdx,
+          nome: nome || `${produto || currentProject?.name} — ${new Date().toLocaleDateString("pt-BR")}`,
+          briefing,
           referencias_urls,
           expert_fotos: expertFotos,
           angulos,
           formato,
+          auto_briefing: autoMode,
         },
       });
       if (error) throw error;
@@ -133,6 +344,19 @@ export default function CriativoNovo() {
   const total = angulos.length * variacoes;
   const custoEstimado = (total * 0.04).toFixed(2);
 
+  // Top dores/desejos chips
+  const doresChips: string[] = useMemo(() => {
+    const arr: any[] = currentAvatar?.dores || [];
+    return arr.slice(0, 3).map((d) => d.descricao || d.text || "").filter(Boolean);
+  }, [currentAvatar]);
+  const desejosChips: string[] = useMemo(() => {
+    const arr: any[] = currentAvatar?.desejos || [];
+    return arr.slice(0, 3).map((d) => d.descricao || d.text || "").filter(Boolean);
+  }, [currentAvatar]);
+
+  const hasAvatar = !!(currentAvatar && (currentAvatar.perfil_psicologico || currentAvatar.desejo_externo || (currentAvatar.dores || []).length));
+  const hasBrand = !!(currentProject?.brand_kit && (currentProject.brand_kit.arquetipo || currentProject.brand_kit.cores || currentProject.brand_kit.tom_voz));
+
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
@@ -145,20 +369,76 @@ export default function CriativoNovo() {
       </div>
 
       <Card className="p-5 space-y-4">
-        <div>
-          <Label>Projeto *</Label>
-          <Select value={projectId || undefined} onValueChange={setProjectId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              {projetos.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <Label>Projeto *</Label>
+            <Select value={projectId || undefined} onValueChange={setProjectId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {projetos.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Avatar / Produto</Label>
+            <Select value={selectedProductIdx} onValueChange={setSelectedProductIdx} disabled={!projectId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Avatar do projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={AVATAR_PRINCIPAL}>Avatar Principal</SelectItem>
+                {produtos.map((p, i) => (
+                  <SelectItem key={i} value={String(i)}>
+                    {p.nome || `Produto ${i + 1}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {projectId && (
+          <div className="flex flex-wrap gap-2">
+            {hasAvatar && (
+              <Badge variant="secondary" className="gap-1">
+                <Target className="h-3 w-3" /> Avatar carregado
+              </Badge>
+            )}
+            {hasBrand && (
+              <Badge variant="secondary" className="gap-1">
+                <Palette className="h-3 w-3" /> Branding aplicado
+              </Badge>
+            )}
+            {expertLibrary.length > 0 && (
+              <Badge variant="secondary" className="gap-1">
+                <ImageIcon className="h-3 w-3" /> {expertLibrary.length} fotos disponíveis
+              </Badge>
+            )}
+            {concorrentes.length > 0 && (
+              <Badge variant="secondary" className="gap-1">
+                {concorrentes.length} concorrentes mapeados
+              </Badge>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
+          <div className="flex items-start gap-3">
+            <Wand2 className="h-4 w-4 mt-0.5 text-primary" />
+            <div>
+              <div className="text-sm font-medium">Modo Automático</div>
+              <p className="text-xs text-muted-foreground">
+                A IA monta o briefing sozinha usando Avatar, Branding e Produto. Você só revisa.
+              </p>
+            </div>
+          </div>
+          <Switch checked={autoMode} onCheckedChange={setAutoMode} />
         </div>
 
         <div>
@@ -168,15 +448,62 @@ export default function CriativoNovo() {
       </Card>
 
       <Card className="p-5 space-y-4">
-        <h3 className="font-medium">Briefing</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium">Briefing</h3>
+          {autoMode && (
+            <span className="text-xs text-muted-foreground">Auto-preenchido — edite se quiser</span>
+          )}
+        </div>
         <div>
-          <Label>Produto / Oferta *</Label>
+          <Label>Produto / Oferta {!autoMode && "*"}</Label>
           <Input value={produto} onChange={(e) => setProduto(e.target.value)} placeholder="Ex: Curso Método X" />
         </div>
         <div>
           <Label>Público-alvo</Label>
           <Input value={publico} onChange={(e) => setPublico(e.target.value)} placeholder="Ex: Mulheres 30-45 empreendedoras" />
         </div>
+
+        {(doresChips.length > 0 || desejosChips.length > 0) && (
+          <div className="grid md:grid-cols-2 gap-3 p-3 rounded-md bg-muted/30 border">
+            {doresChips.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Top dores do avatar</Label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {doresChips.map((d, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => pullDor(d)}
+                      className="text-xs px-2 py-1 rounded bg-background border hover:border-primary text-left max-w-full truncate"
+                      title="Clique para usar"
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {desejosChips.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Top desejos do avatar</Label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {desejosChips.map((d, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => pullDesejo(d)}
+                      className="text-xs px-2 py-1 rounded bg-background border hover:border-primary text-left max-w-full truncate"
+                      title="Clique para usar"
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-3">
           <div>
             <Label>Dor principal</Label>
@@ -198,25 +525,72 @@ export default function CriativoNovo() {
       </Card>
 
       <Card className="p-5 space-y-4">
-        <h3 className="font-medium">Fotos do expert (opcional)</h3>
+        <h3 className="font-medium">Fotos do expert</h3>
         <p className="text-sm text-muted-foreground">
-          A IA usará estas fotos como referência visual da pessoa nas imagens geradas.
+          Selecione fotos já salvas no projeto ou faça upload. A IA usa como referência visual da pessoa.
         </p>
-        <input type="file" multiple accept="image/*" onChange={handleFotoUpload} disabled={uploading} />
-        {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
+
+        {expertLibrary.length > 0 && (
+          <div>
+            <Label className="text-xs text-muted-foreground">Da biblioteca do projeto</Label>
+            <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mt-1">
+              {expertLibrary.map((p) => {
+                const sel = selectedLibraryIds.has(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => toggleLibrary(p.id)}
+                    className={`relative aspect-square rounded overflow-hidden border-2 transition ${
+                      sel ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-border"
+                    }`}
+                  >
+                    <img src={p.url} alt={p.title} className="w-full h-full object-cover" />
+                    {sel && (
+                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                        <Checkbox checked className="bg-background" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <Label className="text-xs text-muted-foreground">Ou faça upload</Label>
+          <input type="file" multiple accept="image/*" onChange={handleFotoUpload} disabled={uploading} className="block mt-1 text-sm" />
+          {uploading && <Loader2 className="h-4 w-4 animate-spin mt-2" />}
+        </div>
+
         {expertFotos.length > 0 && (
-          <div className="grid grid-cols-4 gap-2">
-            {expertFotos.map((url, i) => (
-              <div key={i} className="relative aspect-square">
-                <img src={url} alt="" className="w-full h-full object-cover rounded" />
-                <button
-                  onClick={() => setExpertFotos((prev) => prev.filter((_, j) => j !== i))}
-                  className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+          <div>
+            <Label className="text-xs text-muted-foreground">Selecionadas ({expertFotos.length})</Label>
+            <div className="grid grid-cols-6 gap-2 mt-1">
+              {expertFotos.map((url, i) => (
+                <div key={i} className="relative aspect-square">
+                  <img src={url} alt="" className="w-full h-full object-cover rounded" />
+                  <button
+                    onClick={() => {
+                      setExpertFotos((prev) => prev.filter((_, j) => j !== i));
+                      // also remove from library selection if applicable
+                      const libMatch = expertLibrary.find((p) => p.url === url);
+                      if (libMatch) {
+                        setSelectedLibraryIds((prev) => {
+                          const next = new Set(prev);
+                          next.delete(libMatch.id);
+                          return next;
+                        });
+                      }
+                    }}
+                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </Card>
@@ -268,8 +642,31 @@ export default function CriativoNovo() {
       <Card className="p-5 space-y-3">
         <h3 className="font-medium">Referências (opcional)</h3>
         <p className="text-sm text-muted-foreground">
-          Cole até 3 URLs de anúncios concorrentes. A IA fará scrape e se inspirará sem copiar.
+          Cole até 3 URLs ou selecione concorrentes do projeto.
         </p>
+
+        {concorrentes.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {concorrentes.map((c) => {
+              const sel = selectedConcorrentes.has(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleConcorrente(c.id)}
+                  disabled={!c.url}
+                  className={`text-xs px-2 py-1 rounded border transition ${
+                    sel ? "bg-primary/10 border-primary text-primary" : "bg-background hover:border-primary/40"
+                  } ${!c.url ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={c.url || "sem URL"}
+                >
+                  {c.name} {c.score_escala ? `· ${c.score_escala}` : ""}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <Textarea
           value={referenciasText}
           onChange={(e) => setReferenciasText(e.target.value)}
