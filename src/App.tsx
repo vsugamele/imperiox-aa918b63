@@ -84,6 +84,7 @@ const App = () => (
               <Route path="criativos/novo" element={<CriativoNovo />} />
               <Route path="criativos/:batchId" element={<CriativoDetalhe />} />
               <Route path="metas" element={<Metas />} />
+              <Route path="recuperacao" element={<Recuperacao />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
