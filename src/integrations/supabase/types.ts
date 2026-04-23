@@ -149,6 +149,41 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_admin_accesses: {
+        Row: {
+          ended_at: string | null
+          id: string
+          salao_id: string
+          salao_user_id: string
+          started_at: string
+          super_admin_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          salao_id: string
+          salao_user_id: string
+          started_at?: string
+          super_admin_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          salao_id?: string
+          salao_user_id?: string
+          started_at?: string
+          super_admin_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_admin_accesses_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_agendamentos: {
         Row: {
           cliente_id: string | null
@@ -3242,6 +3277,7 @@ export type Database = {
           is_trending: boolean
           language: string
           long_description: string | null
+          position: number
           price_brl: number | null
           subtitle: string | null
           testimonials: Json
@@ -3276,6 +3312,7 @@ export type Database = {
           is_trending?: boolean
           language?: string
           long_description?: string | null
+          position?: number
           price_brl?: number | null
           subtitle?: string | null
           testimonials?: Json
@@ -3310,6 +3347,7 @@ export type Database = {
           is_trending?: boolean
           language?: string
           long_description?: string | null
+          position?: number
           price_brl?: number | null
           subtitle?: string | null
           testimonials?: Json
@@ -14006,6 +14044,36 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_copilot_threads: {
+        Row: {
+          created_at: string
+          id: string
+          messages: Json
+          project_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          project_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          project_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       imphq_creative_assets: {
         Row: {
