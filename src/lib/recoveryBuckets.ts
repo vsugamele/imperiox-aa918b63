@@ -492,17 +492,15 @@ function normalizeJson(data: unknown) {
   return JSON.stringify(data || {}).toLowerCase();
 }
 
-function matches(...parts: string[][] | string[]) {
-  const args = parts as unknown as string[];
-  const haystack = `${args[0] || ""} ${args[1] || ""}`;
-  const needles = Array.isArray(args[2]) ? (args[2] as unknown as string[]) : [];
+function matches(status: string, dataText: string, needles: string[]) {
+  const haystack = `${status} ${dataText}`;
   return needles.some((needle) => haystack.includes(needle));
 }
 
 function convertToOpenFlowTemplate(message: string) {
   return message
-    .replaceAll("{nome}", "{{nome}}")
-    .replaceAll("{produto}", "{{produto}}")
-    .replaceAll("{valor}", "{{valor}}")
-    .replaceAll("{link_pagamento}", "{{link}}");
+    .split("{nome}").join("{{nome}}")
+    .split("{produto}").join("{{produto}}")
+    .split("{valor}").join("{{valor}}")
+    .split("{link_pagamento}").join("{{link}}");
 }
