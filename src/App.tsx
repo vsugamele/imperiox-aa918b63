@@ -38,6 +38,7 @@ import Criativos from "./pages/Criativos";
 import CriativoNovo from "./pages/CriativoNovo";
 import CriativoDetalhe from "./pages/CriativoDetalhe";
 import Metas from "./pages/Metas";
+import Recuperacao from "./pages/Recuperacao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
