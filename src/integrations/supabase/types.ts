@@ -3857,6 +3857,7 @@ export type Database = {
           foreground_hsl: string
           heading_font: string
           home_section_order: Json
+          home_section_titles: Json
           home_sections_enabled: Json
           home_welcome_image: string | null
           id: boolean
@@ -3898,6 +3899,7 @@ export type Database = {
           foreground_hsl?: string
           heading_font?: string
           home_section_order?: Json
+          home_section_titles?: Json
           home_sections_enabled?: Json
           home_welcome_image?: string | null
           id?: boolean
@@ -3939,6 +3941,7 @@ export type Database = {
           foreground_hsl?: string
           heading_font?: string
           home_section_order?: Json
+          home_section_titles?: Json
           home_sections_enabled?: Json
           home_welcome_image?: string | null
           id?: boolean
