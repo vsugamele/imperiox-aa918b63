@@ -179,6 +179,39 @@ export function ContentGenerator() {
     toast.success(`Status: ${status}`);
   };
 
+  const expandCluster = async (item: GeneratedItem) => {
+    if (!selectedProject) return;
+    const key = item.id || String(item.timestamp);
+    setExpandingClusterId(key);
+    try {
+      const { data, error } = await supabase.functions.invoke("content-cluster", {
+        body: {
+          project_id: selectedProject,
+          source_content_id: item.id,
+          source_idea: item.content.slice(0, 2000),
+          funnel_stage: item.funnel_stage,
+        },
+      });
+      if (error) throw error;
+      const newItems: GeneratedItem[] = (data?.items || []).map((it: any) => ({
+        id: it.id,
+        type: it.content_type,
+        content: it.content,
+        timestamp: Date.now(),
+        status: "rascunho" as StatusKey,
+        cluster_id: it.cluster_id,
+        cluster_role: it.cluster_role,
+        funnel_stage: item.funnel_stage,
+      }));
+      setResults(prev => [...newItems, ...prev]);
+      toast.success(`Cluster gerado: ${newItems.length} formatos derivados!`);
+    } catch (err: any) {
+      toast.error("Erro ao expandir cluster: " + (err.message || "desconhecido"));
+    } finally {
+      setExpandingClusterId(null);
+    }
+  };
+
   const selectedType = CONTENT_TYPES.find(t => t.id === contentType);
   const filteredResults = filterStatus === "todos" ? results : results.filter(r => (r.status || "rascunho") === filterStatus);
 
