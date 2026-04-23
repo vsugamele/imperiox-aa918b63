@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { format, addDays, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AIGenerateButton } from "./AIGenerateButton";
+import { DailyStoriesGenerator } from "./expert/DailyStoriesGenerator";
 
 interface ContentItem {
   id: string;
@@ -450,7 +451,32 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
         ))}
       </div>
 
-      {/* Status Operacional */}
+      {/* Daily Stories Generator (Sprint B — IA contextual) */}
+      <DailyStoriesGenerator
+        projectId={projectId}
+        onAddToToday={async (story) => {
+          const today = new Date();
+          const dayKey = DAYS[(getDay(today) + 6) % 7];
+          const plan = { ...monthlyPlan };
+          const week = { ...getWeekPlan(activeWeek) };
+          const items = [...(week[dayKey] || [])];
+          items.push({
+            id: crypto.randomUUID(),
+            platform: "Instagram",
+            type: "Story",
+            description: story.hook,
+            copy: `${story.hook}\n\n${story.tensao}\n\n${story.cta}`,
+            hook: story.hook,
+            cta: story.cta,
+            recording_tips: `Formato: ${story.formato} · ${story.duracao_segundos}s · Origem: ${story.gatilho_origem}`,
+          });
+          week[dayKey] = items;
+          (plan as any)[activeWeek] = week;
+          updateMonthlyPlan(plan);
+        }}
+      />
+
+
       {opsStatus && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
