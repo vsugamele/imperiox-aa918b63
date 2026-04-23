@@ -22,7 +22,13 @@ export type DrillMetric =
   | "ads_checkout_cost"
   | "ads_purchases"
   | "campaign"
-  | "pix_pending";
+  | "pix_pending"
+  | "funnel_stage"
+  | "product"
+  | "project_revenue"
+  | "day_revenue";
+
+export type FunnelStage = "leads" | "checkout" | "pix" | "approved" | "lost";
 
 interface Props {
   open: boolean;
@@ -32,6 +38,10 @@ interface Props {
   projectFilter: string;
   productFilter?: string;
   campaignName?: string;
+  funnelStage?: FunnelStage;
+  productName?: string;
+  projectId?: string;
+  dayKey?: string; // YYYY-MM-DD
 }
 
 const fmtBRL = (v: number) =>
