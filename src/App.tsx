@@ -37,6 +37,7 @@ import ExpertPortal from "./pages/ExpertPortal";
 import Criativos from "./pages/Criativos";
 import CriativoNovo from "./pages/CriativoNovo";
 import CriativoDetalhe from "./pages/CriativoDetalhe";
+import Metas from "./pages/Metas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,7 @@ const App = () => (
               <Route path="criativos" element={<Criativos />} />
               <Route path="criativos/novo" element={<CriativoNovo />} />
               <Route path="criativos/:batchId" element={<CriativoDetalhe />} />
+              <Route path="metas" element={<Metas />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
