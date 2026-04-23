@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { PushOptIn } from "@/components/PushOptIn";
+import { CopilotFab } from "@/components/copilot/CopilotFab";
 
 export function AppLayout() {
   return (
@@ -23,6 +24,7 @@ export function AppLayout() {
             <Outlet />
           </main>
         </div>
+        <CopilotFab />
       </div>
     </SidebarProvider>
   );
