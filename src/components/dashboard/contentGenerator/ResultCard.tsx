@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Copy, Check, RefreshCw, Save, FileText, CheckCircle2, Clock, Edit3 } from "lucide-react";
+import { Copy, Check, RefreshCw, Save, FileText, CheckCircle2, Clock, Edit3, Layers, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CONTENT_TYPES, STATUS_CONFIG, type GeneratedItem, type StatusKey } from "./constants";
 
@@ -15,9 +15,11 @@ interface Props {
   onSaveDocs: (content: string, type: string) => void;
   onSaveCopyArsenal: (content: string) => void;
   onChangeStatus: (id: string, status: StatusKey) => void;
+  onExpandCluster?: (item: GeneratedItem) => void;
+  expandingClusterId?: string | null;
 }
 
-export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, onSaveCopyArsenal, onChangeStatus }: Props) {
+export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, onSaveCopyArsenal, onChangeStatus, onExpandCluster, expandingClusterId }: Props) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === item.type);
   const Icon = typeInfo?.icon || FileText;
   const status = (item.status || "rascunho") as StatusKey;
