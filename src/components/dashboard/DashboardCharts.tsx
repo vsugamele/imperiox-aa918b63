@@ -155,7 +155,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
       setReceitaVsCusto(Object.entries(monthMap).map(([month, v]) => ({ month: month.slice(5), receita: v.receita, custo: v.custo + v.ads })));
 
       // Receita por Projeto
-      setReceitaPorProjeto((finResumo.data || []).filter((f: any) => Number(f.receita_total) > 0).map((f: any) => ({ name: `${f.project_icon || "📁"} ${f.project_name || "?"}`, value: Number(f.receita_total) || 0 })).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
+      setReceitaPorProjeto((finResumo.data || []).filter((f: any) => Number(f.receita_total) > 0).map((f: any) => ({ name: `${f.project_icon || "📁"} ${f.project_name || "?"}`, value: Number(f.receita_total) || 0, projectId: f.project_id })).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
       // Receita por Produto
       const prodMap = new Map<string, number>();
