@@ -27,6 +27,7 @@ export function ContentGenerator() {
   const [results, setResults] = useState<GeneratedItem[]>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [expandingClusterId, setExpandingClusterId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => {
@@ -41,7 +42,7 @@ export function ContentGenerator() {
     if (!user?.user) return;
     const { data } = await supabase
       .from("imphq_generated_contents")
-      .select("id, content_type, content, product_name, created_at, project_id, status, funnel_stage, variation_group")
+      .select("id, content_type, content, product_name, created_at, project_id, status, funnel_stage, variation_group, cluster_id, cluster_role")
       .eq("user_id", user.user.id)
       .order("created_at", { ascending: false })
       .limit(80);
@@ -55,6 +56,8 @@ export function ContentGenerator() {
         status: (d.status || "rascunho") as StatusKey,
         funnel_stage: d.funnel_stage,
         variation_group: d.variation_group,
+        cluster_id: d.cluster_id,
+        cluster_role: d.cluster_role,
       })));
     }
   };
