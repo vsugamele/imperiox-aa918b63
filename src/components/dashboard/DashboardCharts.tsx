@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, TrendingUp, ShoppingCart, DollarSign } from "lucide-react";
+import { Users, TrendingUp, ShoppingCart, DollarSign, Maximize2 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
+import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
 
 interface Props {
   period: string;
@@ -82,6 +83,10 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
   const [receitaPorProjeto, setReceitaPorProjeto] = useState<any[]>([]);
   const [receitaPorProduto, setReceitaPorProduto] = useState<any[]>([]);
   const [roasData, setRoasData] = useState<any[]>([]);
+  const [drill, setDrill] = useState<{ metric: DrillMetric; productName?: string; projectId?: string; dayKey?: string } | null>(null);
+  const [drillOpen, setDrillOpen] = useState(false);
+  const openDrill = (d: NonNullable<typeof drill>) => { setDrill(d); setDrillOpen(true); };
+  const projectByLabel = new Map<string, string>(); // label → project_id resolved on click via finResumo
 
   useEffect(() => {
     async function load() {
@@ -150,7 +155,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
       setReceitaVsCusto(Object.entries(monthMap).map(([month, v]) => ({ month: month.slice(5), receita: v.receita, custo: v.custo + v.ads })));
 
       // Receita por Projeto
-      setReceitaPorProjeto((finResumo.data || []).filter((f: any) => Number(f.receita_total) > 0).map((f: any) => ({ name: `${f.project_icon || "📁"} ${f.project_name || "?"}`, value: Number(f.receita_total) || 0 })).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
+      setReceitaPorProjeto((finResumo.data || []).filter((f: any) => Number(f.receita_total) > 0).map((f: any) => ({ name: `${f.project_icon || "📁"} ${f.project_name || "?"}`, value: Number(f.receita_total) || 0, projectId: f.project_id })).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
 
       // Receita por Produto
       const prodMap = new Map<string, number>();
@@ -167,19 +172,24 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
     <>
       {/* Leads Trend + Receita vs Custo */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border hover:border-primary/40 transition-colors">
           <CardHeader className="pb-2">
-            <CardTitle className="font-display text-base flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Leads (30 dias)</CardTitle>
+            <CardTitle className="font-display text-base flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Leads (30 dias) <Maximize2 className="h-3 w-3 text-muted-foreground ml-auto" /></CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={leadsTrend}>
+              <AreaChart data={leadsTrend} onClick={(e: any) => {
+                const lbl = e?.activeLabel; if (!lbl) return;
+                const yyyy = new Date().getFullYear();
+                const dayKey = `${yyyy}-${lbl}`;
+                openDrill({ metric: "day_revenue", dayKey });
+              }}>
                 <defs><linearGradient id="leadGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
                 <Tooltip content={<DashboardTooltip />} />
-                <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" fill="url(#leadGrad)" strokeWidth={2} name="Leads" />
+                <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" fill="url(#leadGrad)" strokeWidth={2} name="Leads" style={{ cursor: "pointer" }} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -238,9 +248,9 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
       {/* Extra Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {receitaPorProjeto.length > 0 && (
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:border-primary/40 transition-colors">
             <CardHeader className="pb-2">
-              <CardTitle className="font-display text-base flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-400" /> Receita por Projeto</CardTitle>
+              <CardTitle className="font-display text-base flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-400" /> Receita por Projeto <Maximize2 className="h-3 w-3 text-muted-foreground ml-auto" /></CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
@@ -249,7 +259,9 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                   <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} width={100} />
                   <Tooltip content={<DashboardTooltip valueFormatter={formatCurrency} />} />
-                  <Bar dataKey="value" fill="hsl(142, 71%, 45%)" radius={[0, 4, 4, 0]} name="Receita" />
+                  <Bar dataKey="value" fill="hsl(142, 71%, 45%)" radius={[0, 4, 4, 0]} name="Receita"
+                    style={{ cursor: "pointer" }}
+                    onClick={(d: any) => d?.projectId && openDrill({ metric: "project_revenue", projectId: d.projectId })} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -257,14 +269,16 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
         )}
 
         {receitaPorProduto.length > 0 && (
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:border-primary/40 transition-colors">
             <CardHeader className="pb-2">
-              <CardTitle className="font-display text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-primary" /> Receita por Produto</CardTitle>
+              <CardTitle className="font-display text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-primary" /> Receita por Produto <Maximize2 className="h-3 w-3 text-muted-foreground ml-auto" /></CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={receitaPorProduto} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} label={({ name, percent }) => `${name.slice(0, 12)} ${(percent * 100).toFixed(0)}%`}>
+                  <Pie data={receitaPorProduto} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} label={({ name, percent }) => `${name.slice(0, 12)} ${(percent * 100).toFixed(0)}%`}
+                    style={{ cursor: "pointer" }}
+                    onClick={(d: any) => d?.name && openDrill({ metric: "product", productName: d.name })}>
                     {receitaPorProduto.map((entry: any, i: number) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
                   <Tooltip content={<DashboardTooltip valueFormatter={formatCurrency} />} />
@@ -295,6 +309,17 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
           </Card>
         )}
       </div>
+      <DashboardDrillSheet
+        open={drillOpen}
+        onOpenChange={setDrillOpen}
+        metric={drill?.metric || null}
+        period={period}
+        projectFilter={projectFilter}
+        productFilter={productFilter}
+        productName={drill?.productName}
+        projectId={drill?.projectId}
+        dayKey={drill?.dayKey}
+      />
     </>
   );
 }

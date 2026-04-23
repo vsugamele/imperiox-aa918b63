@@ -3259,6 +3259,7 @@ export type Database = {
           author_name: string | null
           author_role: string | null
           banner_url: string | null
+          banner_url_mobile: string | null
           bonus_items: Json
           category: string | null
           checkout_url: string | null
@@ -3268,7 +3269,9 @@ export type Database = {
           enrolled_count: number
           hair_types: string[]
           hero_media_type: string
+          hero_media_type_mobile: string | null
           hero_media_url: string | null
+          hero_media_url_mobile: string | null
           id: string
           is_free: boolean
           is_new: boolean
@@ -3294,6 +3297,7 @@ export type Database = {
           author_name?: string | null
           author_role?: string | null
           banner_url?: string | null
+          banner_url_mobile?: string | null
           bonus_items?: Json
           category?: string | null
           checkout_url?: string | null
@@ -3303,7 +3307,9 @@ export type Database = {
           enrolled_count?: number
           hair_types?: string[]
           hero_media_type?: string
+          hero_media_type_mobile?: string | null
           hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
           id?: string
           is_free?: boolean
           is_new?: boolean
@@ -3329,6 +3335,7 @@ export type Database = {
           author_name?: string | null
           author_role?: string | null
           banner_url?: string | null
+          banner_url_mobile?: string | null
           bonus_items?: Json
           category?: string | null
           checkout_url?: string | null
@@ -3338,7 +3345,9 @@ export type Database = {
           enrolled_count?: number
           hair_types?: string[]
           hero_media_type?: string
+          hero_media_type_mobile?: string | null
           hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
           id?: string
           is_free?: boolean
           is_new?: boolean

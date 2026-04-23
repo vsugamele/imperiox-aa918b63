@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDown, TrendingUp, Eye } from "lucide-react";
+import { ArrowDown, TrendingUp, Maximize2 } from "lucide-react";
+import DashboardDrillSheet, { DrillMetric, FunnelStage } from "./DashboardDrillSheet";
 
 interface Props {
   period: string;
@@ -16,11 +17,16 @@ interface FunnelStep {
   icon: string;
   count: number;
   events: string[];
+  stage: FunnelStage;
 }
 
 export default function ConversionFunnel({ period, projectFilter, productFilter }: Props) {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
   const [loading, setLoading] = useState(true);
+  const [drillOpen, setDrillOpen] = useState(false);
+  const [drillStage, setDrillStage] = useState<FunnelStage | null>(null);
+
+  const openStage = (stage: FunnelStage) => { setDrillStage(stage); setDrillOpen(true); };
 
   useEffect(() => {
     async function load() {
@@ -74,11 +80,11 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
         .reduce((sum, [, c]) => sum + c, 0);
 
       const funnelSteps: FunnelStep[] = [
-        { label: "Visualizações / Leads", icon: "👁️", count: leadCount, events: [] },
-        { label: "Início Checkout", icon: "🛒", count: icCount, events: [] },
-        { label: "PIX / Boleto Gerado", icon: "📱", count: pixCount, events: [] },
-        { label: "Pagamento Aprovado", icon: "✅", count: approvedCount, events: [] },
-        { label: "Recusado / Expirado", icon: "❌", count: lostCount, events: [] },
+        { label: "Visualizações / Leads", icon: "👁️", count: leadCount, events: [], stage: "leads" },
+        { label: "Início Checkout", icon: "🛒", count: icCount, events: [], stage: "checkout" },
+        { label: "PIX / Boleto Gerado", icon: "📱", count: pixCount, events: [], stage: "pix" },
+        { label: "Pagamento Aprovado", icon: "✅", count: approvedCount, events: [], stage: "approved" },
+        { label: "Recusado / Expirado", icon: "❌", count: lostCount, events: [], stage: "lost" },
       ];
 
       setSteps(funnelSteps);
@@ -97,77 +103,104 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
   };
 
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-primary" />
-          Funil de Conversão
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-1">
-          {steps.slice(0, 4).map((step, i) => {
-            const widthPct = Math.max((step.count / maxCount) * 100, 8);
-            const nextStep = steps[i + 1];
-            const rate = nextStep && i < 3 ? convRate(step.count, nextStep.count) : null;
+    <>
+      <Card className="bg-card border-border hover:border-primary/40 transition-colors">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Funil de Conversão
+            <span className="ml-auto text-[10px] text-muted-foreground font-normal">Clique para detalhar</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1">
+            {steps.slice(0, 4).map((step, i) => {
+              const widthPct = Math.max((step.count / maxCount) * 100, 8);
+              const nextStep = steps[i + 1];
+              const rate = nextStep && i < 3 ? convRate(step.count, nextStep.count) : null;
 
-            return (
-              <div key={step.label}>
+              return (
+                <div key={step.label}>
+                  <button
+                    type="button"
+                    onClick={() => openStage(step.stage)}
+                    className="w-full flex items-center gap-3 group rounded-md p-1 -m-1 hover:bg-secondary/40 transition-colors cursor-pointer"
+                  >
+                    <span className="text-lg w-7 text-center shrink-0">{step.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium truncate flex items-center gap-1">
+                          {step.label}
+                          <Maximize2 className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                        </span>
+                        <span className="text-sm font-bold text-foreground">{step.count}</span>
+                      </div>
+                      <div className="h-6 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${widthPct}%`,
+                            background: i === 0 ? "hsl(var(--primary) / 0.3)" : i === 1 ? "hsl(var(--primary) / 0.5)" : i === 2 ? "hsl(var(--primary) / 0.7)" : "hsl(var(--primary))",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </button>
+                  {rate && (
+                    <div className="flex items-center gap-2 ml-10 my-1">
+                      <ArrowDown className="h-3 w-3 text-muted-foreground" />
+                      <Badge variant="outline" className={`text-[9px] ${
+                        parseFloat(rate) >= 30 ? "text-emerald-400 border-emerald-400/30" :
+                        parseFloat(rate) >= 10 ? "text-amber-400 border-amber-400/30" :
+                        "text-destructive border-destructive/30"
+                      }`}>
+                        {rate} conversão
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Lost leads section */}
+            {steps[4] && steps[4].count > 0 && (
+              <button
+                type="button"
+                onClick={() => openStage("lost")}
+                className="w-full text-left mt-3 pt-3 border-t border-border group hover:bg-secondary/40 -mx-1 px-1 rounded transition-colors"
+              >
                 <div className="flex items-center gap-3">
-                  <span className="text-lg w-7 text-center shrink-0">{step.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium truncate">{step.label}</span>
-                      <span className="text-sm font-bold text-foreground">{step.count}</span>
+                  <span className="text-lg w-7 text-center shrink-0">{steps[4].icon}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-destructive flex items-center gap-1">
+                        {steps[4].label}
+                        <Maximize2 className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                      </span>
+                      <span className="text-sm font-bold text-destructive">{steps[4].count}</span>
                     </div>
-                    <div className="h-6 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${widthPct}%`,
-                          background: i === 0 ? "hsl(var(--primary) / 0.3)" : i === 1 ? "hsl(var(--primary) / 0.5)" : i === 2 ? "hsl(var(--primary) / 0.7)" : "hsl(var(--primary))",
-                        }}
-                      />
-                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {steps[2]?.count > 0
+                        ? `${((steps[4].count / steps[2].count) * 100).toFixed(0)}% dos pagamentos pendentes foram perdidos`
+                        : "Leads que não concluíram a compra"}
+                    </p>
                   </div>
                 </div>
-                {rate && (
-                  <div className="flex items-center gap-2 ml-10 my-1">
-                    <ArrowDown className="h-3 w-3 text-muted-foreground" />
-                    <Badge variant="outline" className={`text-[9px] ${
-                      parseFloat(rate) >= 30 ? "text-emerald-400 border-emerald-400/30" :
-                      parseFloat(rate) >= 10 ? "text-amber-400 border-amber-400/30" :
-                      "text-destructive border-destructive/30"
-                    }`}>
-                      {rate} conversão
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              </button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Lost leads section */}
-          {steps[4] && steps[4].count > 0 && (
-            <div className="mt-3 pt-3 border-t border-border">
-              <div className="flex items-center gap-3">
-                <span className="text-lg w-7 text-center shrink-0">{steps[4].icon}</span>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-destructive">{steps[4].label}</span>
-                    <span className="text-sm font-bold text-destructive">{steps[4].count}</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {steps[2]?.count > 0
-                      ? `${((steps[4].count / steps[2].count) * 100).toFixed(0)}% dos pagamentos pendentes foram perdidos`
-                      : "Leads que não concluíram a compra"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      <DashboardDrillSheet
+        open={drillOpen}
+        onOpenChange={setDrillOpen}
+        metric={drillStage ? "funnel_stage" as DrillMetric : null}
+        period={period}
+        projectFilter={projectFilter}
+        productFilter={productFilter}
+        funnelStage={drillStage || undefined}
+      />
+    </>
   );
 }
