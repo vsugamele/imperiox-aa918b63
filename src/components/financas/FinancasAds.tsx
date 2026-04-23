@@ -61,9 +61,11 @@ interface CampaignDiag {
   cpa5: number;
   cpa3: number;
   metaCpa: number;
-  trend: "MELHORANDO" | "PIORANDO" | "INSTÁVEL";
-  gargalo: "ANÚNCIO" | "PÁGINA" | "CHECKOUT" | "TÉCNICO" | "NENHUM";
+  metaCpaSource: "produto" | "ticket-medio" | "estimado";
+  trend: "MELHORANDO" | "PIORANDO" | "INSTÁVEL" | "INSUFICIENTE";
+  gargalo: "ANÚNCIO" | "PÁGINA" | "CHECKOUT" | "TÉCNICO" | "NENHUM" | "INDEFINIDO";
   manobra: string;
+  manobraReason: string;
   gasto7: number;
   checkouts: number;
   compras: number;
@@ -72,9 +74,16 @@ interface CampaignDiag {
   landingRate: number;
   freq: number;
   custoCheckout: number;
+  ageDays: number;
+  isNew: boolean;
+  hasCheckoutData: boolean;
+  ticketMedio: number;
 }
 
 const PAGE_SIZE = 50;
+const MIN_DAYS_FOR_VERDICT = 7;
+const MIN_PURCHASES_FOR_VERDICT = 3;
+const DEFAULT_MARGIN = 0.4; // 40% do ticket médio como CPA teto
 
 function calcCpa(items: AdsSpend[]): number {
   const gasto = items.reduce((s, a) => s + a.valor, 0);
@@ -82,10 +91,11 @@ function calcCpa(items: AdsSpend[]): number {
   return compras > 0 ? gasto / compras : 0;
 }
 
-function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
+function analyzeCampaigns(ads: AdsSpend[], vendas: VendaItem[] = []): CampaignDiag[] {
   const d7 = localDaysAgo(7);
   const d5 = localDaysAgo(5);
   const d3 = localDaysAgo(3);
+  const today = toLocalDateStr();
 
   // Normalize campaign name by stripping date prefix [DD/MM] to merge renamed campaigns
   const normCamp = (n: string) => n.replace(/^\[\d{2}\/\d{2}\]\s*/, "").trim() || n;
@@ -96,6 +106,11 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
     campMap.get(name)!.push(a);
   });
 
+  // Ticket médio global (fallback de meta CPA)
+  const ticketMedioGlobal = vendas.length > 0
+    ? vendas.reduce((s, v) => s + v.valor, 0) / vendas.length
+    : 0;
+
   const results: CampaignDiag[] = [];
 
   campMap.forEach((items, name) => {
@@ -104,6 +119,14 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
     const items3 = items.filter(a => a.data_ref >= d3);
 
     if (items7.length === 0) return;
+
+    // Idade da campanha (em dias) baseada na data mais antiga vs hoje
+    const dates = items.map(a => a.data_ref).sort();
+    const oldest = dates[0];
+    const ageDays = oldest
+      ? Math.max(1, Math.floor((new Date(today).getTime() - new Date(oldest).getTime()) / 86400000) + 1)
+      : 1;
+    const isNew = ageDays < MIN_DAYS_FOR_VERDICT;
 
     const cpa7 = calcCpa(items7);
     const cpa5 = calcCpa(items5);
@@ -114,44 +137,92 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
     const checkouts7 = items7.reduce((s, a) => s + (a.checkouts_iniciados || 0), 0);
     const cliques7 = items7.reduce((s, a) => s + a.cliques, 0);
     const impressoes7 = items7.reduce((s, a) => s + a.impressoes, 0);
+    const hasCheckoutData = checkouts7 > 0;
 
-    // Meta CPA: average custo_por_compra or fallback
-    const metaCpa = compras7 > 0 ? gasto7 / compras7 * 0.8 : cpa7 * 0.8; // 80% do CPA atual como meta
+    // Meta CPA ancorada em ticket médio × margem
+    let metaCpa = 0;
+    let metaCpaSource: CampaignDiag["metaCpaSource"] = "estimado";
+    if (ticketMedioGlobal > 0) {
+      metaCpa = ticketMedioGlobal * DEFAULT_MARGIN;
+      metaCpaSource = "ticket-medio";
+    } else if (compras7 >= MIN_PURCHASES_FOR_VERDICT) {
+      // Fallback: usa o próprio CPA da campanha como referência (não mais 80%, e sim valor neutro)
+      metaCpa = cpa7;
+      metaCpaSource = "estimado";
+    } else {
+      metaCpa = 0; // sem âncora real, não dá veredito
+    }
 
-    // Tendência 7/5/3
+    // Tendência 7/5/3 — só vale se tem amostra suficiente
     let trend: CampaignDiag["trend"] = "INSTÁVEL";
-    if (cpa3 > 0 && cpa5 > 0 && cpa7 > 0) {
+    if (isNew || compras7 < MIN_PURCHASES_FOR_VERDICT) {
+      trend = "INSUFICIENTE";
+    } else if (cpa3 > 0 && cpa5 > 0 && cpa7 > 0) {
       if (cpa3 < cpa5 && cpa5 < cpa7) trend = "MELHORANDO";
       else if (cpa3 > cpa5 && cpa5 > cpa7) trend = "PIORANDO";
     }
 
     // Rates
-    const lpToCko = cliques7 > 0 ? (checkouts7 / cliques7) * 100 : 0;
-    const ckoToSale = checkouts7 > 0 ? (compras7 / checkouts7) * 100 : 0;
+    const lpToCko = cliques7 > 0 && hasCheckoutData ? (checkouts7 / cliques7) * 100 : 0;
+    const ckoToSale = hasCheckoutData ? (compras7 / checkouts7) * 100 : 0;
     const landingRate = impressoes7 > 0 ? (cliques7 / impressoes7) * 100 : 0;
-    const custoCheckout = checkouts7 > 0 ? gasto7 / checkouts7 : 0;
+    const custoCheckout = hasCheckoutData ? gasto7 / checkouts7 : 0;
+    const ticketMedioCamp = compras7 > 0 ? gasto7 / compras7 : 0; // usado só pra exibição
 
     // Frequência média
     const freqItems = items7.filter(a => a.frequencia && a.frequencia > 0);
     const freq = freqItems.length > 0 ? freqItems.reduce((s, a) => s + (a.frequencia || 0), 0) / freqItems.length : 0;
 
-    // Gargalo cirúrgico
+    // Gargalo cirúrgico — só se temos dados suficientes
     let gargalo: CampaignDiag["gargalo"] = "NENHUM";
-    if (cpa7 > metaCpa && custoCheckout > metaCpa * 0.5) gargalo = "ANÚNCIO";
-    else if (lpToCko < 10 && lpToCko > 0) gargalo = "PÁGINA";
-    else if (ckoToSale < 50 && ckoToSale > 0) gargalo = "CHECKOUT";
-    else if (landingRate < 85 && landingRate > 0) gargalo = "TÉCNICO";
+    if (trend === "INSUFICIENTE") {
+      gargalo = "INDEFINIDO";
+    } else if (metaCpa > 0 && cpa7 > metaCpa * 1.2) {
+      // CPA acima da meta: classifica gargalo
+      if (hasCheckoutData) {
+        if (lpToCko < 10) gargalo = "PÁGINA";
+        else if (ckoToSale < 50) gargalo = "CHECKOUT";
+        else gargalo = "ANÚNCIO";
+      } else {
+        // Sem checkout data: só consegue dizer "anúncio" via CTR/freq
+        if (freq > 4) gargalo = "ANÚNCIO";
+        else if (landingRate < 85 && landingRate > 0) gargalo = "TÉCNICO";
+        else gargalo = "ANÚNCIO";
+      }
+    }
 
-    // Manobra
+    // Manobra — exige amostra mínima pra verediito hard
     let manobra = "MANUTENÇÃO";
-    if (cpa3 > metaCpa * 2) manobra = "PAUSE IMEDIATO";
-    else if (trend === "MELHORANDO" && cpa3 < metaCpa) manobra = "ESCALA VERTICAL (+20%)";
-    else if (trend === "PIORANDO") manobra = "CORTE / REDUÇÃO -50%";
+    let manobraReason = "Dentro da meta. Manter.";
+
+    if (trend === "INSUFICIENTE") {
+      manobra = "OBSERVANDO";
+      const motivos = [];
+      if (isNew) motivos.push(`apenas ${ageDays}d`);
+      if (compras7 < MIN_PURCHASES_FOR_VERDICT) motivos.push(`${compras7} compras (mín ${MIN_PURCHASES_FOR_VERDICT})`);
+      manobraReason = `Aguardando amostra: ${motivos.join(" + ")}. Sem veredito até cooldown.`;
+    } else if (metaCpa <= 0) {
+      manobra = "DEFINIR META";
+      manobraReason = "Sem ticket médio do produto cadastrado. Defina pra calibrar a meta CPA.";
+    } else if (cpa3 > metaCpa * 2.5) {
+      manobra = "PAUSE IMEDIATO";
+      manobraReason = `CPA 3d (R$ ${cpa3.toFixed(2)}) > 2.5× meta (R$ ${metaCpa.toFixed(2)}).`;
+    } else if (trend === "MELHORANDO" && cpa3 < metaCpa) {
+      manobra = "ESCALA VERTICAL (+20%)";
+      manobraReason = `Tendência caindo + CPA atual abaixo da meta. Hora de escalar.`;
+    } else if (trend === "PIORANDO" && cpa3 > metaCpa * 1.3) {
+      manobra = "CORTE / REDUÇÃO -50%";
+      manobraReason = `Tendência subindo + CPA 30%+ acima da meta. Reduzir gasto.`;
+    } else if (cpa7 > metaCpa * 1.5) {
+      manobra = "AJUSTE NECESSÁRIO";
+      manobraReason = `CPA 7d 50%+ acima da meta. Mexer em criativo/público antes de cortar.`;
+    }
 
     results.push({
-      name, cpa7, cpa5, cpa3, metaCpa, trend, gargalo, manobra,
+      name, cpa7, cpa5, cpa3, metaCpa, metaCpaSource, trend, gargalo, manobra, manobraReason,
       gasto7, checkouts: checkouts7, compras: compras7,
       lpToCko, ckoToSale, landingRate, freq, custoCheckout,
+      ageDays, isNew, hasCheckoutData, ticketMedio: ticketMedioCamp,
     });
   });
 
