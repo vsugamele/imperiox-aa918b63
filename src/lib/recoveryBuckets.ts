@@ -327,10 +327,10 @@ export function getTemplateForBucket(
 
 export function interpolateRecoveryTemplate(template: string, item: RecoveryItem) {
   return template
-    .replaceAll("{nome}", item.leadName || "cliente")
-    .replaceAll("{produto}", item.product || "produto")
-    .replaceAll("{valor}", item.value > 0 ? formatCurrency(item.value) : "valor pendente")
-    .replaceAll("{link_pagamento}", item.paymentLink || "link indisponível");
+    .split("{nome}").join(item.leadName || "cliente")
+    .split("{produto}").join(item.product || "produto")
+    .split("{valor}").join(item.value > 0 ? formatCurrency(item.value) : "valor pendente")
+    .split("{link_pagamento}").join(item.paymentLink || "link indisponível");
 }
 
 export function getAutomationBlueprint(bucket: RecoveryBucketId, message: string) {
@@ -466,10 +466,11 @@ function extractNumeric(data: unknown, keys: string[]) {
   return 0;
 }
 
-function getStringFromJson(data: Record<string, unknown> | null | undefined, keys: string[]) {
-  if (!data) return null;
+function getStringFromJson(data: unknown, keys: string[]) {
+  if (!data || typeof data !== "object") return null;
+  const record = data as Record<string, unknown>;
   for (const key of keys) {
-    const value = data[key];
+    const value = record[key];
     if (typeof value === "string" && value.trim()) return value;
   }
   return null;
@@ -491,17 +492,15 @@ function normalizeJson(data: unknown) {
   return JSON.stringify(data || {}).toLowerCase();
 }
 
-function matches(...parts: string[][] | string[]) {
-  const args = parts as unknown as string[];
-  const haystack = `${args[0] || ""} ${args[1] || ""}`;
-  const needles = Array.isArray(args[2]) ? (args[2] as unknown as string[]) : [];
+function matches(status: string, dataText: string, needles: string[]) {
+  const haystack = `${status} ${dataText}`;
   return needles.some((needle) => haystack.includes(needle));
 }
 
 function convertToOpenFlowTemplate(message: string) {
   return message
-    .replaceAll("{nome}", "{{nome}}")
-    .replaceAll("{produto}", "{{produto}}")
-    .replaceAll("{valor}", "{{valor}}")
-    .replaceAll("{link_pagamento}", "{{link}}");
+    .split("{nome}").join("{{nome}}")
+    .split("{produto}").join("{{produto}}")
+    .split("{valor}").join("{{valor}}")
+    .split("{link_pagamento}").join("{{link}}");
 }
