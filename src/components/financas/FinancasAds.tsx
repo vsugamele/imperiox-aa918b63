@@ -412,16 +412,28 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
               <Target className="h-4 w-4 text-red-400" />
               ⚔️ Diagnóstico Yoshitani — Tendência 7/5/3
             </CardTitle>
-            <p className="text-xs text-muted-foreground">Análise por campanha: CPA, tendência, gargalo cirúrgico e manobra recomendada</p>
+            <p className="text-xs text-muted-foreground">Análise por campanha: CPA, tendência, gargalo cirúrgico e manobra recomendada. Mín. {MIN_DAYS_FOR_VERDICT}d + {MIN_PURCHASES_FOR_VERDICT} compras pra emitir veredito.</p>
           </CardHeader>
           <CardContent className="space-y-3">
             {diagnosticos.slice(0, 10).map((d, i) => (
               <div key={i} className="rounded-lg border border-border p-4 space-y-3 bg-secondary/30">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold truncate">{d.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Gasto 7d: R$ {d.gasto7.toFixed(2)} · {d.compras} compras · {d.checkouts} checkouts
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold truncate">{d.name}</p>
+                      {d.isNew && (
+                        <Badge variant="outline" className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[9px]">
+                          NOVA · {d.ageDays}d
+                        </Badge>
+                      )}
+                      {!d.hasCheckoutData && (
+                        <Badge variant="outline" className="bg-muted text-muted-foreground text-[9px]" title="Facebook não enviou checkouts iniciados — diagnóstico de página/checkout fica cego">
+                          SEM CKO DATA
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Gasto 7d: R$ {d.gasto7.toFixed(2)} · {d.compras} compras{d.hasCheckoutData ? ` · ${d.checkouts} checkouts` : ""} · idade {d.ageDays}d
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -449,7 +461,23 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
                     <span className="text-muted-foreground">CPA 3d</span>
                     <p className="font-mono font-bold">{d.cpa3 > 0 ? `R$ ${d.cpa3.toFixed(2)}` : "—"}</p>
                   </div>
-                  <div className="bg-background/50 rounded px-2 py-1.5">
+                  <div
+                    className="bg-background/50 rounded px-2 py-1.5"
+                    title={
+                      d.metaCpaSource === "ticket-medio" ? `Calculada: ticket médio × ${(DEFAULT_MARGIN * 100).toFixed(0)}% de margem` :
+                      d.metaCpaSource === "estimado" ? "Estimada com base no CPA atual (sem ticket médio cadastrado)" :
+                      "Sem âncora real — cadastre vendas para calibrar"
+                    }
+                  >
+                    <span className="text-muted-foreground">Meta CPA</span>
+                    <p className="font-mono font-bold">
+                      {d.metaCpa > 0 ? `R$ ${d.metaCpa.toFixed(2)}` : "—"}
+                      <span className="text-[8px] text-muted-foreground ml-1">
+                        {d.metaCpaSource === "ticket-medio" ? "🎯" : d.metaCpaSource === "estimado" ? "≈" : "?"}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-background/50 rounded px-2 py-1.5" title={!d.hasCheckoutData ? "Facebook não enviou checkouts iniciados" : ""}>
                     <span className="text-muted-foreground">$/Checkout</span>
                     <p className="font-mono font-bold">{d.custoCheckout > 0 ? `R$ ${d.custoCheckout.toFixed(2)}` : "—"}</p>
                   </div>
@@ -458,38 +486,32 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
                     <p className={`font-mono font-bold ${d.lpToCko > 0 && d.lpToCko < 10 ? "text-red-400" : ""}`}>{d.lpToCko > 0 ? `${d.lpToCko.toFixed(1)}%` : "—"}</p>
                   </div>
                   <div className="bg-background/50 rounded px-2 py-1.5">
-                    <span className="text-muted-foreground">CKO→Venda</span>
-                    <p className={`font-mono font-bold ${d.ckoToSale > 0 && d.ckoToSale < 50 ? "text-red-400" : ""}`}>{d.ckoToSale > 0 ? `${d.ckoToSale.toFixed(1)}%` : "—"}</p>
-                  </div>
-                  <div className="bg-background/50 rounded px-2 py-1.5">
                     <span className="text-muted-foreground">Freq.</span>
                     <p className={`font-mono font-bold ${d.freq > 3 ? "text-red-400" : ""}`}>{d.freq > 0 ? d.freq.toFixed(1) : "—"}</p>
                   </div>
                 </div>
 
-                {/* Manobra */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">MANOBRA:</span>
-                  <Badge variant="outline" className={
-                    d.manobra.includes("ESCALA") ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
-                    d.manobra.includes("PAUSE") ? "bg-red-500/15 text-red-400 border-red-500/30" :
-                    d.manobra.includes("CORTE") ? "bg-orange-500/15 text-orange-400 border-orange-500/30" :
-                    "bg-secondary text-muted-foreground"
-                  }>
-                    <span className="text-[10px]">{d.manobra}</span>
-                  </Badge>
-                  {d.gargalo === "ANÚNCIO" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: novos criativos/hooks</span>
-                  )}
-                  {d.gargalo === "PÁGINA" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: CRO na página de vendas</span>
-                  )}
-                  {d.gargalo === "CHECKOUT" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: fricção no pagamento</span>
-                  )}
-                  {d.gargalo === "TÉCNICO" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: velocidade/promessa</span>
-                  )}
+                {/* Manobra + razão */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground">MANOBRA:</span>
+                    <Badge variant="outline" className={
+                      d.manobra.includes("ESCALA") ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+                      d.manobra.includes("PAUSE") ? "bg-red-500/15 text-red-400 border-red-500/30" :
+                      d.manobra.includes("CORTE") ? "bg-orange-500/15 text-orange-400 border-orange-500/30" :
+                      d.manobra.includes("AJUSTE") ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                      d.manobra === "OBSERVANDO" ? "bg-blue-500/15 text-blue-400 border-blue-500/30" :
+                      d.manobra === "DEFINIR META" ? "bg-purple-500/15 text-purple-400 border-purple-500/30" :
+                      "bg-secondary text-muted-foreground"
+                    }>
+                      <span className="text-[10px]">{d.manobra}</span>
+                    </Badge>
+                    {d.gargalo === "ANÚNCIO" && <span className="text-[10px] text-muted-foreground">💡 Foco: novos criativos/hooks</span>}
+                    {d.gargalo === "PÁGINA" && <span className="text-[10px] text-muted-foreground">💡 Foco: CRO na página de vendas</span>}
+                    {d.gargalo === "CHECKOUT" && <span className="text-[10px] text-muted-foreground">💡 Foco: fricção no pagamento</span>}
+                    {d.gargalo === "TÉCNICO" && <span className="text-[10px] text-muted-foreground">💡 Foco: velocidade/promessa</span>}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground italic pl-1">↳ {d.manobraReason}</p>
                 </div>
               </div>
             ))}
