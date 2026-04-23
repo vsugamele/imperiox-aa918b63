@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { format, addDays, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AIGenerateButton } from "./AIGenerateButton";
+import { DailyStoriesGenerator } from "./expert/DailyStoriesGenerator";
 
 interface ContentItem {
   id: string;
