@@ -466,10 +466,11 @@ function extractNumeric(data: unknown, keys: string[]) {
   return 0;
 }
 
-function getStringFromJson(data: Record<string, unknown> | null | undefined, keys: string[]) {
-  if (!data) return null;
+function getStringFromJson(data: unknown, keys: string[]) {
+  if (!data || typeof data !== "object") return null;
+  const record = data as Record<string, unknown>;
   for (const key of keys) {
-    const value = data[key];
+    const value = record[key];
     if (typeof value === "string" && value.trim()) return value;
   }
   return null;
