@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, TrendingUp, ShoppingCart, DollarSign } from "lucide-react";
+import { Users, TrendingUp, ShoppingCart, DollarSign, Maximize2 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
+import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
 
 interface Props {
   period: string;
@@ -82,6 +83,10 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
   const [receitaPorProjeto, setReceitaPorProjeto] = useState<any[]>([]);
   const [receitaPorProduto, setReceitaPorProduto] = useState<any[]>([]);
   const [roasData, setRoasData] = useState<any[]>([]);
+  const [drill, setDrill] = useState<{ metric: DrillMetric; productName?: string; projectId?: string; dayKey?: string } | null>(null);
+  const [drillOpen, setDrillOpen] = useState(false);
+  const openDrill = (d: NonNullable<typeof drill>) => { setDrill(d); setDrillOpen(true); };
+  const projectByLabel = new Map<string, string>(); // label → project_id resolved on click via finResumo
 
   useEffect(() => {
     async function load() {
