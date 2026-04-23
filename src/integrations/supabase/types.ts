@@ -1644,6 +1644,98 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_certificate_templates: {
+        Row: {
+          accent_color: string
+          body_text: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          logo_url: string | null
+          name: string
+          primary_color: string
+          signature_name: string | null
+          signature_role: string | null
+          signature_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          body_text?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          name: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          body_text?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          name?: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_certificates: {
+        Row: {
+          id: string
+          issued_at: string
+          pdf_url: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Insert: {
+          id?: string
+          issued_at?: string
+          pdf_url?: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id?: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Update: {
+          id?: string
+          issued_at?: string
+          pdf_url?: string | null
+          program_id?: string
+          program_title_snapshot?: string
+          template_id?: string | null
+          user_id?: string
+          user_name_snapshot?: string
+          validation_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_certificates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_certificate_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_chat_messages: {
         Row: {
           content: string
@@ -2157,6 +2249,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      areamembrojp_levels: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level?: number
+          min_xp?: number
+          name?: string
+        }
+        Relationships: []
       }
       areamembrojp_link_presets: {
         Row: {
@@ -4068,6 +4187,27 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_user_xp: {
+        Row: {
+          level: number
+          total_xp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       areamembrojp_welcome_popup_views: {
         Row: {
           dismissed_at: string
@@ -4142,6 +4282,69 @@ export type Database = {
           starts_at?: string | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_xp_events: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id: string
+          xp: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: []
+      }
+      areamembrojp_xp_rules: {
+        Row: {
+          action: string
+          created_at: string
+          daily_cap: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
         }
         Relationships: []
       }
@@ -16079,6 +16282,90 @@ export type Database = {
           order_idx?: number | null
           updated_at?: string | null
           url?: string
+        }
+        Relationships: []
+      }
+      imphq_recovery_logs: {
+        Row: {
+          acao: string
+          bucket: string
+          canal: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string | null
+          observacao: string | null
+          project_id: string | null
+          status: string
+          valor: number | null
+          venda_id: string | null
+        }
+        Insert: {
+          acao: string
+          bucket: string
+          canal?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          observacao?: string | null
+          project_id?: string | null
+          status?: string
+          valor?: number | null
+          venda_id?: string | null
+        }
+        Update: {
+          acao?: string
+          bucket?: string
+          canal?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          observacao?: string | null
+          project_id?: string | null
+          status?: string
+          valor?: number | null
+          venda_id?: string | null
+        }
+        Relationships: []
+      }
+      imphq_recovery_templates: {
+        Row: {
+          assunto: string | null
+          ativo: boolean
+          canal: string
+          corpo: string
+          created_at: string
+          created_by: string | null
+          id: string
+          project_id: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          assunto?: string | null
+          ativo?: boolean
+          canal: string
+          corpo: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          assunto?: string | null
+          ativo?: boolean
+          canal?: string
+          corpo?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id?: string
+          tipo?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -29693,11 +29980,16 @@ export type Database = {
         Args: { mission_id: string; new_status: string }
         Returns: boolean
       }
+      amjp_award_xp: {
+        Args: { _action: string; _entity_id?: string; _entity_type?: string }
+        Returns: Json
+      }
       amjp_has_program_access: {
         Args: { _program_id: string; _user_id: string }
         Returns: boolean
       }
       amjp_is_admin: { Args: { _uid: string }; Returns: boolean }
+      amjp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       archive_old_deposits: { Args: never; Returns: undefined }
       areamembrojp_has_role: {
         Args: {
