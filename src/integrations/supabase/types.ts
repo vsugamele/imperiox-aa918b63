@@ -3285,7 +3285,9 @@ export type Database = {
           hero_media_url: string | null
           hero_media_url_mobile: string | null
           id: string
+          is_active: boolean
           is_free: boolean
+          is_hidden: boolean
           is_new: boolean
           is_premium: boolean
           is_published: boolean
@@ -3324,7 +3326,9 @@ export type Database = {
           hero_media_url?: string | null
           hero_media_url_mobile?: string | null
           id?: string
+          is_active?: boolean
           is_free?: boolean
+          is_hidden?: boolean
           is_new?: boolean
           is_premium?: boolean
           is_published?: boolean
@@ -3363,7 +3367,9 @@ export type Database = {
           hero_media_url?: string | null
           hero_media_url_mobile?: string | null
           id?: string
+          is_active?: boolean
           is_free?: boolean
+          is_hidden?: boolean
           is_new?: boolean
           is_premium?: boolean
           is_published?: boolean
@@ -14910,6 +14916,8 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          cluster_id: string | null
+          cluster_role: string | null
           content: string
           content_type: string
           created_at: string
@@ -14920,6 +14928,7 @@ export type Database = {
           model_used: string | null
           product_name: string | null
           project_id: string
+          source_idea: string | null
           status: string
           user_id: string
           variation_group: string | null
@@ -14927,6 +14936,8 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          cluster_id?: string | null
+          cluster_role?: string | null
           content: string
           content_type: string
           created_at?: string
@@ -14937,6 +14948,7 @@ export type Database = {
           model_used?: string | null
           product_name?: string | null
           project_id: string
+          source_idea?: string | null
           status?: string
           user_id: string
           variation_group?: string | null
@@ -14944,6 +14956,8 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          cluster_id?: string | null
+          cluster_role?: string | null
           content?: string
           content_type?: string
           created_at?: string
@@ -14954,6 +14968,7 @@ export type Database = {
           model_used?: string | null
           product_name?: string | null
           project_id?: string
+          source_idea?: string | null
           status?: string
           user_id?: string
           variation_group?: string | null
