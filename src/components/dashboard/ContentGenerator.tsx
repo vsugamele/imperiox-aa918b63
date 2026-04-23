@@ -27,6 +27,7 @@ export function ContentGenerator() {
   const [results, setResults] = useState<GeneratedItem[]>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [expandingClusterId, setExpandingClusterId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => {
@@ -41,7 +42,7 @@ export function ContentGenerator() {
     if (!user?.user) return;
     const { data } = await supabase
       .from("imphq_generated_contents")
-      .select("id, content_type, content, product_name, created_at, project_id, status, funnel_stage, variation_group")
+      .select("id, content_type, content, product_name, created_at, project_id, status, funnel_stage, variation_group, cluster_id, cluster_role")
       .eq("user_id", user.user.id)
       .order("created_at", { ascending: false })
       .limit(80);
@@ -55,6 +56,8 @@ export function ContentGenerator() {
         status: (d.status || "rascunho") as StatusKey,
         funnel_stage: d.funnel_stage,
         variation_group: d.variation_group,
+        cluster_id: d.cluster_id,
+        cluster_role: d.cluster_role,
       })));
     }
   };
@@ -174,6 +177,39 @@ export function ContentGenerator() {
     if (error) { toast.error("Erro: " + error.message); return; }
     setResults(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     toast.success(`Status: ${status}`);
+  };
+
+  const expandCluster = async (item: GeneratedItem) => {
+    if (!selectedProject) return;
+    const key = item.id || String(item.timestamp);
+    setExpandingClusterId(key);
+    try {
+      const { data, error } = await supabase.functions.invoke("content-cluster", {
+        body: {
+          project_id: selectedProject,
+          source_content_id: item.id,
+          source_idea: item.content.slice(0, 2000),
+          funnel_stage: item.funnel_stage,
+        },
+      });
+      if (error) throw error;
+      const newItems: GeneratedItem[] = (data?.items || []).map((it: any) => ({
+        id: it.id,
+        type: it.content_type,
+        content: it.content,
+        timestamp: Date.now(),
+        status: "rascunho" as StatusKey,
+        cluster_id: it.cluster_id,
+        cluster_role: it.cluster_role,
+        funnel_stage: item.funnel_stage,
+      }));
+      setResults(prev => [...newItems, ...prev]);
+      toast.success(`Cluster gerado: ${newItems.length} formatos derivados!`);
+    } catch (err: any) {
+      toast.error("Erro ao expandir cluster: " + (err.message || "desconhecido"));
+    } finally {
+      setExpandingClusterId(null);
+    }
   };
 
   const selectedType = CONTENT_TYPES.find(t => t.id === contentType);
@@ -322,6 +358,8 @@ export function ContentGenerator() {
                       onSaveDocs={saveToDocs}
                       onSaveCopyArsenal={saveToCopyArsenal}
                       onChangeStatus={changeStatus}
+                      onExpandCluster={expandCluster}
+                      expandingClusterId={expandingClusterId}
                     />
                   ))}
                 </div>

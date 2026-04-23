@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Copy, Check, RefreshCw, Save, FileText, CheckCircle2, Clock, Edit3 } from "lucide-react";
+import { Copy, Check, RefreshCw, Save, FileText, CheckCircle2, Clock, Edit3, Layers, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CONTENT_TYPES, STATUS_CONFIG, type GeneratedItem, type StatusKey } from "./constants";
 
@@ -15,9 +15,11 @@ interface Props {
   onSaveDocs: (content: string, type: string) => void;
   onSaveCopyArsenal: (content: string) => void;
   onChangeStatus: (id: string, status: StatusKey) => void;
+  onExpandCluster?: (item: GeneratedItem) => void;
+  expandingClusterId?: string | null;
 }
 
-export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, onSaveCopyArsenal, onChangeStatus }: Props) {
+export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, onSaveCopyArsenal, onChangeStatus, onExpandCluster, expandingClusterId }: Props) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === item.type);
   const Icon = typeInfo?.icon || FileText;
   const status = (item.status || "rascunho") as StatusKey;
@@ -41,6 +43,12 @@ export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, 
             {item.variation_group && (
               <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary">
                 A/B
+              </Badge>
+            )}
+            {item.cluster_id && (
+              <Badge variant="outline" className="text-[9px] bg-accent/10 text-accent border-accent/30">
+                <Layers className="h-2.5 w-2.5 mr-0.5" />
+                Cluster {item.cluster_role ? `· ${item.cluster_role.replace(/_/g, " ")}` : ""}
               </Badge>
             )}
             <span className="text-[10px] text-muted-foreground">
@@ -82,9 +90,23 @@ export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, 
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onCopy(item.content, idx)}>
               {copiedIdx === idx ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
             </Button>
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onRegen(item.type)}>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onRegen(item.type)} title="Regerar">
               <RefreshCw className="h-3 w-3" />
             </Button>
+            {onExpandCluster && !item.cluster_id && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => onExpandCluster(item)}
+                disabled={expandingClusterId === (item.id || String(item.timestamp))}
+                title="Expandir em cluster (5 formatos derivados)"
+              >
+                {expandingClusterId === (item.id || String(item.timestamp))
+                  ? <Loader2 className="h-3 w-3 animate-spin text-accent" />
+                  : <Layers className="h-3 w-3 text-accent" />}
+              </Button>
+            )}
           </div>
         </div>
         <div className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed">
