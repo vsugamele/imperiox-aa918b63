@@ -45,6 +45,12 @@ export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, 
                 A/B
               </Badge>
             )}
+            {item.cluster_id && (
+              <Badge variant="outline" className="text-[9px] bg-accent/10 text-accent border-accent/30">
+                <Layers className="h-2.5 w-2.5 mr-0.5" />
+                Cluster {item.cluster_role ? `· ${item.cluster_role.replace(/_/g, " ")}` : ""}
+              </Badge>
+            )}
             <span className="text-[10px] text-muted-foreground">
               {new Date(item.timestamp).toLocaleTimeString("pt-BR")}
             </span>
@@ -84,9 +90,23 @@ export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, 
             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onCopy(item.content, idx)}>
               {copiedIdx === idx ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
             </Button>
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onRegen(item.type)}>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onRegen(item.type)} title="Regerar">
               <RefreshCw className="h-3 w-3" />
             </Button>
+            {onExpandCluster && !item.cluster_id && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => onExpandCluster(item)}
+                disabled={expandingClusterId === (item.id || String(item.timestamp))}
+                title="Expandir em cluster (5 formatos derivados)"
+              >
+                {expandingClusterId === (item.id || String(item.timestamp))
+                  ? <Loader2 className="h-3 w-3 animate-spin text-accent" />
+                  : <Layers className="h-3 w-3 text-accent" />}
+              </Button>
+            )}
           </div>
         </div>
         <div className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed">

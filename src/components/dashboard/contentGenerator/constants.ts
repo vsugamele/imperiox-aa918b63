@@ -43,4 +43,7 @@ export interface GeneratedItem {
   status?: StatusKey;
   funnel_stage?: string | null;
   variation_group?: string | null;
+  cluster_id?: string | null;
+  cluster_role?: string | null;
+  source_idea?: string | null;
 }
