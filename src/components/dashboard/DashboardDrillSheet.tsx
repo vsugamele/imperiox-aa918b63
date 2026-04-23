@@ -360,7 +360,7 @@ export default function DashboardDrillSheet({
           ) : (
             <div className="space-y-3">
               {/* Sales / Revenue */}
-              {(metric === "revenue" || metric === "sales") && (
+              {(metric === "revenue" || metric === "sales" || metric === "product" || metric === "project_revenue" || metric === "day_revenue" || (metric === "funnel_stage" && funnelStage !== "leads")) && (
                 <>
                   <div className="text-xs text-muted-foreground">{vendas.length} venda(s) no período</div>
                   {vendas.length === 0 && <p className="text-sm text-muted-foreground italic">Nenhuma venda encontrada.</p>}
@@ -391,7 +391,7 @@ export default function DashboardDrillSheet({
               )}
 
               {/* Leads */}
-              {metric === "leads" && (
+              {(metric === "leads" || (metric === "funnel_stage" && funnelStage === "leads")) && (
                 <>
                   <div className="text-xs text-muted-foreground">{leads.length} lead(s) no período</div>
                   {leads.length === 0 && <p className="text-sm text-muted-foreground italic">Nenhum lead encontrado.</p>}
