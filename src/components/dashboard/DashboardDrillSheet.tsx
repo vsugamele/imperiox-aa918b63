@@ -74,6 +74,10 @@ export default function DashboardDrillSheet({
   projectFilter,
   productFilter,
   campaignName,
+  funnelStage,
+  productName,
+  projectId,
+  dayKey,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [vendas, setVendas] = useState<any[]>([]);
