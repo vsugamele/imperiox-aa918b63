@@ -358,6 +358,8 @@ export function ContentGenerator() {
                       onSaveDocs={saveToDocs}
                       onSaveCopyArsenal={saveToCopyArsenal}
                       onChangeStatus={changeStatus}
+                      onExpandCluster={expandCluster}
+                      expandingClusterId={expandingClusterId}
                     />
                   ))}
                 </div>
