@@ -25,6 +25,7 @@ const crmItems = [
   { title: "Funis", url: "/funis", icon: Target, color: "text-emerald-400" },
   { title: "Metas", url: "/metas", icon: Target, color: "text-emerald-400" },
   { title: "Nutrição", url: "/nutricao", icon: Mail, color: "text-emerald-400" },
+  { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy, color: "text-emerald-400" },
 ];
 
 const aiItems = [
