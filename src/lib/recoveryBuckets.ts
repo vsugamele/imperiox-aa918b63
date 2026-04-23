@@ -327,10 +327,10 @@ export function getTemplateForBucket(
 
 export function interpolateRecoveryTemplate(template: string, item: RecoveryItem) {
   return template
-    .replaceAll("{nome}", item.leadName || "cliente")
-    .replaceAll("{produto}", item.product || "produto")
-    .replaceAll("{valor}", item.value > 0 ? formatCurrency(item.value) : "valor pendente")
-    .replaceAll("{link_pagamento}", item.paymentLink || "link indisponível");
+    .split("{nome}").join(item.leadName || "cliente")
+    .split("{produto}").join(item.product || "produto")
+    .split("{valor}").join(item.value > 0 ? formatCurrency(item.value) : "valor pendente")
+    .split("{link_pagamento}").join(item.paymentLink || "link indisponível");
 }
 
 export function getAutomationBlueprint(bucket: RecoveryBucketId, message: string) {
