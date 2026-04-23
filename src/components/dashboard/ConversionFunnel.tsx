@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDown, TrendingUp, Eye } from "lucide-react";
+import { ArrowDown, TrendingUp, Maximize2 } from "lucide-react";
+import DashboardDrillSheet, { DrillMetric, FunnelStage } from "./DashboardDrillSheet";
 
 interface Props {
   period: string;
@@ -16,11 +17,16 @@ interface FunnelStep {
   icon: string;
   count: number;
   events: string[];
+  stage: FunnelStage;
 }
 
 export default function ConversionFunnel({ period, projectFilter, productFilter }: Props) {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
   const [loading, setLoading] = useState(true);
+  const [drillOpen, setDrillOpen] = useState(false);
+  const [drillStage, setDrillStage] = useState<FunnelStage | null>(null);
+
+  const openStage = (stage: FunnelStage) => { setDrillStage(stage); setDrillOpen(true); };
 
   useEffect(() => {
     async function load() {
@@ -74,11 +80,11 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
         .reduce((sum, [, c]) => sum + c, 0);
 
       const funnelSteps: FunnelStep[] = [
-        { label: "Visualizações / Leads", icon: "👁️", count: leadCount, events: [] },
-        { label: "Início Checkout", icon: "🛒", count: icCount, events: [] },
-        { label: "PIX / Boleto Gerado", icon: "📱", count: pixCount, events: [] },
-        { label: "Pagamento Aprovado", icon: "✅", count: approvedCount, events: [] },
-        { label: "Recusado / Expirado", icon: "❌", count: lostCount, events: [] },
+        { label: "Visualizações / Leads", icon: "👁️", count: leadCount, events: [], stage: "leads" },
+        { label: "Início Checkout", icon: "🛒", count: icCount, events: [], stage: "checkout" },
+        { label: "PIX / Boleto Gerado", icon: "📱", count: pixCount, events: [], stage: "pix" },
+        { label: "Pagamento Aprovado", icon: "✅", count: approvedCount, events: [], stage: "approved" },
+        { label: "Recusado / Expirado", icon: "❌", count: lostCount, events: [], stage: "lost" },
       ];
 
       setSteps(funnelSteps);
