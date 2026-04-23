@@ -261,7 +261,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
   const ckoToSaleGlobal = totalCheckouts > 0 ? (totalCompras / totalCheckouts) * 100 : 0;
 
   // === Diagnóstico Yoshitani por Campanha ===
-  const diagnosticos = useMemo(() => analyzeCampaigns(ads), [ads]);
+  const diagnosticos = useMemo(() => analyzeCampaigns(ads, vendas), [ads, vendas]);
 
   const totalPages = Math.max(1, Math.ceil(ads.length / PAGE_SIZE));
   const paginatedAds = ads.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
