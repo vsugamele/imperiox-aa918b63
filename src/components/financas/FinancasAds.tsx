@@ -334,8 +334,18 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
     return <Minus className="h-4 w-4 text-amber-400" />;
   };
 
-  const trendColor = (t: string) => t === "MELHORANDO" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : t === "PIORANDO" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30";
-  const gargaloColor = (g: string) => g === "NENHUM" ? "bg-emerald-500/15 text-emerald-400" : g === "ANÚNCIO" ? "bg-red-500/15 text-red-400" : g === "PÁGINA" ? "bg-orange-500/15 text-orange-400" : g === "CHECKOUT" ? "bg-amber-500/15 text-amber-400" : "bg-blue-500/15 text-blue-400";
+  const trendColor = (t: string) =>
+    t === "MELHORANDO" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+    t === "PIORANDO" ? "bg-red-500/15 text-red-400 border-red-500/30" :
+    t === "INSUFICIENTE" ? "bg-blue-500/15 text-blue-400 border-blue-500/30" :
+    "bg-amber-500/15 text-amber-400 border-amber-500/30";
+  const gargaloColor = (g: string) =>
+    g === "NENHUM" ? "bg-emerald-500/15 text-emerald-400" :
+    g === "INDEFINIDO" ? "bg-muted text-muted-foreground" :
+    g === "ANÚNCIO" ? "bg-red-500/15 text-red-400" :
+    g === "PÁGINA" ? "bg-orange-500/15 text-orange-400" :
+    g === "CHECKOUT" ? "bg-amber-500/15 text-amber-400" :
+    "bg-blue-500/15 text-blue-400";
 
   return (
     <div className="space-y-6">
