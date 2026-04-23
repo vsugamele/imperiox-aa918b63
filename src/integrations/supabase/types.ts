@@ -2750,6 +2750,7 @@ export type Database = {
           price_cents: number
           slug: string
           tier_level: number
+          trail_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2768,6 +2769,7 @@ export type Database = {
           price_cents?: number
           slug: string
           tier_level?: number
+          trail_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2786,9 +2788,18 @@ export type Database = {
           price_cents?: number
           slug?: string
           tier_level?: number
+          trail_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plans_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_trails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_post_comments: {
         Row: {
@@ -3957,6 +3968,128 @@ export type Database = {
           seed_show_ticker?: boolean
           updated_at?: string
           welcome_text?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_trail_enrollments: {
+        Row: {
+          completed_at: string | null
+          enrolled_at: string
+          id: string
+          source: string
+          trail_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_trail_enrollments_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_trail_programs: {
+        Row: {
+          created_at: string
+          id: string
+          is_required: boolean
+          position: number
+          program_id: string
+          trail_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id: string
+          trail_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id?: string
+          trail_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_trail_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_trail_programs_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_trails: {
+        Row: {
+          auto_enroll_on_signup: boolean
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          is_sequential: boolean
+          position: number
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -30060,6 +30193,10 @@ export type Database = {
       amjp_award_xp: {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
+      }
+      amjp_enroll_user_plan_trails: {
+        Args: { _user_id: string }
+        Returns: number
       }
       amjp_has_program_access: {
         Args: { _program_id: string; _user_id: string }

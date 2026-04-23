@@ -61,9 +61,11 @@ interface CampaignDiag {
   cpa5: number;
   cpa3: number;
   metaCpa: number;
-  trend: "MELHORANDO" | "PIORANDO" | "INSTÁVEL";
-  gargalo: "ANÚNCIO" | "PÁGINA" | "CHECKOUT" | "TÉCNICO" | "NENHUM";
+  metaCpaSource: "produto" | "ticket-medio" | "estimado";
+  trend: "MELHORANDO" | "PIORANDO" | "INSTÁVEL" | "INSUFICIENTE";
+  gargalo: "ANÚNCIO" | "PÁGINA" | "CHECKOUT" | "TÉCNICO" | "NENHUM" | "INDEFINIDO";
   manobra: string;
+  manobraReason: string;
   gasto7: number;
   checkouts: number;
   compras: number;
@@ -72,9 +74,16 @@ interface CampaignDiag {
   landingRate: number;
   freq: number;
   custoCheckout: number;
+  ageDays: number;
+  isNew: boolean;
+  hasCheckoutData: boolean;
+  ticketMedio: number;
 }
 
 const PAGE_SIZE = 50;
+const MIN_DAYS_FOR_VERDICT = 7;
+const MIN_PURCHASES_FOR_VERDICT = 3;
+const DEFAULT_MARGIN = 0.4; // 40% do ticket médio como CPA teto
 
 function calcCpa(items: AdsSpend[]): number {
   const gasto = items.reduce((s, a) => s + a.valor, 0);
@@ -82,10 +91,11 @@ function calcCpa(items: AdsSpend[]): number {
   return compras > 0 ? gasto / compras : 0;
 }
 
-function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
+function analyzeCampaigns(ads: AdsSpend[], vendas: VendaItem[] = []): CampaignDiag[] {
   const d7 = localDaysAgo(7);
   const d5 = localDaysAgo(5);
   const d3 = localDaysAgo(3);
+  const today = toLocalDateStr();
 
   // Normalize campaign name by stripping date prefix [DD/MM] to merge renamed campaigns
   const normCamp = (n: string) => n.replace(/^\[\d{2}\/\d{2}\]\s*/, "").trim() || n;
@@ -96,6 +106,11 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
     campMap.get(name)!.push(a);
   });
 
+  // Ticket médio global (fallback de meta CPA)
+  const ticketMedioGlobal = vendas.length > 0
+    ? vendas.reduce((s, v) => s + v.valor, 0) / vendas.length
+    : 0;
+
   const results: CampaignDiag[] = [];
 
   campMap.forEach((items, name) => {
@@ -104,6 +119,14 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
     const items3 = items.filter(a => a.data_ref >= d3);
 
     if (items7.length === 0) return;
+
+    // Idade da campanha (em dias) baseada na data mais antiga vs hoje
+    const dates = items.map(a => a.data_ref).sort();
+    const oldest = dates[0];
+    const ageDays = oldest
+      ? Math.max(1, Math.floor((new Date(today).getTime() - new Date(oldest).getTime()) / 86400000) + 1)
+      : 1;
+    const isNew = ageDays < MIN_DAYS_FOR_VERDICT;
 
     const cpa7 = calcCpa(items7);
     const cpa5 = calcCpa(items5);
@@ -114,44 +137,92 @@ function analyzeCampaigns(ads: AdsSpend[]): CampaignDiag[] {
     const checkouts7 = items7.reduce((s, a) => s + (a.checkouts_iniciados || 0), 0);
     const cliques7 = items7.reduce((s, a) => s + a.cliques, 0);
     const impressoes7 = items7.reduce((s, a) => s + a.impressoes, 0);
+    const hasCheckoutData = checkouts7 > 0;
 
-    // Meta CPA: average custo_por_compra or fallback
-    const metaCpa = compras7 > 0 ? gasto7 / compras7 * 0.8 : cpa7 * 0.8; // 80% do CPA atual como meta
+    // Meta CPA ancorada em ticket médio × margem
+    let metaCpa = 0;
+    let metaCpaSource: CampaignDiag["metaCpaSource"] = "estimado";
+    if (ticketMedioGlobal > 0) {
+      metaCpa = ticketMedioGlobal * DEFAULT_MARGIN;
+      metaCpaSource = "ticket-medio";
+    } else if (compras7 >= MIN_PURCHASES_FOR_VERDICT) {
+      // Fallback: usa o próprio CPA da campanha como referência (não mais 80%, e sim valor neutro)
+      metaCpa = cpa7;
+      metaCpaSource = "estimado";
+    } else {
+      metaCpa = 0; // sem âncora real, não dá veredito
+    }
 
-    // Tendência 7/5/3
+    // Tendência 7/5/3 — só vale se tem amostra suficiente
     let trend: CampaignDiag["trend"] = "INSTÁVEL";
-    if (cpa3 > 0 && cpa5 > 0 && cpa7 > 0) {
+    if (isNew || compras7 < MIN_PURCHASES_FOR_VERDICT) {
+      trend = "INSUFICIENTE";
+    } else if (cpa3 > 0 && cpa5 > 0 && cpa7 > 0) {
       if (cpa3 < cpa5 && cpa5 < cpa7) trend = "MELHORANDO";
       else if (cpa3 > cpa5 && cpa5 > cpa7) trend = "PIORANDO";
     }
 
     // Rates
-    const lpToCko = cliques7 > 0 ? (checkouts7 / cliques7) * 100 : 0;
-    const ckoToSale = checkouts7 > 0 ? (compras7 / checkouts7) * 100 : 0;
+    const lpToCko = cliques7 > 0 && hasCheckoutData ? (checkouts7 / cliques7) * 100 : 0;
+    const ckoToSale = hasCheckoutData ? (compras7 / checkouts7) * 100 : 0;
     const landingRate = impressoes7 > 0 ? (cliques7 / impressoes7) * 100 : 0;
-    const custoCheckout = checkouts7 > 0 ? gasto7 / checkouts7 : 0;
+    const custoCheckout = hasCheckoutData ? gasto7 / checkouts7 : 0;
+    const ticketMedioCamp = compras7 > 0 ? gasto7 / compras7 : 0; // usado só pra exibição
 
     // Frequência média
     const freqItems = items7.filter(a => a.frequencia && a.frequencia > 0);
     const freq = freqItems.length > 0 ? freqItems.reduce((s, a) => s + (a.frequencia || 0), 0) / freqItems.length : 0;
 
-    // Gargalo cirúrgico
+    // Gargalo cirúrgico — só se temos dados suficientes
     let gargalo: CampaignDiag["gargalo"] = "NENHUM";
-    if (cpa7 > metaCpa && custoCheckout > metaCpa * 0.5) gargalo = "ANÚNCIO";
-    else if (lpToCko < 10 && lpToCko > 0) gargalo = "PÁGINA";
-    else if (ckoToSale < 50 && ckoToSale > 0) gargalo = "CHECKOUT";
-    else if (landingRate < 85 && landingRate > 0) gargalo = "TÉCNICO";
+    if (trend === "INSUFICIENTE") {
+      gargalo = "INDEFINIDO";
+    } else if (metaCpa > 0 && cpa7 > metaCpa * 1.2) {
+      // CPA acima da meta: classifica gargalo
+      if (hasCheckoutData) {
+        if (lpToCko < 10) gargalo = "PÁGINA";
+        else if (ckoToSale < 50) gargalo = "CHECKOUT";
+        else gargalo = "ANÚNCIO";
+      } else {
+        // Sem checkout data: só consegue dizer "anúncio" via CTR/freq
+        if (freq > 4) gargalo = "ANÚNCIO";
+        else if (landingRate < 85 && landingRate > 0) gargalo = "TÉCNICO";
+        else gargalo = "ANÚNCIO";
+      }
+    }
 
-    // Manobra
+    // Manobra — exige amostra mínima pra verediito hard
     let manobra = "MANUTENÇÃO";
-    if (cpa3 > metaCpa * 2) manobra = "PAUSE IMEDIATO";
-    else if (trend === "MELHORANDO" && cpa3 < metaCpa) manobra = "ESCALA VERTICAL (+20%)";
-    else if (trend === "PIORANDO") manobra = "CORTE / REDUÇÃO -50%";
+    let manobraReason = "Dentro da meta. Manter.";
+
+    if (trend === "INSUFICIENTE") {
+      manobra = "OBSERVANDO";
+      const motivos = [];
+      if (isNew) motivos.push(`apenas ${ageDays}d`);
+      if (compras7 < MIN_PURCHASES_FOR_VERDICT) motivos.push(`${compras7} compras (mín ${MIN_PURCHASES_FOR_VERDICT})`);
+      manobraReason = `Aguardando amostra: ${motivos.join(" + ")}. Sem veredito até cooldown.`;
+    } else if (metaCpa <= 0) {
+      manobra = "DEFINIR META";
+      manobraReason = "Sem ticket médio do produto cadastrado. Defina pra calibrar a meta CPA.";
+    } else if (cpa3 > metaCpa * 2.5) {
+      manobra = "PAUSE IMEDIATO";
+      manobraReason = `CPA 3d (R$ ${cpa3.toFixed(2)}) > 2.5× meta (R$ ${metaCpa.toFixed(2)}).`;
+    } else if (trend === "MELHORANDO" && cpa3 < metaCpa) {
+      manobra = "ESCALA VERTICAL (+20%)";
+      manobraReason = `Tendência caindo + CPA atual abaixo da meta. Hora de escalar.`;
+    } else if (trend === "PIORANDO" && cpa3 > metaCpa * 1.3) {
+      manobra = "CORTE / REDUÇÃO -50%";
+      manobraReason = `Tendência subindo + CPA 30%+ acima da meta. Reduzir gasto.`;
+    } else if (cpa7 > metaCpa * 1.5) {
+      manobra = "AJUSTE NECESSÁRIO";
+      manobraReason = `CPA 7d 50%+ acima da meta. Mexer em criativo/público antes de cortar.`;
+    }
 
     results.push({
-      name, cpa7, cpa5, cpa3, metaCpa, trend, gargalo, manobra,
+      name, cpa7, cpa5, cpa3, metaCpa, metaCpaSource, trend, gargalo, manobra, manobraReason,
       gasto7, checkouts: checkouts7, compras: compras7,
       lpToCko, ckoToSale, landingRate, freq, custoCheckout,
+      ageDays, isNew, hasCheckoutData, ticketMedio: ticketMedioCamp,
     });
   });
 
@@ -190,7 +261,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
   const ckoToSaleGlobal = totalCheckouts > 0 ? (totalCompras / totalCheckouts) * 100 : 0;
 
   // === Diagnóstico Yoshitani por Campanha ===
-  const diagnosticos = useMemo(() => analyzeCampaigns(ads), [ads]);
+  const diagnosticos = useMemo(() => analyzeCampaigns(ads, vendas), [ads, vendas]);
 
   const totalPages = Math.max(1, Math.ceil(ads.length / PAGE_SIZE));
   const paginatedAds = ads.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -260,11 +331,22 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
   const TrendIcon = ({ trend }: { trend: string }) => {
     if (trend === "MELHORANDO") return <TrendingUp className="h-4 w-4 text-emerald-400" />;
     if (trend === "PIORANDO") return <TrendingDown className="h-4 w-4 text-red-400" />;
+    if (trend === "INSUFICIENTE") return <Activity className="h-4 w-4 text-blue-400" />;
     return <Minus className="h-4 w-4 text-amber-400" />;
   };
 
-  const trendColor = (t: string) => t === "MELHORANDO" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : t === "PIORANDO" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30";
-  const gargaloColor = (g: string) => g === "NENHUM" ? "bg-emerald-500/15 text-emerald-400" : g === "ANÚNCIO" ? "bg-red-500/15 text-red-400" : g === "PÁGINA" ? "bg-orange-500/15 text-orange-400" : g === "CHECKOUT" ? "bg-amber-500/15 text-amber-400" : "bg-blue-500/15 text-blue-400";
+  const trendColor = (t: string) =>
+    t === "MELHORANDO" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+    t === "PIORANDO" ? "bg-red-500/15 text-red-400 border-red-500/30" :
+    t === "INSUFICIENTE" ? "bg-blue-500/15 text-blue-400 border-blue-500/30" :
+    "bg-amber-500/15 text-amber-400 border-amber-500/30";
+  const gargaloColor = (g: string) =>
+    g === "NENHUM" ? "bg-emerald-500/15 text-emerald-400" :
+    g === "INDEFINIDO" ? "bg-muted text-muted-foreground" :
+    g === "ANÚNCIO" ? "bg-red-500/15 text-red-400" :
+    g === "PÁGINA" ? "bg-orange-500/15 text-orange-400" :
+    g === "CHECKOUT" ? "bg-amber-500/15 text-amber-400" :
+    "bg-blue-500/15 text-blue-400";
 
   return (
     <div className="space-y-6">
@@ -331,16 +413,28 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
               <Target className="h-4 w-4 text-red-400" />
               ⚔️ Diagnóstico Yoshitani — Tendência 7/5/3
             </CardTitle>
-            <p className="text-xs text-muted-foreground">Análise por campanha: CPA, tendência, gargalo cirúrgico e manobra recomendada</p>
+            <p className="text-xs text-muted-foreground">Análise por campanha: CPA, tendência, gargalo cirúrgico e manobra recomendada. Mín. {MIN_DAYS_FOR_VERDICT}d + {MIN_PURCHASES_FOR_VERDICT} compras pra emitir veredito.</p>
           </CardHeader>
           <CardContent className="space-y-3">
             {diagnosticos.slice(0, 10).map((d, i) => (
               <div key={i} className="rounded-lg border border-border p-4 space-y-3 bg-secondary/30">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold truncate">{d.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Gasto 7d: R$ {d.gasto7.toFixed(2)} · {d.compras} compras · {d.checkouts} checkouts
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold truncate">{d.name}</p>
+                      {d.isNew && (
+                        <Badge variant="outline" className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[9px]">
+                          NOVA · {d.ageDays}d
+                        </Badge>
+                      )}
+                      {!d.hasCheckoutData && (
+                        <Badge variant="outline" className="bg-muted text-muted-foreground text-[9px]" title="Facebook não enviou checkouts iniciados — diagnóstico de página/checkout fica cego">
+                          SEM CKO DATA
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Gasto 7d: R$ {d.gasto7.toFixed(2)} · {d.compras} compras{d.hasCheckoutData ? ` · ${d.checkouts} checkouts` : ""} · idade {d.ageDays}d
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -368,7 +462,23 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
                     <span className="text-muted-foreground">CPA 3d</span>
                     <p className="font-mono font-bold">{d.cpa3 > 0 ? `R$ ${d.cpa3.toFixed(2)}` : "—"}</p>
                   </div>
-                  <div className="bg-background/50 rounded px-2 py-1.5">
+                  <div
+                    className="bg-background/50 rounded px-2 py-1.5"
+                    title={
+                      d.metaCpaSource === "ticket-medio" ? `Calculada: ticket médio × ${(DEFAULT_MARGIN * 100).toFixed(0)}% de margem` :
+                      d.metaCpaSource === "estimado" ? "Estimada com base no CPA atual (sem ticket médio cadastrado)" :
+                      "Sem âncora real — cadastre vendas para calibrar"
+                    }
+                  >
+                    <span className="text-muted-foreground">Meta CPA</span>
+                    <p className="font-mono font-bold">
+                      {d.metaCpa > 0 ? `R$ ${d.metaCpa.toFixed(2)}` : "—"}
+                      <span className="text-[8px] text-muted-foreground ml-1">
+                        {d.metaCpaSource === "ticket-medio" ? "🎯" : d.metaCpaSource === "estimado" ? "≈" : "?"}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-background/50 rounded px-2 py-1.5" title={!d.hasCheckoutData ? "Facebook não enviou checkouts iniciados" : ""}>
                     <span className="text-muted-foreground">$/Checkout</span>
                     <p className="font-mono font-bold">{d.custoCheckout > 0 ? `R$ ${d.custoCheckout.toFixed(2)}` : "—"}</p>
                   </div>
@@ -377,38 +487,32 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
                     <p className={`font-mono font-bold ${d.lpToCko > 0 && d.lpToCko < 10 ? "text-red-400" : ""}`}>{d.lpToCko > 0 ? `${d.lpToCko.toFixed(1)}%` : "—"}</p>
                   </div>
                   <div className="bg-background/50 rounded px-2 py-1.5">
-                    <span className="text-muted-foreground">CKO→Venda</span>
-                    <p className={`font-mono font-bold ${d.ckoToSale > 0 && d.ckoToSale < 50 ? "text-red-400" : ""}`}>{d.ckoToSale > 0 ? `${d.ckoToSale.toFixed(1)}%` : "—"}</p>
-                  </div>
-                  <div className="bg-background/50 rounded px-2 py-1.5">
                     <span className="text-muted-foreground">Freq.</span>
                     <p className={`font-mono font-bold ${d.freq > 3 ? "text-red-400" : ""}`}>{d.freq > 0 ? d.freq.toFixed(1) : "—"}</p>
                   </div>
                 </div>
 
-                {/* Manobra */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">MANOBRA:</span>
-                  <Badge variant="outline" className={
-                    d.manobra.includes("ESCALA") ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
-                    d.manobra.includes("PAUSE") ? "bg-red-500/15 text-red-400 border-red-500/30" :
-                    d.manobra.includes("CORTE") ? "bg-orange-500/15 text-orange-400 border-orange-500/30" :
-                    "bg-secondary text-muted-foreground"
-                  }>
-                    <span className="text-[10px]">{d.manobra}</span>
-                  </Badge>
-                  {d.gargalo === "ANÚNCIO" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: novos criativos/hooks</span>
-                  )}
-                  {d.gargalo === "PÁGINA" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: CRO na página de vendas</span>
-                  )}
-                  {d.gargalo === "CHECKOUT" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: fricção no pagamento</span>
-                  )}
-                  {d.gargalo === "TÉCNICO" && (
-                    <span className="text-[10px] text-muted-foreground ml-2">💡 Foco: velocidade/promessa</span>
-                  )}
+                {/* Manobra + razão */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground">MANOBRA:</span>
+                    <Badge variant="outline" className={
+                      d.manobra.includes("ESCALA") ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+                      d.manobra.includes("PAUSE") ? "bg-red-500/15 text-red-400 border-red-500/30" :
+                      d.manobra.includes("CORTE") ? "bg-orange-500/15 text-orange-400 border-orange-500/30" :
+                      d.manobra.includes("AJUSTE") ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                      d.manobra === "OBSERVANDO" ? "bg-blue-500/15 text-blue-400 border-blue-500/30" :
+                      d.manobra === "DEFINIR META" ? "bg-purple-500/15 text-purple-400 border-purple-500/30" :
+                      "bg-secondary text-muted-foreground"
+                    }>
+                      <span className="text-[10px]">{d.manobra}</span>
+                    </Badge>
+                    {d.gargalo === "ANÚNCIO" && <span className="text-[10px] text-muted-foreground">💡 Foco: novos criativos/hooks</span>}
+                    {d.gargalo === "PÁGINA" && <span className="text-[10px] text-muted-foreground">💡 Foco: CRO na página de vendas</span>}
+                    {d.gargalo === "CHECKOUT" && <span className="text-[10px] text-muted-foreground">💡 Foco: fricção no pagamento</span>}
+                    {d.gargalo === "TÉCNICO" && <span className="text-[10px] text-muted-foreground">💡 Foco: velocidade/promessa</span>}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground italic pl-1">↳ {d.manobraReason}</p>
                 </div>
               </div>
             ))}
