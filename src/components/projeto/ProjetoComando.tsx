@@ -13,6 +13,7 @@ import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
 import { HealthScoreCard } from "@/components/projeto/HealthScoreCard";
 import { ProjetoMetaCard } from "@/components/projeto/ProjetoMetaCard";
 import { ProjetoNotasCard } from "@/components/projeto/ProjetoNotasCard";
+import { RecoveryKpiBlock } from "@/components/recuperacao/RecoveryKpiBlock";
 import { calcHealthScore } from "@/lib/healthScore";
 
 interface Props {
@@ -265,6 +266,9 @@ export function ProjetoComando({ projectId, project }: Props) {
             icon={<TrendingUp className="h-3 w-3" />}
             tooltip="Investimento em ads hoje vs ontem (menor é melhor se receita estável)."
           />
+        </div>
+        <div className="mt-3">
+          <RecoveryKpiBlock projectId={projectId} />
         </div>
       </div>
 

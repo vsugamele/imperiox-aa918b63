@@ -38,6 +38,7 @@ import Criativos from "./pages/Criativos";
 import CriativoNovo from "./pages/CriativoNovo";
 import CriativoDetalhe from "./pages/CriativoDetalhe";
 import Metas from "./pages/Metas";
+import Recuperacao from "./pages/Recuperacao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -83,6 +84,7 @@ const App = () => (
               <Route path="criativos/novo" element={<CriativoNovo />} />
               <Route path="criativos/:batchId" element={<CriativoDetalhe />} />
               <Route path="metas" element={<Metas />} />
+              <Route path="recuperacao" element={<Recuperacao />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
