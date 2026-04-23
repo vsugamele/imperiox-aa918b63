@@ -277,6 +277,57 @@ export default function DashboardDrillSheet({
             criativos: Array.from(criativoMap.entries()).map(([name, c]) => ({ name, gasto: c.gasto, compras: c.compras, ctr: c.n > 0 ? c.ctr / c.n : 0 })).sort((a, b) => b.gasto - a.gasto).slice(0, 20),
             vendasUtm,
           });
+        } else if (metric === "funnel_stage" && funnelStage) {
+          // Filter leads or sales according to stage
+          if (funnelStage === "leads") {
+            let q: any = supabase.from("imphq_leads")
+              .select("id, nome, email, phone, status, score, plataforma, criado_em")
+              .gte("criado_em", from).lte("criado_em", to)
+              .order("criado_em", { ascending: false }).limit(200);
+            if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+            const { data } = await q;
+            setLeads(data || []);
+          } else {
+            const stageStatusMap: Record<string, string[]> = {
+              checkout: ["inicio_checkout", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente", "aprovado", "expirado", "cancelado", "recusado"],
+              pix: ["pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente"],
+              approved: ["aprovado", "approved", "paid", "completed"],
+              lost: ["expirado", "cancelado", "recusado", "reembolsado", "chargedback"],
+            };
+            const statuses = stageStatusMap[funnelStage] || [];
+            let q: any = supabase.from("imphq_vendas")
+              .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+              .gte("data_venda", from).lte("data_venda", to)
+              .in("status", statuses)
+              .order("data_venda", { ascending: false }).limit(200);
+            if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+            if (productFilter && productFilter !== "all") q = q.eq("produto_nome", productFilter);
+            const { data } = await q;
+            setVendas(data || []);
+          }
+        } else if ((metric === "product" || metric === "project_revenue") && (productName || projectId)) {
+          let q: any = supabase.from("imphq_vendas")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .gte("data_venda", from).lte("data_venda", to)
+            .in("status", ["aprovado", "approved", "paid", "completed"])
+            .order("data_venda", { ascending: false }).limit(200);
+          if (productName) q = q.eq("produto_nome", productName);
+          if (projectId) q = q.eq("project_id", projectId);
+          else if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+          const { data } = await q;
+          setVendas(data || []);
+        } else if (metric === "day_revenue" && dayKey) {
+          const dayStart = `${dayKey}T00:00:00`;
+          const dayEnd = `${dayKey}T23:59:59`;
+          let q: any = supabase.from("imphq_vendas")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .gte("data_venda", dayStart).lte("data_venda", dayEnd)
+            .in("status", ["aprovado", "approved", "paid", "completed"])
+            .order("data_venda", { ascending: false }).limit(200);
+          if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+          if (productFilter && productFilter !== "all") q = q.eq("produto_nome", productFilter);
+          const { data } = await q;
+          setVendas(data || []);
         }
       } finally {
         setLoading(false);
@@ -284,7 +335,7 @@ export default function DashboardDrillSheet({
     }
 
     load();
-  }, [open, metric, period, projectFilter, productFilter, campaignName]);
+  }, [open, metric, period, projectFilter, productFilter, campaignName, funnelStage, productName, projectId, dayKey, reloadKey]);
 
   if (!metric) return null;
   const head = titleMap[metric];
