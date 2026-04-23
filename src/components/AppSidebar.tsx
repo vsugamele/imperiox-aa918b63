@@ -23,6 +23,7 @@ const crmItems = [
   { title: "Finanças", url: "/financas", icon: DollarSign, color: "text-emerald-400" },
   { title: "Market Intel", url: "/market-intel", icon: Search, color: "text-emerald-400" },
   { title: "Funis", url: "/funis", icon: Target, color: "text-emerald-400" },
+  { title: "Metas", url: "/metas", icon: Target, color: "text-emerald-400" },
   { title: "Nutrição", url: "/nutricao", icon: Mail, color: "text-emerald-400" },
 ];
 

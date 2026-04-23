@@ -10,6 +10,10 @@ import { format } from "date-fns";
 import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
 import { ProductInsightDrawer } from "@/components/projeto/insights/ProductInsightDrawer";
 import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
+import { HealthScoreCard } from "@/components/projeto/HealthScoreCard";
+import { ProjetoMetaCard } from "@/components/projeto/ProjetoMetaCard";
+import { ProjetoNotasCard } from "@/components/projeto/ProjetoNotasCard";
+import { calcHealthScore } from "@/lib/healthScore";
 
 interface Props {
   projectId: string;
@@ -38,6 +42,12 @@ export function ProjetoComando({ projectId, project }: Props) {
   // Próximas ações: eventos próximas 48h
   const [events48h, setEvents48h] = useState<any[]>([]);
 
+  // Health Score inputs
+  const [adsMes, setAdsMes] = useState<any[]>([]);
+  const [leadsMes, setLeadsMes] = useState<any[]>([]);
+  const [vendas7dArr, setVendas7dArr] = useState<any[]>([]);
+  const [conteudos14d, setConteudos14d] = useState<number>(0);
+
   const load = async () => {
     setLoading(true);
     const now = new Date();
@@ -64,8 +74,12 @@ export function ProjetoComando({ projectId, project }: Props) {
       sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")),
       sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
       sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", in48h).order("start_date", { ascending: true }),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).gte("data", monthStart.slice(0, 10)),
+      sb.from("imphq_leads").select("id, criado_em").eq("project_id", projectId).gte("criado_em", monthStart),
+      sb.from("imphq_vendas").select("id, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString()),
+      sb.from("imphq_content").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", new Date(new Date(dayStart).getTime() - 14 * 86400000).toISOString()),
     ];
-    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes] = await Promise.all(promises);
+    const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes, adsMesRes, leadsMesRes, vendas7dRes, conteudos14dRes] = await Promise.all(promises);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
@@ -78,6 +92,10 @@ export function ProjetoComando({ projectId, project }: Props) {
     setAdsOntem(adsOntemRes.data || []);
     setVendasMes(vendasMesRes.data || []);
     setEvents48h(events48hRes.data || []);
+    setAdsMes(adsMesRes.data || []);
+    setLeadsMes(leadsMesRes.data || []);
+    setVendas7dArr(vendas7dRes.data || []);
+    setConteudos14d((conteudos14dRes as any).count || 0);
     setLoading(false);
   };
 
@@ -249,6 +267,27 @@ export function ProjetoComando({ projectId, project }: Props) {
           />
         </div>
       </div>
+
+      {/* ===== Estratégia: Health + Meta + Notas ===== */}
+      {(() => {
+        const receitaMes = vendasMes.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0);
+        const gastoMes = adsMes.reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0);
+        const roas = gastoMes > 0 ? receitaMes / gastoMes : 0;
+        const health = calcHealthScore({
+          roas,
+          leadsRecent: leadsMes.length,
+          vendasRecent: vendasMes.length,
+          vendas7d: vendas7dArr.length,
+          conteudos14d,
+        });
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <HealthScoreCard health={health} />
+            <ProjetoMetaCard projectId={projectId} receitaMes={receitaMes} leadsMes={leadsMes.length} vendasMes={vendasMes.length} />
+            <ProjetoNotasCard projectId={projectId} />
+          </div>
+        );
+      })()}
 
       {/* ===== 2. Top 3 Produtos do mês ===== */}
       {topProdutos.length > 0 && (
