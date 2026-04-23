@@ -331,6 +331,7 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
   const TrendIcon = ({ trend }: { trend: string }) => {
     if (trend === "MELHORANDO") return <TrendingUp className="h-4 w-4 text-emerald-400" />;
     if (trend === "PIORANDO") return <TrendingDown className="h-4 w-4 text-red-400" />;
+    if (trend === "INSUFICIENTE") return <Activity className="h-4 w-4 text-blue-400" />;
     return <Minus className="h-4 w-4 text-amber-400" />;
   };
 
