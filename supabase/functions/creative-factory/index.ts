@@ -6,9 +6,19 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+
+type ImageProvider = "lovable-gemini" | "openai-image";
+
+// Map our square/vertical/horizontal hint to OpenAI gpt-image-1 sizes
+function openaiSizeFromFormato(formato: string): "1024x1024" | "1024x1536" | "1536x1024" {
+  if (formato === "9:16" || formato === "4:5") return "1024x1536";
+  if (formato === "16:9" || formato === "1.91:1") return "1536x1024";
+  return "1024x1024";
+}
 
 const ANGULO_PROMPTS: Record<string, string> = {
   dor: "Foco na DOR: mostrar a frustração, o problema sentido pelo avatar. Expressão facial de cansaço/frustração. Atmosfera de problema a ser resolvido.",
@@ -40,7 +50,7 @@ async function scrapeReferencias(urls: string[]): Promise<string> {
   return chunks.join("\n\n");
 }
 
-async function generateImage(prompt: string, referenceImages: string[] = []): Promise<string | null> {
+async function generateImageGemini(prompt: string, referenceImages: string[] = []): Promise<string | null> {
   const content: any[] = [{ type: "text", text: prompt }];
   for (const img of referenceImages.slice(0, 3)) content.push({ type: "image_url", image_url: { url: img } });
 
@@ -60,6 +70,43 @@ async function generateImage(prompt: string, referenceImages: string[] = []): Pr
   }
   const data = await resp.json();
   return data?.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+}
+
+async function generateImageOpenAI(prompt: string, formato: string): Promise<string | null> {
+  if (!OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY not configured");
+    return null;
+  }
+  try {
+    const resp = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-image-1",
+        prompt: prompt.slice(0, 4000),
+        n: 1,
+        size: openaiSizeFromFormato(formato),
+        // gpt-image-1 always returns base64
+      }),
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error("OpenAI image gen failed", resp.status, t.slice(0, 300));
+      return null;
+    }
+    const data = await resp.json();
+    const b64 = data?.data?.[0]?.b64_json;
+    if (!b64) return null;
+    return `data:image/png;base64,${b64}`;
+  } catch (e) {
+    console.error("OpenAI image ex", e);
+    return null;
+  }
+}
+
+async function generateImage(provider: ImageProvider, prompt: string, referenceImages: string[], formato: string): Promise<string | null> {
+  if (provider === "openai-image") return generateImageOpenAI(prompt, formato);
+  return generateImageGemini(prompt, referenceImages);
 }
 
 async function uploadBase64ToStorage(
@@ -131,9 +178,11 @@ async function processBatch(batchId: string) {
   const expertFotos: string[] = Array.isArray(batch.expert_fotos) ? batch.expert_fotos : [];
   const formato = batch.formato || "1:1";
   const variacoesPorAngulo = Math.max(1, Math.min(3, Number(briefing.variacoes_por_angulo) || 2));
+  const provider: ImageProvider = (briefing.image_provider === "openai-image" ? "openai-image" : "lovable-gemini");
 
   const totalPlanejado = angulos.length * variacoesPorAngulo;
   await sb.from("imphq_creative_batches").update({ total_planejado: totalPlanejado }).eq("id", batchId);
+  console.log(`[creative-factory] batch=${batchId} provider=${provider} formato=${formato} total=${totalPlanejado}`);
 
   let totalGerado = 0;
   let erros = 0;
@@ -158,7 +207,7 @@ async function processBatch(batchId: string) {
       ].filter(Boolean).join("\n");
 
       try {
-        const imageDataUrl = await generateImage(prompt, expertFotos);
+        const imageDataUrl = await generateImage(provider, prompt, expertFotos, formato);
         if (!imageDataUrl) { erros++; continue; }
 
         const { data: inserted, error: insErr } = await sb.from("imphq_creative_assets").insert({

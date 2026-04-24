@@ -64,6 +64,7 @@ export default function CriativoNovo() {
   const [extras, setExtras] = useState("");
   const [formato, setFormato] = useState("1:1");
   const [variacoes, setVariacoes] = useState(2);
+  const [imageProvider, setImageProvider] = useState<"lovable-gemini" | "openai-image">("lovable-gemini");
   const [angulos, setAngulos] = useState<string[]>(["dor", "desejo", "prova", "curiosidade"]);
   const [referenciasText, setReferenciasText] = useState("");
   const [expertFotos, setExpertFotos] = useState<string[]>([]);
@@ -306,6 +307,7 @@ export default function CriativoNovo() {
             inimigo: avatar.inimigo || "",
             crenca_necessaria: avatar.crenca_necessaria || "",
             variacoes_por_angulo: variacoes,
+            image_provider: imageProvider,
             auto_briefing: true,
           }
         : {
@@ -316,6 +318,7 @@ export default function CriativoNovo() {
             mecanismo,
             extras,
             variacoes_por_angulo: variacoes,
+            image_provider: imageProvider,
           };
 
       const { data, error } = await supabase.functions.invoke("creative-factory", {
@@ -609,7 +612,24 @@ export default function CriativoNovo() {
           ))}
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3">
+        <div className="grid md:grid-cols-3 gap-3">
+          <div>
+            <Label>Provider de imagem</Label>
+            <Select value={imageProvider} onValueChange={(v) => setImageProvider(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lovable-gemini">Gemini Nano Banana (rápido, padrão)</SelectItem>
+                <SelectItem value="openai-image">OpenAI gpt-image-1 (foto-realismo)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {imageProvider === "openai-image"
+                ? "Mais caro, melhor para fotos hiper-realistas. Não usa fotos do expert como referência visual."
+                : "Padrão Imperio HQ — usa fotos do expert como referência."}
+            </p>
+          </div>
           <div>
             <Label>Formato</Label>
             <Select value={formato} onValueChange={setFormato}>
