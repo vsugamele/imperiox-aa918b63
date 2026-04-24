@@ -3,8 +3,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Eye, CheckCircle, Package } from "lucide-react";
+import { Upload, Eye, CheckCircle, Package, Activity, AlertTriangle } from "lucide-react";
 import { PerfilTab } from "./avatar/PerfilTab";
 import { DesejosTab } from "./avatar/DesejosTab";
 import { DoresTab } from "./avatar/DoresTab";
@@ -14,6 +15,7 @@ import { CopyArsenalTab } from "./avatar/CopyArsenalTab";
 import { GatilhosTab } from "./avatar/GatilhosTab";
 import { AvatarImporter } from "./avatar/AvatarImporter";
 import { AvatarPipelineRunner } from "./avatar/AvatarPipelineRunner";
+import { computeAvatarHealthScore } from "./avatar/ConfidenceBadge";
 
 interface Props {
   project: any;
@@ -72,6 +74,8 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
     return prod ? `Avatar — ${prod.nome || `Produto ${Number(selectedProduct) + 1}`}` : "Avatar";
   }, [selectedProduct, produtos]);
 
+  const health = useMemo(() => computeAvatarHealthScore(avatar), [avatar]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -94,6 +98,37 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
           <Button variant="outline" size="sm" onClick={() => setShowImporter(true)}>
             <Upload className="h-3 w-3 mr-1" /> Importar HTML
           </Button>
+        </div>
+      </div>
+
+      {/* Saúde do Avatar */}
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/40 border border-border">
+        <Activity className="h-4 w-4 text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+            <span className="text-xs font-medium text-foreground">Saúde do Avatar</span>
+            <div className="flex items-center gap-2">
+              {health.avg === null ? (
+                <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-300 bg-amber-500/10">
+                  <AlertTriangle className="h-3 w-3" />
+                  Recomendado: rodar pipeline
+                </Badge>
+              ) : health.avg < 50 ? (
+                <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-300 bg-amber-500/10">
+                  <AlertTriangle className="h-3 w-3" />
+                  Confiança baixa — rodar pipeline
+                </Badge>
+              ) : null}
+              <span className="text-xs font-mono text-muted-foreground">
+                {health.avg === null ? "—" : `${health.avg}/100`}
+                {health.filled > 0 && ` · ${health.filled} campos`}
+              </span>
+            </div>
+          </div>
+          <Progress
+            value={health.avg ?? 0}
+            className={`h-1.5 ${health.avg === null ? "opacity-30" : ""}`}
+          />
         </div>
       </div>
 
