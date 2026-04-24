@@ -183,6 +183,7 @@ serve(async (req) => {
     if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content") return await handleGenerateContent(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
+    if (action === "generate_avatar_angles") return await handleAvatarAngles(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData);
     if (action === "generate_product_intel") return await handleProductIntel(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
     if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_gatilhos") return await handleGatilhos(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
@@ -469,6 +470,24 @@ async function handleGatilhos(ctx: string, apiKey: string, model: string, baseUr
   );
   if (gatilhos instanceof Response) return gatilhos;
   return new Response(JSON.stringify({ gatilhos }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function handleAvatarAngles(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}) {
+  // Extrai top 3 dores e desejos do avatar pra dar foco ao prompt
+  const avatar = projectData?.avatar || {};
+  const topDores = (avatar.dores || []).slice(0, 3).map((d: any) => d.descricao || d.text || "").filter(Boolean);
+  const topDesejos = (avatar.desejos || []).slice(0, 3).map((d: any) => d.descricao || d.text || "").filter(Boolean);
+  const focus = `\n\nTOP 3 DORES:\n- ${topDores.join("\n- ") || "(usar avatar do contexto)"}\n\nTOP 3 DESEJOS:\n- ${topDesejos.join("\n- ") || "(usar avatar do contexto)"}\n`;
+
+  const angles = await callAI(
+    `${mentePrefix}Você é um copywriter de resposta direta brasileiro especialista em ângulos de ataque para anúncios e headlines.\n${ctx}${focus}\nGere 5 ÂNGULOS de ataque distintos, cada um derivado de UMA dor ou desejo específico do avatar. Cada ângulo deve virar uma headline pronta de anúncio.`,
+    "Gere 5 ângulos de ataque baseados nas top dores e desejos do avatar.",
+    apiKey, model,
+    [{ type: "function", function: { name: "generate_avatar_angles", description: "Generate 5 attack angles", parameters: { type: "object", properties: { angulos: { type: "array", items: { type: "object", properties: { categoria: { type: "string", description: "Origem (ex: Dor #1, Desejo #2)" }, texto: { type: "string", description: "Headline pronta de até 140 caracteres" }, gancho_emocional: { type: "string" } }, required: ["categoria", "texto", "gancho_emocional"], additionalProperties: false } } }, required: ["angulos"], additionalProperties: false } } }],
+    "generate_avatar_angles", baseUrl
+  );
+  if (angles instanceof Response) return angles;
+  return new Response(JSON.stringify({ angles }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function handleKPIs(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {

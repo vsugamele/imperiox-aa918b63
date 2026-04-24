@@ -7,14 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { EditableTagList } from "../EditableTagList";
+import { AIGenerateButton } from "../AIGenerateButton";
+import { toast } from "sonner";
 
 interface Props {
   avatar: any;
   onUpdate: (avatar: any) => void;
+  projectId?: string;
 }
 
 // ── Headlines importadas (.hl-card) ─────────────────────────────────────────
-function HeadlinesSection({ avatar, onUpdate }: Props) {
+function HeadlinesSection({ avatar, onUpdate, projectId }: Props) {
   const headlines: any[] = avatar.headlines || [];
   const add = () => onUpdate({ ...avatar, headlines: [...headlines, { categoria: "", texto: "" }] });
   const remove = (i: number) => onUpdate({ ...avatar, headlines: headlines.filter((_: any, j: number) => j !== i) });
@@ -24,11 +27,37 @@ function HeadlinesSection({ avatar, onUpdate }: Props) {
     onUpdate({ ...avatar, headlines: u });
   };
 
+  const handleAnglesResult = (data: any) => {
+    const novos = (data?.angles?.angulos || data?.angulos || []).map((a: any) => ({
+      categoria: a.categoria || "Avatar",
+      texto: a.texto || "",
+    })).filter((a: any) => a.texto);
+    if (!novos.length) {
+      toast.error("IA não retornou ângulos.");
+      return;
+    }
+    onUpdate({ ...avatar, headlines: [...headlines, ...novos] });
+    toast.success(`${novos.length} ângulos gerados a partir do Avatar!`);
+  };
+
   return (
     <Card className="bg-card border-border">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📰 Headlines</CardTitle>
-        <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Add</Button>
+        <div className="flex gap-2">
+          {projectId && (
+            <AIGenerateButton
+              projectId={projectId}
+              action="generate_avatar_angles"
+              onResult={handleAnglesResult}
+              contextSources={["Avatar"]}
+              fieldsToFill={["Headlines"]}
+              label="Avatar → 5 Ângulos"
+              size="sm"
+            />
+          )}
+          <Button size="sm" variant="outline" onClick={add}><Plus className="h-3 w-3 mr-1" /> Add</Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-2">
         {headlines.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma headline. Importe o HTML ou adicione manualmente.</p>}
@@ -300,10 +329,10 @@ function FrasesSection({ avatar }: { avatar: any }) {
 }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
-export function CopyArsenalTab({ avatar, onUpdate }: Props) {
+export function CopyArsenalTab({ avatar, onUpdate, projectId }: Props) {
   return (
     <div className="space-y-6">
-      <HeadlinesSection avatar={avatar} onUpdate={onUpdate} />
+      <HeadlinesSection avatar={avatar} onUpdate={onUpdate} projectId={projectId} />
       <AnunciosSection avatar={avatar} onUpdate={onUpdate} />
       <ObjecoesSection avatar={avatar} onUpdate={onUpdate} />
       <VslSection avatar={avatar} onUpdate={onUpdate} />
