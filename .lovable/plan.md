@@ -1,104 +1,22 @@
 
+## Execução em sequência
 
-## Creative Factory 2.0 — Integração total com o projeto
+### Bloco 1 — Dívidas técnicas (agora)
+1. **`content-cluster/index.ts`**: retry 1x com backoff 800ms em 429/500; retornar `failed_formats[]` no payload.
+2. **`ContentGenerator.tsx`**: detectar `failed_formats` e renderizar botão "Tentar novamente" por formato (chama `content-cluster` só com aquele format).
+3. **Novo `src/components/projeto/avatar/ConfidenceBadge.tsx`**: pill 🟢≥75 / 🟡 50-74 / 🔴<50, tooltip listando IDs de evidência de `_avatar_meta`.
+4. **Integração nos tabs**: `PerfilTab`, `DoresTab`, `DesejosTab`, `ProblemasTab` — badge ao lado dos campos-chave lendo de `avatar._avatar_meta[campo]`.
+5. **`ProjetoAvatar.tsx`**: calcular score médio do `_avatar_meta`, barra de saúde no header + badge "Recomendado: rodar pipeline" se <50% ou ausente.
 
-### Diagnóstico do que existe hoje
+### Bloco 2 — OpenAI gpt-image-1 (depois do 1)
+- Vou pausar e pedir `OPENAI_API_KEY` via `add_secret`.
+- Adicionar provider `openai-image` na `creative-factory/index.ts`.
+- Seletor de provider no `/criativos/novo` (Gemini Nano Banana / OpenAI gpt-image-1).
 
-**O que funciona:**
-- Geração via Gemini Image (`google/gemini-3-pro-image-preview`) com 7 ângulos.
-- Edição de imagem por instrução textual.
-- Versionamento (parent → child) e ZIP/export pra Mídias.
-- Upload de fotos do expert + scrape de referências (Firecrawl).
+### Bloco 3 — Automação proativa (por último)
+- `pg_cron` diário 08:00 BRT (11:00 UTC) chamando `daily-stories-ideas` pra projetos `status='vendendo'`.
+- Botão one-click "Avatar → Copy Arsenal" no `CopyArsenalTab` (gera 5 ângulos a partir de top dores/desejos).
 
-**O que tá fraco:**
-1. **Briefing 100% manual** — usuário re-digita produto/dor/desejo toda vez, mesmo já existindo no Avatar/Briefing do projeto.
-2. **Não usa o Avatar** — perde dores, desejos, gatilhos, copy arsenal e camadas C1-C4 já mapeadas.
-3. **Não usa concorrentes escalados** — perde melhor referência de mercado disponível.
-4. **Não usa fotos do expert salvas no projeto** — expert_fotos é upload avulso.
-5. **Não usa identidade visual** (cores, tipografia, logo) salva em `ProjetoBranding`.
-6. **Headlines isoladas** — não puxam Copy Arsenal já validado.
-7. **Sem opção de provider** — só Gemini. Sem GPT-Image-1 da OpenAI (que costuma render texto/rosto melhor).
-8. **Saída não volta pro projeto** — vai pra biblioteca de mídias global, sem categoria/pasta por batch nem vínculo com um produto específico.
+**Sem mudanças de schema necessárias** — `_avatar_meta`, `cluster_id`, `failed_formats` cabem no JSONB e response existentes.
 
----
-
-### Plano em 3 sprints
-
-#### Sprint E1 — Auto-preenchimento do projeto (alto impacto, baixo esforço)
-
-**Em `CriativoNovo.tsx`:**
-- Ao escolher projeto, **carregar automaticamente**:
-  - Avatar ativo do produto (se houver) → preenche dor/desejo/mecanismo.
-  - Briefing do projeto → produto, público.
-  - Branding → cores e estilo visual no campo "extras".
-  - Top 3 dores e desejos → mostra como "puxar" (chips clicáveis).
-  - Headlines do Copy Arsenal → mostra abaixo pra reaproveitar.
-  - Fotos do expert salvas em `imphq_content_library` com tag `expert` → checkboxes ao invés de upload.
-  - Top concorrentes escalados → URLs pré-preenchidas como referência.
-- Toggle "**Modo Automático**": sem briefing — IA monta o briefing sozinha a partir do projeto + produto escolhido.
-- Seletor de **Produto específico** (lista de `imphq_products`) → IA usa ticket/promessa do produto.
-
-**Resultado:** usuário escolhe projeto + produto + ângulos → clica gerar. Zero digitação.
-
----
-
-#### Sprint E2 — Provider OpenAI (gpt-image-1) + escolha por job
-
-**Por que:** gpt-image-1 da OpenAI renderiza **texto na imagem** muito melhor que Gemini (essencial pra criativos com headline overlay) e mantém **fidelidade de rosto** com referência.
-
-**Implementação:**
-- Adicionar campo `provider` no `imphq_creative_batches` (`gemini` | `openai`).
-- Adicionar secret `OPENAI_API_KEY` no Supabase (peço aprovação na execução).
-- Em `creative-factory/index.ts`, criar `generateImageOpenAI()` que chama `https://api.openai.com/v1/images/generations` com `model: "gpt-image-1"`, `quality: "high"`, `size` mapeado por formato (1024x1024 / 1024x1536 / 1536x1024).
-- Para edição com referência (expert_fotos), usar `https://api.openai.com/v1/images/edits` (suporta image input + prompt).
-- UI: toggle no `CriativoNovo` "Provider: Gemini (rápido/barato) | OpenAI gpt-image-1 (premium, melhor texto+rosto)".
-- Fallback automático: se OpenAI falhar (rate/credits), tenta Gemini e marca o asset.
-
-**Custo transparente:** mostrar estimativa por provider antes de gerar (~$0.04 Gemini vs ~$0.19 OpenAI HD).
-
----
-
-#### Sprint E3 — Salvar de volta no projeto (loop fechado)
-
-**Hoje:** export joga em `imphq_content_library` sem categoria → some na biblioteca.
-
-**Mudanças:**
-- Cada batch vira uma **pasta virtual em Mídias**: `content_category = "criativos/{batch_nome}"` (já segue padrão de pastas virtuais existente).
-- Cada asset salvo carrega tags: `criativo`, `ia`, `{angulo}`, `{produto}`, `{provider}`.
-- Adicionar **aba "Criativos IA"** dentro de `ProjetoDetalhe` (`ProjetoCentralConteudo` ou nova aba) listando todos os batches do projeto, com mini-grid de aprovados.
-- Botão "**Reutilizar este criativo**" em qualquer asset → leva pro `Criativos > novo` com briefing pré-preenchido daquele batch.
-- Ao publicar criativo no Meta Ads (futuro hook), marcar `imphq_creative_assets.published_at` pra fechar loop performance ↔ criativo.
-
-**Banco (migration pequena):**
-```sql
-ALTER TABLE imphq_creative_batches
-  ADD COLUMN provider TEXT DEFAULT 'gemini',
-  ADD COLUMN product_id TEXT,
-  ADD COLUMN auto_briefing BOOLEAN DEFAULT false;
-
-ALTER TABLE imphq_creative_assets
-  ADD COLUMN provider TEXT,
-  ADD COLUMN published_at TIMESTAMPTZ;
-```
-
----
-
-### Ordem sugerida de execução
-
-| Sprint | Foco | Esforço |
-|---|---|---|
-| **E1** | Auto-preencher do Avatar/Briefing/Branding/Concorrentes | Médio (1 arquivo + queries) |
-| **E2** | Provider OpenAI gpt-image-1 + seletor | Médio (edge function + UI + secret) |
-| **E3** | Salvar como pasta no projeto + aba "Criativos IA" no projeto | Médio (migration + 1 componente novo) |
-
-### Fora de escopo (próxima rodada)
-- Geração de **vídeo** (Sora/Runway).
-- A/B test automático no Meta Ads.
-- Score preditivo de CTR antes de publicar (precisa histórico).
-
-### Pergunta antes de executar
-
-Provider OpenAI: ativo **gpt-image-1** (melhor mas pago — você precisa colocar `OPENAI_API_KEY`) ou prefere ficar só no Gemini por enquanto e adicionar OpenAI depois?
-
-Aprova começar por **E1** (auto-preenchimento — ganho imediato, sem dependência externa) e seguir E2 → E3?
-
+Confirma com **"vai"** que saio do plan mode e toco Bloco 1 → pauso pro secret do Bloco 2 → Bloco 3.
