@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Copy, Check, RefreshCw, Save, FileText, CheckCircle2, Clock, Edit3, Layers, Loader2 } from "lucide-react";
+import { Copy, Check, RefreshCw, Save, FileText, CheckCircle2, Clock, Edit3, Layers, Loader2, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CONTENT_TYPES, STATUS_CONFIG, type GeneratedItem, type StatusKey } from "./constants";
 
@@ -17,9 +17,10 @@ interface Props {
   onChangeStatus: (id: string, status: StatusKey) => void;
   onExpandCluster?: (item: GeneratedItem) => void;
   expandingClusterId?: string | null;
+  onRetryClusterFormat?: (item: GeneratedItem) => void;
 }
 
-export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, onSaveCopyArsenal, onChangeStatus, onExpandCluster, expandingClusterId }: Props) {
+export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, onSaveCopyArsenal, onChangeStatus, onExpandCluster, expandingClusterId, onRetryClusterFormat }: Props) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === item.type);
   const Icon = typeInfo?.icon || FileText;
   const status = (item.status || "rascunho") as StatusKey;
@@ -105,6 +106,21 @@ export function ResultCard({ item, idx, copiedIdx, onCopy, onRegen, onSaveDocs, 
                 {expandingClusterId === (item.id || String(item.timestamp))
                   ? <Loader2 className="h-3 w-3 animate-spin text-accent" />
                   : <Layers className="h-3 w-3 text-accent" />}
+              </Button>
+            )}
+            {status === "erro" && item.cluster_id && item.cluster_role && onRetryClusterFormat && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[10px] gap-1 border-red-500/40 text-red-300 hover:bg-red-500/10"
+                onClick={() => onRetryClusterFormat(item)}
+                disabled={expandingClusterId === (item.id || String(item.timestamp))}
+                title="Tentar novamente este formato"
+              >
+                {expandingClusterId === (item.id || String(item.timestamp))
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : <AlertTriangle className="h-3 w-3" />}
+                Tentar novamente
               </Button>
             )}
           </div>
