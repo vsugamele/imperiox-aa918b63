@@ -1679,6 +1679,51 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_cancellation_notices: {
+        Row: {
+          created_at: string
+          email: string | null
+          email_sent: boolean
+          id: string
+          plan_id: string | null
+          program_id: string | null
+          provider: string | null
+          push_sent: boolean
+          reactivation_url: string | null
+          scope: string
+          source_event: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       areamembrojp_certificate_templates: {
         Row: {
           accent_color: string
@@ -2780,6 +2825,7 @@ export type Database = {
           is_default: boolean
           name: string
           price_cents: number
+          reactivation_url: string | null
           slug: string
           tier_level: number
           trail_id: string | null
@@ -2799,6 +2845,7 @@ export type Database = {
           is_default?: boolean
           name: string
           price_cents?: number
+          reactivation_url?: string | null
           slug: string
           tier_level?: number
           trail_id?: string | null
@@ -2818,6 +2865,7 @@ export type Database = {
           is_default?: boolean
           name?: string
           price_cents?: number
+          reactivation_url?: string | null
           slug?: string
           tier_level?: number
           trail_id?: string | null
@@ -3325,9 +3373,11 @@ export type Database = {
           is_published: boolean
           is_trending: boolean
           language: string
+          learnings: Json
           long_description: string | null
           position: number
           price_brl: number | null
+          reactivation_url: string | null
           subtitle: string | null
           testimonials: Json
           thumbnail_url: string | null
@@ -3366,9 +3416,11 @@ export type Database = {
           is_published?: boolean
           is_trending?: boolean
           language?: string
+          learnings?: Json
           long_description?: string | null
           position?: number
           price_brl?: number | null
+          reactivation_url?: string | null
           subtitle?: string | null
           testimonials?: Json
           thumbnail_url?: string | null
@@ -3407,9 +3459,11 @@ export type Database = {
           is_published?: boolean
           is_trending?: boolean
           language?: string
+          learnings?: Json
           long_description?: string | null
           position?: number
           price_brl?: number | null
+          reactivation_url?: string | null
           subtitle?: string | null
           testimonials?: Json
           thumbnail_url?: string | null
