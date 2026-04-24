@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { AIGenerateButton } from "../AIGenerateButton";
+import { ConfidenceBadge } from "./ConfidenceBadge";
 
 interface Props {
   avatar: any;
@@ -88,7 +89,10 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
-            <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">Ranking de Problemas</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">Ranking de Problemas</CardTitle>
+              <ConfidenceBadge meta={(avatar._avatar_meta || {}).problemas} />
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">Top 5 = base de hooks, VSL e headlines</p>
           </div>
           <div className="flex items-center gap-2">

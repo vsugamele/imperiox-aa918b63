@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { AIGenerateButton } from "../AIGenerateButton";
+import { ConfidenceBadge } from "./ConfidenceBadge";
 
 interface Props {
   avatar: any;
@@ -47,11 +48,18 @@ function RankedList({ items, onUpdate, label, accent }: { items: any[]; onUpdate
 }
 
 export function DesejosTab({ avatar, onUpdate, projectId }: Props) {
+  const meta = avatar._avatar_meta || {};
   return (
     <div className="space-y-6">
       {projectId && (
-        <div className="flex justify-end">
-           <AIGenerateButton
+        <div className="flex justify-between items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Confiança por bloco:</span>
+            <span className="text-[10px] text-muted-foreground">Externos</span><ConfidenceBadge meta={meta.desejos_externos} />
+            <span className="text-[10px] text-muted-foreground">Internos</span><ConfidenceBadge meta={meta.desejos_internos} />
+            <span className="text-[10px] text-muted-foreground">Proibidos</span><ConfidenceBadge meta={meta.desejos_proibidos} />
+          </div>
+          <AIGenerateButton
             projectId={projectId}
             action="execute_skill"
             label="Mapear Desejos"
