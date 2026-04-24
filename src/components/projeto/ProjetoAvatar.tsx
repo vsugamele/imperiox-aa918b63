@@ -13,6 +13,7 @@ import { ProblemasTab } from "./avatar/ProblemasTab";
 import { CopyArsenalTab } from "./avatar/CopyArsenalTab";
 import { GatilhosTab } from "./avatar/GatilhosTab";
 import { AvatarImporter } from "./avatar/AvatarImporter";
+import { AvatarPipelineRunner } from "./avatar/AvatarPipelineRunner";
 
 interface Props {
   project: any;
@@ -81,7 +82,10 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
             Auto-save
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {project?.id && (
+            <AvatarPipelineRunner projectId={project.id} avatar={avatar} onApply={handleUpdateAvatar} />
+          )}
           {hasHtmlOriginal && (
             <Button variant="outline" size="sm" onClick={() => setShowHtmlViewer(true)}>
               <Eye className="h-3 w-3 mr-1" /> Ver HTML Original
