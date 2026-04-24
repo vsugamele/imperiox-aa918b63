@@ -21,6 +21,8 @@ const FORMATS = [
   { role: "reels_hook", label: "Hook Reels (5)", brief: "5 variações de hook (3-5s) DIFERENTES entre si (pergunta, contradição, dado chocante, antes/depois, autoridade). Sem corpo, só os ganchos." },
 ];
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 async function generateOne(opts: {
   format: typeof FORMATS[number];
   sourceIdea: string;
@@ -29,20 +31,29 @@ async function generateOne(opts: {
   const sys = `Você é um copywriter sênior brasileiro. Gere conteúdo OBJETIVO, sem floreios, em português BR. Use a ideia central fornecida — NÃO mude o ângulo. Apenas REEMBALE no formato pedido.`;
   const user = `IDEIA CENTRAL (mantenha o ângulo intacto):\n${opts.sourceIdea}\n\nCONTEXTO DO PROJETO:\n${opts.context}\n\nFORMATO PEDIDO: ${opts.format.label}\nESPECIFICAÇÃO: ${opts.format.brief}\n\nResponda apenas com o conteúdo final, sem preâmbulo.`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-    }),
-  });
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`AI ${res.status}: ${txt.slice(0, 200)}`);
+  // Retry once on 429/500/502/503/504 with 800ms backoff
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "system", content: sys }, { role: "user", content: user }],
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.choices?.[0]?.message?.content || "";
+    }
+    const retryable = [429, 500, 502, 503, 504].includes(res.status);
+    if (!retryable || attempt === 1) {
+      const txt = await res.text();
+      throw new Error(`AI ${res.status}: ${txt.slice(0, 200)}`);
+    }
+    console.warn(`[content-cluster] ${opts.format.role} ${res.status} — retry em 800ms`);
+    await sleep(800);
   }
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content || "";
+  throw new Error("unreachable");
 }
 
 Deno.serve(async (req) => {
@@ -64,8 +75,14 @@ Deno.serve(async (req) => {
     const sourceContentId: string | null = body.source_content_id || null;
     const sourceIdea: string = body.source_idea || "";
     const funnelStage: string | null = body.funnel_stage || null;
+    // Optional: regenerate only specific formats (retry path)
+    const onlyRoles: string[] | null = Array.isArray(body.only_roles) && body.only_roles.length ? body.only_roles : null;
+    const reuseClusterId: string | null = body.cluster_id || null;
 
     if (!projectId || !sourceIdea) throw new Error("project_id and source_idea required");
+
+    const targetFormats = onlyRoles ? FORMATS.filter(f => onlyRoles.includes(f.role)) : FORMATS;
+    if (!targetFormats.length) throw new Error("no valid formats requested");
 
     // Build minimal project context (briefing + avatar top points)
     const { data: project } = await supa.from("imphq_projects").select("name, data").eq("id", projectId).single();
@@ -85,16 +102,21 @@ Deno.serve(async (req) => {
       funnelStage ? `Estágio do funil: ${funnelStage}` : "",
     ].filter(Boolean).join("\n");
 
-    const clusterId = crypto.randomUUID();
+    const clusterId = reuseClusterId || crypto.randomUUID();
 
-    // Generate all 5 in parallel
+    // Generate all in parallel
     const results = await Promise.allSettled(
-      FORMATS.map(f => generateOne({ format: f, sourceIdea, context }))
+      targetFormats.map(f => generateOne({ format: f, sourceIdea, context }))
     );
 
+    const failed_formats: { role: string; label: string; error: string }[] = [];
     const inserts = results.map((r, i) => {
-      const fmt = FORMATS[i];
-      const content = r.status === "fulfilled" ? r.value : `❌ Falhou: ${(r as any).reason?.message || "erro"}`;
+      const fmt = targetFormats[i];
+      const ok = r.status === "fulfilled";
+      if (!ok) {
+        failed_formats.push({ role: fmt.role, label: fmt.label, error: (r as any).reason?.message || "erro" });
+      }
+      const content = ok ? r.value : `❌ Falhou: ${(r as any).reason?.message || "erro"}`;
       return {
         project_id: projectId,
         user_id: user.id,
@@ -102,19 +124,24 @@ Deno.serve(async (req) => {
         content,
         product_name: project?.name || "",
         model_used: "google/gemini-2.5-flash",
-        status: "rascunho",
+        status: ok ? "rascunho" : "erro",
         funnel_stage: funnelStage,
         cluster_id: clusterId,
         cluster_role: fmt.role,
         source_idea: sourceIdea,
-        metadata: { source_content_id: sourceContentId, format_label: fmt.label },
+        metadata: { source_content_id: sourceContentId, format_label: fmt.label, retry: !!onlyRoles },
       };
     });
 
-    const { data: saved, error } = await supa.from("imphq_generated_contents").insert(inserts).select("id, content_type, content, cluster_id, cluster_role");
+    const { data: saved, error } = await supa.from("imphq_generated_contents").insert(inserts).select("id, content_type, content, cluster_id, cluster_role, status");
     if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true, cluster_id: clusterId, items: saved }), {
+    return new Response(JSON.stringify({
+      success: true,
+      cluster_id: clusterId,
+      items: saved,
+      failed_formats,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {

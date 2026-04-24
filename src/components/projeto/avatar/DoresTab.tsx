@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { AIGenerateButton } from "../AIGenerateButton";
+import { ConfidenceBadge } from "./ConfidenceBadge";
 
 interface Props {
   avatar: any;
@@ -16,6 +17,7 @@ interface Props {
 export function DoresTab({ avatar, onUpdate, projectId }: Props) {
   const update = (key: string, val: any) => onUpdate({ ...avatar, [key]: val });
   const subAvatares = avatar.sub_avatares || [];
+  const meta = avatar._avatar_meta || {};
 
   const updateSub = (i: number, field: string, val: any) => {
     const updated = [...subAvatares];
@@ -61,19 +63,19 @@ export function DoresTab({ avatar, onUpdate, projectId }: Props) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label className="text-xs text-muted-foreground">Dores Superficiais</Label>
+            <div className="flex items-center gap-2 mb-1"><Label className="text-xs text-muted-foreground">Dores Superficiais</Label><ConfidenceBadge meta={meta.dores_superficiais} /></div>
             <EditableTagList tags={avatar.dores_superficiais || []} onChange={v => update("dores_superficiais", v)} />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">Dores Profundas</Label>
+            <div className="flex items-center gap-2 mb-1"><Label className="text-xs text-muted-foreground">Dores Profundas</Label><ConfidenceBadge meta={meta.dores_profundas} /></div>
             <EditableTagList tags={avatar.dores_profundas || []} onChange={v => update("dores_profundas", v)} />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">Medos Específicos</Label>
+            <div className="flex items-center gap-2 mb-1"><Label className="text-xs text-muted-foreground">Medos Específicos</Label><ConfidenceBadge meta={meta.medos} /></div>
             <EditableTagList tags={avatar.medos || []} onChange={v => update("medos", v)} />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">Objeções Reais</Label>
+            <div className="flex items-center gap-2 mb-1"><Label className="text-xs text-muted-foreground">Objeções Reais</Label><ConfidenceBadge meta={meta.objecoes} /></div>
             <EditableTagList tags={avatar.objecoes || []} onChange={v => update("objecoes", v)} />
           </div>
         </CardContent>

@@ -30,6 +30,7 @@ export const STATUS_CONFIG = {
   rascunho: { label: "Rascunho", color: "bg-muted text-muted-foreground" },
   revisao: { label: "Em Revisão", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
   aprovado: { label: "Aprovado", color: "bg-green-500/20 text-green-400 border-green-500/30" },
+  erro: { label: "Falhou", color: "bg-red-500/20 text-red-400 border-red-500/30" },
 } as const;
 
 export type StatusKey = keyof typeof STATUS_CONFIG;

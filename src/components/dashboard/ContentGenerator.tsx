@@ -198,15 +198,67 @@ export function ContentGenerator() {
         type: it.content_type,
         content: it.content,
         timestamp: Date.now(),
-        status: "rascunho" as StatusKey,
+        status: (it.status || "rascunho") as StatusKey,
         cluster_id: it.cluster_id,
         cluster_role: it.cluster_role,
         funnel_stage: item.funnel_stage,
+        source_idea: item.content.slice(0, 2000),
       }));
       setResults(prev => [...newItems, ...prev]);
-      toast.success(`Cluster gerado: ${newItems.length} formatos derivados!`);
+      const failed = data?.failed_formats || [];
+      if (failed.length) {
+        toast.warning(
+          `Cluster gerado com ${failed.length} formato(s) com erro: ${failed.map((f: any) => f.label).join(", ")}. Use "Tentar novamente" no card.`
+        );
+      } else {
+        toast.success(`Cluster gerado: ${newItems.length} formatos derivados!`);
+      }
     } catch (err: any) {
       toast.error("Erro ao expandir cluster: " + (err.message || "desconhecido"));
+    } finally {
+      setExpandingClusterId(null);
+    }
+  };
+
+  const retryClusterFormat = async (item: GeneratedItem) => {
+    if (!selectedProject || !item.cluster_id || !item.cluster_role) return;
+    const key = item.id || String(item.timestamp);
+    setExpandingClusterId(key);
+    try {
+      // Use source_idea if available; fall back to existing content (which is the error message)
+      const sourceIdea = item.source_idea || item.content;
+      const { data, error } = await supabase.functions.invoke("content-cluster", {
+        body: {
+          project_id: selectedProject,
+          source_idea: sourceIdea,
+          funnel_stage: item.funnel_stage,
+          cluster_id: item.cluster_id,
+          only_roles: [item.cluster_role],
+        },
+      });
+      if (error) throw error;
+      const fresh = (data?.items || [])[0];
+      if (fresh) {
+        // Replace failed item with the new one
+        setResults(prev => prev.map(r =>
+          r.id === item.id
+            ? {
+                ...r,
+                id: fresh.id,
+                content: fresh.content,
+                status: (fresh.status || "rascunho") as StatusKey,
+                timestamp: Date.now(),
+              }
+            : r
+        ));
+        if ((data?.failed_formats || []).length) {
+          toast.error("Tentativa falhou novamente. Tente em alguns segundos.");
+        } else {
+          toast.success(`${item.cluster_role.replace(/_/g, " ")} regenerado!`);
+        }
+      }
+    } catch (err: any) {
+      toast.error("Erro: " + (err.message || "desconhecido"));
     } finally {
       setExpandingClusterId(null);
     }
@@ -360,6 +412,7 @@ export function ContentGenerator() {
                       onChangeStatus={changeStatus}
                       onExpandCluster={expandCluster}
                       expandingClusterId={expandingClusterId}
+                      onRetryClusterFormat={retryClusterFormat}
                     />
                   ))}
                 </div>

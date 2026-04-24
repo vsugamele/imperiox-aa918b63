@@ -2232,6 +2232,38 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_lesson_playback: {
+        Row: {
+          duration_seconds: number | null
+          lesson_id: string
+          position_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          duration_seconds?: number | null
+          lesson_id: string
+          position_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          duration_seconds?: number | null
+          lesson_id?: string
+          position_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lesson_playback_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_lessons: {
         Row: {
           attachments: Json
