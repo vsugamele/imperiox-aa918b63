@@ -160,12 +160,15 @@ export function AvatarPipelineRunner({ projectId, avatar, onApply }: Props) {
               <div className="space-y-2">
                 {Object.entries(result._meta?.confidence_by_field || {}).map(([k, score]) => {
                   const s = score as number;
-                  const color = s >= 70 ? "bg-emerald-500" : s >= 40 ? "bg-amber-500" : "bg-red-500";
+                  const tone = s >= 70 ? "text-emerald-500" : s >= 40 ? "text-amber-500" : "text-destructive";
+                  const bar = s >= 70 ? "bg-emerald-500" : s >= 40 ? "bg-amber-500" : "bg-destructive";
                   return (
                     <div key={k} className="flex items-center gap-2 text-xs">
                       <span className="w-40 truncate text-muted-foreground">{k}</span>
-                      <Progress value={s} className="h-1.5 flex-1" indicatorClassName={color} />
-                      <span className="w-8 text-right font-mono">{s}</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                        <div className={`h-full ${bar} transition-all`} style={{ width: `${s}%` }} />
+                      </div>
+                      <span className={`w-8 text-right font-mono ${tone}`}>{s}</span>
                     </div>
                   );
                 })}
