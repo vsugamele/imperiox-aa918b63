@@ -1,22 +1,17 @@
 
-## Execução em sequência
+## Bloco 4 — Hardening de Segurança
 
-### Bloco 1 — Dívidas técnicas (agora)
-1. **`content-cluster/index.ts`**: retry 1x com backoff 800ms em 429/500; retornar `failed_formats[]` no payload.
-2. **`ContentGenerator.tsx`**: detectar `failed_formats` e renderizar botão "Tentar novamente" por formato (chama `content-cluster` só com aquele format).
-3. **Novo `src/components/projeto/avatar/ConfidenceBadge.tsx`**: pill 🟢≥75 / 🟡 50-74 / 🔴<50, tooltip listando IDs de evidência de `_avatar_meta`.
-4. **Integração nos tabs**: `PerfilTab`, `DoresTab`, `DesejosTab`, `ProblemasTab` — badge ao lado dos campos-chave lendo de `avatar._avatar_meta[campo]`.
-5. **`ProjetoAvatar.tsx`**: calcular score médio do `_avatar_meta`, barra de saúde no header + badge "Recomendado: rodar pipeline" se <50% ou ausente.
+### 4.1 — Migration: `search_path` em funções
+Adicionar `SET search_path = public` em todas as funções `imphq_*` afetadas (ex: `fn_recalc_lead_score`, `fn_recalc_lead_totals`, `handle_new_user`, `is_imphq_admin`, e demais flagadas pelo linter).
 
-### Bloco 2 — OpenAI gpt-image-1 (depois do 1)
-- Vou pausar e pedir `OPENAI_API_KEY` via `add_secret`.
-- Adicionar provider `openai-image` na `creative-factory/index.ts`.
-- Seletor de provider no `/criativos/novo` (Gemini Nano Banana / OpenAI gpt-image-1).
+### 4.2 — Migration: storage policies
+Restringir LIST nos buckets `whatsapp-media`, `criativos`, `project-media` para autenticados apenas. GET por path direto continua funcionando para mídia pública embutida.
 
-### Bloco 3 — Automação proativa (por último)
-- `pg_cron` diário 08:00 BRT (11:00 UTC) chamando `daily-stories-ideas` pra projetos `status='vendendo'`.
-- Botão one-click "Avatar → Copy Arsenal" no `CopyArsenalTab` (gera 5 ângulos a partir de top dores/desejos).
+### 4.3 — Manuais (passo seu, vou te passar links)
+- Auth → reduzir OTP expiry para ≤ 600s
+- Auth → ativar Leaked Password Protection
+- Database → agendar upgrade do Postgres
 
-**Sem mudanças de schema necessárias** — `_avatar_meta`, `cluster_id`, `failed_formats` cabem no JSONB e response existentes.
+Vou rodar o linter pra confirmar a lista exata antes de escrever as migrations, depois executo 4.1 e 4.2 em sequência e te entrego os 3 links do 4.3 no final.
 
-Confirma com **"vai"** que saio do plan mode e toco Bloco 1 → pauso pro secret do Bloco 2 → Bloco 3.
+Confirma com **"vai"** que saio do plan mode.
