@@ -996,13 +996,14 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
   };
   const objectiveLabel = objectiveLabels[objective] || "Conversão";
 
-  const funnelLabel = {
+  const funnelLabels: Record<string, string> = {
     topo: "Topo de funil (Awareness) — público frio, ainda não conhece a marca",
     meio: "Meio de funil (Consideração) — público morno, já demonstrou interesse",
     fundo: "Fundo de funil (Decisão) — público quente, pronto para comprar",
     retencao: "Retenção/Upsell — clientes existentes",
     todas: "Todas as etapas do funil",
-  }[funnel_stage] || "Todas";
+  };
+  const funnelLabel = funnelLabels[funnel_stage] || "Todas";
 
   const systemPrompt = `Você é um media buyer brasileiro de ALTO nível, especialista em Meta Ads (Facebook/Instagram) com experiência em escalar campanhas de infoprodutos e e-commerce.
 
