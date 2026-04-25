@@ -986,14 +986,15 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
   let prevContext = "";
   if (previous_result) prevContext = "\n## Resultado anterior (para refinar):\n" + previous_result.slice(0, 3000);
 
-  const objectiveLabel: Record<string, string> = ({
+  const objectiveLabels: Record<string, string> = {
     conversao: "Conversão (vendas diretas)",
     leads: "Geração de Leads",
     trafego: "Tráfego para página",
     alcance: "Alcance e reconhecimento",
     engajamento: "Engajamento social",
     retargeting: "Retargeting de visitantes/compradores",
-  }[objective] || "Conversão";
+  };
+  const objectiveLabel = objectiveLabels[objective] || "Conversão";
 
   const funnelLabel = {
     topo: "Topo de funil (Awareness) — público frio, ainda não conhece a marca",
