@@ -316,7 +316,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "") {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "", extraUrls: string[] = [], briefingExtra = "") {
   // Enrich context with scraped website content via Firecrawl
   let scrapedContext = "";
   try {
