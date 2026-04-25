@@ -299,11 +299,18 @@ export default function CampaignManager({ projects, providers }: Props) {
                       <h3 className="font-semibold text-sm">{c.name}</h3>
                       {statusBadge(c.status)}
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
                       <span>📁 {projectName(c.project_id)}</span>
                       <span>👥 {Array.isArray(c.groups) ? c.groups.length : 0} grupos</span>
                       {c.start_date && <span>📅 Início: {c.start_date}</span>}
                       {c.exit_message && <span>🚪 Msg saída ✓</span>}
+                      {nextSteps[c.id] && (
+                        <span className="text-primary flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Próximo: {nextSteps[c.id]!.date.split("-").reverse().join("/")} {nextSteps[c.id]!.time}
+                          {nextSteps[c.id]!.preview && ` — ${nextSteps[c.id]!.preview}…`}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -318,6 +325,9 @@ export default function CampaignManager({ projects, providers }: Props) {
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowAutomation(c)} title="Automações">
                       <Cog className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => duplicateCampaign(c)} title="Duplicar">
+                      <Copy className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       size="icon"
@@ -370,11 +380,21 @@ export default function CampaignManager({ projects, providers }: Props) {
               <Label>Data de início</Label>
               <Input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Janela início (anti-ban)</Label>
+                <Input type="time" value={form.send_window_start} onChange={e => setForm({ ...form, send_window_start: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Janela fim</Label>
+                <Input type="time" value={form.send_window_end} onChange={e => setForm({ ...form, send_window_end: e.target.value })} />
+              </div>
+            </div>
             <div>
               <Label>Mensagem de saída (quando alguém sai do grupo)</Label>
               <Textarea
-                value={(form as any).exit_message || ""}
-                onChange={e => setForm({ ...form, exit_message: e.target.value } as any)}
+                value={form.exit_message}
+                onChange={e => setForm({ ...form, exit_message: e.target.value })}
                 placeholder="Olá! Vi que saiu do grupo. Posso te ajudar com algo?"
                 rows={2}
                 className="text-xs"
