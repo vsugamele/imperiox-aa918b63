@@ -1647,6 +1647,7 @@ export type Database = {
           ends_at: string | null
           id: string
           image_url: string | null
+          image_url_mobile: string | null
           is_active: boolean
           link_url: string | null
           position: number
@@ -1659,6 +1660,7 @@ export type Database = {
           ends_at?: string | null
           id?: string
           image_url?: string | null
+          image_url_mobile?: string | null
           is_active?: boolean
           link_url?: string | null
           position?: number
@@ -1671,6 +1673,7 @@ export type Database = {
           ends_at?: string | null
           id?: string
           image_url?: string | null
+          image_url_mobile?: string | null
           is_active?: boolean
           link_url?: string | null
           position?: number
@@ -1727,12 +1730,17 @@ export type Database = {
       areamembrojp_certificate_templates: {
         Row: {
           accent_color: string
+          background_height: number | null
+          background_url: string | null
+          background_width: number | null
           body_text: string
           created_at: string
+          field_positions: Json
           id: string
           is_active: boolean
           is_default: boolean
           logo_url: string | null
+          mode: string
           name: string
           primary_color: string
           signature_name: string | null
@@ -1742,12 +1750,17 @@ export type Database = {
         }
         Insert: {
           accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
           body_text?: string
           created_at?: string
+          field_positions?: Json
           id?: string
           is_active?: boolean
           is_default?: boolean
           logo_url?: string | null
+          mode?: string
           name: string
           primary_color?: string
           signature_name?: string | null
@@ -1757,12 +1770,17 @@ export type Database = {
         }
         Update: {
           accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
           body_text?: string
           created_at?: string
+          field_positions?: Json
           id?: string
           is_active?: boolean
           is_default?: boolean
           logo_url?: string | null
+          mode?: string
           name?: string
           primary_color?: string
           signature_name?: string | null
@@ -2084,6 +2102,7 @@ export type Database = {
           frequency: string
           id: string
           image_url: string | null
+          image_url_mobile: string | null
           is_active: boolean
           position: string
           random_display: boolean
@@ -2105,6 +2124,7 @@ export type Database = {
           frequency?: string
           id?: string
           image_url?: string | null
+          image_url_mobile?: string | null
           is_active?: boolean
           position?: string
           random_display?: boolean
@@ -2126,6 +2146,7 @@ export type Database = {
           frequency?: string
           id?: string
           image_url?: string | null
+          image_url_mobile?: string | null
           is_active?: boolean
           position?: string
           random_display?: boolean
@@ -3975,10 +3996,12 @@ export type Database = {
           home_section_titles: Json
           home_sections_enabled: Json
           home_welcome_image: string | null
+          home_welcome_image_mobile: string | null
           id: boolean
           landing_cta_text: string
           landing_footer_html: string | null
           landing_hero_image: string | null
+          landing_hero_image_mobile: string | null
           landing_logo_url: string | null
           landing_signin_label: string
           landing_signup_label: string
@@ -4037,10 +4060,12 @@ export type Database = {
           home_section_titles?: Json
           home_sections_enabled?: Json
           home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
           id?: boolean
           landing_cta_text?: string
           landing_footer_html?: string | null
           landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
           landing_logo_url?: string | null
           landing_signin_label?: string
           landing_signup_label?: string
@@ -4099,10 +4124,12 @@ export type Database = {
           home_section_titles?: Json
           home_sections_enabled?: Json
           home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
           id?: boolean
           landing_cta_text?: string
           landing_footer_html?: string | null
           landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
           landing_logo_url?: string | null
           landing_signin_label?: string
           landing_signup_label?: string
@@ -4649,6 +4676,7 @@ export type Database = {
           ends_at: string | null
           id: string
           image_url: string | null
+          image_url_mobile: string | null
           is_active: boolean
           position: number
           starts_at: string | null
@@ -4665,6 +4693,7 @@ export type Database = {
           ends_at?: string | null
           id?: string
           image_url?: string | null
+          image_url_mobile?: string | null
           is_active?: boolean
           position?: number
           starts_at?: string | null
@@ -4681,6 +4710,7 @@ export type Database = {
           ends_at?: string | null
           id?: string
           image_url?: string | null
+          image_url_mobile?: string | null
           is_active?: boolean
           position?: number
           starts_at?: string | null
