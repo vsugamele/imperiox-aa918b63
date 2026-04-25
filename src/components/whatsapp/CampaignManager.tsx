@@ -26,6 +26,7 @@ interface Campaign {
   produto: string | null;
   status: string;
   groups: string[];
+  paused_groups: string[];
   start_date: string | null;
   exit_message: string | null;
   welcome_message: string | null;
