@@ -294,7 +294,11 @@ serve(async (req) => {
               grupo_nome: "",
               nome: "",
             };
-            const renderedContent = renderVariables(step.content || "", vars);
+            // 6C: A/B split — if content_b is set, 50/50 by deterministic group hash
+            const contentB = (step as any).content_b as string | null | undefined;
+            const useVariantB = !!(contentB && contentB.trim()) && hashAB(`${step.id}:${groupJid}`) === 1;
+            const baseContent = useVariantB ? (contentB as string) : (step.content || "");
+            const renderedContent = renderVariables(baseContent, vars);
 
             let endpoint: string;
             let body: any;
