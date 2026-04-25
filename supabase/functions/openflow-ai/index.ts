@@ -375,8 +375,18 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
 ${fullCtx}
 ${skillsContext}
 REGRAS:
+  const briefingBlock = briefingExtra && briefingExtra.trim()
+    ? `\n## BRIEFING DIRETO DO USUÁRIO (prioridade máxima — use isso como base):\n${briefingExtra.trim()}\n`
+    : "";
+
+  const arsenal = await callAI(
+    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.
+${fullCtx}
+${skillsContext}${briefingBlock}
+REGRAS:
 - Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.
 - Se houver conteúdo scraped do site, use-o para criar copy mais precisa e alinhada à página real do produto.
+- Se houver BRIEFING DIRETO DO USUÁRIO, ele tem prioridade máxima sobre tudo.
 - Gere também o mecanismo_unico (o que diferencia este produto de todos os outros no mercado) e o contexto (resumo estratégico do produto).
 - Aplique as Skills disponíveis/ativadas para elevar a qualidade do copy: use frameworks de persuasão, gatilhos emocionais e estruturas de copy profissional.`,
     "Gere o Arsenal de Copy completo, incluindo mecanismo único e contexto estratégico do produto.",
