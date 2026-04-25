@@ -27,6 +27,7 @@ interface Step {
   campaign_id: string;
   step_order: number;
   content: string | null;
+  content_b: string | null;
   media_url: string | null;
   media_type: string;
   send_time: string;
