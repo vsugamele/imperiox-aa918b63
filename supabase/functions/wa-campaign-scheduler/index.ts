@@ -84,7 +84,95 @@ serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // 6B: Test send action — fires a single step to a single group on demand
   try {
+    let action = new URL(req.url).searchParams.get("action");
+    let body: any = null;
+    if (req.method === "POST") {
+      try { body = await req.clone().json(); } catch { /* ignore */ }
+      if (body?.action) action = body.action;
+    }
+
+    if (action === "test_send") {
+      const { step_id, group_jid } = body || {};
+      if (!step_id || !group_jid) {
+        return new Response(JSON.stringify({ error: "step_id and group_jid required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: step } = await supabase
+        .from("imphq_wa_campaign_steps")
+        .select("*, imphq_wa_campaigns(*)")
+        .eq("id", step_id)
+        .single();
+
+      if (!step) {
+        return new Response(JSON.stringify({ error: "step not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const campaign: any = (step as any).imphq_wa_campaigns;
+      let provider: any = null;
+      if (campaign?.provider_id) {
+        const { data } = await supabase.from("imphq_wa_providers").select("*").eq("id", campaign.provider_id).single();
+        provider = data;
+      }
+      if (!provider) {
+        return new Response(JSON.stringify({ error: "no provider configured" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const apiUrl = (provider.api_url || "").replace(/\/+$/, "");
+      const apiKey = provider.api_key || "";
+      const instanceName = provider.instance_name || "";
+      const vars: Record<string, string> = {
+        produto: campaign?.produto || "",
+        campanha: campaign?.name || "",
+        grupo: "", grupo_nome: "", nome: "Teste",
+      };
+      const rendered = renderVariables((step as any).content || "", vars);
+      const mt = (step as any).media_type;
+      const mediaUrl = (step as any).media_url;
+
+      let endpoint: string; let payload: any;
+      if (mt === "text" || !mediaUrl) {
+        endpoint = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
+        payload = { number: group_jid, text: rendered };
+      } else if (mt === "image") {
+        endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
+        payload = { number: group_jid, mediatype: "image", media: mediaUrl, caption: rendered };
+      } else if (mt === "audio") {
+        endpoint = `${apiUrl}/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`;
+        payload = { number: group_jid, audio: mediaUrl };
+      } else if (mt === "video") {
+        endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
+        payload = { number: group_jid, mediatype: "video", media: mediaUrl, caption: rendered };
+      } else {
+        endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
+        payload = { number: group_jid, mediatype: "document", media: mediaUrl, caption: rendered, fileName: "document" };
+      }
+
+      try {
+        await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, payload, 1);
+        await supabase.from("imphq_wa_campaign_logs").insert({
+          step_id, campaign_id: campaign.id, group_jid, status: "sent", error: "TEST",
+        });
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err: any) {
+        await supabase.from("imphq_wa_campaign_logs").insert({
+          step_id, campaign_id: campaign.id, group_jid, status: "failed", error: "TEST: " + (err.message || "").slice(0, 400),
+        });
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const { dateStr: todayStr, timeStr: currentTime, hour: currentHour, minute: currentMinute } = nowInBR();
     const currentTotalMin = currentHour * 60 + currentMinute;
 
