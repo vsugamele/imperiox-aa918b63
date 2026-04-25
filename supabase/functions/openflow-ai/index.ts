@@ -1687,10 +1687,9 @@ As conexões entre nós são definidas por connects_to (array de índices dos n�
 Posicione os nós de forma organizada no canvas (pos_x, pos_y). Use espaçamento de ~280px horizontal e ~160px vertical.
 Gere entre 4 e ${num_nodes} nós dependendo da complexidade.`;
 
-  const result = await callAIWithTools(
+  const result = await callAI(
     systemPrompt,
     `Gere um fluxograma para: ${description}`,
-    `Crie os nós do fluxograma de forma clara e conectada.`,
     apiKey, model,
     [{
       type: "function",
