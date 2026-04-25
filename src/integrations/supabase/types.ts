@@ -3965,6 +3965,7 @@ export type Database = {
         Row: {
           accent_hsl: string
           app_name: string
+          authors_card_aspect: string
           background_hsl: string
           body_font: string
           card_hsl: string
@@ -4029,6 +4030,7 @@ export type Database = {
         Insert: {
           accent_hsl?: string
           app_name?: string
+          authors_card_aspect?: string
           background_hsl?: string
           body_font?: string
           card_hsl?: string
@@ -4093,6 +4095,7 @@ export type Database = {
         Update: {
           accent_hsl?: string
           app_name?: string
+          authors_card_aspect?: string
           background_hsl?: string
           body_font?: string
           card_hsl?: string
