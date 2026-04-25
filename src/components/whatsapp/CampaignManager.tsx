@@ -429,18 +429,42 @@ export default function CampaignManager({ projects, providers }: Props) {
                 <div className="space-y-1.5">
                   {availableGroups
                     .filter(g => !groupSearch || g.subject.toLowerCase().includes(groupSearch.toLowerCase()))
-                    .map(g => (
-                      <label key={g.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedGroups.includes(g.id)}
-                          onChange={() => toggleGroup(g.id)}
-                          className="rounded"
-                        />
-                        <span className="text-sm truncate">{g.subject}</span>
-                        <span className="text-[10px] text-muted-foreground ml-auto">{g.id.slice(0, 15)}...</span>
-                      </label>
-                    ))}
+                    .map(g => {
+                      const isPaused = (showGroups?.paused_groups || []).includes(g.id);
+                      const isSelected = selectedGroups.includes(g.id);
+                      return (
+                        <div key={g.id} className={`flex items-center gap-2 p-2 rounded hover:bg-muted/50 ${isPaused ? "opacity-60" : ""}`}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleGroup(g.id)}
+                            className="rounded cursor-pointer"
+                          />
+                          <span className="text-sm truncate flex-1">{g.subject}</span>
+                          {isSelected && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 shrink-0"
+                              title={isPaused ? "Retomar grupo" : "Pausar grupo (não recebe disparos)"}
+                              onClick={async () => {
+                                if (!showGroups) return;
+                                const next = isPaused
+                                  ? (showGroups.paused_groups || []).filter(j => j !== g.id)
+                                  : [...(showGroups.paused_groups || []), g.id];
+                                await supabase.from("imphq_wa_campaigns").update({ paused_groups: next as any } as any).eq("id", showGroups.id);
+                                setShowGroups({ ...showGroups, paused_groups: next });
+                                load();
+                                toast.success(isPaused ? "Grupo retomado" : "Grupo pausado");
+                              }}
+                            >
+                              {isPaused ? <Play className="h-3 w-3 text-emerald-400" /> : <Pause className="h-3 w-3 text-amber-400" />}
+                            </Button>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">{g.id.slice(0, 12)}...</span>
+                        </div>
+                      );
+                    })}
                 </div>
               </ScrollArea>
             </>
