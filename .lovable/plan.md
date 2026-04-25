@@ -1,47 +1,76 @@
 
-## Bloco 5 — Avatar/Arsenal: link ad-hoc + perguntas-chave + fix do "não gerou"
+## Análise — sistema de Campanhas + Grupos hoje
 
-### 5.1 — Fix do botão "Gerar com IA" do Arsenal (CopyArsenalSection)
-**Problema raiz:** quando "Todos" está selecionado, `product_index` não é enviado → backend não scrapeia URLs específicas do produto e gera copy genérica/diluída. Além disso, o `hasContent` filtra agressivo demais (uma variação com whitespace já bloqueia o preenchimento).
+**O que já tem (bom):**
+- Campanhas com sequência de steps (texto/imagem/áudio/vídeo/doc), agendamento por `days_offset` ou `send_date`, scheduler pg_cron de 1min, automações (welcome, exit DM, anti-hack, @all), distribuidor de grupos com slug + cap por grupo, KPIs e logs.
 
-**Mudanças em `src/components/projeto/CopyArsenalSection.tsx`:**
-- Default do `selectedProductIndex` passa a ser `"0"` quando há produtos (em vez de `"__all__"`), garantindo que `product_index` sempre vá no body quando há produto.
-- `hasContent` mais rigoroso: considera vazio se todas as variações têm `.trim().length === 0`.
-- Adicionar **toast de feedback rico** mostrando quantos blocos foram preenchidos vs. ignorados (ex: "5 blocos preenchidos, 1 já tinha conteúdo").
-- Logar no console o `data` recebido para debug futuro.
+**Gaps reais que vi no código:**
 
-### 5.2 — Modal "Gerar Arsenal" com link ad-hoc + briefing rápido
-Antes de disparar a IA, abrir um pequeno modal (reutilizar `Dialog`) com:
-- **URL extra (opcional)**: campo livre pra colar um link de página de vendas/LP que o usuário acabou de fazer (mesmo que ainda não esteja salvo no produto). Vai como `extra_urls: string[]` no body.
-- **Briefing rápido (opcional)**: textarea com 3 placeholders/perguntas-chave guiadas:
-  1. "Qual a transformação central que esse produto entrega? (ex: sair de X pra Y em Z dias)"
-  2. "Quem é o inimigo / o que está bloqueando o avatar hoje?"
-  3. "Que mecanismo único / método diferente você usa? (em 1 frase)"
-- Botão "Gerar" → envia `extra_urls` + `briefing_extra` no `extraBody`.
+### 🔴 Bugs / fragilidades
+1. **CampaignAutomationPanel** — Switch de welcome/exit só desliga, **nunca liga** (falta `else` no `onCheckedChange` pra setar string vazia editável). Hoje, se a campanha nasceu sem msg, o usuário fica sem como ativar.
+2. **Scheduler timezone** — usa `new Date(now - 3h).toISOString()` que **quebra no horário de verão** e em UTC negativo (gambiarra). Deveria usar `Intl.DateTimeFormat` com `America/Sao_Paulo` (já é padrão do projeto, ver memory `tech/localization/timezone-standards`).
+3. **Sem janela de envio** — scheduler dispara 24h. Se step tá marcado pra 02:00, dispara 02:00 (risco de ban + má experiência). Precisa respeitar janela permitida (ex: 08h–22h).
+4. **Sem jitter humano** — delay fixo de 3s entre grupos é detectável. Real anti-ban usa randomização (3–8s) + pausa maior a cada N grupos.
+5. **Sem retry** — se falhar (timeout, 502), loga "failed" e abandona. Deveria tentar 2–3x com backoff.
+6. **`exit_message` no form de criação** — o estado `form` não tem `exit_message` mas o JSX seta. Campo morto, nunca persiste.
+7. **Distribuidor não respeita `max_per_group`** — vi a tabela `imphq_wa_distributor_clicks` sendo lida só pra stats, mas não há lógica de pular grupo cheio (precisa confirmar na edge `wa-group-distributor`).
 
-Pra evitar inflar o `AIGenerateButton` com props específicas, criar um **`CopyArsenalGenerateButton`** wrapper local em `CopyArsenalSection.tsx` que faz seu próprio modal e chama `supabase.functions.invoke("openflow-ai", ...)` direto (mantendo a lógica de `mente_id`/`skill_slugs` mais simples — só modelo padrão por enquanto). Isso isola a UX nova sem mexer no botão genérico usado em 30+ lugares.
+### 🟡 Features que faltam (alto valor)
+8. **Preview da mensagem renderizada** — ver como vai chegar no celular antes de salvar (com mídia, quebra de linha, emoji).
+9. **Variáveis dinâmicas** — `{nome}`, `{grupo}`, `{produto}` nos templates (hoje texto é estático, todo grupo recebe igual).
+10. **Duplicar campanha / duplicar step** — replicar sequência testada pra novo lançamento.
+11. **Reordenar steps** — `GripVertical` é só decoração, não tem drag-and-drop nem botões ↑↓.
+12. **Teste de envio (1 grupo)** — botão "enviar pra mim agora" pra validar copy antes de agendar pra 50 grupos.
+13. **Pausar grupo específico** — hoje pausa a campanha inteira, não dá pra remover 1 grupo problemático sem editar tudo.
+14. **Métricas reais por step** — KPI cards mostram total agregado; falta ver "step #3 falhou em 12/40 grupos".
+15. **A/B de copy** — duas variantes do mesmo step, scheduler escolhe aleatório por grupo.
+16. **Distribuidor: grupo cheio → pula automático** — se `count >= max_per_group`, redireciona pro próximo grupo da fila (skip + log).
+17. **Distribuidor: rotação ponderada** — distribuir desigual (ex: grupo 1 = 60%, grupo 2 = 40%) pra encher grupos "âncora" primeiro.
+18. **Webhook on-failure** — disparar alerta (email/push) se step falhar em >30% dos grupos (sinal de banimento).
 
-### 5.3 — Backend: aceitar `extra_urls` e `briefing_extra` em `handleCopyArsenal`
-**Mudanças em `supabase/functions/openflow-ai/index.ts`:**
-- Extrair `extra_urls` e `briefing_extra` do body em `serve()` e passar pra `handleCopyArsenal`.
-- Em `handleCopyArsenal`:
-  - Concatenar `extra_urls` na lista `productLinks` antes do dedup/scrape.
-  - Se `briefing_extra` existir, injetar no prompt: `\n## BRIEFING DIRETO DO USUÁRIO (prioridade máxima):\n${briefing_extra}\n` antes das REGRAS.
-- Log adicional: `console.log("Copy arsenal generated for product_index:", productIndex, "extra_urls:", extra_urls?.length)` pra debug.
-
-### 5.4 — (bônus pequeno) Fix dos build errors travando deploy
-O log mostra erros pré-existentes em `webhook-pagamento`, `whatsapp-api` e `openflow-ai` que estão impedindo deploy limpo das edge functions. Vou abordar **só os 3 do `openflow-ai`** (que tocamos agora), pra garantir que o deploy desse bloco vá:
-- `objectiveLabel` / `funnelLabel`: tipar como `Record<string, string>`.
-- `callAIWithTools` (linha 1678): renomear pra `callAI` (função existente) ou stub.
-
-Os erros de `webhook-pagamento` e `whatsapp-api` ficam pra um Bloco 6 separado (não bloqueiam esse deploy porque cada função é compilada isolada).
+### 🟢 Polish
+19. Filtro de campanhas por status/projeto na lista.
+20. Mostrar próximo step agendado no card (ex: "Próximo: hoje 14:00 — texto").
+21. Histórico visual (timeline) da campanha em vez de só logs tabulares.
 
 ---
 
-**Arquivos tocados:**
-- `src/components/projeto/CopyArsenalSection.tsx` (modal + fix)
-- `supabase/functions/openflow-ai/index.ts` (aceitar novos params + fix dos 3 erros)
+## Proposta de execução — Bloco 6 (priorizado)
 
-**Sem mudanças de schema.** Tudo cabe nos params existentes do JSONB e no payload do edge function.
+Sugiro tocar em **3 ondas**, do mais crítico pro mais nice-to-have. Confirma quais ondas você quer agora.
 
-Confirma com **"vai"** que saio do plan mode e toco 5.1 → 5.2 → 5.3 → 5.4 em sequência.
+### Onda 6A — Bugs críticos + anti-ban (essencial, ~1h)
+- Fix switch on/off no `CampaignAutomationPanel` (#1)
+- Fix `exit_message` morto no form de criar campanha (#6)
+- Scheduler usa `Intl.DateTimeFormat` com `America/Sao_Paulo` (#2)
+- Janela de envio configurável por campanha (default 08h–22h) — adicionar colunas `send_window_start` / `send_window_end` em `imphq_wa_campaigns` (#3)
+- Jitter aleatório 3–8s entre grupos + pausa de 30s a cada 10 grupos (#4)
+- Retry 2x com backoff exponencial em falhas de rede (#5)
+
+### Onda 6B — UX produtiva (alto valor, ~1h)
+- **Variáveis dinâmicas** `{nome}`, `{grupo_nome}`, `{produto}` no scheduler + helper inline no editor (#9)
+- **Botão "Testar agora" por step** — dispara só pra 1 grupo selecionado (#12)
+- **Duplicar campanha** + **duplicar step** (#10)
+- **Reordenar steps** com setas ↑↓ (drag-and-drop fica pra depois) (#11)
+- **Preview do step** — mini-card lateral mostrando como fica no WhatsApp (bubble verde, mídia inline) (#8)
+- **Próximo step agendado** no card da campanha (#20)
+
+### Onda 6C — Inteligência + distribuidor (estratégico, ~1h)
+- **Métricas por step** no `CampaignKPICards` (sucesso/falha por step, não só total) (#14)
+- **Pausar grupo individual** dentro de uma campanha (sem precisar editar a lista) (#13)
+- **Distribuidor: skip de grupo cheio** + **rotação ponderada** opcional (#16, #17)
+- **Alerta automático** se step falhar >30% (push notification + log em `imphq_events`) (#18)
+- **A/B de copy** por step (campo `content_b` opcional, scheduler sorteia 50/50) (#15)
+
+---
+
+**Schema mínimo (Onda 6A + 6B + 6C):**
+- `imphq_wa_campaigns`: + `send_window_start TIME DEFAULT '08:00'`, `send_window_end TIME DEFAULT '22:00'`, `paused_groups TEXT[] DEFAULT '{}'`
+- `imphq_wa_campaign_steps`: + `content_b TEXT` (A/B opcional)
+- `imphq_wa_group_distributors`: + `weights JSONB` (rotação ponderada opcional)
+
+**Sem schema novo se rodar só 6A.**
+
+---
+
+Me diz: **"toca 6A"**, **"toca 6A+6B"** ou **"toca tudo"** que saio do plan mode e mando ver. Se quiser cortar/priorizar item específico, é só falar.
