@@ -3949,8 +3949,28 @@ export type Database = {
           card_hsl: string
           default_theme: string
           favicon_url: string | null
+          footer_about_links: Json
+          footer_about_title: string
+          footer_app_availability: string
+          footer_app_eyebrow: string
+          footer_app_subtitle: string
+          footer_app_title: string
+          footer_appstore_url: string | null
+          footer_brand_description: string
+          footer_copyright_tagline: string
+          footer_facebook_url: string | null
+          footer_instagram_url: string | null
+          footer_playstore_url: string | null
+          footer_social_subtitle: string
+          footer_social_title: string
+          footer_support_links: Json
+          footer_support_title: string
+          footer_twitter_url: string | null
+          footer_youtube_url: string | null
           foreground_hsl: string
           heading_font: string
+          home_authors_subtitle: string
+          home_meditations_eyebrow: string
           home_section_order: Json
           home_section_titles: Json
           home_sections_enabled: Json
@@ -3991,8 +4011,28 @@ export type Database = {
           card_hsl?: string
           default_theme?: string
           favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
           foreground_hsl?: string
           heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
           home_section_order?: Json
           home_section_titles?: Json
           home_sections_enabled?: Json
@@ -4033,8 +4073,28 @@ export type Database = {
           card_hsl?: string
           default_theme?: string
           favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
           foreground_hsl?: string
           heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
           home_section_order?: Json
           home_section_titles?: Json
           home_sections_enabled?: Json
