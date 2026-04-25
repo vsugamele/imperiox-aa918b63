@@ -341,6 +341,11 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
       const projLinks = Object.values(d.links).filter(v => v && String(v).trim() !== "" && String(v).startsWith("http")) as string[];
       productLinks.push(...projLinks);
     }
+    // Ad-hoc URLs vindas do modal "Gerar Arsenal"
+    if (Array.isArray(extraUrls) && extraUrls.length > 0) {
+      productLinks.push(...extraUrls.filter((u) => typeof u === "string" && u.trim().startsWith("http")));
+    }
+    console.log("Copy arsenal generated for product_index:", productIndex, "extra_urls:", extraUrls?.length || 0, "briefing_extra:", briefingExtra ? "yes" : "no");
 
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (firecrawlKey && productLinks.length > 0) {
