@@ -17720,6 +17720,7 @@ export type Database = {
           id: string
           mention_all: boolean | null
           name: string
+          paused_groups: string[]
           produto: string | null
           project_id: string | null
           provider_id: string | null
@@ -17738,6 +17739,7 @@ export type Database = {
           id?: string
           mention_all?: boolean | null
           name: string
+          paused_groups?: string[]
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
@@ -17756,6 +17758,7 @@ export type Database = {
           id?: string
           mention_all?: boolean | null
           name?: string
+          paused_groups?: string[]
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
@@ -17950,6 +17953,7 @@ export type Database = {
           redirect_order: string[]
           slug: string
           updated_at: string
+          weights: Json
         }
         Insert: {
           campaign_id?: string | null
@@ -17961,6 +17965,7 @@ export type Database = {
           redirect_order?: string[]
           slug: string
           updated_at?: string
+          weights?: Json
         }
         Update: {
           campaign_id?: string | null
@@ -17972,6 +17977,7 @@ export type Database = {
           redirect_order?: string[]
           slug?: string
           updated_at?: string
+          weights?: Json
         }
         Relationships: [
           {
