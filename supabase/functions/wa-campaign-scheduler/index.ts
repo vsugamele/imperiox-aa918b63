@@ -330,6 +330,7 @@ serve(async (req) => {
               campaign_id: campaign.id,
               group_jid: groupJid,
               status: "sent",
+              error: useVariantB ? "VARIANT_B" : null,
             });
 
             totalSent++;
