@@ -370,11 +370,6 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
 
   const fullCtx = scrapedContext ? `${ctx}\n\n## Conteúdo scraped do site do produto:\n${scrapedContext}` : ctx;
 
-  const arsenal = await callAI(
-    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.
-${fullCtx}
-${skillsContext}
-REGRAS:
   const briefingBlock = briefingExtra && briefingExtra.trim()
     ? `\n## BRIEFING DIRETO DO USUÁRIO (prioridade máxima — use isso como base):\n${briefingExtra.trim()}\n`
     : "";
