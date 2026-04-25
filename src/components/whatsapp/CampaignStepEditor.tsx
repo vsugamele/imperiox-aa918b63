@@ -430,6 +430,19 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
                       />
                     </div>
 
+                    {/* A/B Variant B */}
+                    <details className="rounded border border-dashed border-border/60 px-2 py-1.5">
+                      <summary className="text-[10px] text-muted-foreground cursor-pointer flex items-center justify-between">
+                        <span>🧪 Variante B (teste A/B) {step.content_b ? "— ativa" : "— opcional"}</span>
+                      </summary>
+                      <Textarea
+                        className="text-xs min-h-[50px] mt-1.5"
+                        value={step.content_b || ""}
+                        onChange={e => updateStep(step.id, "content_b", e.target.value || null)}
+                        placeholder="Texto alternativo. Se preenchido, 50% dos grupos recebem esta versão."
+                      />
+                    </details>
+
                     {step.media_type !== "text" && (
                       <div>
                         <Label className="text-[10px]">Mídia</Label>
