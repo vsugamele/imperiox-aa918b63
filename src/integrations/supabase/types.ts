@@ -17659,6 +17659,7 @@ export type Database = {
         Row: {
           campaign_id: string
           content: string | null
+          content_b: string | null
           created_at: string
           days_offset: number
           id: string
@@ -17672,6 +17673,7 @@ export type Database = {
         Insert: {
           campaign_id: string
           content?: string | null
+          content_b?: string | null
           created_at?: string
           days_offset?: number
           id?: string
@@ -17685,6 +17687,7 @@ export type Database = {
         Update: {
           campaign_id?: string
           content?: string | null
+          content_b?: string | null
           created_at?: string
           days_offset?: number
           id?: string
@@ -17717,6 +17720,8 @@ export type Database = {
           produto: string | null
           project_id: string | null
           provider_id: string | null
+          send_window_end: string
+          send_window_start: string
           start_date: string | null
           status: string
           updated_at: string
@@ -17733,6 +17738,8 @@ export type Database = {
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
+          send_window_end?: string
+          send_window_start?: string
           start_date?: string | null
           status?: string
           updated_at?: string
@@ -17749,6 +17756,8 @@ export type Database = {
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
+          send_window_end?: string
+          send_window_start?: string
           start_date?: string | null
           status?: string
           updated_at?: string
