@@ -43,6 +43,13 @@ function renderVariables(text: string, vars: Record<string, string>): string {
   return text.replace(/\{(\w+)\}/g, (_m, key) => vars[key] ?? `{${key}}`);
 }
 
+// 6C: stable hash → 0/1 for deterministic A/B split per group
+function hashAB(input: string): 0 | 1 {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) | 0;
+  return (Math.abs(h) % 2) as 0 | 1;
+}
+
 function jitterMs(): number {
   // 3000–8000 ms
   return 3000 + Math.floor(Math.random() * 5000);
@@ -195,7 +202,10 @@ serve(async (req) => {
     let totalFailed = 0;
 
     for (const campaign of campaigns) {
-      const groups: string[] = Array.isArray(campaign.groups) ? campaign.groups : [];
+      const allGroups: string[] = Array.isArray(campaign.groups) ? campaign.groups : [];
+      // 6C: Skip individually paused groups
+      const pausedSet = new Set<string>(Array.isArray((campaign as any).paused_groups) ? (campaign as any).paused_groups : []);
+      const groups = allGroups.filter((g) => !pausedSet.has(g));
       if (groups.length === 0) continue;
 
       // 6A: Sending window — skip campaign if outside its window
@@ -204,6 +214,9 @@ serve(async (req) => {
       if (!timeInWindow(currentTotalMin, winStart, winEnd)) {
         console.log(`[Campaign ${campaign.name}] Outside send window ${winStart}-${winEnd}, skipping`);
         continue;
+      }
+      if (pausedSet.size > 0) {
+        console.log(`[Campaign ${campaign.name}] ${pausedSet.size} grupos pausados (skip)`);
       }
 
       // Days since start (in BR tz)
@@ -281,7 +294,11 @@ serve(async (req) => {
               grupo_nome: "",
               nome: "",
             };
-            const renderedContent = renderVariables(step.content || "", vars);
+            // 6C: A/B split — if content_b is set, 50/50 by deterministic group hash
+            const contentB = (step as any).content_b as string | null | undefined;
+            const useVariantB = !!(contentB && contentB.trim()) && hashAB(`${step.id}:${groupJid}`) === 1;
+            const baseContent = useVariantB ? (contentB as string) : (step.content || "");
+            const renderedContent = renderVariables(baseContent, vars);
 
             let endpoint: string;
             let body: any;
@@ -313,6 +330,7 @@ serve(async (req) => {
               campaign_id: campaign.id,
               group_jid: groupJid,
               status: "sent",
+              error: useVariantB ? "VARIANT_B" : null,
             });
 
             totalSent++;

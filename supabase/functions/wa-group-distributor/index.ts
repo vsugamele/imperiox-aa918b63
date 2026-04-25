@@ -50,6 +50,7 @@ serve(async (req) => {
     }
 
     const maxPerGroup = dist.max_per_group || 250;
+    const weights: Record<string, number> = (dist.weights && typeof dist.weights === "object") ? dist.weights : {};
 
     // Count clicks per group to find the least full
     const { data: clickCounts } = await supabase
@@ -65,12 +66,28 @@ serve(async (req) => {
       }
     }
 
-    // Find first group under limit (sequential fill)
+    // 6C: skip full groups, then pick by weighted rotation among non-full
+    const available = groups.filter((jid) => countMap[jid] < maxPerGroup);
     let targetGroup = groups[0];
-    for (const jid of groups) {
-      if (countMap[jid] < maxPerGroup) {
-        targetGroup = jid;
-        break;
+
+    if (available.length > 0) {
+      const hasWeights = Object.keys(weights).length > 0;
+      if (hasWeights) {
+        // Weighted random among available: weight default = 1
+        const pool = available.map((jid) => ({ jid, w: Math.max(0, Number(weights[jid] ?? 1)) }));
+        const total = pool.reduce((s, p) => s + p.w, 0);
+        if (total > 0) {
+          let r = Math.random() * total;
+          for (const p of pool) {
+            r -= p.w;
+            if (r <= 0) { targetGroup = p.jid; break; }
+          }
+        } else {
+          targetGroup = available[0];
+        }
+      } else {
+        // Sequential fill: first non-full
+        targetGroup = available[0];
       }
     }
 
