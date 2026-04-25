@@ -43,6 +43,13 @@ function renderVariables(text: string, vars: Record<string, string>): string {
   return text.replace(/\{(\w+)\}/g, (_m, key) => vars[key] ?? `{${key}}`);
 }
 
+// 6C: stable hash → 0/1 for deterministic A/B split per group
+function hashAB(input: string): 0 | 1 {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) | 0;
+  return (Math.abs(h) % 2) as 0 | 1;
+}
+
 function jitterMs(): number {
   // 3000–8000 ms
   return 3000 + Math.floor(Math.random() * 5000);
