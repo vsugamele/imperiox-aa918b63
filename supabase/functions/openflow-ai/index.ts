@@ -182,7 +182,7 @@ serve(async (req) => {
     if (action === "market_intel_research") return await handleMarketIntelResearch(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData);
     if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content") return await handleGenerateContent(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext, extra_urls, briefing_extra);
     if (action === "generate_avatar_angles") return await handleAvatarAngles(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData);
     if (action === "generate_product_intel") return await handleProductIntel(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
     if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
