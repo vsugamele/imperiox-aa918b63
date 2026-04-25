@@ -2520,6 +2520,7 @@ export type Database = {
       }
       areamembrojp_modules: {
         Row: {
+          cover_url: string | null
           created_at: string
           id: string
           position: number
@@ -2527,6 +2528,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          cover_url?: string | null
           created_at?: string
           id?: string
           position?: number
@@ -2534,6 +2536,7 @@ export type Database = {
           title: string
         }
         Update: {
+          cover_url?: string | null
           created_at?: string
           id?: string
           position?: number
