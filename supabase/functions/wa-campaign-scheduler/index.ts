@@ -195,7 +195,10 @@ serve(async (req) => {
     let totalFailed = 0;
 
     for (const campaign of campaigns) {
-      const groups: string[] = Array.isArray(campaign.groups) ? campaign.groups : [];
+      const allGroups: string[] = Array.isArray(campaign.groups) ? campaign.groups : [];
+      // 6C: Skip individually paused groups
+      const pausedSet = new Set<string>(Array.isArray((campaign as any).paused_groups) ? (campaign as any).paused_groups : []);
+      const groups = allGroups.filter((g) => !pausedSet.has(g));
       if (groups.length === 0) continue;
 
       // 6A: Sending window — skip campaign if outside its window
@@ -204,6 +207,9 @@ serve(async (req) => {
       if (!timeInWindow(currentTotalMin, winStart, winEnd)) {
         console.log(`[Campaign ${campaign.name}] Outside send window ${winStart}-${winEnd}, skipping`);
         continue;
+      }
+      if (pausedSet.size > 0) {
+        console.log(`[Campaign ${campaign.name}] ${pausedSet.size} grupos pausados (skip)`);
       }
 
       // Days since start (in BR tz)
