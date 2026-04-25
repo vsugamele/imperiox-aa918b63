@@ -986,7 +986,7 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
   let prevContext = "";
   if (previous_result) prevContext = "\n## Resultado anterior (para refinar):\n" + previous_result.slice(0, 3000);
 
-  const objectiveLabel = {
+  const objectiveLabel: Record<string, string> = ({
     conversao: "Conversão (vendas diretas)",
     leads: "Geração de Leads",
     trafego: "Tráfego para página",
