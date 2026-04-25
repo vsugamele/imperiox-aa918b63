@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index, skill_slugs, stories_per_day } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index, skill_slugs, stories_per_day, extra_urls, briefing_extra } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
     // ── Mentes IA Personality Lookup ──
@@ -182,7 +182,7 @@ serve(async (req) => {
     if (action === "market_intel_research") return await handleMarketIntelResearch(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData);
     if (action === "execute_skill") return await handleExecuteSkill(body, sb, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_content") return await handleGenerateContent(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
-    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
+    if (action === "generate_copy_arsenal") return await handleCopyArsenal(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext, extra_urls, briefing_extra);
     if (action === "generate_avatar_angles") return await handleAvatarAngles(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData);
     if (action === "generate_product_intel") return await handleProductIntel(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix, projectData, product_index, skillsContext);
     if (action === "generate_branding") return await handleBranding(projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
@@ -316,7 +316,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "") {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "", extraUrls: string[] = [], briefingExtra = "") {
   // Enrich context with scraped website content via Firecrawl
   let scrapedContext = "";
   try {
@@ -341,6 +341,11 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
       const projLinks = Object.values(d.links).filter(v => v && String(v).trim() !== "" && String(v).startsWith("http")) as string[];
       productLinks.push(...projLinks);
     }
+    // Ad-hoc URLs vindas do modal "Gerar Arsenal"
+    if (Array.isArray(extraUrls) && extraUrls.length > 0) {
+      productLinks.push(...extraUrls.filter((u) => typeof u === "string" && u.trim().startsWith("http")));
+    }
+    console.log("Copy arsenal generated for product_index:", productIndex, "extra_urls:", extraUrls?.length || 0, "briefing_extra:", briefingExtra ? "yes" : "no");
 
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (firecrawlKey && productLinks.length > 0) {
@@ -365,13 +370,18 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
 
   const fullCtx = scrapedContext ? `${ctx}\n\n## Conteúdo scraped do site do produto:\n${scrapedContext}` : ctx;
 
+  const briefingBlock = briefingExtra && briefingExtra.trim()
+    ? `\n## BRIEFING DIRETO DO USUÁRIO (prioridade máxima — use isso como base):\n${briefingExtra.trim()}\n`
+    : "";
+
   const arsenal = await callAI(
     `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.
 ${fullCtx}
-${skillsContext}
+${skillsContext}${briefingBlock}
 REGRAS:
 - Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.
 - Se houver conteúdo scraped do site, use-o para criar copy mais precisa e alinhada à página real do produto.
+- Se houver BRIEFING DIRETO DO USUÁRIO, ele tem prioridade máxima sobre tudo.
 - Gere também o mecanismo_unico (o que diferencia este produto de todos os outros no mercado) e o contexto (resumo estratégico do produto).
 - Aplique as Skills disponíveis/ativadas para elevar a qualidade do copy: use frameworks de persuasão, gatilhos emocionais e estruturas de copy profissional.`,
     "Gere o Arsenal de Copy completo, incluindo mecanismo único e contexto estratégico do produto.",
@@ -976,22 +986,24 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
   let prevContext = "";
   if (previous_result) prevContext = "\n## Resultado anterior (para refinar):\n" + previous_result.slice(0, 3000);
 
-  const objectiveLabel = {
+  const objectiveLabels: Record<string, string> = {
     conversao: "Conversão (vendas diretas)",
     leads: "Geração de Leads",
     trafego: "Tráfego para página",
     alcance: "Alcance e reconhecimento",
     engajamento: "Engajamento social",
     retargeting: "Retargeting de visitantes/compradores",
-  }[objective] || "Conversão";
+  };
+  const objectiveLabel = objectiveLabels[objective] || "Conversão";
 
-  const funnelLabel = {
+  const funnelLabels: Record<string, string> = {
     topo: "Topo de funil (Awareness) — público frio, ainda não conhece a marca",
     meio: "Meio de funil (Consideração) — público morno, já demonstrou interesse",
     fundo: "Fundo de funil (Decisão) — público quente, pronto para comprar",
     retencao: "Retenção/Upsell — clientes existentes",
     todas: "Todas as etapas do funil",
-  }[funnel_stage] || "Todas";
+  };
+  const funnelLabel = funnelLabels[funnel_stage] || "Todas";
 
   const systemPrompt = `Você é um media buyer brasileiro de ALTO nível, especialista em Meta Ads (Facebook/Instagram) com experiência em escalar campanhas de infoprodutos e e-commerce.
 
@@ -1675,10 +1687,9 @@ As conexões entre nós são definidas por connects_to (array de índices dos n�
 Posicione os nós de forma organizada no canvas (pos_x, pos_y). Use espaçamento de ~280px horizontal e ~160px vertical.
 Gere entre 4 e ${num_nodes} nós dependendo da complexidade.`;
 
-  const result = await callAIWithTools(
+  const result = await callAI(
     systemPrompt,
     `Gere um fluxograma para: ${description}`,
-    `Crie os nós do fluxograma de forma clara e conectada.`,
     apiKey, model,
     [{
       type: "function",
