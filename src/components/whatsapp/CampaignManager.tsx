@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search, Cog } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search, Cog, Copy, Clock } from "lucide-react";
 import { toast } from "sonner";
 import CampaignStepEditor from "./CampaignStepEditor";
 import CampaignLogViewer from "./CampaignLogViewer";
@@ -48,7 +48,17 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [showLogs, setShowLogs] = useState<Campaign | null>(null);
   const [showGroups, setShowGroups] = useState<Campaign | null>(null);
   const [showAutomation, setShowAutomation] = useState<Campaign | null>(null);
-  const [form, setForm] = useState({ name: "", project_id: "", provider_id: "", start_date: "", produto: "" });
+  const [form, setForm] = useState({
+    name: "",
+    project_id: "",
+    provider_id: "",
+    start_date: "",
+    produto: "",
+    exit_message: "",
+    send_window_start: "08:00",
+    send_window_end: "22:00",
+  });
+  const [nextSteps, setNextSteps] = useState<Record<string, { date: string; time: string; preview: string } | null>>({});
   const [availableGroups, setAvailableGroups] = useState<{ id: string; subject: string }[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
@@ -60,27 +70,133 @@ export default function CampaignManager({ projects, providers }: Props) {
       .from("imphq_wa_campaigns")
       .select("*")
       .order("created_at", { ascending: false });
-    setCampaigns((data as any[]) || []);
+    const campaignsData = (data as any[]) || [];
+    setCampaigns(campaignsData);
     setLoading(false);
+
+    // Compute next scheduled step per campaign
+    if (campaignsData.length > 0) {
+      const ids = campaignsData.map((c) => c.id);
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+      const { data: stepsData } = await supabase
+        .from("imphq_wa_campaign_steps")
+        .select("campaign_id, content, send_date, send_time, days_offset, is_active")
+        .in("campaign_id", ids)
+        .eq("is_active", true);
+      const map: Record<string, { date: string; time: string; preview: string } | null> = {};
+      for (const c of campaignsData) {
+        const stepsForCamp = (stepsData || []).filter((s: any) => s.campaign_id === c.id);
+        // Find next step >= today (or matching offset for today)
+        const upcoming = stepsForCamp
+          .map((s: any) => {
+            const date = s.send_date || todayStr;
+            return { ...s, _date: date };
+          })
+          .filter((s: any) => s._date >= todayStr)
+          .sort((a: any, b: any) => {
+            if (a._date !== b._date) return a._date < b._date ? -1 : 1;
+            return (a.send_time || "").localeCompare(b.send_time || "");
+          });
+        const next = upcoming[0];
+        map[c.id] = next
+          ? {
+              date: next._date,
+              time: (next.send_time || "09:00").slice(0, 5),
+              preview: (next.content || "").slice(0, 40),
+            }
+          : null;
+      }
+      setNextSteps(map);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const resetForm = () =>
+    setForm({
+      name: "",
+      project_id: "",
+      provider_id: "",
+      start_date: "",
+      produto: "",
+      exit_message: "",
+      send_window_start: "08:00",
+      send_window_end: "22:00",
+    });
 
   const createCampaign = async () => {
-    if (!form.name) { toast.error("Nome obrigatório"); return; }
+    if (!form.name) {
+      toast.error("Nome obrigatório");
+      return;
+    }
     const { error } = await supabase.from("imphq_wa_campaigns").insert({
       name: form.name,
       project_id: form.project_id || null,
       provider_id: form.provider_id || null,
       produto: form.produto || null,
       start_date: form.start_date || null,
+      exit_message: form.exit_message || null,
+      send_window_start: form.send_window_start || "08:00",
+      send_window_end: form.send_window_end || "22:00",
       status: "draft",
       groups: [] as any,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Campanha criada!");
     setShowCreate(false);
-    setForm({ name: "", project_id: "", provider_id: "", start_date: "", produto: "" });
+    resetForm();
+    load();
+  };
+
+  const duplicateCampaign = async (c: Campaign) => {
+    // 1. Insert new campaign as draft
+    const { data: newCamp, error: cErr } = await supabase
+      .from("imphq_wa_campaigns")
+      .insert({
+        name: `${c.name} (cópia)`,
+        project_id: c.project_id,
+        provider_id: c.provider_id,
+        produto: c.produto,
+        start_date: null,
+        status: "draft",
+        groups: c.groups as any,
+        welcome_message: c.welcome_message,
+        exit_message: c.exit_message,
+        anti_hack: c.anti_hack,
+        mention_all: c.mention_all,
+      } as any)
+      .select()
+      .single();
+    if (cErr || !newCamp) {
+      toast.error(cErr?.message || "Erro ao duplicar");
+      return;
+    }
+    // 2. Duplicate steps
+    const { data: srcSteps } = await supabase
+      .from("imphq_wa_campaign_steps")
+      .select("*")
+      .eq("campaign_id", c.id)
+      .order("step_order");
+    if (srcSteps && srcSteps.length > 0) {
+      const cloned = srcSteps.map((s: any) => ({
+        campaign_id: newCamp.id,
+        step_order: s.step_order,
+        content: s.content,
+        media_url: s.media_url,
+        media_type: s.media_type,
+        send_time: s.send_time,
+        days_offset: s.days_offset,
+        send_date: null, // reset specific dates
+        is_active: s.is_active,
+      }));
+      await supabase.from("imphq_wa_campaign_steps").insert(cloned as any);
+    }
+    toast.success(`Campanha duplicada (${srcSteps?.length || 0} steps)`);
     load();
   };
 
@@ -183,11 +299,18 @@ export default function CampaignManager({ projects, providers }: Props) {
                       <h3 className="font-semibold text-sm">{c.name}</h3>
                       {statusBadge(c.status)}
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
                       <span>📁 {projectName(c.project_id)}</span>
                       <span>👥 {Array.isArray(c.groups) ? c.groups.length : 0} grupos</span>
                       {c.start_date && <span>📅 Início: {c.start_date}</span>}
                       {c.exit_message && <span>🚪 Msg saída ✓</span>}
+                      {nextSteps[c.id] && (
+                        <span className="text-primary flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Próximo: {nextSteps[c.id]!.date.split("-").reverse().join("/")} {nextSteps[c.id]!.time}
+                          {nextSteps[c.id]!.preview && ` — ${nextSteps[c.id]!.preview}…`}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -202,6 +325,9 @@ export default function CampaignManager({ projects, providers }: Props) {
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowAutomation(c)} title="Automações">
                       <Cog className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => duplicateCampaign(c)} title="Duplicar">
+                      <Copy className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       size="icon"
@@ -254,11 +380,21 @@ export default function CampaignManager({ projects, providers }: Props) {
               <Label>Data de início</Label>
               <Input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Janela início (anti-ban)</Label>
+                <Input type="time" value={form.send_window_start} onChange={e => setForm({ ...form, send_window_start: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Janela fim</Label>
+                <Input type="time" value={form.send_window_end} onChange={e => setForm({ ...form, send_window_end: e.target.value })} />
+              </div>
+            </div>
             <div>
               <Label>Mensagem de saída (quando alguém sai do grupo)</Label>
               <Textarea
-                value={(form as any).exit_message || ""}
-                onChange={e => setForm({ ...form, exit_message: e.target.value } as any)}
+                value={form.exit_message}
+                onChange={e => setForm({ ...form, exit_message: e.target.value })}
                 placeholder="Olá! Vi que saiu do grupo. Posso te ajudar com algo?"
                 rows={2}
                 className="text-xs"

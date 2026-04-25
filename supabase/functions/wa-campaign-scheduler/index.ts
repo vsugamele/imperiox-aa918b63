@@ -6,6 +6,75 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const TZ = "America/Sao_Paulo";
+
+function nowInBR(): { dateStr: string; timeStr: string; hour: number; minute: number } {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || "00";
+  const dateStr = `${get("year")}-${get("month")}-${get("day")}`;
+  const hour = parseInt(get("hour"));
+  const minute = parseInt(get("minute"));
+  const timeStr = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  return { dateStr, timeStr, hour, minute };
+}
+
+function timeInWindow(currentMin: number, startTime: string, endTime: string): boolean {
+  const [sh, sm] = (startTime || "08:00").split(":").map(Number);
+  const [eh, em] = (endTime || "22:00").split(":").map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+  if (startMin <= endMin) return currentMin >= startMin && currentMin <= endMin;
+  // window crosses midnight
+  return currentMin >= startMin || currentMin <= endMin;
+}
+
+function renderVariables(text: string, vars: Record<string, string>): string {
+  if (!text) return text;
+  return text.replace(/\{(\w+)\}/g, (_m, key) => vars[key] ?? `{${key}}`);
+}
+
+function jitterMs(): number {
+  // 3000–8000 ms
+  return 3000 + Math.floor(Math.random() * 5000);
+}
+
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function sendWithRetry(endpoint: string, headers: any, body: any, maxRetries = 2): Promise<any> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(JSON.stringify(json).slice(0, 400));
+      return json;
+    } catch (err: any) {
+      lastErr = err;
+      if (attempt < maxRetries) {
+        // exponential backoff: 1s, 2s
+        await sleep(1000 * Math.pow(2, attempt));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,22 +85,14 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Get current time in Brazil timezone (UTC-3)
-    const now = new Date();
-    const brTime = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-    const currentTime = brTime.toISOString().slice(11, 16); // "HH:MM"
-    const currentHour = parseInt(currentTime.split(":")[0]);
-    const currentMinute = parseInt(currentTime.split(":")[1]);
+    const { dateStr: todayStr, timeStr: currentTime, hour: currentHour, minute: currentMinute } = nowInBR();
+    const currentTotalMin = currentHour * 60 + currentMinute;
 
-    console.log(`[Campaign Scheduler] Running at ${currentTime} (BR time)`);
+    console.log(`[Campaign Scheduler] Running at ${currentTime} (${TZ})`);
 
-    // Fetch active campaigns with their steps
     const { data: campaigns, error: campError } = await supabase
       .from("imphq_wa_campaigns")
-      .select(`
-        *,
-        imphq_wa_campaign_steps(*)
-      `)
+      .select(`*, imphq_wa_campaign_steps(*)`)
       .eq("status", "active");
 
     if (campError) throw campError;
@@ -49,34 +110,34 @@ serve(async (req) => {
       const groups: string[] = Array.isArray(campaign.groups) ? campaign.groups : [];
       if (groups.length === 0) continue;
 
-      // Calculate days since campaign start
-      const startDate = campaign.start_date ? new Date(campaign.start_date) : new Date(campaign.created_at);
-      const today = new Date(brTime.toISOString().slice(0, 10));
-      const start = new Date(startDate.toISOString().slice(0, 10));
+      // 6A: Sending window — skip campaign if outside its window
+      const winStart = (campaign as any).send_window_start || "08:00";
+      const winEnd = (campaign as any).send_window_end || "22:00";
+      if (!timeInWindow(currentTotalMin, winStart, winEnd)) {
+        console.log(`[Campaign ${campaign.name}] Outside send window ${winStart}-${winEnd}, skipping`);
+        continue;
+      }
+
+      // Days since start (in BR tz)
+      const startDateStr = (campaign.start_date || campaign.created_at || "").slice(0, 10);
+      const start = new Date(startDateStr + "T00:00:00");
+      const today = new Date(todayStr + "T00:00:00");
       const daysSinceStart = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Filter steps that should run now
       const steps = (campaign.imphq_wa_campaign_steps || []).filter((step: any) => {
         if (!step.is_active) return false;
-
-        // Check date: send_date takes priority over days_offset
         if (step.send_date) {
-          const stepDate = step.send_date; // "YYYY-MM-DD"
-          const todayDate = brTime.toISOString().slice(0, 10);
-          if (stepDate !== todayDate) return false;
+          if (step.send_date !== todayStr) return false;
         } else {
           if (step.days_offset !== daysSinceStart) return false;
         }
-
-        // Check time match (±1 min tolerance)
-        const [stepH, stepM] = step.send_time.split(":").map(Number);
-        const diffMin = Math.abs((stepH * 60 + stepM) - (currentHour * 60 + currentMinute));
+        const [stepH, stepM] = (step.send_time || "09:00").split(":").map(Number);
+        const diffMin = Math.abs((stepH * 60 + stepM) - currentTotalMin);
         return diffMin <= 1;
       });
 
       if (steps.length === 0) continue;
 
-      // Get provider for this campaign
       let provider = null;
       if (campaign.provider_id) {
         const { data } = await supabase
@@ -88,7 +149,7 @@ serve(async (req) => {
       }
 
       if (!provider) {
-        console.log(`[Campaign ${campaign.name}] No provider found, skipping`);
+        console.log(`[Campaign ${campaign.name}] No provider, skipping`);
         continue;
       }
 
@@ -97,8 +158,7 @@ serve(async (req) => {
       const instanceName = provider.instance_name || "";
 
       for (const step of steps) {
-        // Check if already sent today
-        const todayStr = brTime.toISOString().slice(0, 10);
+        // Already sent today?
         const { data: existingLogs } = await supabase
           .from("imphq_wa_campaign_logs")
           .select("id")
@@ -116,73 +176,50 @@ serve(async (req) => {
           const groupJid = groups[i];
 
           try {
-            // Rate limiting: 3s delay between groups
+            // 6A: human jitter 3–8s + extra pause every 10 groups
             if (i > 0) {
-              await new Promise(resolve => setTimeout(resolve, 3000));
+              await sleep(jitterMs());
+              if (i % 10 === 0) {
+                console.log(`[Campaign ${campaign.name}] Long pause (30s) after ${i} groups`);
+                await sleep(30000);
+              }
             }
 
-            // Send message based on media_type
+            // 6B: dynamic variables
+            const vars: Record<string, string> = {
+              produto: campaign.produto || "",
+              campanha: campaign.name || "",
+              grupo: "",
+              grupo_nome: "",
+              nome: "",
+            };
+            const renderedContent = renderVariables(step.content || "", vars);
+
             let endpoint: string;
             let body: any;
 
             if (step.media_type === "text" || !step.media_url) {
               endpoint = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
-              body = {
-                number: groupJid,
-                text: step.content || "",
-              };
+              body = { number: groupJid, text: renderedContent };
             } else if (step.media_type === "image") {
               endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
-              body = {
-                number: groupJid,
-                mediatype: "image",
-                media: step.media_url,
-                caption: step.content || "",
-              };
+              body = { number: groupJid, mediatype: "image", media: step.media_url, caption: renderedContent };
             } else if (step.media_type === "audio") {
               endpoint = `${apiUrl}/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`;
-              body = {
-                number: groupJid,
-                audio: step.media_url,
-              };
+              body = { number: groupJid, audio: step.media_url };
             } else if (step.media_type === "video") {
               endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
-              body = {
-                number: groupJid,
-                mediatype: "video",
-                media: step.media_url,
-                caption: step.content || "",
-              };
+              body = { number: groupJid, mediatype: "video", media: step.media_url, caption: renderedContent };
             } else if (step.media_type === "document") {
               endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
-              body = {
-                number: groupJid,
-                mediatype: "document",
-                media: step.media_url,
-                caption: step.content || "",
-                fileName: "document",
-              };
+              body = { number: groupJid, mediatype: "document", media: step.media_url, caption: renderedContent, fileName: "document" };
             } else {
               endpoint = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
-              body = { number: groupJid, text: step.content || "" };
+              body = { number: groupJid, text: renderedContent };
             }
 
-            const response = await fetch(endpoint, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                apikey: apiKey,
-              },
-              body: JSON.stringify(body),
-            });
+            await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, body, 2);
 
-            const result = await response.json();
-
-            if (!response.ok) {
-              throw new Error(JSON.stringify(result));
-            }
-
-            // Log success
             await supabase.from("imphq_wa_campaign_logs").insert({
               step_id: step.id,
               campaign_id: campaign.id,
@@ -193,13 +230,12 @@ serve(async (req) => {
             totalSent++;
             console.log(`[Campaign ${campaign.name}] Sent step ${step.step_order} to ${groupJid}`);
           } catch (err: any) {
-            // Log failure
             await supabase.from("imphq_wa_campaign_logs").insert({
               step_id: step.id,
               campaign_id: campaign.id,
               group_jid: groupJid,
               status: "failed",
-              error: err.message?.slice(0, 500),
+              error: (err.message || "").slice(0, 500),
             });
 
             totalFailed++;

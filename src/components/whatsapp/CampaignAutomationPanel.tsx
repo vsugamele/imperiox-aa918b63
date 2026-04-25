@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -16,9 +16,12 @@ interface Props {
   onUpdate: () => void;
 }
 
+const DEFAULT_WELCOME = "Bem-vindo ao grupo! 🎉";
+const DEFAULT_EXIT = "Olá! Vi que saiu do grupo. Posso te ajudar com algo?";
+
 export default function CampaignAutomationPanel({ campaignId, welcomeMessage, exitMessage, antiHack, mentionAll, onUpdate }: Props) {
-  const [welcome, setWelcome] = useState(welcomeMessage || "");
-  const [exit, setExit] = useState(exitMessage || "");
+  const [welcome, setWelcome] = useState<string | null>(welcomeMessage);
+  const [exit, setExit] = useState<string | null>(exitMessage);
   const [hack, setHack] = useState(antiHack);
   const [mention, setMention] = useState(mentionAll);
 
@@ -34,6 +37,9 @@ export default function CampaignAutomationPanel({ campaignId, welcomeMessage, ex
     }
   };
 
+  const welcomeEnabled = welcome !== null;
+  const exitEnabled = exit !== null;
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -48,22 +54,26 @@ export default function CampaignAutomationPanel({ campaignId, welcomeMessage, ex
               Boas-vindas automático
             </Label>
             <Switch
-              checked={!!welcome}
-              onCheckedChange={checked => {
-                if (!checked) {
-                  setWelcome("");
+              checked={welcomeEnabled}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  const v = DEFAULT_WELCOME;
+                  setWelcome(v);
+                  update("welcome_message", v);
+                } else {
+                  setWelcome(null);
                   update("welcome_message", null);
                 }
               }}
             />
           </div>
-          {welcome !== null && (
+          {welcomeEnabled && (
             <Textarea
               className="text-xs min-h-[50px]"
-              value={welcome}
-              onChange={e => setWelcome(e.target.value)}
+              value={welcome ?? ""}
+              onChange={(e) => setWelcome(e.target.value)}
               onBlur={() => update("welcome_message", welcome || null)}
-              placeholder="Bem-vindo ao grupo! 🎉"
+              placeholder={DEFAULT_WELCOME}
             />
           )}
         </div>
@@ -76,22 +86,26 @@ export default function CampaignAutomationPanel({ campaignId, welcomeMessage, ex
               Realocar saídas (DM)
             </Label>
             <Switch
-              checked={!!exit}
-              onCheckedChange={checked => {
-                if (!checked) {
-                  setExit("");
+              checked={exitEnabled}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  const v = DEFAULT_EXIT;
+                  setExit(v);
+                  update("exit_message", v);
+                } else {
+                  setExit(null);
                   update("exit_message", null);
                 }
               }}
             />
           </div>
-          {exit !== null && (
+          {exitEnabled && (
             <Textarea
               className="text-xs min-h-[50px]"
-              value={exit}
-              onChange={e => setExit(e.target.value)}
+              value={exit ?? ""}
+              onChange={(e) => setExit(e.target.value)}
               onBlur={() => update("exit_message", exit || null)}
-              placeholder="Vi que saiu do grupo. Posso ajudar?"
+              placeholder={DEFAULT_EXIT}
             />
           )}
         </div>
@@ -104,7 +118,7 @@ export default function CampaignAutomationPanel({ campaignId, welcomeMessage, ex
           </Label>
           <Switch
             checked={hack}
-            onCheckedChange={v => {
+            onCheckedChange={(v) => {
               setHack(v);
               update("anti_hack", v);
             }}
@@ -119,7 +133,7 @@ export default function CampaignAutomationPanel({ campaignId, welcomeMessage, ex
           </Label>
           <Switch
             checked={mention}
-            onCheckedChange={v => {
+            onCheckedChange={(v) => {
               setMention(v);
               update("mention_all", v);
             }}
