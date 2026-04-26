@@ -318,6 +318,10 @@ export function buildCreativeRoas(
   for (const v of vendas) {
     const valor = v.valor || 0;
     report.totalReceita += valor;
+    if (v.utm_origin === "lead") {
+      report.inheritedFromLead.count += 1;
+      report.inheritedFromLead.receita += valor;
+    }
     const m = matchSale(v);
     if (!m) {
       report.unmatched += 1;
