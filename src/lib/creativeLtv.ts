@@ -312,6 +312,7 @@ export function buildCreativeRoas(
       unmatched: { count: 0, receita: 0 },
     },
     unmatchedSamples: [],
+    inheritedFromLead: { count: 0, receita: 0 },
   };
 
   for (const v of vendas) {
