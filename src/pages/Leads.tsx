@@ -22,7 +22,7 @@ import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, Cartesia
 import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
 import { FormBuilder } from "@/components/leads/FormBuilder";
@@ -430,7 +430,32 @@ export default function Leads() {
   const leadsByProduct = useMemo(() => { const isApproved = (s: string) => ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"].includes(s); const map = new Map<string, number>(); periodVendas.filter(v => isApproved(v.status)).forEach(v => { if (!v.produto_nome) return; map.set(v.produto_nome, (map.get(v.produto_nome) || 0) + 1); }); return Array.from(map.entries()).map(([name, count]) => ({ name: name.substring(0, 25), count })).sort((a, b) => b.count - a.count).slice(0, 10); }, [periodVendas]);
   const revenueByProduct = useMemo(() => { const map = new Map<string, number>(); periodVendas.filter(v => ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"].includes(v.status)).forEach(v => { if (!v.produto_nome) return; map.set(v.produto_nome, (map.get(v.produto_nome) || 0) + (parseFloat(v.valor) || 0)); }); return Array.from(map.entries()).map(([name, revenue]) => ({ name: name.substring(0, 25), revenue: Math.round(revenue) })).sort((a, b) => b.revenue - a.revenue).slice(0, 10); }, [periodVendas]);
   const conversionTimeDist = useMemo(() => { const buckets: Record<string, number> = { "0-1d": 0, "1-3d": 0, "3-7d": 0, "7-14d": 0, "14-30d": 0, "30d+": 0 }; periodLeads.forEach(l => { const h = getConversionHours(l); if (h !== null && h >= 0) buckets[getConversionBucket(h)]++; }); return Object.entries(buckets).map(([name, count]) => ({ name, count })); }, [periodLeads]);
-  const leadsVsAds = useMemo(() => { const dayMap = new Map<string, { leads: number; ads: number; revenue: number }>(); periodLeads.forEach(l => { if (!l.criado_em) return; try { const key = format(parseISO(l.criado_em), "dd/MM"); const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 }; entry.leads++; dayMap.set(key, entry); } catch {} }); periodAds.forEach(a => { if (!a.data_ref) return; try { const key = format(parseISO(a.data_ref), "dd/MM"); const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 }; entry.ads += parseFloat(a.valor) || 0; dayMap.set(key, entry); } catch {} }); periodVendas.filter(v => v.status === "Aprovada" || v.status === "aprovada" || v.status === "approved").forEach(v => { if (!v.created_at) return; try { const key = format(parseISO(v.created_at), "dd/MM"); const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 }; entry.revenue += parseFloat(v.valor) || 0; dayMap.set(key, entry); } catch {} }); return Array.from(dayMap.entries()).map(([day, d]) => ({ day, ...d })).sort((a, b) => a.day.localeCompare(b.day)); }, [periodLeads, periodAds, periodVendas]);
+  const leadsVsAds = useMemo(() => {
+    const dayMap = new Map<string, { leads: number; ads: number; revenue: number }>();
+    // Preenche todos os dias do período com zero (evita buracos no eixo X)
+    try {
+      const days = eachDayOfInterval({ start: startOfDay(periodRange.from), end: endOfDay(periodRange.to) });
+      days.forEach(d => { dayMap.set(format(d, "yyyy-MM-dd"), { leads: 0, ads: 0, revenue: 0 }); });
+    } catch {}
+    const bump = (iso: string | null | undefined, patch: Partial<{ leads: number; ads: number; revenue: number }>) => {
+      if (!iso) return;
+      try {
+        const key = format(parseISO(iso), "yyyy-MM-dd");
+        const entry = dayMap.get(key) || { leads: 0, ads: 0, revenue: 0 };
+        if (patch.leads) entry.leads += patch.leads;
+        if (patch.ads) entry.ads += patch.ads;
+        if (patch.revenue) entry.revenue += patch.revenue;
+        dayMap.set(key, entry);
+      } catch {}
+    };
+    periodLeads.forEach(l => bump(l.criado_em, { leads: 1 }));
+    periodAds.forEach(a => bump(a.data_ref, { ads: parseFloat(a.valor) || 0 }));
+    const APROVADOS = ["Aprovada", "aprovada", "approved", "aprovado", "Aprovado"];
+    periodVendas.filter(v => APROVADOS.includes(v.status)).forEach(v => bump(v.created_at, { revenue: parseFloat(v.valor) || 0 }));
+    return Array.from(dayMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, d]) => ({ day: format(parseISO(key), "dd/MM"), leads: d.leads, ads: d.ads, revenue: d.revenue }));
+  }, [periodLeads, periodAds, periodVendas, periodRange]);
   const funnelData = useMemo(() => { const stages = { lead_capturado: 0, carrinho_abandonado: 0, pix_gerado: 0, compra_aprovada: 0 }; periodLeads.forEach(l => { const stage = getLeadStage(l); if (stage in stages) (stages as any)[stage]++; }); return [ { stage: "Leads", value: stages.lead_capturado, fill: "hsl(var(--primary))" }, { stage: "Carrinho", value: stages.carrinho_abandonado, fill: "#f59e0b" }, { stage: "Pix", value: stages.pix_gerado, fill: "#ef4444" }, { stage: "Clientes", value: stages.compra_aprovada, fill: "#10b981" } ]; }, [periodLeads]);
   const leadsByMonth = useMemo(() => { const map = new Map<string, number>(); leads.forEach(l => { if (!l.criado_em) return; try { const d = parseISO(l.criado_em); if (!isValid(d)) return; const key = format(d, "MMM/yy", { locale: ptBR }); map.set(key, (map.get(key) || 0) + 1); } catch {} }); return Array.from(map.entries()).map(([month, count]) => ({ month, count })).reverse().slice(-12); }, [leads]);
   const pixHoje = useMemo(() => leads.filter(l => { const stage = getLeadStage(l); if (!["pix_gerado", "aguardando_pagamento"].includes(stage)) return false; const refDate = getLeadActivityDate(l); if (!refDate) return true; try { return isToday(parseISO(refDate)); } catch { return false; } }), [leads]);
