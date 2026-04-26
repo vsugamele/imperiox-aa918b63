@@ -163,7 +163,7 @@ export default function Cohort() {
           </TabsContent>
 
           <TabsContent value="creative">
-            <CreativeLtvTable data={creativeRows} groupBy={groupBy} onGroupByChange={setGroupBy} />
+            <CreativeLtvTable data={creativeRows} groupBy={groupBy} onGroupByChange={setGroupBy} report={matchingReport} />
           </TabsContent>
 
           <TabsContent value="top">
