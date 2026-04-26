@@ -1,43 +1,42 @@
-## Contexto
+## Problema confirmado
+Encontrei **21 grupos duplicados nos últimos 60 dias** inflando **R$ 3.769,37** em receita. Exemplo: mesma venda Hotmart inserida 2x no mesmo segundo (race condition + payload em formatos distintos escapando da dedup atual de 5 min).
 
-1. **UTMs sumiram dos "Dados de Compra"**: o `LeadUtmsPanel` só lê `lead.data.utms` e `_vendas[0].data.utms`. Vendas Ticto (e outras) chegam sem UTM nativa, então o painel fica vazio mesmo quando o lead tem origem rastreada. A correção de fallback que fizemos só atingiu o módulo Cohort.
-2. **Recuperação não aparece no `/dashboard`**: o `RecoveryKpiBlock` só existe dentro do `ProjetoComando` (tela do projeto). No dashboard global não há nem KPI nem atalho destacado.
+## Causa raiz no `webhook-pagamento`
+1. Dedup só compara janela de 5 min + lead+produto+valor → eventos duplicados fora da janela passam
+2. Sem chave única por transação (`codigo_pedido` / `transaction_id`)
+3. Race condition: dois webhooks simultâneos fazem `SELECT` ao mesmo tempo, ambos não encontram, ambos inserem
+4. Bumps Ticto sem nenhuma dedup
+5. Status `'aprovado'` vs `'aprovada'` tratados como diferentes em alguns lugares
 
----
+## Correções
 
-## Mudanças
+### 1. Migration: chave única no banco (defesa final)
+- Adicionar coluna `external_transaction_id TEXT` em `imphq_vendas` (codigo_pedido / transaction.hash / order_hash)
+- Backfill da coluna a partir do JSONB `data` para vendas existentes
+- Índice `UNIQUE (project_id, external_transaction_id) WHERE external_transaction_id IS NOT NULL`
+- Isso garante que mesmo com race condition o segundo insert falha
 
-### A) `src/components/leads/LeadUtmsPanel.tsx` — fallback robusto
-- Função `extractUtms(source)` que varre chaves alternativas em qualquer payload:
-  - `data.utms` (objeto)
-  - `data.utm_source/utm_medium/utm_campaign/utm_content/utm_term` (flat)
-  - `data.tracking.utm_*`
-  - `data.checkout.utm_*` (Ticto/Hotmart)
-- Para a "Última venda": se a venda não tiver UTMs próprias, **herdar do `lead.data`** e marcar visualmente com badge âmbar `↳ herdado do lead`.
-- Mantém os 3 blocos atuais (Captura, Última venda, Primeiro click) e adiciona o badge de origem na venda quando aplicável.
+### 2. Limpeza dos duplicados históricos
+- Migration que mantém apenas 1 venda por grupo (a com payload mais completo / `data` não vazio), apagando as demais
+- Rodar em transação, com log do que foi removido em `imphq_events` pra rastreabilidade
 
-### B) `src/pages/Leads.tsx` — UTM compacta por venda no card de compra
-- Linha ~630, dentro do `map` de `editLead._vendas`, adicionar uma linha discreta com `utm_campaign · utm_content` (quando existir, da própria venda OU herdado do `lead.data.utms`), padrão Meta-style com pipe-split.
-- Badge `↳ lead` quando a UTM vier do fallback.
+### 3. Refatorar `webhook-pagamento/index.ts`
+- Extrair `external_transaction_id` no topo, pra todas plataformas (Hotmart `transaction`, Ticto `order.hash`, Kiwify `order_id`)
+- Antes de cada insert de venda aprovada / bump: `SELECT` por `external_transaction_id` no projeto → se existir, faz UPDATE em vez de INSERT
+- Tratar erro `23505` (unique_violation) como sucesso silencioso (foi outro processo que ganhou a corrida)
+- Aplicar mesma lógica para bumps Ticto
 
-### C) `src/components/dashboard/RecoveryGlobalCard.tsx` — novo
-- Card que agrega `imphq_vendas` + `imphq_leads` + `imphq_recovery_logs` de **todos os projetos** (sem filtro de `project_id`, respeitando RLS atual).
-- Mostra: "Em risco agora" (R$) + "Recuperado este mês" (R$ e contagem) + botão `Ver detalhes` → `/recuperacao`.
-- Reusa `buildRecoveryBuckets` e `formatCurrency` de `@/lib/recoveryBuckets`.
+### 4. Normalizar status
+- Migration leve: `UPDATE imphq_vendas SET status='aprovado' WHERE status='aprovada'`
 
-### D) `src/pages/Dashboard.tsx` — montagem
-- Importar e renderizar `RecoveryGlobalCard` na grade de KPIs (após os cards principais, antes dos charts).
-- Adicionar um **chip/atalho destacado** ao lado do título "Dashboard": `🛟 Recuperação` linkando pra `/recuperacao` com cor âmbar quando `currentRisk > 0` (passa um callback simples ou usa estado interno do card).
+## Arquivos afetados
+- **Nova migration**: adicionar coluna + backfill + índice único + dedup histórica + normalização de status
+- **Editar** `supabase/functions/webhook-pagamento/index.ts`: extração de `external_transaction_id`, dedup forte, tratamento de unique_violation
 
----
+## Riscos
+- Backfill precisa lidar com payloads em formatos heterogêneos (Hotmart, Ticto, Kiwify) — vou mapear os campos por plataforma antes
+- Índice UNIQUE pode falhar na criação se houver duplicatas remanescentes → a limpeza histórica precede a criação do índice na mesma migration
 
-## Arquivos
-
-- `src/components/leads/LeadUtmsPanel.tsx` (refactor extractUtms + fallback lead→venda)
-- `src/pages/Leads.tsx` (UTM compacta por venda no card de compra)
-- `src/components/dashboard/RecoveryGlobalCard.tsx` (novo)
-- `src/pages/Dashboard.tsx` (importar card + chip de atalho)
-
-## Sem mudanças de schema
-
-Tudo lê tabelas existentes (`imphq_leads`, `imphq_vendas`, `imphq_recovery_logs`, `imphq_clicks`).
+## Resultado esperado
+- Receita real reduzida em ~R$ 3.769,37 (correção, não perda)
+- Zero duplicatas futuras, mesmo sob retries da Hotmart ou race conditions
