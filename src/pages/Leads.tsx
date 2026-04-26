@@ -34,6 +34,7 @@ import LeadsSidebar from "@/components/leads/LeadsSidebar";
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
+import LeadUtmsPanel from "@/components/leads/LeadUtmsPanel";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
