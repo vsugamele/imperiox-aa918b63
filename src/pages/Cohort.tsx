@@ -160,6 +160,10 @@ export default function Cohort() {
             <LtvByChannelTable data={channels} />
           </TabsContent>
 
+          <TabsContent value="creative">
+            <CreativeLtvTable data={creativeRows} groupBy={groupBy} onGroupByChange={setGroupBy} />
+          </TabsContent>
+
           <TabsContent value="top">
             <Card>
               <CardHeader>
