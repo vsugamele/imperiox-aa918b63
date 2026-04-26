@@ -197,6 +197,7 @@ export function CreativeLtvTable({ data, groupBy, onGroupByChange, report }: Pro
                 <th className="text-right px-3 py-2 font-semibold text-muted-foreground">LTV</th>
                 <th className="text-right px-3 py-2 font-semibold text-muted-foreground">ROAS front</th>
                 <th className="text-right px-3 py-2 font-semibold text-muted-foreground">ROAS real</th>
+                <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Conf.</th>
               </tr>
             </thead>
             <tbody>
