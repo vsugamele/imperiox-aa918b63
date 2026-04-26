@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [compareMode, setCompareMode] = useState(false);
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [recoveryRisk, setRecoveryRisk] = useState(0);
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => setAllProjects(data || []));
