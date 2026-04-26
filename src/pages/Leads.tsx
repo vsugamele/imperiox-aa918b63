@@ -538,6 +538,15 @@ export default function Leads() {
           <TabsContent value="insights" className="space-y-4"><FormInsights projects={projects} /></TabsContent>
           <TabsContent value="predicoes" className="space-y-4"><LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} /></TabsContent>
 
+          {/* TAB: LEADS QUENTES */}
+          <TabsContent value="quentes" className="space-y-4">
+            <HotLeadsInbox
+              leads={leads}
+              projects={projects}
+              onOpenLead={(id) => { const l = leads.find(x => x.id === id); if (l) setEditLead({ ...l }); }}
+            />
+          </TabsContent>
+
           {/* TAB: PIX HOJE */}
           <TabsContent value="pix_hoje" className="space-y-4">
             <div className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-orange-400 animate-pulse" /><h3 className="font-bold text-sm">Leads com Pix pendente hoje — {pixHoje.length} lead{pixHoje.length !== 1 ? "s" : ""}</h3></div>
