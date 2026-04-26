@@ -75,6 +75,7 @@ export interface MatchingReport {
   receitaUnmatched: number;
   byConfidence: Record<MatchConfidence, { count: number; receita: number }>;
   unmatchedSamples: UnmatchedSale[];
+  inheritedFromLead: { count: number; receita: number };
 }
 
 export type CreativeGroupBy = "campanha" | "conjunto" | "anuncio";
