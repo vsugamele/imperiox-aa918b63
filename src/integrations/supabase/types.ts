@@ -4393,12 +4393,14 @@ export type Database = {
       areamembrojp_upsell_offers: {
         Row: {
           created_at: string
+          cta_label: string | null
           headline: string | null
           id: string
           image_url: string | null
           is_active: boolean
           name: string
           priority: number
+          sales_url: string | null
           source_program_id: string | null
           subheadline: string | null
           target_program_id: string
@@ -4407,12 +4409,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          cta_label?: string | null
           headline?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name: string
           priority?: number
+          sales_url?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id: string
@@ -4421,12 +4425,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          cta_label?: string | null
           headline?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name?: string
           priority?: number
+          sales_url?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id?: string
