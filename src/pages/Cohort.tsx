@@ -11,6 +11,8 @@ import {
 import { CohortMatrix } from "@/components/cohort/CohortMatrix";
 import { LtvByChannelTable } from "@/components/cohort/LtvByChannelTable";
 import { CohortDrillPanel } from "@/components/cohort/CohortDrillPanel";
+import { CreativeLtvTable } from "@/components/cohort/CreativeLtvTable";
+import { fetchCreativeDataset, buildCreativeRoas, type CreativeGroupBy, type AdSpendDetailedRow, type VendaDetailedRow } from "@/lib/creativeLtv";
 import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -28,6 +30,9 @@ export default function Cohort() {
   const [projectId, setProjectId] = useState<string>("all");
   const [metric, setMetric] = useState<"rate" | "revenue" | "buyers">("rate");
   const [drill, setDrill] = useState<{ cohort: string; offset: number } | null>(null);
+  const [creativeAds, setCreativeAds] = useState<AdSpendDetailedRow[]>([]);
+  const [creativeVendas, setCreativeVendas] = useState<VendaDetailedRow[]>([]);
+  const [groupBy, setGroupBy] = useState<CreativeGroupBy>("campanha");
 
   useEffect(() => {
     (async () => {
@@ -43,11 +48,14 @@ export default function Cohort() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    fetchCohortDataset(projectId === "all" ? undefined : projectId).then((d) => {
+    const pid = projectId === "all" ? undefined : projectId;
+    Promise.all([fetchCohortDataset(pid), fetchCreativeDataset(pid)]).then(([d, c]) => {
       if (!alive) return;
       setLeads(d.leads);
       setVendas(d.vendas);
       setAds(d.ads);
+      setCreativeAds(c.ads);
+      setCreativeVendas(c.vendas);
       setLoading(false);
     });
     return () => { alive = false; };
@@ -55,6 +63,7 @@ export default function Cohort() {
 
   const matrix = useMemo(() => buildCohortMatrix(leads, vendas), [leads, vendas]);
   const channels = useMemo(() => buildChannelLtv(leads, vendas, ads), [leads, vendas, ads]);
+  const creativeRows = useMemo(() => buildCreativeRoas(creativeAds, creativeVendas, groupBy), [creativeAds, creativeVendas, groupBy]);
 
   const totals = useMemo(() => {
     const totalRev = vendas.reduce((s, v) => s + (v.valor || 0), 0);
@@ -121,6 +130,7 @@ export default function Cohort() {
           <TabsList>
             <TabsTrigger value="matrix">Matriz Cohort</TabsTrigger>
             <TabsTrigger value="channels">LTV por Canal</TabsTrigger>
+            <TabsTrigger value="creative">🎯 ROAS por Criativo</TabsTrigger>
             <TabsTrigger value="top">Top Canais</TabsTrigger>
           </TabsList>
 
