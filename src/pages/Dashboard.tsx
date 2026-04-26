@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Package, GitCompareArrows } from "lucide-react";
+import { CalendarIcon, Package, GitCompareArrows, LifeBuoy } from "lucide-react";
+import { cn } from "@/lib/utils";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import DashboardRevenue from "@/components/dashboard/DashboardRevenue";
 import DashboardAds from "@/components/dashboard/DashboardAds";
@@ -19,6 +21,7 @@ import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 import DailyBriefing from "@/components/dashboard/DailyBriefing";
+import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
 
 
 export default function Dashboard() {
