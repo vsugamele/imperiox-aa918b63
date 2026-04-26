@@ -1,44 +1,43 @@
-# Diagnóstico
+## Contexto
 
-## 1) Coluna "Pagamento" às vezes vazia (`LeadsTable.tsx`)
+1. **UTMs sumiram dos "Dados de Compra"**: o `LeadUtmsPanel` só lê `lead.data.utms` e `_vendas[0].data.utms`. Vendas Ticto (e outras) chegam sem UTM nativa, então o painel fica vazio mesmo quando o lead tem origem rastreada. A correção de fallback que fizemos só atingiu o módulo Cohort.
+2. **Recuperação não aparece no `/dashboard`**: o `RecoveryKpiBlock` só existe dentro do `ProjetoComando` (tela do projeto). No dashboard global não há nem KPI nem atalho destacado.
 
-Hoje (linha 94):
-```ts
-const pgto = vendas.find((v: any) => v.data?.metodo_pagamento)?.data?.metodo_pagamento;
-```
+---
 
-Problemas confirmados via DB:
-- **155 vendas com `data.metodo_pagamento = NULL`** (Hotmart 25, Ticto 78, etc).
-- Webhook nem sempre preenche o campo dentro do JSONB `data`.
-- Mesmo quando outra venda do lead tem o método, a UI não tenta variantes (`payment_type`, `forma_pagamento`, `payment_method`).
+## Mudanças
 
-## 2) Gráfico "Leads vs Ads vs Receita" (`src/pages/Leads.tsx` linha 433)
+### A) `src/components/leads/LeadUtmsPanel.tsx` — fallback robusto
+- Função `extractUtms(source)` que varre chaves alternativas em qualquer payload:
+  - `data.utms` (objeto)
+  - `data.utm_source/utm_medium/utm_campaign/utm_content/utm_term` (flat)
+  - `data.tracking.utm_*`
+  - `data.checkout.utm_*` (Ticto/Hotmart)
+- Para a "Última venda": se a venda não tiver UTMs próprias, **herdar do `lead.data`** e marcar visualmente com badge âmbar `↳ herdado do lead`.
+- Mantém os 3 blocos atuais (Captura, Última venda, Primeiro click) e adiciona o badge de origem na venda quando aplicável.
 
-Bugs:
-- **Ordenação incorreta**: usa `a.day.localeCompare(b.day)` em strings `"dd/MM"` — quebra na virada de mês (ex: `31/03` vai pro fim em vez de antes de `01/04`).
-- **Buracos no eixo X**: dias sem lead/ad/venda são omitidos, distorcendo a curva e fazendo a área de Receita parecer "achatada" mesmo quando há ads no dia.
-- **Receita zero invisível**: dias com ads mas sem venda aparecem com `revenue: undefined` em vez de `0`, gerando o efeito visto no print (linha vermelha alta, verde apagada).
+### B) `src/pages/Leads.tsx` — UTM compacta por venda no card de compra
+- Linha ~630, dentro do `map` de `editLead._vendas`, adicionar uma linha discreta com `utm_campaign · utm_content` (quando existir, da própria venda OU herdado do `lead.data.utms`), padrão Meta-style com pipe-split.
+- Badge `↳ lead` quando a UTM vier do fallback.
 
-# Correções
+### C) `src/components/dashboard/RecoveryGlobalCard.tsx` — novo
+- Card que agrega `imphq_vendas` + `imphq_leads` + `imphq_recovery_logs` de **todos os projetos** (sem filtro de `project_id`, respeitando RLS atual).
+- Mostra: "Em risco agora" (R$) + "Recuperado este mês" (R$ e contagem) + botão `Ver detalhes` → `/recuperacao`.
+- Reusa `buildRecoveryBuckets` e `formatCurrency` de `@/lib/recoveryBuckets`.
 
-## A) `src/components/leads/LeadsTable.tsx`
-Substituir a linha 94 por uma busca robusta:
-```ts
-const pgto = vendas
-  .map((v: any) => v.data?.metodo_pagamento ?? v.data?.payment_method ?? v.data?.payment_type ?? v.data?.forma_pagamento)
-  .find((m: any) => m && String(m).trim().length > 0);
-```
-Mostra `—` apenas quando nenhuma venda do lead tem método em nenhum dos campos conhecidos.
+### D) `src/pages/Dashboard.tsx` — montagem
+- Importar e renderizar `RecoveryGlobalCard` na grade de KPIs (após os cards principais, antes dos charts).
+- Adicionar um **chip/atalho destacado** ao lado do título "Dashboard": `🛟 Recuperação` linkando pra `/recuperacao` com cor âmbar quando `currentRisk > 0` (passa um callback simples ou usa estado interno do card).
 
-## B) `src/pages/Leads.tsx` — `leadsVsAds` (linha 433)
-Reescrever para:
-1. Calcular `start`/`end` do `periodRange` e iterar **dia a dia** com `eachDayOfInterval`, criando entrada `{ leads:0, ads:0, revenue:0 }` para cada dia (preenche buracos).
-2. Indexar leads/ads/vendas por `yyyy-MM-dd` (chave estável e ordenável), só formatar para `dd/MM` no output final.
-3. Ordenar pela chave `yyyy-MM-dd` (cronológica correta entre meses).
-4. Garantir que `revenue` e `ads` sejam sempre números (nunca undefined).
+---
 
-# Resultado esperado
-- Coluna Pagamento aparece sempre que **qualquer** venda do lead tiver método registrado.
-- Gráfico vira uma série diária contínua, ordenada cronologicamente, com receita visível mesmo em dias de ads sem venda (mostra `0`, não some).
+## Arquivos
 
-Arquivos editados: `src/components/leads/LeadsTable.tsx`, `src/pages/Leads.tsx`.
+- `src/components/leads/LeadUtmsPanel.tsx` (refactor extractUtms + fallback lead→venda)
+- `src/pages/Leads.tsx` (UTM compacta por venda no card de compra)
+- `src/components/dashboard/RecoveryGlobalCard.tsx` (novo)
+- `src/pages/Dashboard.tsx` (importar card + chip de atalho)
+
+## Sem mudanças de schema
+
+Tudo lê tabelas existentes (`imphq_leads`, `imphq_vendas`, `imphq_recovery_logs`, `imphq_clicks`).

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Package, GitCompareArrows } from "lucide-react";
+import { CalendarIcon, Package, GitCompareArrows, LifeBuoy } from "lucide-react";
+import { cn } from "@/lib/utils";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import DashboardRevenue from "@/components/dashboard/DashboardRevenue";
 import DashboardAds from "@/components/dashboard/DashboardAds";
@@ -19,6 +21,7 @@ import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 import DailyBriefing from "@/components/dashboard/DailyBriefing";
+import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
 
 
 export default function Dashboard() {
@@ -30,6 +33,7 @@ export default function Dashboard() {
   const [compareMode, setCompareMode] = useState(false);
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [recoveryRisk, setRecoveryRisk] = useState(0);
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => setAllProjects(data || []));
@@ -47,9 +51,23 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Dashboard <SectionInfo {...sectionHelpTexts.dashboard} /></h1>
-        <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Dashboard <SectionInfo {...sectionHelpTexts.dashboard} /></h1>
+          <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
+        </div>
+        <Link
+          to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all hover:scale-[1.02]",
+            recoveryRisk > 0
+              ? "border-amber-500/50 bg-amber-500/10 text-amber-400 animate-pulse"
+              : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <LifeBuoy className="h-4 w-4" />
+          <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} em risco` : ""}</span>
+        </Link>
       </div>
 
       {/* Period + Project + Product Filter */}
@@ -103,7 +121,12 @@ export default function Dashboard() {
         </div>
         <ConversionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       </div>
-      <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+        </div>
+        <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
+      </div>
       <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
       <ActivityFeed period={dashPeriod} projectFilter={dashProject} />

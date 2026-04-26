@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, Link2, ShoppingBag, MousePointerClick, Sparkles } from "lucide-react";
+import { Copy, Check, ShoppingBag, MousePointerClick, Sparkles, CornerDownRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +31,27 @@ function hasAny(u?: UtmSet | null) {
   return !!u && UTM_KEYS.some(k => u[k]);
 }
 
+/** Varre vários formatos comuns de payload e devolve um UtmSet normalizado. */
+function extractUtms(source: any): UtmSet {
+  if (!source || typeof source !== "object") return {};
+  const candidates: any[] = [
+    source.utms,
+    source.tracking,
+    source.checkout,
+    source.checkout?.utms,
+    source.tracking?.utms,
+    source, // flat na raiz
+  ].filter(Boolean);
+
+  const out: UtmSet = {};
+  for (const c of candidates) {
+    for (const k of UTM_KEYS) {
+      if (!out[k] && c[k]) out[k] = String(c[k]);
+    }
+  }
+  return out;
+}
+
 function CopyBtn({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -52,7 +73,6 @@ function CopyBtn({ value }: { value: string }) {
 }
 
 function UtmRow({ k, value }: { k: keyof UtmSet; value: string }) {
-  // Meta-style pipe split: criativo|123|video → segmenta visualmente
   const parts = value.includes("|") ? value.split("|").map(s => s.trim()).filter(Boolean) : null;
   const isUrl = /^https?:\/\//.test(value);
   return (
@@ -82,15 +102,21 @@ function UtmRow({ k, value }: { k: keyof UtmSet; value: string }) {
   );
 }
 
-function UtmBlock({ title, icon, utms, accent, when }: { title: string; icon: React.ReactNode; utms: UtmSet; accent: string; when?: string }) {
+function UtmBlock({ title, icon, utms, accent, when, inheritedBadge }: { title: string; icon: React.ReactNode; utms: UtmSet; accent: string; when?: string; inheritedBadge?: boolean }) {
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 flex-wrap">
         <span className={cn("flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider", accent)}>
           {icon}
           {title}
         </span>
         {when && <span className="text-[9px] text-muted-foreground">· {when}</span>}
+        {inheritedBadge && (
+          <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-amber-500/40 text-amber-400 gap-0.5">
+            <CornerDownRight className="h-2.5 w-2.5" />
+            herdado do lead
+          </Badge>
+        )}
       </div>
       <div className="bg-secondary/30 rounded-lg px-2.5 py-1 border border-border/50">
         {UTM_KEYS.filter(k => utms[k]).map(k => (
@@ -105,19 +131,24 @@ export default function LeadUtmsPanel({ lead }: Props) {
   const [firstClick, setFirstClick] = useState<UtmSet | null>(null);
   const [firstClickAt, setFirstClickAt] = useState<string | null>(null);
 
-  const captureUtms: UtmSet = (lead.data?.utms || {}) as UtmSet;
+  // Captura: do payload do lead (vários formatos)
+  const captureUtms: UtmSet = extractUtms(lead.data);
+
+  // Última venda: tenta na própria venda; se vazio, herda do lead
   const lastSale = lead._vendas?.[0];
-  const saleUtms: UtmSet = (lastSale?.data?.utms || {}) as UtmSet;
+  const saleOwnUtms: UtmSet = extractUtms(lastSale?.data);
+  const saleInherited = !hasAny(saleOwnUtms) && hasAny(captureUtms);
+  const saleUtms: UtmSet = saleInherited ? captureUtms : saleOwnUtms;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!lead.email) return;
-      // Tenta via visitor_id primeiro (mais preciso), depois por src/utm_source = email (legacy import)
-      const { data } = await supabase
+      if (!lead.id) return;
+      const client = supabase as any;
+      const { data } = await client
         .from("imphq_clicks")
         .select("utm_source, utm_medium, utm_campaign, utm_content, utm_term, created_at")
-        .or(`visitor_id.eq.${lead.id}`)
+        .eq("visitor_id", lead.id)
         .order("created_at", { ascending: true })
         .limit(1);
       if (cancelled) return;
@@ -131,10 +162,10 @@ export default function LeadUtmsPanel({ lead }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [lead.id, lead.email]);
+  }, [lead.id]);
 
   const showCapture = hasAny(captureUtms);
-  const showSale = hasAny(saleUtms);
+  const showSale = hasAny(saleUtms) && !!lastSale;
   const showClick = hasAny(firstClick);
 
   if (!showCapture && !showSale && !showClick) {
@@ -150,7 +181,7 @@ export default function LeadUtmsPanel({ lead }: Props) {
     <div className="space-y-2.5 border-t border-border pt-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🔗 Origem & UTMs</p>
-        {showSale && showCapture && saleUtms.utm_campaign !== captureUtms.utm_campaign && (
+        {showSale && showCapture && !saleInherited && saleUtms.utm_campaign && captureUtms.utm_campaign && saleUtms.utm_campaign !== captureUtms.utm_campaign && (
           <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-amber-500/40 text-amber-400">
             Captura ≠ Venda
           </Badge>
@@ -173,7 +204,8 @@ export default function LeadUtmsPanel({ lead }: Props) {
           icon={<ShoppingBag className="h-2.5 w-2.5" />}
           utms={saleUtms}
           accent="text-emerald-400"
-          when={lastSale?.criado_em ? new Date(lastSale.criado_em).toLocaleDateString("pt-BR") : "convertida"}
+          when={lastSale?.created_at ? new Date(lastSale.created_at).toLocaleDateString("pt-BR") : "convertida"}
+          inheritedBadge={saleInherited}
         />
       )}
 
