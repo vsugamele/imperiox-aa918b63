@@ -91,7 +91,9 @@ export default function LeadsTable({
               const vendas = (l._vendas || []) as any[];
               const tipoMap: Record<string, string> = { orderbump: "OB", upsell: "UP", downsell: "DS" };
               const tipoCls: Record<string, string> = { orderbump: "bg-amber-500/20 text-amber-400 border-amber-500/30", upsell: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", downsell: "bg-rose-500/20 text-rose-400 border-rose-500/30" };
-              const pgto = vendas.find((v: any) => v.data?.metodo_pagamento)?.data?.metodo_pagamento;
+              const pgto = vendas
+                .map((v: any) => v.data?.metodo_pagamento ?? v.data?.payment_method ?? v.data?.payment_type ?? v.data?.forma_pagamento ?? v.data?.payment?.method ?? v.data?.payment?.type)
+                .find((m: any) => m && String(m).trim().length > 0);
               const ultimoProduto = (l.data as any)?.ultimo_produto;
               // Receita: usa total_gasto se houver, senão soma vendas aprovadas como fallback
               const APROVADOS = ["aprovado","aprovada","approved","paid","pago","completed","complete","succeeded"];
