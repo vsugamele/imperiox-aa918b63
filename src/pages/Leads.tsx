@@ -22,7 +22,7 @@ import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, Cartesia
 import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LeadImportDialog } from "@/components/leads/LeadImportDialog";
 import { FormBuilder } from "@/components/leads/FormBuilder";
