@@ -1350,6 +1350,7 @@ export type Database = {
       appbrabas_saloes: {
         Row: {
           created_at: string
+          email_owner: string | null
           endereco: string | null
           id: string
           logo_url: string | null
@@ -1358,11 +1359,13 @@ export type Database = {
           owner_id: string
           status: string
           telefone: string | null
+          ticto_subscription_id: string | null
           trial_expires_at: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          email_owner?: string | null
           endereco?: string | null
           id?: string
           logo_url?: string | null
@@ -1371,11 +1374,13 @@ export type Database = {
           owner_id: string
           status?: string
           telefone?: string | null
+          ticto_subscription_id?: string | null
           trial_expires_at?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          email_owner?: string | null
           endereco?: string | null
           id?: string
           logo_url?: string | null
@@ -1384,6 +1389,7 @@ export type Database = {
           owner_id?: string
           status?: string
           telefone?: string | null
+          ticto_subscription_id?: string | null
           trial_expires_at?: string | null
           updated_at?: string
         }
@@ -1552,6 +1558,56 @@ export type Database = {
             columns: ["profissional_id"]
             isOneToOne: false
             referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_webhook_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          error: string | null
+          evento: string | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          salao_id: string | null
+          signature_valid: boolean | null
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          error?: string | null
+          evento?: string | null
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          salao_id?: string | null
+          signature_valid?: boolean | null
+          source?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          error?: string | null
+          evento?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          salao_id?: string | null
+          signature_valid?: boolean | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_webhook_logs_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
             referencedColumns: ["id"]
           },
         ]
