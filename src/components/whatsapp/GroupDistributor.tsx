@@ -19,6 +19,7 @@ interface Distributor {
   click_count: number;
   is_active: boolean;
   created_at: string;
+  weights?: Record<string, number> | null;
 }
 
 interface WaCampaign {
@@ -228,18 +229,22 @@ export default function GroupDistributor() {
         </DialogContent>
       </Dialog>
 
-      {/* Stats Dialog */}
+      {/* Stats + Weights Dialog */}
       <Dialog open={!!showStats} onOpenChange={() => setShowStats(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>📊 Estatísticas — {showStats?.slug}</DialogTitle></DialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Total de cliques: <span className="font-bold text-foreground">{showStats?.click_count || 0}</span></p>
-            <ScrollArea className="max-h-[300px]">
-              <div className="space-y-2">
+            <div className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded">
+              💡 Defina pesos (1-10) para distribuir mais leads em grupos específicos. Sem pesos = preenchimento sequencial.
+            </div>
+            <ScrollArea className="max-h-[360px]">
+              <div className="space-y-3">
                 {clickStats.map((s, i) => {
                   const pct = showStats?.max_per_group ? Math.min(100, (s.count / showStats.max_per_group) * 100) : 0;
+                  const weight = showStats?.weights?.[s.group_jid] ?? 1;
                   return (
-                    <div key={i} className="space-y-1">
+                    <div key={i} className="space-y-1 border-b border-border/50 pb-2">
                       <div className="flex justify-between text-xs">
                         <span className="font-mono truncate max-w-[200px]">{s.group_jid}</span>
                         <span className="text-muted-foreground">{s.count}/{showStats?.max_per_group}</span>
@@ -249,6 +254,29 @@ export default function GroupDistributor() {
                           className={`h-full rounded-full transition-all ${pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-emerald-500"}`}
                           style={{ width: `${pct}%` }}
                         />
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Label className="text-[10px] text-muted-foreground w-12">Peso:</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          step={1}
+                          value={weight}
+                          className="h-7 w-20 text-xs"
+                          onChange={async (e) => {
+                            const w = Math.max(0, Math.min(10, parseInt(e.target.value) || 1));
+                            const newWeights = { ...(showStats?.weights || {}), [s.group_jid]: w };
+                            setShowStats(prev => prev ? { ...prev, weights: newWeights } : prev);
+                            await supabase
+                              .from("imphq_wa_group_distributors")
+                              .update({ weights: newWeights } as any)
+                              .eq("id", showStats!.id);
+                          }}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          {weight === 0 ? "(pausado)" : weight === 1 ? "(padrão)" : `(${weight}x mais leads)`}
+                        </span>
                       </div>
                     </div>
                   );
