@@ -137,6 +137,48 @@ export function CreativeLtvTable({ data, groupBy, onGroupByChange, report }: Pro
             <p className="font-mono font-bold">{totals.backendShare.toFixed(0)}%</p>
           </div>
         </div>
+        {report && report.totalVendas > 0 && (
+          <div className="border border-border rounded p-2 text-xs space-y-1.5 bg-muted/20">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span className="uppercase tracking-wider text-[10px]">Qualidade do match</span>
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                <Badge variant="outline" className="text-emerald-400 border-emerald-400/40 bg-emerald-400/10 font-mono text-[10px]">
+                  Exato {report.byConfidence.exact.count} · {fmtBRL(report.byConfidence.exact.receita)}
+                </Badge>
+                <Badge variant="outline" className="text-sky-400 border-sky-400/40 bg-sky-400/10 font-mono text-[10px]">
+                  Conjunto {report.byConfidence.adset.count} · {fmtBRL(report.byConfidence.adset.receita)}
+                </Badge>
+                <Badge variant="outline" className="text-amber-400 border-amber-400/40 bg-amber-400/10 font-mono text-[10px]">
+                  Campanha {report.byConfidence.campaign.count} · {fmtBRL(report.byConfidence.campaign.receita)}
+                </Badge>
+                {report.unmatched > 0 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="text-red-400 border-red-400/40 bg-red-400/10 font-mono text-[10px] cursor-help">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Sem match {report.unmatched} · {fmtBRL(report.receitaUnmatched)}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs font-semibold mb-1">Vendas sem UTM atribuível</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Receita orgânica/direta ou UTM não casa com nenhuma campanha em ads_spend. Não entram no ROAS pago.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              {((report.receitaMatched / Math.max(report.totalReceita, 1)) * 100).toFixed(1)}% da receita atribuída · {report.matched}/{report.totalVendas} vendas
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
