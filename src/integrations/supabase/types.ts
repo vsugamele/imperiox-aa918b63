@@ -4083,6 +4083,10 @@ export type Database = {
           seed_presence_frequency_seconds: number
           seed_show_online_count: boolean
           seed_show_ticker: boolean
+          show_continue_hero_text: boolean
+          show_program_card_text: boolean
+          show_quest_hero_text: boolean
+          show_trail_card_text: boolean
           updated_at: string
           welcome_text: string
         }
@@ -4148,6 +4152,10 @@ export type Database = {
           seed_presence_frequency_seconds?: number
           seed_show_online_count?: boolean
           seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
           updated_at?: string
           welcome_text?: string
         }
@@ -4213,6 +4221,10 @@ export type Database = {
           seed_presence_frequency_seconds?: number
           seed_show_online_count?: boolean
           seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
           updated_at?: string
           welcome_text?: string
         }

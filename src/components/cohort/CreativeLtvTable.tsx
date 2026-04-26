@@ -176,6 +176,11 @@ export function CreativeLtvTable({ data, groupBy, onGroupByChange, report }: Pro
             </div>
             <div className="text-[10px] text-muted-foreground">
               {((report.receitaMatched / Math.max(report.totalReceita, 1)) * 100).toFixed(1)}% da receita atribuída · {report.matched}/{report.totalVendas} vendas
+              {report.inheritedFromLead.count > 0 && (
+                <span className="ml-2 text-sky-400/80">
+                  · UTM herdado do lead: {report.inheritedFromLead.count} venda{report.inheritedFromLead.count === 1 ? "" : "s"} ({fmtBRL(report.inheritedFromLead.receita)})
+                </span>
+              )}
             </div>
           </div>
         )}

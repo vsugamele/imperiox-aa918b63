@@ -22,6 +22,7 @@ export interface VendaDetailedRow {
   utm_content: string | null;
   utm_source: string | null;
   tipo_venda: string | null;
+  utm_origin?: "venda" | "lead" | "none";
 }
 
 export type MatchConfidence = "exact" | "adset" | "campaign" | "unmatched";
@@ -74,6 +75,7 @@ export interface MatchingReport {
   receitaUnmatched: number;
   byConfidence: Record<MatchConfidence, { count: number; receita: number }>;
   unmatchedSamples: UnmatchedSale[];
+  inheritedFromLead: { count: number; receita: number };
 }
 
 export type CreativeGroupBy = "campanha" | "conjunto" | "anuncio";
@@ -101,10 +103,59 @@ export async function fetchCreativeDataset(projectId?: string) {
     valor: Number(a.valor || 0),
   })) as AdSpendDetailedRow[];
 
-  const vendas = filterByProject((vendasRes.data || []) as any[]).map((v) => ({
+  const vendasRaw = filterByProject((vendasRes.data || []) as any[]).map((v) => ({
     ...v,
     valor: Number(v.valor || 0),
   })) as VendaDetailedRow[];
+
+  // Fallback: para vendas sem UTM, herdar do lead (first-touch).
+  // Plataformas como Ticto entregam vendas sem utm_*, mas o lead foi capturado com UTM.
+  const leadIdsNeeding = Array.from(
+    new Set(
+      vendasRaw
+        .filter((v) => v.lead_id && (!v.utm_campaign || !v.utm_content || !v.utm_source))
+        .map((v) => v.lead_id as string),
+    ),
+  );
+
+  let leadUtmMap = new Map<string, { utm_campaign: string | null; utm_content: string | null; utm_source: string | null }>();
+  if (leadIdsNeeding.length > 0) {
+    // Supabase aceita .in() com até ~1000 ids por chamada; faz em chunks.
+    const chunkSize = 500;
+    for (let i = 0; i < leadIdsNeeding.length; i += chunkSize) {
+      const chunk = leadIdsNeeding.slice(i, i + chunkSize);
+      const { data: leadRows } = await supabase
+        .from("imphq_leads")
+        .select("id, utm_campaign, utm_content, utm_source")
+        .in("id", chunk);
+      for (const lr of (leadRows || []) as any[]) {
+        leadUtmMap.set(lr.id, {
+          utm_campaign: lr.utm_campaign ?? null,
+          utm_content: lr.utm_content ?? null,
+          utm_source: lr.utm_source ?? null,
+        });
+      }
+    }
+  }
+
+  const vendas: VendaDetailedRow[] = vendasRaw.map((v) => {
+    const hasOwnUtm = !!(v.utm_campaign || v.utm_content || v.utm_source);
+    if (v.lead_id && (!v.utm_campaign || !v.utm_content || !v.utm_source)) {
+      const lu = leadUtmMap.get(v.lead_id);
+      if (lu) {
+        const merged: VendaDetailedRow = {
+          ...v,
+          utm_campaign: v.utm_campaign || lu.utm_campaign,
+          utm_content: v.utm_content || lu.utm_content,
+          utm_source: v.utm_source || lu.utm_source,
+        };
+        const inherited = !hasOwnUtm && !!(lu.utm_campaign || lu.utm_content || lu.utm_source);
+        merged.utm_origin = inherited ? "lead" : hasOwnUtm ? "venda" : "none";
+        return merged;
+      }
+    }
+    return { ...v, utm_origin: hasOwnUtm ? "venda" : "none" };
+  });
 
   return { ads, vendas };
 }
@@ -261,11 +312,16 @@ export function buildCreativeRoas(
       unmatched: { count: 0, receita: 0 },
     },
     unmatchedSamples: [],
+    inheritedFromLead: { count: 0, receita: 0 },
   };
 
   for (const v of vendas) {
     const valor = v.valor || 0;
     report.totalReceita += valor;
+    if (v.utm_origin === "lead") {
+      report.inheritedFromLead.count += 1;
+      report.inheritedFromLead.receita += valor;
+    }
     const m = matchSale(v);
     if (!m) {
       report.unmatched += 1;
