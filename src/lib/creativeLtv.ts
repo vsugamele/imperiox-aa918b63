@@ -22,6 +22,7 @@ export interface VendaDetailedRow {
   utm_content: string | null;
   utm_source: string | null;
   tipo_venda: string | null;
+  utm_origin?: "venda" | "lead" | "none";
 }
 
 export type MatchConfidence = "exact" | "adset" | "campaign" | "unmatched";
