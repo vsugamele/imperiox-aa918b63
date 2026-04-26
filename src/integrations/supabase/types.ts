@@ -4340,6 +4340,104 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_upsell_events: {
+        Row: {
+          context_lesson_id: string | null
+          context_program_id: string | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          id: string
+          offer_id: string
+          user_id: string
+        }
+        Insert: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          id?: string
+          offer_id: string
+          user_id: string
+        }
+        Update: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          id?: string
+          offer_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_upsell_events_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_upsell_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_upsell_offers: {
+        Row: {
+          created_at: string
+          headline: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          priority: number
+          source_program_id: string | null
+          subheadline: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          priority?: number
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          priority?: number
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id?: string
+          trigger_type?: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_source_program_id_fkey"
+            columns: ["source_program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_target_program_id_fkey"
+            columns: ["target_program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_user_badges: {
         Row: {
           badge_id: string
@@ -30802,6 +30900,10 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       areamembrojp_app_role: "admin" | "member"
+      areamembrojp_upsell_event_type: "view" | "click" | "dismiss" | "convert"
+      areamembrojp_upsell_trigger:
+        | "lesson_preview_complete"
+        | "program_complete"
       c_responsible_type: "Vanessa" | "Vinicius" | "Outro"
       c_task_priority: "low" | "medium" | "high"
       c_task_status: "todo" | "in-progress" | "done"
@@ -30962,6 +31064,11 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       areamembrojp_app_role: ["admin", "member"],
+      areamembrojp_upsell_event_type: ["view", "click", "dismiss", "convert"],
+      areamembrojp_upsell_trigger: [
+        "lesson_preview_complete",
+        "program_complete",
+      ],
       c_responsible_type: ["Vanessa", "Vinicius", "Outro"],
       c_task_priority: ["low", "medium", "high"],
       c_task_status: ["todo", "in-progress", "done"],
