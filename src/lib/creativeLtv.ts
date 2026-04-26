@@ -24,6 +24,8 @@ export interface VendaDetailedRow {
   tipo_venda: string | null;
 }
 
+export type MatchConfidence = "exact" | "adset" | "campaign" | "unmatched";
+
 export interface CreativeRoasRow {
   key: string;
   campanha: string;
@@ -44,6 +46,34 @@ export interface CreativeRoasRow {
   roasReal: number; // total / spend
   ltv: number; // receita / vendas únicas
   backendShare: number; // % receita vinda do backend
+  // matching quality
+  matchExact: number; // # vendas com match anúncio
+  matchAdset: number; // # vendas com match conjunto
+  matchCampaign: number; // # vendas com match só campanha
+  receitaExact: number;
+  receitaAdset: number;
+  receitaCampaign: number;
+  confidenceScore: number; // 0-100 ponderado pela receita
+}
+
+export interface UnmatchedSale {
+  vendaId: string;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  utm_source: string | null;
+  valor: number;
+  data_venda: string | null;
+}
+
+export interface MatchingReport {
+  totalVendas: number;
+  totalReceita: number;
+  matched: number;
+  unmatched: number;
+  receitaMatched: number;
+  receitaUnmatched: number;
+  byConfidence: Record<MatchConfidence, { count: number; receita: number }>;
+  unmatchedSamples: UnmatchedSale[];
 }
 
 export type CreativeGroupBy = "campanha" | "conjunto" | "anuncio";
