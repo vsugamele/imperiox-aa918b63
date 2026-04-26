@@ -144,10 +144,10 @@ export default function LeadUtmsPanel({ lead }: Props) {
     let cancelled = false;
     (async () => {
       if (!lead.id) return;
-      const { data } = await supabase
+      const { data } = await (supabase
         .from("imphq_clicks")
         .select("utm_source, utm_medium, utm_campaign, utm_content, utm_term, created_at")
-        .eq("visitor_id", lead.id)
+        .eq("visitor_id", lead.id) as any)
         .order("created_at", { ascending: true })
         .limit(1);
       if (cancelled) return;
