@@ -134,6 +134,34 @@ export function buildCreativeRoas(
     return `${camp} › ${conj} › ${ad}`;
   };
 
+export interface BuildResult {
+  rows: CreativeRoasRow[];
+  report: MatchingReport;
+}
+
+export function buildCreativeRoas(
+  ads: AdSpendDetailedRow[],
+  vendas: VendaDetailedRow[],
+  groupBy: CreativeGroupBy = "campanha",
+): BuildResult {
+  // Indexação multi-nível dos registros de spend
+  // campIdx: campanha -> Set de keys agregadas
+  // adsetIdx: campanha|conjunto -> Set de keys
+  // adIdx: campanha|conjunto|anuncio -> key
+  const spendMap = new Map<string, CreativeRoasRow>();
+  const campIdx = new Map<string, Set<string>>(); // norm(campanha) -> keys
+  const adsetIdx = new Map<string, Set<string>>(); // norm(camp)|norm(conj) -> keys
+  const adIdx = new Map<string, string>(); // norm(camp)|norm(conj)|norm(ad) -> key
+
+  const keyFor = (a: AdSpendDetailedRow) => {
+    const camp = a.campanha || "—";
+    const conj = a.conjunto_anuncios || "—";
+    const ad = a.anuncio || "—";
+    if (groupBy === "campanha") return camp;
+    if (groupBy === "conjunto") return `${camp} › ${conj}`;
+    return `${camp} › ${conj} › ${ad}`;
+  };
+
   for (const a of ads) {
     const k = keyFor(a);
     let row = spendMap.get(k);
@@ -158,6 +186,13 @@ export function buildCreativeRoas(
         roasReal: 0,
         ltv: 0,
         backendShare: 0,
+        matchExact: 0,
+        matchAdset: 0,
+        matchCampaign: 0,
+        receitaExact: 0,
+        receitaAdset: 0,
+        receitaCampaign: 0,
+        confidenceScore: 0,
       };
       spendMap.set(k, row);
     }
@@ -165,42 +200,109 @@ export function buildCreativeRoas(
     row.impressoes += a.impressoes || 0;
     row.cliques += a.cliques || 0;
     row.comprasAds += a.compras || 0;
+
+    // Indexação determinística usando a granularidade real do raw row
+    const cN = norm(a.campanha);
+    const conjN = norm(a.conjunto_anuncios);
+    const adN = norm(a.anuncio);
+    if (cN) {
+      if (!campIdx.has(cN)) campIdx.set(cN, new Set());
+      campIdx.get(cN)!.add(k);
+    }
+    if (cN && conjN) {
+      const ck = `${cN}|${conjN}`;
+      if (!adsetIdx.has(ck)) adsetIdx.set(ck, new Set());
+      adsetIdx.get(ck)!.add(k);
+    }
+    if (cN && conjN && adN) {
+      adIdx.set(`${cN}|${conjN}|${adN}`, k);
+    }
   }
 
-  // index das vendas por chave matching
-  // matching: utm_campaign (lowercase) corresponde a campanha (lowercase)
-  // pra conjunto/anuncio precisamos de utm_content; se não bater, fica só na campanha
-  const matchKey = (v: VendaDetailedRow): string | null => {
-    const camp = norm(v.utm_campaign);
-    if (!camp) return null;
-    // procurar registro de spend cuja campanha bate
-    if (groupBy === "campanha") {
-      for (const k of spendMap.keys()) {
-        if (norm(k) === camp || norm(spendMap.get(k)!.campanha) === camp) return k;
+  // Matching determinístico por venda — sem fallback "primeiro registro"
+  // Tenta na ordem: anúncio exato → conjunto → campanha. Se nada bater = unmatched.
+  const matchSale = (v: VendaDetailedRow): { key: string; confidence: MatchConfidence } | null => {
+    const cN = norm(v.utm_campaign);
+    if (!cN) return null;
+    const contentN = norm(v.utm_content);
+
+    // 1. exact: utm_content casa com anúncio dentro da campanha
+    if (contentN) {
+      const adKeys = Array.from(adIdx.entries()).filter(([k]) => k.startsWith(`${cN}|`));
+      for (const [adKey, spendKey] of adKeys) {
+        const parts = adKey.split("|");
+        if (parts[2] === contentN) {
+          return { key: spendKey, confidence: "exact" };
+        }
       }
-      return null;
+      // 2. adset: utm_content casa com conjunto dentro da campanha
+      for (const [adsetKey, keys] of adsetIdx.entries()) {
+        if (!adsetKey.startsWith(`${cN}|`)) continue;
+        const conjN = adsetKey.split("|")[1];
+        if (conjN === contentN) {
+          // pega a key mais granular se groupBy for "anuncio", senão a única
+          const arr = Array.from(keys);
+          // prefere a key cujo conjunto bate exatamente (deve ser todas, mas seguro)
+          return { key: arr[0], confidence: "adset" };
+        }
+      }
     }
-    // conjunto/anuncio: tenta bater por utm_content em conjunto OR anuncio
-    const content = norm(v.utm_content);
-    let fallback: string | null = null;
-    for (const [k, row] of spendMap.entries()) {
-      if (norm(row.campanha) !== camp) continue;
-      fallback = fallback || k;
-      if (!content) continue;
-      if (groupBy === "conjunto" && norm(row.conjunto) === content) return k;
-      if (groupBy === "anuncio" && (norm(row.anuncio) === content || norm(row.conjunto) === content)) return k;
+
+    // 3. campaign-only: bate só campanha. Só agrega quando há exatamente 1 key da campanha
+    // OU quando groupBy === "campanha" (não há ambiguidade).
+    const campKeys = campIdx.get(cN);
+    if (!campKeys || campKeys.size === 0) return null;
+    if (groupBy === "campanha") {
+      // só existe uma key por campanha
+      return { key: Array.from(campKeys)[0], confidence: "campaign" };
     }
-    return fallback;
+    if (campKeys.size === 1) {
+      return { key: Array.from(campKeys)[0], confidence: "campaign" };
+    }
+    // ambíguo: várias subdivisões e sem utm_content útil → não atribui (evita ruído)
+    return null;
   };
 
-  // contar vendas únicas (lead_id distinto pra principal)
   const buyersByKey = new Map<string, Set<string>>();
+  const report: MatchingReport = {
+    totalVendas: vendas.length,
+    totalReceita: 0,
+    matched: 0,
+    unmatched: 0,
+    receitaMatched: 0,
+    receitaUnmatched: 0,
+    byConfidence: {
+      exact: { count: 0, receita: 0 },
+      adset: { count: 0, receita: 0 },
+      campaign: { count: 0, receita: 0 },
+      unmatched: { count: 0, receita: 0 },
+    },
+    unmatchedSamples: [],
+  };
 
   for (const v of vendas) {
-    const k = matchKey(v);
-    if (!k) continue;
-    const row = spendMap.get(k)!;
     const valor = v.valor || 0;
+    report.totalReceita += valor;
+    const m = matchSale(v);
+    if (!m) {
+      report.unmatched += 1;
+      report.receitaUnmatched += valor;
+      report.byConfidence.unmatched.count += 1;
+      report.byConfidence.unmatched.receita += valor;
+      if (report.unmatchedSamples.length < 25) {
+        report.unmatchedSamples.push({
+          vendaId: v.id,
+          utm_campaign: v.utm_campaign,
+          utm_content: v.utm_content,
+          utm_source: v.utm_source,
+          valor,
+          data_venda: v.data_venda,
+        });
+      }
+      continue;
+    }
+
+    const row = spendMap.get(m.key)!;
     if (isBackend(v.tipo_venda)) {
       row.receitaBackend += valor;
       row.backendCount += 1;
@@ -209,9 +311,26 @@ export function buildCreativeRoas(
       row.ftbCount += 1;
     }
     row.receitaTotal += valor;
+
+    if (m.confidence === "exact") {
+      row.matchExact += 1;
+      row.receitaExact += valor;
+    } else if (m.confidence === "adset") {
+      row.matchAdset += 1;
+      row.receitaAdset += valor;
+    } else {
+      row.matchCampaign += 1;
+      row.receitaCampaign += valor;
+    }
+
+    report.matched += 1;
+    report.receitaMatched += valor;
+    report.byConfidence[m.confidence].count += 1;
+    report.byConfidence[m.confidence].receita += valor;
+
     if (v.lead_id) {
-      if (!buyersByKey.has(k)) buyersByKey.set(k, new Set());
-      buyersByKey.get(k)!.add(v.lead_id);
+      if (!buyersByKey.has(m.key)) buyersByKey.set(m.key, new Set());
+      buyersByKey.get(m.key)!.add(v.lead_id);
     }
   }
 
@@ -224,10 +343,18 @@ export function buildCreativeRoas(
     row.roasReal = row.spend > 0 ? row.receitaTotal / row.spend : 0;
     row.ltv = buyers > 0 ? row.receitaTotal / buyers : 0;
     row.backendShare = row.receitaTotal > 0 ? (row.receitaBackend / row.receitaTotal) * 100 : 0;
+    // confidence ponderado pela receita: exact=100, adset=70, campaign=40
+    const totalRev = row.receitaExact + row.receitaAdset + row.receitaCampaign;
+    row.confidenceScore = totalRev > 0
+      ? (row.receitaExact * 100 + row.receitaAdset * 70 + row.receitaCampaign * 40) / totalRev
+      : 0;
     result.push(row);
   }
 
-  return result.sort((a, b) => b.roasReal - a.roasReal);
+  return {
+    rows: result.sort((a, b) => b.roasReal - a.roasReal),
+    report,
+  };
 }
 
 export const fmtBRL = (n: number) =>
