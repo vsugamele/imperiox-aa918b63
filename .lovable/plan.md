@@ -1,28 +1,44 @@
-# Fallback de UTM via Lead no Matching de Criativos
+# Diagnóstico
 
-## Problema
-Vendas da Ticto chegam com `utm_campaign`/`utm_content`/`utm_source` nulos em `imphq_vendas`, virando `unmatched`. Mas elas têm `lead_id` válido e o lead em `imphq_leads` tem os UTMs originais da captura.
+## 1) Coluna "Pagamento" às vezes vazia (`LeadsTable.tsx`)
 
-## Solução
-Em `src/lib/creativeLtv.ts`, ao buscar vendas, fazer JOIN/lookup com `imphq_leads` e herdar UTMs do lead quando a venda não tiver.
+Hoje (linha 94):
+```ts
+const pgto = vendas.find((v: any) => v.data?.metodo_pagamento)?.data?.metodo_pagamento;
+```
 
-### Mudanças
+Problemas confirmados via DB:
+- **155 vendas com `data.metodo_pagamento = NULL`** (Hotmart 25, Ticto 78, etc).
+- Webhook nem sempre preenche o campo dentro do JSONB `data`.
+- Mesmo quando outra venda do lead tem o método, a UI não tenta variantes (`payment_type`, `forma_pagamento`, `payment_method`).
 
-**1. `src/lib/creativeLtv.ts` — `fetchCreativeDataset`**
-- Coletar todos os `lead_id` únicos das vendas.
-- Buscar `imphq_leads` (id, utm_campaign, utm_content, utm_source) em batch.
-- Montar `Map<lead_id, utms>`.
-- Antes de retornar `vendas`, preencher campos UTM nulos com os do lead correspondente. Marcar origem (`utm_source_origin: 'venda' | 'lead'`) para futuro debug se necessário.
+## 2) Gráfico "Leads vs Ads vs Receita" (`src/pages/Leads.tsx` linha 433)
 
-**2. `MatchingReport`**
-- Adicionar contadores `inheritedFromLead: { count, receita }` para visibilidade do quanto foi recuperado via fallback.
+Bugs:
+- **Ordenação incorreta**: usa `a.day.localeCompare(b.day)` em strings `"dd/MM"` — quebra na virada de mês (ex: `31/03` vai pro fim em vez de antes de `01/04`).
+- **Buracos no eixo X**: dias sem lead/ad/venda são omitidos, distorcendo a curva e fazendo a área de Receita parecer "achatada" mesmo quando há ads no dia.
+- **Receita zero invisível**: dias com ads mas sem venda aparecem com `revenue: undefined` em vez de `0`, gerando o efeito visto no print (linha vermelha alta, verde apagada).
 
-**3. `CreativeLtvTable.tsx`**
-- No painel "Qualidade do Match", mostrar nova linha: "Herdado do lead: X vendas / R$ Y" em tom secundário.
+# Correções
 
-### Fora do escopo
-- Não muda webhook da Ticto (Opção B fica para depois).
-- Não altera lógica de tiers (exact/adset/campaign continuam iguais — só ganham mais matérias-prima).
+## A) `src/components/leads/LeadsTable.tsx`
+Substituir a linha 94 por uma busca robusta:
+```ts
+const pgto = vendas
+  .map((v: any) => v.data?.metodo_pagamento ?? v.data?.payment_method ?? v.data?.payment_type ?? v.data?.forma_pagamento)
+  .find((m: any) => m && String(m).trim().length > 0);
+```
+Mostra `—` apenas quando nenhuma venda do lead tem método em nenhum dos campos conhecidos.
 
-### Risco
-Baixo. Fallback só preenche campos nulos; vendas com UTM próprio ficam intactas. Atribuição passa a refletir first-touch quando a plataforma não propaga UTM, o que é o comportamento esperado.
+## B) `src/pages/Leads.tsx` — `leadsVsAds` (linha 433)
+Reescrever para:
+1. Calcular `start`/`end` do `periodRange` e iterar **dia a dia** com `eachDayOfInterval`, criando entrada `{ leads:0, ads:0, revenue:0 }` para cada dia (preenche buracos).
+2. Indexar leads/ads/vendas por `yyyy-MM-dd` (chave estável e ordenável), só formatar para `dd/MM` no output final.
+3. Ordenar pela chave `yyyy-MM-dd` (cronológica correta entre meses).
+4. Garantir que `revenue` e `ads` sejam sempre números (nunca undefined).
+
+# Resultado esperado
+- Coluna Pagamento aparece sempre que **qualquer** venda do lead tiver método registrado.
+- Gráfico vira uma série diária contínua, ordenada cronologicamente, com receita visível mesmo em dias de ads sem venda (mostra `0`, não some).
+
+Arquivos editados: `src/components/leads/LeadsTable.tsx`, `src/pages/Leads.tsx`.
