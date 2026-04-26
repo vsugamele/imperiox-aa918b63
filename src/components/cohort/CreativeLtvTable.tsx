@@ -203,7 +203,7 @@ export function CreativeLtvTable({ data, groupBy, onGroupByChange, report }: Pro
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center text-muted-foreground py-8">
+                  <td colSpan={11} className="text-center text-muted-foreground py-8">
                     Sem dados. Sincroniza Facebook Ads e captura utm_campaign nos leads/vendas.
                   </td>
                 </tr>
