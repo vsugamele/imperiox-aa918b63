@@ -133,8 +133,12 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
 
   const markContacted = async (leadId: string) => {
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) throw new Error("Não autenticado");
       const { error } = await supabase.from("imphq_activity_log").insert({
         lead_id: leadId,
+        user_id: userId,
         action: "marcado_contatado",
         details: { source: "hot_inbox" },
       });
