@@ -24,7 +24,7 @@ const roasColor = (r: number) => {
   return "text-muted-foreground border-border";
 };
 
-export function CreativeLtvTable({ data, groupBy, onGroupByChange }: Props) {
+export function CreativeLtvTable({ data, groupBy, onGroupByChange, report }: Props) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("roasReal");
   const [minSpend, setMinSpend] = useState<string>("0");
