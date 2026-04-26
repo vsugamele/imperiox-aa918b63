@@ -117,23 +117,6 @@ const isBackend = (tipo: string | null) => {
   return t === "orderbump" || t === "upsell" || t === "downsell";
 };
 
-export function buildCreativeRoas(
-  ads: AdSpendDetailedRow[],
-  vendas: VendaDetailedRow[],
-  groupBy: CreativeGroupBy = "campanha",
-): CreativeRoasRow[] {
-  // agregação de spend
-  const spendMap = new Map<string, CreativeRoasRow>();
-
-  const keyFor = (a: AdSpendDetailedRow) => {
-    const camp = a.campanha || "—";
-    const conj = a.conjunto_anuncios || "—";
-    const ad = a.anuncio || "—";
-    if (groupBy === "campanha") return camp;
-    if (groupBy === "conjunto") return `${camp} › ${conj}`;
-    return `${camp} › ${conj} › ${ad}`;
-  };
-
 export interface BuildResult {
   rows: CreativeRoasRow[];
   report: MatchingReport;
