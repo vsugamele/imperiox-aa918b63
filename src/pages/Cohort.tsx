@@ -63,7 +63,9 @@ export default function Cohort() {
 
   const matrix = useMemo(() => buildCohortMatrix(leads, vendas), [leads, vendas]);
   const channels = useMemo(() => buildChannelLtv(leads, vendas, ads), [leads, vendas, ads]);
-  const creativeRows = useMemo(() => buildCreativeRoas(creativeAds, creativeVendas, groupBy), [creativeAds, creativeVendas, groupBy]);
+  const creativeBuild = useMemo(() => buildCreativeRoas(creativeAds, creativeVendas, groupBy), [creativeAds, creativeVendas, groupBy]);
+  const creativeRows = creativeBuild.rows;
+  const matchingReport = creativeBuild.report;
 
   const totals = useMemo(() => {
     const totalRev = vendas.reduce((s, v) => s + (v.valor || 0), 0);
