@@ -121,7 +121,12 @@ export default function Dashboard() {
         </div>
         <ConversionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       </div>
-      <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+        </div>
+        <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
+      </div>
       <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
       <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
