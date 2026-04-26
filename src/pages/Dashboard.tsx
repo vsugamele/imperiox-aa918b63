@@ -51,9 +51,23 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Dashboard <SectionInfo {...sectionHelpTexts.dashboard} /></h1>
-        <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Dashboard <SectionInfo {...sectionHelpTexts.dashboard} /></h1>
+          <p className="text-sm text-muted-foreground mt-1">Visão geral do seu império digital</p>
+        </div>
+        <Link
+          to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all hover:scale-[1.02]",
+            recoveryRisk > 0
+              ? "border-amber-500/50 bg-amber-500/10 text-amber-400 animate-pulse"
+              : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <LifeBuoy className="h-4 w-4" />
+          <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} em risco` : ""}</span>
+        </Link>
       </div>
 
       {/* Period + Project + Product Filter */}
