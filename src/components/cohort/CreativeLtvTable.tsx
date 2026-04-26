@@ -3,14 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreativeRoasRow, CreativeGroupBy, fmtBRL } from "@/lib/creativeLtv";
-import { TrendingUp, TrendingDown, ArrowUpDown, Layers } from "lucide-react";
+import { CreativeRoasRow, CreativeGroupBy, fmtBRL, MatchingReport } from "@/lib/creativeLtv";
+import { TrendingUp, TrendingDown, ArrowUpDown, Layers, ShieldCheck, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
   data: CreativeRoasRow[];
   groupBy: CreativeGroupBy;
   onGroupByChange: (g: CreativeGroupBy) => void;
+  report?: MatchingReport;
 }
 
 type SortKey = "roasReal" | "roasFront" | "spend" | "receitaTotal" | "ltv" | "cpa" | "backendShare";
