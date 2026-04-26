@@ -450,6 +450,7 @@ export default function Leads() {
               <TabsTrigger value="formularios" className="text-xs">📝 Formulários</TabsTrigger>
               <TabsTrigger value="insights" className="text-xs">💡 Insights</TabsTrigger>
               <TabsTrigger value="predicoes" className="text-xs">🧠 Predições</TabsTrigger>
+              <TabsTrigger value="quentes" className="text-xs">🔥 Quentes</TabsTrigger>
               {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs relative">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
