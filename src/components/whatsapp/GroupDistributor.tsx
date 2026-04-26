@@ -19,6 +19,7 @@ interface Distributor {
   click_count: number;
   is_active: boolean;
   created_at: string;
+  weights?: Record<string, number> | null;
 }
 
 interface WaCampaign {
