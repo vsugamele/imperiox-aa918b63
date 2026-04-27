@@ -13850,6 +13850,57 @@ export type Database = {
           },
         ]
       }
+      imphq_ads_actions: {
+        Row: {
+          acao: string
+          created_at: string
+          created_by: string | null
+          duracao_ms: number | null
+          entidade_id: string
+          entidade_nome: string | null
+          erro_msg: string | null
+          id: string
+          plataforma: string
+          project_id: string | null
+          resultado: string
+          tipo: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          created_by?: string | null
+          duracao_ms?: number | null
+          entidade_id: string
+          entidade_nome?: string | null
+          erro_msg?: string | null
+          id?: string
+          plataforma?: string
+          project_id?: string | null
+          resultado?: string
+          tipo: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          created_by?: string | null
+          duracao_ms?: number | null
+          entidade_id?: string
+          entidade_nome?: string | null
+          erro_msg?: string | null
+          id?: string
+          plataforma?: string
+          project_id?: string | null
+          resultado?: string
+          tipo?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: []
+      }
       imphq_ads_reports: {
         Row: {
           created_at: string | null
@@ -13924,9 +13975,12 @@ export type Database = {
       }
       imphq_ads_spend: {
         Row: {
+          ad_id: string | null
           add_to_cart: number | null
+          adset_id: string | null
           alcance: number | null
           anuncio: string | null
+          campaign_id: string | null
           campanha: string | null
           checkouts_iniciados: number | null
           cliques: number | null
@@ -13938,7 +13992,9 @@ export type Database = {
           ctr: number | null
           custo_por_compra: number | null
           custo_por_resultado: number | null
+          daily_budget: number | null
           data_ref: string
+          effective_status: string | null
           frequencia: number | null
           hold_rate: number | null
           hook_rate: number | null
@@ -13959,9 +14015,12 @@ export type Database = {
           video_thruplay: number | null
         }
         Insert: {
+          ad_id?: string | null
           add_to_cart?: number | null
+          adset_id?: string | null
           alcance?: number | null
           anuncio?: string | null
+          campaign_id?: string | null
           campanha?: string | null
           checkouts_iniciados?: number | null
           cliques?: number | null
@@ -13973,7 +14032,9 @@ export type Database = {
           ctr?: number | null
           custo_por_compra?: number | null
           custo_por_resultado?: number | null
+          daily_budget?: number | null
           data_ref: string
+          effective_status?: string | null
           frequencia?: number | null
           hold_rate?: number | null
           hook_rate?: number | null
@@ -13994,9 +14055,12 @@ export type Database = {
           video_thruplay?: number | null
         }
         Update: {
+          ad_id?: string | null
           add_to_cart?: number | null
+          adset_id?: string | null
           alcance?: number | null
           anuncio?: string | null
+          campaign_id?: string | null
           campanha?: string | null
           checkouts_iniciados?: number | null
           cliques?: number | null
@@ -14008,7 +14072,9 @@ export type Database = {
           ctr?: number | null
           custo_por_compra?: number | null
           custo_por_resultado?: number | null
+          daily_budget?: number | null
           data_ref?: string
+          effective_status?: string | null
           frequencia?: number | null
           hold_rate?: number | null
           hook_rate?: number | null
