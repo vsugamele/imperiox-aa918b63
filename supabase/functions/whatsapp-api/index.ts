@@ -756,11 +756,9 @@ serve(async (req) => {
           }
 
           await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
-        } else {
-          console.log(`[webhook] Skipped: phone=${phone} content=${!!content} project=${projectId}`);
-        }
 
           // ── Auto-reply by command ──
+          let matched: any = null;
           try {
             const lowerContent = content.toLowerCase().trim();
             const { data: commands } = await supabase
@@ -770,7 +768,7 @@ serve(async (req) => {
               .eq("is_active", true);
 
             if (commands && commands.length > 0) {
-              const matched = commands.find((cmd: any) =>
+              matched = commands.find((cmd: any) =>
                 lowerContent === cmd.trigger_word.toLowerCase() ||
                 lowerContent.startsWith(cmd.trigger_word.toLowerCase() + " ")
               );
@@ -966,6 +964,9 @@ REGRAS:
           } catch (aiErr: any) {
             console.warn("[webhook] AI autoresponder error:", aiErr.message);
           }
+        } else {
+          console.log(`[webhook] Skipped: phone=${phone} content=${!!content} project=${projectId}`);
+        }
 
         return new Response(JSON.stringify({ success: true, event: eventType }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
