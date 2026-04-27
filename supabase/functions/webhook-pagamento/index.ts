@@ -286,6 +286,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let body: any = null;
+  let projectId: string | null = null;
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -297,7 +299,7 @@ Deno.serve(async (req) => {
     // Allow overriding event type via query param (e.g. ?event=Lead)
     const queryEvent = url.searchParams.get("event");
 
-    const body = await req.json();
+    body = await req.json();
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
     let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId } = parseWebhookBody(body, hotmartToken);
@@ -313,7 +315,7 @@ Deno.serve(async (req) => {
       evento = eventMap[queryEvent] || queryEvent.toLowerCase();
     }
 
-    let projectId: string | null = queryProjectId;
+    projectId = queryProjectId;
 
     // Try to find project by product name match
     if (!projectId && produto) {
@@ -667,7 +669,7 @@ Deno.serve(async (req) => {
               await pushNotifyByPref({
                 supabase,
                 prefKey: "meta_diaria_atingida",
-                title: `🎯 Meta diária batida — ${projGoal.name || "Projeto"}`,
+                title: `🎯 Meta diária batida — ${projGoal?.name || "Projeto"}`,
                 message: `R$ ${todayTotal.toFixed(2)} faturado hoje (meta: R$ ${goal.toFixed(2)}).`,
                 user_ids: recipients,
               });
@@ -1026,13 +1028,12 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
-      const rawBody = typeof body !== "undefined" ? body : null;
       await supabaseErr.from("imphq_webhook_errors").insert({
-        plataforma: rawBody?.plataforma || "desconhecido",
-        evento: rawBody?.evento || rawBody?.event || "desconhecido",
+        plataforma: body?.plataforma || "desconhecido",
+        evento: body?.evento || body?.event || "desconhecido",
         erro: String(err),
-        payload: rawBody,
-        project_id: typeof projectId !== "undefined" ? projectId : null,
+        payload: body,
+        project_id: projectId,
       });
     } catch (logErr) {
       console.error("[webhook-pagamento] Erro ao logar falha:", logErr);
