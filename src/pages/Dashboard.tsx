@@ -112,6 +112,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <FacebookHealthAlert />
       <DailyBriefing projectFilter={dashProject} />
       <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <HotLeadAlerts projectFilter={dashProject} />
