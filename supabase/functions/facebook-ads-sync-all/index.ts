@@ -74,7 +74,9 @@ Deno.serve(async (req) => {
         const actId = adAccountId.startsWith("act_") ? adAccountId : `act_${adAccountId}`;
 
         // Fetch insights — full funnel (video + checkout + LP views) in BRT
+        // Includes campaign_id, adset_id, ad_id for the Gerenciador (toggle ATIVO/PAUSADO)
         const fields = [
+          "campaign_id", "adset_id", "ad_id",
           "campaign_name", "adset_name", "ad_name",
           "spend", "impressions", "reach", "clicks", "ctr", "frequency",
           "actions", "inline_link_clicks",
@@ -91,6 +93,23 @@ Deno.serve(async (req) => {
 
         const insightsData = await insightsRes.json();
         const rows = insightsData.data || [];
+
+        // Fetch campaigns metadata (status + daily_budget) — keyed by campaign_id
+        const campaignMeta = new Map<string, { status: string; daily_budget: number | null }>();
+        try {
+          const campUrl = `${FB_BASE}/${actId}/campaigns?fields=id,effective_status,daily_budget&limit=500&access_token=${accessToken}`;
+          const cRes = await fetch(campUrl);
+          if (cRes.ok) {
+            const cJson = await cRes.json();
+            for (const c of cJson.data || []) {
+              campaignMeta.set(c.id, {
+                status: c.effective_status,
+                daily_budget: c.daily_budget != null ? Number(c.daily_budget) / 100 : null, // FB retorna em centavos
+              });
+            }
+          }
+        } catch (_) { /* opcional */ }
+
 
         let imported = 0;
         let errors = 0;
@@ -116,6 +135,11 @@ Deno.serve(async (req) => {
           const record = {
             project_id: proj.id,
             plataforma: "Facebook",
+            campaign_id: row.campaign_id || null,
+            adset_id: row.adset_id || null,
+            ad_id: row.ad_id || null,
+            effective_status: row.campaign_id ? campaignMeta.get(row.campaign_id)?.status ?? null : null,
+            daily_budget: row.campaign_id ? campaignMeta.get(row.campaign_id)?.daily_budget ?? null : null,
             campanha: row.campaign_name || null,
             conjunto_anuncios: row.adset_name || null,
             anuncio: row.ad_name || null,
