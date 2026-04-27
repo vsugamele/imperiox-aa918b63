@@ -4075,6 +4075,7 @@ export type Database = {
           onboarding_step: number
           primary_hsl: string
           program_card_aspect: string
+          program_card_aspect_by_section: Json
           programs_section_order: Json
           programs_sections_enabled: Json
           seed_engine_enabled: boolean
@@ -4144,6 +4145,7 @@ export type Database = {
           onboarding_step?: number
           primary_hsl?: string
           program_card_aspect?: string
+          program_card_aspect_by_section?: Json
           programs_section_order?: Json
           programs_sections_enabled?: Json
           seed_engine_enabled?: boolean
@@ -4213,6 +4215,7 @@ export type Database = {
           onboarding_step?: number
           primary_hsl?: string
           program_card_aspect?: string
+          program_card_aspect_by_section?: Json
           programs_section_order?: Json
           programs_sections_enabled?: Json
           seed_engine_enabled?: boolean
@@ -13385,6 +13388,287 @@ export type Database = {
           promo_text?: string | null
           scripts?: Json | null
           webhooks?: Json | null
+        }
+        Relationships: []
+      }
+      ic_adjustments: {
+        Row: {
+          adjustment_pct: number
+          created_at: string | null
+          id: string
+          ird: string
+          segment: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          adjustment_pct: number
+          created_at?: string | null
+          id?: string
+          ird: string
+          segment: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          adjustment_pct?: number
+          created_at?: string | null
+          id?: string
+          ird?: string
+          segment?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      ic_base_rates: {
+        Row: {
+          brand: string
+          created_at: string | null
+          id: string
+          ird: string
+          rate_pct: number
+          segment: string
+          tier: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          brand: string
+          created_at?: string | null
+          id?: string
+          ird: string
+          rate_pct: number
+          segment: string
+          tier: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          brand?: string
+          created_at?: string | null
+          id?: string
+          ird?: string
+          rate_pct?: number
+          segment?: string
+          tier?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      ic_document_chunks: {
+        Row: {
+          content: string
+          created_at: string | null
+          document_id: string | null
+          embedding: string | null
+          id: string
+          page_number: number | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          page_number?: number | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          page_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ic_document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "ic_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ic_documents: {
+        Row: {
+          created_at: string | null
+          file_path: string
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_path: string
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          file_path?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      ic_maestro_rules: {
+        Row: {
+          cap_brl: number | null
+          created_at: string | null
+          description: string | null
+          expression: string
+          id: string
+          priority: number
+          pseudo_ird: string
+          rate_pct: number
+          rule_id: number
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          cap_brl?: number | null
+          created_at?: string | null
+          description?: string | null
+          expression: string
+          id?: string
+          priority: number
+          pseudo_ird: string
+          rate_pct: number
+          rule_id: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          cap_brl?: number | null
+          created_at?: string | null
+          description?: string | null
+          expression?: string
+          id?: string
+          priority?: number
+          pseudo_ird?: string
+          rate_pct?: number
+          rule_id?: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      ic_mc_rules: {
+        Row: {
+          active: boolean
+          created_at: string | null
+          description: string | null
+          expression: string
+          id: string
+          ird: string
+          priority: number
+          rule_id: number
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string | null
+          description?: string | null
+          expression: string
+          id?: string
+          ird: string
+          priority: number
+          rule_id: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string | null
+          description?: string | null
+          expression?: string
+          id?: string
+          ird?: string
+          priority?: number
+          rule_id?: number
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      ic_mcc_to_segment: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          mcc: number
+          segment: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mcc: number
+          segment: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mcc?: number
+          segment?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      ic_visa_rules: {
+        Row: {
+          accounting_sign: string
+          cap_fee: number
+          created_at: string | null
+          descriptor: string | null
+          expression: string
+          fixed_fee: number
+          id: string
+          priority: number
+          rate_corrupted: boolean
+          rate_pct: number
+          rule_id: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          accounting_sign: string
+          cap_fee: number
+          created_at?: string | null
+          descriptor?: string | null
+          expression: string
+          fixed_fee: number
+          id?: string
+          priority: number
+          rate_corrupted?: boolean
+          rate_pct: number
+          rule_id: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          accounting_sign?: string
+          cap_fee?: number
+          created_at?: string | null
+          descriptor?: string | null
+          expression?: string
+          fixed_fee?: number
+          id?: string
+          priority?: number
+          rate_corrupted?: boolean
+          rate_pct?: number
+          rule_id?: string
+          valid_from?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
@@ -30706,6 +30990,13 @@ export type Database = {
         }[]
       }
       check_and_reset_water_intake: { Args: never; Returns: Json }
+      check_media_usage: {
+        Args: { media_url: string }
+        Returns: {
+          count: number
+          location: string
+        }[]
+      }
       check_table_exists: { Args: { tablename: string }; Returns: boolean }
       claim_prize: {
         Args: { admin_uuid: string; prize_uuid: string }
@@ -30853,6 +31144,21 @@ export type Database = {
         Returns: undefined
       }
       mark_message_read: { Args: { message_uuid: string }; Returns: undefined }
+      match_documents: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          document_id: string
+          id: string
+          page_number: number
+          similarity: number
+          title: string
+        }[]
+      }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
       postgres_fdw_disconnect_all: { Args: never; Returns: boolean }
       postgres_fdw_get_connections: {
