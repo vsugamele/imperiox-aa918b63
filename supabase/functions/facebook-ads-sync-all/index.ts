@@ -230,8 +230,13 @@ Deno.serve(async (req) => {
 
         // Update last sync even if no creatives
         if (creativesCount === 0) {
-          const newData = { ...proj.data, facebook_last_sync: new Date().toISOString() };
+          const newData = { ...proj.data, facebook_last_sync: new Date().toISOString(), facebook_sync_status: "ok", facebook_sync_error: null };
           await supabase.from("imphq_projects").update({ data: newData }).eq("id", proj.id);
+        } else {
+          // Mark sync as ok (creatives branch already updated data, but ensure status fields)
+          await supabase.from("imphq_projects").update({
+            data: { ...proj.data, facebook_last_sync: new Date().toISOString(), facebook_sync_status: "ok", facebook_sync_error: null, facebook_creatives: proj.data?.facebook_creatives },
+          }).eq("id", proj.id);
         }
 
         results.push({ project_id: proj.id, name: proj.name, imported, errors, creatives: creativesCount });
