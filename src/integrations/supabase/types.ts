@@ -17642,6 +17642,7 @@ export type Database = {
           created_at: string | null
           data: Json | null
           data_venda: string | null
+          external_transaction_id: string | null
           funil_id: string | null
           id: string
           lead_id: string | null
@@ -17663,6 +17664,7 @@ export type Database = {
           created_at?: string | null
           data?: Json | null
           data_venda?: string | null
+          external_transaction_id?: string | null
           funil_id?: string | null
           id: string
           lead_id?: string | null
@@ -17684,6 +17686,7 @@ export type Database = {
           created_at?: string | null
           data?: Json | null
           data_venda?: string | null
+          external_transaction_id?: string | null
           funil_id?: string | null
           id?: string
           lead_id?: string | null

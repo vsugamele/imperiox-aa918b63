@@ -275,7 +275,10 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   const financeiro = extractFinanceiro(body, plataforma);
   const utms = extractUtms(body);
 
-  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms };
+  // Extract external transaction id (codigo_pedido) for cross-platform deduplication
+  const externalTxId = financeiro?.codigo_pedido || null;
+
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId };
 }
 
 Deno.serve(async (req) => {
