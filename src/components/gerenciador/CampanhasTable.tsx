@@ -1,29 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, Copy as CopyIcon } from "lucide-react";
 import { toast } from "sonner";
 import { StatusToggle } from "./StatusToggle";
 import { RoasBadge, CpaCell } from "./RoasBadge";
+import { BudgetEditor } from "./BudgetEditor";
+import { BulkActionsBar } from "./BulkActionsBar";
 import { cn } from "@/lib/utils";
-
-interface AdRow {
-  campaign_id: string | null;
-  campanha: string | null;
-  effective_status: string | null;
-  daily_budget: number | null;
-  valor: number;
-  impressoes: number;
-  cliques: number;
-  link_clicks: number | null;
-  init_checkout: number | null;
-  compras: number;
-  receita?: number; // calculada
-  ticket?: number;
-}
 
 interface VendaItem {
   produto_nome?: string;
@@ -38,51 +26,150 @@ interface Props {
   onAfterToggle?: () => void;
 }
 
-type SortKey = "campanha" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget";
+type Level = "campaign" | "adset" | "ad";
+type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt";
+
+interface Row {
+  level: Level;
+  id: string; // entity id (campaign_id / adset_id / ad_id)
+  parent_id?: string | null;
+  name: string;
+  effective_status: string | null;
+  daily_budget: number | null;
+  valor: number;
+  impressoes: number;
+  cliques: number;
+  link_clicks: number;
+  init_checkout: number;
+  compras: number;
+  hook_rate: number;
+  cpm: number;
+  frequencia: number;
+  alcance: number;
+  lp_views: number;
+  receita: number;
+  ticket?: number;
+}
 
 const PAGE_SIZES = [10, 20, 50] as const;
 
-function aggregate(ads: any[], vendas: VendaItem[]): AdRow[] {
-  const map = new Map<string, AdRow>();
-  for (const a of ads) {
-    const key = a.campaign_id || a.campanha || "Sem nome";
-    const cur = map.get(key) || {
-      campaign_id: a.campaign_id || null,
-      campanha: a.campanha || "Sem nome",
-      effective_status: a.effective_status || null,
-      daily_budget: a.daily_budget ?? null,
-      valor: 0, impressoes: 0, cliques: 0, link_clicks: 0, init_checkout: 0, compras: 0,
-    };
-    cur.valor += Number(a.valor) || 0;
-    cur.impressoes += Number(a.impressoes) || 0;
-    cur.cliques += Number(a.cliques) || 0;
-    cur.link_clicks = (cur.link_clicks || 0) + (Number(a.link_clicks) || 0);
-    cur.init_checkout = (cur.init_checkout || 0) + (Number(a.init_checkout) || 0);
-    cur.compras += Number(a.compras) || 0;
-    if (!cur.effective_status && a.effective_status) cur.effective_status = a.effective_status;
-    if (cur.daily_budget == null && a.daily_budget != null) cur.daily_budget = Number(a.daily_budget);
-    map.set(key, cur);
-  }
-  // Receita atribuída por nome de campanha (utm_campaign)
+const COLUMN_GROUPS = {
+  basic: { label: "Básico", cols: ["valor", "impressoes", "cliques", "ctr", "cpc"] as SortKey[] },
+  funnel: { label: "Funil", cols: ["hook_rate", "cpm", "frequencia", "alcance", "lp_views", "lp_to_ckt", "ic", "cpi"] as SortKey[] },
+  perf: { label: "Performance", cols: ["compras", "cpa", "receita", "roas", "daily_budget"] as SortKey[] },
+} as const;
+
+const DEFAULT_VISIBLE = new Set<SortKey>([
+  "valor", "impressoes", "cliques", "ctr", "cpc", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget",
+]);
+
+function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
+  // Receita por nome de campanha (utm)
   const revByCamp = new Map<string, number>();
-  for (const v of vendas) {
-    const k = (v.utm_campaign || "").trim().toLowerCase();
-    if (!k) continue;
-    revByCamp.set(k, (revByCamp.get(k) || 0) + Number(v.valor || 0));
+  let avgTicket = 0;
+  if (vendas.length) {
+    const total = vendas.reduce((s, v) => s + Number(v.valor || 0), 0);
+    avgTicket = total / vendas.length;
+    for (const v of vendas) {
+      const k = (v.utm_campaign || "").trim().toLowerCase();
+      if (!k) continue;
+      revByCamp.set(k, (revByCamp.get(k) || 0) + Number(v.valor || 0));
+    }
   }
-  for (const row of map.values()) {
-    const k = (row.campanha || "").trim().toLowerCase();
-    row.receita = revByCamp.get(k) || (row.compras > 0 && vendas.length ?
-      // fallback: ticket médio global × compras
-      (vendas.reduce((s, v) => s + Number(v.valor || 0), 0) / vendas.length) * row.compras
-      : 0);
-    row.ticket = row.compras > 0 ? (row.receita || 0) / row.compras : undefined;
+
+  const aggregate = (key: string, rows: any[], level: Level, name: string, parent_id?: string | null): Row => {
+    const r: Row = {
+      level, id: key, parent_id: parent_id ?? null, name,
+      effective_status: null, daily_budget: null,
+      valor: 0, impressoes: 0, cliques: 0, link_clicks: 0, init_checkout: 0, compras: 0,
+      hook_rate: 0, cpm: 0, frequencia: 0, alcance: 0, lp_views: 0, receita: 0,
+    };
+    let hookSum = 0, hookN = 0, cpmSum = 0, cpmN = 0, freqSum = 0, freqN = 0;
+    for (const a of rows) {
+      r.valor += Number(a.valor) || 0;
+      r.impressoes += Number(a.impressoes) || 0;
+      r.cliques += Number(a.cliques) || 0;
+      r.link_clicks += Number(a.link_clicks) || 0;
+      r.init_checkout += Number(a.init_checkout) || 0;
+      r.compras += Number(a.compras) || 0;
+      r.alcance += Number(a.alcance) || 0;
+      r.lp_views += Number(a.landing_page_views) || 0;
+      if (a.hook_rate != null) { hookSum += Number(a.hook_rate); hookN++; }
+      if (a.cpm != null) { cpmSum += Number(a.cpm); cpmN++; }
+      if (a.frequencia != null) { freqSum += Number(a.frequencia); freqN++; }
+      if (!r.effective_status && a.effective_status) r.effective_status = a.effective_status;
+      if (r.daily_budget == null && a.daily_budget != null) r.daily_budget = Number(a.daily_budget);
+    }
+    r.hook_rate = hookN ? hookSum / hookN : 0;
+    r.cpm = cpmN ? cpmSum / cpmN : 0;
+    r.frequencia = freqN ? freqSum / freqN : 0;
+    const lname = name.trim().toLowerCase();
+    r.receita = revByCamp.get(lname) || (level === "campaign" && r.compras > 0 && avgTicket ? avgTicket * r.compras : 0);
+    r.ticket = r.compras > 0 ? r.receita / r.compras : undefined;
+    return r;
+  };
+
+  // Group by campaign
+  const byCamp = new Map<string, any[]>();
+  for (const a of ads) {
+    const k = a.campaign_id || a.campanha || "Sem nome";
+    if (!byCamp.has(k)) byCamp.set(k, []);
+    byCamp.get(k)!.push(a);
   }
-  return Array.from(map.values());
+
+  const campaigns: Row[] = [];
+  const adsetsByCampaign = new Map<string, Row[]>();
+  const adsByAdset = new Map<string, Row[]>();
+
+  for (const [campKey, campRows] of byCamp.entries()) {
+    const campName = campRows[0]?.campanha || "Sem nome";
+    campaigns.push(aggregate(campKey, campRows, "campaign", campName));
+
+    // adsets
+    const byAdset = new Map<string, any[]>();
+    for (const a of campRows) {
+      const ak = a.adset_id || a.conjunto_anuncios || "—";
+      if (!byAdset.has(ak)) byAdset.set(ak, []);
+      byAdset.get(ak)!.push(a);
+    }
+    const adsetRows: Row[] = [];
+    for (const [adsetKey, adsetRowsArr] of byAdset.entries()) {
+      const adsetName = adsetRowsArr[0]?.conjunto_anuncios || "Sem conjunto";
+      adsetRows.push(aggregate(adsetKey, adsetRowsArr, "adset", adsetName, campKey));
+
+      // ads
+      const byAd = new Map<string, any[]>();
+      for (const a of adsetRowsArr) {
+        const adk = a.ad_id || a.anuncio || "—";
+        if (!byAd.has(adk)) byAd.set(adk, []);
+        byAd.get(adk)!.push(a);
+      }
+      const adRows: Row[] = [];
+      for (const [adKey, adArr] of byAd.entries()) {
+        const adName = adArr[0]?.anuncio || "Sem anúncio";
+        adRows.push(aggregate(adKey, adArr, "ad", adName, adsetKey));
+      }
+      adsByAdset.set(adsetKey, adRows);
+    }
+    adsetsByCampaign.set(campKey, adsetRows);
+  }
+
+  return { campaigns, adsetsByCampaign, adsByAdset };
 }
 
 function num(v: number) { return v.toLocaleString("pt-BR"); }
 function brl(v: number) { return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+function pct(v: number) { return `${v.toFixed(1)}%`; }
+
+function enrich(r: Row) {
+  const ctr = r.impressoes ? (r.cliques / r.impressoes) * 100 : 0;
+  const cpc = r.cliques ? r.valor / r.cliques : 0;
+  const cpi = r.init_checkout ? r.valor / r.init_checkout : 0;
+  const cpa = r.compras ? r.valor / r.compras : 0;
+  const roas = r.valor > 0 ? r.receita / r.valor : 0;
+  const lp_to_ckt = r.lp_views ? (r.init_checkout / r.lp_views) * 100 : 0;
+  return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt };
+}
 
 export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: Props) {
   const [search, setSearch] = useState("");
@@ -93,89 +180,151 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<Map<string, string>>(new Map());
+  const [optimisticBudget, setOptimisticBudget] = useState<Map<string, number>>(new Map());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [visible, setVisible] = useState<Set<SortKey>>(new Set(DEFAULT_VISIBLE));
+  const [bulkLoading, setBulkLoading] = useState(false);
 
-  const rows = useMemo(() => {
-    const agg = aggregate(ads, vendas);
-    const filtered = agg.filter(r => !search || (r.campanha || "").toLowerCase().includes(search.toLowerCase()));
-    const enriched = filtered.map(r => {
-      const ctr = r.impressoes ? (r.cliques / r.impressoes) * 100 : 0;
-      const cpc = r.cliques ? r.valor / r.cliques : 0;
-      const ic = r.init_checkout || 0;
-      const cpi = ic ? r.valor / ic : 0;
-      const cpa = r.compras ? r.valor / r.compras : 0;
-      const roas = r.valor > 0 ? (r.receita || 0) / r.valor : 0;
-      return { ...r, ctr, cpc, ic, cpi, cpa, roas };
-    });
-    enriched.sort((a, b) => {
-      const av = (a as any)[sortKey] ?? 0;
-      const bv = (b as any)[sortKey] ?? 0;
+  const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas), [ads, vendas]);
+
+  const enrichedCampaigns = useMemo(() => {
+    const filtered = campaigns.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
+    const e = filtered.map(enrich);
+    e.sort((a, b) => {
+      const av = (a as any)[sortKey] ?? (sortKey === "name" ? a.name : 0);
+      const bv = (b as any)[sortKey] ?? (sortKey === "name" ? b.name : 0);
       if (typeof av === "string" || typeof bv === "string") {
         return sortDir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
       }
       return sortDir === "asc" ? av - bv : bv - av;
     });
-    return enriched;
-  }, [ads, vendas, search, sortKey, sortDir]);
+    return e;
+  }, [campaigns, search, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const pageRows = rows.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.max(1, Math.ceil(enrichedCampaigns.length / pageSize));
+  const pageRows = enrichedCampaigns.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setSelected(new Set()); }, [projectId]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
   };
 
-  const handleToggle = async (row: any, next: "ACTIVE" | "PAUSED") => {
-    if (!row.campaign_id) {
-      toast.error("Esta campanha ainda não tem ID da Meta. Sincronize Facebook Ads primeiro.");
-      return;
-    }
-    if (!projectId) {
-      toast.error("Selecione um projeto antes de pausar/ativar campanhas.");
-      return;
-    }
-    const id = row.campaign_id;
-    setTogglingId(id);
-    const prev = row.effective_status;
-    setOptimistic(m => new Map(m).set(id, next));
+  const callToggle = async (entity_type: Level, row: Row, next: "ACTIVE" | "PAUSED") => {
+    if (!projectId) { toast.error("Selecione um projeto antes."); return false; }
+    if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta. Sincronize primeiro."); return false; }
+    setTogglingId(row.id);
+    const prev = optimistic.get(row.id) ?? row.effective_status;
+    setOptimistic(m => new Map(m).set(row.id, next));
     try {
       const { data, error } = await supabase.functions.invoke("facebook-ads-toggle", {
-        body: {
-          project_id: projectId,
-          entity_type: "campaign",
-          entity_id: id,
-          entity_name: row.campanha,
-          action: next,
-          previous_status: prev,
-        },
+        body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: row.name, action: next, previous_status: prev },
       });
-      if (error || (data as any)?.error) {
-        const msg = (data as any)?.error || error?.message || "Falha ao atualizar";
-        throw new Error(msg);
-      }
-      toast.success(next === "ACTIVE" ? "Campanha ativada" : "Campanha pausada");
-      onAfterToggle?.();
+      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
+      return true;
     } catch (e: any) {
-      // rollback otimista
-      setOptimistic(m => { const n = new Map(m); n.set(id, prev || "PAUSED"); return n; });
+      setOptimistic(m => { const n = new Map(m); n.set(row.id, prev || "PAUSED"); return n; });
       toast.error(e.message || "Erro ao alterar status");
+      return false;
     } finally {
       setTogglingId(null);
     }
   };
 
+  const handleToggle = async (entity_type: Level, row: Row, next: "ACTIVE" | "PAUSED") => {
+    const ok = await callToggle(entity_type, row, next);
+    if (ok) {
+      toast.success(next === "ACTIVE" ? "Ativado" : "Pausado");
+      onAfterToggle?.();
+    }
+  };
+
+  const handleBudget = async (entity_type: Level, row: Row, next: number) => {
+    if (!projectId) { toast.error("Selecione um projeto antes."); return; }
+    if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta."); return; }
+    const prev = row.daily_budget;
+    setOptimisticBudget(m => new Map(m).set(row.id, next));
+    try {
+      const { data, error } = await supabase.functions.invoke("facebook-ads-toggle", {
+        body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: row.name, action: "UPDATE_BUDGET", daily_budget: next, previous_budget: prev },
+      });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
+      toast.success(`Orçamento atualizado: ${brl(next)}`);
+      onAfterToggle?.();
+    } catch (e: any) {
+      setOptimisticBudget(m => { const n = new Map(m); if (prev != null) n.set(row.id, prev); else n.delete(row.id); return n; });
+      toast.error(e.message || "Erro ao atualizar orçamento");
+    }
+  };
+
+  const runBulk = async (action: "ACTIVE" | "PAUSED" | "DUPLICATE_CAMPAIGN") => {
+    if (!projectId) { toast.error("Selecione um projeto antes."); return; }
+    const rows = enrichedCampaigns.filter(r => selected.has(r.id) && /^\d+$/.test(r.id));
+    if (rows.length === 0) { toast.error("Nenhuma campanha válida selecionada"); return; }
+    setBulkLoading(true);
+    let okCount = 0, errCount = 0;
+    const results = await Promise.allSettled(rows.map(r =>
+      supabase.functions.invoke("facebook-ads-toggle", {
+        body: {
+          project_id: projectId, entity_type: "campaign", entity_id: r.id, entity_name: r.name,
+          action, previous_status: r.effective_status,
+        },
+      })
+    ));
+    for (const res of results) {
+      if (res.status === "fulfilled" && !(res.value as any)?.error && !(res.value as any)?.data?.error) okCount++;
+      else errCount++;
+    }
+    setBulkLoading(false);
+    setSelected(new Set());
+    if (okCount) toast.success(`${okCount} campanha(s) processada(s)`);
+    if (errCount) toast.error(`${errCount} falha(s)`);
+    onAfterToggle?.();
+  };
+
   const SortHeader = ({ k, label, align = "right" }: { k: SortKey; label: string; align?: "left" | "right" }) => (
     <TableHead className={cn("text-[10px] uppercase tracking-wider cursor-pointer select-none whitespace-nowrap", align === "right" && "text-right")} onClick={() => toggleSort(k)}>
-      <span className="inline-flex items-center gap-1">
+      <span className={cn("inline-flex items-center gap-1", align === "right" && "justify-end w-full")}>
         {label}
         {sortKey === k && (sortDir === "desc" ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />)}
       </span>
     </TableHead>
   );
 
+  const isVisible = (k: SortKey) => visible.has(k);
+
+  const renderSubRows = (campaign: Row, depth = 1) => {
+    const adsets = adsetsByCampaign.get(campaign.id) || [];
+    const sortedAdsets = [...adsets].map(enrich).sort((a, b) => b.valor - a.valor);
+    return sortedAdsets.map((adset) => {
+      const adsetExpanded = expanded.has(adset.id);
+      const adsetStatus = optimistic.get(adset.id) ?? adset.effective_status;
+      const adsetBudget = optimisticBudget.has(adset.id) ? optimisticBudget.get(adset.id)! : adset.daily_budget;
+      return (
+        <ReactFragment key={`adset-${adset.id}`} adset={adset} adsetStatus={adsetStatus} adsetBudget={adsetBudget} adsetExpanded={adsetExpanded}
+          onExpand={() => setExpanded(s => { const n = new Set(s); n.has(adset.id) ? n.delete(adset.id) : n.add(adset.id); return n; })}
+          onToggle={(next) => handleToggle("adset", adset, next)}
+          onBudget={(next) => handleBudget("adset", adset, next)}
+          loading={togglingId === adset.id}
+          isVisible={isVisible}
+          depth={depth}
+          adsRows={(adsByAdset.get(adset.id) || []).map(enrich).sort((a, b) => b.valor - a.valor)}
+          optimistic={optimistic}
+          optimisticBudget={optimisticBudget}
+          togglingId={togglingId}
+          onAdToggle={(ad, next) => handleToggle("ad", ad, next)}
+          onAdBudget={(ad, next) => handleBudget("ad", ad, next)}
+        />
+      );
+    });
+  };
+
+  const visibleColCount = 4 /* expand+check+toggle+name */ + Array.from(visible).length;
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -186,7 +335,34 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
           />
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{rows.length} registros</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5">
+                <SlidersHorizontal className="h-3 w-3" /> Colunas ({visible.size})
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 bg-secondary/95 border-border/40">
+              <div className="space-y-3 text-xs">
+                {Object.entries(COLUMN_GROUPS).map(([gk, g]) => (
+                  <div key={gk}>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{g.label}</div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {g.cols.map((c) => (
+                        <label key={c} className="flex items-center gap-1.5 cursor-pointer hover:text-foreground">
+                          <Checkbox
+                            checked={visible.has(c)}
+                            onCheckedChange={(v) => setVisible(s => { const n = new Set(s); v ? n.add(c) : n.delete(c); return n; })}
+                          />
+                          <span className="capitalize">{labelFor(c)}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <span>{enrichedCampaigns.length} registros</span>
           <span className="opacity-60">Exibir</span>
           {PAGE_SIZES.map((s) => (
             <button key={s} onClick={() => { setPageSize(s); setPage(1); }} className={cn("px-2 py-0.5 rounded", pageSize === s ? "bg-primary/20 text-primary" : "hover:bg-secondary/50")}>{s}</button>
@@ -203,64 +379,202 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
         <Table>
           <TableHeader>
             <TableRow className="border-border/30 hover:bg-transparent">
+              <TableHead className="w-6"></TableHead>
               <TableHead className="w-8"></TableHead>
               <TableHead className="w-12"></TableHead>
-              <SortHeader k="campanha" label="Nome" align="left" />
-              <SortHeader k="valor" label="Invest." />
-              <SortHeader k="impressoes" label="Impr." />
-              <SortHeader k="cliques" label="Cliq." />
-              <SortHeader k="ctr" label="CTR" />
-              <SortHeader k="cpc" label="CPC" />
-              <SortHeader k="ic" label="IC" />
-              <SortHeader k="cpi" label="CPI" />
-              <SortHeader k="compras" label="Compras" />
-              <SortHeader k="cpa" label="CPA" />
-              <SortHeader k="receita" label="Receita" />
-              <SortHeader k="roas" label="ROAS" />
-              <SortHeader k="daily_budget" label="Orç./Dia" />
+              <SortHeader k="name" label="Nome" align="left" />
+              {isVisible("valor") && <SortHeader k="valor" label="Invest." />}
+              {isVisible("impressoes") && <SortHeader k="impressoes" label="Impr." />}
+              {isVisible("cliques") && <SortHeader k="cliques" label="Cliq." />}
+              {isVisible("ctr") && <SortHeader k="ctr" label="CTR" />}
+              {isVisible("cpc") && <SortHeader k="cpc" label="CPC" />}
+              {isVisible("hook_rate") && <SortHeader k="hook_rate" label="Hook" />}
+              {isVisible("cpm") && <SortHeader k="cpm" label="CPM" />}
+              {isVisible("frequencia") && <SortHeader k="frequencia" label="Freq" />}
+              {isVisible("alcance") && <SortHeader k="alcance" label="Alcance" />}
+              {isVisible("lp_views") && <SortHeader k="lp_views" label="LP Views" />}
+              {isVisible("lp_to_ckt") && <SortHeader k="lp_to_ckt" label="LP→CKT" />}
+              {isVisible("ic") && <SortHeader k="ic" label="IC" />}
+              {isVisible("cpi") && <SortHeader k="cpi" label="CPI" />}
+              {isVisible("compras") && <SortHeader k="compras" label="Compras" />}
+              {isVisible("cpa") && <SortHeader k="cpa" label="CPA" />}
+              {isVisible("receita") && <SortHeader k="receita" label="Receita" />}
+              {isVisible("roas") && <SortHeader k="roas" label="ROAS" />}
+              {isVisible("daily_budget") && <SortHeader k="daily_budget" label="Orç./Dia" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {pageRows.length === 0 && (
-              <TableRow><TableCell colSpan={15} className="text-center text-muted-foreground py-10 text-xs">Nenhuma campanha no período.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={visibleColCount} className="text-center text-muted-foreground py-10 text-xs">Nenhuma campanha no período.</TableCell></TableRow>
             )}
-            {pageRows.map((row, idx) => {
-              const id = row.campaign_id || `row-${idx}`;
+            {pageRows.map((row) => {
+              const id = row.id;
               const status = optimistic.get(id) ?? row.effective_status;
               const checked = selected.has(id);
+              const isExpanded = expanded.has(id);
+              const dailyBudget = optimisticBudget.has(id) ? optimisticBudget.get(id)! : row.daily_budget;
               return (
-                <TableRow key={id} className="border-border/20 text-xs hover:bg-secondary/20">
-                  <TableCell><Checkbox checked={checked} onCheckedChange={(v) => {
-                    setSelected(s => { const n = new Set(s); v ? n.add(id) : n.delete(id); return n; });
-                  }} /></TableCell>
-                  <TableCell>
-                    <StatusToggle
-                      status={status}
-                      loading={togglingId === id}
-                      onChange={(next) => handleToggle(row, next)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground/90 max-w-[280px] truncate" title={row.campanha || ""}>
-                    {row.campanha}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{brl(row.valor)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{num(row.impressoes)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{num(row.cliques)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{row.ctr.toFixed(1)}%</TableCell>
-                  <TableCell className="text-right tabular-nums">{row.cpc > 0 ? `R$ ${row.cpc.toFixed(2)}` : "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{row.ic || "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{row.cpi > 0 ? `R$ ${row.cpi.toFixed(2)}` : "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{row.compras || "—"}</TableCell>
-                  <TableCell className="text-right"><CpaCell cpa={row.cpa} ticket={row.ticket} /></TableCell>
-                  <TableCell className="text-right tabular-nums">{row.receita ? brl(row.receita) : "—"}</TableCell>
-                  <TableCell className="text-right"><RoasBadge value={row.roas} /></TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">{row.daily_budget ? brl(row.daily_budget) : "—"}</TableCell>
-                </TableRow>
+                <>
+                  <TableRow key={id} className="border-border/20 text-xs hover:bg-secondary/20">
+                    <TableCell>
+                      <button onClick={() => setExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; })} className="text-muted-foreground hover:text-primary">
+                        {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronExpandRight className="h-3.5 w-3.5" />}
+                      </button>
+                    </TableCell>
+                    <TableCell><Checkbox checked={checked} onCheckedChange={(v) => {
+                      setSelected(s => { const n = new Set(s); v ? n.add(id) : n.delete(id); return n; });
+                    }} /></TableCell>
+                    <TableCell>
+                      <StatusToggle status={status} loading={togglingId === id} onChange={(next) => handleToggle("campaign", row, next)} />
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground/90 max-w-[280px] truncate" title={row.name}>{row.name}</TableCell>
+                    {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(row.valor)}</TableCell>}
+                    {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(row.impressoes)}</TableCell>}
+                    {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(row.cliques)}</TableCell>}
+                    {isVisible("ctr") && <TableCell className="text-right tabular-nums">{pct(row.ctr)}</TableCell>}
+                    {isVisible("cpc") && <TableCell className="text-right tabular-nums">{row.cpc > 0 ? `R$ ${row.cpc.toFixed(2)}` : "—"}</TableCell>}
+                    {isVisible("hook_rate") && <TableCell className="text-right tabular-nums">{row.hook_rate > 0 ? pct(row.hook_rate) : "—"}</TableCell>}
+                    {isVisible("cpm") && <TableCell className="text-right tabular-nums">{row.cpm > 0 ? `R$ ${row.cpm.toFixed(2)}` : "—"}</TableCell>}
+                    {isVisible("frequencia") && <TableCell className="text-right tabular-nums">{row.frequencia > 0 ? row.frequencia.toFixed(2) : "—"}</TableCell>}
+                    {isVisible("alcance") && <TableCell className="text-right tabular-nums">{row.alcance ? num(row.alcance) : "—"}</TableCell>}
+                    {isVisible("lp_views") && <TableCell className="text-right tabular-nums">{row.lp_views ? num(row.lp_views) : "—"}</TableCell>}
+                    {isVisible("lp_to_ckt") && <TableCell className="text-right tabular-nums">{row.lp_to_ckt > 0 ? pct(row.lp_to_ckt) : "—"}</TableCell>}
+                    {isVisible("ic") && <TableCell className="text-right tabular-nums">{row.ic || "—"}</TableCell>}
+                    {isVisible("cpi") && <TableCell className="text-right tabular-nums">{row.cpi > 0 ? `R$ ${row.cpi.toFixed(2)}` : "—"}</TableCell>}
+                    {isVisible("compras") && <TableCell className="text-right tabular-nums">{row.compras || "—"}</TableCell>}
+                    {isVisible("cpa") && <TableCell className="text-right"><CpaCell cpa={row.cpa} ticket={row.ticket} /></TableCell>}
+                    {isVisible("receita") && <TableCell className="text-right tabular-nums">{row.receita ? brl(row.receita) : "—"}</TableCell>}
+                    {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={row.roas} /></TableCell>}
+                    {isVisible("daily_budget") && <TableCell className="text-right">
+                      <BudgetEditor value={dailyBudget} disabled={!/^\d+$/.test(id)} onSave={(n) => handleBudget("campaign", row, n)} />
+                    </TableCell>}
+                  </TableRow>
+                  {isExpanded && renderSubRows(row)}
+                </>
               );
             })}
           </TableBody>
         </Table>
       </div>
+
+      <BulkActionsBar
+        count={selected.size}
+        loading={bulkLoading}
+        onActivate={() => runBulk("ACTIVE")}
+        onPause={() => runBulk("PAUSED")}
+        onDuplicate={() => runBulk("DUPLICATE_CAMPAIGN")}
+        onClear={() => setSelected(new Set())}
+      />
     </div>
+  );
+}
+
+function labelFor(k: SortKey): string {
+  const map: Record<string, string> = {
+    valor: "Invest.", impressoes: "Impr.", cliques: "Cliq.", ctr: "CTR", cpc: "CPC",
+    hook_rate: "Hook", cpm: "CPM", frequencia: "Freq", alcance: "Alcance",
+    lp_views: "LP Views", lp_to_ckt: "LP→CKT", ic: "IC", cpi: "CPI",
+    compras: "Compras", cpa: "CPA", receita: "Receita", roas: "ROAS", daily_budget: "Orç./Dia",
+  };
+  return map[k] || k;
+}
+
+// Sub-row wrapper para adsets/ads
+function ReactFragment(props: {
+  adset: Row & { ctr: number; cpc: number; cpi: number; cpa: number; roas: number; ic: number; lp_to_ckt: number };
+  adsetStatus: string | null;
+  adsetBudget: number | null;
+  adsetExpanded: boolean;
+  onExpand: () => void;
+  onToggle: (next: "ACTIVE" | "PAUSED") => void;
+  onBudget: (next: number) => void;
+  loading: boolean;
+  isVisible: (k: SortKey) => boolean;
+  depth: number;
+  adsRows: (Row & { ctr: number; cpc: number; cpi: number; cpa: number; roas: number; ic: number; lp_to_ckt: number })[];
+  optimistic: Map<string, string>;
+  optimisticBudget: Map<string, number>;
+  togglingId: string | null;
+  onAdToggle: (ad: Row, next: "ACTIVE" | "PAUSED") => void;
+  onAdBudget: (ad: Row, next: number) => void;
+}) {
+  const { adset, adsetStatus, adsetBudget, adsetExpanded, onExpand, onToggle, onBudget, loading, isVisible, adsRows, optimistic, optimisticBudget, togglingId, onAdToggle, onAdBudget } = props;
+  const indent = (lvl: number) => ({ paddingLeft: `${lvl * 18}px` });
+
+  return (
+    <>
+      <TableRow className="border-border/10 text-xs bg-secondary/10 hover:bg-secondary/20">
+        <TableCell>
+          <button onClick={onExpand} className="text-muted-foreground hover:text-primary" style={indent(1)}>
+            {adsetExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronExpandRight className="h-3 w-3" />}
+          </button>
+        </TableCell>
+        <TableCell></TableCell>
+        <TableCell>
+          <StatusToggle status={adsetStatus} loading={loading} onChange={onToggle} />
+        </TableCell>
+        <TableCell className="text-muted-foreground max-w-[260px] truncate" title={adset.name}>
+          <span className="text-[9px] uppercase tracking-wider mr-1.5 text-primary/60">conj</span>{adset.name}
+        </TableCell>
+        {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(adset.valor)}</TableCell>}
+        {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(adset.impressoes)}</TableCell>}
+        {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(adset.cliques)}</TableCell>}
+        {isVisible("ctr") && <TableCell className="text-right tabular-nums">{pct(adset.ctr)}</TableCell>}
+        {isVisible("cpc") && <TableCell className="text-right tabular-nums">{adset.cpc > 0 ? `R$ ${adset.cpc.toFixed(2)}` : "—"}</TableCell>}
+        {isVisible("hook_rate") && <TableCell className="text-right tabular-nums">{adset.hook_rate > 0 ? pct(adset.hook_rate) : "—"}</TableCell>}
+        {isVisible("cpm") && <TableCell className="text-right tabular-nums">{adset.cpm > 0 ? `R$ ${adset.cpm.toFixed(2)}` : "—"}</TableCell>}
+        {isVisible("frequencia") && <TableCell className="text-right tabular-nums">{adset.frequencia > 0 ? adset.frequencia.toFixed(2) : "—"}</TableCell>}
+        {isVisible("alcance") && <TableCell className="text-right tabular-nums">{adset.alcance ? num(adset.alcance) : "—"}</TableCell>}
+        {isVisible("lp_views") && <TableCell className="text-right tabular-nums">{adset.lp_views ? num(adset.lp_views) : "—"}</TableCell>}
+        {isVisible("lp_to_ckt") && <TableCell className="text-right tabular-nums">{adset.lp_to_ckt > 0 ? pct(adset.lp_to_ckt) : "—"}</TableCell>}
+        {isVisible("ic") && <TableCell className="text-right tabular-nums">{adset.ic || "—"}</TableCell>}
+        {isVisible("cpi") && <TableCell className="text-right tabular-nums">{adset.cpi > 0 ? `R$ ${adset.cpi.toFixed(2)}` : "—"}</TableCell>}
+        {isVisible("compras") && <TableCell className="text-right tabular-nums">{adset.compras || "—"}</TableCell>}
+        {isVisible("cpa") && <TableCell className="text-right"><CpaCell cpa={adset.cpa} ticket={adset.ticket} /></TableCell>}
+        {isVisible("receita") && <TableCell className="text-right tabular-nums">{adset.receita ? brl(adset.receita) : "—"}</TableCell>}
+        {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={adset.roas} /></TableCell>}
+        {isVisible("daily_budget") && <TableCell className="text-right">
+          <BudgetEditor value={adsetBudget} disabled={!/^\d+$/.test(adset.id)} onSave={onBudget} />
+        </TableCell>}
+      </TableRow>
+
+      {adsetExpanded && adsRows.map((ad) => {
+        const adStatus = optimistic.get(ad.id) ?? ad.effective_status;
+        const adBudget = optimisticBudget.has(ad.id) ? optimisticBudget.get(ad.id)! : ad.daily_budget;
+        return (
+          <TableRow key={`ad-${ad.id}`} className="border-border/10 text-xs hover:bg-secondary/20">
+            <TableCell></TableCell>
+            <TableCell></TableCell>
+            <TableCell>
+              <StatusToggle status={adStatus} loading={togglingId === ad.id} onChange={(n) => onAdToggle(ad, n)} />
+            </TableCell>
+            <TableCell className="text-muted-foreground/80 max-w-[240px] truncate" title={ad.name}>
+              <span className="inline-block" style={indent(2)} />
+              <span className="text-[9px] uppercase tracking-wider mr-1.5 text-primary/40">ad</span>{ad.name}
+            </TableCell>
+            {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(ad.valor)}</TableCell>}
+            {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(ad.impressoes)}</TableCell>}
+            {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(ad.cliques)}</TableCell>}
+            {isVisible("ctr") && <TableCell className="text-right tabular-nums">{pct(ad.ctr)}</TableCell>}
+            {isVisible("cpc") && <TableCell className="text-right tabular-nums">{ad.cpc > 0 ? `R$ ${ad.cpc.toFixed(2)}` : "—"}</TableCell>}
+            {isVisible("hook_rate") && <TableCell className="text-right tabular-nums">{ad.hook_rate > 0 ? pct(ad.hook_rate) : "—"}</TableCell>}
+            {isVisible("cpm") && <TableCell className="text-right tabular-nums">{ad.cpm > 0 ? `R$ ${ad.cpm.toFixed(2)}` : "—"}</TableCell>}
+            {isVisible("frequencia") && <TableCell className="text-right tabular-nums">{ad.frequencia > 0 ? ad.frequencia.toFixed(2) : "—"}</TableCell>}
+            {isVisible("alcance") && <TableCell className="text-right tabular-nums">{ad.alcance ? num(ad.alcance) : "—"}</TableCell>}
+            {isVisible("lp_views") && <TableCell className="text-right tabular-nums">{ad.lp_views ? num(ad.lp_views) : "—"}</TableCell>}
+            {isVisible("lp_to_ckt") && <TableCell className="text-right tabular-nums">{ad.lp_to_ckt > 0 ? pct(ad.lp_to_ckt) : "—"}</TableCell>}
+            {isVisible("ic") && <TableCell className="text-right tabular-nums">{ad.ic || "—"}</TableCell>}
+            {isVisible("cpi") && <TableCell className="text-right tabular-nums">{ad.cpi > 0 ? `R$ ${ad.cpi.toFixed(2)}` : "—"}</TableCell>}
+            {isVisible("compras") && <TableCell className="text-right tabular-nums">{ad.compras || "—"}</TableCell>}
+            {isVisible("cpa") && <TableCell className="text-right"><CpaCell cpa={ad.cpa} ticket={ad.ticket} /></TableCell>}
+            {isVisible("receita") && <TableCell className="text-right tabular-nums">{ad.receita ? brl(ad.receita) : "—"}</TableCell>}
+            {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={ad.roas} /></TableCell>}
+            {isVisible("daily_budget") && <TableCell className="text-right">
+              <BudgetEditor value={adBudget} disabled={!/^\d+$/.test(ad.id)} onSave={(n) => onAdBudget(ad, n)} />
+            </TableCell>}
+          </TableRow>
+        );
+      })}
+    </>
   );
 }

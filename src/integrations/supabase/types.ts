@@ -4076,6 +4076,8 @@ export type Database = {
           primary_hsl: string
           program_card_aspect: string
           program_card_aspect_by_section: Json
+          program_card_aspect_by_section_mobile: Json
+          program_card_aspect_mobile: string | null
           programs_section_order: Json
           programs_sections_enabled: Json
           seed_engine_enabled: boolean
@@ -4146,6 +4148,8 @@ export type Database = {
           primary_hsl?: string
           program_card_aspect?: string
           program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
           programs_section_order?: Json
           programs_sections_enabled?: Json
           seed_engine_enabled?: boolean
@@ -4216,6 +4220,8 @@ export type Database = {
           primary_hsl?: string
           program_card_aspect?: string
           program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
           programs_section_order?: Json
           programs_sections_enabled?: Json
           seed_engine_enabled?: boolean
