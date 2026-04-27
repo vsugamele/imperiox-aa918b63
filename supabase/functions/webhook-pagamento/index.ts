@@ -578,14 +578,15 @@ Deno.serve(async (req) => {
       }
       } // end of else (no promotable pending sale)
 
-      // Handle Ticto bumps as separate sales
+      // Handle Ticto bumps as separate sales (with dedup by external_transaction_id+produto)
       if (plataforma === "Ticto" && body?.order?.bumps && Array.isArray(body.order.bumps)) {
         for (const bump of body.order.bumps) {
           const bumpValor = ((bump.price || bump.amount || 0)) / 100;
           const bumpProduto = bump.product_name || bump.name || "Order Bump";
           if (bumpValor > 0) {
+            const bumpTxId = externalTxId ? `${externalTxId}:bump:${bump.hash || bump.id || bumpProduto}` : null;
             const bumpId = crypto.randomUUID();
-            await supabase.from("imphq_vendas").insert({
+            const { error: bumpErr } = await supabase.from("imphq_vendas").insert({
               id: bumpId,
               lead_id: leadId,
               project_id: projectId,
@@ -594,10 +595,17 @@ Deno.serve(async (req) => {
               plataforma,
               status: "aprovado",
               tipo_venda: "orderbump",
+              external_transaction_id: bumpTxId,
               data: { tipo_venda: "orderbump" },
               ...(data_compra ? { created_at: data_compra, data_venda: data_compra } : {}),
             });
-            console.log("[webhook-pagamento] Bump inserido:", bumpId, bumpProduto, bumpValor);
+            if (bumpErr && bumpErr.code === "23505") {
+              console.log("[webhook-pagamento] Bump duplicado ignorado:", bumpTxId);
+            } else if (bumpErr) {
+              console.error("[webhook-pagamento] Erro ao inserir bump:", bumpErr);
+            } else {
+              console.log("[webhook-pagamento] Bump inserido:", bumpId, bumpProduto, bumpValor);
+            }
           }
         }
       }
