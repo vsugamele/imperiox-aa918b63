@@ -23,6 +23,7 @@ import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 import DailyBriefing from "@/components/dashboard/DailyBriefing";
 import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
+import FacebookHealthAlert from "@/components/dashboard/FacebookHealthAlert";
 
 
 export default function Dashboard() {
@@ -111,6 +112,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <FacebookHealthAlert />
       <DailyBriefing projectFilter={dashProject} />
       <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <HotLeadAlerts projectFilter={dashProject} />
