@@ -87,6 +87,21 @@ Deno.serve(async (req) => {
         if (!insightsRes.ok) {
           const errBody = await insightsRes.text();
           console.error(`[FB Sync] ${proj.name} insights failed (${insightsRes.status}):`, errBody.slice(0, 500));
+          // Persist error state for dashboard alert
+          let parsedErr: any = {};
+          try { parsedErr = JSON.parse(errBody)?.error || {}; } catch (_) {}
+          const errData = {
+            ...proj.data,
+            facebook_sync_status: "error",
+            facebook_sync_error: {
+              status: insightsRes.status,
+              code: parsedErr.code || null,
+              subcode: parsedErr.error_subcode || null,
+              message: (parsedErr.message || errBody.slice(0, 300)),
+              at: new Date().toISOString(),
+            },
+          };
+          await supabase.from("imphq_projects").update({ data: errData }).eq("id", proj.id);
           results.push({ project_id: proj.id, name: proj.name, imported: 0, errors: 1, creatives: 0 });
           continue;
         }
