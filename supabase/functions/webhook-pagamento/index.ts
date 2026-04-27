@@ -510,20 +510,35 @@ Deno.serve(async (req) => {
       if (promotable) {
         const upd: any = { status: "aprovado" };
         if (data_compra) upd.data_venda = data_compra;
+        if (externalTxId) upd.external_transaction_id = externalTxId;
         await supabase.from("imphq_vendas").update(upd).eq("id", promotable.id);
         console.log("[webhook-pagamento] Promoted pending sale to aprovado:", promotable.id);
       } else {
 
-      // Deduplication: check if same APPROVED sale exists within last 5 minutes
-      const { data: existingDup } = await supabase
-        .from("imphq_vendas")
-        .select("id")
-        .eq("lead_id", leadId)
-        .eq("produto_nome", produto)
-        .eq("valor", valor)
-        .eq("status", "aprovado")
-        .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString())
-        .limit(1);
+      // Deduplication: try external_transaction_id first (strongest), fallback to 5-min window
+      let existingDup: any[] | null = null;
+      if (externalTxId && projectId) {
+        const { data } = await supabase
+          .from("imphq_vendas")
+          .select("id")
+          .eq("project_id", projectId)
+          .eq("external_transaction_id", externalTxId)
+          .eq("produto_nome", produto || "")
+          .limit(1);
+        existingDup = data;
+      }
+      if (!existingDup || existingDup.length === 0) {
+        const { data } = await supabase
+          .from("imphq_vendas")
+          .select("id")
+          .eq("lead_id", leadId)
+          .eq("produto_nome", produto)
+          .eq("valor", valor)
+          .eq("status", "aprovado")
+          .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString())
+          .limit(1);
+        existingDup = data;
+      }
 
       if (existingDup && existingDup.length > 0) {
         console.log("[webhook-pagamento] Venda duplicada ignorada para lead", leadId);
@@ -542,6 +557,7 @@ Deno.serve(async (req) => {
           plataforma,
           status: "aprovado",
           tipo_venda,
+          external_transaction_id: externalTxId,
           data: Object.keys(vendaData).length > 0 ? vendaData : null,
         };
         if (data_compra) {
@@ -550,7 +566,12 @@ Deno.serve(async (req) => {
         }
         const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
         if (vendaErr) {
-          console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
+          // 23505 = unique_violation: another concurrent webhook already inserted this transaction. Treat as success.
+          if (vendaErr.code === "23505") {
+            console.log("[webhook-pagamento] Venda já existente (unique_violation), ignorando duplicata:", externalTxId);
+          } else {
+            console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
+          }
         } else {
           console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
         }
