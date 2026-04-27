@@ -1,42 +1,58 @@
-## Problema confirmado
-Encontrei **21 grupos duplicados nos últimos 60 dias** inflando **R$ 3.769,37** em receita. Exemplo: mesma venda Hotmart inserida 2x no mesmo segundo (race condition + payload em formatos distintos escapando da dedup atual de 5 min).
+# Gerenciador de Anúncios — Estilo Meta Ads Manager
 
-## Causa raiz no `webhook-pagamento`
-1. Dedup só compara janela de 5 min + lead+produto+valor → eventos duplicados fora da janela passam
-2. Sem chave única por transação (`codigo_pedido` / `transaction_id`)
-3. Race condition: dois webhooks simultâneos fazem `SELECT` ao mesmo tempo, ambos não encontram, ambos inserem
-4. Bumps Ticto sem nenhuma dedup
-5. Status `'aprovado'` vs `'aprovada'` tratados como diferentes em alguns lugares
+Replicar o gerenciador da referência dentro do Imperio HQ: tabela densa de campanhas com toggle ATIVO/PAUSADO funcional (sincroniza com a Meta), colunas de KPI ordenáveis, paginação, busca, exportação CSV e Histórico de Ações abaixo. Tudo na paleta Imperial Gold.
 
-## Correções
+## O que vai existir
 
-### 1. Migration: chave única no banco (defesa final)
-- Adicionar coluna `external_transaction_id TEXT` em `imphq_vendas` (codigo_pedido / transaction.hash / order_hash)
-- Backfill da coluna a partir do JSONB `data` para vendas existentes
-- Índice `UNIQUE (project_id, external_transaction_id) WHERE external_transaction_id IS NOT NULL`
-- Isso garante que mesmo com race condition o segundo insert falha
+**Nova rota `/gerenciador`** (entrada no sidebar abaixo de Finanças) com:
 
-### 2. Limpeza dos duplicados históricos
-- Migration que mantém apenas 1 venda por grupo (a com payload mais completo / `data` não vazio), apagando as demais
-- Rodar em transação, com log do que foi removido em `imphq_events` pra rastreabilidade
+1. **Header**: Título "Gerenciador" + botões `↓ CSV` e seletor de período (reaproveita `periodUtils`).
+2. **Tabs**: `Meta Ads` | `Google Ads` (Google fica como placeholder "em breve" por enquanto).
+3. **Tabela de Campanhas** (agregado por `campanha` no período):
+   - Colunas: ☑ select · 🟢 toggle status · NOME · INVEST. · IMPR. · CLIQ. · CTR · CPC · IC (init checkout) · CPI · COMPRAS · **CPA** (vermelho se acima da meta) · **RECEITA** · **ROAS ▼** (badge colorida: verde >2x, amarelo 1-2x, vermelho <1x) · ORÇ./DIA
+   - Busca por nome, paginação (10/20/50), ordenação clicando no header (ROAS default desc), seleção em massa.
+   - Toggle real: chama nova Edge Function `facebook-ads-toggle` que faz `POST graph.facebook.com/{campaign_id}` com `status: PAUSED|ACTIVE` e grava log.
+4. **Histórico de Ações**: tabela abaixo lendo `imphq_ads_actions` (nova tabela): QUANDO · AÇÃO · PLAT. · TIPO · ENTIDADE · MUDANÇA · RESULTADO · DURAÇÃO.
 
-### 3. Refatorar `webhook-pagamento/index.ts`
-- Extrair `external_transaction_id` no topo, pra todas plataformas (Hotmart `transaction`, Ticto `order.hash`, Kiwify `order_id`)
-- Antes de cada insert de venda aprovada / bump: `SELECT` por `external_transaction_id` no projeto → se existir, faz UPDATE em vez de INSERT
-- Tratar erro `23505` (unique_violation) como sucesso silencioso (foi outro processo que ganhou a corrida)
-- Aplicar mesma lógica para bumps Ticto
+## Mudanças técnicas
 
-### 4. Normalizar status
-- Migration leve: `UPDATE imphq_vendas SET status='aprovado' WHERE status='aprovada'`
+**Banco — migration**:
+- `imphq_ads_spend`: adicionar `campaign_id text`, `adset_id text`, `ad_id text`, `effective_status text`, `daily_budget numeric` (índices em `campaign_id`, `project_id+data_ref`).
+- Nova tabela `imphq_ads_actions`: `id, project_id, plataforma, tipo (campaign|adset|ad), entidade_id, entidade_nome, acao (ativou|pausou|orcamento|etc), valor_anterior, valor_novo, resultado (ok|erro), erro_msg, duracao_ms, created_at, created_by`. RLS por projeto.
 
-## Arquivos afetados
-- **Nova migration**: adicionar coluna + backfill + índice único + dedup histórica + normalização de status
-- **Editar** `supabase/functions/webhook-pagamento/index.ts`: extração de `external_transaction_id`, dedup forte, tratamento de unique_violation
+**Edge Functions**:
+- `facebook-ads-sync-all` / `facebook-ads-sync`: passar a salvar `campaign_id`, `adset_id`, `ad_id`, `effective_status` e `daily_budget` (campos `id` e `daily_budget` no endpoint `/campaigns`).
+- Nova `facebook-ads-toggle`: recebe `{ project_id, entity_type, entity_id, action: 'ACTIVE'|'PAUSED' }`, busca token em `imphq_integration_credentials`, faz `POST /{entity_id}` com `status`, mede latência, grava em `imphq_ads_actions`, atualiza `effective_status` local.
 
-## Riscos
-- Backfill precisa lidar com payloads em formatos heterogêneos (Hotmart, Ticto, Kiwify) — vou mapear os campos por plataforma antes
-- Índice UNIQUE pode falhar na criação se houver duplicatas remanescentes → a limpeza histórica precede a criação do índice na mesma migration
+**Frontend**:
+- `src/pages/Gerenciador.tsx` (nova página, rota em `App.tsx` + item no `AppSidebar`).
+- `src/components/gerenciador/CampanhasTable.tsx`: tabela com sort/paginação/busca/toggle (otimista + rollback em erro).
+- `src/components/gerenciador/AcoesHistorico.tsx`: lista do `imphq_ads_actions` (Realtime opcional).
+- `src/components/gerenciador/RoasBadge.tsx`, `StatusToggle.tsx` (utilitários visuais).
+- Reaproveita `DateRangePicker` de Finanças e a lógica de agregação por campanha de `FinancasAds.tsx`.
 
-## Resultado esperado
-- Receita real reduzida em ~R$ 3.769,37 (correção, não perda)
-- Zero duplicatas futuras, mesmo sob retries da Hotmart ou race conditions
+**Memória**:
+- Atualizar `mem://features/ads/automation-tools` adicionando o Gerenciador (toggle real, histórico de ações).
+
+## Layout (ASCII)
+
+```text
+┌─ Gerenciador ─────────────────── [↓CSV] [📅 25/03 → 24/04] ┐
+│ [Meta Ads] Google Ads                                       │
+│ Todas as Campanhas                                          │
+│ 🔍 Buscar...    73 registros  Exibir 10 20 50    < 1/8 >    │
+│ ☐ 🟢 Nome              INVEST  IMPR  CLIQ CTR CPC IC CPI ...│
+│ ☐ 🟢 Campanha A        R$227   4.684  47  1%  4,84 1 227 ...│
+│ ...                                                         │
+├─ ⌁ Histórico de Ações ──────────────────────────────────────┤
+│ QUANDO          AÇÃO    PLAT  TIPO  ENTIDADE  MUDANÇA  ...  │
+│ 24/04 02:41:37  ▶Ativou META  ad    ad 06     →ACTIVE  ✓ok  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Fora do escopo (próxima iteração se quiser)
+- Edição inline de orçamento diário (apenas leitura nesta versão).
+- Aba Google Ads funcional (depende de outro connector).
+- Toggle a nível de adset/ad (esta versão começa por campanha — a estrutura já suporta os outros).
+
+Posso seguir com a implementação?
