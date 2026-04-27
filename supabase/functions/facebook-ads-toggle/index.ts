@@ -9,6 +9,7 @@ const FB_API_VERSION = "v19.0";
 const FB_BASE = `https://graph.facebook.com/${FB_API_VERSION}`;
 
 type EntityType = "campaign" | "adset" | "ad";
+type Action = "ACTIVE" | "PAUSED" | "UPDATE_BUDGET" | "DUPLICATE_CAMPAIGN";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -28,10 +29,12 @@ Deno.serve(async (req) => {
   const entity_type: EntityType = body.entity_type;
   const entity_id: string | undefined = body.entity_id;
   const entity_name: string | undefined = body.entity_name;
-  const action: "ACTIVE" | "PAUSED" = body.action;
+  const action: Action = body.action;
   const previous_status: string | undefined = body.previous_status;
+  const daily_budget_brl: number | undefined = body.daily_budget; // em reais
+  const previous_budget: number | undefined = body.previous_budget;
 
-  if (!project_id || !entity_type || !entity_id || !["ACTIVE", "PAUSED"].includes(action)) {
+  if (!project_id || !entity_type || !entity_id || !action) {
     return new Response(JSON.stringify({ error: "Missing/invalid params" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -64,6 +67,20 @@ Deno.serve(async (req) => {
   }
   accessToken = accessToken.replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
 
+  const acaoLabel =
+    action === "ACTIVE" ? "ativou" :
+    action === "PAUSED" ? "pausou" :
+    action === "UPDATE_BUDGET" ? "editou_orcamento" :
+    "duplicou";
+
+  const valorAnterior =
+    action === "UPDATE_BUDGET" ? (previous_budget != null ? String(previous_budget) : null) :
+    previous_status ?? null;
+
+  const valorNovo =
+    action === "UPDATE_BUDGET" ? (daily_budget_brl != null ? String(daily_budget_brl) : null) :
+    action;
+
   const logAction = async (resultado: "ok" | "erro", erro_msg?: string) => {
     const duracao_ms = Date.now() - startedAt;
     await supabase.from("imphq_ads_actions").insert({
@@ -72,9 +89,9 @@ Deno.serve(async (req) => {
       tipo: entity_type,
       entidade_id: entity_id,
       entidade_nome: entity_name ?? null,
-      acao: action === "ACTIVE" ? "ativou" : "pausou",
-      valor_anterior: previous_status ?? null,
-      valor_novo: action,
+      acao: acaoLabel,
+      valor_anterior: valorAnterior,
+      valor_novo: valorNovo,
       resultado,
       erro_msg: erro_msg ?? null,
       duracao_ms,
@@ -90,11 +107,31 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = `${FB_BASE}/${entity_id}?access_token=${accessToken}`;
+    let url = `${FB_BASE}/${entity_id}?access_token=${accessToken}`;
+    let payload: Record<string, unknown> = {};
+    let method: "POST" = "POST";
+
+    if (action === "ACTIVE" || action === "PAUSED") {
+      payload = { status: action };
+    } else if (action === "UPDATE_BUDGET") {
+      if (daily_budget_brl == null || isNaN(Number(daily_budget_brl)) || Number(daily_budget_brl) <= 0) {
+        await logAction("erro", "Orçamento inválido");
+        return new Response(JSON.stringify({ error: "Orçamento inválido" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const cents = Math.round(Number(daily_budget_brl) * 100);
+      payload = { daily_budget: cents };
+    } else if (action === "DUPLICATE_CAMPAIGN") {
+      url = `${FB_BASE}/${entity_id}/copies?access_token=${accessToken}`;
+      payload = { deep_copy: true, status_option: "PAUSED" };
+    }
+
     const fbRes = await fetch(url, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: action }),
+      body: JSON.stringify(payload),
     });
     const fbBody = await fbRes.json();
 
@@ -107,18 +144,28 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Atualiza effective_status local (todos os registros com esse campaign/adset/ad)
+    // Atualiza estado local em imphq_ads_spend
     const idColumn =
       entity_type === "campaign" ? "campaign_id" : entity_type === "adset" ? "adset_id" : "ad_id";
-    await supabase
-      .from("imphq_ads_spend")
-      .update({ effective_status: action })
-      .eq("project_id", project_id)
-      .eq(idColumn, entity_id);
+
+    if (action === "ACTIVE" || action === "PAUSED") {
+      await supabase
+        .from("imphq_ads_spend")
+        .update({ effective_status: action })
+        .eq("project_id", project_id)
+        .eq(idColumn, entity_id);
+    } else if (action === "UPDATE_BUDGET") {
+      await supabase
+        .from("imphq_ads_spend")
+        .update({ daily_budget: Number(daily_budget_brl) })
+        .eq("project_id", project_id)
+        .eq(idColumn, entity_id);
+    }
+    // Para DUPLICATE_CAMPAIGN, dependemos do próximo sync para popular os novos registros.
 
     await logAction("ok");
 
-    return new Response(JSON.stringify({ success: true, status: action }), {
+    return new Response(JSON.stringify({ success: true, fb: fbBody }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
