@@ -18,6 +18,7 @@ import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
 import GrowthDashboard from "@/components/dashboard/GrowthDashboard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
+import AcquisitionFunnel from "@/components/dashboard/AcquisitionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 import DailyBriefing from "@/components/dashboard/DailyBriefing";
@@ -119,7 +120,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2">
           <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
         </div>
-        <ConversionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+        <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
