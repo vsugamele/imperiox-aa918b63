@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 interface Props {
   value: number | null | undefined;
   disabled?: boolean;
-  onSave: (next: number) => Promise<void>;
+  onSave: (next: number) => void | Promise<void>;
 }
 
 function brl(v: number) {
