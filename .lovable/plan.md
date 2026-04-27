@@ -1,58 +1,39 @@
-# Gerenciador de Anúncios — Estilo Meta Ads Manager
+## Alerta de Integração Facebook no Dashboard
 
-Replicar o gerenciador da referência dentro do Imperio HQ: tabela densa de campanhas com toggle ATIVO/PAUSADO funcional (sincroniza com a Meta), colunas de KPI ordenáveis, paginação, busca, exportação CSV e Histórico de Ações abaixo. Tudo na paleta Imperial Gold.
+Adicionar um alerta visível no topo do Dashboard quando a integração com o Facebook Ads entrar em estado de erro (token expirado, checkpoint, permissões), pra você não depender de notar manualmente que a sincronização parou.
 
-## O que vai existir
+### Como vai funcionar
 
-**Nova rota `/gerenciador`** (entrada no sidebar abaixo de Finanças) com:
+**Detecção do erro (backend)**
+- A Edge Function `facebook-ads-sync-all` já captura erros 400 da Graph API com subcode 459/190 nos logs.
+- Vou estendê-la para **persistir** o estado do erro: salvar em `imphq_integration_credentials` (campo `data` JSONB) os campos `last_sync_status`, `last_sync_error`, `last_sync_at` e `last_error_subcode` por projeto/ad_account.
+- Quando o sync rodar com sucesso, esses campos são limpos automaticamente.
 
-1. **Header**: Título "Gerenciador" + botões `↓ CSV` e seletor de período (reaproveita `periodUtils`).
-2. **Tabs**: `Meta Ads` | `Google Ads` (Google fica como placeholder "em breve" por enquanto).
-3. **Tabela de Campanhas** (agregado por `campanha` no período):
-   - Colunas: ☑ select · 🟢 toggle status · NOME · INVEST. · IMPR. · CLIQ. · CTR · CPC · IC (init checkout) · CPI · COMPRAS · **CPA** (vermelho se acima da meta) · **RECEITA** · **ROAS ▼** (badge colorida: verde >2x, amarelo 1-2x, vermelho <1x) · ORÇ./DIA
-   - Busca por nome, paginação (10/20/50), ordenação clicando no header (ROAS default desc), seleção em massa.
-   - Toggle real: chama nova Edge Function `facebook-ads-toggle` que faz `POST graph.facebook.com/{campaign_id}` com `status: PAUSED|ACTIVE` e grava log.
-4. **Histórico de Ações**: tabela abaixo lendo `imphq_ads_actions` (nova tabela): QUANDO · AÇÃO · PLAT. · TIPO · ENTIDADE · MUDANÇA · RESULTADO · DURAÇÃO.
+**Componente visual (frontend)**
+- Novo componente `FacebookHealthAlert.tsx` em `src/components/dashboard/`.
+- Renderiza no topo do Dashboard (acima do `DashboardAlerts` existente), só aparece quando há erro ativo.
+- Visual: card vermelho/âmbar com ícone de alerta, mensagem clara em pt-BR, e CTA "Renovar Token" que leva pra `/configuracoes` (aba Integrações).
 
-## Mudanças técnicas
+**Mensagens contextuais por subcode**
+- `459` (checkpoint): "🔒 Facebook bloqueou o acesso por segurança. Faça login em facebook.com, resolva o checkpoint e renove o token."
+- `190` (token expirado): "⏰ Token do Facebook expirou. Renove em Configurações → Integrações."
+- Outros 400/403: "⚠️ Erro na sincronização do Facebook Ads. Última tentativa: {data}."
 
-**Banco — migration**:
-- `imphq_ads_spend`: adicionar `campaign_id text`, `adset_id text`, `ad_id text`, `effective_status text`, `daily_budget numeric` (índices em `campaign_id`, `project_id+data_ref`).
-- Nova tabela `imphq_ads_actions`: `id, project_id, plataforma, tipo (campaign|adset|ad), entidade_id, entidade_nome, acao (ativou|pausou|orcamento|etc), valor_anterior, valor_novo, resultado (ok|erro), erro_msg, duracao_ms, created_at, created_by`. RLS por projeto.
+**Detalhes mostrados**
+- Nome dos projetos afetados (ex: "JP Freitas, Tatuagem — Jonathan").
+- Última sincronização bem-sucedida (ex: "Última coleta: 26/04/2026 às 14h").
+- Botões: "Renovar Token" → `/configuracoes`, "Ver Logs" → abre painel com detalhes técnicos.
 
-**Edge Functions**:
-- `facebook-ads-sync-all` / `facebook-ads-sync`: passar a salvar `campaign_id`, `adset_id`, `ad_id`, `effective_status` e `daily_budget` (campos `id` e `daily_budget` no endpoint `/campaigns`).
-- Nova `facebook-ads-toggle`: recebe `{ project_id, entity_type, entity_id, action: 'ACTIVE'|'PAUSED' }`, busca token em `imphq_integration_credentials`, faz `POST /{entity_id}` com `status`, mede latência, grava em `imphq_ads_actions`, atualiza `effective_status` local.
+### Arquivos
 
-**Frontend**:
-- `src/pages/Gerenciador.tsx` (nova página, rota em `App.tsx` + item no `AppSidebar`).
-- `src/components/gerenciador/CampanhasTable.tsx`: tabela com sort/paginação/busca/toggle (otimista + rollback em erro).
-- `src/components/gerenciador/AcoesHistorico.tsx`: lista do `imphq_ads_actions` (Realtime opcional).
-- `src/components/gerenciador/RoasBadge.tsx`, `StatusToggle.tsx` (utilitários visuais).
-- Reaproveita `DateRangePicker` de Finanças e a lógica de agregação por campanha de `FinancasAds.tsx`.
+**Editados:**
+- `supabase/functions/facebook-ads-sync-all/index.ts` — persistir status do sync por credencial
+- `src/pages/Dashboard.tsx` — montar o novo componente
 
-**Memória**:
-- Atualizar `mem://features/ads/automation-tools` adicionando o Gerenciador (toggle real, histórico de ações).
+**Criados:**
+- `src/components/dashboard/FacebookHealthAlert.tsx`
 
-## Layout (ASCII)
+**Migration:** nenhuma necessária (uso o JSONB `data` existente em `imphq_integration_credentials`).
 
-```text
-┌─ Gerenciador ─────────────────── [↓CSV] [📅 25/03 → 24/04] ┐
-│ [Meta Ads] Google Ads                                       │
-│ Todas as Campanhas                                          │
-│ 🔍 Buscar...    73 registros  Exibir 10 20 50    < 1/8 >    │
-│ ☐ 🟢 Nome              INVEST  IMPR  CLIQ CTR CPC IC CPI ...│
-│ ☐ 🟢 Campanha A        R$227   4.684  47  1%  4,84 1 227 ...│
-│ ...                                                         │
-├─ ⌁ Histórico de Ações ──────────────────────────────────────┤
-│ QUANDO          AÇÃO    PLAT  TIPO  ENTIDADE  MUDANÇA  ...  │
-│ 24/04 02:41:37  ▶Ativou META  ad    ad 06     →ACTIVE  ✓ok  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Fora do escopo (próxima iteração se quiser)
-- Edição inline de orçamento diário (apenas leitura nesta versão).
-- Aba Google Ads funcional (depende de outro connector).
-- Toggle a nível de adset/ad (esta versão começa por campanha — a estrutura já suporta os outros).
-
-Posso seguir com a implementação?
+### Bônus opcional
+Se quiser, posso também disparar uma **notificação push PWA** quando o erro for detectado pela primeira vez (1x por incidente, sem spam), reaproveitando o `send-push` que já existe. Me confirme se quer incluir.
