@@ -598,6 +598,7 @@ function ReactFragment(props: {
         {isVisible("daily_budget") && <TableCell className="text-right">
           <BudgetEditor value={adsetBudget} disabled={!/^\d+$/.test(adset.id)} onSave={onBudget} />
         </TableCell>}
+        {isVisible("verdict") && <TableCell></TableCell>}
       </TableRow>
 
       {adsetExpanded && adsRows.map((ad) => {
@@ -610,9 +611,26 @@ function ReactFragment(props: {
             <TableCell>
               <StatusToggle status={adStatus} loading={togglingId === ad.id} onChange={(n) => onAdToggle(ad, n)} />
             </TableCell>
-            <TableCell className="text-muted-foreground/80 max-w-[240px] truncate" title={ad.name}>
+            <TableCell className="text-muted-foreground/80 max-w-[260px] truncate" title={ad.name}>
               <span className="inline-block" style={indent(2)} />
-              <span className="text-[9px] uppercase tracking-wider mr-1.5 text-primary/40">ad</span>{ad.name}
+              <span className="inline-flex items-center gap-1.5 align-middle">
+                {ad.thumbnail_url ? (
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <img src={ad.thumbnail_url} alt="" className="h-7 w-7 rounded object-cover border border-border/40 cursor-pointer" />
+                    </HoverCardTrigger>
+                    <HoverCardContent side="right" className="w-64 p-2 bg-secondary border-border/40">
+                      <img src={ad.thumbnail_url} alt="" className="w-full rounded mb-2" />
+                      {ad.creative_title && <p className="text-xs font-medium text-foreground/90 mb-1">{ad.creative_title}</p>}
+                      {ad.creative_body && <p className="text-[11px] text-muted-foreground leading-snug line-clamp-4">{ad.creative_body}</p>}
+                    </HoverCardContent>
+                  </HoverCard>
+                ) : (
+                  <span className="h-7 w-7 rounded bg-secondary/40 border border-border/30 inline-flex items-center justify-center"><ImageIcon className="h-3 w-3 text-muted-foreground/40" /></span>
+                )}
+                <span className="text-[9px] uppercase tracking-wider text-primary/40">ad</span>
+                <span className="truncate">{ad.name}</span>
+              </span>
             </TableCell>
             {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(ad.valor)}</TableCell>}
             {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(ad.impressoes)}</TableCell>}
@@ -634,6 +652,7 @@ function ReactFragment(props: {
             {isVisible("daily_budget") && <TableCell className="text-right">
               <BudgetEditor value={adBudget} disabled={!/^\d+$/.test(ad.id)} onSave={(n) => onAdBudget(ad, n)} />
             </TableCell>}
+            {isVisible("verdict") && <TableCell></TableCell>}
           </TableRow>
         );
       })}
