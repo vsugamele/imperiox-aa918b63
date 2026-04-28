@@ -8,6 +8,8 @@ import { Download, Calendar } from "lucide-react";
 import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { CampanhasTable } from "@/components/gerenciador/CampanhasTable";
 import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
+import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
+import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
 
 const PERIODS = [
   { label: "Hoje", days: 0 },
@@ -22,8 +24,11 @@ export default function Gerenciador() {
   const [projectId, setProjectId] = useState<string>("__all__");
   const [days, setDays] = useState<number>(30);
   const [ads, setAds] = useState<any[]>([]);
+  const [adsPrev, setAdsPrev] = useState<any[]>([]);
   const [vendas, setVendas] = useState<any[]>([]);
+  const [vendasPrev, setVendasPrev] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [forcedSearch, setForcedSearch] = useState<string | undefined>();
 
   // Carregar projetos
   useEffect(() => {
@@ -33,20 +38,37 @@ export default function Gerenciador() {
     })();
   }, []);
 
-  // Carregar ads + vendas pelo período
+  // Carregar ads + vendas (atual + período anterior em paralelo)
   useEffect(() => {
     (async () => {
+      const span = Math.max(1, days);
       const from = localDaysAgo(days);
       const to = toLocalDateStr();
-      let qa = supabase.from("imphq_ads_spend").select("*").gte("data_ref", from).lte("data_ref", to).limit(2000);
-      let qv = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, plataforma, data_venda, utm_campaign").gte("data_venda", from).lte("data_venda", to).limit(2000);
-      if (projectId !== "__all__") {
-        qa = qa.eq("project_id", projectId);
-        qv = qv.eq("project_id", projectId);
-      }
-      const [{ data: aData }, { data: vData }] = await Promise.all([qa, qv]) as any;
-      setAds(aData || []);
-      setVendas(vData || []);
+      const fromPrev = localDaysAgo(days * 2 + 1);
+      const toPrev = localDaysAgo(span + 1);
+
+      const baseAds = (gte: string, lte: string) => {
+        let q = supabase.from("imphq_ads_spend").select("*").gte("data_ref", gte).lte("data_ref", lte).limit(2000);
+        if (projectId !== "__all__") q = q.eq("project_id", projectId);
+        return q;
+      };
+      const baseVendas = (gte: string, lte: string) => {
+        let q = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, plataforma, data_venda, utm_campaign").gte("data_venda", gte).lte("data_venda", lte).limit(2000);
+        if (projectId !== "__all__") q = q.eq("project_id", projectId);
+        return q;
+      };
+
+      const [a1, a2, v1, v2] = await Promise.all([
+        baseAds(from, to),
+        baseAds(fromPrev, toPrev),
+        baseVendas(from, to),
+        baseVendas(fromPrev, toPrev),
+      ]) as any;
+
+      setAds(a1.data || []);
+      setAdsPrev(a2.data || []);
+      setVendas(v1.data || []);
+      setVendasPrev(v2.data || []);
     })();
   }, [projectId, days, refreshKey]);
 
@@ -56,6 +78,19 @@ export default function Gerenciador() {
     const fmt = (s: string) => s.split("-").reverse().slice(0, 2).join("/");
     return `${fmt(from)} → ${fmt(to)}`;
   }, [days]);
+
+  // Totais (atual e anterior) — Meta apenas
+  const metaAds = useMemo(() => ads.filter(a => a.plataforma === "Facebook" || a.plataforma === "Meta"), [ads]);
+  const metaAdsPrev = useMemo(() => adsPrev.filter(a => a.plataforma === "Facebook" || a.plataforma === "Meta"), [adsPrev]);
+
+  const totals = useMemo(() => {
+    const sum = (arr: any[], key: string) => arr.reduce((s, x) => s + Number(x[key] || 0), 0);
+    const sumVendas = (arr: any[]) => arr.reduce((s, v) => s + Number(v.valor || 0), 0);
+    return {
+      cur: { valor: sum(metaAds, "valor"), compras: sum(metaAds, "compras"), receita: sumVendas(vendas) },
+      prev: { valor: sum(metaAdsPrev, "valor"), compras: sum(metaAdsPrev, "compras"), receita: sumVendas(vendasPrev) },
+    };
+  }, [metaAds, metaAdsPrev, vendas, vendasPrev]);
 
   const exportCsv = () => {
     if (ads.length === 0) return;
@@ -110,13 +145,22 @@ export default function Gerenciador() {
         </TabsList>
 
         <TabsContent value="meta" className="space-y-6 mt-4">
+          {/* KPI Cards com Δ% vs período anterior */}
+          <KpiCardsHeader current={totals.cur} previous={totals.prev} />
+
+          {/* Alertas críticos */}
+          <AlertsHeader ads={metaAds} onFilter={(term) => setForcedSearch(term)} />
+
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Todas as Campanhas</p>
             <CampanhasTable
-              ads={ads.filter(a => a.plataforma === "Facebook" || a.plataforma === "Meta")}
+              ads={metaAds}
+              adsPrev={metaAdsPrev}
               vendas={vendas}
               projectId={projectId !== "__all__" ? projectId : undefined}
               onAfterToggle={() => setRefreshKey(k => k + 1)}
+              forcedSearch={forcedSearch}
+              onSearchChange={() => setForcedSearch(undefined)}
             />
           </div>
 
