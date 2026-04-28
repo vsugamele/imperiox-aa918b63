@@ -39,8 +39,8 @@ interface Props {
   dailySpendByCamp?: Map<string, number[]>;
 }
 
-type SortKeyForLine = Exclude<SortKey, "trend" | "name">;
-const _unused: SortKeyForLine = "valor";
+type Level = "campaign" | "adset" | "ad";
+type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt" | "verdict" | "trend";
 
 interface Row {
   level: Level;
