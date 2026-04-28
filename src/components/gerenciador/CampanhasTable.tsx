@@ -265,7 +265,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
       const v = (r as any).verdict as Verdict;
       if (v === "ESCALAR") c.ESCALAR++;
       if (v === "MATAR") c.MATAR++;
-      if (v === "SATURADO") c.SATURADO++;
+      if (r.frequencia > 4) c.SATURADO++;
       if (r.compras === 0 && r.valor > 50) c.SEM_VENDA++;
       const status = optimistic.get(r.id) ?? r.effective_status;
       if (status === "PAUSED") c.PAUSADO++;
@@ -281,7 +281,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
       const status = optimistic.get(r.id) ?? r.effective_status;
       if (quickFilter === "ESCALAR") return v === "ESCALAR";
       if (quickFilter === "MATAR") return v === "MATAR";
-      if (quickFilter === "SATURADO") return v === "SATURADO";
+      if (quickFilter === "SATURADO") return r.frequencia > 4;
       if (quickFilter === "SEM_VENDA") return r.compras === 0 && r.valor > 50;
       if (quickFilter === "PAUSADO") return status === "PAUSED";
       return true;
