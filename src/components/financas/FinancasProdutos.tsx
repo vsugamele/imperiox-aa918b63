@@ -120,6 +120,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
         nome,
         qtd: data.qtd,
         receita,
+        receitaBruta: data.receitaBruta,
+        receitaLiquida: data.receitaLiquida,
         receitaVendas: data.receita,
         receitaManual: data.receitaManual,
         custos: data.custos,
@@ -136,6 +138,12 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
       };
     })
     .sort((a, b) => b.receita - a.receita);
+
+  // Split summary — only products with sales where bruto != liquido
+  const splitProducts = products.filter(p => p.qtd > 0 && Math.abs(p.receitaBruta - p.receitaLiquida) > 0.01);
+  const totalBrutoVendas = products.reduce((a, p) => a + p.receitaBruta, 0);
+  const totalLiquidoVendas = products.reduce((a, p) => a + p.receitaLiquida, 0);
+  const expertShare = totalBrutoVendas - totalLiquidoVendas;
 
   const totalReceita = products.reduce((a, p) => a + p.receita, 0);
   const totalVendas = products.reduce((a, p) => a + p.qtd, 0);
