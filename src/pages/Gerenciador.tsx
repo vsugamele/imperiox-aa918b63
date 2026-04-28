@@ -182,6 +182,7 @@ export default function Gerenciador() {
               onAfterToggle={() => setRefreshKey(k => k + 1)}
               forcedSearch={forcedSearch}
               onSearchChange={() => setForcedSearch(undefined)}
+              dailySpendByCamp={dailySpendByCamp}
             />
           </div>
 
