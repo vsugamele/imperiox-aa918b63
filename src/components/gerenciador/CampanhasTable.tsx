@@ -630,9 +630,7 @@ async function callRename(supabaseClient: typeof supabase, projectId: string | u
     return false;
   }
 }
-    </div>
-  );
-}
+
 
 function labelFor(k: SortKey): string {
   const map: Record<string, string> = {
