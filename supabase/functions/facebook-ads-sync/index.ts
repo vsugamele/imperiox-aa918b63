@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
     // 1. Fetch insights at ad level, daily — full funnel + video
     const fields = [
       "campaign_name", "adset_name", "ad_name",
+      "ad_id", "adset_id", "campaign_id",
       "spend", "impressions", "reach", "clicks", "ctr", "frequency",
       "actions", "inline_link_clicks",
       "video_play_actions", "video_thruplay_watched_actions",
