@@ -1,56 +1,37 @@
-## Status atual (já implementado)
+## Diagnóstico
 
-Boa notícia — quase tudo já está pronto no projeto:
+As três rotas (`/gerenciador`, `/cohort`, `/recuperacao`) **estão** corretamente registradas em `src/App.tsx` (linhas 89-91), os arquivos `src/pages/Gerenciador.tsx`, `Cohort.tsx` e `Recuperacao.tsx` existem, e o sidebar `AppSidebar.tsx` aponta para elas.
 
-- `OPENAI_API_KEY` já configurado nos secrets
-- `creative-factory` já tem `generateImageOpenAI()`, mapeamento de tamanhos (1024x1024 / 1024x1536 / 1536x1024), tipo `ImageProvider` e roteamento via `briefing.image_provider`
-- `CriativoNovo.tsx` já tem o `Select` com "Gemini Nano Banana" vs "OpenAI gpt-image-1" e envia `image_provider`
+O 404 que você vê é o `NotFound.tsx` do React Router — ou seja, o app carregou, mas o router atual não reconhece esses paths. Isso só acontece se o navegador estiver executando um **bundle JS antigo** (anterior à adição dessas rotas), servido pelo Service Worker do PWA.
 
-## O que falta para fechar a Opção B
+Confere com o histórico: ontem mexemos pesado no `creative-factory`, `ProjetoDetalhe`, `SalesPathButton` etc. — o SW provavelmente cacheou o `index.html` + chunks antigos antes do último deploy.
 
-### 1. Edição de asset (`edit_asset`) respeitar o provider
+## Plano de correção
 
-Hoje, quando você edita um criativo já gerado pelo OpenAI, o backend força edição via Gemini (`gemini-3.1-flash-image-preview`). Vou:
+### Passo 1 — Verificar via browser tools (sem código)
+Abrir o preview, inspecionar:
+- Se o Service Worker está registrado e qual versão
+- Console: erro de chunk load / "Failed to fetch dynamically imported module"
+- Network: confirmar se `App.tsx` bundle vem do cache ou do servidor
 
-- Persistir o `provider` usado em cada asset (coluna nova `image_provider` em `imphq_creative_assets`, default `'lovable-gemini'`)
-- Ler esse provider no `action: edit_asset` e rotear:
-  - `lovable-gemini` → fluxo atual de edição multimodal (com referência da imagem original)
-  - `openai-image` → chamar `https://api.openai.com/v1/images/edits` com a imagem original (baixada do storage) + máscara opcional + instrução
-- Salvar o `image_provider` ao inserir cada asset gerado dentro de `processBatch`
+### Passo 2 — Forçar bump de versão do SW
+Em `public/sw-push.js` (e qualquer registro do Workbox), incrementar o `CACHE_VERSION` / `revision` para invalidar caches existentes e forçar `skipWaiting` + `clients.claim` no install/activate. Isso garante que usuários com PWA instalado recebam o novo bundle no próximo load.
 
-### 2. Selo visual do motor no Criativo
+### Passo 3 — Adicionar rotas ao precache allow-list (se aplicável)
+Confirmar que `/gerenciador`, `/cohort`, `/recuperacao` não estão sendo bloqueados pelo `navigateFallbackDenylist` do Workbox.
 
-Em `CriativoDetalhe.tsx`, mostrar um badge discreto ("Gemini" / "OpenAI gpt-image-1") ao lado de cada variação, pra você saber rapidamente qual motor gerou o quê — útil pra comparar qualidade lado a lado.
-
-### 3. Toggle do provider TAMBÉM no momento de editar
-
-No painel de edição do `CriativoDetalhe.tsx`, adicionar um pequeno seletor "Editar com: [Gemini] [OpenAI]" que sobrescreve o provider padrão do asset. Default = provider original do asset.
-
-### 4. Tratamento de erro amigável
-
-Se `OPENAI_API_KEY` faltar ou a OpenAI retornar erro (quota, billing, conteúdo bloqueado), retornar mensagem clara via toast: "OpenAI gpt-image-1 indisponível: {motivo}. Tente Gemini ou verifique sua chave."
+### Passo 4 — Instrução ao usuário
+Enquanto o novo SW não ativa: **hard refresh** (Ctrl+Shift+R) ou DevTools → Application → Service Workers → "Unregister" + Clear storage. Em produção (`imperiox.lovable.app`) o novo SW assume sozinho na próxima visita após o deploy.
 
 ## Detalhes técnicos
 
-**Migration**:
-```sql
-ALTER TABLE public.imphq_creative_assets 
-  ADD COLUMN IF NOT EXISTS image_provider TEXT DEFAULT 'lovable-gemini';
-```
+- Arquivos a inspecionar: `public/sw-push.js`, `vite.config.ts` (config do VitePWA/Workbox), `src/main.tsx` (registro do SW)
+- Arquivos a editar: provavelmente só `public/sw-push.js` ou config do Workbox para bump de versão
+- Não tocar em `App.tsx` nem nas páginas — estão corretos
 
-**Edge function `creative-factory`**:
-- Nova função `generateImageOpenAIEdit(imageBytes, prompt, formato)` → `POST https://api.openai.com/v1/images/edits` com `model=gpt-image-1`, `image` (multipart), `prompt`
-- `processBatch`: ao inserir asset, gravar `image_provider: provider`
-- `edit_asset`: ler `asset.image_provider` (ou `body.image_provider` se enviado), baixar a imagem do storage quando precisar de bytes, e despachar pro motor correto
+## O que NÃO vou fazer
+- Recriar as páginas (já existem e funcionam)
+- Mexer no sidebar (correto)
+- Adicionar rotas (já estão lá)
 
-**Frontend (`CriativoDetalhe.tsx`)**:
-- Badge `<Badge variant="outline">{asset.image_provider === 'openai-image' ? 'OpenAI' : 'Gemini'}</Badge>`
-- Select compacto no dialog de edição
-
-**Custos visíveis**: incluir uma nota no select do `CriativoNovo.tsx` esclarecendo que OpenAI cobra ~$0.04–0.19 por imagem direto na conta da OpenAI (fora do billing Lovable), pra evitar surpresa.
-
-## Fora do escopo
-
-- Não vou adicionar suporte a `gpt-image-2` (ainda não lançado pela OpenAI até abril/2026)
-- Não vou alterar o `openflow-ai` nem o `creative-factory`'s headline generator (continuam Gemini)
-- Não vou criar uma edge function separada `openai-image` — a lógica fica encapsulada dentro do `creative-factory` pra reaproveitar storage/auth/RLS
+Aprova que eu siga investigando o SW e aplique o bump de versão?
