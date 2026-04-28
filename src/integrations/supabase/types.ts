@@ -2354,6 +2354,39 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_languages: {
+        Row: {
+          code: string
+          created_at: string
+          is_default: boolean
+          is_enabled: boolean
+          name: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_lesson_playback: {
         Row: {
           duration_seconds: number | null
