@@ -109,6 +109,49 @@ async function generateImage(provider: ImageProvider, prompt: string, referenceI
   return generateImageGemini(prompt, referenceImages);
 }
 
+// Edit via OpenAI gpt-image-1 (images/edits requires multipart)
+async function generateImageOpenAIEdit(imageUrl: string, instruction: string, formato: string): Promise<string | null> {
+  if (!OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY not configured for edit");
+    return null;
+  }
+  try {
+    // Download original image
+    const imgResp = await fetch(imageUrl);
+    if (!imgResp.ok) {
+      console.error("Failed to fetch original image for OpenAI edit", imgResp.status);
+      return null;
+    }
+    const imgBlob = await imgResp.blob();
+    const ext = (imgBlob.type.split("/")[1] || "png").replace("jpeg", "png");
+
+    const form = new FormData();
+    form.append("model", "gpt-image-1");
+    form.append("prompt", instruction.slice(0, 4000));
+    form.append("size", openaiSizeFromFormato(formato));
+    form.append("n", "1");
+    form.append("image", new File([imgBlob], `source.${ext}`, { type: imgBlob.type || "image/png" }));
+
+    const resp = await fetch("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: form,
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error("OpenAI edit failed", resp.status, t.slice(0, 400));
+      return null;
+    }
+    const data = await resp.json();
+    const b64 = data?.data?.[0]?.b64_json;
+    if (!b64) return null;
+    return `data:image/png;base64,${b64}`;
+  } catch (e) {
+    console.error("OpenAI edit ex", e);
+    return null;
+  }
+}
+
 async function uploadBase64ToStorage(
   sb: any,
   base64DataUrl: string,
