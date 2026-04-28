@@ -90,6 +90,7 @@ function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsB
     const r: Row = {
       level, id: key, parent_id: parent_id ?? null, name,
       effective_status: null, daily_budget: null,
+      thumbnail_url: null, creative_body: null, creative_title: null,
       valor: 0, impressoes: 0, cliques: 0, link_clicks: 0, init_checkout: 0, compras: 0,
       hook_rate: 0, cpm: 0, frequencia: 0, alcance: 0, lp_views: 0, receita: 0,
     };
@@ -108,6 +109,9 @@ function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsB
       if (a.frequencia != null) { freqSum += Number(a.frequencia); freqN++; }
       if (!r.effective_status && a.effective_status) r.effective_status = a.effective_status;
       if (r.daily_budget == null && a.daily_budget != null) r.daily_budget = Number(a.daily_budget);
+      if (!r.thumbnail_url && a.thumbnail_url) r.thumbnail_url = a.thumbnail_url;
+      if (!r.creative_body && a.creative_body) r.creative_body = a.creative_body;
+      if (!r.creative_title && a.creative_title) r.creative_title = a.creative_title;
     }
     r.hook_rate = hookN ? hookSum / hookN : 0;
     r.cpm = cpmN ? cpmSum / cpmN : 0;
