@@ -70,13 +70,13 @@ interface Row {
 const PAGE_SIZES = [10, 20, 50] as const;
 
 const COLUMN_GROUPS = {
-  basic: { label: "Básico", cols: ["valor", "impressoes", "cliques", "ctr", "cpc"] as SortKey[] },
+  basic: { label: "Básico", cols: ["trend", "valor", "impressoes", "cliques", "ctr", "cpc"] as SortKey[] },
   funnel: { label: "Funil", cols: ["hook_rate", "cpm", "frequencia", "alcance", "lp_views", "lp_to_ckt", "ic", "cpi"] as SortKey[] },
   perf: { label: "Performance", cols: ["compras", "cpa", "receita", "roas", "daily_budget", "verdict"] as SortKey[] },
 } as const;
 
 const DEFAULT_VISIBLE = new Set<SortKey>([
-  "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
+  "trend", "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
 ]);
 
 function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
