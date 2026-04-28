@@ -215,7 +215,8 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const [bulkBudgetOpen, setBulkBudgetOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<{ id: string; name: string } | null>(null);
 
-  const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas), [ads, vendas]);
+  const [revenueMode] = useRevenueMode();
+  const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas, revenueMode), [ads, vendas, revenueMode]);
 
   // Período anterior — agrega por campaign_id para lookup Δ%
   const prevByCamp = useMemo(() => {
@@ -238,8 +239,8 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const ticketMedioGlobal = useMemo(() => {
     if (!vendas.length) return 0;
-    return vendas.reduce((s, v) => s + Number(v.valor || 0), 0) / vendas.length;
-  }, [vendas]);
+    return vendas.reduce((s, v) => s + getRevenue(v, revenueMode), 0) / vendas.length;
+  }, [vendas, revenueMode]);
 
   // Busca forçada (vinda dos alertas)
   useEffect(() => {
