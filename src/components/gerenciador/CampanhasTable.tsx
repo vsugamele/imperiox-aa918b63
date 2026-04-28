@@ -507,7 +507,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
               const dailyBudget = optimisticBudget.has(id) ? optimisticBudget.get(id)! : row.daily_budget;
               return (
                 <>
-                  <TableRow key={id} className="border-border/20 text-xs hover:bg-secondary/20">
+                  <TableRow key={id} className="group border-border/20 text-xs hover:bg-secondary/20">
                     <TableCell>
                       <button onClick={() => setExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; })} className="text-muted-foreground hover:text-primary">
                         {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronExpandRight className="h-3.5 w-3.5" />}
