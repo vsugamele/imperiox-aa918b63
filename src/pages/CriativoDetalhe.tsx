@@ -45,6 +45,7 @@ export default function CriativoDetalhe() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [editTarget, setEditTarget] = useState<Asset | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
+  const [editProvider, setEditProvider] = useState<ImgProvider>("lovable-gemini");
   const [editing, setEditing] = useState(false);
   const [viewer, setViewer] = useState<Asset | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Asset | null>(null);
