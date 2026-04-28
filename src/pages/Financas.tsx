@@ -175,7 +175,7 @@ export default function Financas() {
     const d = v.data_venda?.slice(0, 10);
     if (!d) return;
     const cur = dailyMap.get(d) || { ads: 0, vendas: 0 };
-    cur.vendas += v.valor;
+    cur.vendas += getRevenue(v, revenueMode);
     dailyMap.set(d, cur);
   });
   const dailyData = Array.from(dailyMap.entries())
