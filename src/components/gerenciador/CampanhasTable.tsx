@@ -568,8 +568,68 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
         onActivate={() => runBulk("ACTIVE")}
         onPause={() => runBulk("PAUSED")}
         onDuplicate={() => runBulk("DUPLICATE_CAMPAIGN")}
+        onAdjustBudget={() => setBulkBudgetOpen(true)}
         onClear={() => setSelected(new Set())}
       />
+
+      <BulkBudgetDialog
+        open={bulkBudgetOpen}
+        onOpenChange={setBulkBudgetOpen}
+        count={selected.size}
+        loading={bulkLoading}
+        onConfirm={async (mode, value) => {
+          if (!projectId) { toast.error("Selecione um projeto antes."); return; }
+          const rows = enrichedCampaigns.filter(r => selected.has(r.id) && /^\d+$/.test(r.id) && r.daily_budget != null);
+          if (rows.length === 0) { toast.error("Nenhuma campanha com orçamento editável"); return; }
+          setBulkLoading(true);
+          const results = await Promise.allSettled(rows.map(r => {
+            const prev = Number(r.daily_budget || 0);
+            const next = mode === "increase_pct" ? prev * (1 + value / 100)
+              : mode === "decrease_pct" ? prev * (1 - value / 100)
+              : value;
+            return supabase.functions.invoke("facebook-ads-toggle", {
+              body: { project_id: projectId, entity_type: "campaign", entity_id: r.id, entity_name: r.name, action: "UPDATE_BUDGET", daily_budget: Number(next.toFixed(2)), previous_budget: prev },
+            });
+          }));
+          let ok = 0, err = 0;
+          for (const rr of results) {
+            if (rr.status === "fulfilled" && !(rr.value as any)?.error && !(rr.value as any)?.data?.error) ok++; else err++;
+          }
+          setBulkLoading(false);
+          setBulkBudgetOpen(false);
+          setSelected(new Set());
+          if (ok) toast.success(`${ok} orçamento(s) atualizado(s)`);
+          if (err) toast.error(`${err} falha(s)`);
+          onAfterToggle?.();
+        }}
+      />
+
+      <RowHistoryDrawer
+        open={!!historyTarget}
+        onOpenChange={(v) => !v && setHistoryTarget(null)}
+        entityId={historyTarget?.id || null}
+        entityName={historyTarget?.name || null}
+        projectId={projectId}
+      />
+    </div>
+  );
+}
+
+async function callRename(supabaseClient: typeof supabase, projectId: string | undefined, entity_type: Level, row: Row, next: string, prev: string) {
+  if (!projectId) { toast.error("Selecione um projeto antes."); return false; }
+  if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta."); return false; }
+  try {
+    const { data, error } = await supabaseClient.functions.invoke("facebook-ads-toggle", {
+      body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: prev, action: "RENAME", new_name: next, previous_name: prev },
+    });
+    if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
+    toast.success("Renomeado");
+    return true;
+  } catch (e: any) {
+    toast.error(e.message || "Erro ao renomear");
+    return false;
+  }
+}
     </div>
   );
 }
