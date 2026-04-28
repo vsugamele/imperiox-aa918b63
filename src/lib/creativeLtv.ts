@@ -17,6 +17,7 @@ export interface VendaDetailedRow {
   lead_id: string | null;
   project_id: string | null;
   valor: number | null;
+  valor_liquido?: number | null;
   data_venda: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
