@@ -131,14 +131,14 @@ export default function Financas() {
   const custosProjetoBRL = fProjectCosts.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
   const adsTotal = fAds.reduce((a, b) => a + b.valor, 0);
 
-  const receitaVendas = fVendas.reduce((a, v) => a + v.valor, 0);
+  const receitaVendas = fVendas.reduce((a, v) => a + getRevenue(v, revenueMode), 0);
   const receitaManual = fProjectRevenues.reduce((a, r) => a + r.valor, 0);
   const totalReceita = receitaVendas + receitaManual;
 
   // Proporcionalizar ads quando filtro de produto ativo
   const allVendasFiltered = (fp === "all" ? vendas : vendas.filter(v => v.project_id === fp))
     .filter(v => inDateRange(v.data_venda));
-  const receitaTotalSemFiltroProduto = allVendasFiltered.reduce((a, v) => a + v.valor, 0);
+  const receitaTotalSemFiltroProduto = allVendasFiltered.reduce((a, v) => a + getRevenue(v, revenueMode), 0);
   const adsProportional = filterProduct !== "all" && receitaTotalSemFiltroProduto > 0
     ? adsTotal * (receitaVendas / receitaTotalSemFiltroProduto)
     : adsTotal;
