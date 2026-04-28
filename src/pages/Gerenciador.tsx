@@ -92,6 +92,27 @@ export default function Gerenciador() {
     };
   }, [metaAds, metaAdsPrev, vendas, vendasPrev]);
 
+  // Série diária de gasto por campaign_id (para sparkline)
+  const dailySpendByCamp = useMemo(() => {
+    const m = new Map<string, Map<string, number>>(); // camp -> (date -> spend)
+    const dates = new Set<string>();
+    for (const a of metaAds) {
+      const k = a.campaign_id || a.campanha || "—";
+      const d = String(a.data_ref || "").slice(0, 10);
+      if (!d) continue;
+      dates.add(d);
+      if (!m.has(k)) m.set(k, new Map());
+      const inner = m.get(k)!;
+      inner.set(d, (inner.get(d) || 0) + Number(a.valor || 0));
+    }
+    const ordered = Array.from(dates).sort();
+    const result = new Map<string, number[]>();
+    m.forEach((inner, camp) => {
+      result.set(camp, ordered.map(d => inner.get(d) || 0));
+    });
+    return result;
+  }, [metaAds]);
+
   const exportCsv = () => {
     if (ads.length === 0) return;
     const headers = Object.keys(ads[0]);
@@ -161,6 +182,7 @@ export default function Gerenciador() {
               onAfterToggle={() => setRefreshKey(k => k + 1)}
               forcedSearch={forcedSearch}
               onSearchChange={() => setForcedSearch(undefined)}
+              dailySpendByCamp={dailySpendByCamp}
             />
           </div>
 

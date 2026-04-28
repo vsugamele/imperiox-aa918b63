@@ -4052,6 +4052,7 @@ export type Database = {
           heading_font: string
           home_authors_subtitle: string
           home_meditations_eyebrow: string
+          home_recommend_cta: Json | null
           home_section_order: Json
           home_section_titles: Json
           home_sections_enabled: Json
@@ -4124,6 +4125,7 @@ export type Database = {
           heading_font?: string
           home_authors_subtitle?: string
           home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
           home_section_order?: Json
           home_section_titles?: Json
           home_sections_enabled?: Json
@@ -4196,6 +4198,7 @@ export type Database = {
           heading_font?: string
           home_authors_subtitle?: string
           home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
           home_section_order?: Json
           home_section_titles?: Json
           home_sections_enabled?: Json

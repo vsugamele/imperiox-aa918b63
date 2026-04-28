@@ -413,6 +413,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   return (
     <div className="space-y-3">
+      <QuickFilters active={quickFilter} counts={quickCounts} onChange={setQuickFilter} />
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -472,6 +473,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
               <TableHead className="w-8"></TableHead>
               <TableHead className="w-12"></TableHead>
               <SortHeader k="name" label="Nome" align="left" />
+              {isVisible("trend") && <TableHead className="text-[10px] uppercase tracking-wider whitespace-nowrap">Tend.</TableHead>}
               {isVisible("valor") && <SortHeader k="valor" label="Invest." />}
               {isVisible("impressoes") && <SortHeader k="impressoes" label="Impr." />}
               {isVisible("cliques") && <SortHeader k="cliques" label="Cliq." />}
@@ -505,7 +507,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
               const dailyBudget = optimisticBudget.has(id) ? optimisticBudget.get(id)! : row.daily_budget;
               return (
                 <>
-                  <TableRow key={id} className="border-border/20 text-xs hover:bg-secondary/20">
+                  <TableRow key={id} className="group border-border/20 text-xs hover:bg-secondary/20">
                     <TableCell>
                       <button onClick={() => setExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; })} className="text-muted-foreground hover:text-primary">
                         {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronExpandRight className="h-3.5 w-3.5" />}
@@ -517,7 +519,32 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                     <TableCell>
                       <StatusToggle status={status} loading={togglingId === id} onChange={(next) => handleToggle("campaign", row, next)} />
                     </TableCell>
-                    <TableCell className="font-medium text-foreground/90 max-w-[280px] truncate" title={row.name}>{row.name}</TableCell>
+                    <TableCell className="font-medium text-foreground/90 max-w-[320px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <InlineRename
+                          value={optimisticName.get(id) ?? row.name}
+                          disabled={!/^\d+$/.test(id)}
+                          onSave={async (next) => {
+                            const prev = optimisticName.get(id) ?? row.name;
+                            setOptimisticName(m => new Map(m).set(id, next));
+                            const ok = await callRename(supabase, projectId, "campaign", row, next, prev);
+                            if (!ok) setOptimisticName(m => { const n = new Map(m); n.set(id, prev); return n; });
+                            else onAfterToggle?.();
+                          }}
+                          className="flex-1 min-w-0"
+                        />
+                        <button
+                          onClick={() => setHistoryTarget({ id, name: optimisticName.get(id) ?? row.name })}
+                          className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition shrink-0 text-muted-foreground hover:text-primary"
+                          title="Ver histórico"
+                        >
+                          <History className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </TableCell>
+                    {isVisible("trend") && <TableCell>
+                      <Sparkline data={dailySpendByCamp?.get(id) || []} title="Gasto diário no período" />
+                    </TableCell>}
                     {isVisible("valor") && <TableCell className="text-right tabular-nums">
                       <div className="flex flex-col items-end">
                         <span>{brl(row.valor)}</span>
@@ -679,6 +706,7 @@ function ReactFragment(props: {
         <TableCell className="text-muted-foreground max-w-[260px] truncate" title={adset.name}>
           <span className="text-[9px] uppercase tracking-wider mr-1.5 text-primary/60">conj</span>{adset.name}
         </TableCell>
+        {isVisible("trend") && <TableCell></TableCell>}
         {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(adset.valor)}</TableCell>}
         {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(adset.impressoes)}</TableCell>}
         {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(adset.cliques)}</TableCell>}
@@ -733,6 +761,7 @@ function ReactFragment(props: {
                 <span className="truncate">{ad.name}</span>
               </span>
             </TableCell>
+            {isVisible("trend") && <TableCell></TableCell>}
             {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(ad.valor)}</TableCell>}
             {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(ad.impressoes)}</TableCell>}
             {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(ad.cliques)}</TableCell>}
