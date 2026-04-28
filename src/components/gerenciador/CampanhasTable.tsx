@@ -174,17 +174,21 @@ function num(v: number) { return v.toLocaleString("pt-BR"); }
 function brl(v: number) { return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 function pct(v: number) { return `${v.toFixed(1)}%`; }
 
-function enrich(r: Row) {
+function enrich(r: Row, ticketMedioGlobal = 0) {
   const ctr = r.impressoes ? (r.cliques / r.impressoes) * 100 : 0;
   const cpc = r.cliques ? r.valor / r.cliques : 0;
   const cpi = r.init_checkout ? r.valor / r.init_checkout : 0;
   const cpa = r.compras ? r.valor / r.compras : 0;
   const roas = r.valor > 0 ? r.receita / r.valor : 0;
   const lp_to_ckt = r.lp_views ? (r.init_checkout / r.lp_views) * 100 : 0;
-  return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt };
+  const v = computeVerdict({
+    valor: r.valor, compras: r.compras, receita: r.receita,
+    frequencia: r.frequencia, ticketMedioGlobal,
+  });
+  return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt, verdict: v.verdict, verdictReason: v.reason };
 }
 
-export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: Props) {
+export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAfterToggle, forcedSearch, onSearchChange }: Props) {
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
