@@ -23,7 +23,11 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
       injectManifest: {
+        // SW does not call precacheAndRoute anymore; keep an empty glob to avoid
+        // injecting a stale precache manifest that would freeze old SPA routes.
+        globPatterns: [],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        injectionPoint: undefined,
       },
       manifest: false,
     }),
