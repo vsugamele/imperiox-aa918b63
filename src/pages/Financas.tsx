@@ -469,6 +469,7 @@ export default function Financas() {
         <TabsContent value="produtos">
           <FinancasProdutos
             vendas={fVendas}
+            revenueMode={revenueMode}
             revenues={fProjectRevenues.map(r => ({ id: r.id, descricao: r.descricao, valor: r.valor, produto_nome: (r as any).produto_nome || null }))}
             costs={fProjectCosts.map(c => ({ id: c.id, nome: c.nome, valor: c.valor, produto_nome: (c as any).produto_nome || null }))}
             ads={fAds.map(a => ({ id: a.id, valor: a.valor, campanha: a.campanha }))}
