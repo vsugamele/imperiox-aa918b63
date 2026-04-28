@@ -2,11 +2,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Handshake } from "lucide-react";
+import type { RevenueMode } from "@/lib/revenueMode";
 
 interface Venda {
   id: string;
   produto_nome: string;
   valor: number;
+  valor_liquido?: number | null;
   data_venda: string;
 }
 
