@@ -111,11 +111,17 @@ export default function CriativoDetalhe() {
     if (!editTarget || !editInstruction.trim()) return;
     setEditing(true);
     try {
-      const { error } = await supabase.functions.invoke("creative-factory", {
-        body: { action: "edit_asset", asset_id: editTarget.id, instruction: editInstruction },
+      const { data, error } = await supabase.functions.invoke("creative-factory", {
+        body: {
+          action: "edit_asset",
+          asset_id: editTarget.id,
+          instruction: editInstruction,
+          image_provider: editProvider,
+        },
       });
       if (error) throw error;
-      toast.success("Nova versão gerada!");
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Nova versão gerada (${providerLabel(editProvider)})`);
       setEditTarget(null);
       setEditInstruction("");
       load();
@@ -124,6 +130,12 @@ export default function CriativoDetalhe() {
     } finally {
       setEditing(false);
     }
+  }
+
+  function openEditor(a: Asset) {
+    setEditTarget(a);
+    setEditInstruction("");
+    setEditProvider(a.image_provider === "openai-image" ? "openai-image" : "lovable-gemini");
   }
 
   async function exportarParaMidia(asset: Asset) {
