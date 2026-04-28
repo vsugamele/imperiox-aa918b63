@@ -24,6 +24,7 @@ import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 import DailyBriefing from "@/components/dashboard/DailyBriefing";
 import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
 import FacebookHealthAlert from "@/components/dashboard/FacebookHealthAlert";
+import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 
 
 export default function Dashboard() {
@@ -110,6 +111,7 @@ export default function Dashboard() {
           <Label htmlFor="compare-toggle" className="text-xs cursor-pointer select-none">Comparar período anterior</Label>
           <Switch id="compare-toggle" checked={compareMode} onCheckedChange={setCompareMode} />
         </div>
+        <RevenueModeToggle />
       </div>
 
       <FacebookHealthAlert />

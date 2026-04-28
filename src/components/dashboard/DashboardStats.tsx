@@ -6,6 +6,7 @@ import { FolderKanban, ListTodo, DollarSign, Users, TrendingUp, Wallet, Target, 
 import { getPeriodRange, getPreviousPeriodRange, calcDelta } from "@/lib/periodUtils";
 import { DeltaBadge } from "./DeltaBadge";
 import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
+import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
 interface Stats {
   projects: number;
@@ -28,6 +29,7 @@ interface Props {
 
 export default function DashboardStats({ period, projectFilter, productFilter, compare = false }: Props) {
   const navigate = useNavigate();
+  const [revenueMode] = useRevenueMode();
   const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0, pixPendingCount: 0, pixPendingValue: 0 });
   const [prevStats, setPrevStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0, pixPendingCount: 0, pixPendingValue: 0 });
   const [drillOpen, setDrillOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
         .gte("data_ref", fromDate).lte("data_ref", toDate);
       if (projectFilter !== "all") adsQ = adsQ.eq("project_id", projectFilter);
 
-      let vendasQ: any = supabase.from("imphq_vendas").select("valor, produto_nome, status")
+      let vendasQ: any = supabase.from("imphq_vendas").select("valor, valor_liquido, produto_nome, status")
         .gte("data_venda", from).lte("data_venda", to)
         .in("status", ["aprovado", "approved", "paid", "completed"]);
       if (projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
@@ -78,7 +80,7 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
       const opCost = sumByCurrency(costRes.data || []);
       const adsCost = sumByCurrency(adsRes.data || []);
       const vendas = vendasRes.data || [];
-      const revenue = vendas.reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
+      const revenue = vendas.reduce((a: number, v: any) => a + getRevenue(v, revenueMode), 0);
       const pixRows = pixRes.data || [];
       const pixPendingValue = pixRows.reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
 
@@ -107,7 +109,7 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
       }
     }
     load();
-  }, [period, projectFilter, productFilter, compare]);
+  }, [period, projectFilter, productFilter, compare, revenueMode]);
 
   const totalCost = stats.adsCost + stats.opCost;
   const prevTotalCost = prevStats.adsCost + prevStats.opCost;

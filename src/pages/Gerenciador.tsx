@@ -10,6 +10,8 @@ import { CampanhasTable } from "@/components/gerenciador/CampanhasTable";
 import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
 import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
 import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
+import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
+import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
 const PERIODS = [
   { label: "Hoje", days: 0 },
@@ -53,7 +55,7 @@ export default function Gerenciador() {
         return q;
       };
       const baseVendas = (gte: string, lte: string) => {
-        let q = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, plataforma, data_venda, utm_campaign").gte("data_venda", gte).lte("data_venda", lte).limit(2000);
+        let q = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, data_venda, utm_campaign").gte("data_venda", gte).lte("data_venda", lte).limit(2000);
         if (projectId !== "__all__") q = q.eq("project_id", projectId);
         return q;
       };
@@ -83,14 +85,16 @@ export default function Gerenciador() {
   const metaAds = useMemo(() => ads.filter(a => a.plataforma === "Facebook" || a.plataforma === "Meta"), [ads]);
   const metaAdsPrev = useMemo(() => adsPrev.filter(a => a.plataforma === "Facebook" || a.plataforma === "Meta"), [adsPrev]);
 
+  const [revenueMode] = useRevenueMode();
+
   const totals = useMemo(() => {
     const sum = (arr: any[], key: string) => arr.reduce((s, x) => s + Number(x[key] || 0), 0);
-    const sumVendas = (arr: any[]) => arr.reduce((s, v) => s + Number(v.valor || 0), 0);
+    const sumVendas = (arr: any[]) => arr.reduce((s, v) => s + getRevenue(v, revenueMode), 0);
     return {
       cur: { valor: sum(metaAds, "valor"), compras: sum(metaAds, "compras"), receita: sumVendas(vendas) },
       prev: { valor: sum(metaAdsPrev, "valor"), compras: sum(metaAdsPrev, "compras"), receita: sumVendas(vendasPrev) },
     };
-  }, [metaAds, metaAdsPrev, vendas, vendasPrev]);
+  }, [metaAds, metaAdsPrev, vendas, vendasPrev, revenueMode]);
 
   // Série diária de gasto por campaign_id (para sparkline)
   const dailySpendByCamp = useMemo(() => {
@@ -155,6 +159,7 @@ export default function Gerenciador() {
           <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5 h-9 text-xs">
             <Download className="h-3.5 w-3.5" /> CSV
           </Button>
+          <RevenueModeToggle />
           <span className="text-xs text-muted-foreground tabular-nums px-2">{periodLabel}</span>
         </div>
       </div>
