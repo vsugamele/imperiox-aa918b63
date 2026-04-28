@@ -473,6 +473,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
               <TableHead className="w-8"></TableHead>
               <TableHead className="w-12"></TableHead>
               <SortHeader k="name" label="Nome" align="left" />
+              {isVisible("trend") && <TableHead className="text-[10px] uppercase tracking-wider whitespace-nowrap">Tend.</TableHead>}
               {isVisible("valor") && <SortHeader k="valor" label="Invest." />}
               {isVisible("impressoes") && <SortHeader k="impressoes" label="Impr." />}
               {isVisible("cliques") && <SortHeader k="cliques" label="Cliq." />}
