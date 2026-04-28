@@ -447,6 +447,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
               {isVisible("receita") && <SortHeader k="receita" label="Receita" />}
               {isVisible("roas") && <SortHeader k="roas" label="ROAS" />}
               {isVisible("daily_budget") && <SortHeader k="daily_budget" label="Orç./Dia" />}
+              {isVisible("verdict") && <SortHeader k="verdict" label="Veredito" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -474,7 +475,12 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                       <StatusToggle status={status} loading={togglingId === id} onChange={(next) => handleToggle("campaign", row, next)} />
                     </TableCell>
                     <TableCell className="font-medium text-foreground/90 max-w-[280px] truncate" title={row.name}>{row.name}</TableCell>
-                    {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(row.valor)}</TableCell>}
+                    {isVisible("valor") && <TableCell className="text-right tabular-nums">
+                      <div className="flex flex-col items-end">
+                        <span>{brl(row.valor)}</span>
+                        <DeltaBadge current={row.valor} previous={prevByCamp.get(row.id)?.valor || 0} inverse={false} />
+                      </div>
+                    </TableCell>}
                     {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(row.impressoes)}</TableCell>}
                     {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(row.cliques)}</TableCell>}
                     {isVisible("ctr") && <TableCell className="text-right tabular-nums">{pct(row.ctr)}</TableCell>}
@@ -488,11 +494,21 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                     {isVisible("ic") && <TableCell className="text-right tabular-nums">{row.ic || "—"}</TableCell>}
                     {isVisible("cpi") && <TableCell className="text-right tabular-nums">{row.cpi > 0 ? `R$ ${row.cpi.toFixed(2)}` : "—"}</TableCell>}
                     {isVisible("compras") && <TableCell className="text-right tabular-nums">{row.compras || "—"}</TableCell>}
-                    {isVisible("cpa") && <TableCell className="text-right"><CpaCell cpa={row.cpa} ticket={row.ticket} /></TableCell>}
+                    {isVisible("cpa") && <TableCell className="text-right">
+                      <div className="flex flex-col items-end">
+                        <CpaCell cpa={row.cpa} ticket={row.ticket} />
+                        <DeltaBadge current={row.cpa} previous={prevByCamp.get(row.id)?.cpa || 0} inverse={true} />
+                      </div>
+                    </TableCell>}
                     {isVisible("receita") && <TableCell className="text-right tabular-nums">{row.receita ? brl(row.receita) : "—"}</TableCell>}
                     {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={row.roas} /></TableCell>}
                     {isVisible("daily_budget") && <TableCell className="text-right">
                       <BudgetEditor value={dailyBudget} disabled={!/^\d+$/.test(id)} onSave={(n) => handleBudget("campaign", row, n)} />
+                    </TableCell>}
+                    {isVisible("verdict") && <TableCell className="text-right">
+                      <span className={cn("inline-block px-2 py-0.5 rounded border text-[10px] font-medium tracking-wider", verdictColor((row as any).verdict as Verdict))} title={(row as any).verdictReason}>
+                        {(row as any).verdict}
+                      </span>
                     </TableCell>}
                   </TableRow>
                   {isExpanded && renderSubRows(row)}
