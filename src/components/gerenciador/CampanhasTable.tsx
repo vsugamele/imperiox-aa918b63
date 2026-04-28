@@ -5,12 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, Copy as CopyIcon } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { StatusToggle } from "./StatusToggle";
 import { RoasBadge, CpaCell } from "./RoasBadge";
 import { BudgetEditor } from "./BudgetEditor";
 import { BulkActionsBar } from "./BulkActionsBar";
+import { DeltaBadge } from "./DeltaBadge";
+import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
 
 interface VendaItem {
@@ -21,21 +24,27 @@ interface VendaItem {
 
 interface Props {
   ads: any[];
+  adsPrev?: any[];
   vendas?: VendaItem[];
   projectId?: string;
   onAfterToggle?: () => void;
+  forcedSearch?: string;
+  onSearchChange?: () => void;
 }
 
 type Level = "campaign" | "adset" | "ad";
-type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt";
+type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt" | "verdict";
 
 interface Row {
   level: Level;
-  id: string; // entity id (campaign_id / adset_id / ad_id)
+  id: string;
   parent_id?: string | null;
   name: string;
   effective_status: string | null;
   daily_budget: number | null;
+  thumbnail_url?: string | null;
+  creative_body?: string | null;
+  creative_title?: string | null;
   valor: number;
   impressoes: number;
   cliques: number;
@@ -56,11 +65,11 @@ const PAGE_SIZES = [10, 20, 50] as const;
 const COLUMN_GROUPS = {
   basic: { label: "Básico", cols: ["valor", "impressoes", "cliques", "ctr", "cpc"] as SortKey[] },
   funnel: { label: "Funil", cols: ["hook_rate", "cpm", "frequencia", "alcance", "lp_views", "lp_to_ckt", "ic", "cpi"] as SortKey[] },
-  perf: { label: "Performance", cols: ["compras", "cpa", "receita", "roas", "daily_budget"] as SortKey[] },
+  perf: { label: "Performance", cols: ["compras", "cpa", "receita", "roas", "daily_budget", "verdict"] as SortKey[] },
 } as const;
 
 const DEFAULT_VISIBLE = new Set<SortKey>([
-  "valor", "impressoes", "cliques", "ctr", "cpc", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget",
+  "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
 ]);
 
 function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
@@ -81,6 +90,7 @@ function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsB
     const r: Row = {
       level, id: key, parent_id: parent_id ?? null, name,
       effective_status: null, daily_budget: null,
+      thumbnail_url: null, creative_body: null, creative_title: null,
       valor: 0, impressoes: 0, cliques: 0, link_clicks: 0, init_checkout: 0, compras: 0,
       hook_rate: 0, cpm: 0, frequencia: 0, alcance: 0, lp_views: 0, receita: 0,
     };
@@ -99,6 +109,9 @@ function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsB
       if (a.frequencia != null) { freqSum += Number(a.frequencia); freqN++; }
       if (!r.effective_status && a.effective_status) r.effective_status = a.effective_status;
       if (r.daily_budget == null && a.daily_budget != null) r.daily_budget = Number(a.daily_budget);
+      if (!r.thumbnail_url && a.thumbnail_url) r.thumbnail_url = a.thumbnail_url;
+      if (!r.creative_body && a.creative_body) r.creative_body = a.creative_body;
+      if (!r.creative_title && a.creative_title) r.creative_title = a.creative_title;
     }
     r.hook_rate = hookN ? hookSum / hookN : 0;
     r.cpm = cpmN ? cpmSum / cpmN : 0;
@@ -161,17 +174,21 @@ function num(v: number) { return v.toLocaleString("pt-BR"); }
 function brl(v: number) { return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 function pct(v: number) { return `${v.toFixed(1)}%`; }
 
-function enrich(r: Row) {
+function enrich(r: Row, ticketMedioGlobal = 0) {
   const ctr = r.impressoes ? (r.cliques / r.impressoes) * 100 : 0;
   const cpc = r.cliques ? r.valor / r.cliques : 0;
   const cpi = r.init_checkout ? r.valor / r.init_checkout : 0;
   const cpa = r.compras ? r.valor / r.compras : 0;
   const roas = r.valor > 0 ? r.receita / r.valor : 0;
   const lp_to_ckt = r.lp_views ? (r.init_checkout / r.lp_views) * 100 : 0;
-  return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt };
+  const v = computeVerdict({
+    valor: r.valor, compras: r.compras, receita: r.receita,
+    frequencia: r.frequencia, ticketMedioGlobal,
+  });
+  return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt, verdict: v.verdict, verdictReason: v.reason };
 }
 
-export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: Props) {
+export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAfterToggle, forcedSearch, onSearchChange }: Props) {
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
@@ -187,9 +204,38 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
 
   const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas), [ads, vendas]);
 
+  // Período anterior — agrega por campaign_id para lookup Δ%
+  const prevByCamp = useMemo(() => {
+    const m = new Map<string, { valor: number; compras: number; cpa: number }>();
+    if (!adsPrev?.length) return m;
+    const grouped = new Map<string, any[]>();
+    for (const a of adsPrev) {
+      const k = a.campaign_id || a.campanha || "—";
+      if (!grouped.has(k)) grouped.set(k, []);
+      grouped.get(k)!.push(a);
+    }
+    grouped.forEach((items, k) => {
+      const valor = items.reduce((s, x) => s + Number(x.valor || 0), 0);
+      const compras = items.reduce((s, x) => s + Number(x.compras || 0), 0);
+      const cpa = compras ? valor / compras : 0;
+      m.set(k, { valor, compras, cpa });
+    });
+    return m;
+  }, [adsPrev]);
+
+  const ticketMedioGlobal = useMemo(() => {
+    if (!vendas.length) return 0;
+    return vendas.reduce((s, v) => s + Number(v.valor || 0), 0) / vendas.length;
+  }, [vendas]);
+
+  // Busca forçada (vinda dos alertas)
+  useEffect(() => {
+    if (forcedSearch) { setSearch(forcedSearch); setPage(1); }
+  }, [forcedSearch]);
+
   const enrichedCampaigns = useMemo(() => {
     const filtered = campaigns.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
-    const e = filtered.map(enrich);
+    const e = filtered.map(r => enrich(r, ticketMedioGlobal));
     e.sort((a, b) => {
       const av = (a as any)[sortKey] ?? (sortKey === "name" ? a.name : 0);
       const bv = (b as any)[sortKey] ?? (sortKey === "name" ? b.name : 0);
@@ -199,7 +245,7 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return e;
-  }, [campaigns, search, sortKey, sortDir]);
+  }, [campaigns, search, sortKey, sortDir, ticketMedioGlobal]);
 
   const totalPages = Math.max(1, Math.ceil(enrichedCampaigns.length / pageSize));
   const pageRows = enrichedCampaigns.slice((page - 1) * pageSize, page * pageSize);
@@ -296,7 +342,7 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
 
   const renderSubRows = (campaign: Row, depth = 1) => {
     const adsets = adsetsByCampaign.get(campaign.id) || [];
-    const sortedAdsets = [...adsets].map(enrich).sort((a, b) => b.valor - a.valor);
+    const sortedAdsets = [...adsets].map(r => enrich(r, ticketMedioGlobal)).sort((a, b) => b.valor - a.valor);
     return sortedAdsets.map((adset) => {
       const adsetExpanded = expanded.has(adset.id);
       const adsetStatus = optimistic.get(adset.id) ?? adset.effective_status;
@@ -309,7 +355,7 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
           loading={togglingId === adset.id}
           isVisible={isVisible}
           depth={depth}
-          adsRows={(adsByAdset.get(adset.id) || []).map(enrich).sort((a, b) => b.valor - a.valor)}
+          adsRows={(adsByAdset.get(adset.id) || []).map(r => enrich(r, ticketMedioGlobal)).sort((a, b) => b.valor - a.valor)}
           optimistic={optimistic}
           optimisticBudget={optimisticBudget}
           togglingId={togglingId}
@@ -401,6 +447,7 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
               {isVisible("receita") && <SortHeader k="receita" label="Receita" />}
               {isVisible("roas") && <SortHeader k="roas" label="ROAS" />}
               {isVisible("daily_budget") && <SortHeader k="daily_budget" label="Orç./Dia" />}
+              {isVisible("verdict") && <SortHeader k="verdict" label="Veredito" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -428,7 +475,12 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
                       <StatusToggle status={status} loading={togglingId === id} onChange={(next) => handleToggle("campaign", row, next)} />
                     </TableCell>
                     <TableCell className="font-medium text-foreground/90 max-w-[280px] truncate" title={row.name}>{row.name}</TableCell>
-                    {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(row.valor)}</TableCell>}
+                    {isVisible("valor") && <TableCell className="text-right tabular-nums">
+                      <div className="flex flex-col items-end">
+                        <span>{brl(row.valor)}</span>
+                        <DeltaBadge current={row.valor} previous={prevByCamp.get(row.id)?.valor || 0} inverse={false} />
+                      </div>
+                    </TableCell>}
                     {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(row.impressoes)}</TableCell>}
                     {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(row.cliques)}</TableCell>}
                     {isVisible("ctr") && <TableCell className="text-right tabular-nums">{pct(row.ctr)}</TableCell>}
@@ -442,11 +494,21 @@ export function CampanhasTable({ ads, vendas = [], projectId, onAfterToggle }: P
                     {isVisible("ic") && <TableCell className="text-right tabular-nums">{row.ic || "—"}</TableCell>}
                     {isVisible("cpi") && <TableCell className="text-right tabular-nums">{row.cpi > 0 ? `R$ ${row.cpi.toFixed(2)}` : "—"}</TableCell>}
                     {isVisible("compras") && <TableCell className="text-right tabular-nums">{row.compras || "—"}</TableCell>}
-                    {isVisible("cpa") && <TableCell className="text-right"><CpaCell cpa={row.cpa} ticket={row.ticket} /></TableCell>}
+                    {isVisible("cpa") && <TableCell className="text-right">
+                      <div className="flex flex-col items-end">
+                        <CpaCell cpa={row.cpa} ticket={row.ticket} />
+                        <DeltaBadge current={row.cpa} previous={prevByCamp.get(row.id)?.cpa || 0} inverse={true} />
+                      </div>
+                    </TableCell>}
                     {isVisible("receita") && <TableCell className="text-right tabular-nums">{row.receita ? brl(row.receita) : "—"}</TableCell>}
                     {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={row.roas} /></TableCell>}
                     {isVisible("daily_budget") && <TableCell className="text-right">
                       <BudgetEditor value={dailyBudget} disabled={!/^\d+$/.test(id)} onSave={(n) => handleBudget("campaign", row, n)} />
+                    </TableCell>}
+                    {isVisible("verdict") && <TableCell className="text-right">
+                      <span className={cn("inline-block px-2 py-0.5 rounded border text-[10px] font-medium tracking-wider", verdictColor((row as any).verdict as Verdict))} title={(row as any).verdictReason}>
+                        {(row as any).verdict}
+                      </span>
                     </TableCell>}
                   </TableRow>
                   {isExpanded && renderSubRows(row)}
@@ -536,6 +598,7 @@ function ReactFragment(props: {
         {isVisible("daily_budget") && <TableCell className="text-right">
           <BudgetEditor value={adsetBudget} disabled={!/^\d+$/.test(adset.id)} onSave={onBudget} />
         </TableCell>}
+        {isVisible("verdict") && <TableCell></TableCell>}
       </TableRow>
 
       {adsetExpanded && adsRows.map((ad) => {
@@ -548,9 +611,26 @@ function ReactFragment(props: {
             <TableCell>
               <StatusToggle status={adStatus} loading={togglingId === ad.id} onChange={(n) => onAdToggle(ad, n)} />
             </TableCell>
-            <TableCell className="text-muted-foreground/80 max-w-[240px] truncate" title={ad.name}>
+            <TableCell className="text-muted-foreground/80 max-w-[260px] truncate" title={ad.name}>
               <span className="inline-block" style={indent(2)} />
-              <span className="text-[9px] uppercase tracking-wider mr-1.5 text-primary/40">ad</span>{ad.name}
+              <span className="inline-flex items-center gap-1.5 align-middle">
+                {ad.thumbnail_url ? (
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <img src={ad.thumbnail_url} alt="" className="h-7 w-7 rounded object-cover border border-border/40 cursor-pointer" />
+                    </HoverCardTrigger>
+                    <HoverCardContent side="right" className="w-64 p-2 bg-secondary border-border/40">
+                      <img src={ad.thumbnail_url} alt="" className="w-full rounded mb-2" />
+                      {ad.creative_title && <p className="text-xs font-medium text-foreground/90 mb-1">{ad.creative_title}</p>}
+                      {ad.creative_body && <p className="text-[11px] text-muted-foreground leading-snug line-clamp-4">{ad.creative_body}</p>}
+                    </HoverCardContent>
+                  </HoverCard>
+                ) : (
+                  <span className="h-7 w-7 rounded bg-secondary/40 border border-border/30 inline-flex items-center justify-center"><ImageIcon className="h-3 w-3 text-muted-foreground/40" /></span>
+                )}
+                <span className="text-[9px] uppercase tracking-wider text-primary/40">ad</span>
+                <span className="truncate">{ad.name}</span>
+              </span>
             </TableCell>
             {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(ad.valor)}</TableCell>}
             {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(ad.impressoes)}</TableCell>}
@@ -572,6 +652,7 @@ function ReactFragment(props: {
             {isVisible("daily_budget") && <TableCell className="text-right">
               <BudgetEditor value={adBudget} disabled={!/^\d+$/.test(ad.id)} onSave={(n) => onAdBudget(ad, n)} />
             </TableCell>}
+            {isVisible("verdict") && <TableCell></TableCell>}
           </TableRow>
         );
       })}

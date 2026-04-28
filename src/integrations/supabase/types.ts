@@ -13995,6 +13995,8 @@ export type Database = {
           cpck: number | null
           cpm: number | null
           created_at: string | null
+          creative_body: string | null
+          creative_title: string | null
           ctr: number | null
           custo_por_compra: number | null
           custo_por_resultado: number | null
@@ -14016,6 +14018,7 @@ export type Database = {
           project_id: string | null
           resultados: number | null
           stop_rate: number | null
+          thumbnail_url: string | null
           valor: number
           video_3s_views: number | null
           video_thruplay: number | null
@@ -14035,6 +14038,8 @@ export type Database = {
           cpck?: number | null
           cpm?: number | null
           created_at?: string | null
+          creative_body?: string | null
+          creative_title?: string | null
           ctr?: number | null
           custo_por_compra?: number | null
           custo_por_resultado?: number | null
@@ -14056,6 +14061,7 @@ export type Database = {
           project_id?: string | null
           resultados?: number | null
           stop_rate?: number | null
+          thumbnail_url?: string | null
           valor?: number
           video_3s_views?: number | null
           video_thruplay?: number | null
@@ -14075,6 +14081,8 @@ export type Database = {
           cpck?: number | null
           cpm?: number | null
           created_at?: string | null
+          creative_body?: string | null
+          creative_title?: string | null
           ctr?: number | null
           custo_por_compra?: number | null
           custo_por_resultado?: number | null
@@ -14096,6 +14104,7 @@ export type Database = {
           project_id?: string | null
           resultados?: number | null
           stop_rate?: number | null
+          thumbnail_url?: string | null
           valor?: number
           video_3s_views?: number | null
           video_thruplay?: number | null
