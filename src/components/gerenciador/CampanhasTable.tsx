@@ -20,11 +20,13 @@ import { InlineRename } from "./InlineRename";
 import { RowHistoryDrawer } from "./RowHistoryDrawer";
 import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
+import { useRevenueMode, getRevenue, type RevenueMode } from "@/lib/revenueMode";
 
 interface VendaItem {
   produto_nome?: string;
   utm_campaign?: string | null;
   valor: number;
+  valor_liquido?: number | null;
 }
 
 interface Props {
