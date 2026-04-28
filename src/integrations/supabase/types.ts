@@ -18059,6 +18059,7 @@ export type Database = {
           utm_source: string | null
           utm_term: string | null
           valor: number | null
+          valor_liquido: number | null
         }
         Insert: {
           click_id?: string | null
@@ -18081,6 +18082,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           valor?: number | null
+          valor_liquido?: number | null
         }
         Update: {
           click_id?: string | null
@@ -18103,6 +18105,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           valor?: number | null
+          valor_liquido?: number | null
         }
         Relationships: [
           {
@@ -31206,6 +31209,10 @@ export type Database = {
       get_pending_prizes_value: { Args: { user_uuid: string }; Returns: number }
       get_pending_tickets_count: {
         Args: { user_uuid: string }
+        Returns: number
+      }
+      get_producer_share: {
+        Args: { _produto_nome: string; _project_id: string }
         Returns: number
       }
       get_signed_url: {
