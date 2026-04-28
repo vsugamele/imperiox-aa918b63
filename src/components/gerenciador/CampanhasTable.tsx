@@ -81,17 +81,17 @@ const DEFAULT_VISIBLE = new Set<SortKey>([
   "trend", "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
 ]);
 
-function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
-  // Receita por nome de campanha (utm)
+function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
+  // Receita por nome de campanha (utm) — respeita modo bruto/líquido
   const revByCamp = new Map<string, number>();
   let avgTicket = 0;
   if (vendas.length) {
-    const total = vendas.reduce((s, v) => s + Number(v.valor || 0), 0);
+    const total = vendas.reduce((s, v) => s + getRevenue(v, revenueMode), 0);
     avgTicket = total / vendas.length;
     for (const v of vendas) {
       const k = (v.utm_campaign || "").trim().toLowerCase();
       if (!k) continue;
-      revByCamp.set(k, (revByCamp.get(k) || 0) + Number(v.valor || 0));
+      revByCamp.set(k, (revByCamp.get(k) || 0) + getRevenue(v, revenueMode));
     }
   }
 
