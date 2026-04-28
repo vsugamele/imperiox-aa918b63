@@ -65,10 +65,10 @@ export default function Cohort() {
     Promise.all([fetchCohortDataset(pid), fetchCreativeDataset(pid)]).then(([d, c]) => {
       if (!alive) return;
       setLeads(d.leads);
-      setVendas(d.vendas);
+      setVendasRaw(d.vendas);
       setAds(d.ads);
       setCreativeAds(c.ads);
-      setCreativeVendas(c.vendas);
+      setCreativeVendasRaw(c.vendas);
       setLoading(false);
     });
     return () => { alive = false; };
