@@ -17554,6 +17554,66 @@ export type Database = {
           },
         ]
       }
+      imphq_sales_paths: {
+        Row: {
+          acoes_30d: Json | null
+          acoes_72h: Json | null
+          created_at: string
+          diagnostico: Json | null
+          error_message: string | null
+          health_score: number | null
+          id: string
+          model_used: string | null
+          oportunidades: Json | null
+          project_id: string
+          resumo_executivo: string | null
+          riscos: Json | null
+          sales_path: Json | null
+          snapshot: Json
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          acoes_30d?: Json | null
+          acoes_72h?: Json | null
+          created_at?: string
+          diagnostico?: Json | null
+          error_message?: string | null
+          health_score?: number | null
+          id?: string
+          model_used?: string | null
+          oportunidades?: Json | null
+          project_id: string
+          resumo_executivo?: string | null
+          riscos?: Json | null
+          sales_path?: Json | null
+          snapshot?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          acoes_30d?: Json | null
+          acoes_72h?: Json | null
+          created_at?: string
+          diagnostico?: Json | null
+          error_message?: string | null
+          health_score?: number | null
+          id?: string
+          model_used?: string | null
+          oportunidades?: Json | null
+          project_id?: string
+          resumo_executivo?: string | null
+          riscos?: Json | null
+          sales_path?: Json | null
+          snapshot?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_skills: {
         Row: {
           categoria: string
