@@ -20,6 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, TrendingUp, Crown, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SectionInfo } from "@/components/SectionInfo";
+import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
+import { useRevenueMode } from "@/lib/revenueMode";
 
 export default function Cohort() {
   const [loading, setLoading] = useState(true);
