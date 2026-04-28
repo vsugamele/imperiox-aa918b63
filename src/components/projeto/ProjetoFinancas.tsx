@@ -1509,8 +1509,9 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
         </TabsContent>
 
         {/* Produtos Tab */}
-        <TabsContent value="produtos">
+        <TabsContent value="produtos" className="space-y-4">
           <FinancasProdutos vendas={vendas} briefingProdutos={briefingProdutos} revenues={revenues} costs={costs} ads={ads} />
+          <RevenueSplitSettings projectId={projectId} produtos={briefingProdutos} />
         </TabsContent>
       </Tabs>
 
