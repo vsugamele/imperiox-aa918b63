@@ -1,56 +1,128 @@
-## Gerenciador Pro — Trazer o melhor dos dois mundos
+# Melhorias propostas para o módulo de Ads
 
-Hoje o `/gerenciador` já tem busca, paginação, ordenação, checkboxes (visuais) e toggle ATIVO/PAUSADO real. Vamos evoluir para igualar (e superar) o gerenciador de referência, integrando os KPIs ricos que já existem no painel de Ads.
+Análise feita em `/gerenciador` (Meta Manager Pro) e `Finanças → Ads` (FinancasAds.tsx, 710 linhas). O backend já captura mais dados do que a UI mostra — boa parte das melhorias é desbloquear o que já existe.
 
-### O que será adicionado
+---
 
-**1. KPIs ricos do funil na tabela**
-Adicionar colunas: `HOOK RATE`, `CPM`, `FREQ`, `ALCANCE`, `LP VIEWS`, `LP→CKT %`, `CKT→VENDA %`. Reutilizar dados já capturados em `imphq_ads_spend` (hook_rate, cpm, frequencia, alcance, lp_views — confirmar via memory `Ads Funnel Tracking`).
-Densidade controlada via toggle "Colunas" (popover com checkboxes pra mostrar/esconder grupos: Básico / Funil / Performance).
+## 1. Preview visual dos criativos (thumbnail)
 
-**2. Edição inline de Orçamento Diário (real)**
-Click no valor `Orç./Dia` → input editável → Enter salva via Meta Graph API.
-Estender `facebook-ads-toggle` (renomear conceitualmente, mantendo o nome) para aceitar `action: "UPDATE_BUDGET"` com `daily_budget` (em centavos). Atualiza `imphq_ads_spend.daily_budget` local após sucesso e registra em `imphq_ads_actions` (acao: `editou_orcamento`, valor_anterior/valor_novo).
+**Problema:** `facebook-ads-sync` já busca `creative.thumbnail_url` e `image_url` da Meta, mas a tabela hierárquica não mostra. O usuário fica adivinhando qual anúncio é qual pelo nome.
 
-**3. Ações em massa via checkbox**
-Barra flutuante aparece quando há linhas selecionadas:
-- `Pausar selecionadas` / `Ativar selecionadas` → loop chamando edge function (com Promise.allSettled, toast de progresso)
-- `Duplicar` → nova action `DUPLICATE_CAMPAIGN` na edge function (usa endpoint `/copies` do Meta), retorna nova campanha em PAUSED
-- `Limpar seleção`
+**Solução:**
+- Persistir `thumbnail_url` em `imphq_ads_spend` no nível `ad` (coluna nova).
+- Na linha de Ad (3º nível do drilldown), exibir miniatura 32×32 ao lado do nome.
+- Hover → preview 240×240 em popover com `body` + `title` do criativo.
 
-**4. Hierarquia Campanha → Conjunto → Anúncio (drilldown)**
-Linha da campanha vira expansível (chevron à esquerda). Ao expandir:
-- Subtabela com adsets daquela campanha (filtro local em `imphq_ads_spend` por `campaign_id`)
-- Cada adset expansível para mostrar ads
-- Cada nível tem seu próprio toggle ATIVO/PAUSADO (entity_type já suportado: campaign/adset/ad)
-- Mostra `effective_status` real e CPA/ROAS por nível
+---
 
-**5. Status do projeto + Sync Manual no header**
-Trazer da tela de Ads: badge "Facebook conectado/erro", botão "Sync Manual" (chama `facebook-ads-sync-all`), timestamp do último sync. Reusa `FacebookHealthAlert` se houver erro.
+## 2. Comparação período anterior (Δ%)
 
-### Mudanças técnicas
+**Problema:** o usuário vê CPA hoje, mas não sabe se piorou ou melhorou vs. período anterior. O Meta Manager mostra setinhas ▲▼ em todas as colunas.
 
-**Backend (`supabase/functions/facebook-ads-toggle/index.ts`)**
-- Aceitar novos `action`: `UPDATE_BUDGET` (body: `daily_budget` em reais → converte pra centavos), `DUPLICATE_CAMPAIGN`
-- `UPDATE_BUDGET`: POST `${FB_BASE}/{entity_id}` com `{ daily_budget: X }` (X em centavos da moeda da conta)
-- `DUPLICATE_CAMPAIGN`: POST `${FB_BASE}/{entity_id}/copies` com `{ deep_copy: true, status_option: "PAUSED" }`
-- Log em `imphq_ads_actions` com tipos novos: `editou_orcamento`, `duplicou`
+**Solução:**
+- Buscar dois ranges (atual + anterior do mesmo tamanho) em paralelo.
+- Em cada célula numérica (CPA, ROAS, CTR, CPM, gasto, compras), badge `+12%` verde / `-8%` vermelho.
+- Toggle no header: "vs. período anterior" on/off.
 
-**Frontend (`src/components/gerenciador/`)**
-- `CampanhasTable.tsx`: adicionar colunas do funil, expansão hierárquica, popover de visibilidade de colunas, callback de seleção pra exibir BulkActionsBar
-- Novo: `BudgetEditor.tsx` — input inline com confirmação otimista
-- Novo: `BulkActionsBar.tsx` — barra fixa no rodapé com contador e ações
-- Novo: `CampaignDrilldown.tsx` — sub-rows recursivas (adsets/ads) reutilizando aggregate por nível
-- `Gerenciador.tsx`: header com status Meta + Sync Manual, integrar `FacebookHealthAlert`
+---
 
-**Tipos** (`src/integrations/supabase/types.ts`): regenerado automaticamente após qualquer mudança de schema; nenhuma migration necessária pois reutilizamos colunas existentes.
+## 3. Sparkline de tendência por linha
 
-### Fora do escopo (próxima rodada)
-- Google Ads (mantém placeholder)
-- Edição inline de nome/segmentação
-- Gráficos por linha (sparklines)
+**Problema:** decisão de pausar/escalar precisa de série temporal. Hoje exige clicar e abrir outra tela.
 
-### Referências
-- Dados do funil já em `imphq_ads_spend` (memory: Ads Funnel Tracking)
-- Toggle e log já implementados (memory: Gerenciador de Anúncios)
-- Tratamento de erros Meta (memory: Facebook Error Handling) — reaproveitado nas novas actions
+**Solução:**
+- Mini-gráfico 80×24px na coluna ROAS (ou CPA) mostrando os últimos 7 dias.
+- Reusa Recharts (já no projeto).
+
+---
+
+## 4. Diagnóstico Yoshitani inline no Gerenciador
+
+**Problema:** o diagnóstico 7/5/3 só aparece em `Finanças → Ads`, não no `/gerenciador`. Quem está pausando/ativando não vê o veredito.
+
+**Solução:**
+- Coluna `VEREDITO` opcional (toggle no popover de colunas) com badge: ESCALAR / MANTER / OTIMIZAR / MATAR.
+- Tooltip com motivo (gargalo + manobra recomendada).
+- Reaproveita `analyzeCampaigns()` já implementada.
+
+---
+
+## 5. Filtros rápidos de status + presets
+
+**Problema:** lista única com tudo misturado. Difícil isolar "campanhas ativas com ROAS < 1" ou "pausadas que vendiam bem".
+
+**Solução:**
+- Chips no topo da tabela: `Todas` · `Ativas` · `Pausadas` · `Com vendas hoje` · `ROAS < 1` · `Sem dados (24h)`.
+- Filtro por intervalo de gasto (slider min/max).
+
+---
+
+## 6. Alertas automáticos no header
+
+**Problema:** problemas críticos (campanha gastando sem vender, frequência > 4, conta com erro) só aparecem depois que o usuário cava.
+
+**Solução:**
+- Banner no topo do `/gerenciador` com 3 alertas prioritários:
+  - "2 campanhas gastaram >R$200 hoje sem nenhuma compra"
+  - "Campanha X com frequência 5.8 (saturação)"
+  - "Conta de anúncios desconectada há 2h" (já existe `FacebookHealthAlert`, integrar)
+- Cada alerta clicável → filtra a tabela.
+
+---
+
+## 7. Ações em massa avançadas
+
+**Já temos:** Pausar / Ativar / Duplicar.
+
+**Adicionar:**
+- `Aumentar orçamento +20%` em massa (escala segura).
+- `Diminuir orçamento -20%` em massa.
+- `Exportar selecionadas` (CSV só do que está marcado).
+
+---
+
+## 8. Edição inline do nome da campanha
+
+Hoje só orçamento é editável. Permitir renomear (útil para padronizar `[DD/MM] Nome` que o `analyzeCampaigns` já normaliza).
+
+---
+
+## 9. KPI cards no topo do Gerenciador
+
+**Problema:** o `/gerenciador` vai direto pra tabela. Faltam números agregados.
+
+**Solução:** 4 cards no topo (estilo `KpiHeroCard`): Gasto total · ROAS médio · Compras · CPA médio — todos com Δ% vs período anterior.
+
+---
+
+## 10. Histórico de mudanças por linha
+
+**Problema:** `imphq_ads_actions` registra tudo mas só aparece em `AcoesHistorico` (lista global no rodapé).
+
+**Solução:** ícone 🕐 no fim de cada linha → popover com últimas 5 ações daquela campanha (quem pausou, quando mudou orçamento, etc).
+
+---
+
+## Prioridade sugerida
+
+| # | Esforço | Impacto |
+|---|---------|---------|
+| 1 Thumbnails | Médio (migration + sync + UI) | **Alto** — reconhecimento visual |
+| 2 Δ% período anterior | Médio | **Alto** — decisão informada |
+| 6 Alertas no header | Baixo | **Alto** — proatividade |
+| 9 KPI cards topo | Baixo | Médio |
+| 4 Veredito inline | Baixo (reusa código) | **Alto** |
+| 5 Filtros rápidos | Baixo | Médio |
+| 3 Sparkline | Médio | Médio |
+| 7 Ajuste orçamento massa | Baixo | Médio |
+| 10 Histórico por linha | Baixo | Baixo |
+| 8 Renomear inline | Baixo | Baixo |
+
+---
+
+## Próximo passo
+
+Me diga quais itens quer atacar agora. Sugestão de primeira leva (1 sprint curto):
+**#1 Thumbnails + #2 Δ% + #4 Veredito inline + #6 Alertas no header + #9 KPI cards.**
+
+Isso transforma o `/gerenciador` num cockpit de decisão completo, sem precisar abrir outras telas.
