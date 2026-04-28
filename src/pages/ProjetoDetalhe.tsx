@@ -20,6 +20,7 @@ import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
+import { SalesPathButton } from "@/components/projeto/SalesPathButton";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
 import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
@@ -132,6 +133,9 @@ export default function ProjetoDetalhe() {
           </div>
         </div>
         <div className="text-right space-y-1">
+          <div className="flex justify-end mb-2">
+            <SalesPathButton projectId={id!} projectName={project.name} />
+          </div>
           <Button
             variant="outline"
             size="sm"
