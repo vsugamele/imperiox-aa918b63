@@ -78,7 +78,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   // Add manual revenues
   revenues.forEach(r => {
     if (r.produto_nome) {
-      const cur = productMap.get(r.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
+      const cur = productMap.get(r.produto_nome) || { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.receitaManual += r.valor;
       productMap.set(r.produto_nome, cur);
     }
@@ -87,7 +87,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   // Add costs
   costs.forEach(c => {
     if (c.produto_nome) {
-      const cur = productMap.get(c.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
+      const cur = productMap.get(c.produto_nome) || { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.custos += c.valor;
       productMap.set(c.produto_nome, cur);
     }
