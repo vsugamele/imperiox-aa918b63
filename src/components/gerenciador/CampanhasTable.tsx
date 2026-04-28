@@ -6,13 +6,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, ImageIcon } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, ImageIcon, History } from "lucide-react";
 import { toast } from "sonner";
 import { StatusToggle } from "./StatusToggle";
 import { RoasBadge, CpaCell } from "./RoasBadge";
 import { BudgetEditor } from "./BudgetEditor";
 import { BulkActionsBar } from "./BulkActionsBar";
+import { BulkBudgetDialog, type BulkBudgetMode } from "./BulkBudgetDialog";
 import { DeltaBadge } from "./DeltaBadge";
+import { Sparkline } from "./Sparkline";
+import { QuickFilters, type QuickFilterKey } from "./QuickFilters";
+import { InlineRename } from "./InlineRename";
+import { RowHistoryDrawer } from "./RowHistoryDrawer";
 import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
 
@@ -30,10 +35,12 @@ interface Props {
   onAfterToggle?: () => void;
   forcedSearch?: string;
   onSearchChange?: () => void;
+  /** Série diária por campaign_id (para sparkline). Cada array tem ordem cronológica. */
+  dailySpendByCamp?: Map<string, number[]>;
 }
 
-type Level = "campaign" | "adset" | "ad";
-type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt" | "verdict";
+type SortKeyForLine = Exclude<SortKey, "trend" | "name">;
+const _unused: SortKeyForLine = "valor";
 
 interface Row {
   level: Level;
