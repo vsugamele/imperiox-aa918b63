@@ -137,6 +137,25 @@ Deno.serve(async (req) => {
 
     const rows = insightsData.data || [];
 
+    // 1.5. Fetch creatives map (ad_id -> { thumbnail_url, body, title })
+    const creativesMap = new Map<string, { thumbnail_url?: string; body?: string; title?: string }>();
+    try {
+      const adsUrl = `${FB_BASE}/${actId}/ads?fields=id,creative{thumbnail_url,image_url,body,title}&limit=500&access_token=${accessToken}`;
+      const r = await fetch(adsUrl);
+      if (r.ok) {
+        const d = await parseResponseBody(r);
+        for (const ad of (d.data || [])) {
+          if (ad?.id) {
+            creativesMap.set(String(ad.id), {
+              thumbnail_url: ad.creative?.thumbnail_url || ad.creative?.image_url || undefined,
+              body: ad.creative?.body || undefined,
+              title: ad.creative?.title || undefined,
+            });
+          }
+        }
+      }
+    } catch (_) { /* optional */ }
+
     let imported = 0;
     let errors = 0;
 
@@ -164,12 +183,17 @@ Deno.serve(async (req) => {
       const ctr = parseFloat(row.ctr || "0");
       const frequencia = parseFloat(row.frequency || "0");
 
+      const creative = row.ad_id ? creativesMap.get(String(row.ad_id)) : undefined;
+
       const record = {
         project_id,
         plataforma: "Facebook",
         campanha: row.campaign_name || null,
         conjunto_anuncios: row.adset_name || null,
         anuncio: row.ad_name || null,
+        campaign_id: row.campaign_id || null,
+        adset_id: row.adset_id || null,
+        ad_id: row.ad_id || null,
         data_ref: row.date_start,
         valor: spend,
         impressoes,
@@ -188,6 +212,9 @@ Deno.serve(async (req) => {
         ctr,
         frequencia,
         moeda: "BRL",
+        thumbnail_url: creative?.thumbnail_url || null,
+        creative_body: creative?.body || null,
+        creative_title: creative?.title || null,
       };
 
       // Upsert: match on project + campaign + adset + ad + date
