@@ -6,13 +6,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, ImageIcon } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, ImageIcon, History } from "lucide-react";
 import { toast } from "sonner";
 import { StatusToggle } from "./StatusToggle";
 import { RoasBadge, CpaCell } from "./RoasBadge";
 import { BudgetEditor } from "./BudgetEditor";
 import { BulkActionsBar } from "./BulkActionsBar";
+import { BulkBudgetDialog, type BulkBudgetMode } from "./BulkBudgetDialog";
 import { DeltaBadge } from "./DeltaBadge";
+import { Sparkline } from "./Sparkline";
+import { QuickFilters, type QuickFilterKey } from "./QuickFilters";
+import { InlineRename } from "./InlineRename";
+import { RowHistoryDrawer } from "./RowHistoryDrawer";
 import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
 
@@ -30,10 +35,12 @@ interface Props {
   onAfterToggle?: () => void;
   forcedSearch?: string;
   onSearchChange?: () => void;
+  /** Série diária por campaign_id (para sparkline). Cada array tem ordem cronológica. */
+  dailySpendByCamp?: Map<string, number[]>;
 }
 
 type Level = "campaign" | "adset" | "ad";
-type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt" | "verdict";
+type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt" | "verdict" | "trend";
 
 interface Row {
   level: Level;
@@ -63,13 +70,13 @@ interface Row {
 const PAGE_SIZES = [10, 20, 50] as const;
 
 const COLUMN_GROUPS = {
-  basic: { label: "Básico", cols: ["valor", "impressoes", "cliques", "ctr", "cpc"] as SortKey[] },
+  basic: { label: "Básico", cols: ["trend", "valor", "impressoes", "cliques", "ctr", "cpc"] as SortKey[] },
   funnel: { label: "Funil", cols: ["hook_rate", "cpm", "frequencia", "alcance", "lp_views", "lp_to_ckt", "ic", "cpi"] as SortKey[] },
   perf: { label: "Performance", cols: ["compras", "cpa", "receita", "roas", "daily_budget", "verdict"] as SortKey[] },
 } as const;
 
 const DEFAULT_VISIBLE = new Set<SortKey>([
-  "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
+  "trend", "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
 ]);
 
 function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
@@ -188,7 +195,7 @@ function enrich(r: Row, ticketMedioGlobal = 0) {
   return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt, verdict: v.verdict, verdictReason: v.reason };
 }
 
-export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAfterToggle, forcedSearch, onSearchChange }: Props) {
+export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAfterToggle, forcedSearch, onSearchChange, dailySpendByCamp }: Props) {
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
@@ -198,9 +205,13 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<Map<string, string>>(new Map());
   const [optimisticBudget, setOptimisticBudget] = useState<Map<string, number>>(new Map());
+  const [optimisticName, setOptimisticName] = useState<Map<string, string>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState<Set<SortKey>>(new Set(DEFAULT_VISIBLE));
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<QuickFilterKey>(null);
+  const [bulkBudgetOpen, setBulkBudgetOpen] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas), [ads, vendas]);
 
@@ -247,8 +258,40 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
     return e;
   }, [campaigns, search, sortKey, sortDir, ticketMedioGlobal]);
 
-  const totalPages = Math.max(1, Math.ceil(enrichedCampaigns.length / pageSize));
-  const pageRows = enrichedCampaigns.slice((page - 1) * pageSize, page * pageSize);
+  // Contagens dos filtros rápidos (sobre o universo já buscado, antes do filtro)
+  const quickCounts = useMemo(() => {
+    const c = { ESCALAR: 0, MATAR: 0, SATURADO: 0, SEM_VENDA: 0, PAUSADO: 0 };
+    for (const r of enrichedCampaigns) {
+      const v = (r as any).verdict as Verdict;
+      if (v === "ESCALAR") c.ESCALAR++;
+      if (v === "MATAR") c.MATAR++;
+      if (r.frequencia > 4) c.SATURADO++;
+      if (r.compras === 0 && r.valor > 50) c.SEM_VENDA++;
+      const status = optimistic.get(r.id) ?? r.effective_status;
+      if (status === "PAUSED") c.PAUSADO++;
+    }
+    return c;
+  }, [enrichedCampaigns, optimistic]);
+
+  // Aplica filtro rápido por cima
+  const filteredByQuick = useMemo(() => {
+    if (!quickFilter) return enrichedCampaigns;
+    return enrichedCampaigns.filter((r) => {
+      const v = (r as any).verdict as Verdict;
+      const status = optimistic.get(r.id) ?? r.effective_status;
+      if (quickFilter === "ESCALAR") return v === "ESCALAR";
+      if (quickFilter === "MATAR") return v === "MATAR";
+      if (quickFilter === "SATURADO") return r.frequencia > 4;
+      if (quickFilter === "SEM_VENDA") return r.compras === 0 && r.valor > 50;
+      if (quickFilter === "PAUSADO") return status === "PAUSED";
+      return true;
+    });
+  }, [enrichedCampaigns, quickFilter, optimistic]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredByQuick.length / pageSize));
+  const pageRows = filteredByQuick.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [quickFilter]);
 
   useEffect(() => { setSelected(new Set()); }, [projectId]);
 
@@ -525,11 +568,69 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
         onActivate={() => runBulk("ACTIVE")}
         onPause={() => runBulk("PAUSED")}
         onDuplicate={() => runBulk("DUPLICATE_CAMPAIGN")}
+        onAdjustBudget={() => setBulkBudgetOpen(true)}
         onClear={() => setSelected(new Set())}
+      />
+
+      <BulkBudgetDialog
+        open={bulkBudgetOpen}
+        onOpenChange={setBulkBudgetOpen}
+        count={selected.size}
+        loading={bulkLoading}
+        onConfirm={async (mode, value) => {
+          if (!projectId) { toast.error("Selecione um projeto antes."); return; }
+          const rows = enrichedCampaigns.filter(r => selected.has(r.id) && /^\d+$/.test(r.id) && r.daily_budget != null);
+          if (rows.length === 0) { toast.error("Nenhuma campanha com orçamento editável"); return; }
+          setBulkLoading(true);
+          const results = await Promise.allSettled(rows.map(r => {
+            const prev = Number(r.daily_budget || 0);
+            const next = mode === "increase_pct" ? prev * (1 + value / 100)
+              : mode === "decrease_pct" ? prev * (1 - value / 100)
+              : value;
+            return supabase.functions.invoke("facebook-ads-toggle", {
+              body: { project_id: projectId, entity_type: "campaign", entity_id: r.id, entity_name: r.name, action: "UPDATE_BUDGET", daily_budget: Number(next.toFixed(2)), previous_budget: prev },
+            });
+          }));
+          let ok = 0, err = 0;
+          for (const rr of results) {
+            if (rr.status === "fulfilled" && !(rr.value as any)?.error && !(rr.value as any)?.data?.error) ok++; else err++;
+          }
+          setBulkLoading(false);
+          setBulkBudgetOpen(false);
+          setSelected(new Set());
+          if (ok) toast.success(`${ok} orçamento(s) atualizado(s)`);
+          if (err) toast.error(`${err} falha(s)`);
+          onAfterToggle?.();
+        }}
+      />
+
+      <RowHistoryDrawer
+        open={!!historyTarget}
+        onOpenChange={(v) => !v && setHistoryTarget(null)}
+        entityId={historyTarget?.id || null}
+        entityName={historyTarget?.name || null}
+        projectId={projectId}
       />
     </div>
   );
 }
+
+async function callRename(supabaseClient: typeof supabase, projectId: string | undefined, entity_type: Level, row: Row, next: string, prev: string) {
+  if (!projectId) { toast.error("Selecione um projeto antes."); return false; }
+  if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta."); return false; }
+  try {
+    const { data, error } = await supabaseClient.functions.invoke("facebook-ads-toggle", {
+      body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: prev, action: "RENAME", new_name: next, previous_name: prev },
+    });
+    if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
+    toast.success("Renomeado");
+    return true;
+  } catch (e: any) {
+    toast.error(e.message || "Erro ao renomear");
+    return false;
+  }
+}
+
 
 function labelFor(k: SortKey): string {
   const map: Record<string, string> = {
