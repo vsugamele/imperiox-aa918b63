@@ -1,37 +1,31 @@
-## Diagnóstico
+Diagnóstico direto: no código atual, o **Gerenciador existe** e está registrado nos dois lugares certos:
 
-As três rotas (`/gerenciador`, `/cohort`, `/recuperacao`) **estão** corretamente registradas em `src/App.tsx` (linhas 89-91), os arquivos `src/pages/Gerenciador.tsx`, `Cohort.tsx` e `Recuperacao.tsx` existem, e o sidebar `AppSidebar.tsx` aponta para elas.
+- Sidebar: `src/components/AppSidebar.tsx`, em `crmItems`, com `/gerenciador`.
+- Rota: `src/App.tsx`, com `<Route path="gerenciador" element={<Gerenciador />} />`.
 
-O 404 que você vê é o `NotFound.tsx` do React Router — ou seja, o app carregou, mas o router atual não reconhece esses paths. Isso só acontece se o navegador estiver executando um **bundle JS antigo** (anterior à adição dessas rotas), servido pelo Service Worker do PWA.
+O log do preview mostra outro bundle sendo executado: `assets/index-DxFJkQNY.js` dispara `NotFound` para `/gerenciador`. Isso significa que a tela que você está vendo não está usando a versão atual do código. O principal suspeito é o PWA/Service Worker/precaching: o projeto tem `vite-plugin-pwa`, `public/sw-push.js` com `precacheAndRoute`, manifesto no `index.html` e componentes que esperam `navigator.serviceWorker.ready`. Mesmo com um guard no `main.tsx`, ele roda tarde demais se um service worker antigo já serviu o JS velho.
 
-Confere com o histórico: ontem mexemos pesado no `creative-factory`, `ProjetoDetalhe`, `SalesPathButton` etc. — o SW provavelmente cacheou o `index.html` + chunks antigos antes do último deploy.
+Plano para corrigir de forma definitiva:
 
-## Plano de correção
+1. **Blindar o Service Worker no preview**
+   - Ajustar o registro/limpeza para impedir qualquer service worker ativo no iframe/preview Lovable.
+   - Garantir que service workers antigos sejam desregistrados e que caches antigos sejam limpos no preview.
+   - Manter notificações push/PWA somente onde fizer sentido: produção publicada, não editor preview.
 
-### Passo 1 — Verificar via browser tools (sem código)
-Abrir o preview, inspecionar:
-- Se o Service Worker está registrado e qual versão
-- Console: erro de chunk load / "Failed to fetch dynamically imported module"
-- Network: confirmar se `App.tsx` bundle vem do cache ou do servidor
+2. **Evitar que o SW sirva bundle antigo**
+   - Revisar `vite.config.ts` e `public/sw-push.js` para limitar precache/navegação e evitar capturar rotas SPA no ambiente errado.
+   - Se necessário, remover ou condicionar o `precacheAndRoute` para não “congelar” rotas antigas como `/gerenciador`, `/cohort` e `/recuperacao`.
 
-### Passo 2 — Forçar bump de versão do SW
-Em `public/sw-push.js` (e qualquer registro do Workbox), incrementar o `CACHE_VERSION` / `revision` para invalidar caches existentes e forçar `skipWaiting` + `clients.claim` no install/activate. Isso garante que usuários com PWA instalado recebam o novo bundle no próximo load.
+3. **Adicionar fallback amigável para rotas novas em bundle antigo**
+   - Melhorar o `NotFound` para orientar quando a rota parece existir mas o bundle está antigo, com ação de recarregar/limpar cache.
+   - Isso evita parecer que “sumiu”, caso o navegador ainda esteja segurando uma versão velha.
 
-### Passo 3 — Adicionar rotas ao precache allow-list (se aplicável)
-Confirmar que `/gerenciador`, `/cohort`, `/recuperacao` não estão sendo bloqueados pelo `navigateFallbackDenylist` do Workbox.
+4. **Revalidar a sidebar**
+   - Confirmar que `CRM & Intel` renderiza com: Leads, Finanças, Gerenciador, Market Intel, Funis, Metas, Nutrição, Recuperação e Cohort & LTV.
+   - Se houver problema visual por altura/scroll, ajustar o layout do `SidebarContent` para deixar claro que a lista continua rolável.
 
-### Passo 4 — Instrução ao usuário
-Enquanto o novo SW não ativa: **hard refresh** (Ctrl+Shift+R) ou DevTools → Application → Service Workers → "Unregister" + Clear storage. Em produção (`imperiox.lovable.app`) o novo SW assume sozinho na próxima visita após o deploy.
+5. **Orientação pós-correção**
+   - Depois da mudança, você deve abrir o preview e fazer um reload forte uma vez.
+   - Para produção, será necessário clicar em **Publish/Update** para o frontend novo ir ao domínio publicado.
 
-## Detalhes técnicos
-
-- Arquivos a inspecionar: `public/sw-push.js`, `vite.config.ts` (config do VitePWA/Workbox), `src/main.tsx` (registro do SW)
-- Arquivos a editar: provavelmente só `public/sw-push.js` ou config do Workbox para bump de versão
-- Não tocar em `App.tsx` nem nas páginas — estão corretos
-
-## O que NÃO vou fazer
-- Recriar as páginas (já existem e funcionam)
-- Mexer no sidebar (correto)
-- Adicionar rotas (já estão lá)
-
-Aprova que eu siga investigando o SW e aplique o bump de versão?
+Resultado esperado: `/gerenciador`, `/cohort` e `/recuperacao` abrem normalmente, e o bloco completo **CRM & Intel** volta a aparecer de forma confiável na sidebar do preview.

@@ -2324,6 +2324,36 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_hair_types: {
+        Row: {
+          code: string
+          created_at: string
+          is_enabled: boolean
+          label: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_enabled?: boolean
+          label: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_enabled?: boolean
+          label?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_install_events: {
         Row: {
           created_at: string
