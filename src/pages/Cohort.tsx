@@ -109,17 +109,20 @@ export default function Cohort() {
             Quem traz cliente que fica. Receita acumulada por safra de leads e canal.
           </p>
         </div>
-        <Select value={projectId} onValueChange={setProjectId}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Projeto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os projetos</SelectItem>
-            {projects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <RevenueModeToggle />
+          <Select value={projectId} onValueChange={setProjectId}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os projetos</SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
