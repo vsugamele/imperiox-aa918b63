@@ -204,9 +204,38 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas), [ads, vendas]);
 
+  // Período anterior — agrega por campaign_id para lookup Δ%
+  const prevByCamp = useMemo(() => {
+    const m = new Map<string, { valor: number; compras: number; cpa: number }>();
+    if (!adsPrev?.length) return m;
+    const grouped = new Map<string, any[]>();
+    for (const a of adsPrev) {
+      const k = a.campaign_id || a.campanha || "—";
+      if (!grouped.has(k)) grouped.set(k, []);
+      grouped.get(k)!.push(a);
+    }
+    grouped.forEach((items, k) => {
+      const valor = items.reduce((s, x) => s + Number(x.valor || 0), 0);
+      const compras = items.reduce((s, x) => s + Number(x.compras || 0), 0);
+      const cpa = compras ? valor / compras : 0;
+      m.set(k, { valor, compras, cpa });
+    });
+    return m;
+  }, [adsPrev]);
+
+  const ticketMedioGlobal = useMemo(() => {
+    if (!vendas.length) return 0;
+    return vendas.reduce((s, v) => s + Number(v.valor || 0), 0) / vendas.length;
+  }, [vendas]);
+
+  // Busca forçada (vinda dos alertas)
+  useEffect(() => {
+    if (forcedSearch) { setSearch(forcedSearch); setPage(1); }
+  }, [forcedSearch]);
+
   const enrichedCampaigns = useMemo(() => {
     const filtered = campaigns.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
-    const e = filtered.map(enrich);
+    const e = filtered.map(r => enrich(r, ticketMedioGlobal));
     e.sort((a, b) => {
       const av = (a as any)[sortKey] ?? (sortKey === "name" ? a.name : 0);
       const bv = (b as any)[sortKey] ?? (sortKey === "name" ? b.name : 0);
@@ -216,7 +245,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return e;
-  }, [campaigns, search, sortKey, sortDir]);
+  }, [campaigns, search, sortKey, sortDir, ticketMedioGlobal]);
 
   const totalPages = Math.max(1, Math.ceil(enrichedCampaigns.length / pageSize));
   const pageRows = enrichedCampaigns.slice((page - 1) * pageSize, page * pageSize);
