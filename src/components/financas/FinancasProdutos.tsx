@@ -39,6 +39,7 @@ interface Props {
   revenues?: Revenue[];
   costs?: Cost[];
   ads?: AdsSpend[];
+  revenueMode?: RevenueMode;
 }
 
 const COLORS = [
@@ -52,23 +53,25 @@ const COLORS = [
   "hsl(280 67% 51%)",
 ];
 
-export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [] }: Props) {
+export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [], revenueMode = "bruto" }: Props) {
   // Build unified product map from briefing + vendas + revenues
-  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string; imposto_pct?: number }>();
+  const productMap = new Map<string, { qtd: number; receitaBruta: number; receitaLiquida: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string; imposto_pct?: number }>();
 
   // Seed from briefing products
   briefingProdutos.forEach(p => {
     if (p.nome) {
-      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo, imposto_pct: parseFloat(p.imposto_pct) || 0 });
+      productMap.set(p.nome, { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo, imposto_pct: parseFloat(p.imposto_pct) || 0 });
     }
   });
 
-  // Add vendas
+  // Add vendas — track BOTH bruto and líquido so we can show split
   vendas.forEach(v => {
     const name = v.produto_nome || "Sem produto";
-    const cur = productMap.get(name) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
+    const cur = productMap.get(name) || { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
     cur.qtd += 1;
-    cur.receita += v.valor;
+    cur.receitaBruta += Number(v.valor) || 0;
+    cur.receitaLiquida += Number(v.valor_liquido ?? v.valor) || 0;
+    cur.receita += revenueMode === "liquido" ? (Number(v.valor_liquido ?? v.valor) || 0) : (Number(v.valor) || 0);
     productMap.set(name, cur);
   });
 
