@@ -17,6 +17,8 @@ import { FinancasOverview } from "@/components/financas/FinancasOverview";
 import { FinancasAds } from "@/components/financas/FinancasAds";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 import { FinancasPerformance } from "@/components/financas/FinancasPerformance";
+import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
+import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
 const USD_BRL = 5.2;
 const TIPOS = ["SaaS", "API", "Infra", "Ads", "Freelancer", "Outro"];
@@ -24,11 +26,12 @@ const TIPOS = ["SaaS", "API", "Infra", "Ads", "Freelancer", "Outro"];
 interface Custo { id: string; nome: string; tipo?: string; valor: number; moeda?: string; }
 interface ProjectCost { id: string; project_id: string; nome: string; categoria: string; valor: number; moeda: string; }
 interface ProjectRevenue { id: string; project_id: string; descricao: string; valor: number; fonte: string; data_ref: string; }
-interface Venda { id: string; project_id: string; produto_nome: string; valor: number; plataforma: string; status: string; data_venda: string; }
+interface Venda { id: string; project_id: string; produto_nome: string; valor: number; valor_liquido?: number | null; plataforma: string; status: string; data_venda: string; }
 interface AdsSpend { id: string; project_id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null; data_ref: string; valor: number; impressoes: number; alcance?: number; cliques: number; leads: number; compras?: number; custo_por_compra?: number; hook_rate?: number; hold_rate?: number; ctr?: number; frequencia?: number; moeda: string; }
 interface Project { id: string; name: string; icon?: string; briefing?: any; }
 
 export default function Financas() {
+  const [revenueMode] = useRevenueMode();
   const [custos, setCustos] = useState<Custo[]>([]);
   const [projectCosts, setProjectCosts] = useState<ProjectCost[]>([]);
   const [projectRevenues, setProjectRevenues] = useState<ProjectRevenue[]>([]);
@@ -48,14 +51,14 @@ export default function Financas() {
       supabase.from("imphq_custos").select("*").order("nome"),
       supabase.from("imphq_project_costs").select("*"),
       supabase.from("imphq_project_revenue").select("*"),
-      supabase.from("imphq_vendas").select("*").eq("status", "aprovado"),
+      supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda").eq("status", "aprovado"),
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon, briefing" as any).or("is_archived.eq.false,is_archived.is.null"),
     ]);
     setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectCosts((r2.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectRevenues((r3.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
-    setVendas((r4.data || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0 })));
+    setVendas((r4.data || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
     setAds((r5.data || []).map((a: any) => ({
       ...a,
       valor: parseFloat(a.valor) || 0,
@@ -128,14 +131,14 @@ export default function Financas() {
   const custosProjetoBRL = fProjectCosts.reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
   const adsTotal = fAds.reduce((a, b) => a + b.valor, 0);
 
-  const receitaVendas = fVendas.reduce((a, v) => a + v.valor, 0);
+  const receitaVendas = fVendas.reduce((a, v) => a + getRevenue(v, revenueMode), 0);
   const receitaManual = fProjectRevenues.reduce((a, r) => a + r.valor, 0);
   const totalReceita = receitaVendas + receitaManual;
 
   // Proporcionalizar ads quando filtro de produto ativo
   const allVendasFiltered = (fp === "all" ? vendas : vendas.filter(v => v.project_id === fp))
     .filter(v => inDateRange(v.data_venda));
-  const receitaTotalSemFiltroProduto = allVendasFiltered.reduce((a, v) => a + v.valor, 0);
+  const receitaTotalSemFiltroProduto = allVendasFiltered.reduce((a, v) => a + getRevenue(v, revenueMode), 0);
   const adsProportional = filterProduct !== "all" && receitaTotalSemFiltroProduto > 0
     ? adsTotal * (receitaVendas / receitaTotalSemFiltroProduto)
     : adsTotal;
@@ -149,7 +152,7 @@ export default function Financas() {
   const projectSummaries = projects.map(p => {
     const pCosts = fProjectCosts.filter(c => c.project_id === p.id).reduce((a, c) => a + (c.moeda === "USD" ? c.valor * USD_BRL : c.valor), 0);
     const pAds = fAds.filter(a => a.project_id === p.id).reduce((a, b) => a + b.valor, 0);
-    const pVendas = fVendas.filter(v => v.project_id === p.id).reduce((a, v) => a + v.valor, 0);
+    const pVendas = fVendas.filter(v => v.project_id === p.id).reduce((a, v) => a + getRevenue(v, revenueMode), 0);
     const pVendasCount = fVendas.filter(v => v.project_id === p.id).length;
     const pRevenues = fProjectRevenues.filter(r => r.project_id === p.id).reduce((a, r) => a + r.valor, 0);
     const receita = pVendas + pRevenues;
@@ -172,7 +175,7 @@ export default function Financas() {
     const d = v.data_venda?.slice(0, 10);
     if (!d) return;
     const cur = dailyMap.get(d) || { ads: 0, vendas: 0 };
-    cur.vendas += v.valor;
+    cur.vendas += getRevenue(v, revenueMode);
     dailyMap.set(d, cur);
   });
   const dailyData = Array.from(dailyMap.entries())
@@ -199,10 +202,10 @@ export default function Financas() {
   const removeCusto = async (id: string) => { await supabase.from("imphq_custos").delete().eq("id", id); toast.success("Removido"); load(); };
 
   const kpis = [
-    { label: "Receita Total", value: `R$ ${totalReceita.toFixed(2)}`, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
+    { label: revenueMode === "liquido" ? "Receita Líquida (Sua parte)" : "Receita Total (Bruta)", value: `R$ ${totalReceita.toFixed(2)}`, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
     { label: "🏢 Custo Empresa", value: `R$ ${custosGlobaisBRL.toFixed(2)}`, icon: TrendingDown, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400" },
     { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsProportional).toFixed(2)}`, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
-    { label: "Lucro", value: `R$ ${lucro.toFixed(2)}`, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
+    { label: revenueMode === "liquido" ? "Lucro Real (Sua parte)" : "Lucro Bruto", value: `R$ ${lucro.toFixed(2)}`, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
     { label: "ROI", value: `${roi.toFixed(1)}%`, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
     ...(adsProportional > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
   ];
@@ -212,6 +215,7 @@ export default function Financas() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">💰 Finanças <SectionInfo {...sectionHelpTexts.financas} /></h1>
         <div className="flex items-center gap-2">
+          <RevenueModeToggle />
           <Button size="sm" variant="outline" onClick={() => {
             const headers = ["Tipo","Projeto","Descrição","Valor","Data"];
             const rows = [
@@ -465,6 +469,7 @@ export default function Financas() {
         <TabsContent value="produtos">
           <FinancasProdutos
             vendas={fVendas}
+            revenueMode={revenueMode}
             revenues={fProjectRevenues.map(r => ({ id: r.id, descricao: r.descricao, valor: r.valor, produto_nome: (r as any).produto_nome || null }))}
             costs={fProjectCosts.map(c => ({ id: c.id, nome: c.nome, valor: c.valor, produto_nome: (c as any).produto_nome || null }))}
             ads={fAds.map(a => ({ id: a.id, valor: a.valor, campanha: a.campanha }))}

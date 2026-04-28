@@ -2,11 +2,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Handshake } from "lucide-react";
+import type { RevenueMode } from "@/lib/revenueMode";
 
 interface Venda {
   id: string;
   produto_nome: string;
   valor: number;
+  valor_liquido?: number | null;
   data_venda: string;
 }
 
@@ -36,6 +39,7 @@ interface Props {
   revenues?: Revenue[];
   costs?: Cost[];
   ads?: AdsSpend[];
+  revenueMode?: RevenueMode;
 }
 
 const COLORS = [
@@ -49,30 +53,32 @@ const COLORS = [
   "hsl(280 67% 51%)",
 ];
 
-export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [] }: Props) {
+export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [], costs = [], ads = [], revenueMode = "bruto" }: Props) {
   // Build unified product map from briefing + vendas + revenues
-  const productMap = new Map<string, { qtd: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string; imposto_pct?: number }>();
+  const productMap = new Map<string, { qtd: number; receitaBruta: number; receitaLiquida: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string; imposto_pct?: number }>();
 
   // Seed from briefing products
   briefingProdutos.forEach(p => {
     if (p.nome) {
-      productMap.set(p.nome, { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo, imposto_pct: parseFloat(p.imposto_pct) || 0 });
+      productMap.set(p.nome, { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo, imposto_pct: parseFloat(p.imposto_pct) || 0 });
     }
   });
 
-  // Add vendas
+  // Add vendas — track BOTH bruto and líquido so we can show split
   vendas.forEach(v => {
     const name = v.produto_nome || "Sem produto";
-    const cur = productMap.get(name) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
+    const cur = productMap.get(name) || { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
     cur.qtd += 1;
-    cur.receita += v.valor;
+    cur.receitaBruta += Number(v.valor) || 0;
+    cur.receitaLiquida += Number(v.valor_liquido ?? v.valor) || 0;
+    cur.receita += revenueMode === "liquido" ? (Number(v.valor_liquido ?? v.valor) || 0) : (Number(v.valor) || 0);
     productMap.set(name, cur);
   });
 
   // Add manual revenues
   revenues.forEach(r => {
     if (r.produto_nome) {
-      const cur = productMap.get(r.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
+      const cur = productMap.get(r.produto_nome) || { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.receitaManual += r.valor;
       productMap.set(r.produto_nome, cur);
     }
@@ -81,7 +87,7 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   // Add costs
   costs.forEach(c => {
     if (c.produto_nome) {
-      const cur = productMap.get(c.produto_nome) || { qtd: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
+      const cur = productMap.get(c.produto_nome) || { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0 };
       cur.custos += c.valor;
       productMap.set(c.produto_nome, cur);
     }
@@ -114,6 +120,8 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
         nome,
         qtd: data.qtd,
         receita,
+        receitaBruta: data.receitaBruta,
+        receitaLiquida: data.receitaLiquida,
         receitaVendas: data.receita,
         receitaManual: data.receitaManual,
         custos: data.custos,
@@ -130,6 +138,12 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
       };
     })
     .sort((a, b) => b.receita - a.receita);
+
+  // Split summary — only products with sales where bruto != liquido
+  const splitProducts = products.filter(p => p.qtd > 0 && Math.abs(p.receitaBruta - p.receitaLiquida) > 0.01);
+  const totalBrutoVendas = products.reduce((a, p) => a + p.receitaBruta, 0);
+  const totalLiquidoVendas = products.reduce((a, p) => a + p.receitaLiquida, 0);
+  const expertShare = totalBrutoVendas - totalLiquidoVendas;
 
   const totalReceita = products.reduce((a, p) => a + p.receita, 0);
   const totalVendas = products.reduce((a, p) => a + p.qtd, 0);
@@ -204,6 +218,68 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
           </CardContent>
         </Card>
       </div>
+
+      {/* Card de Split — Sua parte vs Expert */}
+      {splitProducts.length > 0 && (
+        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Handshake className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Divisão com Expert por Produto</h3>
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                Modo atual: {revenueMode === "liquido" ? "Sua parte" : "Bruto"}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="rounded-lg bg-secondary/40 p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Receita Bruta</p>
+                <p className="text-lg font-mono font-bold text-foreground">R$ {totalBrutoVendas.toFixed(2)}</p>
+              </div>
+              <div className="rounded-lg bg-secondary/40 p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sua parte (Líquido)</p>
+                <p className="text-lg font-mono font-bold text-emerald-400">R$ {totalLiquidoVendas.toFixed(2)}</p>
+              </div>
+              <div className="rounded-lg bg-secondary/40 p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Expert / Comissões</p>
+                <p className="text-lg font-mono font-bold text-amber-400">R$ {expertShare.toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead className="text-right">Vendas</TableHead>
+                    <TableHead className="text-right">Bruto</TableHead>
+                    <TableHead className="text-right">Sua parte</TableHead>
+                    <TableHead className="text-right">Expert</TableHead>
+                    <TableHead className="text-right">Sua %</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {splitProducts.map(p => {
+                    const expert = p.receitaBruta - p.receitaLiquida;
+                    const pct = p.receitaBruta > 0 ? (p.receitaLiquida / p.receitaBruta) * 100 : 0;
+                    return (
+                      <TableRow key={p.nome}>
+                        <TableCell className="font-medium text-sm">{p.nome}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{p.qtd}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">R$ {p.receitaBruta.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-emerald-400">R$ {p.receitaLiquida.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-amber-400">R$ {expert.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{pct.toFixed(0)}%</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-6 mt-3">
+              Valores extraídos automaticamente do payload da plataforma (comissão_produtor / valor_liquido). Para produtos sem dados, configure o split padrão em <span className="text-primary">Projeto → Configurações → Divisão de Receita</span>.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Chart */}
       {chartData.length > 0 && (
