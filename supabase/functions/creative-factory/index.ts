@@ -256,6 +256,7 @@ async function processBatch(batchId: string) {
         const { data: inserted, error: insErr } = await sb.from("imphq_creative_assets").insert({
           batch_id: batchId, project_id: batch.project_id, user_id: batch.user_id,
           angulo, prompt_usado: prompt, image_url: "pending", formato,
+          image_provider: provider,
         }).select("id").single();
 
         if (insErr || !inserted) { console.error("insert asset fail", insErr); erros++; continue; }
