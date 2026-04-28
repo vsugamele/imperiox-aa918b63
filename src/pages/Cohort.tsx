@@ -26,15 +26,26 @@ import { useRevenueMode } from "@/lib/revenueMode";
 export default function Cohort() {
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<LeadRow[]>([]);
-  const [vendas, setVendas] = useState<VendaRow[]>([]);
+  const [vendasRaw, setVendasRaw] = useState<VendaRow[]>([]);
   const [ads, setAds] = useState<AdsSpendRow[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [projectId, setProjectId] = useState<string>("all");
   const [metric, setMetric] = useState<"rate" | "revenue" | "buyers">("rate");
   const [drill, setDrill] = useState<{ cohort: string; offset: number } | null>(null);
   const [creativeAds, setCreativeAds] = useState<AdSpendDetailedRow[]>([]);
-  const [creativeVendas, setCreativeVendas] = useState<VendaDetailedRow[]>([]);
+  const [creativeVendasRaw, setCreativeVendasRaw] = useState<VendaDetailedRow[]>([]);
   const [groupBy, setGroupBy] = useState<CreativeGroupBy>("campanha");
+  const [revenueMode] = useRevenueMode();
+
+  // Aplica modo Bruto/Líquido sobrescrevendo `valor` no cliente
+  const vendas = useMemo(
+    () => vendasRaw.map((v) => ({ ...v, valor: revenueMode === "liquido" ? Number(v.valor_liquido ?? v.valor ?? 0) : Number(v.valor ?? 0) })),
+    [vendasRaw, revenueMode],
+  );
+  const creativeVendas = useMemo(
+    () => creativeVendasRaw.map((v) => ({ ...v, valor: revenueMode === "liquido" ? Number(v.valor_liquido ?? v.valor ?? 0) : Number(v.valor ?? 0) })),
+    [creativeVendasRaw, revenueMode],
+  );
 
   useEffect(() => {
     (async () => {
