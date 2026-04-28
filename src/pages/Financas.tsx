@@ -31,6 +31,7 @@ interface AdsSpend { id: string; project_id: string; plataforma: string; campanh
 interface Project { id: string; name: string; icon?: string; briefing?: any; }
 
 export default function Financas() {
+  const [revenueMode] = useRevenueMode();
   const [custos, setCustos] = useState<Custo[]>([]);
   const [projectCosts, setProjectCosts] = useState<ProjectCost[]>([]);
   const [projectRevenues, setProjectRevenues] = useState<ProjectRevenue[]>([]);
@@ -50,14 +51,14 @@ export default function Financas() {
       supabase.from("imphq_custos").select("*").order("nome"),
       supabase.from("imphq_project_costs").select("*"),
       supabase.from("imphq_project_revenue").select("*"),
-      supabase.from("imphq_vendas").select("*").eq("status", "aprovado"),
+      supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda").eq("status", "aprovado"),
       supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }),
       supabase.from("imphq_projects").select("id, name, icon, briefing" as any).or("is_archived.eq.false,is_archived.is.null"),
     ]);
     setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectCosts((r2.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectRevenues((r3.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
-    setVendas((r4.data || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0 })));
+    setVendas((r4.data || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
     setAds((r5.data || []).map((a: any) => ({
       ...a,
       valor: parseFloat(a.valor) || 0,
