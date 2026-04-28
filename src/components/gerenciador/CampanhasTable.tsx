@@ -706,6 +706,7 @@ function ReactFragment(props: {
         <TableCell className="text-muted-foreground max-w-[260px] truncate" title={adset.name}>
           <span className="text-[9px] uppercase tracking-wider mr-1.5 text-primary/60">conj</span>{adset.name}
         </TableCell>
+        {isVisible("trend") && <TableCell></TableCell>}
         {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(adset.valor)}</TableCell>}
         {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(adset.impressoes)}</TableCell>}
         {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(adset.cliques)}</TableCell>}
