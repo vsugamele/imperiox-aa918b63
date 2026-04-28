@@ -109,6 +109,49 @@ async function generateImage(provider: ImageProvider, prompt: string, referenceI
   return generateImageGemini(prompt, referenceImages);
 }
 
+// Edit via OpenAI gpt-image-1 (images/edits requires multipart)
+async function generateImageOpenAIEdit(imageUrl: string, instruction: string, formato: string): Promise<string | null> {
+  if (!OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY not configured for edit");
+    return null;
+  }
+  try {
+    // Download original image
+    const imgResp = await fetch(imageUrl);
+    if (!imgResp.ok) {
+      console.error("Failed to fetch original image for OpenAI edit", imgResp.status);
+      return null;
+    }
+    const imgBlob = await imgResp.blob();
+    const ext = (imgBlob.type.split("/")[1] || "png").replace("jpeg", "png");
+
+    const form = new FormData();
+    form.append("model", "gpt-image-1");
+    form.append("prompt", instruction.slice(0, 4000));
+    form.append("size", openaiSizeFromFormato(formato));
+    form.append("n", "1");
+    form.append("image", new File([imgBlob], `source.${ext}`, { type: imgBlob.type || "image/png" }));
+
+    const resp = await fetch("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: form,
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error("OpenAI edit failed", resp.status, t.slice(0, 400));
+      return null;
+    }
+    const data = await resp.json();
+    const b64 = data?.data?.[0]?.b64_json;
+    if (!b64) return null;
+    return `data:image/png;base64,${b64}`;
+  } catch (e) {
+    console.error("OpenAI edit ex", e);
+    return null;
+  }
+}
+
 async function uploadBase64ToStorage(
   sb: any,
   base64DataUrl: string,
@@ -213,6 +256,7 @@ async function processBatch(batchId: string) {
         const { data: inserted, error: insErr } = await sb.from("imphq_creative_assets").insert({
           batch_id: batchId, project_id: batch.project_id, user_id: batch.user_id,
           angulo, prompt_usado: prompt, image_url: "pending", formato,
+          image_provider: provider,
         }).select("id").single();
 
         if (insErr || !inserted) { console.error("insert asset fail", insErr); erros++; continue; }
@@ -313,7 +357,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "edit_asset") {
-      const { asset_id, instruction } = bodyParsed || {};
+      const { asset_id, instruction, image_provider: providerOverride } = bodyParsed || {};
       if (!asset_id || !instruction) {
         return new Response(JSON.stringify({ error: "asset_id and instruction required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -328,26 +372,46 @@ Deno.serve(async (req) => {
         });
       }
 
-      const editResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-3.1-flash-image-preview",
-          messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: instruction },
-              { type: "image_url", image_url: { url: asset.image_url } },
-            ],
-          }],
-          modalities: ["image", "text"],
-        }),
-      });
+      // Resolve provider: explicit override > asset's original provider > default Gemini
+      const editProvider: ImageProvider =
+        providerOverride === "openai-image" || providerOverride === "lovable-gemini"
+          ? providerOverride
+          : ((asset as any).image_provider === "openai-image" ? "openai-image" : "lovable-gemini");
 
-      const data = await editResp.json();
-      const newDataUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      let newDataUrl: string | null = null;
+      let editError: string | null = null;
+
+      if (editProvider === "openai-image") {
+        if (!OPENAI_API_KEY) {
+          return new Response(JSON.stringify({
+            error: "OpenAI gpt-image-1 indisponível: OPENAI_API_KEY não configurada. Use Gemini ou adicione a chave nos secrets.",
+          }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        newDataUrl = await generateImageOpenAIEdit(asset.image_url, instruction, asset.formato || "1:1");
+        if (!newDataUrl) editError = "OpenAI gpt-image-1 falhou ao editar (verifique cota/billing ou conteúdo bloqueado).";
+      } else {
+        const editResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-3.1-flash-image-preview",
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: instruction },
+                { type: "image_url", image_url: { url: asset.image_url } },
+              ],
+            }],
+            modalities: ["image", "text"],
+          }),
+        });
+        const data = await editResp.json();
+        newDataUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+        if (!newDataUrl) editError = "Gemini falhou ao editar (resposta sem imagem).";
+      }
+
       if (!newDataUrl) {
-        return new Response(JSON.stringify({ error: "Edit failed", details: data }), {
+        return new Response(JSON.stringify({ error: editError || "Edit failed" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -355,10 +419,11 @@ Deno.serve(async (req) => {
       const parentVersion = (asset as any).version || 1;
       const { data: newAsset, error: insErr } = await sb.from("imphq_creative_assets").insert({
         batch_id: asset.batch_id, project_id: asset.project_id, user_id: userId,
-        angulo: asset.angulo, prompt_usado: `EDIT: ${instruction}`,
+        angulo: asset.angulo, prompt_usado: `EDIT [${editProvider}]: ${instruction}`,
         image_url: "pending", formato: asset.formato,
         parent_asset_id: asset.id, version: parentVersion + 1,
         edit_instruction: instruction, headline_copy: asset.headline_copy,
+        image_provider: editProvider,
       }).select().single();
 
       if (insErr || !newAsset) {
@@ -374,7 +439,7 @@ Deno.serve(async (req) => {
         image_url: finalUrl, storage_path: uploaded?.storagePath || null,
       }).eq("id", newAsset.id);
 
-      return new Response(JSON.stringify({ ok: true, asset_id: newAsset.id, image_url: finalUrl }), {
+      return new Response(JSON.stringify({ ok: true, asset_id: newAsset.id, image_url: finalUrl, provider: editProvider }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

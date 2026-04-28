@@ -32,7 +32,12 @@ interface Asset {
   edit_instruction: string | null;
   exported_to_midia: boolean;
   created_at: string;
+  image_provider?: string | null;
 }
+
+type ImgProvider = "lovable-gemini" | "openai-image";
+const providerLabel = (p?: string | null) =>
+  p === "openai-image" ? "OpenAI" : "Gemini";
 
 export default function CriativoDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +45,7 @@ export default function CriativoDetalhe() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [editTarget, setEditTarget] = useState<Asset | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
+  const [editProvider, setEditProvider] = useState<ImgProvider>("lovable-gemini");
   const [editing, setEditing] = useState(false);
   const [viewer, setViewer] = useState<Asset | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Asset | null>(null);
@@ -105,11 +111,17 @@ export default function CriativoDetalhe() {
     if (!editTarget || !editInstruction.trim()) return;
     setEditing(true);
     try {
-      const { error } = await supabase.functions.invoke("creative-factory", {
-        body: { action: "edit_asset", asset_id: editTarget.id, instruction: editInstruction },
+      const { data, error } = await supabase.functions.invoke("creative-factory", {
+        body: {
+          action: "edit_asset",
+          asset_id: editTarget.id,
+          instruction: editInstruction,
+          image_provider: editProvider,
+        },
       });
       if (error) throw error;
-      toast.success("Nova versão gerada!");
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Nova versão gerada (${providerLabel(editProvider)})`);
       setEditTarget(null);
       setEditInstruction("");
       load();
@@ -118,6 +130,12 @@ export default function CriativoDetalhe() {
     } finally {
       setEditing(false);
     }
+  }
+
+  function openEditor(a: Asset) {
+    setEditTarget(a);
+    setEditInstruction("");
+    setEditProvider(a.image_provider === "openai-image" ? "openai-image" : "lovable-gemini");
   }
 
   async function exportarParaMidia(asset: Asset) {
@@ -259,12 +277,21 @@ export default function CriativoDetalhe() {
                 </div>
               </button>
               <div className="p-2 flex items-center justify-between gap-1">
-                <Badge variant="outline" className="text-[10px] capitalize">{a.angulo}</Badge>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] capitalize">{a.angulo}</Badge>
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] ${a.image_provider === "openai-image" ? "border-primary/60 text-primary" : "text-muted-foreground"}`}
+                    title={a.image_provider === "openai-image" ? "Gerado por OpenAI gpt-image-1" : "Gerado por Gemini Nano Banana"}
+                  >
+                    {providerLabel(a.image_provider)}
+                  </Badge>
+                </div>
                 <div className="flex gap-0.5">
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => toggleFavorito(a)} title="Favoritar">
                     <Heart className={`h-4 w-4 ${a.favorito ? "fill-primary text-primary" : ""}`} />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditTarget(a)} title="Editar com IA">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditor(a)} title="Editar com IA">
                     <Pencil className="h-4 w-4" />
                   </Button>
                   {a.version > 1 && (
@@ -362,6 +389,34 @@ export default function CriativoDetalhe() {
                   onChange={(e) => setEditInstruction(e.target.value)}
                   placeholder="Ex: fundo azul, remover texto, mais luz..."
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Editar com</label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editProvider === "lovable-gemini" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setEditProvider("lovable-gemini")}
+                  >
+                    Gemini (rápido)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editProvider === "openai-image" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setEditProvider("openai-image")}
+                  >
+                    OpenAI gpt-image-1
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5 leading-5">
+                  {editProvider === "openai-image"
+                    ? "OpenAI cobra ~$0.04–0.19/imagem direto na sua conta OpenAI (fora do billing Lovable). Excelente para foto-realismo e texto legível."
+                    : "Gemini Nano Banana é gratuito via Lovable AI Gateway. Edição multimodal rápida."}
+                </p>
               </div>
               <Button onClick={handleEdit} disabled={editing || !editInstruction.trim()} className="w-full">
                 {editing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}

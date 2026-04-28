@@ -624,10 +624,10 @@ export default function CriativoNovo() {
                 <SelectItem value="openai-image">OpenAI gpt-image-1 (foto-realismo)</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-[10px] text-muted-foreground mt-1 leading-4">
               {imageProvider === "openai-image"
-                ? "Mais caro, melhor para fotos hiper-realistas. Não usa fotos do expert como referência visual."
-                : "Padrão Imperio HQ — usa fotos do expert como referência."}
+                ? "Foto-realismo top + texto legível. Custo direto na sua conta OpenAI (~$0.04–0.19/imagem, fora do billing Lovable). Não usa fotos do expert como referência visual."
+                : "Padrão Imperio HQ — gratuito via Lovable AI Gateway. Usa fotos do expert como referência."}
             </p>
           </div>
           <div>
