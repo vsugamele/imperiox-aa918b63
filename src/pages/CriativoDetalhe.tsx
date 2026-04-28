@@ -390,6 +390,34 @@ export default function CriativoDetalhe() {
                   placeholder="Ex: fundo azul, remover texto, mais luz..."
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Editar com</label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editProvider === "lovable-gemini" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setEditProvider("lovable-gemini")}
+                  >
+                    Gemini (rápido)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editProvider === "openai-image" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setEditProvider("openai-image")}
+                  >
+                    OpenAI gpt-image-1
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5 leading-5">
+                  {editProvider === "openai-image"
+                    ? "OpenAI cobra ~$0.04–0.19/imagem direto na sua conta OpenAI (fora do billing Lovable). Excelente para foto-realismo e texto legível."
+                    : "Gemini Nano Banana é gratuito via Lovable AI Gateway. Edição multimodal rápida."}
+                </p>
+              </div>
               <Button onClick={handleEdit} disabled={editing || !editInstruction.trim()} className="w-full">
                 {editing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                 Gerar variação editada
