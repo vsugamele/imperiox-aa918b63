@@ -761,6 +761,7 @@ function ReactFragment(props: {
                 <span className="truncate">{ad.name}</span>
               </span>
             </TableCell>
+            {isVisible("trend") && <TableCell></TableCell>}
             {isVisible("valor") && <TableCell className="text-right tabular-nums">{brl(ad.valor)}</TableCell>}
             {isVisible("impressoes") && <TableCell className="text-right tabular-nums">{num(ad.impressoes)}</TableCell>}
             {isVisible("cliques") && <TableCell className="text-right tabular-nums">{num(ad.cliques)}</TableCell>}
