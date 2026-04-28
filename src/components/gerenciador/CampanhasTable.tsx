@@ -413,6 +413,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   return (
     <div className="space-y-3">
+      <QuickFilters active={quickFilter} counts={quickCounts} onChange={setQuickFilter} />
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
