@@ -9,7 +9,7 @@ const FB_API_VERSION = "v19.0";
 const FB_BASE = `https://graph.facebook.com/${FB_API_VERSION}`;
 
 type EntityType = "campaign" | "adset" | "ad";
-type Action = "ACTIVE" | "PAUSED" | "UPDATE_BUDGET" | "DUPLICATE_CAMPAIGN";
+type Action = "ACTIVE" | "PAUSED" | "UPDATE_BUDGET" | "DUPLICATE_CAMPAIGN" | "RENAME";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -33,6 +33,8 @@ Deno.serve(async (req) => {
   const previous_status: string | undefined = body.previous_status;
   const daily_budget_brl: number | undefined = body.daily_budget; // em reais
   const previous_budget: number | undefined = body.previous_budget;
+  const new_name: string | undefined = body.new_name;
+  const previous_name: string | undefined = body.previous_name;
 
   if (!project_id || !entity_type || !entity_id || !action) {
     return new Response(JSON.stringify({ error: "Missing/invalid params" }), {
@@ -71,14 +73,17 @@ Deno.serve(async (req) => {
     action === "ACTIVE" ? "ativou" :
     action === "PAUSED" ? "pausou" :
     action === "UPDATE_BUDGET" ? "editou_orcamento" :
+    action === "RENAME" ? "renomeou" :
     "duplicou";
 
   const valorAnterior =
     action === "UPDATE_BUDGET" ? (previous_budget != null ? String(previous_budget) : null) :
+    action === "RENAME" ? (previous_name ?? null) :
     previous_status ?? null;
 
   const valorNovo =
     action === "UPDATE_BUDGET" ? (daily_budget_brl != null ? String(daily_budget_brl) : null) :
+    action === "RENAME" ? (new_name ?? null) :
     action;
 
   const logAction = async (resultado: "ok" | "erro", erro_msg?: string) => {
@@ -126,6 +131,15 @@ Deno.serve(async (req) => {
     } else if (action === "DUPLICATE_CAMPAIGN") {
       url = `${FB_BASE}/${entity_id}/copies?access_token=${accessToken}`;
       payload = { deep_copy: true, status_option: "PAUSED" };
+    } else if (action === "RENAME") {
+      if (!new_name || !new_name.trim()) {
+        await logAction("erro", "Nome inválido");
+        return new Response(JSON.stringify({ error: "Nome inválido" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      payload = { name: new_name.trim() };
     }
 
     const fbRes = await fetch(url, {
@@ -158,6 +172,14 @@ Deno.serve(async (req) => {
       await supabase
         .from("imphq_ads_spend")
         .update({ daily_budget: Number(daily_budget_brl) })
+        .eq("project_id", project_id)
+        .eq(idColumn, entity_id);
+    } else if (action === "RENAME") {
+      const nameColumn =
+        entity_type === "campaign" ? "campanha" : entity_type === "adset" ? "conjunto_anuncios" : "anuncio";
+      await supabase
+        .from("imphq_ads_spend")
+        .update({ [nameColumn]: new_name!.trim() })
         .eq("project_id", project_id)
         .eq(idColumn, entity_id);
     }
