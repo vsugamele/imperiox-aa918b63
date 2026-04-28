@@ -277,12 +277,21 @@ export default function CriativoDetalhe() {
                 </div>
               </button>
               <div className="p-2 flex items-center justify-between gap-1">
-                <Badge variant="outline" className="text-[10px] capitalize">{a.angulo}</Badge>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] capitalize">{a.angulo}</Badge>
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] ${a.image_provider === "openai-image" ? "border-primary/60 text-primary" : "text-muted-foreground"}`}
+                    title={a.image_provider === "openai-image" ? "Gerado por OpenAI gpt-image-1" : "Gerado por Gemini Nano Banana"}
+                  >
+                    {providerLabel(a.image_provider)}
+                  </Badge>
+                </div>
                 <div className="flex gap-0.5">
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => toggleFavorito(a)} title="Favoritar">
                     <Heart className={`h-4 w-4 ${a.favorito ? "fill-primary text-primary" : ""}`} />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditTarget(a)} title="Editar com IA">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditor(a)} title="Editar com IA">
                     <Pencil className="h-4 w-4" />
                   </Button>
                   {a.version > 1 && (
