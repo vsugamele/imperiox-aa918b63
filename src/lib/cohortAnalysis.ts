@@ -15,6 +15,7 @@ export interface VendaRow {
   lead_id: string | null;
   project_id: string | null;
   valor: number | null;
+  valor_liquido?: number | null;
   data_venda: string | null;
   utm_source: string | null;
   email?: string | null;
@@ -89,7 +90,7 @@ export async function fetchCohortDataset(projectId?: string) {
     .limit(5000);
   const vendasQ = supabase
     .from("imphq_vendas")
-    .select("id, lead_id, project_id, valor, data_venda, utm_source, data")
+    .select("id, lead_id, project_id, valor, valor_liquido, data_venda, utm_source, data")
     .eq("status", "aprovado")
     .order("data_venda", { ascending: true })
     .limit(5000);
@@ -108,6 +109,7 @@ export async function fetchCohortDataset(projectId?: string) {
   const vendas = filterByProject((vendasRes.data || []) as any[]).map((v) => ({
     ...v,
     valor: Number(v.valor || 0),
+    valor_liquido: v.valor_liquido != null ? Number(v.valor_liquido) : null,
   })) as VendaRow[];
   const ads = filterByProject((adsRes.data || []) as any[]).map((a) => ({
     ...a,

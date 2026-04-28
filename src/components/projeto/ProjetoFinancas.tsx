@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { AdsImportDialog } from "@/components/financas/AdsImportDialog";
 import { FileUpload } from "@/components/FileUpload";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
+import { RevenueSplitSettings } from "@/components/shared/RevenueSplitSettings";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toLocalDateStr } from "@/lib/periodUtils";
@@ -1509,8 +1510,9 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
         </TabsContent>
 
         {/* Produtos Tab */}
-        <TabsContent value="produtos">
+        <TabsContent value="produtos" className="space-y-4">
           <FinancasProdutos vendas={vendas} briefingProdutos={briefingProdutos} revenues={revenues} costs={costs} ads={ads} />
+          <RevenueSplitSettings projectId={projectId} produtos={briefingProdutos} />
         </TabsContent>
       </Tabs>
 

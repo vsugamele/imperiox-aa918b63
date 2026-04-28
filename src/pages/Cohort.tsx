@@ -20,19 +20,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, TrendingUp, Crown, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SectionInfo } from "@/components/SectionInfo";
+import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
+import { useRevenueMode } from "@/lib/revenueMode";
 
 export default function Cohort() {
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<LeadRow[]>([]);
-  const [vendas, setVendas] = useState<VendaRow[]>([]);
+  const [vendasRaw, setVendasRaw] = useState<VendaRow[]>([]);
   const [ads, setAds] = useState<AdsSpendRow[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [projectId, setProjectId] = useState<string>("all");
   const [metric, setMetric] = useState<"rate" | "revenue" | "buyers">("rate");
   const [drill, setDrill] = useState<{ cohort: string; offset: number } | null>(null);
   const [creativeAds, setCreativeAds] = useState<AdSpendDetailedRow[]>([]);
-  const [creativeVendas, setCreativeVendas] = useState<VendaDetailedRow[]>([]);
+  const [creativeVendasRaw, setCreativeVendasRaw] = useState<VendaDetailedRow[]>([]);
   const [groupBy, setGroupBy] = useState<CreativeGroupBy>("campanha");
+  const [revenueMode] = useRevenueMode();
+
+  // Aplica modo Bruto/Líquido sobrescrevendo `valor` no cliente
+  const vendas = useMemo(
+    () => vendasRaw.map((v) => ({ ...v, valor: revenueMode === "liquido" ? Number(v.valor_liquido ?? v.valor ?? 0) : Number(v.valor ?? 0) })),
+    [vendasRaw, revenueMode],
+  );
+  const creativeVendas = useMemo(
+    () => creativeVendasRaw.map((v) => ({ ...v, valor: revenueMode === "liquido" ? Number(v.valor_liquido ?? v.valor ?? 0) : Number(v.valor ?? 0) })),
+    [creativeVendasRaw, revenueMode],
+  );
 
   useEffect(() => {
     (async () => {
@@ -52,10 +65,10 @@ export default function Cohort() {
     Promise.all([fetchCohortDataset(pid), fetchCreativeDataset(pid)]).then(([d, c]) => {
       if (!alive) return;
       setLeads(d.leads);
-      setVendas(d.vendas);
+      setVendasRaw(d.vendas);
       setAds(d.ads);
       setCreativeAds(c.ads);
-      setCreativeVendas(c.vendas);
+      setCreativeVendasRaw(c.vendas);
       setLoading(false);
     });
     return () => { alive = false; };
@@ -96,17 +109,20 @@ export default function Cohort() {
             Quem traz cliente que fica. Receita acumulada por safra de leads e canal.
           </p>
         </div>
-        <Select value={projectId} onValueChange={setProjectId}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Projeto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os projetos</SelectItem>
-            {projects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <RevenueModeToggle />
+          <Select value={projectId} onValueChange={setProjectId}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os projetos</SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

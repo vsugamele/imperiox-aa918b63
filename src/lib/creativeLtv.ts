@@ -17,6 +17,7 @@ export interface VendaDetailedRow {
   lead_id: string | null;
   project_id: string | null;
   valor: number | null;
+  valor_liquido?: number | null;
   data_venda: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
@@ -88,7 +89,7 @@ export async function fetchCreativeDataset(projectId?: string) {
     .limit(10000);
   const vendasQ = supabase
     .from("imphq_vendas")
-    .select("id, lead_id, project_id, valor, data_venda, utm_campaign, utm_content, utm_source, tipo_venda")
+    .select("id, lead_id, project_id, valor, valor_liquido, data_venda, utm_campaign, utm_content, utm_source, tipo_venda")
     .eq("status", "aprovado")
     .order("data_venda", { ascending: false })
     .limit(10000);
@@ -106,6 +107,7 @@ export async function fetchCreativeDataset(projectId?: string) {
   const vendasRaw = filterByProject((vendasRes.data || []) as any[]).map((v) => ({
     ...v,
     valor: Number(v.valor || 0),
+    valor_liquido: v.valor_liquido != null ? Number(v.valor_liquido) : null,
   })) as VendaDetailedRow[];
 
   // Fallback: para vendas sem UTM, herdar do lead (first-touch).
