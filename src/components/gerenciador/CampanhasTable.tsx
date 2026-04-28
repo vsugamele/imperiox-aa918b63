@@ -519,7 +519,32 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                     <TableCell>
                       <StatusToggle status={status} loading={togglingId === id} onChange={(next) => handleToggle("campaign", row, next)} />
                     </TableCell>
-                    <TableCell className="font-medium text-foreground/90 max-w-[280px] truncate" title={row.name}>{row.name}</TableCell>
+                    <TableCell className="font-medium text-foreground/90 max-w-[320px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <InlineRename
+                          value={optimisticName.get(id) ?? row.name}
+                          disabled={!/^\d+$/.test(id)}
+                          onSave={async (next) => {
+                            const prev = optimisticName.get(id) ?? row.name;
+                            setOptimisticName(m => new Map(m).set(id, next));
+                            const ok = await callRename(supabase, projectId, "campaign", row, next, prev);
+                            if (!ok) setOptimisticName(m => { const n = new Map(m); n.set(id, prev); return n; });
+                            else onAfterToggle?.();
+                          }}
+                          className="flex-1 min-w-0"
+                        />
+                        <button
+                          onClick={() => setHistoryTarget({ id, name: optimisticName.get(id) ?? row.name })}
+                          className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition shrink-0 text-muted-foreground hover:text-primary"
+                          title="Ver histórico"
+                        >
+                          <History className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </TableCell>
+                    {isVisible("trend") && <TableCell>
+                      <Sparkline data={dailySpendByCamp?.get(id) || []} title="Gasto diário no período" />
+                    </TableCell>}
                     {isVisible("valor") && <TableCell className="text-right tabular-nums">
                       <div className="flex flex-col items-end">
                         <span>{brl(row.valor)}</span>
