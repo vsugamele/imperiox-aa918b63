@@ -3641,6 +3641,8 @@ export type Database = {
           passed: boolean
           quiz_id: string
           score: number
+          started_at: string | null
+          time_spent_seconds: number | null
           user_id: string
         }
         Insert: {
@@ -3650,6 +3652,8 @@ export type Database = {
           passed?: boolean
           quiz_id: string
           score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
           user_id: string
         }
         Update: {
@@ -3659,6 +3663,8 @@ export type Database = {
           passed?: boolean
           quiz_id?: string
           score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
           user_id?: string
         }
         Relationships: [
@@ -3674,8 +3680,11 @@ export type Database = {
       areamembrojp_quiz_questions: {
         Row: {
           created_at: string
+          explanation: string | null
           id: string
+          image_url: string | null
           options: Json
+          points: number
           position: number
           question: string
           quiz_id: string
@@ -3683,8 +3692,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          explanation?: string | null
           id?: string
+          image_url?: string | null
           options?: Json
+          points?: number
           position?: number
           question: string
           quiz_id: string
@@ -3692,8 +3704,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          explanation?: string | null
           id?: string
+          image_url?: string | null
           options?: Json
+          points?: number
           position?: number
           question?: string
           quiz_id?: string
@@ -3712,26 +3727,44 @@ export type Database = {
       areamembrojp_quizzes: {
         Row: {
           created_at: string
+          description: string | null
           id: string
           is_active: boolean
           lesson_id: string
+          max_attempts: number | null
           pass_score: number
+          show_explanations: boolean
+          shuffle_options: boolean
+          shuffle_questions: boolean
+          time_limit_minutes: number | null
           title: string
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
           lesson_id: string
+          max_attempts?: number | null
           pass_score?: number
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
           title: string
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
           lesson_id?: string
+          max_attempts?: number | null
           pass_score?: number
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
           title?: string
         }
         Relationships: [

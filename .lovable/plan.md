@@ -1,128 +1,96 @@
-# Melhorias propostas para o módulo de Ads
+## Objetivo
 
-Análise feita em `/gerenciador` (Meta Manager Pro) e `Finanças → Ads` (FinancasAds.tsx, 710 linhas). O backend já captura mais dados do que a UI mostra — boa parte das melhorias é desbloquear o que já existe.
+Hoje toda venda é contabilizada pelo `valor` bruto da transação. Quando o infoproduto é dividido com expert/co-produtor, o número infla o "faturamento" mas mascara o **lucro real seu**. As plataformas já mandam a sua parte — só não estamos usando.
 
----
+## O que já temos (boa notícia)
 
-## 1. Preview visual dos criativos (thumbnail)
+O webhook `webhook-pagamento` **já salva** os campos certos em `imphq_vendas.data` (jsonb):
 
-**Problema:** `facebook-ads-sync` já busca `creative.thumbnail_url` e `image_url` da Meta, mas a tabela hierárquica não mostra. O usuário fica adivinhando qual anúncio é qual pelo nome.
+- **Ticto** → `data.comissao_produtor` (sua parte líquida em R$)
+- **Hotmart** → `data.valor_liquido` (líquido) + `data.comissao_produtor`
+- **Kiwify** → `data.comissao_produtor` + `data.valor_liquido`
 
-**Solução:**
-- Persistir `thumbnail_url` em `imphq_ads_spend` no nível `ad` (coluna nova).
-- Na linha de Ad (3º nível do drilldown), exibir miniatura 32×32 ao lado do nome.
-- Hover → preview 240×240 em popover com `body` + `title` do criativo.
+O problema: esses valores ficam enterrados no JSONB e nenhum dashboard/relatório usa. Só o `valor` bruto é lido.
 
----
+## Plano
 
-## 2. Comparação período anterior (Δ%)
+### 1. Coluna física `valor_liquido` em `imphq_vendas`
+Migration que:
+- Adiciona `valor_liquido NUMERIC` (nullable).
+- Backfill: `UPDATE` puxando `COALESCE((data->>'comissao_produtor')::numeric, (data->>'valor_liquido')::numeric, valor)` em todas as vendas existentes.
+- Trigger `BEFORE INSERT/UPDATE` que recalcula `valor_liquido` automaticamente sempre que `data` mudar (mesma lógica do COALESCE). Garante que webhooks novos preenchem sem mexer no edge function.
 
-**Problema:** o usuário vê CPA hoje, mas não sabe se piorou ou melhorou vs. período anterior. O Meta Manager mostra setinhas ▲▼ em todas as colunas.
+### 2. Webhook `webhook-pagamento`
+Pequeno ajuste: setar `valor_liquido` direto na linha do insert (além de continuar salvando em `data`). Cinto e suspensório.
 
-**Solução:**
-- Buscar dois ranges (atual + anterior do mesmo tamanho) em paralelo.
-- Em cada célula numérica (CPA, ROAS, CTR, CPM, gasto, compras), badge `+12%` verde / `-8%` vermelho.
-- Toggle no header: "vs. período anterior" on/off.
+### 3. Configuração de split por projeto/produto (fallback)
+Nem toda plataforma manda comissão (ex: Ticto antigo, vendas manuais). Adicionar em `imphq_projects.settings` (jsonb existente) uma chave:
 
----
+```json
+{
+  "revenue_splits": {
+    "default_share": 0.5,
+    "by_product": { "Nome do Produto": 0.6 }
+  }
+}
+```
 
-## 3. Sparkline de tendência por linha
+Quando a venda **não** tiver `comissao_produtor` nem `valor_liquido`, o trigger aplica `valor * share` usando essa config (lookup via função `public.get_producer_share(project_id, produto_nome)`).
 
-**Problema:** decisão de pausar/escalar precisa de série temporal. Hoje exige clicar e abrir outra tela.
+### 4. UI — Toggle "Receita Bruta vs Líquida (sua parte)"
 
-**Solução:**
-- Mini-gráfico 80×24px na coluna ROAS (ou CPA) mostrando os últimos 7 dias.
-- Reusa Recharts (já no projeto).
+Adicionar toggle global no Dashboard, Finanças e Gerenciador (mesmo padrão do "Comparar período"). Persiste em `localStorage`.
 
----
+Quando ligado:
+- **Dashboard** (`DashboardStats`, `DashboardRevenue`, `DashboardCharts`, `DashboardCards`, `RecoveryGlobalCard`) — soma `valor_liquido` em vez de `valor`.
+- **Finanças** (`FinancasOverview`, `FinancasProdutos`, `FinancasPerformance`, projeção mensal) — recalcula receita, lucro (líquido − ads − custos fixos) e ROAS real.
+- **Gerenciador / Ads** (`KpiCardsHeader`, `CampanhasTable`, `adsVerdict`) — ROAS e CPA passam a usar líquido (ESCALAR/MATAR baseado no que sobra de verdade pra você).
+- **Cohort / LTV** — LTV por canal/criativo em líquido.
 
-## 4. Diagnóstico Yoshitani inline no Gerenciador
+### 5. Card "Split de Receita" em Finanças
+Novo bloco mostrando lado a lado, por produto, no período:
+- Receita bruta
+- Sua parte (líquido)
+- Repassado a expert / plataforma / taxas
+- % da sua fatia
 
-**Problema:** o diagnóstico 7/5/3 só aparece em `Finanças → Ads`, não no `/gerenciador`. Quem está pausando/ativando não vê o veredito.
+Para o usuário enxergar onde a fatia é menor e priorizar produtos de melhor margem.
 
-**Solução:**
-- Coluna `VEREDITO` opcional (toggle no popover de colunas) com badge: ESCALAR / MANTER / OTIMIZAR / MATAR.
-- Tooltip com motivo (gargalo + manobra recomendada).
-- Reaproveita `analyzeCampaigns()` já implementada.
+### 6. Configuração visual do split
+Tela em `/projetos/:id` (aba Finanças/Configurações do projeto) com:
+- Input "Sua fatia padrão (%)"
+- Lista por produto com fatia customizada
+- Mostra % detectada automaticamente das últimas 20 vendas (média de `comissao_produtor / valor`) como sugestão.
 
----
+## Arquivos a tocar
 
-## 5. Filtros rápidos de status + presets
+**Backend**
+- `supabase/migrations/...` — coluna + backfill + trigger + função `get_producer_share`
+- `supabase/functions/webhook-pagamento/index.ts` — setar `valor_liquido` no insert
 
-**Problema:** lista única com tudo misturado. Difícil isolar "campanhas ativas com ROAS < 1" ou "pausadas que vendiam bem".
+**Frontend (helper compartilhado)**
+- `src/lib/revenueMode.ts` (novo) — hook `useRevenueMode()` + helper `getRevenue(venda, mode)`
+- `src/components/shared/RevenueModeToggle.tsx` (novo)
 
-**Solução:**
-- Chips no topo da tabela: `Todas` · `Ativas` · `Pausadas` · `Com vendas hoje` · `ROAS < 1` · `Sem dados (24h)`.
-- Filtro por intervalo de gasto (slider min/max).
+**Telas que consomem `imphq_vendas.valor`** (substituir por helper):
+- `src/components/dashboard/DashboardStats.tsx`, `DashboardRevenue.tsx`, `DashboardCharts.tsx`, `DashboardCards.tsx`, `DashboardAds.tsx`, `RecoveryGlobalCard.tsx`, `PredictiveDashboard.tsx`
+- `src/components/financas/FinancasOverview.tsx`, `FinancasProdutos.tsx`, `FinancasPerformance.tsx`, `FinancasAds.tsx`
+- `src/components/gerenciador/KpiCardsHeader.tsx`, `CampanhasTable.tsx`, `src/lib/adsVerdict.ts`, `src/pages/Gerenciador.tsx`
+- `src/lib/cohortAnalysis.ts`, `src/lib/creativeLtv.ts`
 
----
+**Novo**
+- `src/components/financas/RevenueSplitCard.tsx`
+- Aba de configuração de split em `src/pages/ProjetoDetalhe.tsx`
 
-## 6. Alertas automáticos no header
+## Memória
 
-**Problema:** problemas críticos (campanha gastando sem vender, frequência > 4, conta com erro) só aparecem depois que o usuário cava.
+Salvar `mem://features/finance/revenue-split` documentando: campos da Ticto/Hotmart/Kiwify, coluna `valor_liquido`, lógica do trigger, fallback via `imphq_projects.settings.revenue_splits`, toggle global.
 
-**Solução:**
-- Banner no topo do `/gerenciador` com 3 alertas prioritários:
-  - "2 campanhas gastaram >R$200 hoje sem nenhuma compra"
-  - "Campanha X com frequência 5.8 (saturação)"
-  - "Conta de anúncios desconectada há 2h" (já existe `FacebookHealthAlert`, integrar)
-- Cada alerta clicável → filtra a tabela.
+## Entrega faseada
 
----
+Se preferir cortar, faço em 2 levas:
 
-## 7. Ações em massa avançadas
+1. **Leva 1 (essencial)**: migration + backfill + trigger + helper + toggle + Dashboard + Finanças.
+2. **Leva 2 (refino)**: Gerenciador/Ads em líquido, Card de Split, configuração visual por projeto, Cohort/LTV.
 
-**Já temos:** Pausar / Ativar / Duplicar.
-
-**Adicionar:**
-- `Aumentar orçamento +20%` em massa (escala segura).
-- `Diminuir orçamento -20%` em massa.
-- `Exportar selecionadas` (CSV só do que está marcado).
-
----
-
-## 8. Edição inline do nome da campanha
-
-Hoje só orçamento é editável. Permitir renomear (útil para padronizar `[DD/MM] Nome` que o `analyzeCampaigns` já normaliza).
-
----
-
-## 9. KPI cards no topo do Gerenciador
-
-**Problema:** o `/gerenciador` vai direto pra tabela. Faltam números agregados.
-
-**Solução:** 4 cards no topo (estilo `KpiHeroCard`): Gasto total · ROAS médio · Compras · CPA médio — todos com Δ% vs período anterior.
-
----
-
-## 10. Histórico de mudanças por linha
-
-**Problema:** `imphq_ads_actions` registra tudo mas só aparece em `AcoesHistorico` (lista global no rodapé).
-
-**Solução:** ícone 🕐 no fim de cada linha → popover com últimas 5 ações daquela campanha (quem pausou, quando mudou orçamento, etc).
-
----
-
-## Prioridade sugerida
-
-| # | Esforço | Impacto |
-|---|---------|---------|
-| 1 Thumbnails | Médio (migration + sync + UI) | **Alto** — reconhecimento visual |
-| 2 Δ% período anterior | Médio | **Alto** — decisão informada |
-| 6 Alertas no header | Baixo | **Alto** — proatividade |
-| 9 KPI cards topo | Baixo | Médio |
-| 4 Veredito inline | Baixo (reusa código) | **Alto** |
-| 5 Filtros rápidos | Baixo | Médio |
-| 3 Sparkline | Médio | Médio |
-| 7 Ajuste orçamento massa | Baixo | Médio |
-| 10 Histórico por linha | Baixo | Baixo |
-| 8 Renomear inline | Baixo | Baixo |
-
----
-
-## Próximo passo
-
-Me diga quais itens quer atacar agora. Sugestão de primeira leva (1 sprint curto):
-**#1 Thumbnails + #2 Δ% + #4 Veredito inline + #6 Alertas no header + #9 KPI cards.**
-
-Isso transforma o `/gerenciador` num cockpit de decisão completo, sem precisar abrir outras telas.
+Me confirma se quer tudo de uma vez ou só a Leva 1 primeiro.
