@@ -195,7 +195,7 @@ function enrich(r: Row, ticketMedioGlobal = 0) {
   return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt, verdict: v.verdict, verdictReason: v.reason };
 }
 
-export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAfterToggle, forcedSearch, onSearchChange }: Props) {
+export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAfterToggle, forcedSearch, onSearchChange, dailySpendByCamp }: Props) {
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
@@ -205,9 +205,13 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<Map<string, string>>(new Map());
   const [optimisticBudget, setOptimisticBudget] = useState<Map<string, number>>(new Map());
+  const [optimisticName, setOptimisticName] = useState<Map<string, string>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState<Set<SortKey>>(new Set(DEFAULT_VISIBLE));
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<QuickFilterKey>(null);
+  const [bulkBudgetOpen, setBulkBudgetOpen] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas), [ads, vendas]);
 
@@ -254,8 +258,40 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
     return e;
   }, [campaigns, search, sortKey, sortDir, ticketMedioGlobal]);
 
-  const totalPages = Math.max(1, Math.ceil(enrichedCampaigns.length / pageSize));
-  const pageRows = enrichedCampaigns.slice((page - 1) * pageSize, page * pageSize);
+  // Contagens dos filtros rápidos (sobre o universo já buscado, antes do filtro)
+  const quickCounts = useMemo(() => {
+    const c = { ESCALAR: 0, MATAR: 0, SATURADO: 0, SEM_VENDA: 0, PAUSADO: 0 };
+    for (const r of enrichedCampaigns) {
+      const v = (r as any).verdict as Verdict;
+      if (v === "ESCALAR") c.ESCALAR++;
+      if (v === "MATAR") c.MATAR++;
+      if (v === "SATURADO") c.SATURADO++;
+      if (r.compras === 0 && r.valor > 50) c.SEM_VENDA++;
+      const status = optimistic.get(r.id) ?? r.effective_status;
+      if (status === "PAUSED") c.PAUSADO++;
+    }
+    return c;
+  }, [enrichedCampaigns, optimistic]);
+
+  // Aplica filtro rápido por cima
+  const filteredByQuick = useMemo(() => {
+    if (!quickFilter) return enrichedCampaigns;
+    return enrichedCampaigns.filter((r) => {
+      const v = (r as any).verdict as Verdict;
+      const status = optimistic.get(r.id) ?? r.effective_status;
+      if (quickFilter === "ESCALAR") return v === "ESCALAR";
+      if (quickFilter === "MATAR") return v === "MATAR";
+      if (quickFilter === "SATURADO") return v === "SATURADO";
+      if (quickFilter === "SEM_VENDA") return r.compras === 0 && r.valor > 50;
+      if (quickFilter === "PAUSADO") return status === "PAUSED";
+      return true;
+    });
+  }, [enrichedCampaigns, quickFilter, optimistic]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredByQuick.length / pageSize));
+  const pageRows = filteredByQuick.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [quickFilter]);
 
   useEffect(() => { setSelected(new Set()); }, [projectId]);
 
