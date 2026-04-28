@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { AdsImportDialog } from "@/components/financas/AdsImportDialog";
 import { FileUpload } from "@/components/FileUpload";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
+import { RevenueSplitSettings } from "@/components/shared/RevenueSplitSettings";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toLocalDateStr } from "@/lib/periodUtils";
