@@ -5,12 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, Copy as CopyIcon } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { StatusToggle } from "./StatusToggle";
 import { RoasBadge, CpaCell } from "./RoasBadge";
 import { BudgetEditor } from "./BudgetEditor";
 import { BulkActionsBar } from "./BulkActionsBar";
+import { DeltaBadge } from "./DeltaBadge";
+import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
 
 interface VendaItem {
@@ -21,21 +24,27 @@ interface VendaItem {
 
 interface Props {
   ads: any[];
+  adsPrev?: any[];
   vendas?: VendaItem[];
   projectId?: string;
   onAfterToggle?: () => void;
+  forcedSearch?: string;
+  onSearchChange?: () => void;
 }
 
 type Level = "campaign" | "adset" | "ad";
-type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt";
+type SortKey = "name" | "valor" | "impressoes" | "cliques" | "ctr" | "cpc" | "ic" | "cpi" | "compras" | "cpa" | "receita" | "roas" | "daily_budget" | "hook_rate" | "cpm" | "frequencia" | "alcance" | "lp_views" | "lp_to_ckt" | "verdict";
 
 interface Row {
   level: Level;
-  id: string; // entity id (campaign_id / adset_id / ad_id)
+  id: string;
   parent_id?: string | null;
   name: string;
   effective_status: string | null;
   daily_budget: number | null;
+  thumbnail_url?: string | null;
+  creative_body?: string | null;
+  creative_title?: string | null;
   valor: number;
   impressoes: number;
   cliques: number;
@@ -56,11 +65,11 @@ const PAGE_SIZES = [10, 20, 50] as const;
 const COLUMN_GROUPS = {
   basic: { label: "Básico", cols: ["valor", "impressoes", "cliques", "ctr", "cpc"] as SortKey[] },
   funnel: { label: "Funil", cols: ["hook_rate", "cpm", "frequencia", "alcance", "lp_views", "lp_to_ckt", "ic", "cpi"] as SortKey[] },
-  perf: { label: "Performance", cols: ["compras", "cpa", "receita", "roas", "daily_budget"] as SortKey[] },
+  perf: { label: "Performance", cols: ["compras", "cpa", "receita", "roas", "daily_budget", "verdict"] as SortKey[] },
 } as const;
 
 const DEFAULT_VISIBLE = new Set<SortKey>([
-  "valor", "impressoes", "cliques", "ctr", "cpc", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget",
+  "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
 ]);
 
 function buildRows(ads: any[], vendas: VendaItem[]): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
