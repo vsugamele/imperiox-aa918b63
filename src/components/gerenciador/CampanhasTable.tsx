@@ -342,7 +342,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const renderSubRows = (campaign: Row, depth = 1) => {
     const adsets = adsetsByCampaign.get(campaign.id) || [];
-    const sortedAdsets = [...adsets].map(enrich).sort((a, b) => b.valor - a.valor);
+    const sortedAdsets = [...adsets].map(r => enrich(r, ticketMedioGlobal)).sort((a, b) => b.valor - a.valor);
     return sortedAdsets.map((adset) => {
       const adsetExpanded = expanded.has(adset.id);
       const adsetStatus = optimistic.get(adset.id) ?? adset.effective_status;
@@ -355,7 +355,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
           loading={togglingId === adset.id}
           isVisible={isVisible}
           depth={depth}
-          adsRows={(adsByAdset.get(adset.id) || []).map(enrich).sort((a, b) => b.valor - a.valor)}
+          adsRows={(adsByAdset.get(adset.id) || []).map(r => enrich(r, ticketMedioGlobal)).sort((a, b) => b.valor - a.valor)}
           optimistic={optimistic}
           optimisticBudget={optimisticBudget}
           togglingId={togglingId}
