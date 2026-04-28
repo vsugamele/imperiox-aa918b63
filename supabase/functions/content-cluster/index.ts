@@ -37,7 +37,7 @@ async function generateOne(opts: {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [{ role: "system", content: sys }, { role: "user", content: user }],
       }),
     });
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
         content_type: fmt.role,
         content,
         product_name: project?.name || "",
-        model_used: "google/gemini-2.5-flash",
+        model_used: "google/gemini-3-flash-preview",
         status: ok ? "rascunho" : "erro",
         funnel_stage: funnelStage,
         cluster_id: clusterId,

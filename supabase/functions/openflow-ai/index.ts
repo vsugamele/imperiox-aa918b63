@@ -1556,7 +1556,7 @@ criativo, pagina, vsl, checkout, upsell, face_ads, instagram, tiktok, email, wha
 // ── Image Generation ──
 async function handleGenerateImage(body: any, sb: any, projectContext: string, apiKey: string, mentePrefix = "") {
   const { project_id, prompt, quality = "fast", image_style } = body;
-  const imageModel = quality === "high" ? "google/gemini-3-pro-image-preview" : "google/gemini-2.5-flash-image";
+  const imageModel = quality === "high" ? "google/gemini-3-pro-image-preview" : "google/gemini-3.1-flash-image-preview";
 
   const systemParts = [mentePrefix, "Você é um designer gráfico especialista em criativos de marketing digital brasileiro."];
   if (projectContext) systemParts.push(`Contexto do projeto:\n${projectContext.slice(0, 2000)}`);
@@ -1616,7 +1616,7 @@ async function handleEditImage(body: any, sb: any, projectContext: string, apiKe
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash-image",
+      model: "google/gemini-3.1-flash-image-preview",
       messages: [{
         role: "user",
         content: [
