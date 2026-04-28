@@ -219,6 +219,68 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
         </Card>
       </div>
 
+      {/* Card de Split — Sua parte vs Expert */}
+      {splitProducts.length > 0 && (
+        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Handshake className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Divisão com Expert por Produto</h3>
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                Modo atual: {revenueMode === "liquido" ? "Sua parte" : "Bruto"}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="rounded-lg bg-secondary/40 p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Receita Bruta</p>
+                <p className="text-lg font-mono font-bold text-foreground">R$ {totalBrutoVendas.toFixed(2)}</p>
+              </div>
+              <div className="rounded-lg bg-secondary/40 p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sua parte (Líquido)</p>
+                <p className="text-lg font-mono font-bold text-emerald-400">R$ {totalLiquidoVendas.toFixed(2)}</p>
+              </div>
+              <div className="rounded-lg bg-secondary/40 p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Expert / Comissões</p>
+                <p className="text-lg font-mono font-bold text-amber-400">R$ {expertShare.toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead className="text-right">Vendas</TableHead>
+                    <TableHead className="text-right">Bruto</TableHead>
+                    <TableHead className="text-right">Sua parte</TableHead>
+                    <TableHead className="text-right">Expert</TableHead>
+                    <TableHead className="text-right">Sua %</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {splitProducts.map(p => {
+                    const expert = p.receitaBruta - p.receitaLiquida;
+                    const pct = p.receitaBruta > 0 ? (p.receitaLiquida / p.receitaBruta) * 100 : 0;
+                    return (
+                      <TableRow key={p.nome}>
+                        <TableCell className="font-medium text-sm">{p.nome}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{p.qtd}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">R$ {p.receitaBruta.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-emerald-400">R$ {p.receitaLiquida.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-amber-400">R$ {expert.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{pct.toFixed(0)}%</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-6 mt-3">
+              Valores extraídos automaticamente do payload da plataforma (comissão_produtor / valor_liquido). Para produtos sem dados, configure o split padrão em <span className="text-primary">Projeto → Configurações → Divisão de Receita</span>.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Chart */}
       {chartData.length > 0 && (
         <Card className="border-border">
