@@ -15,6 +15,7 @@ export interface VendaRow {
   lead_id: string | null;
   project_id: string | null;
   valor: number | null;
+  valor_liquido?: number | null;
   data_venda: string | null;
   utm_source: string | null;
   email?: string | null;
