@@ -15062,6 +15062,7 @@ export type Database = {
           formato: string
           headline_copy: string | null
           id: string
+          image_provider: string | null
           image_url: string
           metadata: Json | null
           midia_id: string | null
@@ -15085,6 +15086,7 @@ export type Database = {
           formato?: string
           headline_copy?: string | null
           id?: string
+          image_provider?: string | null
           image_url: string
           metadata?: Json | null
           midia_id?: string | null
@@ -15108,6 +15110,7 @@ export type Database = {
           formato?: string
           headline_copy?: string | null
           id?: string
+          image_provider?: string | null
           image_url?: string
           metadata?: Json | null
           midia_id?: string | null
