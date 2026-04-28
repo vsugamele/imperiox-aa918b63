@@ -32,7 +32,12 @@ interface Asset {
   edit_instruction: string | null;
   exported_to_midia: boolean;
   created_at: string;
+  image_provider?: string | null;
 }
+
+type ImgProvider = "lovable-gemini" | "openai-image";
+const providerLabel = (p?: string | null) =>
+  p === "openai-image" ? "OpenAI" : "Gemini";
 
 export default function CriativoDetalhe() {
   const { id } = useParams<{ id: string }>();
