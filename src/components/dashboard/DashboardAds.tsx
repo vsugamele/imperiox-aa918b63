@@ -51,6 +51,7 @@ interface CampaignDiag {
   ckoToSale: number;
   freq: number;
   custoCheckout: number;
+  isActive: boolean;
 }
 
 interface Props {
@@ -234,14 +235,28 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
         else if (trend === "MELHORANDO" && cpa3 < metaCpa) manobra = "ESCALA +20%";
         else if (trend === "PIORANDO") manobra = "CORTE -50%";
 
+        // Campanha é ATIVA se houve gasto OU status ACTIVE em qualquer linha dos últimos 3 dias
+        const isActive = items3.some((a: any) => {
+          const st = String(a.effective_status || "").toUpperCase();
+          if (st === "ACTIVE") return true;
+          if (st && st !== "ACTIVE") return false;
+          // sem status: infere por gasto > 0 nos últimos 3 dias
+          return (parseFloat(a.valor) || 0) > 0;
+        });
+
         diagnosticos.push({
           name, cpa7, cpa5, cpa3, trend, gargalo, manobra,
-          gasto7, checkouts: checkouts7, compras: compras7,
+          gasto7: gasto7, checkouts: checkouts7, compras: compras7,
           lpToCko: dLpToCko, ckoToSale: dCkoToSale, freq: dFreq, custoCheckout: dCustoCheckout,
+          isActive,
         });
       });
 
-      diagnosticos.sort((a, b) => b.gasto7 - a.gasto7);
+      // Ordena: ATIVAS primeiro (por gasto), depois pausadas
+      diagnosticos.sort((a, b) => {
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+        return b.gasto7 - a.gasto7;
+      });
 
       setAdsGlobal({
         gasto, cpl: leads > 0 ? gasto / leads : 0,
@@ -327,73 +342,99 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
       </Card>
 
       {/* === Yoshitani 7/5/3 Diagnostic Summary === */}
-      {adsGlobal.diagnosticos.length > 0 && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base flex items-center gap-2">
-              <Target className="h-4 w-4 text-red-400" />
-              ⚔️ Diagnóstico Yoshitani — Tendência 7/5/3
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">CPA, tendência, gargalo cirúrgico e manobra por campanha</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {adsGlobal.diagnosticos.slice(0, 5).map((d, i) => (
-              <div key={i} className="rounded-lg border border-border p-3 space-y-2 bg-secondary/30">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold truncate">{d.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Gasto 7d: R$ {d.gasto7.toFixed(2)} · {d.compras} compras · {d.checkouts} checkouts
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Badge variant="outline" className={trendColor(d.trend)}>
-                      <TrendIcon trend={d.trend} />
-                      <span className="ml-1 text-[10px]">{d.trend}</span>
-                    </Badge>
-                    <Badge variant="outline" className={gargaloColor(d.gargalo)}>
-                      <span className="text-[10px]">{d.gargalo}</span>
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 sm:grid-cols-7 gap-1.5 text-[11px]">
-                  {[
-                    { label: "CPA 7d", val: d.cpa7 > 0 ? `R$ ${d.cpa7.toFixed(2)}` : "—" },
-                    { label: "CPA 5d", val: d.cpa5 > 0 ? `R$ ${d.cpa5.toFixed(2)}` : "—" },
-                    { label: "CPA 3d", val: d.cpa3 > 0 ? `R$ ${d.cpa3.toFixed(2)}` : "—" },
-                    { label: "$/Checkout", val: d.custoCheckout > 0 ? `R$ ${d.custoCheckout.toFixed(2)}` : "—" },
-                    { label: "LP→CKO", val: d.lpToCko > 0 ? `${d.lpToCko.toFixed(1)}%` : "—", warn: d.lpToCko > 0 && d.lpToCko < 10 },
-                    { label: "CKO→Venda", val: d.ckoToSale > 0 ? `${d.ckoToSale.toFixed(1)}%` : "—", warn: d.ckoToSale > 0 && d.ckoToSale < 50 },
-                    { label: "Freq.", val: d.freq > 0 ? d.freq.toFixed(1) : "—", warn: d.freq > 3 },
-                  ].map(m => (
-                    <div key={m.label} className="bg-background/50 rounded px-2 py-1">
-                      <span className="text-muted-foreground">{m.label}</span>
-                      <p className={`font-mono font-bold ${(m as any).warn ? "text-red-400" : ""}`}>{m.val}</p>
-                    </div>
-                  ))}
-                </div>
-
+      {adsGlobal.diagnosticos.length > 0 && (() => {
+        const ativas = adsGlobal.diagnosticos.filter(d => d.isActive);
+        const pausadas = adsGlobal.diagnosticos.filter(d => !d.isActive && d.gasto7 > 0);
+        const renderCard = (d: CampaignDiag, i: number, dimmed = false) => (
+          <div key={`${dimmed ? "p" : "a"}-${i}`} className={`rounded-lg border border-border p-3 space-y-2 bg-secondary/30 ${dimmed ? "opacity-60" : ""}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">MANOBRA:</span>
-                  <Badge variant="outline" className={
-                    d.manobra.includes("ESCALA") ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
-                    d.manobra.includes("PAUSE") ? "bg-red-500/15 text-red-400 border-red-500/30" :
-                    d.manobra.includes("CORTE") ? "bg-orange-500/15 text-orange-400 border-orange-500/30" :
-                    "bg-secondary text-muted-foreground"
-                  }>
-                    <span className="text-[10px]">{d.manobra}</span>
-                  </Badge>
-                  {d.gargalo === "ANÚNCIO" && <span className="text-[10px] text-muted-foreground">💡 Novos criativos/hooks</span>}
-                  {d.gargalo === "PÁGINA" && <span className="text-[10px] text-muted-foreground">💡 CRO na página</span>}
-                  {d.gargalo === "CHECKOUT" && <span className="text-[10px] text-muted-foreground">💡 Fricção no pagamento</span>}
-                  {d.gargalo === "TÉCNICO" && <span className="text-[10px] text-muted-foreground">💡 Velocidade/promessa</span>}
+                  <p className="text-sm font-semibold truncate">{d.name}</p>
+                  {!d.isActive && (
+                    <Badge variant="outline" className="bg-muted/30 text-muted-foreground border-muted/40 text-[9px] shrink-0">PAUSADA</Badge>
+                  )}
                 </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Gasto 7d: R$ {d.gasto7.toFixed(2)} · {d.compras} compras · {d.checkouts} checkouts
+                </p>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Badge variant="outline" className={trendColor(d.trend)}>
+                  <TrendIcon trend={d.trend} />
+                  <span className="ml-1 text-[10px]">{d.trend}</span>
+                </Badge>
+                <Badge variant="outline" className={gargaloColor(d.gargalo)}>
+                  <span className="text-[10px]">{d.gargalo}</span>
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 sm:grid-cols-7 gap-1.5 text-[11px]">
+              {[
+                { label: "CPA 7d", val: d.cpa7 > 0 ? `R$ ${d.cpa7.toFixed(2)}` : "—" },
+                { label: "CPA 5d", val: d.cpa5 > 0 ? `R$ ${d.cpa5.toFixed(2)}` : "—" },
+                { label: "CPA 3d", val: d.cpa3 > 0 ? `R$ ${d.cpa3.toFixed(2)}` : "—" },
+                { label: "$/Checkout", val: d.custoCheckout > 0 ? `R$ ${d.custoCheckout.toFixed(2)}` : "—" },
+                { label: "LP→CKO", val: d.lpToCko > 0 ? `${d.lpToCko.toFixed(1)}%` : "—", warn: d.lpToCko > 0 && d.lpToCko < 10 },
+                { label: "CKO→Venda", val: d.ckoToSale > 0 ? `${d.ckoToSale.toFixed(1)}%` : "—", warn: d.ckoToSale > 0 && d.ckoToSale < 50 },
+                { label: "Freq.", val: d.freq > 0 ? d.freq.toFixed(1) : "—", warn: d.freq > 3 },
+              ].map(m => (
+                <div key={m.label} className="bg-background/50 rounded px-2 py-1">
+                  <span className="text-muted-foreground">{m.label}</span>
+                  <p className={`font-mono font-bold ${(m as any).warn ? "text-red-400" : ""}`}>{m.val}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] text-muted-foreground">MANOBRA:</span>
+              <Badge variant="outline" className={
+                d.manobra.includes("ESCALA") ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+                d.manobra.includes("PAUSE") ? "bg-red-500/15 text-red-400 border-red-500/30" :
+                d.manobra.includes("CORTE") ? "bg-orange-500/15 text-orange-400 border-orange-500/30" :
+                "bg-secondary text-muted-foreground"
+              }>
+                <span className="text-[10px]">{d.manobra}</span>
+              </Badge>
+              {d.gargalo === "ANÚNCIO" && <span className="text-[10px] text-muted-foreground">💡 Novos criativos/hooks</span>}
+              {d.gargalo === "PÁGINA" && <span className="text-[10px] text-muted-foreground">💡 CRO na página</span>}
+              {d.gargalo === "CHECKOUT" && <span className="text-[10px] text-muted-foreground">💡 Fricção no pagamento</span>}
+              {d.gargalo === "TÉCNICO" && <span className="text-[10px] text-muted-foreground">💡 Velocidade/promessa</span>}
+            </div>
+          </div>
+        );
+
+        return (
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-base flex items-center gap-2">
+                <Target className="h-4 w-4 text-red-400" />
+                ⚔️ Diagnóstico Yoshitani — Tendência 7/5/3
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                CPA, tendência e manobra · {ativas.length} ativas{pausadas.length > 0 ? ` · ${pausadas.length} pausadas` : ""}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {ativas.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Nenhuma campanha ativa nos últimos 3 dias.</p>
+              )}
+              {ativas.slice(0, 5).map((d, i) => renderCard(d, i, false))}
+              {pausadas.length > 0 && (
+                <details className="pt-2 border-t border-border/40">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                    Ver {pausadas.length} pausadas com gasto recente
+                  </summary>
+                  <div className="space-y-3 mt-3">
+                    {pausadas.slice(0, 5).map((d, i) => renderCard(d, i, true))}
+                  </div>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Ads by Project + Top Campaigns */}
       {(adsGlobal.adsByProject.length > 0 || adsGlobal.topCampanhas.length > 0) && (

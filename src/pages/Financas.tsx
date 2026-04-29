@@ -40,26 +40,56 @@ export default function Financas() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [filterProject, setFilterProject] = useState("all");
   const [filterProduct, setFilterProduct] = useState("all");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
+  // Default = últimos 30 dias para evitar somar histórico inteiro e inflar receita
+  const [filterDateFrom, setFilterDateFrom] = useState(localDaysAgo(30));
+  const [filterDateTo, setFilterDateTo] = useState(toLocalDateStr());
+  const [vendasTotalCount, setVendasTotalCount] = useState(0);
   const [showCustoDialog, setShowCustoDialog] = useState(false);
   const [editingCusto, setEditingCusto] = useState<Custo | null>(null);
   const [custoForm, setCustoForm] = useState({ nome: "", tipo: "SaaS", valor: "", moeda: "BRL" });
 
   const load = async () => {
-    const [r1, r2, r3, r4, r5, r6] = await Promise.all([
+    // Janela de busca: usa o filtro de datas; se vazio, últimos 90 dias
+    const fromDate = filterDateFrom || localDaysAgo(90);
+    const toDate = filterDateTo || toLocalDateStr();
+    const fromTs = `${fromDate}T00:00:00`;
+    const toTs = `${toDate}T23:59:59.999`;
+
+    const { fetchAll } = await import("@/lib/supabasePaginate");
+
+    const [r1, r2, r3, vendasAll, adsAll, r6, vendasCountRes] = await Promise.all([
       supabase.from("imphq_custos").select("*").order("nome"),
       supabase.from("imphq_project_costs").select("*"),
-      supabase.from("imphq_project_revenue").select("*"),
-      supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda").eq("status", "aprovado"),
-      supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }),
-      supabase.from("imphq_projects").select("id, name, icon, briefing" as any).or("is_archived.eq.false,is_archived.is.null"),
-    ]);
+      supabase.from("imphq_project_revenue").select("*").gte("data_ref", fromDate).lte("data_ref", toDate),
+      fetchAll<any>((from, to) =>
+        supabase.from("imphq_vendas")
+          .select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda, utm_campaign")
+          .eq("status", "aprovado")
+          .gte("data_venda", fromTs)
+          .lte("data_venda", toTs)
+          .order("data_venda", { ascending: false })
+          .range(from, to),
+        1000, 20000,
+      ),
+      fetchAll<any>((from, to) =>
+        supabase.from("imphq_ads_spend")
+          .select("*")
+          .gte("data_ref", fromDate)
+          .lte("data_ref", toDate)
+          .order("data_ref", { ascending: false })
+          .range(from, to),
+        1000, 20000,
+      ),
+      supabase.from("imphq_projects").select("id, name, icon" as any).or("is_archived.eq.false,is_archived.is.null").order("name"),
+      supabase.from("imphq_vendas").select("id", { count: "exact", head: true })
+        .eq("status", "aprovado").gte("data_venda", fromTs).lte("data_venda", toTs),
+    ]) as any;
+
     setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectCosts((r2.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
     setProjectRevenues((r3.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
-    setVendas((r4.data || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
-    setAds((r5.data || []).map((a: any) => ({
+    setVendas((vendasAll || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
+    setAds((adsAll || []).map((a: any) => ({
       ...a,
       valor: parseFloat(a.valor) || 0,
       impressoes: a.impressoes || 0,
@@ -74,9 +104,10 @@ export default function Financas() {
       frequencia: parseFloat(a.frequencia) || 0,
     })));
     setProjects((r6.data || []) as unknown as Project[]);
+    setVendasTotalCount(vendasCountRes?.count || 0);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [filterDateFrom, filterDateTo]);
 
   // Date filter helper
   const inDateRange = (dateStr: string | null | undefined) => {
@@ -284,6 +315,11 @@ export default function Financas() {
           </Card>
         ))}
       </div>
+      <p className="text-[11px] text-muted-foreground -mt-2 px-1">
+        📊 KPIs respeitam o filtro de período acima · {fVendas.length} vendas no período
+        {vendasTotalCount > vendas.length && ` · ⚠ ${vendasTotalCount} no banco (${vendas.length} carregadas)`}
+        {filterProduct !== "all" && ` · ads prorateados pelo share de receita do produto`}
+      </p>
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">

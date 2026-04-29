@@ -3251,6 +3251,7 @@ export type Database = {
           type: string
           updated_at: string
           user_id: string | null
+          visibility: string
         }
         Insert: {
           comments_count?: number
@@ -3270,6 +3271,7 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string | null
+          visibility?: string
         }
         Update: {
           comments_count?: number
@@ -3289,6 +3291,7 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string | null
+          visibility?: string
         }
         Relationships: [
           {
@@ -4124,6 +4127,12 @@ export type Database = {
           background_hsl: string
           body_font: string
           card_hsl: string
+          community_free_post_quota: number
+          community_free_reel_quota: number
+          community_gating_mode: string
+          community_lock_create: boolean
+          community_lock_engage: boolean
+          community_paywall_message: string
           default_theme: string
           favicon_url: string | null
           footer_about_links: Json
@@ -4197,6 +4206,12 @@ export type Database = {
           background_hsl?: string
           body_font?: string
           card_hsl?: string
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
           default_theme?: string
           favicon_url?: string | null
           footer_about_links?: Json
@@ -4270,6 +4285,12 @@ export type Database = {
           background_hsl?: string
           body_font?: string
           card_hsl?: string
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
           default_theme?: string
           favicon_url?: string | null
           footer_about_links?: Json
