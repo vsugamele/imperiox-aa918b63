@@ -336,10 +336,14 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
         </Button>
       </div>
 
-      {/* Top cards */}
+      {/* Top cards — clicáveis: abrem detalhes (toggle expanded) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Forecast */}
-        <Card className="border-border bg-card/60">
+        <Card
+          className="border-border bg-card/60 cursor-pointer hover:scale-[1.02] hover:border-primary/40 transition-all"
+          onClick={() => setExpanded(true)}
+          title="Clique para ver detalhes da projeção"
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground">Projeção 30 dias</span>
@@ -358,7 +362,11 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
         </Card>
 
         {/* Funnel Health */}
-        <Card className="border-border bg-card/60">
+        <Card
+          className="border-border bg-card/60 cursor-pointer hover:scale-[1.02] hover:border-primary/40 transition-all"
+          onClick={() => setExpanded(true)}
+          title="Clique para ver as 3 métricas do funil"
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground">Saúde do Funil</span>
@@ -377,7 +385,11 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
         </Card>
 
         {/* Anomalies */}
-        <Card className="border-border bg-card/60">
+        <Card
+          className="border-border bg-card/60 cursor-pointer hover:scale-[1.02] hover:border-primary/40 transition-all"
+          onClick={() => setExpanded(true)}
+          title={anomalies.length > 0 ? "Ver lista de anomalias" : "Sem anomalias"}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground">Anomalias Detectadas</span>
