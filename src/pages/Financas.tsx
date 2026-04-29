@@ -315,6 +315,11 @@ export default function Financas() {
           </Card>
         ))}
       </div>
+      <p className="text-[11px] text-muted-foreground -mt-2 px-1">
+        📊 KPIs respeitam o filtro de período acima · {fVendas.length} vendas no período
+        {vendasTotalCount > vendas.length && ` · ⚠ ${vendasTotalCount} no banco (${vendas.length} carregadas)`}
+        {filterProduct !== "all" && ` · ads prorateados pelo share de receita do produto`}
+      </p>
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
