@@ -40,8 +40,10 @@ export default function Financas() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [filterProject, setFilterProject] = useState("all");
   const [filterProduct, setFilterProduct] = useState("all");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
+  // Default = últimos 30 dias para evitar somar histórico inteiro e inflar receita
+  const [filterDateFrom, setFilterDateFrom] = useState(localDaysAgo(30));
+  const [filterDateTo, setFilterDateTo] = useState(toLocalDateStr());
+  const [vendasTotalCount, setVendasTotalCount] = useState(0);
   const [showCustoDialog, setShowCustoDialog] = useState(false);
   const [editingCusto, setEditingCusto] = useState<Custo | null>(null);
   const [custoForm, setCustoForm] = useState({ nome: "", tipo: "SaaS", valor: "", moeda: "BRL" });
