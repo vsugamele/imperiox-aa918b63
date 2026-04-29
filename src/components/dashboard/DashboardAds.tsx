@@ -51,6 +51,7 @@ interface CampaignDiag {
   ckoToSale: number;
   freq: number;
   custoCheckout: number;
+  isActive: boolean;
 }
 
 interface Props {
