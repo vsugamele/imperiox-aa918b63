@@ -235,14 +235,28 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
         else if (trend === "MELHORANDO" && cpa3 < metaCpa) manobra = "ESCALA +20%";
         else if (trend === "PIORANDO") manobra = "CORTE -50%";
 
+        // Campanha é ATIVA se houve gasto OU status ACTIVE em qualquer linha dos últimos 3 dias
+        const isActive = items3.some((a: any) => {
+          const st = String(a.effective_status || "").toUpperCase();
+          if (st === "ACTIVE") return true;
+          if (st && st !== "ACTIVE") return false;
+          // sem status: infere por gasto > 0 nos últimos 3 dias
+          return (parseFloat(a.valor) || 0) > 0;
+        });
+
         diagnosticos.push({
           name, cpa7, cpa5, cpa3, trend, gargalo, manobra,
-          gasto7, checkouts: checkouts7, compras: compras7,
+          gasto7: gasto7, checkouts: checkouts7, compras: compras7,
           lpToCko: dLpToCko, ckoToSale: dCkoToSale, freq: dFreq, custoCheckout: dCustoCheckout,
+          isActive,
         });
       });
 
-      diagnosticos.sort((a, b) => b.gasto7 - a.gasto7);
+      // Ordena: ATIVAS primeiro (por gasto), depois pausadas
+      diagnosticos.sort((a, b) => {
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+        return b.gasto7 - a.gasto7;
+      });
 
       setAdsGlobal({
         gasto, cpl: leads > 0 ? gasto / leads : 0,
