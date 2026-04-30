@@ -4133,6 +4133,7 @@ export type Database = {
           community_lock_create: boolean
           community_lock_engage: boolean
           community_paywall_message: string
+          community_paywall_preview_chars: number
           default_theme: string
           favicon_url: string | null
           footer_about_links: Json
@@ -4212,6 +4213,7 @@ export type Database = {
           community_lock_create?: boolean
           community_lock_engage?: boolean
           community_paywall_message?: string
+          community_paywall_preview_chars?: number
           default_theme?: string
           favicon_url?: string | null
           footer_about_links?: Json
@@ -4291,6 +4293,7 @@ export type Database = {
           community_lock_create?: boolean
           community_lock_engage?: boolean
           community_paywall_message?: string
+          community_paywall_preview_chars?: number
           default_theme?: string
           favicon_url?: string | null
           footer_about_links?: Json
