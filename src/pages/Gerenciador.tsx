@@ -10,6 +10,7 @@ import { CampanhasTable } from "@/components/gerenciador/CampanhasTable";
 import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
 import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
 import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
+import { AttributionDiagnostic } from "@/components/gerenciador/AttributionDiagnostic";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
@@ -176,6 +177,9 @@ export default function Gerenciador() {
 
           {/* Alertas críticos */}
           <AlertsHeader ads={metaAds} onFilter={(term) => setForcedSearch(term)} />
+
+          {/* Diagnóstico de atribuição */}
+          <AttributionDiagnostic vendas={vendas} />
 
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Todas as Campanhas</p>
