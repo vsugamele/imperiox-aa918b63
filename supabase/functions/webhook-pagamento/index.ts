@@ -653,6 +653,12 @@ Deno.serve(async (req) => {
         if (webhookUtms) vendaData.utms = webhookUtms;
         if (tipo_venda !== "principal") vendaData.tipo_venda = tipo_venda;
 
+        // Reverse-match campaign_id from utm_campaign
+        const matchedCampaignId = webhookUtms?.utm_campaign
+          ? await findCampaignIdByUtm(supabase, projectId, webhookUtms.utm_campaign)
+          : null;
+        if (matchedCampaignId) vendaData.matched_campaign_id = matchedCampaignId;
+
         const vendaInsert: any = {
           id: crypto.randomUUID(),
           lead_id: leadId,
@@ -663,6 +669,11 @@ Deno.serve(async (req) => {
           status: "aprovado",
           tipo_venda,
           external_transaction_id: externalTxId,
+          utm_source: webhookUtms?.utm_source || null,
+          utm_medium: webhookUtms?.utm_medium || null,
+          utm_campaign: webhookUtms?.utm_campaign || null,
+          utm_content: webhookUtms?.utm_content || null,
+          utm_term: webhookUtms?.utm_term || null,
           data: Object.keys(vendaData).length > 0 ? vendaData : null,
         };
         if (data_compra) {
