@@ -178,6 +178,9 @@ export default function Gerenciador() {
           {/* Alertas críticos */}
           <AlertsHeader ads={metaAds} onFilter={(term) => setForcedSearch(term)} />
 
+          {/* Diagnóstico de atribuição */}
+          <AttributionDiagnostic vendas={vendas} />
+
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Todas as Campanhas</p>
             <CampanhasTable
