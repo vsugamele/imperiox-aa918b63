@@ -616,6 +616,13 @@ Deno.serve(async (req) => {
         const upd: any = { status: "aprovado" };
         if (data_compra) upd.data_venda = data_compra;
         if (externalTxId) upd.external_transaction_id = externalTxId;
+        if (webhookUtms?.utm_campaign) {
+          upd.utm_source = webhookUtms.utm_source || null;
+          upd.utm_medium = webhookUtms.utm_medium || null;
+          upd.utm_campaign = webhookUtms.utm_campaign || null;
+          upd.utm_content = webhookUtms.utm_content || null;
+          upd.utm_term = webhookUtms.utm_term || null;
+        }
         await supabase.from("imphq_vendas").update(upd).eq("id", promotable.id);
         console.log("[webhook-pagamento] Promoted pending sale to aprovado:", promotable.id);
       } else {
