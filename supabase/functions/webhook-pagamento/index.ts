@@ -535,6 +535,11 @@ Deno.serve(async (req) => {
       }
 
       if (!dupCheck || dupCheck.length === 0) {
+        // Reverse-match campaign_id from utm_campaign
+        const matchedCampaignId = webhookUtms?.utm_campaign
+          ? await findCampaignIdByUtm(supabase, projectId, webhookUtms.utm_campaign)
+          : null;
+
         const vendaInsert: any = {
           id: crypto.randomUUID(),
           lead_id: leadId,
@@ -545,7 +550,15 @@ Deno.serve(async (req) => {
           status: vendaStatus,
           tipo_venda: tipo_venda || "principal",
           external_transaction_id: externalTxId,
-          data: webhookUtms ? { utms: webhookUtms } : null,
+          utm_source: webhookUtms?.utm_source || null,
+          utm_medium: webhookUtms?.utm_medium || null,
+          utm_campaign: webhookUtms?.utm_campaign || null,
+          utm_content: webhookUtms?.utm_content || null,
+          utm_term: webhookUtms?.utm_term || null,
+          data: {
+            ...(webhookUtms ? { utms: webhookUtms } : {}),
+            ...(matchedCampaignId ? { matched_campaign_id: matchedCampaignId } : {}),
+          },
         };
         if (data_compra) {
           vendaInsert.created_at = data_compra;
@@ -553,7 +566,7 @@ Deno.serve(async (req) => {
         }
         const { error: ciErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
         if (ciErr && ciErr.code !== "23505") console.error("[webhook-pagamento] Erro ao inserir checkout intent:", ciErr);
-        else if (!ciErr) console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus);
+        else if (!ciErr) console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus, "utm:", webhookUtms?.utm_campaign);
 
         // Hot lead notification: Pix gerado is high-intent
         if (evento === "pix_gerado") {
