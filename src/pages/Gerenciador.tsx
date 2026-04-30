@@ -10,6 +10,7 @@ import { CampanhasTable } from "@/components/gerenciador/CampanhasTable";
 import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
 import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
 import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
+import { AttributionDiagnostic } from "@/components/gerenciador/AttributionDiagnostic";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
