@@ -131,14 +131,104 @@ function extractFinanceiro(body: any, plataforma: string): Record<string, any> |
   return null;
 }
 
+// Decode common encodings used by trackers (xcod often uses pipe encoded as %7C)
+function decodeXcod(raw: string): Record<string, string> {
+  if (!raw) return {};
+  const out: Record<string, string> = {};
+  try {
+    const decoded = decodeURIComponent(raw);
+    // Format: campaign|adset|ad|content OR key=value pairs separated by | or &
+    if (decoded.includes("=")) {
+      decoded.split(/[|&]/).forEach((kv) => {
+        const [k, ...rest] = kv.split("=");
+        if (k && rest.length) out[k.trim().toLowerCase()] = rest.join("=").trim();
+      });
+    } else if (decoded.includes("|")) {
+      const parts = decoded.split("|");
+      if (parts[0]) out.utm_campaign = parts[0];
+      if (parts[1]) out.utm_content = parts[1]; // adset
+      if (parts[2]) out.utm_term = parts[2]; // ad
+    } else {
+      out.utm_campaign = decoded;
+    }
+  } catch { /* ignore */ }
+  return out;
+}
+
 function extractUtms(body: any): Record<string, string> | null {
-  const src = body?.utm_source || body?.data?.purchase?.tracking?.source || body?.tracking?.utm_source;
-  const med = body?.utm_medium || body?.data?.purchase?.tracking?.medium || body?.tracking?.utm_medium;
-  const cmp = body?.utm_campaign || body?.data?.purchase?.tracking?.campaign || body?.tracking?.utm_campaign;
-  const cnt = body?.utm_content || body?.tracking?.utm_content;
-  const trm = body?.utm_term || body?.tracking?.utm_term;
-  if (src || med || cmp) return { utm_source: src || "", utm_medium: med || "", utm_campaign: cmp || "", utm_content: cnt || "", utm_term: trm || "" };
+  // 1) Direct UTMs from common locations
+  let src = body?.utm_source || body?.data?.purchase?.tracking?.source || body?.tracking?.utm_source || body?.tracking?.source;
+  let med = body?.utm_medium || body?.data?.purchase?.tracking?.medium || body?.tracking?.utm_medium;
+  let cmp = body?.utm_campaign || body?.data?.purchase?.tracking?.campaign || body?.tracking?.utm_campaign;
+  let cnt = body?.utm_content || body?.tracking?.utm_content;
+  let trm = body?.utm_term || body?.tracking?.utm_term;
+
+  // 2) Ticto / Hotmart "src" (often contains campaign name)
+  const srcParam = body?.src || body?.data?.purchase?.tracking?.source_sck || body?.tracking?.src;
+  if (!cmp && srcParam) cmp = srcParam;
+  if (!src && srcParam) src = srcParam;
+
+  // 3) sck (Ticto subscriber tracking code)
+  const sck = body?.sck || body?.tracking?.sck;
+  if (sck) {
+    const sckParts = decodeXcod(String(sck));
+    cmp = cmp || sckParts.utm_campaign;
+    cnt = cnt || sckParts.utm_content;
+    trm = trm || sckParts.utm_term;
+  }
+
+  // 4) xcod (universal tracker code we use in /Tracker)
+  const xcod = body?.xcod || body?.tracking?.xcod || body?.data?.purchase?.tracking?.xcod;
+  if (xcod) {
+    const xcodParts = decodeXcod(String(xcod));
+    src = src || xcodParts.utm_source || xcodParts.src;
+    med = med || xcodParts.utm_medium;
+    cmp = cmp || xcodParts.utm_campaign;
+    cnt = cnt || xcodParts.utm_content || xcodParts.adset_name;
+    trm = trm || xcodParts.utm_term || xcodParts.ad_name;
+  }
+
+  if (src || med || cmp || cnt || trm) {
+    return {
+      utm_source: src || "",
+      utm_medium: med || "",
+      utm_campaign: cmp || "",
+      utm_content: cnt || "",
+      utm_term: trm || "",
+    };
+  }
   return null;
+}
+
+// Reverse-match utm_campaign to imphq_ads_spend.campanha to recover campaign_id
+async function findCampaignIdByUtm(supabase: any, projectId: string | null, utmCampaign: string): Promise<string | null> {
+  if (!utmCampaign || !projectId) return null;
+  try {
+    // Try exact match first
+    const { data: exact } = await supabase
+      .from("imphq_ads_spend")
+      .select("campaign_id, campanha")
+      .eq("project_id", projectId)
+      .eq("campanha", utmCampaign)
+      .not("campaign_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    if (exact?.campaign_id) return exact.campaign_id;
+
+    // Fallback: contains (case-insensitive)
+    const { data: fuzzy } = await supabase
+      .from("imphq_ads_spend")
+      .select("campaign_id, campanha")
+      .eq("project_id", projectId)
+      .ilike("campanha", `%${utmCampaign}%`)
+      .not("campaign_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return fuzzy?.campaign_id || null;
+  } catch (e) {
+    console.warn("[webhook-pagamento] findCampaignIdByUtm error:", e);
+    return null;
+  }
 }
 
 function parseWebhookBody(body: any, hotmartToken: string | null) {
