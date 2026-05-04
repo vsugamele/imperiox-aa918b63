@@ -388,6 +388,9 @@ function getSaleBucket(sale: SaleRow): RecoveryBucketId | null {
   const dueDiff = dueDate ? (new Date(dueDate).getTime() - Date.now()) / 3600000 : null;
   if (isBoleto && ((dueDiff !== null && dueDiff <= 48 && dueDiff >= -12) || ageHours <= 48)) return "boleto_due";
 
+  // Abandoned cart from imphq_vendas (started/abandoned/expired/refused within 7 days)
+  if (matches(status, dataText, ABANDONED_STATUS) && ageHours <= 24 * 7) return "abandoned_cart";
+
   return null;
 }
 
