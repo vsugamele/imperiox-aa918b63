@@ -69,6 +69,7 @@ const REFUND_STATUS = ["reembolso", "refund", "chargeback", "chargedback", "esto
 const PIX_STATUS = ["pix", "aguardando_pagamento", "waiting_payment", "pending", "pendente"];
 const BOLETO_STATUS = ["boleto", "billet", "purchase_billet_printed"];
 const APPROVED_STATUS = ["aprovado", "approved", "paid", "compra_aprovada"];
+const ABANDONED_STATUS = ["carrinho_abandonado", "inicio_checkout", "abandoned_cart", "started", "expirado", "expired", "recusado", "refused"];
 
 export const RECOVERY_BUCKET_META: Record<RecoveryBucketId, { title: string; shortTitle: string; description: string; templateType: RecoveryTemplateType }> = {
   pix_urgent: {
