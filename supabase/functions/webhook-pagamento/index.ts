@@ -252,11 +252,15 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
       refunded: "reembolso",
       waiting_payment: "aguardando_pagamento",
       pix_created: "pix_gerado",
+      pix_expired: "pagamento_expirado",
       chargeback: "chargeback",
       blocked: "bloqueado",
       started: "inicio_checkout",
       refused: "pagamento_recusado",
       expired: "pagamento_expirado",
+      trial_started: "trial_iniciado",
+      bank_slip_created: "boleto_gerado",
+      bank_slip_expired: "pagamento_expirado",
     };
     evento = statusMap[status] || status || "desconhecido";
 
