@@ -69,6 +69,7 @@ const REFUND_STATUS = ["reembolso", "refund", "chargeback", "chargedback", "esto
 const PIX_STATUS = ["pix", "aguardando_pagamento", "waiting_payment", "pending", "pendente"];
 const BOLETO_STATUS = ["boleto", "billet", "purchase_billet_printed"];
 const APPROVED_STATUS = ["aprovado", "approved", "paid", "compra_aprovada"];
+const ABANDONED_STATUS = ["carrinho_abandonado", "inicio_checkout", "abandoned_cart", "started", "expirado", "expired", "recusado", "refused"];
 
 export const RECOVERY_BUCKET_META: Record<RecoveryBucketId, { title: string; shortTitle: string; description: string; templateType: RecoveryTemplateType }> = {
   pix_urgent: {
@@ -386,6 +387,9 @@ function getSaleBucket(sale: SaleRow): RecoveryBucketId | null {
   const dueDate = extractDueDate(sale.data);
   const dueDiff = dueDate ? (new Date(dueDate).getTime() - Date.now()) / 3600000 : null;
   if (isBoleto && ((dueDiff !== null && dueDiff <= 48 && dueDiff >= -12) || ageHours <= 48)) return "boleto_due";
+
+  // Abandoned cart from imphq_vendas (started/abandoned/expired/refused within 7 days)
+  if (matches(status, dataText, ABANDONED_STATUS) && ageHours <= 24 * 7) return "abandoned_cart";
 
   return null;
 }

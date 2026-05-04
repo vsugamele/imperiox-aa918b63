@@ -11,6 +11,7 @@ import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
 import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
 import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
 import { AttributionDiagnostic } from "@/components/gerenciador/AttributionDiagnostic";
+import { TictoEventFlowDiagnostic } from "@/components/gerenciador/TictoEventFlowDiagnostic";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
@@ -180,6 +181,7 @@ export default function Gerenciador() {
 
           {/* Diagnóstico de atribuição */}
           <AttributionDiagnostic vendas={vendas} />
+          <TictoEventFlowDiagnostic projectId={projectId !== "__all__" ? projectId : undefined} />
 
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Todas as Campanhas</p>

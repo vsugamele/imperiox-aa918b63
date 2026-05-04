@@ -252,11 +252,15 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
       refunded: "reembolso",
       waiting_payment: "aguardando_pagamento",
       pix_created: "pix_gerado",
+      pix_expired: "pagamento_expirado",
       chargeback: "chargeback",
       blocked: "bloqueado",
       started: "inicio_checkout",
       refused: "pagamento_recusado",
       expired: "pagamento_expirado",
+      trial_started: "trial_iniciado",
+      bank_slip_created: "boleto_gerado",
+      bank_slip_expired: "pagamento_expirado",
     };
     evento = statusMap[status] || status || "desconhecido";
 
@@ -430,6 +434,29 @@ Deno.serve(async (req) => {
 
       if (lead) {
         leadId = lead.id;
+        // Update existing lead with normalized event so recovery buckets can detect abandoned carts
+        try {
+          const { data: existing } = await supabase
+            .from("imphq_leads")
+            .select("data")
+            .eq("id", lead.id)
+            .maybeSingle();
+          const prevData = (existing?.data || {}) as Record<string, any>;
+          const eventTimestamp = data_compra || new Date().toISOString();
+          const newData = {
+            ...prevData,
+            ultimo_evento: evento,
+            ultimo_evento_em: eventTimestamp,
+            ultimo_produto: produto || prevData.ultimo_produto || null,
+            ultimo_valor: valor || prevData.ultimo_valor || null,
+          };
+          await supabase
+            .from("imphq_leads")
+            .update({ data: newData, updated_at: eventTimestamp, phone: phone || undefined })
+            .eq("id", lead.id);
+        } catch (e) {
+          console.warn("[webhook-pagamento] Erro ao atualizar lead existente:", e);
+        }
       } else {
         const newId = crypto.randomUUID();
         const eventTimestamp = data_compra || new Date().toISOString();
@@ -499,15 +526,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Handle checkout intent (inicio_checkout, pix_gerado, boleto_gerado, aguardando_pagamento, pagamento_pendente)
-    const checkoutIntentEvents = ["inicio_checkout", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pagamento_pendente"];
+    // Handle checkout intent (inicio_checkout, carrinho_abandonado, pix_gerado, boleto_gerado, aguardando_pagamento, pagamento_pendente, pagamento_recusado, pagamento_expirado)
+    const checkoutIntentEvents = ["inicio_checkout", "carrinho_abandonado", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pagamento_pendente", "pagamento_recusado", "pagamento_expirado"];
     if (checkoutIntentEvents.includes(evento) && leadId) {
       const statusMap: Record<string, string> = {
         inicio_checkout: "inicio_checkout",
+        carrinho_abandonado: "carrinho_abandonado",
         pix_gerado: "pix_gerado",
         boleto_gerado: "boleto_gerado",
         aguardando_pagamento: "aguardando_pagamento",
         pagamento_pendente: "pendente",
+        pagamento_recusado: "recusado",
+        pagamento_expirado: "expirado",
       };
       const vendaStatus = statusMap[evento] || evento;
 

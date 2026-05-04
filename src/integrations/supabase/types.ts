@@ -2502,6 +2502,27 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_lessons_backup_reorg: {
+        Row: {
+          id: string | null
+          module_id: string | null
+          position: number | null
+          snapshotted_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Relationships: []
+      }
       areamembrojp_levels: {
         Row: {
           color: string
@@ -2526,6 +2547,87 @@ export type Database = {
           level?: number
           min_xp?: number
           name?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_library_config: {
+        Row: {
+          created_at: string
+          description: string | null
+          fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_library_entries: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_published: boolean
+          position: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3232,6 +3334,41 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_post_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_type: string
+          media_url: string
+          position: number
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url: string
+          position?: number
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url?: string
+          position?: number
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_posts: {
         Row: {
           comments_count: number
@@ -3524,6 +3661,7 @@ export type Database = {
           position: number
           price_brl: number | null
           reactivation_url: string | null
+          related_program_ids: string[]
           subtitle: string | null
           testimonials: Json
           thumbnail_url: string | null
@@ -3567,6 +3705,7 @@ export type Database = {
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
+          related_program_ids?: string[]
           subtitle?: string | null
           testimonials?: Json
           thumbnail_url?: string | null
@@ -3610,6 +3749,7 @@ export type Database = {
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
+          related_program_ids?: string[]
           subtitle?: string | null
           testimonials?: Json
           thumbnail_url?: string | null
@@ -3963,6 +4103,117 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_shop_config: {
+        Row: {
+          categories: Json
+          created_at: string
+          cta_label: string
+          currency: string
+          description: string | null
+          extra_fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_shop_products: {
+        Row: {
+          affiliate_url: string | null
+          badge: string | null
+          category: string | null
+          compare_at_cents: number | null
+          created_at: string
+          currency: string
+          data: Json
+          description: string | null
+          gallery: Json
+          id: string
+          image_url: string | null
+          is_published: boolean
+          position: number
+          price_cents: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_stories: {
         Row: {
           author_name: string
@@ -3970,9 +4221,12 @@ export type Database = {
           country: string | null
           created_at: string
           id: string
+          media_type: string
           profession: string | null
           program_id: string | null
           quote: string
+          video_file_url: string | null
+          video_url: string | null
         }
         Insert: {
           author_name: string
@@ -3980,9 +4234,12 @@ export type Database = {
           country?: string | null
           created_at?: string
           id?: string
+          media_type?: string
           profession?: string | null
           program_id?: string | null
           quote: string
+          video_file_url?: string | null
+          video_url?: string | null
         }
         Update: {
           author_name?: string
@@ -3990,9 +4247,12 @@ export type Database = {
           country?: string | null
           created_at?: string
           id?: string
+          media_type?: string
           profession?: string | null
           program_id?: string | null
           quote?: string
+          video_file_url?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -4127,6 +4387,8 @@ export type Database = {
           background_hsl: string
           body_font: string
           card_hsl: string
+          category_hidden: Json | null
+          category_order: Json | null
           community_free_post_quota: number
           community_free_reel_quota: number
           community_gating_mode: string
@@ -4155,6 +4417,8 @@ export type Database = {
           footer_twitter_url: string | null
           footer_youtube_url: string | null
           foreground_hsl: string
+          hair_types_label: string
+          hair_types_label_singular: string
           heading_font: string
           home_authors_subtitle: string
           home_meditations_eyebrow: string
@@ -4207,6 +4471,8 @@ export type Database = {
           background_hsl?: string
           body_font?: string
           card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
           community_free_post_quota?: number
           community_free_reel_quota?: number
           community_gating_mode?: string
@@ -4235,6 +4501,8 @@ export type Database = {
           footer_twitter_url?: string | null
           footer_youtube_url?: string | null
           foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
           heading_font?: string
           home_authors_subtitle?: string
           home_meditations_eyebrow?: string
@@ -4287,6 +4555,8 @@ export type Database = {
           background_hsl?: string
           body_font?: string
           card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
           community_free_post_quota?: number
           community_free_reel_quota?: number
           community_gating_mode?: string
@@ -4315,6 +4585,8 @@ export type Database = {
           footer_twitter_url?: string | null
           footer_youtube_url?: string | null
           foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
           heading_font?: string
           home_authors_subtitle?: string
           home_meditations_eyebrow?: string
@@ -13720,6 +13992,89 @@ export type Database = {
           rule_id?: number
           valid_from?: string
           valid_until?: string | null
+        }
+        Relationships: []
+      }
+      ic_mcbs_events: {
+        Row: {
+          code: string
+          created_at: string
+          group_id: string | null
+          id: string
+          nome: string
+          obs: string | null
+          priority: number
+          unidade: string
+          valor: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          nome: string
+          obs?: string | null
+          priority?: number
+          unidade: string
+          valor: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          nome?: string
+          obs?: string | null
+          priority?: number
+          unidade?: string
+          valor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ic_mcbs_events_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ic_mcbs_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ic_mcbs_groups: {
+        Row: {
+          bg: string
+          border: string
+          coleta: string
+          color: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          label: string
+          quem: string
+        }
+        Insert: {
+          bg: string
+          border: string
+          coleta: string
+          color: string
+          created_at?: string
+          description: string
+          icon: string
+          id: string
+          label: string
+          quem: string
+        }
+        Update: {
+          bg?: string
+          border?: string
+          coleta?: string
+          color?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          label?: string
+          quem?: string
         }
         Relationships: []
       }
@@ -31225,6 +31580,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      areamembrojp_is_admin: { Args: { _uid: string }; Returns: boolean }
       areamembrojp_promote_admin_by_email: {
         Args: { _email: string }
         Returns: string
