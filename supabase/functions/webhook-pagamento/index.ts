@@ -522,15 +522,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Handle checkout intent (inicio_checkout, pix_gerado, boleto_gerado, aguardando_pagamento, pagamento_pendente)
-    const checkoutIntentEvents = ["inicio_checkout", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pagamento_pendente"];
+    // Handle checkout intent (inicio_checkout, carrinho_abandonado, pix_gerado, boleto_gerado, aguardando_pagamento, pagamento_pendente, pagamento_recusado, pagamento_expirado)
+    const checkoutIntentEvents = ["inicio_checkout", "carrinho_abandonado", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pagamento_pendente", "pagamento_recusado", "pagamento_expirado"];
     if (checkoutIntentEvents.includes(evento) && leadId) {
       const statusMap: Record<string, string> = {
         inicio_checkout: "inicio_checkout",
+        carrinho_abandonado: "carrinho_abandonado",
         pix_gerado: "pix_gerado",
         boleto_gerado: "boleto_gerado",
         aguardando_pagamento: "aguardando_pagamento",
         pagamento_pendente: "pendente",
+        pagamento_recusado: "recusado",
+        pagamento_expirado: "expirado",
       };
       const vendaStatus = statusMap[evento] || evento;
 
