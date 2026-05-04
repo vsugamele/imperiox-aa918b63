@@ -181,6 +181,7 @@ export default function Gerenciador() {
 
           {/* Diagnóstico de atribuição */}
           <AttributionDiagnostic vendas={vendas} />
+          <TictoEventFlowDiagnostic projectId={projectId !== "__all__" ? projectId : undefined} />
 
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Todas as Campanhas</p>
