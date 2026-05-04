@@ -430,6 +430,29 @@ Deno.serve(async (req) => {
 
       if (lead) {
         leadId = lead.id;
+        // Update existing lead with normalized event so recovery buckets can detect abandoned carts
+        try {
+          const { data: existing } = await supabase
+            .from("imphq_leads")
+            .select("data")
+            .eq("id", lead.id)
+            .maybeSingle();
+          const prevData = (existing?.data || {}) as Record<string, any>;
+          const eventTimestamp = data_compra || new Date().toISOString();
+          const newData = {
+            ...prevData,
+            ultimo_evento: evento,
+            ultimo_evento_em: eventTimestamp,
+            ultimo_produto: produto || prevData.ultimo_produto || null,
+            ultimo_valor: valor || prevData.ultimo_valor || null,
+          };
+          await supabase
+            .from("imphq_leads")
+            .update({ data: newData, updated_at: eventTimestamp, phone: phone || undefined })
+            .eq("id", lead.id);
+        } catch (e) {
+          console.warn("[webhook-pagamento] Erro ao atualizar lead existente:", e);
+        }
       } else {
         const newId = crypto.randomUUID();
         const eventTimestamp = data_compra || new Date().toISOString();
