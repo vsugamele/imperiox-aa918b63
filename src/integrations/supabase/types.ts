@@ -1701,6 +1701,7 @@ export type Database = {
           created_at: string
           description: string | null
           ends_at: string | null
+          hide_title: boolean
           id: string
           image_url: string | null
           image_url_mobile: string | null
@@ -1714,6 +1715,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           ends_at?: string | null
+          hide_title?: boolean
           id?: string
           image_url?: string | null
           image_url_mobile?: string | null
@@ -1727,6 +1729,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           ends_at?: string | null
+          hide_title?: boolean
           id?: string
           image_url?: string | null
           image_url_mobile?: string | null
@@ -1848,7 +1851,9 @@ export type Database = {
       }
       areamembrojp_certificates: {
         Row: {
+          duration_hours: number | null
           id: string
+          instructor_name_snapshot: string | null
           issued_at: string
           pdf_url: string | null
           program_id: string
@@ -1859,7 +1864,9 @@ export type Database = {
           validation_code: string
         }
         Insert: {
+          duration_hours?: number | null
           id?: string
+          instructor_name_snapshot?: string | null
           issued_at?: string
           pdf_url?: string | null
           program_id: string
@@ -1870,7 +1877,9 @@ export type Database = {
           validation_code: string
         }
         Update: {
+          duration_hours?: number | null
           id?: string
+          instructor_name_snapshot?: string | null
           issued_at?: string
           pdf_url?: string | null
           program_id?: string
@@ -2416,6 +2425,66 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      areamembrojp_lesson_notes: {
+        Row: {
+          content: string
+          id: string
+          lesson_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          id?: string
+          lesson_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          id?: string
+          lesson_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_lesson_playback: {
         Row: {
@@ -3072,6 +3141,7 @@ export type Database = {
           price_cents: number
           reactivation_url: string | null
           slug: string
+          tags: string[] | null
           tier_level: number
           trail_id: string | null
           updated_at: string
@@ -3092,6 +3162,7 @@ export type Database = {
           price_cents?: number
           reactivation_url?: string | null
           slug: string
+          tags?: string[] | null
           tier_level?: number
           trail_id?: string | null
           updated_at?: string
@@ -3112,6 +3183,7 @@ export type Database = {
           price_cents?: number
           reactivation_url?: string | null
           slug?: string
+          tags?: string[] | null
           tier_level?: number
           trail_id?: string | null
           updated_at?: string
@@ -4397,6 +4469,10 @@ export type Database = {
           community_paywall_message: string
           community_paywall_preview_chars: number
           default_theme: string
+          email_api_key: string | null
+          email_welcome_enabled: boolean
+          email_welcome_html: string | null
+          email_welcome_subject: string
           favicon_url: string | null
           footer_about_links: Json
           footer_about_title: string
@@ -4444,6 +4520,10 @@ export type Database = {
           muted_hsl: string
           notify_on_admin_post: boolean
           onboarding_step: number
+          outbound_webhook_events: string[] | null
+          outbound_webhook_secret: string | null
+          outbound_webhook_tags: string[] | null
+          outbound_webhook_url: string | null
           primary_hsl: string
           program_card_aspect: string
           program_card_aspect_by_section: Json
@@ -4451,6 +4531,8 @@ export type Database = {
           program_card_aspect_mobile: string | null
           programs_section_order: Json
           programs_sections_enabled: Json
+          resend_from_email: string | null
+          resend_from_name: string | null
           seed_engine_enabled: boolean
           seed_likes_per_hour: number
           seed_online_offset: number
@@ -4461,7 +4543,9 @@ export type Database = {
           show_program_card_text: boolean
           show_quest_hero_text: boolean
           show_trail_card_text: boolean
+          site_url: string | null
           updated_at: string
+          webhook_secret: string | null
           welcome_text: string
         }
         Insert: {
@@ -4481,6 +4565,10 @@ export type Database = {
           community_paywall_message?: string
           community_paywall_preview_chars?: number
           default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
           favicon_url?: string | null
           footer_about_links?: Json
           footer_about_title?: string
@@ -4528,6 +4616,10 @@ export type Database = {
           muted_hsl?: string
           notify_on_admin_post?: boolean
           onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
           primary_hsl?: string
           program_card_aspect?: string
           program_card_aspect_by_section?: Json
@@ -4535,6 +4627,8 @@ export type Database = {
           program_card_aspect_mobile?: string | null
           programs_section_order?: Json
           programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
           seed_engine_enabled?: boolean
           seed_likes_per_hour?: number
           seed_online_offset?: number
@@ -4545,7 +4639,9 @@ export type Database = {
           show_program_card_text?: boolean
           show_quest_hero_text?: boolean
           show_trail_card_text?: boolean
+          site_url?: string | null
           updated_at?: string
+          webhook_secret?: string | null
           welcome_text?: string
         }
         Update: {
@@ -4565,6 +4661,10 @@ export type Database = {
           community_paywall_message?: string
           community_paywall_preview_chars?: number
           default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
           favicon_url?: string | null
           footer_about_links?: Json
           footer_about_title?: string
@@ -4612,6 +4712,10 @@ export type Database = {
           muted_hsl?: string
           notify_on_admin_post?: boolean
           onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
           primary_hsl?: string
           program_card_aspect?: string
           program_card_aspect_by_section?: Json
@@ -4619,6 +4723,8 @@ export type Database = {
           program_card_aspect_mobile?: string | null
           programs_section_order?: Json
           programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
           seed_engine_enabled?: boolean
           seed_likes_per_hour?: number
           seed_online_offset?: number
@@ -4629,7 +4735,9 @@ export type Database = {
           show_program_card_text?: boolean
           show_quest_hero_text?: boolean
           show_trail_card_text?: boolean
+          site_url?: string | null
           updated_at?: string
+          webhook_secret?: string | null
           welcome_text?: string
         }
         Relationships: []
@@ -31617,7 +31725,7 @@ export type Database = {
       }
       check_and_reset_water_intake: { Args: never; Returns: Json }
       check_media_usage: {
-        Args: { media_url: string }
+        Args: { p_media_url: string }
         Returns: {
           count: number
           location: string

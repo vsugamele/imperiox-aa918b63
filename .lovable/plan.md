@@ -1,82 +1,64 @@
+## O que esse site faz que a gente ainda não faz bem
 
-# Resposta às 5 perguntas + plano
+Olhei o painel `john.blackboxmembers.com.br/live`. Não é tracking de pixel — é **telemetria de funil server-side em tempo real**, organizada em torno de uma pergunta única: *"enquanto não há venda, qual caminho/criativo leva mais gente até o pitch por real investido?"*. Pontos que faltam no nosso Dashboard/Gerenciador:
 
-## 1. Dashboard sem clique nos cards
+1. **"Online agora" por etapa do funil** (Quiz, VSL, Upsell1/2, Downsell1/2, Obrigado) — visitantes ativos nos últimos 2 min. Hoje só temos vendas e leads, não vemos o funil respirando.
+2. **Pitch Rate** = % que chega ao momento de oferta da VSL. É o KPI que substitui ROAS quando ainda não há vendas (caso de criativo novo ou produto em validação). Hoje no Yoshitani só olhamos CPA/Checkout.
+3. **Comparação Path A vs Path B** (VSL direto vs Quiz→VSL) com base de custo equivalente — diz pra onde mandar verba.
+4. **Ranking de criativos por pitch rate**, não só por CTR/CPA. Já temos `creativeLtv`, mas falta o degrau intermediário "chegou ao pitch".
+5. **"Resumo do período" em linguagem natural** no topo (ex.: "Path A leva ~100% mais gente ao pitch por real investido"). Nosso `DailyBriefing` faz algo parecido mas não usa eventos de funil.
 
-**Diagnóstico:** Hoje só os cards do bloco **Investimento em Ads** (`DashboardAds.tsx`) abrem o `DashboardDrillSheet`. Os cards do `DashboardStats` (Projetos, Tarefas, Leads, Receita, Vendas, Pix Pendentes) **não têm `onClick`** — embora o `DashboardDrillSheet` já suporte essas métricas.
+## O que vou construir
 
-**Plano:**
-- Adicionar `onClick` em todos os cards de `DashboardStats.tsx` abrindo o drill correspondente (`leads`, `revenue`, `sales`, `pix_pending`, `ads_spend`, `op_cost`).
-- Card "Projetos" → navega para `/projetos`. Card "Tarefas" → `/tarefas`.
-- Adicionar cursor-pointer + hover-scale para indicar interatividade.
-- Tornar o `PredictiveDashboard` clicável: card "Projeção 30 dias" abre drill de receita; "Saúde do Funil" abre `AcquisitionFunnel`; "Anomalias" expande lista detalhada.
+### 1. Captura de eventos de funil (base de tudo)
+Nova Edge Function pública `funnel-track` + tabela `imphq_funnel_events`:
+- Campos: `project_id`, `session_id`, `lead_id?`, `step` (enum: `quiz`, `vsl_view`, `vsl_pitch`, `vsl_cta_click`, `checkout`, `upsell1`, `upsell2`, `downsell1`, `downsell2`, `obrigado`), `utm_*`, `creative_id`, `created_at`.
+- Snippet JS de 1 linha que o usuário cola nas páginas do funil (igual ao Tracker atual). Em VSL, dispara `vsl_pitch` num timestamp configurável (ex.: aos 18min) e `vsl_cta_click` no botão.
+- Heartbeat a cada 30s para alimentar "online agora".
 
-## 2. Diagnóstico Yoshitani 7/5/3 ignora status ATIVO/PAUSADO
+### 2. Novo bloco no Dashboard: **"Funil Ao Vivo"**
+Componente `LiveFunnelPanel.tsx` acima do `PredictiveDashboard`:
+- 7 cards horizontais (uma por etapa) com contagem de últimos 2min + % do total + barrinha de cor.
+- Card grande "Total online agora" + "Última entrada".
+- Auto-refresh a cada 15s (Realtime do Supabase na tabela nova).
 
-**Diagnóstico:** Em `DashboardAds.tsx:188-244`, o agrupamento é só por `campanha` (nome). Não filtra por `status` da campanha (`ATIVO`/`PAUSED`) — então campanhas pausadas há semanas aparecem no diagnóstico, poluindo o ranking.
+### 3. Card **"Pitch Rate"** no Yoshitani
+Adicionar à `DiagnosticoYoshitani` um terceiro indicador: `vsl_pitch / vsl_view` por criativo, com benchmarks 40%+ (verde) / 25-40% (amarelo) / <25% (vermelho). Vira o KPI decisor quando o criativo ainda não tem volume de venda.
 
-**Plano:**
-- No SELECT de `imphq_ads_spend` incluir `status` (já existe na coluna).
-- Filtrar `diagcampMap` para incluir só campanhas com pelo menos uma linha `status='ACTIVE'` nos últimos 3 dias.
-- Adicionar badge **PAUSADA** (cinza) e seção colapsável "Campanhas pausadas" abaixo do top 5 de ativas.
-- Ordenar ativas primeiro, depois pausadas com gasto > 0 em 7d.
+### 4. **Path Comparison** (A vs B)
+Componente `PathComparison.tsx` no Dashboard:
+- Path A = leads que entraram direto em `vsl_view`.
+- Path B = leads que passaram por `quiz` antes do `vsl_view`.
+- Mostra Pitch Rate de cada lado + frase decisória ("Path X leva N% mais gente ao pitch por real investido"), usando custo de ads do dia rateado por entradas.
 
-## 3. Vendas de hoje não marcaram na campanha
+### 5. Ranking de criativos por pitch rate
+Nova aba em `Criativos.tsx` ou cartão no `DashboardAds`: tabela `creative_id | views | pitch% | CTR | vendas | recomendação`. Reusa a lógica do `creativeLtv.ts`, só adiciona a coluna pitch%.
 
-**Diagnóstico (confirmado por SQL):** As 8 vendas dos últimos 2 dias chegaram com `utm_campaign = NULL`, `utm_source = NULL`. O webhook da Ticto/Hotmart está entregando sem UTMs porque a página de checkout não está propagando `?utm_campaign=` da URL para o checkout. Não é bug do nosso lado — é configuração no checkout.
+### 6. Resumo natural no topo
+Estender `DailyBriefing` para, quando houver eventos de funil no período, gerar 2 linhas:
+- "🅰 Path Direto: X views VSL → Y% chegou ao pitch → Z% comprou"
+- "🅱 Path Quiz: ..."
+Mesmo formato do painel analisado.
 
-**O que VOCÊ precisa fazer (lado do produto):**
-1. Na página de captura/VSL, garantir que os links para o checkout (Ticto/Hotmart) repassam **todos** os UTMs da URL — usar o `Tracker` que já temos (`src/pages/Tracker.tsx`) com `xcod` codificado.
-2. Na Ticto: ativar **"Receber UTMs do checkout"** nas configurações do produto.
-3. Na Hotmart: configurar **"src" + UTMs** no link do produto (`?src={{campaign.name}}`).
-4. Validar uma compra de teste e ver se chega `utm_campaign` na tabela `imphq_vendas`.
+## Detalhes técnicos
 
-**O que EU faço (lado do código):**
-- Em `webhook-pagamento`: adicionar fallback para extrair UTMs do `xcod`/`src`/`sck` (Ticto manda em `purchase.tracking.src`).
-- Criar matching reverso: se `utm_campaign` casa parcialmente (case-insensitive, contém) com `imphq_ads_spend.campanha`, gravar `campaign_id` na venda.
-- Adicionar card de **diagnóstico de atribuição** no Gerenciador: "X vendas hoje sem UTM — clique para corrigir" com instruções inline.
-- Job diário que reconcilia vendas órfãs por proximidade temporal + click_id quando existir.
+- **DB**: nova tabela `imphq_funnel_events` (RLS por `project_id`), índices em `(project_id, created_at)` e `(session_id)`. Tabela materializada `imphq_funnel_live` atualizada por trigger para a query "online agora" ser O(1).
+- **Edge Function** `funnel-track`: aceita POST sem auth (CORS aberto), valida `project_id` contra tabela de "tracking domains" e grava. Reusa padrão do `capture-lead`.
+- **Realtime**: `supabase.channel('funnel_live').on('postgres_changes', ...)` no `LiveFunnelPanel`.
+- **Snippet** servido em `/tracker/funnel.js` (página estática) — usuário cola `<script src="..." data-project="UUID"></script>`.
+- **Compatibilidade UTM**: aproveita o pipeline atual (`xcod`, `src`, `sck`) — o snippet lê do `window.location` e do `localStorage` que o `Tracker.tsx` já popula.
+- **Sem quebras**: nada do que existe (vendas, ROAS real, recovery) muda. É camada nova de cima para baixo.
 
-## 4. Creative Factory — sem escolha de modelos / sem puxar produtos
+## O que você precisa fazer do seu lado
 
-**Diagnóstico:** Em `CriativoNovo.tsx`:
-- O seletor de **Avatar/Produto** existe (linha 392) e lê `currentProject.data.produtos`. Se você não vê produtos é porque o projeto selecionado não tem `data.produtos` populado (precisa ser preenchido em ProjetoDetalhe → Produtos).
-- Não há seletor de **modelo de IA** (sempre usa `lovable-gemini` ou `openai-image` via dropdown que existe em `imageProvider`, mas não há escolha de "modelos" no sentido de presets de estilo/template).
+1. **Colar o snippet** nas páginas: VSL, Quiz, Upsells, Downsells, Obrigado (eu te entrego o HTML pronto).
+2. **Marcar o ponto do "pitch"** na VSL (timestamp do vídeo onde a oferta aparece) — configurável no painel do projeto.
+3. **Manter o Tracker** que você já usa nos anúncios para os UTMs continuarem chegando.
 
-**Plano:**
-- Verificar projetos sem `data.produtos` e mostrar aviso inline: "Cadastre produtos em Projeto → Produtos para o auto-briefing puxar preço/promessa".
-- Adicionar **galeria de templates/modelos visuais** (header-ad, story-ad, carousel-frame, depoimento, antes-depois) — cada template define `formato`, `angulo` sugerido e prompt-base.
-- Tornar o seletor `imageProvider` mais visível com previews (Gemini = rápido/barato, OpenAI = qualidade alta).
-- Botão "Importar de batch anterior" para clonar configuração.
+## O que NÃO vou tocar nesta rodada
 
-## 5. Finanças — receita inflada + filtro de projetos
+- Atribuição de venda existente (já está OK depois das últimas correções Ticto).
+- Webhook de pagamento.
+- Recovery buckets.
 
-**Diagnóstico:**
-
-**A) Receita parecendo maior:** Em `Financas.tsx:54`, o SELECT de vendas **não tem filtro de data no SQL**:
-```ts
-supabase.from("imphq_vendas").select(...).eq("status", "aprovado")
-```
-Carrega TODAS as vendas históricas (até 1000, limite default Supabase). Quando o usuário não escolhe datas, os KPIs somam tudo. Pior: o limite de 1000 corta vendas antigas silenciosamente, então o número fica errado dos dois lados.
-
-**B) Filtro de projetos:** O SQL é `or("is_archived.eq.false,is_archived.is.null")` — funciona (9 projetos ativos confirmados). Se você não vê todos é porque o dropdown está cortado visualmente OU o `briefing` no SELECT (`"id, name, icon, briefing"`) está falhando silenciosamente em projetos sem essa coluna.
-
-**Plano:**
-- **Forçar período padrão de 30 dias** ao abrir Finanças (`filterDateFrom = localDaysAgo(30)`) para evitar somar histórico inteiro.
-- Aplicar `gte/lte` no SELECT de vendas e ads usando o filtro de datas, não só no client-side.
-- Aumentar `.limit(5000)` ou paginar via `supabasePaginate` que já existe no projeto.
-- Mostrar contador "Mostrando X de Y vendas" abaixo do KPI de receita.
-- Remover `briefing` do SELECT de projetos (não é usado na página).
-- Adicionar tooltip no KPI Receita explicando que respeita o filtro de período.
-
----
-
-## Resumo do que será feito (ordem)
-
-1. **Dashboard clicável** — `DashboardStats` + `PredictiveDashboard` ganham drill-down.
-2. **Yoshitani só com ativas** — filtra por status, separa pausadas.
-3. **Atribuição de vendas** — fallback de UTM no webhook + matching reverso + card de diagnóstico no Gerenciador (+ doc com passo-a-passo Ticto/Hotmart).
-4. **Creative Factory** — aviso de produtos faltando + galeria de templates + preview de providers.
-5. **Finanças** — período default 30d + SQL com data + paginação + KPI honesto.
-
-Aprova que eu implemente nessa ordem?
+Posso seguir?
