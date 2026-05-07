@@ -107,7 +107,7 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [open, projectId, produto, source, period]);
+  }, [open, projectId, produto, source, period, scope]);
 
   const ins = useMemo(() => aggregateAudience(rows), [rows]);
   const adsAgg = useMemo(() => aggregateAds(adsRows), [adsRows]);
