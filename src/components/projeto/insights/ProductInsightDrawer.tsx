@@ -128,6 +128,20 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
           <SheetDescription>
             Visão detalhada do produto · {source === "vendas" ? "Vendas" : "Leads"} · últimos {period}
           </SheetDescription>
+          {source === "vendas" && (
+            <div className="pt-2">
+              <ToggleGroup
+                type="single"
+                value={scope}
+                onValueChange={(v) => v && setScope(v as SaleScope)}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="realizada" size="sm" className="text-xs">✅ Realizada</ToggleGroupItem>
+                <ToggleGroupItem value="gerada" size="sm" className="text-xs">⏳ Gerada (Pix/Boleto)</ToggleGroupItem>
+                <ToggleGroupItem value="todas" size="sm" className="text-xs">Todas</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
         </SheetHeader>
 
         {loading ? (
