@@ -123,7 +123,13 @@ export function aggregateAudience(rows: AudienceRow[]) {
       productCount[r.produto] = p;
     }
     const lead = r.lead;
-    const g = lead?.genero || inferGender(lead?.nome);
+    const rawG = (lead?.genero || lead?.sexo || lead?.data?.genero || lead?.data?.sexo || lead?.data?.gender || "").toString().trim().toLowerCase();
+    let g: "M" | "F" | null = null;
+    if (rawG) {
+      if (["m","masculino","male","homem","h"].includes(rawG)) g = "M";
+      else if (["f","feminino","female","mulher"].includes(rawG)) g = "F";
+    }
+    if (!g) g = inferGender(lead?.nome);
     if (g === "M") gender.M++;
     else if (g === "F") gender.F++;
     else gender.U++;
