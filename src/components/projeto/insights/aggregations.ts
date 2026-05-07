@@ -26,14 +26,26 @@ const NAMES_F = new Set([
   "vitoria","yasmin","yara","zilda",
 ]);
 
+// Sufixos típicos do português brasileiro — heurística secundária quando o nome
+// não está nas listas curadas. Ordem importa: testar os mais específicos antes.
+const SUFFIX_F = ["ana","ina","ena","una","lia","cia","sia","nia","ria","tha","sha","elle","ette","ize","yse","aly","elly","essa","issa","ussa","ynne","yara","aira","eira"];
+const SUFFIX_M = ["son","ton","sson","aldo","ardo","erto","esto","aldo","ilton","ilson","ovan","evin","oan","luiz","luis"];
+
 export function inferGender(nome?: string | null): "M" | "F" | null {
   if (!nome) return null;
   const first = nome.trim().split(/\s+/)[0]?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (!first) return null;
+  if (!first || first.length < 2) return null;
   if (NAMES_M.has(first)) return "M";
   if (NAMES_F.has(first)) return "F";
-  if (first.endsWith("a")) return "F";
-  if (first.endsWith("o") || first.endsWith("r") || first.endsWith("l")) return "M";
+  // Sufixos compostos (mais específicos primeiro)
+  for (const s of SUFFIX_F) if (first.endsWith(s)) return "F";
+  for (const s of SUFFIX_M) if (first.endsWith(s)) return "M";
+  // Terminações simples — PT-BR
+  const last = first.slice(-1);
+  const last2 = first.slice(-2);
+  if (last === "a" && last2 !== "ca" /* ex: Luca */) return "F";
+  if (last === "e" && (last2 === "te" || last2 === "ne" || last2 === "le")) return "F";
+  if (["o","r","l","z","m","n","i","u","y"].includes(last)) return "M";
   return null;
 }
 
