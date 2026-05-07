@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Loader2, Clock, Calendar, Users, MapPin, Cake, Activity, Target, Zap, AlertTriangle, TrendingDown, Sparkles, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/supabasePaginate";
@@ -10,6 +11,13 @@ import {
   semaforo, semColor, semaforoBenchmark, fmtMoney, fmtNum,
   DAYS, UF_REGION_EMOJI, type AudienceRow, type AdsRow,
 } from "./aggregations";
+
+type SaleScope = "realizada" | "gerada" | "todas";
+const STATUS_BY_SCOPE: Record<SaleScope, string[] | null> = {
+  realizada: ["aprovado"],
+  gerada: ["pix_gerado", "boleto_gerado", "pendente"],
+  todas: null,
+};
 
 interface Props {
   open: boolean;
@@ -25,6 +33,7 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
   const [progress, setProgress] = useState(0);
   const [rows, setRows] = useState<AudienceRow[]>([]);
   const [adsRows, setAdsRows] = useState<AdsRow[]>([]);
+  const [scope, setScope] = useState<SaleScope>("realizada");
 
   useEffect(() => {
     if (!open || !produto) return;
@@ -38,12 +47,17 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
 
       const audiencePromise = (async (): Promise<AudienceRow[]> => {
         if (source === "vendas") {
+          const statuses = STATUS_BY_SCOPE[scope];
           const vendas = await fetchAll<any>(
-            (from, to) => supabase.from("imphq_vendas")
-              .select("created_at, valor, lead_id, produto_nome")
-              .eq("project_id", projectId).eq("status", "aprovado")
-              .eq("produto_nome", produto)
-              .gte("created_at", since).range(from, to),
+            (from, to) => {
+              let q = supabase.from("imphq_vendas")
+                .select("created_at, valor, lead_id, produto_nome, status")
+                .eq("project_id", projectId)
+                .eq("produto_nome", produto)
+                .gte("created_at", since);
+              if (statuses) q = q.in("status", statuses);
+              return q.range(from, to);
+            },
             1000, 20000, n => !cancel && setProgress(n),
           );
           const leadIds = [...new Set(vendas.map(v => v.lead_id).filter(Boolean))] as string[];
@@ -93,7 +107,7 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [open, projectId, produto, source, period]);
+  }, [open, projectId, produto, source, period, scope]);
 
   const ins = useMemo(() => aggregateAudience(rows), [rows]);
   const adsAgg = useMemo(() => aggregateAds(adsRows), [adsRows]);
@@ -114,6 +128,20 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
           <SheetDescription>
             Visão detalhada do produto · {source === "vendas" ? "Vendas" : "Leads"} · últimos {period}
           </SheetDescription>
+          {source === "vendas" && (
+            <div className="pt-2">
+              <ToggleGroup
+                type="single"
+                value={scope}
+                onValueChange={(v) => v && setScope(v as SaleScope)}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="realizada" size="sm" className="text-xs">✅ Realizada</ToggleGroupItem>
+                <ToggleGroupItem value="gerada" size="sm" className="text-xs">⏳ Gerada (Pix/Boleto)</ToggleGroupItem>
+                <ToggleGroupItem value="todas" size="sm" className="text-xs">Todas</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
         </SheetHeader>
 
         {loading ? (
