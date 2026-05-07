@@ -117,6 +117,7 @@ export default function Dashboard() {
 
       <FacebookHealthAlert />
       <DailyBriefing projectFilter={dashProject} />
+      <LiveFunnelPanel projectFilter={dashProject} />
       <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <HotLeadAlerts projectFilter={dashProject} />
       <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
