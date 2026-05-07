@@ -21,6 +21,7 @@ import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import AcquisitionFunnel from "@/components/dashboard/AcquisitionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
+import LiveFunnelPanel from "@/components/dashboard/LiveFunnelPanel";
 import DailyBriefing from "@/components/dashboard/DailyBriefing";
 import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
 import FacebookHealthAlert from "@/components/dashboard/FacebookHealthAlert";
