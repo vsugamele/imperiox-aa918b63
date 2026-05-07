@@ -16286,6 +16286,72 @@ export type Database = {
           },
         ]
       }
+      imphq_funnel_events: {
+        Row: {
+          created_at: string
+          creative_id: string | null
+          fbclid: string | null
+          id: string
+          lead_id: string | null
+          meta: Json | null
+          page_url: string | null
+          project_id: string
+          referrer: string | null
+          session_id: string
+          step: string
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_id: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          xcod: string | null
+        }
+        Insert: {
+          created_at?: string
+          creative_id?: string | null
+          fbclid?: string | null
+          id?: string
+          lead_id?: string | null
+          meta?: Json | null
+          page_url?: string | null
+          project_id: string
+          referrer?: string | null
+          session_id: string
+          step: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_id?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          xcod?: string | null
+        }
+        Update: {
+          created_at?: string
+          creative_id?: string | null
+          fbclid?: string | null
+          id?: string
+          lead_id?: string | null
+          meta?: Json | null
+          page_url?: string | null
+          project_id?: string
+          referrer?: string | null
+          session_id?: string
+          step?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_id?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          xcod?: string | null
+        }
+        Relationships: []
+      }
       imphq_generated_contents: {
         Row: {
           approved_at: string | null
