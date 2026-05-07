@@ -33,6 +33,7 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
   const [progress, setProgress] = useState(0);
   const [rows, setRows] = useState<AudienceRow[]>([]);
   const [adsRows, setAdsRows] = useState<AdsRow[]>([]);
+  const [scope, setScope] = useState<SaleScope>("realizada");
 
   useEffect(() => {
     if (!open || !produto) return;
@@ -46,12 +47,17 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
 
       const audiencePromise = (async (): Promise<AudienceRow[]> => {
         if (source === "vendas") {
+          const statuses = STATUS_BY_SCOPE[scope];
           const vendas = await fetchAll<any>(
-            (from, to) => supabase.from("imphq_vendas")
-              .select("created_at, valor, lead_id, produto_nome")
-              .eq("project_id", projectId).eq("status", "aprovado")
-              .eq("produto_nome", produto)
-              .gte("created_at", since).range(from, to),
+            (from, to) => {
+              let q = supabase.from("imphq_vendas")
+                .select("created_at, valor, lead_id, produto_nome, status")
+                .eq("project_id", projectId)
+                .eq("produto_nome", produto)
+                .gte("created_at", since);
+              if (statuses) q = q.in("status", statuses);
+              return q.range(from, to);
+            },
             1000, 20000, n => !cancel && setProgress(n),
           );
           const leadIds = [...new Set(vendas.map(v => v.lead_id).filter(Boolean))] as string[];
