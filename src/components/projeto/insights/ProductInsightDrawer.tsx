@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Loader2, Clock, Calendar, Users, MapPin, Cake, Activity, Target, Zap, AlertTriangle, TrendingDown, Sparkles, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/supabasePaginate";
@@ -10,6 +11,13 @@ import {
   semaforo, semColor, semaforoBenchmark, fmtMoney, fmtNum,
   DAYS, UF_REGION_EMOJI, type AudienceRow, type AdsRow,
 } from "./aggregations";
+
+type SaleScope = "realizada" | "gerada" | "todas";
+const STATUS_BY_SCOPE: Record<SaleScope, string[] | null> = {
+  realizada: ["aprovado"],
+  gerada: ["pix_gerado", "boleto_gerado", "pendente"],
+  todas: null,
+};
 
 interface Props {
   open: boolean;
