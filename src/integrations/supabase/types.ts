@@ -4507,6 +4507,8 @@ export type Database = {
           id: boolean
           landing_cta_text: string
           landing_footer_html: string | null
+          landing_gradient_desktop: string | null
+          landing_gradient_mobile: string | null
           landing_hero_image: string | null
           landing_hero_image_mobile: string | null
           landing_logo_url: string | null
@@ -4603,6 +4605,8 @@ export type Database = {
           id?: boolean
           landing_cta_text?: string
           landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
           landing_hero_image?: string | null
           landing_hero_image_mobile?: string | null
           landing_logo_url?: string | null
@@ -4699,6 +4703,8 @@ export type Database = {
           id?: boolean
           landing_cta_text?: string
           landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
           landing_hero_image?: string | null
           landing_hero_image_mobile?: string | null
           landing_logo_url?: string | null
@@ -30223,6 +30229,7 @@ export type Database = {
           tracking_body_code: string | null
           tracking_head_code: string | null
           updated_at: string | null
+          video_orientation: string | null
           video_url: string | null
           waiting_delay_seconds: number | null
           waiting_room_enabled: boolean | null
@@ -30281,6 +30288,7 @@ export type Database = {
           tracking_body_code?: string | null
           tracking_head_code?: string | null
           updated_at?: string | null
+          video_orientation?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
@@ -30339,6 +30347,7 @@ export type Database = {
           tracking_body_code?: string | null
           tracking_head_code?: string | null
           updated_at?: string | null
+          video_orientation?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
