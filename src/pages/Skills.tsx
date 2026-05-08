@@ -23,11 +23,12 @@ import {
   Film, FrameIcon, Send, Youtube, Globe, HeartPulse, Plus,
   Pencil, Trash2, type LucideIcon, Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield,
   Megaphone, Video,
-  ArrowRight, Info, Play, Copy, Save, Loader2
+  ArrowRight, Info, Play, Copy, Save, Loader2, Download, Package
 } from "lucide-react";
 import { toast } from "sonner";
 import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import ReactMarkdown from "react-markdown";
+import { downloadSkillZip, downloadAllSkillsZip } from "@/lib/claudeSkillExport";
 
 type Status = "Ativo" | "Beta" | "Planejado";
 type Categoria = "Código" | "IA" | "Dados" | "Criativo" | "Automação" | "Pesquisa" | "Infra" | "Outro" | "Pesquisa & Avatar" | "Copy & Persuasão" | "Inteligência Competitiva" | "Estratégia & Posicionamento" | "Vendas High-Ticket" | "Tráfego & Escala";
