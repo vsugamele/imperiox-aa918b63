@@ -23,11 +23,12 @@ import {
   Film, FrameIcon, Send, Youtube, Globe, HeartPulse, Plus,
   Pencil, Trash2, type LucideIcon, Brain, Bomb, Target, MousePointer2, FileText, Swords, Shield,
   Megaphone, Video,
-  ArrowRight, Info, Play, Copy, Save, Loader2
+  ArrowRight, Info, Play, Copy, Save, Loader2, Download, Package
 } from "lucide-react";
 import { toast } from "sonner";
 import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import ReactMarkdown from "react-markdown";
+import { downloadSkillZip, downloadAllSkillsZip } from "@/lib/claudeSkillExport";
 
 type Status = "Ativo" | "Beta" | "Planejado";
 type Categoria = "Código" | "IA" | "Dados" | "Criativo" | "Automação" | "Pesquisa" | "Infra" | "Outro" | "Pesquisa & Avatar" | "Copy & Persuasão" | "Inteligência Competitiva" | "Estratégia & Posicionamento" | "Vendas High-Ticket" | "Tráfego & Escala";
@@ -344,7 +345,23 @@ export default function Skills() {
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Skills & Engines <SectionInfo {...sectionHelpTexts.skills} /></h1>
           <p className="text-sm text-muted-foreground mt-1">{allSkills.filter(s => s.status === "Ativo").length} ativas · {allSkills.length} no arsenal</p>
         </div>
-        <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova Skill</Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await downloadAllSkillsZip(allSkills);
+                toast.success("Pacote pronto!", { description: "Arraste cada .zip em Claude → Settings → Capabilities → Skills" });
+              } catch (e: any) {
+                toast.error("Falha ao gerar pacote", { description: e.message });
+              }
+            }}
+          >
+            <Package className="h-4 w-4 mr-1" /> Exportar para Claude (.zip)
+          </Button>
+          <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova Skill</Button>
+        </div>
       </div>
 
       {/* Tabs Marketing vs Técnicas */}
@@ -795,16 +812,35 @@ function SkillGrid({ grouped, onDetail, onEdit, onDelete }: {
                         )}
                       </div>
 
-                      {!skill.is_default && (
-                        <div className="absolute right-4 top-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md shadow-sm border p-0.5">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => onEdit(e, skill)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive hover:bg-destructive/10" onClick={(e) => onDelete(e, skill.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="absolute right-4 top-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md shadow-sm border p-0.5">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          title="Baixar para Claude Desktop"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await downloadSkillZip(skill);
+                              toast.success("Skill baixada!", { description: "Arraste em Claude → Settings → Capabilities → Skills" });
+                            } catch (err: any) {
+                              toast.error("Falha no download", { description: err.message });
+                            }
+                          }}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                        {!skill.is_default && (
+                          <>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => onEdit(e, skill)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive hover:bg-destructive/10" onClick={(e) => onDelete(e, skill.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 );
