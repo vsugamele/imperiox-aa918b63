@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Pipeline · Playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0c0a;--s1:#141310;--s2:#1a1916;--s3:#201e1b;
+  --border:rgba(245,200,66,0.1);--border2:rgba(245,200,66,0.22);
+  --gold:#f5c842;--gold2:#c9a030;--gold3:rgba(245,200,66,0.08);
+  --text:#e8e4dc;--muted:#7a746c;--muted2:#4a4640;
+  --green:#6fcf97;--red:#eb5757;--blue:#56b6f7;--purple:#bb86fc;
+  --ff-display:'Playfair Display',serif;
+  --ff-mono:'IBM Plex Mono',monospace;
+  --ff-label:'Bebas Neue',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--ff-mono);font-size:13px;line-height:1.7;display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;min-width:220px;background:var(--s1);border-right:1px solid var(--border);padding:2rem 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0}
+.sb-logo{padding:0 1.5rem 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.sb-logo-main{font-family:var(--ff-label);font-size:20px;color:var(--gold);letter-spacing:.08em;line-height:1}
+.sb-logo-sub{font-size:10px;color:var(--muted);letter-spacing:.06em;margin-top:3px}
+.sb-section{font-family:var(--ff-label);font-size:10px;letter-spacing:.15em;color:var(--muted2);padding:0 1.5rem;margin:1.2rem 0 .4rem}
+.sb-link{display:flex;align-items:center;gap:8px;padding:.4rem 1.5rem;font-size:11.5px;color:var(--muted);cursor:pointer;border-left:2px solid transparent;transition:all .15s;text-decoration:none}
+.sb-link:hover{color:var(--text);background:var(--gold3);border-left-color:var(--border2)}
+.sb-link.active{color:var(--gold);border-left-color:var(--gold);background:var(--gold3)}
+.sb-dot{width:6px;height:6px;border-radius:50%;background:var(--muted2);flex-shrink:0;transition:background .15s}
+.sb-link.active .sb-dot,.sb-link:hover .sb-dot{background:var(--gold)}
+.sb-status{padding:.3rem 1.5rem;font-size:10px;color:var(--muted2);display:flex;align-items:center;gap:6px}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── MAIN ── */
+.main{flex:1;padding:3rem 3.5rem;max-width:860px;overflow-x:hidden}
+
+/* ── SECTIONS ── */
+section{margin-bottom:4rem;scroll-margin-top:2rem}
+.sec-label{font-family:var(--ff-label);font-size:11px;letter-spacing:.2em;color:var(--gold2);margin-bottom:.5rem}
+.sec-title{font-family:var(--ff-display);font-size:2.2rem;font-weight:900;line-height:1.1;letter-spacing:-.02em;margin-bottom:1.5rem}
+.sec-title em{font-style:italic;color:var(--gold)}
+.sec-body{color:var(--muted);font-size:13px;line-height:1.9;margin-bottom:1.5rem;max-width:620px}
+
+/* ── HERO ── */
+.hero-kicker{display:inline-flex;align-items:center;gap:8px;background:var(--gold3);border:1px solid var(--border2);color:var(--gold);font-size:10px;letter-spacing:.15em;text-transform:uppercase;padding:4px 12px;border-radius:1px;margin-bottom:1.5rem}
+.hero h1{font-family:var(--ff-display);font-size:clamp(2.8rem,5vw,4rem);font-weight:900;line-height:1.05;letter-spacing:-.03em;margin-bottom:1rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{color:var(--muted);font-size:14px;line-height:1.8;max-width:560px;margin-bottom:2rem}
+.hero-stats{display:flex;gap:2.5rem;padding:1.25rem 1.5rem;background:var(--s2);border:1px solid var(--border);border-radius:2px}
+.hs{text-align:center}
+.hs-val{font-family:var(--ff-label);font-size:1.6rem;color:var(--gold);letter-spacing:.05em}
+.hs-lbl{font-size:10px;color:var(--muted2);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+
+/* ── PIPELINE FLOW ── */
+.flow{display:flex;align-items:stretch;gap:0;margin:2rem 0;border:1px solid var(--border);border-radius:2px;overflow:hidden}
+.flow-phase{flex:1;background:var(--s1);padding:1.25rem 1rem;border-right:1px solid var(--border);position:relative;min-width:0}
+.flow-phase:last-child{border-right:none}
+.fp-num{font-family:var(--ff-label);font-size:11px;letter-spacing:.15em;color:var(--gold2);margin-bottom:.5rem}
+.fp-name{font-family:var(--ff-display);font-size:13px;font-weight:700;margin-bottom:.2rem;line-height:1.2}
+.fp-model{font-size:10px;color:var(--muted);background:var(--s3);padding:2px 6px;border-radius:1px;display:inline-block;margin-bottom:.5rem}
+.fp-cost{font-size:11px;color:var(--green)}
+.flow-arrow{display:flex;align-items:center;padding:0 6px;color:var(--gold2);font-size:14px;flex-shrink:0;background:var(--s1)}
+
+/* ── CHECKLIST (ROTEIRO) ── */
+.checklist{display:flex;flex-direction:column;gap:2px;margin:1.5rem 0}
+.cl-phase-label{font-family:var(--ff-label);font-size:10px;letter-spacing:.18em;color:var(--gold2);padding:.8rem 0 .3rem;margin-top:.5rem}
+.cl-item{display:flex;align-items:flex-start;gap:12px;padding:.8rem 1rem;background:var(--s1);border:1px solid var(--border);border-radius:2px;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
+.cl-item:hover{border-color:var(--border2);background:var(--s2)}
+.cl-item.done{opacity:.55}
+.cl-item.done .cl-text{text-decoration:line-through;color:var(--muted2)}
+.cl-box{width:16px;height:16px;border:1.5px solid var(--muted2);border-radius:2px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cl-item.done .cl-box{background:var(--green);border-color:var(--green)}
+.cl-check{display:none;width:10px;height:10px;color:#0d0c0a;font-weight:700;font-size:10px}
+.cl-item.done .cl-check{display:block}
+.cl-text{font-size:12.5px;color:var(--text);line-height:1.5}
+.cl-text b{color:var(--gold);font-weight:500}
+.cl-tag{font-size:10px;padding:1px 6px;border-radius:1px;margin-left:auto;flex-shrink:0;font-family:var(--ff-label);letter-spacing:.05em}
+.tag-setup{background:rgba(86,182,247,0.12);color:var(--blue)}
+.tag-run{background:rgba(111,207,151,0.12);color:var(--green)}
+.tag-review{background:rgba(245,200,66,0.12);color:var(--gold)}
+.tag-out{background:rgba(187,134,252,0.12);color:var(--purple)}
+
+/* ── CODE ── */
+.code-block{background:var(--s2);border:1px solid var(--border2);border-radius:2px;overflow:hidden;margin:1.25rem 0;font-family:var(--ff-mono)}
+.code-head{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;background:var(--s3);border-bottom:1px solid var(--border)}
+.code-title{font-size:10.5px;color:var(--muted);letter-spacing:.05em}
+.code-lang{font-size:9px;background:var(--gold3);color:var(--gold2);padding:1px 6px;border-radius:1px;letter-spacing:.06em}
+.code-body{padding:1.1rem 1.25rem;font-size:12px;line-height:1.9;overflow-x:auto}
+.code-body pre{white-space:pre}
+.kw{color:var(--purple)} .fn{color:var(--gold)} .str{color:#f28779}
+.cm{color:var(--muted2);font-style:italic} .num{color:var(--green)} .prop{color:var(--blue)}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;margin:1.25rem 0}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:.5rem 1rem;background:var(--s3);color:var(--muted);font-size:9px;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--border2);font-weight:400}
+td{padding:.6rem 1rem;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--gold3)}
+.badge{display:inline-block;font-size:9px;padding:2px 7px;border-radius:1px;letter-spacing:.06em;font-family:var(--ff-label)}
+.b-green{background:rgba(111,207,151,.12);color:var(--green)}
+.b-gold{background:rgba(245,200,66,.12);color:var(--gold)}
+.b-blue{background:rgba(86,182,247,.12);color:var(--blue)}
+.b-red{background:rgba(235,87,87,.12);color:var(--red)}
+
+/* ── CALLOUT ── */
+.callout{border-left:3px solid var(--gold);background:var(--gold3);padding:1rem 1.25rem;border-radius:0 2px 2px 0;margin:1.25rem 0}
+.callout-head{font-family:var(--ff-label);font-size:10px;letter-spacing:.15em;color:var(--gold);margin-bottom:.4rem}
+.callout p,.callout li{font-size:12.5px;color:var(--muted);line-height:1.8}
+.callout ul{padding-left:1rem}
+.callout.warn{border-left-color:var(--red);background:rgba(235,87,87,.05)}
+.callout.warn .callout-head{color:var(--red)}
+.callout.info{border-left-color:var(--blue);background:rgba(86,182,247,.05)}
+.callout.info .callout-head{color:var(--blue)}
+
+/* ── CARDS ── */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:2px;overflow:hidden;margin:1.25rem 0}
+.card{background:var(--s1);padding:1.25rem}
+.card-icon{font-size:18px;margin-bottom:.6rem}
+.card-title{font-family:var(--ff-display);font-size:14px;font-weight:700;margin-bottom:.4rem}
+.card-body{font-size:12px;color:var(--muted);line-height:1.7}
+
+/* ── DIVIDER ── */
+hr{border:none;border-top:1px solid var(--border);margin:3rem 0}
+
+/* ── COST SUMMARY ── */
+.cost-bar{display:flex;gap:0;height:8px;border-radius:2px;overflow:hidden;margin:.75rem 0}
+.cost-seg{transition:flex .3s}
+.prog-label{display:flex;gap:1.5rem;font-size:11px;color:var(--muted);margin-bottom:.5rem;flex-wrap:wrap}
+.prog-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+/* ── ELEVEN LABS FORM ── */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.form-group{display:flex;flex-direction:column;gap:.4rem}
+.form-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.form-input{background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:var(--ff-mono);font-size:12px;padding:.5rem .75rem;border-radius:2px;outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--gold)}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:#0d0c0a;font-family:var(--ff-label);font-size:12px;letter-spacing:.1em;padding:.5rem 1.25rem;border:none;border-radius:2px;cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--gold2)}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:var(--ff-mono)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+
+@media(max-width:900px){
+  .sidebar{display:none}
+  .main{padding:2rem 1.5rem}
+  .flow{flex-direction:column}
+  .flow-arrow{display:none}
+  .cards{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+  .hero-stats{flex-wrap:wrap;gap:1.5rem}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-main">VIDEO<br>PIPELINE</div>
+    <div class="sb-logo-sub">Playbook · v3.0</div>
+  </div>
+  <div class="sb-status"><span class="pulse"></span>Testado · Mai 2026</div>
+
+  <div class="sb-section">Visão geral</div>
+  <a href="#visao" class="sb-link active"><span class="sb-dot"></span>Pipeline completo</a>
+  <a href="#custos" class="sb-link"><span class="sb-dot"></span>Custos reais</a>
+
+  <div class="sb-section">Roteiro</div>
+  <a href="#roteiro" class="sb-link"><span class="sb-dot"></span>Checklist execução</a>
+
+  <div class="sb-section">Fases</div>
+  <a href="#storyboard" class="sb-link"><span class="sb-dot"></span>01 Storyboard</a>
+  <a href="#imagens" class="sb-link"><span class="sb-dot"></span>02 Imagens</a>
+  <a href="#headlines" class="sb-link"><span class="sb-dot"></span>03 Headlines</a>
+  <a href="#narracao" class="sb-link"><span class="sb-dot"></span>04 ElevenLabs</a>
+  <a href="#video" class="sb-link"><span class="sb-dot"></span>05 Vídeo</a>
+
+  <div class="sb-section">Referência</div>
+  <a href="#modelos" class="sb-link"><span class="sb-dot"></span>Modelos & API</a>
+  <a href="#discoveries" class="sb-link"><span class="sb-dot"></span>Discoveries</a>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- HERO -->
+<section id="visao">
+  <div class="hero-kicker">◈ Playbook técnico · OpenRouter</div>
+  <div class="hero">
+    <h1>Sistema de<br><em>vídeo</em> autônomo</h1>
+    <p class="hero-sub">
+      Pipeline completo testado em produção: do brief ao MP4 com narração, headline e clip animado —
+      tudo via OpenRouter como hub central.
+    </p>
+    <div class="hero-stats">
+      <div class="hs"><div class="hs-val">5</div><div class="hs-lbl">Fases</div></div>
+      <div class="hs"><div class="hs-val">~$5</div><div class="hs-lbl">Por vídeo 5 cenas</div></div>
+      <div class="hs"><div class="hs-val">4–15s</div><div class="hs-lbl">Seedance duração</div></div>
+      <div class="hs"><div class="hs-val">65s</div><div class="hs-lbl">Geração por clip</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:2rem">
+    <div class="sec-label">Pipeline de produção</div>
+    <div class="flow">
+      <div class="flow-phase">
+        <div class="fp-num">01</div>
+        <div class="fp-name">Storyboard</div>
+        <div class="fp-model">claude-haiku-4-5</div>
+        <div class="fp-cost">~$0.005</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-phase">
+        <div class="fp-num">02</div>
+        <div class="fp-name">Imagens</div>
+        <div class="fp-model">gpt-5.4-image-2</div>
+        <div class="fp-cost">~$0.22/cena</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-phase">
+        <div class="fp-num">03</div>
+        <div class="fp-name">Headlines</div>
+        <div class="fp-model">sharp (local)</div>
+        <div class="fp-cost">$0.00</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-phase">
+        <div class="fp-num">04</div>
+        <div class="fp-name">Narração</div>
+        <div class="fp-model">ElevenLabs TTS</div>
+        <div class="fp-cost">~$0.01/cena</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-phase">
+        <div class="fp-num">05</div>
+        <div class="fp-name">Vídeo</div>
+        <div class="fp-model">seedance-2.0-fast</div>
+        <div class="fp-cost">$0.60–$0.97/clip</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CUSTOS -->
+<section id="custos">
+  <div class="sec-label">Referência de custos</div>
+  <h2 class="sec-title">Números <em>reais</em> testados</h2>
+
+  <div class="prog-label">
+    <span><span class="prog-dot" style="background:#56b6f7"></span>Storyboard</span>
+    <span><span class="prog-dot" style="background:#f5c842"></span>Imagens</span>
+    <span><span class="prog-dot" style="background:#bb86fc"></span>Narração</span>
+    <span><span class="prog-dot" style="background:#6fcf97"></span>Vídeo</span>
+  </div>
+  <div class="cost-bar">
+    <div class="cost-seg" style="flex:.1;background:#56b6f7"></div>
+    <div class="cost-seg" style="flex:22;background:#f5c842"></div>
+    <div class="cost-seg" style="flex:.5;background:#bb86fc"></div>
+    <div class="cost-seg" style="flex:77;background:#6fcf97"></div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Etapa</th><th>Modelo</th><th>Custo unitário</th><th>Custo/segundo</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Storyboard JSON</td><td><code>claude-haiku-4-5</code></td><td>~$0.005 total</td><td>—</td><td><span class="badge b-green">testado</span></td></tr>
+        <tr><td>Imagem por cena</td><td><code>gpt-5.4-image-2</code></td><td>~$0.22/cena</td><td>—</td><td><span class="badge b-green">testado</span></td></tr>
+        <tr><td>Headline overlay</td><td>sharp (local)</td><td>$0.00</td><td>—</td><td><span class="badge b-gold">local</span></td></tr>
+        <tr><td>Narração MP3</td><td>ElevenLabs TTS</td><td>~$0.01/cena</td><td>—</td><td><span class="badge b-blue">integrado</span></td></tr>
+        <tr><td>Clip 4s</td><td><code>seedance-2.0-fast</code></td><td>$0.48</td><td style="color:var(--green)">$0.12/s</td><td><span class="badge b-green">testado</span></td></tr>
+        <tr><td>Clip 5s</td><td><code>seedance-2.0-fast</code></td><td>$0.60</td><td style="color:var(--green)">$0.12/s</td><td><span class="badge b-green">testado</span></td></tr>
+        <tr><td>Clip 8s</td><td><code>seedance-2.0-fast</code></td><td>$0.97</td><td style="color:var(--green)">$0.12/s</td><td><span class="badge b-green">testado</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-head">O Seedance cobra por segundo — não por clip</div>
+    <p>O custo por segundo é sempre <b>~$0.12</b> independente da duração. Clip de 8s não é mais barato que dois de 4s — custa igual. A vantagem do clip mais longo é <b>menos processamento paralelo</b> e <b>movimento de câmera mais fluido</b>, não economia de custo.</p>
+  </div>
+
+  <div class="tbl-wrap" style="margin-top:1.5rem">
+    <div style="font-family:var(--ff-label);font-size:10px;letter-spacing:.15em;color:var(--gold2);margin-bottom:.75rem">CUSTO REAL POR DURAÇÃO DE REELS (Imagens + Clips + Narração)</div>
+    <table>
+      <thead><tr><th>Estratégia</th><th>Clips</th><th>Duração total</th><th>Custo vídeo</th><th>Custo total</th></tr></thead>
+      <tbody>
+        <tr><td>Todos 5s</td><td>9 clips</td><td>45s</td><td>$5.40</td><td>~$7.50</td></tr>
+        <tr><td>Todos 8s</td><td>6 clips</td><td>48s</td><td>$5.82</td><td>~$7.20</td></tr>
+        <tr style="background:var(--gold3)"><td><b>Mix ⭐</b> (hook/CTA 5s · content 8s)</td><td><b>5 clips</b></td><td><b>~38s</b></td><td><b>$4.08</b></td><td><b style="color:var(--gold)">~$5.40</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <div class="callout-head">Estratégia Mix — a mais eficiente</div>
+    <p><b>Hook</b> e <b>CTA</b> em 4–5s (impacto rápido, $0.48–0.60 cada) · <b>Content</b> e <b>Proof</b> em 8s (tempo para desenvolver, $0.97 cada). 5 cenas bem distribuídas cobrem ~38s — ideal para Reels de 30–45s sem desperdiçar segundos gerados.</p>
+    <p style="margin-top:.5rem"><b>Seedance:</b> 4–15s (qualquer inteiro) · <b>Veo 3.1 Fast:</b> apenas 4, 6 ou 8s fixos.</p>
+  </div>
+</section>
+
+<hr>
+
+<!-- ROTEIRO -->
+<section id="roteiro">
+  <div class="sec-label">Execução</div>
+  <h2 class="sec-title"><em>Roteiro</em> de produção</h2>
+  <p class="sec-body">Checklist completo. Clique em cada item para marcar como concluído. O estado é salvo no navegador.</p>
+
+  <div class="checklist" id="checklist">
+    <div class="cl-phase-label">── Setup inicial (uma vez)</div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Criar pasta <b>video-pipeline/</b> no Desktop e extrair o ZIP do projeto</div>
+      <span class="cl-tag tag-setup">setup</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Rodar <b>npm install</b> na pasta raiz do projeto</div>
+      <span class="cl-tag tag-setup">setup</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Copiar <b>config/.env.example</b> para <b>.env</b> e preencher <code>OPENROUTER_API_KEY</code></div>
+      <span class="cl-tag tag-setup">setup</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Adicionar <b>ELEVENLABS_API_KEY</b> no <code>.env</code> se for usar narração</div>
+      <span class="cl-tag tag-setup">setup</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Instalar dependências extras: <b>npm install sharp axios</b></div>
+      <span class="cl-tag tag-setup">setup</span>
+    </div>
+
+    <div class="cl-phase-label">── Por vídeo (cada produção)</div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Editar o objeto <b>BRIEF</b> no <code>src/pipeline-v3.js</code> com tema, avatar, tom e CTA</div>
+      <span class="cl-tag tag-run">rodar</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Rodar <b>npm start</b> — aguardar geração do storyboard JSON (~10s)</div>
+      <span class="cl-tag tag-run">rodar</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Revisar <b>output/storyboard.json</b> — checar narração e imagePrompts de cada cena</div>
+      <span class="cl-tag tag-review">revisar</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Aguardar geração das imagens <b>output/frames/</b> — aprovar visualmente cada PNG</div>
+      <span class="cl-tag tag-review">revisar</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Se necessário, ajustar <b>imagePrompt</b> de cenas que não ficaram boas e regenerar só elas</div>
+      <span class="cl-tag tag-review">revisar</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Rodar <b>npm run headlines</b> para adicionar texto nas imagens (opcional)</div>
+      <span class="cl-tag tag-run">rodar</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Aguardar geração das narrações MP3 em <b>output/audio/</b> via ElevenLabs</div>
+      <span class="cl-tag tag-run">rodar</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Aguardar geração dos clips em <b>output/clips/</b> — ~2 min por vídeo completo (5 cenas paralelas)</div>
+      <span class="cl-tag tag-run">rodar</span>
+    </div>
+
+    <div class="cl-phase-label">── Montagem final</div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Importar clips MP4 de <b>output/clips/</b> no CapCut ou Premiere na ordem das cenas</div>
+      <span class="cl-tag tag-out">output</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Importar áudios MP3 de <b>output/audio/</b> e sincronizar com cada clip</div>
+      <span class="cl-tag tag-out">output</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Adicionar trilha de fundo, ajustar volume da narração (~85%) e trilha (~15%)</div>
+      <span class="cl-tag tag-out">output</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Gerar legenda automática com Whisper ou CapCut, revisar e posicionar</div>
+      <span class="cl-tag tag-out">output</span>
+    </div>
+    <div class="cl-item" onclick="toggle(this)">
+      <div class="cl-box"><span class="cl-check">✓</span></div>
+      <div class="cl-text">Exportar: <b>1080×1920 (9:16)</b> para Reels / <b>1920×1080 (16:9)</b> para YouTube</div>
+      <span class="cl-tag tag-out">output</span>
+    </div>
+  </div>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center">
+    <button class="btn btn-ghost" onclick="resetChecklist()">↺ Resetar checklist</button>
+    <span id="progress-text" style="font-size:11px;color:var(--muted)"></span>
+  </div>
+</section>
+
+<hr>
+
+<!-- STORYBOARD -->
+<section id="storyboard">
+  <div class="sec-label">Fase 01</div>
+  <h2 class="sec-title">Storyboard com <em>LLM</em></h2>
+  <p class="sec-body">O Claude Haiku gera o storyboard completo em JSON a partir do brief. Cada cena tem narração, imagePrompt otimizado para o Image-2, motion prompt para o vídeo e tipo (hook/content/proof/cta).</p>
+
+  <div class="callout info">
+    <div class="callout-head">Instrução chave para o imagePrompt</div>
+    <p>O Image-2 é ruim com texto na imagem. Instrua explicitamente: <b>"SEM texto, palavras ou letras na imagem"</b>. O texto vai como headline overlay (Fase 03), não dentro do frame gerado pela IA.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-head"><span class="code-title">estrutura do storyboard.json</span><span class="code-lang">JSON</span></div>
+    <div class="code-body"><pre>{
+  <span class="prop">"title"</span>: <span class="str">"3 erros que impedem iniciantes..."</span>,
+  <span class="prop">"styleBlock"</span>: <span class="str">"dark minimal, cinematic, urban professional"</span>,
+  <span class="prop">"scenes"</span>: [{
+    <span class="prop">"id"</span>: <span class="num">1</span>,
+    <span class="prop">"type"</span>: <span class="str">"hook"</span>,          <span class="cm">// hook | content | proof | cta</span>
+    <span class="prop">"duration"</span>: <span class="num">5</span>,          <span class="cm">// segundos do clip Seedance</span>
+    <span class="prop">"narration"</span>: <span class="str">"..."</span>,     <span class="cm">// vai para ElevenLabs</span>
+    <span class="prop">"imagePrompt"</span>: <span class="str">"..."</span>,   <span class="cm">// vai para gpt-5.4-image-2</span>
+    <span class="prop">"motion"</span>: <span class="str">"slow push in"</span>, <span class="cm">// vai para Seedance</span>
+    <span class="prop">"headline"</span>: <span class="str">"Erro #1"</span>,   <span class="cm">// texto overlay (sharp)</span>
+    <span class="prop">"angle"</span>: <span class="str">"close"</span>
+  }]
+}</pre></div>
+  </div>
+</section>
+
+<!-- IMAGENS -->
+<section id="imagens">
+  <div class="sec-label">Fase 02</div>
+  <h2 class="sec-title">Imagens com <em>Image-2</em></h2>
+  <p class="sec-body">O <code>gpt-5.4-image-2</code> é acessado via <code>/chat/completions</code> — não via <code>/images/generations</code>. A imagem retorna em <code>message.images[]</code>, não em <code>message.content</code>.</p>
+
+  <div class="callout warn">
+    <div class="callout-head">⚠ Descoberta real — não documentada</div>
+    <p>O endpoint <code>/images/generations</code> retorna 404 para o <code>gpt-5.4-image-2</code>. Use <code>/chat/completions</code> e leia a imagem em <code>data.choices[0].message.images[0].image_url.url</code> — que é um data URL base64.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-head"><span class="code-title">gerarImagem() — como funciona de verdade</span><span class="code-lang">JS</span></div>
+    <div class="code-body"><pre><span class="kw">const</span> { data } = <span class="kw">await</span> OR.<span class="fn">post</span>(<span class="str">'/chat/completions'</span>, {
+  model: <span class="str">'openai/gpt-5.4-image-2'</span>,
+  max_tokens: <span class="num">100</span>,
+  messages: [{ role: <span class="str">'user'</span>, content: <span class="str">`Generate an image: ${cena.imagePrompt}`</span> }]
+});
+
+<span class="cm">// ⚠ A imagem NÃO está em message.content — está em message.images[]</span>
+<span class="kw">const</span> dataUrl = data.choices[<span class="num">0</span>].message.images[<span class="num">0</span>].image_url.url;
+<span class="kw">const</span> b64     = dataUrl.<span class="fn">replace</span>(<span class="str">/^data:image\/\w+;base64,/</span>, <span class="str">''</span>);
+<span class="kw">const</span> buffer  = Buffer.<span class="fn">from</span>(b64, <span class="str">'base64'</span>);
+fs.<span class="fn">writeFileSync</span>(filepath, buffer); <span class="cm">// salva PNG</span></pre></div>
+  </div>
+</section>
+
+<!-- HEADLINES -->
+<section id="headlines">
+  <div class="sec-label">Fase 03</div>
+  <h2 class="sec-title">Headlines com <em>sharp</em></h2>
+  <p class="sec-body">Adiciona texto sobre a imagem gerada pelo Image-2 antes de enviar ao Seedance. A IA não gera texto confiável — fazemos isso programaticamente com a biblioteca <code>sharp</code>.</p>
+
+  <div class="code-block">
+    <div class="code-head"><span class="code-title">src/headline.js — overlay de texto na imagem</span><span class="code-lang">JS</span></div>
+    <div class="code-body"><pre><span class="kw">const</span> sharp = <span class="fn">require</span>(<span class="str">'sharp'</span>);
+
+<span class="kw">async function</span> <span class="fn">adicionarHeadline</span>(imagemPath, texto, outputPath) {
+  <span class="kw">const</span> img   = sharp(imagemPath);
+  <span class="kw">const</span> meta  = <span class="kw">await</span> img.<span class="fn">metadata</span>();
+  <span class="kw">const</span> { width, height } = meta;
+
+  <span class="cm">// SVG com o texto — sharp aceita SVG como overlay</span>
+  <span class="kw">const</span> svgText = <span class="str">`
+    &lt;svg width="${width}" height="${height}"&gt;
+      &lt;defs&gt;
+        &lt;filter id="shadow"&gt;
+          &lt;feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.8"/&gt;
+        &lt;/filter&gt;
+      &lt;/defs&gt;
+      &lt;!-- Faixa semitransparente no terço inferior --&gt;
+      &lt;rect x="0" y="${height * 0.72}" width="${width}" height="${height * 0.28}"
+        fill="rgba(0,0,0,0.55)"/&gt;
+      &lt;!-- Texto centralizado --&gt;
+      &lt;text
+        x="${width / 2}" y="${height * 0.82}"
+        font-family="Arial Black, sans-serif"
+        font-size="${width * 0.07}" font-weight="900"
+        fill="white" text-anchor="middle"
+        filter="url(#shadow)"&gt;
+        ${texto}
+      &lt;/text&gt;
+    &lt;/svg&gt;`</span>;
+
+  <span class="kw">await</span> img
+    .<span class="fn">composite</span>([{ input: Buffer.<span class="fn">from</span>(svgText), gravity: <span class="str">'center'</span> }])
+    .<span class="fn">toFile</span>(outputPath);
+
+  console.<span class="fn">log</span>(<span class="str">`  ✓ Headline adicionada: "${texto}"`</span>);
+}
+
+<span class="cm">// Uso — aplica em todas as cenas que têm headline</span>
+<span class="kw">for</span> (<span class="kw">const</span> cena <span class="kw">of</span> storyboard.scenes) {
+  <span class="kw">if</span> (!cena.headline) <span class="kw">continue</span>;
+  <span class="kw">await</span> <span class="fn">adicionarHeadline</span>(
+    <span class="str">`output/frames/cena${cena.id}_${cena.type}.png`</span>,
+    cena.headline,
+    <span class="str">`output/frames/cena${cena.id}_${cena.type}_headline.png`</span>
+  );
+}</pre></div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">📐</div>
+      <div class="card-title">Posições de headline</div>
+      <div class="card-body">
+        <b>Lower third</b> (padrão) — faixa nos 28% inferiores, boa para Reels.<br>
+        <b>Center</b> — texto no meio, bom para hooks de impacto.<br>
+        <b>Top</b> — 15% superior, bom quando o sujeito está na parte de baixo.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🎨</div>
+      <div class="card-title">Estilos por tipo de cena</div>
+      <div class="card-body">
+        <b>hook:</b> texto grande, branco, sem fundo.<br>
+        <b>content/proof:</b> lower third com faixa escura.<br>
+        <b>cta:</b> texto em dourado com contorno.<br>
+        Defina o estilo no campo <code>headlineStyle</code> do storyboard.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NARRACAO -->
+<section id="narracao">
+  <div class="sec-label">Fase 04</div>
+  <h2 class="sec-title"><em>ElevenLabs</em> narração</h2>
+  <p class="sec-body">Cada cena tem um campo <code>narration</code> no storyboard. O pipeline envia esse texto para o ElevenLabs e recebe um MP3 que sincroniza com o clip de vídeo na montagem.</p>
+
+  <div class="callout info">
+    <div class="callout-head">Configuração necessária</div>
+    <p>1. Criar conta em <b>elevenlabs.io</b> (plano gratuito dá 10k caracteres/mês)<br>
+    2. Copiar a API key em <b>Profile → API Key</b><br>
+    3. Adicionar no <code>.env</code>: <code>ELEVENLABS_API_KEY=sk_...</code><br>
+    4. Escolher um <b>Voice ID</b> na seção Voice Library do ElevenLabs</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-head"><span class="code-title">src/narration.js — geração de MP3 por cena</span><span class="code-lang">JS</span></div>
+    <div class="code-body"><pre><span class="kw">const</span> axios = <span class="fn">require</span>(<span class="str">'axios'</span>);
+<span class="kw">const</span> fs    = <span class="fn">require</span>(<span class="str">'fs/promises'</span>);
+
+<span class="kw">const</span> EL_KEY     = process.env.<span class="prop">ELEVENLABS_API_KEY</span>;
+<span class="kw">const</span> VOICE_ID   = process.env.<span class="prop">ELEVENLABS_VOICE_ID</span> || <span class="str">'pNInz6obpgDQGcFmaJgB'</span>; <span class="cm">// Adam</span>
+<span class="kw">const</span> EL_API     = <span class="str">'https://api.elevenlabs.io/v1'</span>;
+
+<span class="kw">async function</span> <span class="fn">gerarNarracao</span>(texto, outputPath) {
+  <span class="kw">const</span> { data } = <span class="kw">await</span> axios.<span class="fn">post</span>(
+    <span class="str">`${EL_API}/text-to-speech/${VOICE_ID}`</span>,
+    {
+      text:           texto,
+      model_id:       <span class="str">'eleven_multilingual_v2'</span>, <span class="cm">// suporta português</span>
+      voice_settings: { stability: <span class="num">0.5</span>, similarity_boost: <span class="num">0.8</span>, style: <span class="num">0.3</span> }
+    },
+    {
+      headers: {
+        <span class="str">'xi-api-key'</span>: EL_KEY,
+        <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span>,
+        <span class="str">'Accept'</span>: <span class="str">'audio/mpeg'</span>
+      },
+      responseType: <span class="str">'arraybuffer'</span>
+    }
+  );
+  <span class="kw">await</span> fs.<span class="fn">writeFile</span>(outputPath, data);
+  console.<span class="fn">log</span>(<span class="str">`  ✓ ${outputPath} (${(data.byteLength/1024).toFixed(0)} KB)`</span>);
+}
+
+<span class="cm">// Gerar narração de todas as cenas em paralelo</span>
+<span class="kw">await</span> Promise.<span class="fn">all</span>(
+  storyboard.scenes.<span class="fn">map</span>(cena =>
+    <span class="fn">gerarNarracao</span>(cena.narration, <span class="str">`output/audio/cena${cena.id}.mp3`</span>)
+  )
+);</pre></div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Voice ID</th><th>Nome</th><th>Estilo</th><th>Melhor para</th></tr></thead>
+      <tbody>
+        <tr><td><code>pNInz6obpgDQGcFmaJgB</code></td><td>Adam</td><td>Neutro, profissional</td><td>Conteúdo educativo, autoridade</td></tr>
+        <tr><td><code>EXAVITQu4vr4xnSDxMaL</code></td><td>Bella</td><td>Caloroso, feminino</td><td>Lifestyle, bem-estar</td></tr>
+        <tr><td><code>VR6AewLTigWG4xSOukaG</code></td><td>Arnold</td><td>Grave, impactante</td><td>Hook de alta energia</td></tr>
+        <tr><td><code>clone</code></td><td>Sua voz clonada</td><td>Você mesmo</td><td>Personal brand, autoridade máxima</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- VIDEO -->
+<section id="video">
+  <div class="sec-label">Fase 05</div>
+  <h2 class="sec-title">Vídeo com <em>Seedance</em></h2>
+  <p class="sec-body">O Seedance recebe a imagem composta (com headline se houver) como <code>first_frame</code> e o motion prompt descrevendo o movimento de câmera. O prompt do vídeo deve descrever SOMENTE o movimento — nunca venda ou produtos.</p>
+
+  <div class="callout warn">
+    <div class="callout-head">Filtro de áudio — como evitar</div>
+    <p>O Seedance bloqueia prompts com palavras como "entrepreneur", "selling", "business", "money", "marketing". Mantenha o prompt do vídeo descrevendo só o visual e o movimento de câmera. Todo o contexto de negócios fica na narração (ElevenLabs) e na headline (sharp).</p>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Tipo de cena</th><th>Duração ideal</th><th>Motion prompt</th><th>Custo</th></tr></thead>
+      <tbody>
+        <tr><td><b>hook</b></td><td>4–5s</td><td><code>dramatic zoom in, cinematic</code></td><td>$0.48–$0.60</td></tr>
+        <tr><td><b>content</b></td><td>6–8s</td><td><code>slow drift right, gentle parallax</code></td><td>$0.72–$0.97</td></tr>
+        <tr><td><b>proof</b></td><td>6–8s</td><td><code>subtle camera pull back, steady</code></td><td>$0.72–$0.97</td></tr>
+        <tr><td><b>cta</b></td><td>4–5s</td><td><code>push in, bright dynamic movement</code></td><td>$0.48–$0.60</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-head"><span class="code-title">submeterVideo() — payload real testado</span><span class="code-lang">JS</span></div>
+    <div class="code-body"><pre><span class="kw">const</span> { data } = <span class="kw">await</span> OR.<span class="fn">post</span>(<span class="str">'/videos'</span>, {
+  model:        <span class="str">'bytedance/seedance-2.0-fast'</span>,
+
+  <span class="cm">// ⚠ Só movimento de câmera — sem contexto de negócios</span>
+  prompt:       <span class="str">`${cena.motion}, cinematic quality, smooth movement`</span>,
+
+  <span class="cm">// Seedance aceita 4 a 15 segundos (qualquer inteiro)</span>
+  duration:     cena.duration, <span class="cm">// 5 para hook/cta, 8 para content</span>
+
+  aspect_ratio: <span class="str">'9:16'</span>,        <span class="cm">// 9:16 Reels | 16:9 YouTube | 1:1 Feed</span>
+
+  <span class="cm">// Imagem do Image-2 (com ou sem headline overhead)</span>
+  first_frame:  { type: <span class="str">'base64'</span>, data: b64 }
+});</pre></div>
+  </div>
+</section>
+
+<hr>
+
+<!-- MODELOS -->
+<section id="modelos">
+  <div class="sec-label">Referência</div>
+  <h2 class="sec-title">Modelos & <em>API</em></h2>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Modelo</th><th>Endpoint</th><th>Resposta imagem</th><th>Durações</th><th>Aspect ratios</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>openai/gpt-5.4-image-2</code></td>
+          <td><code>/chat/completions</code></td>
+          <td><code>message.images[]</code></td><td>—</td>
+          <td>qualquer (no prompt)</td>
+        </tr>
+        <tr>
+          <td><code>google/gemini-2.5-flash-image</code></td>
+          <td><code>/chat/completions</code></td>
+          <td><code>message.images[]</code></td><td>—</td>
+          <td>qualquer</td>
+        </tr>
+        <tr>
+          <td><code>bytedance/seedance-2.0-fast</code></td>
+          <td><code>/videos</code></td>
+          <td>MP4 via <code>/content</code></td>
+          <td>4–15s</td>
+          <td>9:16 16:9 1:1 3:4 4:3 21:9</td>
+        </tr>
+        <tr>
+          <td><code>bytedance/seedance-2.0</code></td>
+          <td><code>/videos</code></td>
+          <td>MP4 via <code>/content</code></td>
+          <td>4–15s</td>
+          <td>9:16 16:9 1:1 3:4 4:3 21:9</td>
+        </tr>
+        <tr>
+          <td><code>google/veo-3.1-fast</code></td>
+          <td><code>/videos</code></td>
+          <td>MP4 via <code>/content</code></td>
+          <td>4, 6, 8s</td>
+          <td>9:16 16:9</td>
+        </tr>
+        <tr>
+          <td><code>anthropic/claude-haiku-4-5</code></td>
+          <td><code>/chat/completions</code></td>
+          <td>JSON text</td><td>—</td><td>—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <div class="callout-head">Download de clips — requer auth</div>
+    <p>O campo retornado pelo job completo é <code>unsigned_urls[0]</code>, não <code>url</code>.
+    O download precisa do Bearer token no header — não é URL pública.<br><br>
+    <code>GET /api/v1/videos/{jobId}/content?index=0</code><br>
+    Header: <code>Authorization: Bearer {KEY}</code> · responseType: arraybuffer</p>
+  </div>
+</section>
+
+<!-- DISCOVERIES -->
+<section id="discoveries">
+  <div class="sec-label">Notas de campo</div>
+  <h2 class="sec-title"><em>Discoveries</em> reais</h2>
+  <p class="sec-body">O que descobrimos testando que não está documentado em lugar nenhum.</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">🔍</div>
+      <div class="card-title">Image-2 não usa /images/generations</div>
+      <div class="card-body">O endpoint retorna 404. O modelo roda via <code>/chat/completions</code> normal e a imagem vem em <code>message.images[0].image_url.url</code> como data URL base64.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">⏱</div>
+      <div class="card-title">Seedance: 4 a 15 segundos</div>
+      <div class="card-body">Qualquer inteiro de 4 a 15. O Veo 3.1 é que tem só 3 opções (4, 6, 8). Seedance é muito mais flexível para controle de ritmo de edição.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔇</div>
+      <div class="card-title">Filtro de áudio do Seedance</div>
+      <div class="card-body">Palavras de negócios no prompt ativam o bloqueio. Solução: descrever apenas o movimento de câmera. Todo o conteúdo de venda vai na narração e na headline.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📦</div>
+      <div class="card-title">Agent SDK precisa Zod v4</div>
+      <div class="card-body">O <code>@openrouter/agent</code> exige <code>zod@^4.0.0</code>, não v3. Além disso usa a Responses API (<code>/responses</code>) que o OpenRouter ainda não expôs publicamente.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔐</div>
+      <div class="card-title">unsigned_urls[] não é público</div>
+      <div class="card-body">O campo de download é <code>unsigned_urls[0]</code>, não <code>url</code>. A URL requer o Bearer token no header — não funciona direto no browser sem auth.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <div class="card-title">Paralelizar fase de vídeo</div>
+      <div class="card-body">Submeta todos os jobs de vídeo de uma vez com <code>Promise.all</code>. O polling pode rodar em paralelo também. Reduz o tempo de 5 cenas de ~10min para ~2min.</div>
+    </div>
+  </div>
+
+  <div style="margin-top:2rem;padding:1.5rem;background:var(--s2);border:1px solid var(--border);border-radius:2px;font-size:12px;color:var(--muted)">
+    <div style="font-family:var(--ff-label);font-size:10px;letter-spacing:.15em;color:var(--gold2);margin-bottom:.75rem">PRÓXIMOS PASSOS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+      <div>→ Parallelizar geração de vídeo com Promise.all</div>
+      <div>→ Webhook n8n para pipeline 100% autônomo</div>
+      <div>→ Interface web para editar brief e revisar frames</div>
+      <div>→ OpenRouter Agent SDK quando /responses abrir</div>
+      <div>→ Voz clonada ElevenLabs para personal brand</div>
+      <div>→ Auto-legenda via Whisper + FFmpeg no pipeline</div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ── CHECKLIST
+function toggle(el) {
+  el.classList.toggle('done');
+  saveState();
+  updateProgress();
+}
+function saveState() {
+  const items = [...document.querySelectorAll('.cl-item')];
+  const state = items.map(i => i.classList.contains('done'));
+  localStorage.setItem('vp-checklist', JSON.stringify(state));
+}
+function loadState() {
+  const raw = localStorage.getItem('vp-checklist');
+  if (!raw) return;
+  const state = JSON.parse(raw);
+  const items = [...document.querySelectorAll('.cl-item')];
+  state.forEach((done, i) => { if (items[i] && done) items[i].classList.add('done'); });
+}
+function updateProgress() {
+  const items = [...document.querySelectorAll('.cl-item')];
+  const done  = items.filter(i => i.classList.contains('done')).length;
+  const el    = document.getElementById('progress-text');
+  if (el) el.textContent = done + ' de ' + items.length + ' concluídos';
+}
+function resetChecklist() {
+  document.querySelectorAll('.cl-item').forEach(i => i.classList.remove('done'));
+  localStorage.removeItem('vp-checklist');
+  updateProgress();
+}
+
+// ── SIDEBAR active link
+const links = document.querySelectorAll('.sb-link');
+const sections = document.querySelectorAll('section[id]');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const active = document.querySelector('.sb-link[href="#' + e.target.id + '"]');
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => observer.observe(s));
+
+document.addEventListener('DOMContentLoaded', () => { loadState(); updateProgress(); });
+</script>
+</body>
+</html>

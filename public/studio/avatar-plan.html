@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avatar Plan · HeyGen + DreamFace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090f;--s1:#0f0f18;--s2:#14141f;--s3:#1a1a28;
+  --border:rgba(139,92,246,0.12);--border2:rgba(139,92,246,0.25);
+  --v:#8b5cf6;--v2:#6d28d9;--v3:rgba(139,92,246,0.08);
+  --blue:#38bdf8;--green:#34d399;--amber:#fbbf24;--red:#f87171;--pink:#f472b6;
+  --text:#e2e0ec;--muted:#6b6880;--muted2:#3d3b50;
+  --ff:'Syne',sans-serif;--fm:'IBM Plex Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--fm);font-size:13px;line-height:1.7;display:flex;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{width:210px;min-width:210px;background:var(--s1);border-right:1px solid var(--border);padding:1.5rem 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0}
+.sb-top{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+.sb-back{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem;cursor:pointer;text-decoration:none}
+.sb-back:hover{color:var(--v)}
+.sb-title{font-family:var(--ff);font-size:15px;font-weight:800;color:var(--v);line-height:1.1}
+.sb-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.sb-sec{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted2);padding:.75rem 1.25rem .3rem;font-family:var(--ff)}
+.sb-link{display:flex;align-items:center;gap:7px;padding:.35rem 1.25rem;font-size:11.5px;color:var(--muted);cursor:pointer;border-left:2px solid transparent;transition:all .15s;text-decoration:none}
+.sb-link:hover,.sb-link.active{color:var(--text);background:var(--v3);border-left-color:var(--v)}
+.sb-dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.4;flex-shrink:0}
+.sb-link:hover .sb-dot,.sb-link.active .sb-dot{opacity:1}
+
+/* MAIN */
+.main{flex:1;padding:3rem 3.5rem;max-width:900px;overflow-x:hidden}
+section{margin-bottom:4.5rem;scroll-margin-top:2rem}
+.sec-label{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--v);font-family:var(--ff);margin-bottom:.5rem}
+.sec-title{font-family:var(--ff);font-size:2rem;font-weight:800;line-height:1.1;letter-spacing:-.02em;margin-bottom:1.25rem}
+.sec-title em{font-style:normal;color:var(--v)}
+.sec-body{color:var(--muted);font-size:13px;line-height:1.9;max-width:600px;margin-bottom:1.5rem}
+hr{border:none;border-top:1px solid var(--border);margin:3rem 0}
+
+/* HERO COMPARISON */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden;margin:2rem 0}
+.cmp{background:var(--s1);padding:1.5rem}
+.cmp-logo{font-family:var(--ff);font-size:18px;font-weight:800;margin-bottom:.3rem}
+.cmp-tag{display:inline-block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:2px 8px;border-radius:2px;margin-bottom:1rem}
+.cmp-row{display:flex;justify-content:space-between;align-items:baseline;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:12px}
+.cmp-row:last-child{border-bottom:none}
+.cmp-key{color:var(--muted)}
+.cmp-val{font-weight:500;text-align:right}
+.c-heygen .cmp-logo{color:var(--blue)}
+.c-heygen .cmp-tag{background:rgba(56,189,248,.1);color:var(--blue)}
+.c-dream .cmp-logo{color:var(--pink)}
+.c-dream .cmp-tag{background:rgba(244,114,182,.1);color:var(--pink)}
+
+/* WHEN TO USE */
+.when-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden;margin:1.5rem 0}
+.when-card{background:var(--s1);padding:1.25rem}
+.when-head{font-family:var(--ff);font-size:13px;font-weight:700;margin-bottom:.75rem;display:flex;align-items:center;gap:8px}
+.when-list{display:flex;flex-direction:column;gap:.4rem}
+.when-item{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:flex-start}
+.when-item::before{content:'→';color:var(--v);flex-shrink:0;margin-top:1px}
+
+/* PIPELINE VISUAL */
+.pipeline-new{display:flex;align-items:center;gap:0;margin:2rem 0;overflow-x:auto;padding-bottom:.5rem}
+.pn-step{flex-shrink:0;background:var(--s1);border:1px solid var(--border);border-radius:3px;padding:.75rem 1rem;min-width:120px;text-align:center}
+.pn-step.highlight{border-color:var(--v);background:var(--v3)}
+.pn-icon{font-size:18px;margin-bottom:.25rem}
+.pn-name{font-family:var(--ff);font-size:11px;font-weight:700;margin-bottom:.1rem}
+.pn-tool{font-size:10px;color:var(--muted)}
+.pn-arrow{padding:0 .5rem;color:var(--muted2);font-size:14px;flex-shrink:0}
+
+/* ACTION PLAN */
+.phase-block{margin:1.5rem 0;border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.phase-head{background:var(--s2);padding:.75rem 1.25rem;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.phase-num{font-family:var(--ff);font-size:10px;font-weight:700;background:var(--v);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.phase-title{font-family:var(--ff);font-size:13px;font-weight:700;flex:1}
+.phase-est{font-size:11px;color:var(--muted);margin-left:auto}
+.phase-body{padding:1.25rem}
+.task-list{display:flex;flex-direction:column;gap:6px}
+.task{display:flex;align-items:flex-start;gap:10px;padding:.65rem .9rem;background:var(--s2);border-radius:2px;cursor:pointer;transition:background .15s;border:1px solid transparent}
+.task:hover{border-color:var(--border2)}
+.task.done{opacity:.5}
+.task.done .task-text{text-decoration:line-through;color:var(--muted2)}
+.task-box{width:15px;height:15px;border:1.5px solid var(--muted2);border-radius:2px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;transition:all .15s}
+.task.done .task-box{background:var(--green);border-color:var(--green);color:#09090f}
+.task-text{font-size:12px;flex:1;line-height:1.5}
+.task-badge{font-size:9px;padding:1px 6px;border-radius:2px;letter-spacing:.06em;text-transform:uppercase;font-family:var(--ff);flex-shrink:0}
+.tb-study{background:rgba(56,189,248,.1);color:var(--blue)}
+.tb-build{background:rgba(139,92,246,.1);color:var(--v)}
+.tb-test{background:rgba(52,211,153,.1);color:var(--green)}
+.tb-cost{background:rgba(251,191,36,.1);color:var(--amber)}
+
+/* CODE */
+.code-block{background:var(--s2);border:1px solid var(--border2);border-radius:3px;overflow:hidden;margin:1.25rem 0}
+.code-head{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;background:var(--s3);border-bottom:1px solid var(--border)}
+.code-title{font-size:10px;color:var(--muted);letter-spacing:.04em}
+.code-lang{font-size:9px;background:var(--v3);color:var(--v);padding:1px 6px;border-radius:2px}
+.code-body{padding:1rem 1.25rem;font-size:12px;line-height:1.9;overflow-x:auto}
+.code-body pre{white-space:pre}
+.kw{color:var(--v)} .fn{color:var(--amber)} .str{color:var(--green)}
+.cm{color:var(--muted2);font-style:italic} .num{color:var(--pink)} .prop{color:var(--blue)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;margin:1.25rem 0}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:.5rem 1rem;background:var(--s2);color:var(--muted);font-size:9px;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--border2);font-weight:400}
+td{padding:.6rem 1rem;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--v3)}
+.badge{display:inline-block;font-size:9px;padding:2px 7px;border-radius:2px;letter-spacing:.05em;text-transform:uppercase;font-family:var(--ff)}
+.b-blue{background:rgba(56,189,248,.1);color:var(--blue)}
+.b-pink{background:rgba(244,114,182,.1);color:var(--pink)}
+.b-green{background:rgba(52,211,153,.1);color:var(--green)}
+.b-amber{background:rgba(251,191,36,.1);color:var(--amber)}
+.b-v{background:rgba(139,92,246,.1);color:var(--v)}
+
+/* CALLOUT */
+.callout{border-left:3px solid var(--v);background:var(--v3);padding:1rem 1.25rem;border-radius:0 3px 3px 0;margin:1.25rem 0}
+.callout.info{border-left-color:var(--blue);background:rgba(56,189,248,.05)}
+.callout.warn{border-left-color:var(--amber);background:rgba(251,191,36,.05)}
+.callout-head{font-family:var(--ff);font-size:9px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.4rem;color:var(--v)}
+.callout.info .callout-head{color:var(--blue)}
+.callout.warn .callout-head{color:var(--amber)}
+.callout p,.callout li{font-size:12.5px;color:var(--muted);line-height:1.8}
+.callout b{color:var(--text);font-weight:500}
+
+/* COST COMPARE */
+.cost-compare{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:3px;overflow:hidden;margin:1.5rem 0}
+.cc{background:var(--s1);padding:1.25rem;text-align:center}
+.cc-tool{font-family:var(--ff);font-size:11px;font-weight:700;margin-bottom:.25rem}
+.cc-price{font-family:var(--ff);font-size:1.6rem;font-weight:800;margin:.5rem 0}
+.cc-unit{font-size:10px;color:var(--muted)}
+.cc-note{font-size:11px;color:var(--muted);margin-top:.75rem;line-height:1.5}
+
+/* PROGRESS */
+#progress{font-size:11px;color:var(--muted);margin-top:.75rem}
+.reset-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:var(--fm);font-size:11px;padding:.4rem .9rem;border-radius:2px;cursor:pointer;transition:all .15s}
+.reset-btn:hover{border-color:var(--v);color:var(--v)}
+
+@media(max-width:800px){
+  .sidebar{display:none}
+  .main{padding:2rem 1.5rem}
+  .compare,.when-grid,.cost-compare{grid-template-columns:1fr}
+  .pipeline-new{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sb-top">
+    <a href="index.html" class="sb-back">← Voltar ao playbook</a>
+    <div class="sb-title">Avatar<br>Pipeline</div>
+    <div class="sb-sub">HeyGen + DreamFace · 2026</div>
+  </div>
+
+  <div class="sb-sec">Visão geral</div>
+  <a href="#overview" class="sb-link"><span class="sb-dot"></span>Comparação</a>
+  <a href="#quando" class="sb-link"><span class="sb-dot"></span>Quando usar cada</a>
+  <a href="#pipeline" class="sb-link"><span class="sb-dot"></span>Pipeline com avatar</a>
+
+  <div class="sb-sec">Plano de ação</div>
+  <a href="#fase1" class="sb-link"><span class="sb-dot"></span>Fase 1 · Setup</a>
+  <a href="#fase2" class="sb-link"><span class="sb-dot"></span>Fase 2 · HeyGen</a>
+  <a href="#fase3" class="sb-link"><span class="sb-dot"></span>Fase 3 · DreamFace</a>
+  <a href="#fase4" class="sb-link"><span class="sb-dot"></span>Fase 4 · Integração</a>
+
+  <div class="sb-sec">Referência</div>
+  <a href="#api" class="sb-link"><span class="sb-dot"></span>APIs & Endpoints</a>
+  <a href="#custos" class="sb-link"><span class="sb-dot"></span>Custos comparados</a>
+</nav>
+
+<main class="main">
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="sec-label">Avatar Pipeline · 2026</div>
+  <h1 class="sec-title">HeyGen + <em>DreamFace</em></h1>
+  <p class="sec-body">
+    Duas ferramentas, dois perfis. HeyGen é a plataforma profissional para avatares corporativos, Digital Twins e produção em escala via API. DreamFace é a rota rápida — qualquer foto vira avatar falante em segundos, ideal para conteúdo social.
+  </p>
+
+  <div class="compare">
+    <div class="cmp c-heygen">
+      <div class="cmp-logo">HeyGen</div>
+      <div class="cmp-tag">API Profissional</div>
+      <div class="cmp-row"><span class="cmp-key">Foco</span><span class="cmp-val">Avatar corporativo, escala</span></div>
+      <div class="cmp-row"><span class="cmp-key">Avatar III</span><span class="cmp-val">$1.00/min · 1080p</span></div>
+      <div class="cmp-row"><span class="cmp-key">Avatar IV (Digital Twin)</span><span class="cmp-val">$4.00/min · 1080p</span></div>
+      <div class="cmp-row"><span class="cmp-key">Photo Avatar</span><span class="cmp-val">$1.00/min · 1080p</span></div>
+      <div class="cmp-row"><span class="cmp-key">Lipsync (tradução)</span><span class="cmp-val">$2.00/min</span></div>
+      <div class="cmp-row"><span class="cmp-key">API entry</span><span class="cmp-val">A partir de $5</span></div>
+      <div class="cmp-row"><span class="cmp-key">Free tier</span><span class="cmp-val">Removido fev/2026</span></div>
+      <div class="cmp-row"><span class="cmp-key">Auth</span><span class="cmp-val">x-api-key header</span></div>
+      <div class="cmp-row"><span class="cmp-key">MCP disponível</span><span class="cmp-val">✓ (OAuth)</span></div>
+      <div class="cmp-row"><span class="cmp-key">Uptime SLA</span><span class="cmp-val">99.9%</span></div>
+    </div>
+    <div class="cmp c-dream">
+      <div class="cmp-logo">DreamFace</div>
+      <div class="cmp-tag">Consumer + DreamAPI</div>
+      <div class="cmp-row"><span class="cmp-key">Foco</span><span class="cmp-val">Social media, viral, rápido</span></div>
+      <div class="cmp-row"><span class="cmp-key">Free</span><span class="cmp-val">10/dia · 30s · SD</span></div>
+      <div class="cmp-row"><span class="cmp-key">Pro</span><span class="cmp-val">$4.99/sem · HD · 180s</span></div>
+      <div class="cmp-row"><span class="cmp-key">Premium</span><span class="cmp-val">$19.99/sem · 1080p · Veo 3</span></div>
+      <div class="cmp-row"><span class="cmp-key">Dream Avatar 3.0</span><span class="cmp-val">128 pontos faciais</span></div>
+      <div class="cmp-row"><span class="cmp-key">Voice clone</span><span class="cmp-val">3 segundos de áudio</span></div>
+      <div class="cmp-row"><span class="cmp-key">API (DreamAPI)</span><span class="cmp-val">✓ em desenvolvimento</span></div>
+      <div class="cmp-row"><span class="cmp-key">Plataformas</span><span class="cmp-val">Web · iOS · Android</span></div>
+      <div class="cmp-row"><span class="cmp-key">Melhor para</span><span class="cmp-val">TikTok · Reels · Shorts</span></div>
+      <div class="cmp-row"><span class="cmp-key">Velocidade</span><span class="cmp-val">10–40s por clip</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- QUANDO USAR -->
+<section id="quando">
+  <div class="sec-label">Decisão</div>
+  <h2 class="sec-title">Quando usar <em>cada um</em></h2>
+
+  <div class="when-grid">
+    <div class="when-card">
+      <div class="when-head" style="color:var(--blue)">🎯 Use HeyGen quando...</div>
+      <div class="when-list">
+        <div class="when-item">Quiser um talking head com avatar falando um script completo</div>
+        <div class="when-item">Precisar de consistência total de personagem entre vídeos</div>
+        <div class="when-item">Quiser criar um Digital Twin seu — sua face animada em qualquer script</div>
+        <div class="when-item">Precisar de lipsync em outro idioma mantendo sua voz</div>
+        <div class="when-item">Produção programática via API (n8n, pipeline autônomo)</div>
+        <div class="when-item">Qualidade 1080p ou 4K enterprise para anúncios profissionais</div>
+      </div>
+    </div>
+    <div class="when-card">
+      <div class="when-head" style="color:var(--pink)">⚡ Use DreamFace quando...</div>
+      <div class="when-list">
+        <div class="when-item">Quiser animar qualquer foto em segundos com áudio</div>
+        <div class="when-item">Conteúdo rápido para TikTok, Reels, memes, virais</div>
+        <div class="when-item">Testar um conceito de avatar antes de investir no HeyGen</div>
+        <div class="when-item">Animar foto de um personagem, mascote ou pet da marca</div>
+        <div class="when-item">Clonar voz com só 3 segundos de áudio (zero setup)</div>
+        <div class="when-item">Conteúdo mobile-first sem precisar de API ou código</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PIPELINE -->
+<section id="pipeline">
+  <div class="sec-label">Integração</div>
+  <h2 class="sec-title">Pipeline com <em>avatar</em></h2>
+  <p class="sec-body">
+    Três formas de encaixar HeyGen ou DreamFace no pipeline atual. Escolha baseado no tipo de cena — avatar falante ou cena animada pura.
+  </p>
+
+  <p style="font-size:11px;color:var(--muted);margin-bottom:.5rem;font-family:var(--ff);letter-spacing:.1em;text-transform:uppercase">Rota A — Talking Head completo (HeyGen)</p>
+  <div class="pipeline-new">
+    <div class="pn-step"><div class="pn-icon">📝</div><div class="pn-name">Storyboard</div><div class="pn-tool">Claude Haiku</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step highlight"><div class="pn-icon">🎭</div><div class="pn-name">Photo Avatar</div><div class="pn-tool">HeyGen API</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step highlight"><div class="pn-icon">🎙</div><div class="pn-name">Script + Voz</div><div class="pn-tool">ElevenLabs → HeyGen</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step"><div class="pn-icon">🎬</div><div class="pn-name">Clip MP4</div><div class="pn-tool">output/clips/</div></div>
+  </div>
+
+  <p style="font-size:11px;color:var(--muted);margin:.75rem 0 .5rem;font-family:var(--ff);letter-spacing:.1em;text-transform:uppercase">Rota B — Cena animada + avatar sobreposto</p>
+  <div class="pipeline-new">
+    <div class="pn-step"><div class="pn-icon">🖼</div><div class="pn-name">Imagem cena</div><div class="pn-tool">Image-2</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step"><div class="pn-icon">🎬</div><div class="pn-name">Clip background</div><div class="pn-tool">Seedance</div></div>
+    <div class="pn-arrow">+</div>
+    <div class="pn-step highlight"><div class="pn-icon">🗣</div><div class="pn-name">Avatar falante</div><div class="pn-tool">HeyGen / DreamFace</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step"><div class="pn-icon">✂️</div><div class="pn-name">Compor</div><div class="pn-tool">CapCut / FFmpeg</div></div>
+  </div>
+
+  <p style="font-size:11px;color:var(--muted);margin:.75rem 0 .5rem;font-family:var(--ff);letter-spacing:.1em;text-transform:uppercase">Rota C — Foto rápida animada (DreamFace)</p>
+  <div class="pipeline-new">
+    <div class="pn-step"><div class="pn-icon">📸</div><div class="pn-name">Foto do avatar</div><div class="pn-tool">qualquer imagem</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step highlight"><div class="pn-icon">🎙</div><div class="pn-name">Narração MP3</div><div class="pn-tool">ElevenLabs</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step highlight"><div class="pn-icon">💃</div><div class="pn-name">Animar</div><div class="pn-tool">DreamFace</div></div>
+    <div class="pn-arrow">›</div>
+    <div class="pn-step"><div class="pn-icon">📲</div><div class="pn-name">Publicar</div><div class="pn-tool">Reels / TikTok</div></div>
+  </div>
+</section>
+
+<hr>
+
+<!-- PLANO DE AÇÃO -->
+<section id="fase1">
+  <div class="sec-label">Plano de ação</div>
+  <h2 class="sec-title">Fase 1 · <em>Setup</em> e contas</h2>
+
+  <div class="phase-block">
+    <div class="phase-head" onclick="togglePhase(this)">
+      <div class="phase-num">1</div>
+      <div class="phase-title">Contas e chaves de API</div>
+      <div class="phase-est">~30 min</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-list">
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Criar conta em <b>heygen.com</b> — não precisa de plano pago ainda. Comprar $5 de crédito API em <b>Settings → API</b></div>
+          <span class="task-badge tb-cost">$5</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Gerar a API key do HeyGen em <b>Settings → API → Generate Key</b> e salvar no <code>.env</code> como <code>HEYGEN_API_KEY</code></div>
+          <span class="task-badge tb-build">setup</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Criar conta em <b>dreamfaceapp.com</b> — o free dá 10 gerações/dia, suficiente para estudar e testar</div>
+          <span class="task-badge tb-cost">free</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Acessar <b>dreamfaceapp.com/tools/dreamface-api</b> e verificar acesso ao DreamAPI — ainda em desenvolvimento mas já tem endpoints</div>
+          <span class="task-badge tb-study">estudar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Adicionar no <code>.env</code>: <code>HEYGEN_API_KEY</code>, <code>HEYGEN_AVATAR_ID</code> (pegar na seção Avatars do HeyGen)</div>
+          <span class="task-badge tb-build">setup</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="fase2">
+  <div class="sec-label">Plano de ação</div>
+  <h2 class="sec-title">Fase 2 · <em>HeyGen</em> API</h2>
+
+  <div class="phase-block">
+    <div class="phase-head" onclick="togglePhase(this)">
+      <div class="phase-num">2</div>
+      <div class="phase-title">Estudar e testar os endpoints</div>
+      <div class="phase-est">~2h</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-list">
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Ler a doc em <b>developers.heygen.com</b> — focar nos endpoints: <code>v2/video/generate</code>, <code>v2/video/status</code>, <code>v1/video.list</code></div>
+          <span class="task-badge tb-study">estudar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Entender o fluxo de <b>Photo Avatar</b> — pegar o <code>avatar_id</code> de uma foto sua e gerar o primeiro vídeo teste com um script curto</div>
+          <span class="task-badge tb-test">testar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Testar o endpoint <b>Lipsync</b> — pegar um clip já gerado pelo Seedance e fazer o HeyGen adicionar lipsync com o áudio do ElevenLabs</div>
+          <span class="task-badge tb-test">testar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Testar o <b>Video Agent</b> endpoint (<code>v3/video-agents</code>) — passa um prompt, ele escolhe avatar e gera automaticamente</div>
+          <span class="task-badge tb-test">testar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Mapear os <b>avatars disponíveis</b> com <code>GET /v2/avatars</code> — anotar os IDs mais realistas para uso no pipeline</div>
+          <span class="task-badge tb-build">build</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Criar o <code>src/heygen-adapter.js</code> no projeto — funções: <code>gerarAvatarVideo()</code>, <code>pollVideo()</code>, <code>downloadClip()</code></div>
+          <span class="task-badge tb-build">build</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-head"><span class="code-title">heygen-adapter.js · estrutura base</span><span class="code-lang">JS</span></div>
+    <div class="code-body"><pre><span class="kw">const</span> HG = axios.<span class="fn">create</span>({
+  baseURL: <span class="str">'https://api.heygen.com'</span>,
+  headers: { <span class="str">'x-api-key'</span>: process.env.<span class="prop">HEYGEN_API_KEY</span> }
+});
+
+<span class="cm">// Gerar vídeo com Photo Avatar + script narrado</span>
+<span class="kw">async function</span> <span class="fn">gerarAvatarVideo</span>(narration, avatarId, voiceId) {
+  <span class="kw">const</span> { data } = <span class="kw">await</span> HG.<span class="fn">post</span>(<span class="str">'/v2/video/generate'</span>, {
+    video_inputs: [{
+      character: {
+        type:      <span class="str">'avatar'</span>,
+        avatar_id: avatarId,           <span class="cm">// ID do seu Photo Avatar</span>
+        avatar_style: <span class="str">'normal'</span>
+      },
+      voice: {
+        type:     <span class="str">'text'</span>,
+        input_text: narration,         <span class="cm">// narração do storyboard</span>
+        voice_id: voiceId,             <span class="cm">// voz HeyGen ou ElevenLabs clone</span>
+      },
+    }],
+    dimension: { width: <span class="num">1080</span>, height: <span class="num">1920</span> }, <span class="cm">// 9:16</span>
+    test: <span class="kw">false</span>,
+  });
+  <span class="kw">return</span> data.data.video_id;
+}
+
+<span class="cm">// Polling do status</span>
+<span class="kw">async function</span> <span class="fn">pollVideo</span>(videoId) {
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; <span class="num">30</span>; i++) {
+    <span class="kw">await</span> <span class="fn">sleep</span>(<span class="num">5000</span>);
+    <span class="kw">const</span> { data } = <span class="kw">await</span> HG.<span class="fn">get</span>(<span class="str">`/v1/video_status.get?video_id=${videoId}`</span>);
+    <span class="kw">if</span> (data.data.status === <span class="str">'completed'</span>) <span class="kw">return</span> data.data.video_url;
+    <span class="kw">if</span> (data.data.status === <span class="str">'failed'</span>)    <span class="kw">throw new</span> Error(data.data.error);
+  }
+}
+
+<span class="cm">// Lipsync — animar qualquer vídeo com áudio novo</span>
+<span class="kw">async function</span> <span class="fn">lipsync</span>(videoUrl, audioUrl) {
+  <span class="kw">const</span> { data } = <span class="kw">await</span> HG.<span class="fn">post</span>(<span class="str">'/v2/video/translate'</span>, {
+    video_url: videoUrl,
+    audio_url: audioUrl,   <span class="cm">// URL pública do MP3 do ElevenLabs</span>
+    title:     <span class="str">'lipsync_cena'</span>,
+  });
+  <span class="kw">return</span> data.data.video_id;
+}</pre></div>
+  </div>
+</section>
+
+<section id="fase3">
+  <div class="sec-label">Plano de ação</div>
+  <h2 class="sec-title">Fase 3 · <em>DreamFace</em></h2>
+
+  <div class="phase-block">
+    <div class="phase-head" onclick="togglePhase(this)">
+      <div class="phase-num">3</div>
+      <div class="phase-title">Explorar e integrar o DreamFace</div>
+      <div class="phase-est">~1h</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-list">
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Testar manualmente no <b>dreamfaceapp.com</b> — fazer 3 avatars diferentes: foto real, personagem gerado pelo Image-2, mascote da marca</div>
+          <span class="task-badge tb-test">testar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Gravar 3 segundos de voz para ativar o <b>Voice Clone</b> — testar a qualidade do clone vs ElevenLabs</div>
+          <span class="task-badge tb-test">testar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Acessar o <b>DreamAPI</b> em dreamfaceapp.com/tools/dreamface-api — mapear endpoints disponíveis e formato de autenticação</div>
+          <span class="task-badge tb-study">estudar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Testar o workflow: gerar foto com <b>Image-2</b> → importar no DreamFace → animar com narração do ElevenLabs → baixar MP4</div>
+          <span class="task-badge tb-test">testar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Avaliar qualidade do <b>Dream Avatar 3.0</b> vs HeyGen Photo Avatar — documentar diferenças visuais para decisão de rota por projeto</div>
+          <span class="task-badge tb-study">estudar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Verificar se o <b>Premium</b> ($19.99/sem) compensa — acesso ao Veo 3 Fast dentro do DreamFace + Dream Avatar 3.0 em 1080p</div>
+          <span class="task-badge tb-cost">custo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="fase4">
+  <div class="sec-label">Plano de ação</div>
+  <h2 class="sec-title">Fase 4 · <em>Integração</em> no pipeline</h2>
+
+  <div class="phase-block">
+    <div class="phase-head" onclick="togglePhase(this)">
+      <div class="phase-num">4</div>
+      <div class="phase-title">Conectar tudo no pipeline autônomo</div>
+      <div class="phase-est">~3h</div>
+    </div>
+    <div class="phase-body">
+      <div class="task-list">
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Adicionar campo <code>"avatarMode"</code> no storyboard — valores: <code>"seedance"</code> | <code>"heygen"</code> | <code>"dreamface"</code>. O LLM decide por tipo de cena</div>
+          <span class="task-badge tb-build">build</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Criar <code>src/heygen-adapter.js</code> com as funções: <code>gerarAvatarVideo</code>, <code>lipsync</code>, <code>pollVideo</code>, <code>downloadClip</code></div>
+          <span class="task-badge tb-build">build</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Atualizar o <code>pipeline-v3.js</code> para rotear por <code>avatarMode</code> — cenas de talking head vão pro HeyGen, cenas de ambiente vão pro Seedance</div>
+          <span class="task-badge tb-build">build</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Adicionar <code>HEYGEN_API_KEY</code> e <code>HEYGEN_AVATAR_ID</code> no <code>.env</code> do projeto desktop</div>
+          <span class="task-badge tb-build">setup</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Rodar o pipeline completo numa produção real de 5 cenas — 2 com HeyGen avatar, 3 com Seedance — medir custo e qualidade</div>
+          <span class="task-badge tb-test">testar</span>
+        </div>
+        <div class="task" onclick="toggleTask(this)">
+          <div class="task-box"></div>
+          <div class="task-text">Documentar o custo real por vídeo com avatar HeyGen incluso — atualizar a tabela de custos no playbook principal</div>
+          <span class="task-badge tb-study">doc</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:1.25rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+    <button class="reset-btn" onclick="resetAll()">↺ Resetar plano</button>
+    <div id="progress"></div>
+  </div>
+</section>
+
+<hr>
+
+<!-- API REFERENCE -->
+<section id="api">
+  <div class="sec-label">Referência</div>
+  <h2 class="sec-title">APIs & <em>Endpoints</em></h2>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Endpoint</th><th>Método</th><th>Função</th><th>Custo</th></tr></thead>
+      <tbody>
+        <tr><td colspan="4" style="color:var(--blue);font-family:var(--ff);font-size:10px;letter-spacing:.1em;padding-top:1rem">HEYGEN</td></tr>
+        <tr><td><code>/v2/video/generate</code></td><td>POST</td><td>Gerar vídeo com avatar + script</td><td>$1.00/min</td></tr>
+        <tr><td><code>/v1/video_status.get</code></td><td>GET</td><td>Polling do status do vídeo</td><td>grátis</td></tr>
+        <tr><td><code>/v2/avatars</code></td><td>GET</td><td>Listar avatares disponíveis</td><td>grátis</td></tr>
+        <tr><td><code>/v2/voices</code></td><td>GET</td><td>Listar vozes disponíveis</td><td>grátis</td></tr>
+        <tr><td><code>/v2/video/translate</code></td><td>POST</td><td>Lipsync — animar vídeo com áudio</td><td>$2.00/min</td></tr>
+        <tr><td><code>/v3/video-agents</code></td><td>POST</td><td>Video Agent — prompt → vídeo completo</td><td>$2.00/min</td></tr>
+        <tr><td><code>/v1/talking_photo</code></td><td>POST</td><td>Animar uma foto estática</td><td>$1.00/min</td></tr>
+        <tr><td colspan="4" style="color:var(--pink);font-family:var(--ff);font-size:10px;letter-spacing:.1em;padding-top:1rem">DREAMFACE (DreamAPI)</td></tr>
+        <tr><td><code>/api/avatar/create</code></td><td>POST</td><td>Criar avatar a partir de foto + áudio</td><td>créditos</td></tr>
+        <tr><td><code>/api/avatar/status</code></td><td>GET</td><td>Polling do status</td><td>grátis</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-head">HeyGen Auth</div>
+    <p>Todas as chamadas levam o header <code>x-api-key: {HEYGEN_API_KEY}</code>. A key é gerada uma vez em <b>Settings → API</b> no dashboard — salve imediatamente pois não é possível visualizar depois sem regenerar.</p>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-head">DreamAPI — verificar disponibilidade</div>
+    <p>O DreamAPI ainda está em desenvolvimento ativo. Verifique a documentação em <b>dreamfaceapp.com/tools/dreamface-api</b> antes de construir a integração — os endpoints podem ter mudado desde esta versão do playbook.</p>
+  </div>
+</section>
+
+<!-- CUSTOS -->
+<section id="custos">
+  <div class="sec-label">Referência</div>
+  <h2 class="sec-title">Custos <em>comparados</em></h2>
+
+  <div class="cost-compare">
+    <div class="cc">
+      <div class="cc-tool" style="color:var(--blue)">HeyGen · Avatar III</div>
+      <div class="cc-price" style="color:var(--blue)">$1.00</div>
+      <div class="cc-unit">por minuto · 1080p</div>
+      <div class="cc-note">Clip de 30s = $0.50<br>Clip de 60s = $1.00<br>API separada do web plan</div>
+    </div>
+    <div class="cc">
+      <div class="cc-tool" style="color:var(--amber)">Seedance 2.0 Fast</div>
+      <div class="cc-price" style="color:var(--amber)">$0.12</div>
+      <div class="cc-unit">por segundo · 720p</div>
+      <div class="cc-note">Clip de 5s = $0.60<br>Clip de 8s = $0.97<br>Via OpenRouter ou Kie.ai</div>
+    </div>
+    <div class="cc">
+      <div class="cc-tool" style="color:var(--pink)">DreamFace Pro</div>
+      <div class="cc-price" style="color:var(--pink)">$4.99</div>
+      <div class="cc-unit">por semana · ilimitado</div>
+      <div class="cc-note">HD · 180s max<br>Sem limite de gerações<br>Melhor para volume alto</div>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Tipo de vídeo (45s · 5 cenas)</th><th>Ferramenta</th><th>Custo clips</th><th>+ Imagem + Narração</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>Cenas de ambiente animadas</td><td>Seedance 2.0 Fast</td><td>~$4.00</td><td>~$1.15</td><td><b style="color:var(--amber)">~$5.15</b></td></tr>
+        <tr><td>Talking head profissional</td><td>HeyGen Avatar III</td><td>~$0.75</td><td>~$0.15</td><td><b style="color:var(--blue)">~$0.90</b></td></tr>
+        <tr><td>Avatar social rápido</td><td>DreamFace Pro/sem</td><td>$4.99/sem</td><td>~$0.15</td><td><b style="color:var(--pink)">~$5.14/sem</b></td></tr>
+        <tr style="background:var(--v3)"><td><b>Mix ideal ⭐</b> (2 HeyGen + 3 Seedance)</td><td>Híbrido</td><td>~$3.30</td><td>~$1.15</td><td><b style="color:var(--v)">~$4.45</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <div class="callout-head">Insight de custo</div>
+    <p>O HeyGen Avatar III ($1.00/min) é <b>muito mais barato que o Seedance</b> para cenas de talking head — porque um clip de 30s do HeyGen custa $0.50 vs $3.60 de 30s no Seedance. A lógica se inverte: use Seedance para cenas de ambiente/movimento de câmera, use HeyGen para quando tem um avatar falando.</p>
+  </div>
+</section>
+
+</main>
+
+<script>
+function toggleTask(el) {
+  el.classList.toggle('done');
+  const box = el.querySelector('.task-box');
+  box.textContent = el.classList.contains('done') ? '✓' : '';
+  saveState(); updateProgress();
+}
+function togglePhase(head) {
+  const body = head.nextElementSibling;
+  body.style.display = body.style.display === 'none' ? '' : 'none';
+}
+function saveState() {
+  const tasks = [...document.querySelectorAll('.task')];
+  localStorage.setItem('avatar-plan', JSON.stringify(tasks.map(t => t.classList.contains('done'))));
+}
+function loadState() {
+  const raw = localStorage.getItem('avatar-plan');
+  if (!raw) return;
+  const state = JSON.parse(raw);
+  const tasks = [...document.querySelectorAll('.task')];
+  state.forEach((done, i) => {
+    if (!tasks[i] || !done) return;
+    tasks[i].classList.add('done');
+    tasks[i].querySelector('.task-box').textContent = '✓';
+  });
+}
+function updateProgress() {
+  const tasks = [...document.querySelectorAll('.task')];
+  const done = tasks.filter(t => t.classList.contains('done')).length;
+  const el = document.getElementById('progress');
+  if (el) el.textContent = `${done} de ${tasks.length} tarefas concluídas`;
+}
+function resetAll() {
+  document.querySelectorAll('.task').forEach(t => {
+    t.classList.remove('done');
+    t.querySelector('.task-box').textContent = '';
+  });
+  localStorage.removeItem('avatar-plan');
+  updateProgress();
+}
+
+// Sidebar active
+const links = document.querySelectorAll('.sb-link');
+const secs  = document.querySelectorAll('section[id]');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    links.forEach(l => l.classList.remove('active'));
+    const a = document.querySelector(`.sb-link[href="#${e.target.id}"]`);
+    if (a) a.classList.add('active');
+  });
+}, { rootMargin: '-25% 0px -65% 0px' });
+secs.forEach(s => obs.observe(s));
+
+document.addEventListener('DOMContentLoaded', () => { loadState(); updateProgress(); });
+</script>
+</body>
+</html>
