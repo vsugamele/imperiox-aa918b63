@@ -18554,6 +18554,117 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_swipe_templates: {
+        Row: {
+          created_at: string
+          formula: string | null
+          id: string
+          name: string
+          notes: string | null
+          skeleton: Json
+          source_swipe_ids: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          formula?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          skeleton?: Json
+          source_swipe_ids?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          formula?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          skeleton?: Json
+          source_swipe_ids?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_swipes: {
+        Row: {
+          blocks: Json
+          created_at: string
+          criador: string | null
+          formato: string | null
+          gatilhos: string[] | null
+          id: string
+          mecanismo: string | null
+          media_urls: string[] | null
+          nicho: string | null
+          plataforma: string | null
+          produto_id: string | null
+          project_id: string | null
+          rating: number | null
+          raw_text: string | null
+          reverse_engineering: Json | null
+          source_swipe_id: string | null
+          source_url: string | null
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          criador?: string | null
+          formato?: string | null
+          gatilhos?: string[] | null
+          id?: string
+          mecanismo?: string | null
+          media_urls?: string[] | null
+          nicho?: string | null
+          plataforma?: string | null
+          produto_id?: string | null
+          project_id?: string | null
+          rating?: number | null
+          raw_text?: string | null
+          reverse_engineering?: Json | null
+          source_swipe_id?: string | null
+          source_url?: string | null
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          criador?: string | null
+          formato?: string | null
+          gatilhos?: string[] | null
+          id?: string
+          mecanismo?: string | null
+          media_urls?: string[] | null
+          nicho?: string | null
+          plataforma?: string | null
+          produto_id?: string | null
+          project_id?: string | null
+          rating?: number | null
+          raw_text?: string | null
+          reverse_engineering?: Json | null
+          source_swipe_id?: string | null
+          source_url?: string | null
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_tasks: {
         Row: {
           assignee_id: string | null
