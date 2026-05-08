@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, MessageCircle, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, MessageCircle, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +34,7 @@ const aiItems = [
   { title: "Mentes IA", url: "/mentes", icon: Brain, color: "text-violet-400" },
   { title: "Conteúdo IA", url: "/conteudo-ia", icon: Zap, color: "text-violet-400" },
   { title: "Criativos IA", url: "/criativos", icon: Sparkles, color: "text-violet-400" },
+  { title: "Studio", url: "/studio", icon: Clapperboard, color: "text-violet-400" },
   { title: "OpenFlow", url: "/openflow", icon: Workflow, color: "text-violet-400" },
 ];
 
