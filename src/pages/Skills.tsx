@@ -345,7 +345,23 @@ export default function Skills() {
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">Skills & Engines <SectionInfo {...sectionHelpTexts.skills} /></h1>
           <p className="text-sm text-muted-foreground mt-1">{allSkills.filter(s => s.status === "Ativo").length} ativas · {allSkills.length} no arsenal</p>
         </div>
-        <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova Skill</Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await downloadAllSkillsZip(allSkills);
+                toast.success("Pacote pronto!", { description: "Arraste cada .zip em Claude → Settings → Capabilities → Skills" });
+              } catch (e: any) {
+                toast.error("Falha ao gerar pacote", { description: e.message });
+              }
+            }}
+          >
+            <Package className="h-4 w-4 mr-1" /> Exportar para Claude (.zip)
+          </Button>
+          <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova Skill</Button>
+        </div>
       </div>
 
       {/* Tabs Marketing vs Técnicas */}
