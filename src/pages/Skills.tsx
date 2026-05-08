@@ -812,16 +812,35 @@ function SkillGrid({ grouped, onDetail, onEdit, onDelete }: {
                         )}
                       </div>
 
-                      {!skill.is_default && (
-                        <div className="absolute right-4 top-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md shadow-sm border p-0.5">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => onEdit(e, skill)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive hover:bg-destructive/10" onClick={(e) => onDelete(e, skill.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="absolute right-4 top-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md shadow-sm border p-0.5">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          title="Baixar para Claude Desktop"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await downloadSkillZip(skill);
+                              toast.success("Skill baixada!", { description: "Arraste em Claude → Settings → Capabilities → Skills" });
+                            } catch (err: any) {
+                              toast.error("Falha no download", { description: err.message });
+                            }
+                          }}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                        {!skill.is_default && (
+                          <>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => onEdit(e, skill)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive hover:bg-destructive/10" onClick={(e) => onDelete(e, skill.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 );
