@@ -18326,6 +18326,165 @@ export type Database = {
           },
         ]
       }
+      imphq_studio_pipeline_steps: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          fase: string
+          id: string
+          nicho: string
+          ordem: number
+          payload: Json | null
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          fase: string
+          id?: string
+          nicho?: string
+          ordem?: number
+          payload?: Json | null
+          tipo?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          fase?: string
+          id?: string
+          nicho?: string
+          ordem?: number
+          payload?: Json | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_studio_playbook_sections: {
+        Row: {
+          categoria: string | null
+          conteudo_md: string
+          created_at: string
+          id: string
+          nicho: string
+          ordem: number
+          slug: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string | null
+          conteudo_md?: string
+          created_at?: string
+          id?: string
+          nicho?: string
+          ordem?: number
+          slug: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string | null
+          conteudo_md?: string
+          created_at?: string
+          id?: string
+          nicho?: string
+          ordem?: number
+          slug?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_studio_prompts: {
+        Row: {
+          codigo: string | null
+          created_at: string
+          created_by: string | null
+          dicas: string | null
+          genero: string | null
+          id: string
+          idade: string | null
+          nicho: string
+          nivel: string
+          ordem: number | null
+          prompt_especifico: string
+          prompt_negativo: string | null
+          tags: string[] | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          dicas?: string | null
+          genero?: string | null
+          id?: string
+          idade?: string | null
+          nicho?: string
+          nivel?: string
+          ordem?: number | null
+          prompt_especifico: string
+          prompt_negativo?: string | null
+          tags?: string[] | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          dicas?: string | null
+          genero?: string | null
+          id?: string
+          idade?: string | null
+          nicho?: string
+          nivel?: string
+          ordem?: number | null
+          prompt_especifico?: string
+          prompt_negativo?: string | null
+          tags?: string[] | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_studio_user_state: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          state: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          state?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          state?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_tasks: {
         Row: {
           assignee_id: string | null
