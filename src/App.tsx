@@ -41,6 +41,7 @@ import Metas from "./pages/Metas";
 import Recuperacao from "./pages/Recuperacao";
 import Cohort from "./pages/Cohort";
 import Gerenciador from "./pages/Gerenciador";
+import Studio from "./pages/Studio";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,7 @@ const App = () => (
               <Route path="recuperacao" element={<Recuperacao />} />
               <Route path="cohort" element={<Cohort />} />
               <Route path="gerenciador" element={<Gerenciador />} />
+              <Route path="studio" element={<Studio />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
