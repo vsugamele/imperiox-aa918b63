@@ -18326,6 +18326,75 @@ export type Database = {
           },
         ]
       }
+      imphq_studio_generations: {
+        Row: {
+          cost_usd: number | null
+          created_at: string
+          duration_seconds: number | null
+          error: string | null
+          external_id: string | null
+          id: string
+          kind: string
+          model: string
+          negative_prompt: string | null
+          nicho: string | null
+          output_url: string | null
+          params: Json
+          projeto_id: string | null
+          prompt: string
+          provider: string
+          source_prompt_id: string | null
+          status: string
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost_usd?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          kind: string
+          model: string
+          negative_prompt?: string | null
+          nicho?: string | null
+          output_url?: string | null
+          params?: Json
+          projeto_id?: string | null
+          prompt: string
+          provider: string
+          source_prompt_id?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost_usd?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          kind?: string
+          model?: string
+          negative_prompt?: string | null
+          nicho?: string | null
+          output_url?: string | null
+          params?: Json
+          projeto_id?: string | null
+          prompt?: string
+          provider?: string
+          source_prompt_id?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_studio_pipeline_steps: {
         Row: {
           created_at: string
