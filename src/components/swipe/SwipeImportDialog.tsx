@@ -23,16 +23,60 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
   const [nicho, setNicho] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const cleanJson = (raw: string) => {
+    // Remove markdown fences (```json ... ```)
+    return raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  };
+
+  const tryRecover = (raw: string): { data: any; recovered: number } | null => {
+    // Tenta recuperar JSON truncado: fecha no último roteiro completo dentro de "roteiros":[...]
+    try {
+      const m = raw.match(/"roteiros"\s*:\s*\[/i) || raw.match(/"copies"\s*:\s*\[/i) || raw.match(/"swipes"\s*:\s*\[/i);
+      if (!m) return null;
+      const startIdx = raw.indexOf("[", m.index!);
+      let depth = 0, lastGood = -1, inStr = false, esc = false;
+      for (let i = startIdx; i < raw.length; i++) {
+        const c = raw[i];
+        if (esc) { esc = false; continue; }
+        if (c === "\\") { esc = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (c === "{" || c === "[") depth++;
+        else if (c === "}" || c === "]") {
+          depth--;
+          if (depth === 1 && c === "}") lastGood = i; // fim de um item dentro do array
+          if (depth === 0) break;
+        }
+      }
+      if (lastGood < 0) return null;
+      const fixed = raw.slice(0, lastGood + 1) + "]}";
+      const data = JSON.parse(fixed);
+      return { data, recovered: (data.roteiros || data.copies || data.swipes || []).length };
+    } catch {
+      return null;
+    }
+  };
+
   const handleImport = async () => {
     setLoading(true);
     try {
       let payload: any;
       if (tab === "json") {
-        if (!json.trim()) throw new Error("Cole um JSON");
+        const raw = cleanJson(json);
+        if (!raw) throw new Error("Cole um JSON");
         try {
-          payload = JSON.parse(json);
-        } catch {
-          throw new Error("JSON inválido");
+          payload = JSON.parse(raw);
+        } catch (parseErr: any) {
+          // tenta recuperar truncamento
+          const recovered = tryRecover(raw);
+          if (recovered) {
+            payload = recovered.data;
+            toast.warning(`JSON estava truncado — recuperei ${recovered.recovered} roteiro(s) válido(s).`);
+          } else {
+            const pos = (parseErr?.message || "").match(/position (\d+)/);
+            const hint = pos ? ` (posição ${pos[1]} — provável paste truncado)` : "";
+            throw new Error(`JSON inválido${hint}. Detalhe: ${parseErr?.message || "erro desconhecido"}`);
+          }
         }
       } else if (tab === "text") {
         if (!text.trim()) throw new Error("Cole o texto");
