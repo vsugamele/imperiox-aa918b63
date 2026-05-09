@@ -2900,6 +2900,27 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_notification_prefs: {
+        Row: {
+          enabled: boolean
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       areamembrojp_notification_reads: {
         Row: {
           notification_id: string
