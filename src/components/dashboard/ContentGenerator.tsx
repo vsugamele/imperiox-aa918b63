@@ -391,6 +391,31 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
             </div>
 
             <div>
+              <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                <Library className="h-3.5 w-3.5 text-violet-400" />
+                Inspiração — Swipe File <span className="text-muted-foreground/60">(opcional, usa estrutura como referência)</span>
+              </label>
+              <Select value={inspirationSwipeId} onValueChange={setInspirationSwipeId}>
+                <SelectTrigger className="bg-secondary/50">
+                  <SelectValue placeholder="Sem inspiração — IA cria do zero" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem inspiração — IA cria do zero</SelectItem>
+                  {swipes.map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.title} {s.mecanismo ? `· ${s.mecanismo}` : ""} {s.criador ? `· ${s.criador}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {swipes.length === 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Sem swipes ainda. Vá em <strong>Swipe File</strong> no menu e importe copies validadas.
+                </p>
+              )}
+            </div>
+
+            <div>
               <label className="text-xs text-muted-foreground mb-1 block">Instruções extras (opcional)</label>
               <Textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)}
                 placeholder="Ex: Foque em urgência. Tom informal e direto."
@@ -401,7 +426,7 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
               <div className="flex items-center gap-3">
                 <Switch id="batch-mode" checked={batchMode} onCheckedChange={setBatchMode} />
                 <Label htmlFor="batch-mode" className="text-xs cursor-pointer">
-                  🔀 Geração em Lote (variações A/B)
+                  🎯 Lote por Ângulos Psicológicos (medo · curiosidade · prova · autoridade · urgência)
                 </Label>
               </div>
               {batchMode && (
