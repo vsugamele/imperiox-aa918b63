@@ -10,9 +10,18 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Zap, Filter } from "lucide-react";
+import { Sparkles, Loader2, Zap, Filter, Library } from "lucide-react";
 import { CONTENT_TYPES, TRIGGERS, FUNNEL_STAGES, type GeneratedItem, type StatusKey } from "./contentGenerator/constants";
 import { ResultCard } from "./contentGenerator/ResultCard";
+
+// Ângulos psicológicos para variações em lote — cada variação ataca por um ângulo distinto.
+const ANGLES = [
+  { key: "medo", label: "Medo / Perda", brief: "Foque no medo de perder algo, na consequência negativa de não agir agora." },
+  { key: "curiosidade", label: "Curiosidade / Segredo", brief: "Abra um loop de curiosidade. Insinue um segredo, um método pouco conhecido." },
+  { key: "prova", label: "Prova Social", brief: "Use case real, depoimento, número específico, autoridade externa." },
+  { key: "autoridade", label: "Autoridade / Mecanismo", brief: "Posicione expertise, mecanismo único, explicação técnica que gera confiança." },
+  { key: "urgencia", label: "Urgência / Escassez", brief: "Janela de tempo, vagas limitadas, motivo concreto para agir hoje." },
+];
 
 export function ContentGenerator() {
   const [projects, setProjects] = useState<any[]>([]);
@@ -23,6 +32,8 @@ export function ContentGenerator() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [batchMode, setBatchMode] = useState(false);
   const [batchCount, setBatchCount] = useState(3);
+  const [swipes, setSwipes] = useState<any[]>([]);
+  const [inspirationSwipeId, setInspirationSwipeId] = useState<string>("none");
   const [generating, setGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedItem[]>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -35,7 +46,20 @@ export function ContentGenerator() {
       if (data?.length && !selectedProject) setSelectedProject(data[0].id);
     });
     loadHistory();
+    loadSwipes();
   }, []);
+
+  const loadSwipes = async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u?.user) return;
+    const { data } = await supabase
+      .from("imphq_swipes")
+      .select("id, title, criador, mecanismo, nicho, blocks, reverse_engineering")
+      .eq("user_id", u.user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setSwipes(data);
+  };
 
   const loadHistory = async () => {
     const { data: user } = await supabase.auth.getUser();
@@ -62,7 +86,29 @@ export function ContentGenerator() {
     }
   };
 
-  const generateOne = async (variationGroup?: string, variationLabel?: string) => {
+  const buildInspirationBlock = () => {
+    if (inspirationSwipeId === "none") return "";
+    const s = swipes.find(x => x.id === inspirationSwipeId);
+    if (!s) return "";
+    const blocks = s.blocks || {};
+    const re = s.reverse_engineering || {};
+    return `\n\n=== INSPIRAÇÃO (Swipe File) ===
+Use a ESTRUTURA e o RITMO da copy abaixo como modelo, mas REESCREVA 100% adaptado ao projeto/avatar — não copie texto literal.
+Título de referência: ${s.title}${s.criador ? ` (${s.criador})` : ""}
+Mecanismo: ${s.mecanismo || "?"}
+Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
+=== FIM INSPIRAÇÃO ===`;
+  };
+
+  const generateOne = async (variationGroup?: string, angleKey?: string) => {
+    const angle = ANGLES.find(a => a.key === angleKey);
+    const inspiration = buildInspirationBlock();
+    const promptParts = [customPrompt, inspiration];
+    if (angle) {
+      promptParts.push(`\n\n[ÂNGULO DESTA VARIAÇÃO — "${angle.label}"]: ${angle.brief}\nNÃO repita ângulos das outras variações.`);
+    }
+    const finalPrompt = promptParts.filter(Boolean).join("");
+
     const { data, error } = await supabase.functions.invoke("openflow-ai", {
       body: {
         project_id: selectedProject,
@@ -70,7 +116,7 @@ export function ContentGenerator() {
         content_type: contentType,
         trigger,
         funnel_stage: funnelStage,
-        custom_prompt: variationLabel ? `${customPrompt}\n\n[Variação ${variationLabel} — use ângulo/abordagem distinta das demais]` : customPrompt,
+        custom_prompt: finalPrompt,
         model: "google/gemini-3-flash-preview",
       },
     });
@@ -90,11 +136,17 @@ export function ContentGenerator() {
         status: "rascunho",
         funnel_stage: funnelStage,
         variation_group: variationGroup || null,
-        metadata: { trigger, custom_prompt: customPrompt, variation_label: variationLabel },
+        metadata: {
+          trigger,
+          custom_prompt: customPrompt,
+          angle: angle?.key || null,
+          angle_label: angle?.label || null,
+          inspiration_swipe_id: inspirationSwipeId !== "none" ? inspirationSwipeId : null,
+        },
       }).select("id").single();
       savedId = inserted?.id;
     }
-    return { id: savedId, content };
+    return { id: savedId, content, angle: angle?.label };
   };
 
   const handleGenerate = async () => {
@@ -105,16 +157,19 @@ export function ContentGenerator() {
         const groupId = crypto.randomUUID();
         const newItems: GeneratedItem[] = [];
         for (let i = 0; i < batchCount; i++) {
-          const label = String.fromCharCode(65 + i); // A, B, C
-          const r = await generateOne(groupId, label);
+          const angle = ANGLES[i % ANGLES.length];
+          const r = await generateOne(groupId, angle.key);
           newItems.push({
-            id: r.id, type: contentType, content: r.content, timestamp: Date.now() + i,
+            id: r.id, type: contentType,
+            content: `**🎯 Ângulo: ${angle.label}**\n\n${r.content}`,
+            timestamp: Date.now() + i,
             status: "rascunho", funnel_stage: funnelStage, variation_group: groupId,
           });
         }
         setResults(prev => [...newItems, ...prev]);
-        toast.success(`${batchCount} variações geradas!`);
+        toast.success(`${batchCount} variações geradas (1 por ângulo)!`);
       } else {
+
         const r = await generateOne();
         setResults(prev => [{
           id: r.id, type: contentType, content: r.content, timestamp: Date.now(),
@@ -336,6 +391,31 @@ export function ContentGenerator() {
             </div>
 
             <div>
+              <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                <Library className="h-3.5 w-3.5 text-violet-400" />
+                Inspiração — Swipe File <span className="text-muted-foreground/60">(opcional, usa estrutura como referência)</span>
+              </label>
+              <Select value={inspirationSwipeId} onValueChange={setInspirationSwipeId}>
+                <SelectTrigger className="bg-secondary/50">
+                  <SelectValue placeholder="Sem inspiração — IA cria do zero" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem inspiração — IA cria do zero</SelectItem>
+                  {swipes.map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.title} {s.mecanismo ? `· ${s.mecanismo}` : ""} {s.criador ? `· ${s.criador}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {swipes.length === 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Sem swipes ainda. Vá em <strong>Swipe File</strong> no menu e importe copies validadas.
+                </p>
+              )}
+            </div>
+
+            <div>
               <label className="text-xs text-muted-foreground mb-1 block">Instruções extras (opcional)</label>
               <Textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)}
                 placeholder="Ex: Foque em urgência. Tom informal e direto."
@@ -346,7 +426,7 @@ export function ContentGenerator() {
               <div className="flex items-center gap-3">
                 <Switch id="batch-mode" checked={batchMode} onCheckedChange={setBatchMode} />
                 <Label htmlFor="batch-mode" className="text-xs cursor-pointer">
-                  🔀 Geração em Lote (variações A/B)
+                  🎯 Lote por Ângulos Psicológicos (medo · curiosidade · prova · autoridade · urgência)
                 </Label>
               </div>
               {batchMode && (
