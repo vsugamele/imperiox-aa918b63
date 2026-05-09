@@ -46,7 +46,20 @@ export function ContentGenerator() {
       if (data?.length && !selectedProject) setSelectedProject(data[0].id);
     });
     loadHistory();
+    loadSwipes();
   }, []);
+
+  const loadSwipes = async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u?.user) return;
+    const { data } = await supabase
+      .from("imphq_swipes")
+      .select("id, title, criador, mecanismo, nicho, blocks, reverse_engineering")
+      .eq("user_id", u.user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setSwipes(data);
+  };
 
   const loadHistory = async () => {
     const { data: user } = await supabase.auth.getUser();
