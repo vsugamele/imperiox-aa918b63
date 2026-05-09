@@ -86,9 +86,10 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
         payload = url;
       }
       const { data, error } = await supabase.functions.invoke("swipe-import", {
-        body: { mode: tab, payload, nicho: nicho || null },
+        body: { mode: tab === "json" ? "json" : tab, payload: tab === "json" ? payload : payload, nicho: nicho || null },
       });
       if (error) throw error;
+      console.log("[swipe-import] result:", data);
       toast.success(`${data.count} swipe(s) importadas!`);
       onImported();
       onOpenChange(false);
