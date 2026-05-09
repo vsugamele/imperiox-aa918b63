@@ -86,7 +86,29 @@ export function ContentGenerator() {
     }
   };
 
-  const generateOne = async (variationGroup?: string, variationLabel?: string) => {
+  const buildInspirationBlock = () => {
+    if (inspirationSwipeId === "none") return "";
+    const s = swipes.find(x => x.id === inspirationSwipeId);
+    if (!s) return "";
+    const blocks = s.blocks || {};
+    const re = s.reverse_engineering || {};
+    return `\n\n=== INSPIRAÇÃO (Swipe File) ===
+Use a ESTRUTURA e o RITMO da copy abaixo como modelo, mas REESCREVA 100% adaptado ao projeto/avatar — não copie texto literal.
+Título de referência: ${s.title}${s.criador ? ` (${s.criador})` : ""}
+Mecanismo: ${s.mecanismo || "?"}
+Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
+=== FIM INSPIRAÇÃO ===`;
+  };
+
+  const generateOne = async (variationGroup?: string, angleKey?: string) => {
+    const angle = ANGLES.find(a => a.key === angleKey);
+    const inspiration = buildInspirationBlock();
+    const promptParts = [customPrompt, inspiration];
+    if (angle) {
+      promptParts.push(`\n\n[ÂNGULO DESTA VARIAÇÃO — "${angle.label}"]: ${angle.brief}\nNÃO repita ângulos das outras variações.`);
+    }
+    const finalPrompt = promptParts.filter(Boolean).join("");
+
     const { data, error } = await supabase.functions.invoke("openflow-ai", {
       body: {
         project_id: selectedProject,
@@ -94,7 +116,7 @@ export function ContentGenerator() {
         content_type: contentType,
         trigger,
         funnel_stage: funnelStage,
-        custom_prompt: variationLabel ? `${customPrompt}\n\n[Variação ${variationLabel} — use ângulo/abordagem distinta das demais]` : customPrompt,
+        custom_prompt: finalPrompt,
         model: "google/gemini-3-flash-preview",
       },
     });
@@ -114,11 +136,17 @@ export function ContentGenerator() {
         status: "rascunho",
         funnel_stage: funnelStage,
         variation_group: variationGroup || null,
-        metadata: { trigger, custom_prompt: customPrompt, variation_label: variationLabel },
+        metadata: {
+          trigger,
+          custom_prompt: customPrompt,
+          angle: angle?.key || null,
+          angle_label: angle?.label || null,
+          inspiration_swipe_id: inspirationSwipeId !== "none" ? inspirationSwipeId : null,
+        },
       }).select("id").single();
       savedId = inserted?.id;
     }
-    return { id: savedId, content };
+    return { id: savedId, content, angle: angle?.label };
   };
 
   const handleGenerate = async () => {
@@ -129,16 +157,19 @@ export function ContentGenerator() {
         const groupId = crypto.randomUUID();
         const newItems: GeneratedItem[] = [];
         for (let i = 0; i < batchCount; i++) {
-          const label = String.fromCharCode(65 + i); // A, B, C
-          const r = await generateOne(groupId, label);
+          const angle = ANGLES[i % ANGLES.length];
+          const r = await generateOne(groupId, angle.key);
           newItems.push({
-            id: r.id, type: contentType, content: r.content, timestamp: Date.now() + i,
+            id: r.id, type: contentType,
+            content: `**🎯 Ângulo: ${angle.label}**\n\n${r.content}`,
+            timestamp: Date.now() + i,
             status: "rascunho", funnel_stage: funnelStage, variation_group: groupId,
           });
         }
         setResults(prev => [...newItems, ...prev]);
-        toast.success(`${batchCount} variações geradas!`);
+        toast.success(`${batchCount} variações geradas (1 por ângulo)!`);
       } else {
+
         const r = await generateOne();
         setResults(prev => [{
           id: r.id, type: contentType, content: r.content, timestamp: Date.now(),
