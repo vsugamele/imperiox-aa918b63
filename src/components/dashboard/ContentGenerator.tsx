@@ -10,9 +10,18 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Zap, Filter } from "lucide-react";
+import { Sparkles, Loader2, Zap, Filter, Library } from "lucide-react";
 import { CONTENT_TYPES, TRIGGERS, FUNNEL_STAGES, type GeneratedItem, type StatusKey } from "./contentGenerator/constants";
 import { ResultCard } from "./contentGenerator/ResultCard";
+
+// Ângulos psicológicos para variações em lote — cada variação ataca por um ângulo distinto.
+const ANGLES = [
+  { key: "medo", label: "Medo / Perda", brief: "Foque no medo de perder algo, na consequência negativa de não agir agora." },
+  { key: "curiosidade", label: "Curiosidade / Segredo", brief: "Abra um loop de curiosidade. Insinue um segredo, um método pouco conhecido." },
+  { key: "prova", label: "Prova Social", brief: "Use case real, depoimento, número específico, autoridade externa." },
+  { key: "autoridade", label: "Autoridade / Mecanismo", brief: "Posicione expertise, mecanismo único, explicação técnica que gera confiança." },
+  { key: "urgencia", label: "Urgência / Escassez", brief: "Janela de tempo, vagas limitadas, motivo concreto para agir hoje." },
+];
 
 export function ContentGenerator() {
   const [projects, setProjects] = useState<any[]>([]);
@@ -23,6 +32,8 @@ export function ContentGenerator() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [batchMode, setBatchMode] = useState(false);
   const [batchCount, setBatchCount] = useState(3);
+  const [swipes, setSwipes] = useState<any[]>([]);
+  const [inspirationSwipeId, setInspirationSwipeId] = useState<string>("none");
   const [generating, setGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedItem[]>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
