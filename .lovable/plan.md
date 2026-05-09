@@ -1,43 +1,53 @@
-## Diagnóstico
+# Plano: Geração de Imagem com Kie GPT Image 2 + Luma uni-1
 
-Verifiquei: você tem **0 swipes** salvos. Os logs da edge function `swipe-import` não mostram nenhuma chamada nas últimas horas — ou seja, a importação **nunca chegou ao backend**. Travou no frontend.
+## Objetivo
+Expandir o Studio de geração para suportar **dois novos provedores de imagem**:
+1. **Kie.ai → GPT Image 2** (texto→imagem + edição com `image_input`)
+2. **Luma Agents API → uni-1** (oficial, via `LUMA_API_KEY`)
 
-**Causa provável**: o JSON que você colou (aqui e na conversa anterior) está **truncado no meio** — termina em `"cta_eng` (roteiro V cortado). O `JSON.parse` quebra e o dialog devolve "JSON inválido" sem detalhe útil, dando a sensação de que o botão não fez nada.
+## Mudanças
 
-A mensagem que você me mandou tem **21 roteiros completos** (A até U) + V incompleto. Os 5 últimos (V–Z) ficaram fora do paste.
+### 1. Secrets
+- Solicitar `LUMA_API_KEY` (Luma Agents API). `KIE_API_KEY` já existe.
 
-## O que vou fazer
+### 2. Edge Function `studio-generate` (`supabase/functions/studio-generate/index.ts`)
+- Ampliar o tipo `provider` para incluir `"luma"`.
+- Tratar `kind: "image"` para **Kie**:
+  - Endpoint: `POST https://api.kie.ai/api/v1/jobs/createTask`
+  - Body: `{ model: "gpt-image-2", input: { prompt, image_input?, size, quality } }`
+  - Retorna `taskId` → status `processing` (já existe polling para Kie em `studio-generate-status`).
+- Tratar `kind: "image"` para **Luma uni-1**:
+  - Endpoint: `POST https://api.lumalabs.ai/agents/v1/generations`
+  - Header: `Authorization: Bearer ${LUMA_API_KEY}`
+  - Body: `{ model: "uni-1", type: "image" | "edit", prompt, image?: { url } , aspect_ratio }`
+  - Resposta inclui `id` e (após poll) `assets.image`. Salvar `external_id`, status `processing`.
 
-### 1. Inserir os 21 roteiros completos diretamente no seu Swipe File
-Como vou puxar do conteúdo da conversa, faço via `INSERT` no banco, vinculado ao seu user_id (`vsugamele@gmail.com`). Cada roteiro vira uma linha em `imphq_swipes` com:
+### 3. Edge Function `studio-generate-status`
+- Hoje só polla Kie. Adicionar branch para `provider === "luma"`:
+  - `GET https://api.lumalabs.ai/agents/v1/generations/{id}` com `Authorization: Bearer LUMA_API_KEY`
+  - Quando `state === "completed"`, baixar `assets.image` e salvar no bucket `creative-assets` (reusar `uploadFromUrl`).
+- Para Kie GPT Image 2: ao completar, a resposta traz `resultUrls[]` ou `imageUrl` — baixar e fazer upload pro bucket.
 
-- `title` = "A — Segredo Duplo + Marilyn", "B — Rachel + Sarah", etc.
-- `criador` = "@gstalves", `plataforma` = "@mvmcreators" (Instagram)
-- `formato`, `mecanismo` preenchidos
-- `nicho` = "soulmate / cartomante astral"
-- `tags` = `['soulmate-test', 'astral', 'mvmcreators']`
-- `blocks` = `{ gancho, participacao_ativa, narrativa, reframe, cta_engajamento, cta_venda }`
+### 4. Frontend `src/components/studio/StudioGenerator.tsx`
+- Hoje **imagem** só aceita `provider: "openrouter"`. Adicionar seletor de provider para imagem (igual ao de vídeo):
+  - `openrouter` (Gemini / Recraft — já existente)
+  - `kie` → modelo `gpt-image-2`
+  - `luma` → modelo `uni-1`
+- Adicionar campo opcional `image_input` (URL) no formulário de imagem para edição (usado por GPT Image 2 e Luma uni-1).
+- Adicionar campo `aspect_ratio` para Luma (ex.: `1:1`, `9:16`, `16:9`).
+- O auto-poll atual filtra `i.status === "processing" && i.external_id` — já vai funcionar para ambos novos provedores; só ampliar o filtro para incluir `provider in ("kie","luma")`.
 
-### 2. Você cola os 5 que faltam (V, W, X, Y, Z)
-Manda numa próxima mensagem só os roteiros V–Z e eu insiro também. Ou cola direto no dialog (que vou robustecer no passo 3).
-
-### 3. Robustecer o `SwipeImportDialog`
-Pra evitar o silêncio confuso da próxima vez:
-
-- Mostrar **erro detalhado** do `JSON.parse` (linha/coluna/contexto, ex: "JSON inválido na posição 38421 — verifique se o paste foi truncado").
-- Botão **"Auto-corrigir"**: detecta JSON truncado (chave/string sem fechamento) e tenta cortar no último roteiro completo, avisando "X roteiros válidos detectados, Y descartados".
-- Aceitar paste com **markdown wrapper** (` ```json ... ``` `) — já remove cercas automaticamente.
-- Aceitar **array puro** no topo (sem objeto `{ roteiros: [...] }`) — hoje já cai nesse caso, mas vou deixar explícito no placeholder.
-- Após import, log no console com `count` e primeiro título — facilita confirmar.
+### 5. UX
+- Mostrar badge "assíncrono" nos novos provedores e nota "1–2 min para concluir".
+- Mensagens de erro claras quando faltar `LUMA_API_KEY` ou `KIE_API_KEY`.
 
 ## Detalhes técnicos
+- IDs dos modelos confirmados:
+  - Kie: `gpt-image-2` (https://kie.ai/gpt-image-2)
+  - Luma: `uni-1` (https://docs.agents.lumalabs.ai/guides/model/)
+- Persistência: linhas em `imphq_studio_generations` com `provider`, `model`, `external_id`, `status`, `output_url` (já existe).
+- Upload final sempre vai para o bucket `creative-assets` para servir publicamente e evitar URLs voláteis.
 
-- Insert direto via SQL com user_id fixo do dono da conversa (vsugamele) — a tabela `imphq_swipes` tem RLS por `auth.uid() = user_id`, então o owner consegue ler depois normalmente.
-- Não precisa rodar migration (não é mudança de schema, é dado). Vou usar a tool de insert.
-- Frontend: edição em `src/components/swipe/SwipeImportDialog.tsx`. Sem mudança no edge function nem na tabela.
-
-## Confirmações que preciso
-
-1. Confirma que **você é o `vsugamele@gmail.com`** (login atual)? Se for outro email, me passa.
-2. Quer que eu vincule esses 21 swipes a algum **projeto** específico (ex: um projeto "Soulmate Test" novo ou existente), ou deixo soltos no Swipe File global?
-3. Vai colar V–Z agora ou depois?
+## Fora de escopo
+- `uni-1-max` (você pediu só `uni-1`).
+- Vídeo da Luma (Dream Machine) — não solicitado.
