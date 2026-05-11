@@ -121,6 +121,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
         params: { aspect_ratio: "1:1", duration: 5, resolution: "720p" },
       },
     ],
+  },
   {
     key: "avatar_falante",
     name: "Avatar Falante (Lipsync)",
