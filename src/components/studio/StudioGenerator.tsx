@@ -486,6 +486,24 @@ export function StudioGenerator() {
           ))}
         </div>
       </div>
+
+      <Dialog open={audioPickerOpen} onOpenChange={setAudioPickerOpen}>
+        <DialogContent className="bg-secondary/95 border-border max-w-2xl">
+          <DialogHeader><DialogTitle>Selecionar áudio gerado</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {generatedAudios.length === 0 && <p className="text-sm text-muted-foreground">Nenhum áudio disponível.</p>}
+            {generatedAudios.map((a) => (
+              <div key={a.id} className="flex items-center gap-2 p-2 rounded bg-background/40">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs truncate leading-5">{a.prompt}</p>
+                  <audio src={a.output_url!} controls className="w-full h-8 mt-1" />
+                </div>
+                <Button size="sm" onClick={() => { addAudioUrl(a.output_url!); setAudioPickerOpen(false); }}>Usar</Button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
