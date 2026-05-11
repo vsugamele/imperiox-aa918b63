@@ -7,6 +7,8 @@ export type WorkflowStep = {
   voice_id?: string;
   // Optional: reference an upstream step output as input image. e.g. "{{step1.output}}"
   image_url?: string;
+  // Optional: reference audio URL for lipsync (e.g. Seedance 2). Supports {{stepN.output}}.
+  audio_url?: string;
 };
 
 export type WorkflowTemplate = {
