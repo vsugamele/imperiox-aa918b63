@@ -65,8 +65,11 @@ export function StudioGenerator() {
   const [busy, setBusy] = useState(false);
 
   // Image form
-  const [imgModel, setImgModel] = useState(IMAGE_MODELS[0].value);
+  const [imgProvider, setImgProvider] = useState<"openrouter" | "kie" | "luma">("openrouter");
+  const [imgModel, setImgModel] = useState(IMAGE_MODELS_OPENROUTER[0].value);
   const [imgPrompt, setImgPrompt] = useState("");
+  const [imgRefUrl, setImgRefUrl] = useState("");
+  const [imgAspect, setImgAspect] = useState("1:1");
 
   // Video form
   const [vidProvider, setVidProvider] = useState<"openrouter" | "kie">("openrouter");
