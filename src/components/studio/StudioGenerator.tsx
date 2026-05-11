@@ -31,7 +31,14 @@ const IMAGE_MODELS_OPENROUTER = [
 ];
 
 const IMAGE_MODELS_KIE = [
-  { value: "gpt-image-2", label: "GPT Image 2 (OpenAI — fotorealista, edita imagem)" },
+  { value: "gpt-image-2", label: "GPT Image 2 (OpenAI — fotorealista, edita)" },
+  { value: "nano-banana", label: "Nano Banana (Gemini 2.5 Flash — rápido, edição multi-img)" },
+  { value: "nano-banana-2", label: "Nano Banana 2 (Pro — qualidade alta)" },
+  { value: "flux-kontext-pro", label: "Flux Kontext Pro (edição contextual)" },
+  { value: "flux-kontext-max", label: "Flux Kontext Max (máxima fidelidade)" },
+  { value: "seedream-4", label: "Seedream 4 (Bytedance — fotorealista)" },
+  { value: "ideogram-v3", label: "Ideogram V3 (texto legível em imagem)" },
+  { value: "qwen-image-edit", label: "Qwen Image Edit (edição conversacional)" },
 ];
 
 const IMAGE_MODELS_LUMA = [
@@ -46,8 +53,14 @@ const VIDEO_MODELS_OPENROUTER = [
 const VIDEO_MODELS_KIE = [
   { value: "veo3-fast", label: "Google Veo 3 Fast" },
   { value: "veo3", label: "Google Veo 3" },
+  { value: "veo3.1", label: "Google Veo 3.1 (mais novo)" },
   { value: "sora-2", label: "OpenAI Sora 2" },
   { value: "kling-2.1", label: "Kling 2.1" },
+  { value: "runway-gen4", label: "Runway Gen-4 Turbo" },
+  { value: "hailuo-02", label: "MiniMax Hailuo 02" },
+  { value: "wan-2.2", label: "Alibaba Wan 2.2" },
+  { value: "pixverse-v5", label: "Pixverse V5" },
+  { value: "minimax-video-01", label: "MiniMax Video 01" },
 ];
 
 const VOICES = [
