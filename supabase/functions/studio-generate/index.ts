@@ -103,15 +103,35 @@ async function openrouterVideo(model: string, prompt: string, params: any, image
 
 // ---------- KIE.AI: VIDEO ----------
 async function kieVideo(model: string, prompt: string, params: any, image_url?: string): Promise<{ taskId: string }> {
-  // Kie.ai unified API. Models: veo3, veo3-fast, sora-2, kling-2.1, runway-gen4 etc.
+  // Kie.ai unified API. Models: veo3, veo3-fast, sora-2, kling-2.1, runway-gen4, bytedance/seedance-2 etc.
+  const isSeedance2 = model === "seedance-2" || model === "bytedance/seedance-2";
+  const refAudios: string[] | undefined = Array.isArray(params?.reference_audio_urls) && params.reference_audio_urls.length > 0
+    ? params.reference_audio_urls.slice(0, 3)
+    : undefined;
+
+  const input: any = {
+    prompt,
+    duration: params?.duration ?? 5,
+    aspect_ratio: params?.aspect_ratio ?? "16:9",
+  };
+
+  if (isSeedance2) {
+    if (params?.resolution) input.resolution = params.resolution;
+    // Seedance 2 lipsync: first_frame_url + reference_audio_urls (mutually exclusive with last_frame_url)
+    if (image_url) input.first_frame_url = image_url;
+    if (refAudios) {
+      input.reference_audio_urls = refAudios;
+      input.generate_audio = false;
+    } else if (params?.generate_audio !== undefined) {
+      input.generate_audio = params.generate_audio;
+    }
+  } else if (image_url) {
+    input.image_url = image_url;
+  }
+
   const body: any = {
-    model,
-    input: {
-      prompt,
-      duration: params?.duration ?? 5,
-      aspect_ratio: params?.aspect_ratio ?? "16:9",
-      ...(image_url ? { image_url } : {}),
-    },
+    model: isSeedance2 ? "bytedance/seedance-2" : model,
+    input,
   };
   const resp = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
     method: "POST",
