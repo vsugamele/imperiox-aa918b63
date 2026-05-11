@@ -125,7 +125,48 @@ async function kieVideo(model: string, prompt: string, params: any, image_url?: 
   return { taskId };
 }
 
-// ---------- ELEVENLABS: AUDIO ----------
+// ---------- KIE.AI: IMAGE (GPT Image 2 etc) ----------
+async function kieImage(model: string, prompt: string, params: any, image_input?: string): Promise<{ taskId: string }> {
+  const input: any = {
+    prompt,
+    size: params?.size ?? "1024x1024",
+    quality: params?.quality ?? "high",
+    ...(params?.aspect_ratio ? { aspect_ratio: params.aspect_ratio } : {}),
+    ...(image_input ? { image_input } : {}),
+  };
+  const resp = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KIE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, input }),
+  });
+  if (!resp.ok) throw new Error(`Kie image ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json();
+  const taskId = data?.data?.taskId || data?.taskId || data?.data?.task_id;
+  if (!taskId) throw new Error("Kie.ai: taskId ausente. " + JSON.stringify(data).slice(0, 300));
+  return { taskId };
+}
+
+// ---------- LUMA: IMAGE (uni-1) ----------
+async function lumaImage(model: string, prompt: string, params: any, image_url?: string): Promise<{ id: string }> {
+  const body: any = {
+    model: model || "uni-1",
+    type: image_url ? "edit" : "image",
+    prompt,
+    ...(params?.aspect_ratio ? { aspect_ratio: params.aspect_ratio } : {}),
+    ...(image_url ? { image: { url: image_url } } : {}),
+  };
+  const resp = await fetch("https://api.lumalabs.ai/agents/v1/generations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LUMA_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`Luma create ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json();
+  const id = data?.id || data?.generation?.id;
+  if (!id) throw new Error("Luma: id ausente. " + JSON.stringify(data).slice(0, 300));
+  return { id };
+}
+
 async function elevenlabsTts(voice_id: string, text: string, model: string): Promise<{ b64: string }> {
   const vid = voice_id || "JBFqnCBsd6RMkjVDRZzb";
   const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
