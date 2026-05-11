@@ -16,7 +16,7 @@ const BUCKET = "creative-assets";
 
 type Body = {
   kind: "image" | "video" | "audio";
-  provider: "openrouter" | "kie" | "elevenlabs";
+  provider: "openrouter" | "kie" | "elevenlabs" | "luma";
   model: string;
   prompt: string;
   negative_prompt?: string;
