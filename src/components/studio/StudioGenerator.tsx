@@ -317,9 +317,67 @@ export function StudioGenerator() {
                 <Textarea rows={5} value={vidPrompt} onChange={(e) => setVidPrompt(e.target.value)} placeholder="Cena, ação, movimento de câmera..." />
               </div>
               <div>
-                <Label className="text-xs">Imagem inicial (opcional, image-to-video)</Label>
+                <Label className="text-xs">
+                  {vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel) ? "Imagem do avatar (first frame — obrigatório)" : "Imagem inicial (opcional, image-to-video)"}
+                </Label>
                 <Input value={vidImage} onChange={(e) => setVidImage(e.target.value)} placeholder="https://..." />
               </div>
+
+              {vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel) && (
+                <div className="rounded border border-primary/40 bg-primary/5 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Music className="h-4 w-4 text-primary" />
+                    <Label className="text-xs font-semibold">Áudio de Referência (Lipsync)</Label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-4">
+                    Até 3 áudios. Combinado ≤ 15s. O Seedance 2 sincroniza os lábios do avatar com este áudio.
+                  </p>
+                  {audioRefUrls.length > 0 && (
+                    <div className="space-y-1">
+                      {audioRefUrls.map((u, i) => (
+                        <div key={i} className="flex items-center gap-1 text-[11px] bg-background/40 rounded px-2 py-1">
+                          <span className="flex-1 truncate">{u}</span>
+                          <button onClick={() => setAudioRefUrls(audioRefUrls.filter((_, j) => j !== i))}>
+                            <X className="h-3 w-3 text-destructive" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-1">
+                    <Input
+                      value={audioUrlInput}
+                      onChange={(e) => setAudioUrlInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addAudioUrl(audioUrlInput))}
+                      placeholder="https://...mp3"
+                      className="h-8 text-xs"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => addAudioUrl(audioUrlInput)}>+</Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <FileUpload
+                      bucket="creative-assets"
+                      path="studio-audio"
+                      accept="audio/*"
+                      label="Upload"
+                      onUpload={(url) => addAudioUrl(url)}
+                    />
+                    <Button size="sm" variant="outline" onClick={openAudioPicker}>
+                      <Music className="h-3 w-3 mr-1" /> Áudio gerado
+                    </Button>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Resolução</Label>
+                    <Select value={vidResolution} onValueChange={setVidResolution}>
+                      <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="720p">720p</SelectItem>
+                        <SelectItem value="1080p">1080p</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Duração (s)</Label>
