@@ -51,6 +51,7 @@ const VIDEO_MODELS_OPENROUTER = [
 ];
 
 const VIDEO_MODELS_KIE = [
+  { value: "seedance-2", label: "Seedance 2 (Bytedance — LIPSYNC com áudio)" },
   { value: "veo3-fast", label: "Google Veo 3 Fast" },
   { value: "veo3", label: "Google Veo 3" },
   { value: "veo3.1", label: "Google Veo 3.1 (mais novo)" },
@@ -62,6 +63,8 @@ const VIDEO_MODELS_KIE = [
   { value: "pixverse-v5", label: "Pixverse V5" },
   { value: "minimax-video-01", label: "MiniMax Video 01" },
 ];
+
+const LIPSYNC_MODELS = new Set(["seedance-2"]);
 
 const VOICES = [
   { value: "JBFqnCBsd6RMkjVDRZzb", label: "George (masc, narrador)" },
