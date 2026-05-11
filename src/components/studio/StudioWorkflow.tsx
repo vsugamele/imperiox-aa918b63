@@ -35,6 +35,7 @@ const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
     { value: "bytedance/seedance-2.0", label: "Seedance 2.0 Pro" },
   ],
   "video:kie": [
+    { value: "seedance-2", label: "Seedance 2 (LIPSYNC)" },
     { value: "veo3-fast", label: "Veo 3 Fast" },
     { value: "veo3", label: "Veo 3" },
     { value: "veo3.1", label: "Veo 3.1" },
