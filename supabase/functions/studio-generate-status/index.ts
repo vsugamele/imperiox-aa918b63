@@ -8,6 +8,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+const LUMA_API_KEY = Deno.env.get("LUMA_API_KEY");
 const BUCKET = "creative-assets";
 
 async function uploadFromUrl(supabase: any, userId: string, url: string, ext: string, mime: string) {
