@@ -178,16 +178,55 @@ export function StudioGenerator() {
           {activeKind === "image" && (
             <>
               <div>
-                <Label className="text-xs">Modelo (OpenRouter)</Label>
+                <Label className="text-xs">Provider</Label>
+                <Select value={imgProvider} onValueChange={(v: any) => {
+                  setImgProvider(v);
+                  setImgModel(v === "openrouter" ? IMAGE_MODELS_OPENROUTER[0].value : v === "kie" ? IMAGE_MODELS_KIE[0].value : IMAGE_MODELS_LUMA[0].value);
+                }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openrouter">OpenRouter (Gemini / Recraft — síncrono)</SelectItem>
+                    <SelectItem value="kie">Kie.ai (GPT Image 2 — assíncrono)</SelectItem>
+                    <SelectItem value="luma">Luma (uni-1 — assíncrono)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Modelo</Label>
                 <Select value={imgModel} onValueChange={setImgModel}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{IMAGE_MODELS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {(imgProvider === "openrouter" ? IMAGE_MODELS_OPENROUTER : imgProvider === "kie" ? IMAGE_MODELS_KIE : IMAGE_MODELS_LUMA).map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-xs">Prompt</Label>
                 <Textarea rows={6} value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)} placeholder="Cena ultrarrealista, iluminação cinematográfica..." />
               </div>
+              {(imgProvider === "kie" || imgProvider === "luma") && (
+                <>
+                  <div>
+                    <Label className="text-xs">Imagem de referência (opcional — para edição)</Label>
+                    <Input value={imgRefUrl} onChange={(e) => setImgRefUrl(e.target.value)} placeholder="https://..." />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Proporção</Label>
+                    <Select value={imgAspect} onValueChange={setImgAspect}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1:1">1:1</SelectItem>
+                        <SelectItem value="9:16">9:16 (Reels / Story)</SelectItem>
+                        <SelectItem value="16:9">16:9</SelectItem>
+                        <SelectItem value="3:4">3:4</SelectItem>
+                        <SelectItem value="4:3">4:3</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </>
           )}
 
