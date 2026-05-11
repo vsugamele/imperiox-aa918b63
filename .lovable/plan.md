@@ -1,127 +1,74 @@
-## Objetivo
+## Lipsync com Seedance 2 no Studio
 
-1. Expandir catálogo de modelos do **Kie** (imagem + vídeo) no Studio.
-2. Criar um **Workflow Pipeline** (linear + templates) que encadeia geração de imagem → vídeo → áudio, passando a saída de um step como input do próximo.
-
----
-
-## Parte 1 — Novos modelos Kie
-
-### Imagem (Kie)
-- `gpt-image-2` (já existe)
-- `nano-banana` — Gemini 2.5 Flash Image, edição multi-imagem, rápido
-- `nano-banana-2` — versão Pro, qualidade alta
-- `flux-kontext-pro` — edição contextual com referência
-- `flux-kontext-max` — versão máxima
-- `seedream-4` — Bytedance, fotorealista
-- `ideogram-v3` — texto legível em imagem
-- `qwen-image-edit` — edição estilo conversacional
-
-### Vídeo (Kie)
-- `veo3` / `veo3-fast` (já existem)
-- `veo3.1` — versão mais nova
-- `runway-gen4` — Runway Gen-4 Turbo
-- `hailuo-02` — MiniMax Hailuo 02
-- `wan-2.2` — Alibaba Wan 2.2
-- `pixverse-v5` — Pixverse V5
-- `minimax-video-01` — MiniMax T2V/I2V
-- `sora-2` / `kling-2.1` (já existem)
-
-Todos passam pelo mesmo endpoint `https://api.kie.ai/api/v1/jobs/createTask` (já implementado), só muda o `model`. Polling em `studio-generate-status` já é genérico.
-
-**Mudança técnica:** apenas adicionar entradas nos arrays `IMAGE_MODELS_KIE` / `VIDEO_MODELS_KIE` em `StudioGenerator.tsx` com labels descritivos (preço/uso).
+Adicionar o modelo **Seedance 2 da Kie.ai** com suporte a `reference_audio_urls` para sincronizar áudio de referência (lipsync) com a imagem do avatar — disponível tanto no Generator manual quanto como bloco no Workflow, mais um template "Avatar Falante" pronto.
 
 ---
 
-## Parte 2 — Workflow Pipeline
+### 1. Generator manual (`StudioGenerator.tsx`)
 
-### UX (nova aba "Workflow" em `/studio`)
+- Adicionar `seedance-2` na lista `VIDEO_MODELS_KIE` com flag `supportsLipsync: true`.
+- Quando o usuário escolher `seedance-2`, exibir uma seção **"Áudio de Referência (Lipsync)"** com:
+  - Botão **Upload** (`FileUpload` para `creative-assets/studio-audio`, accept `audio/*`).
+  - Campo **URL manual** (colar link).
+  - Botão **"Usar áudio gerado"** abrindo dialog que lista `imphq_studio_generations` do usuário onde `kind='audio'` e `output_url` não nulo.
+  - Lista de até 3 URLs (chip removível) — limite da API.
+- Adicionar campo **duração** (5/10/15s) e **resolução** (720p/1080p) específicos.
+- No envio: passar `params: { reference_audio_urls: [...], generate_audio: false, duration, resolution }` e `image_url` (first_frame_url) — bloquear `last_frame_url` quando há áudio.
+- Aviso visual: "Áudio combinado até 15s. First frame + áudio são exclusivos com last frame."
+
+### 2. Edge Function `studio-generate`
+
+- Em `kieVideo()`, quando `model === 'seedance-2'` e `params.reference_audio_urls?.length`:
+  - Montar input com `first_frame_url` (vindo de `body.image_url`), `reference_audio_urls`, `generate_audio: false`, `resolution`, `duration`.
+  - Não enviar `last_frame_url`.
+- Demais modelos seguem fluxo atual.
+
+### 3. Workflow — novo step "Lipsync"
+
+- Em `workflowTemplates.ts`, adicionar tipo de step `kind: "lipsync"` com:
+  - `provider: "kie"`, `model: "seedance-2"`.
+  - `image_var`: referência ao output de um step de imagem (`{{step1.output}}`).
+  - `audio_var`: referência ao output de um step de áudio (`{{step2.output}}`).
+  - `params`: `duration`, `resolution`, `prompt` (descrição de fala/expressão).
+- Em `StudioWorkflow.tsx` (editor), adicionar opção "Lipsync (Seedance 2)" no menu de adicionar step, com seletores de qual step fornece imagem e qual fornece áudio.
+
+### 4. Edge Function `studio-workflow-run`
+
+- Resolver `image_var` e `audio_var` para URLs concretas dos `step_outputs`.
+- Chamar `studio-generate` internamente com `kind:"video"`, `provider:"kie"`, `model:"seedance-2"`, `image_url`, `params.reference_audio_urls=[audioUrl]`, `params.generate_audio=false`.
+- Pollar `studio-generate-status` (já trata Kie genericamente — sem mudanças lá).
+
+### 5. Template "Avatar Falante"
+
+Em `src/data/studio/workflowTemplates.ts` adicionar:
 
 ```text
-┌─────────────────────────────────────────────┐
-│ Workflow: [Reels com narração ▼] [Salvar]  │
-├─────────────────────────────────────────────┤
-│ ① Imagem  Kie / nano-banana       [✓ pronto]│
-│   prompt: "Personagem misterioso..."        │
-│   ↓ output → frame inicial do step ②       │
-├─────────────────────────────────────────────┤
-│ ② Vídeo   Kie / veo3.1   image-to-video    │
-│   prompt: "Câmera aproxima lentamente"      │
-│   image_url: {{step1.output}}               │
-│   ↓ output → vídeo final                    │
-├─────────────────────────────────────────────┤
-│ ③ Áudio   ElevenLabs / George               │
-│   text: "Narração do roteiro..."            │
-├─────────────────────────────────────────────┤
-│ [+ Adicionar step]   [▶ Executar tudo]     │
-└─────────────────────────────────────────────┘
+Step 1: Imagem (Kie nano-banana / Flux Kontext)
+  → prompt: "Avatar premium olhando para a câmera, iluminação cinematográfica, 9:16"
+Step 2: Áudio (ElevenLabs TTS)
+  → prompt: texto da fala, voice_id selecionável
+Step 3: Lipsync (Kie seedance-2)
+  → image_var: {{step1.output}}
+  → audio_var: {{step2.output}}
+  → params: { duration: 10, resolution: "1080p", generate_audio: false }
 ```
 
-- Cada step: kind + provider + model + prompt + params
-- Campos suportam **variáveis** `{{step1.output}}`, `{{step2.output}}` que são resolvidas em runtime
-- Status visual por step: idle / processing / completed / failed
-- "Executar tudo" roda em sequência: aguarda step N completar antes de iniciar N+1
-- Cada step grava em `imphq_studio_generations` normalmente (gallery continua funcionando)
+### 6. Storage
 
-### Templates prontos
-- **Reels com narração**: imagem → vídeo I2V → áudio TTS
-- **Carrossel 3 slides**: 3 imagens em paralelo (mesmo briefing, prompts variados)
-- **Story animado**: imagem 9:16 → vídeo 5s 9:16
-- **Anúncio com voz**: imagem → vídeo → áudio (mesmo do Reels mas presets de copy)
-
-### Persistência
-
-Nova tabela `imphq_studio_workflows`:
-- `id` UUID, `user_id` UUID, `projeto_id` TEXT (nullable)
-- `name` TEXT
-- `template_key` TEXT (nullable — qual template originou)
-- `steps` JSONB — array de `{ kind, provider, model, prompt, params, voice_id?, depends_on?: number, image_var?: string }`
-- `created_at`, `updated_at`
-
-Nova tabela `imphq_studio_workflow_runs`:
-- `id` UUID, `workflow_id` UUID, `user_id` UUID
-- `status` TEXT (running / completed / failed)
-- `step_outputs` JSONB — `{ "1": "https://...", "2": "https://..." }`
-- `current_step` INT
-- `error` TEXT
-- `created_at`, `updated_at`
-
-RLS: dono = `user_id` em ambas, padrão das tabelas existentes.
-
-### Edge Function nova: `studio-workflow-run`
-
-Fluxo:
-1. Recebe `workflow_id` (ou steps inline)
-2. Cria row em `imphq_studio_workflow_runs` (status `running`)
-3. Para cada step:
-   - Resolve variáveis `{{stepN.output}}` em prompts e `image_url`/`image_input`
-   - Chama internamente a mesma lógica de `studio-generate` (refatorar handlers em helpers compartilháveis OU `supabase.functions.invoke("studio-generate", ...)`)
-   - Se `provider` for assíncrono (kie/luma): faz polling interno (até ~3 min com backoff) até `output_url` aparecer em `imphq_studio_generations`
-   - Salva URL em `step_outputs[N]` e atualiza `current_step`
-4. Marca run como `completed` ou `failed`
-
-Frontend acompanha via subscription/poll a `imphq_studio_workflow_runs.status` e `step_outputs`.
-
-### Componentes frontend novos
-- `src/components/studio/StudioWorkflow.tsx` — aba principal, lista templates + workflows salvos
-- `src/components/studio/WorkflowEditor.tsx` — editor linear de steps (add/remove/reorder, configurar cada step)
-- `src/components/studio/WorkflowStepCard.tsx` — card individual com status e preview de output
-- `src/data/studio/workflowTemplates.ts` — definição dos 4 templates iniciais
-
-`Studio.tsx` ganha tabs: **Gerador** (atual) | **Workflow** (novo) | **Prompts** (atual)
+- Reutilizar bucket `creative-assets` (já público) com prefixo `studio-audio/{userId}/`.
+- Sem migração nova — `imphq_studio_generations.params` JSONB já guarda `reference_audio_urls`.
 
 ---
 
-## Detalhes técnicos
+### Detalhes técnicos
 
-- **Aspect ratios suportados** por modelo: mapa em `IMAGE_MODELS_KIE`/`VIDEO_MODELS_KIE` indicando quais aceitam `9:16`, `16:9`, etc., para mostrar só opções válidas no select.
-- **Variáveis**: regex simples `/\{\{step(\d+)\.output\}\}/g` na edge function, substitui pelo URL do step referenciado.
-- **Falhas**: se step N falha, run fica `failed`, steps N+1 não rodam, frontend mostra qual step quebrou.
-- **Custo estimado**: opcional, somar `cost_usd` dos generations associadas ao run.
-- **Cancelamento**: botão "parar" marca run como `failed` com mensagem "cancelado pelo usuário".
+- API Kie endpoint: `https://api.kie.ai/api/v1/jobs/createTask` com `model: "bytedance/seedance-2"` (verificar se precisa do prefixo `bytedance/` ou só `seedance-2` — alinhar com docs do Kie; default seguro: `bytedance/seedance-2`).
+- Polling de resultado já funciona via `studio-generate-status` (lê `resultUrls[0]` / `videoUrl`).
+- Validações no frontend: máx 3 URLs de áudio, áudio total ≤15s (aviso, sem bloqueio — Kie valida), duração do vídeo ≤15s.
+- Sem alterações em RLS, tipos Supabase, ou tabela.
 
-## Fora de escopo
-- Canvas drag-and-drop (React Flow) — mantemos linear conforme escolha.
-- Loops, condicionais, branches no workflow.
-- Execução paralela de steps (exceto template "Carrossel" que é caso especial).
-- Compartilhar workflows entre usuários do mesmo projeto.
+### Fora de escopo
+
+- Medir duração real dos áudios localmente (deixar Kie validar).
+- Geração paralela de múltiplos avatares no mesmo workflow.
+- Editor de timing/legendas pós-lipsync.
