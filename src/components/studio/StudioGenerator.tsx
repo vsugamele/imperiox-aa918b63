@@ -23,11 +23,19 @@ type Generation = {
   created_at: string;
 };
 
-const IMAGE_MODELS = [
+const IMAGE_MODELS_OPENROUTER = [
   { value: "google/gemini-3-flash-image-preview", label: "Gemini 3.1 Flash (Nano Banana 2)" },
   { value: "google/gemini-3-pro-image-preview", label: "Gemini 3 Pro Image" },
   { value: "recraft/recraft-v4-pro", label: "Recraft V4 Pro (texto legível, $0.25)" },
   { value: "recraft/recraft-v4", label: "Recraft V4 ($0.04)" },
+];
+
+const IMAGE_MODELS_KIE = [
+  { value: "gpt-image-2", label: "GPT Image 2 (OpenAI — fotorealista, edita imagem)" },
+];
+
+const IMAGE_MODELS_LUMA = [
+  { value: "uni-1", label: "Luma uni-1 (rápido, multi-painel, edita imagem)" },
 ];
 
 const VIDEO_MODELS_OPENROUTER = [
@@ -57,8 +65,11 @@ export function StudioGenerator() {
   const [busy, setBusy] = useState(false);
 
   // Image form
-  const [imgModel, setImgModel] = useState(IMAGE_MODELS[0].value);
+  const [imgProvider, setImgProvider] = useState<"openrouter" | "kie" | "luma">("openrouter");
+  const [imgModel, setImgModel] = useState(IMAGE_MODELS_OPENROUTER[0].value);
   const [imgPrompt, setImgPrompt] = useState("");
+  const [imgRefUrl, setImgRefUrl] = useState("");
+  const [imgAspect, setImgAspect] = useState("1:1");
 
   // Video form
   const [vidProvider, setVidProvider] = useState<"openrouter" | "kie">("openrouter");
@@ -106,7 +117,14 @@ export function StudioGenerator() {
       let payload: any;
       if (activeKind === "image") {
         if (!imgPrompt.trim()) return toast.error("Prompt vazio");
-        payload = { kind: "image", provider: "openrouter", model: imgModel, prompt: imgPrompt };
+        payload = {
+          kind: "image",
+          provider: imgProvider,
+          model: imgModel,
+          prompt: imgPrompt,
+          image_url: imgRefUrl || undefined,
+          params: imgProvider === "openrouter" ? {} : { aspect_ratio: imgAspect, size: imgAspect === "1:1" ? "1024x1024" : imgAspect === "16:9" ? "1536x864" : "864x1536", quality: "high" },
+        };
       } else if (activeKind === "video") {
         if (!vidPrompt.trim()) return toast.error("Prompt vazio");
         payload = {
@@ -160,16 +178,55 @@ export function StudioGenerator() {
           {activeKind === "image" && (
             <>
               <div>
-                <Label className="text-xs">Modelo (OpenRouter)</Label>
+                <Label className="text-xs">Provider</Label>
+                <Select value={imgProvider} onValueChange={(v: any) => {
+                  setImgProvider(v);
+                  setImgModel(v === "openrouter" ? IMAGE_MODELS_OPENROUTER[0].value : v === "kie" ? IMAGE_MODELS_KIE[0].value : IMAGE_MODELS_LUMA[0].value);
+                }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openrouter">OpenRouter (Gemini / Recraft — síncrono)</SelectItem>
+                    <SelectItem value="kie">Kie.ai (GPT Image 2 — assíncrono)</SelectItem>
+                    <SelectItem value="luma">Luma (uni-1 — assíncrono)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Modelo</Label>
                 <Select value={imgModel} onValueChange={setImgModel}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{IMAGE_MODELS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {(imgProvider === "openrouter" ? IMAGE_MODELS_OPENROUTER : imgProvider === "kie" ? IMAGE_MODELS_KIE : IMAGE_MODELS_LUMA).map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-xs">Prompt</Label>
                 <Textarea rows={6} value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)} placeholder="Cena ultrarrealista, iluminação cinematográfica..." />
               </div>
+              {(imgProvider === "kie" || imgProvider === "luma") && (
+                <>
+                  <div>
+                    <Label className="text-xs">Imagem de referência (opcional — para edição)</Label>
+                    <Input value={imgRefUrl} onChange={(e) => setImgRefUrl(e.target.value)} placeholder="https://..." />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Proporção</Label>
+                    <Select value={imgAspect} onValueChange={setImgAspect}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1:1">1:1</SelectItem>
+                        <SelectItem value="9:16">9:16 (Reels / Story)</SelectItem>
+                        <SelectItem value="16:9">16:9</SelectItem>
+                        <SelectItem value="3:4">3:4</SelectItem>
+                        <SelectItem value="4:3">4:3</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </>
           )}
 

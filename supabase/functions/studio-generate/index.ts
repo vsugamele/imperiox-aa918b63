@@ -9,13 +9,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+const LUMA_API_KEY = Deno.env.get("LUMA_API_KEY");
 const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
 
 const BUCKET = "creative-assets";
 
 type Body = {
   kind: "image" | "video" | "audio";
-  provider: "openrouter" | "kie" | "elevenlabs";
+  provider: "openrouter" | "kie" | "elevenlabs" | "luma";
   model: string;
   prompt: string;
   negative_prompt?: string;
@@ -124,7 +125,48 @@ async function kieVideo(model: string, prompt: string, params: any, image_url?: 
   return { taskId };
 }
 
-// ---------- ELEVENLABS: AUDIO ----------
+// ---------- KIE.AI: IMAGE (GPT Image 2 etc) ----------
+async function kieImage(model: string, prompt: string, params: any, image_input?: string): Promise<{ taskId: string }> {
+  const input: any = {
+    prompt,
+    size: params?.size ?? "1024x1024",
+    quality: params?.quality ?? "high",
+    ...(params?.aspect_ratio ? { aspect_ratio: params.aspect_ratio } : {}),
+    ...(image_input ? { image_input } : {}),
+  };
+  const resp = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KIE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, input }),
+  });
+  if (!resp.ok) throw new Error(`Kie image ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json();
+  const taskId = data?.data?.taskId || data?.taskId || data?.data?.task_id;
+  if (!taskId) throw new Error("Kie.ai: taskId ausente. " + JSON.stringify(data).slice(0, 300));
+  return { taskId };
+}
+
+// ---------- LUMA: IMAGE (uni-1) ----------
+async function lumaImage(model: string, prompt: string, params: any, image_url?: string): Promise<{ id: string }> {
+  const body: any = {
+    model: model || "uni-1",
+    type: image_url ? "edit" : "image",
+    prompt,
+    ...(params?.aspect_ratio ? { aspect_ratio: params.aspect_ratio } : {}),
+    ...(image_url ? { image: { url: image_url } } : {}),
+  };
+  const resp = await fetch("https://api.lumalabs.ai/agents/v1/generations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LUMA_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`Luma create ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json();
+  const id = data?.id || data?.generation?.id;
+  if (!id) throw new Error("Luma: id ausente. " + JSON.stringify(data).slice(0, 300));
+  return { id };
+}
+
 async function elevenlabsTts(voice_id: string, text: string, model: string): Promise<{ b64: string }> {
   const vid = voice_id || "JBFqnCBsd6RMkjVDRZzb";
   const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
@@ -171,7 +213,7 @@ Deno.serve(async (req) => {
         prompt,
         negative_prompt: body.negative_prompt,
         params: body.params || {},
-        status: provider === "kie" ? "processing" : "pending",
+        status: provider === "kie" || provider === "luma" ? "processing" : "pending",
         nicho: body.nicho,
         projeto_id: body.projeto_id,
         source_prompt_id: body.source_prompt_id,
@@ -212,6 +254,20 @@ Deno.serve(async (req) => {
         const { taskId } = await kieVideo(model, prompt, body.params || {}, body.image_url);
         await admin.from("imphq_studio_generations").update({ status: "processing", external_id: taskId }).eq("id", row.id);
         return new Response(JSON.stringify({ ok: true, id: row.id, taskId, status: "processing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      if (kind === "image" && provider === "kie") {
+        if (!KIE_API_KEY) throw new Error("KIE_API_KEY ausente");
+        const { taskId } = await kieImage(model, prompt, body.params || {}, body.image_url);
+        await admin.from("imphq_studio_generations").update({ status: "processing", external_id: taskId }).eq("id", row.id);
+        return new Response(JSON.stringify({ ok: true, id: row.id, taskId, status: "processing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      if (kind === "image" && provider === "luma") {
+        if (!LUMA_API_KEY) throw new Error("LUMA_API_KEY ausente — adicione em Edge Function Secrets");
+        const { id: extId } = await lumaImage(model, prompt, body.params || {}, body.image_url);
+        await admin.from("imphq_studio_generations").update({ status: "processing", external_id: extId }).eq("id", row.id);
+        return new Response(JSON.stringify({ ok: true, id: row.id, taskId: extId, status: "processing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       if (kind === "audio" && provider === "elevenlabs") {
