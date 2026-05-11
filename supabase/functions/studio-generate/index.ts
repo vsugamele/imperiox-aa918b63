@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
         prompt,
         negative_prompt: body.negative_prompt,
         params: body.params || {},
-        status: provider === "kie" ? "processing" : "pending",
+        status: provider === "kie" || provider === "luma" ? "processing" : "pending",
         nicho: body.nicho,
         projeto_id: body.projeto_id,
         source_prompt_id: body.source_prompt_id,
