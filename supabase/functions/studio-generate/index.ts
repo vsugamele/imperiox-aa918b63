@@ -256,6 +256,20 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, id: row.id, taskId, status: "processing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      if (kind === "image" && provider === "kie") {
+        if (!KIE_API_KEY) throw new Error("KIE_API_KEY ausente");
+        const { taskId } = await kieImage(model, prompt, body.params || {}, body.image_url);
+        await admin.from("imphq_studio_generations").update({ status: "processing", external_id: taskId }).eq("id", row.id);
+        return new Response(JSON.stringify({ ok: true, id: row.id, taskId, status: "processing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      if (kind === "image" && provider === "luma") {
+        if (!LUMA_API_KEY) throw new Error("LUMA_API_KEY ausente — adicione em Edge Function Secrets");
+        const { id: extId } = await lumaImage(model, prompt, body.params || {}, body.image_url);
+        await admin.from("imphq_studio_generations").update({ status: "processing", external_id: extId }).eq("id", row.id);
+        return new Response(JSON.stringify({ ok: true, id: row.id, taskId: extId, status: "processing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       if (kind === "audio" && provider === "elevenlabs") {
         if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_API_KEY ausente");
         const { b64 } = await elevenlabsTts(body.voice_id || "", prompt, model);
