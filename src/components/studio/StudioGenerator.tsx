@@ -7,8 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Image as ImageIcon, Video, Mic, Trash2, Download, RefreshCw } from "lucide-react";
+import { Loader2, Image as ImageIcon, Video, Mic, Trash2, Download, RefreshCw, X, Music } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { FileUpload } from "@/components/FileUpload";
 
 type Generation = {
   id: string;
