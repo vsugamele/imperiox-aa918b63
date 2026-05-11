@@ -18575,6 +18575,86 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_studio_workflow_runs: {
+        Row: {
+          created_at: string
+          current_step: number
+          error: string | null
+          generation_ids: Json
+          id: string
+          status: string
+          step_outputs: Json
+          updated_at: string
+          user_id: string
+          workflow_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          generation_ids?: Json
+          id?: string
+          status?: string
+          step_outputs?: Json
+          updated_at?: string
+          user_id: string
+          workflow_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          generation_ids?: Json
+          id?: string
+          status?: string
+          step_outputs?: Json
+          updated_at?: string
+          user_id?: string
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_workflow_runs_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_studio_workflows: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          projeto_id: string | null
+          steps: Json
+          template_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          projeto_id?: string | null
+          steps?: Json
+          template_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          projeto_id?: string | null
+          steps?: Json
+          template_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_swipe_templates: {
         Row: {
           created_at: string
