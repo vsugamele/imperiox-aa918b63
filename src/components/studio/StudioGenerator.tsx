@@ -117,7 +117,14 @@ export function StudioGenerator() {
       let payload: any;
       if (activeKind === "image") {
         if (!imgPrompt.trim()) return toast.error("Prompt vazio");
-        payload = { kind: "image", provider: "openrouter", model: imgModel, prompt: imgPrompt };
+        payload = {
+          kind: "image",
+          provider: imgProvider,
+          model: imgModel,
+          prompt: imgPrompt,
+          image_url: imgRefUrl || undefined,
+          params: imgProvider === "openrouter" ? {} : { aspect_ratio: imgAspect, size: imgAspect === "1:1" ? "1024x1024" : imgAspect === "16:9" ? "1536x864" : "864x1536", quality: "high" },
+        };
       } else if (activeKind === "video") {
         if (!vidPrompt.trim()) return toast.error("Prompt vazio");
         payload = {
