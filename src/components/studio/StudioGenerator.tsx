@@ -96,6 +96,33 @@ export function StudioGenerator() {
   const [vidImage, setVidImage] = useState("");
   const [vidDuration, setVidDuration] = useState("5");
   const [vidAspect, setVidAspect] = useState("9:16");
+  const [vidResolution, setVidResolution] = useState("1080p");
+  // Lipsync (Seedance 2)
+  const [audioRefUrls, setAudioRefUrls] = useState<string[]>([]);
+  const [audioUrlInput, setAudioUrlInput] = useState("");
+  const [audioPickerOpen, setAudioPickerOpen] = useState(false);
+  const [generatedAudios, setGeneratedAudios] = useState<Generation[]>([]);
+
+  function addAudioUrl(u: string) {
+    const url = u.trim();
+    if (!url) return;
+    if (audioRefUrls.length >= 3) { toast.error("Máximo 3 áudios de referência"); return; }
+    if (audioRefUrls.includes(url)) return;
+    setAudioRefUrls([...audioRefUrls, url]);
+    setAudioUrlInput("");
+  }
+
+  async function openAudioPicker() {
+    setAudioPickerOpen(true);
+    const { data } = await supabase
+      .from("imphq_studio_generations")
+      .select("*")
+      .eq("kind", "audio")
+      .not("output_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setGeneratedAudios((data as any) || []);
+  }
 
   // Audio form
   const [audVoice, setAudVoice] = useState(VOICES[0].value);
