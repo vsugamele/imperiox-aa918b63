@@ -336,6 +336,22 @@ export function StudioWorkflow() {
                     </div>
                   )}
 
+                  {step.kind === "video" && step.provider === "kie" && step.model === "seedance-2" && (
+                    <div>
+                      <Label className="text-xs flex items-center gap-1">
+                        🎤 Áudio de referência (Lipsync)
+                      </Label>
+                      <Input
+                        value={step.audio_url || ""}
+                        onChange={(e) => updateStep(idx, { audio_url: e.target.value || undefined })}
+                        placeholder="https://...mp3 ou {{step2.output}}"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Combinado ≤ 15s. Sincroniza lábios do avatar com este áudio.
+                      </p>
+                    </div>
+                  )}
+
                   {step.kind === "audio" && (
                     <div>
                       <Label className="text-xs">Voz</Label>
