@@ -16,6 +16,7 @@ type Step = {
   params?: Record<string, any>;
   voice_id?: string;
   image_url?: string;
+  audio_url?: string;
 };
 
 function resolveVars(text: string | undefined, outputs: Record<string, string>): string | undefined {
@@ -28,6 +29,7 @@ function resolveStep(step: Step, outputs: Record<string, string>): Step {
     ...step,
     prompt: resolveVars(step.prompt, outputs) || step.prompt,
     image_url: resolveVars(step.image_url, outputs) || undefined,
+    audio_url: resolveVars(step.audio_url, outputs) || undefined,
   };
 }
 
