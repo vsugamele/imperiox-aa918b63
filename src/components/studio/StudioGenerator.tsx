@@ -172,13 +172,29 @@ export function StudioGenerator() {
         };
       } else if (activeKind === "video") {
         if (!vidPrompt.trim()) return toast.error("Prompt vazio");
+        const isLipsync = vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel);
+        if (isLipsync && audioRefUrls.length === 0) {
+          return toast.error("Seedance 2: adicione pelo menos 1 URL de áudio de referência");
+        }
+        if (isLipsync && !vidImage) {
+          return toast.error("Seedance 2 com lipsync exige uma imagem inicial (first frame)");
+        }
+        const params: Record<string, any> = {
+          duration: Number(vidDuration),
+          aspect_ratio: vidAspect,
+          resolution: isLipsync ? vidResolution : "720p",
+        };
+        if (isLipsync) {
+          params.reference_audio_urls = audioRefUrls;
+          params.generate_audio = false;
+        }
         payload = {
           kind: "video",
           provider: vidProvider,
           model: vidModel,
           prompt: vidPrompt,
           image_url: vidImage || undefined,
-          params: { duration: Number(vidDuration), aspect_ratio: vidAspect, resolution: "720p" },
+          params,
         };
       } else {
         if (!audText.trim()) return toast.error("Texto vazio");
