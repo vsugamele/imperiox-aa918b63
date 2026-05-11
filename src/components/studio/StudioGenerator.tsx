@@ -23,11 +23,19 @@ type Generation = {
   created_at: string;
 };
 
-const IMAGE_MODELS = [
+const IMAGE_MODELS_OPENROUTER = [
   { value: "google/gemini-3-flash-image-preview", label: "Gemini 3.1 Flash (Nano Banana 2)" },
   { value: "google/gemini-3-pro-image-preview", label: "Gemini 3 Pro Image" },
   { value: "recraft/recraft-v4-pro", label: "Recraft V4 Pro (texto legível, $0.25)" },
   { value: "recraft/recraft-v4", label: "Recraft V4 ($0.04)" },
+];
+
+const IMAGE_MODELS_KIE = [
+  { value: "gpt-image-2", label: "GPT Image 2 (OpenAI — fotorealista, edita imagem)" },
+];
+
+const IMAGE_MODELS_LUMA = [
+  { value: "uni-1", label: "Luma uni-1 (rápido, multi-painel, edita imagem)" },
 ];
 
 const VIDEO_MODELS_OPENROUTER = [
