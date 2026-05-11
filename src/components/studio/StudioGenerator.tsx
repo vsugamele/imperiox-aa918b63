@@ -386,6 +386,7 @@ export function StudioGenerator() {
                     <SelectContent>
                       <SelectItem value="5">5s</SelectItem>
                       <SelectItem value="10">10s</SelectItem>
+                      {vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel) && <SelectItem value="15">15s</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
