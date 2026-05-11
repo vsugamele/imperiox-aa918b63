@@ -21,9 +21,12 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-3xl grid-cols-4">
+        <TabsList className="grid w-full max-w-4xl grid-cols-5">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
+          </TabsTrigger>
+          <TabsTrigger value="workflow" className="gap-2">
+            <Workflow className="h-4 w-4" /> Workflow
           </TabsTrigger>
           <TabsTrigger value="prompts" className="gap-2">
             <Sparkles className="h-4 w-4" /> Prompts
@@ -38,6 +41,10 @@ export default function Studio() {
 
         <TabsContent value="generator" className="mt-6">
           <StudioGenerator />
+        </TabsContent>
+
+        <TabsContent value="workflow" className="mt-6">
+          <StudioWorkflow />
         </TabsContent>
 
         <TabsContent value="prompts" className="mt-6">
