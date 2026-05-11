@@ -7,8 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Image as ImageIcon, Video, Mic, Trash2, Download, RefreshCw } from "lucide-react";
+import { Loader2, Image as ImageIcon, Video, Mic, Trash2, Download, RefreshCw, X, Music } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { FileUpload } from "@/components/FileUpload";
 
 type Generation = {
   id: string;
@@ -51,6 +53,7 @@ const VIDEO_MODELS_OPENROUTER = [
 ];
 
 const VIDEO_MODELS_KIE = [
+  { value: "seedance-2", label: "Seedance 2 (Bytedance — LIPSYNC com áudio)" },
   { value: "veo3-fast", label: "Google Veo 3 Fast" },
   { value: "veo3", label: "Google Veo 3" },
   { value: "veo3.1", label: "Google Veo 3.1 (mais novo)" },
@@ -62,6 +65,8 @@ const VIDEO_MODELS_KIE = [
   { value: "pixverse-v5", label: "Pixverse V5" },
   { value: "minimax-video-01", label: "MiniMax Video 01" },
 ];
+
+const LIPSYNC_MODELS = new Set(["seedance-2"]);
 
 const VOICES = [
   { value: "JBFqnCBsd6RMkjVDRZzb", label: "George (masc, narrador)" },
@@ -91,6 +96,33 @@ export function StudioGenerator() {
   const [vidImage, setVidImage] = useState("");
   const [vidDuration, setVidDuration] = useState("5");
   const [vidAspect, setVidAspect] = useState("9:16");
+  const [vidResolution, setVidResolution] = useState("1080p");
+  // Lipsync (Seedance 2)
+  const [audioRefUrls, setAudioRefUrls] = useState<string[]>([]);
+  const [audioUrlInput, setAudioUrlInput] = useState("");
+  const [audioPickerOpen, setAudioPickerOpen] = useState(false);
+  const [generatedAudios, setGeneratedAudios] = useState<Generation[]>([]);
+
+  function addAudioUrl(u: string) {
+    const url = u.trim();
+    if (!url) return;
+    if (audioRefUrls.length >= 3) { toast.error("Máximo 3 áudios de referência"); return; }
+    if (audioRefUrls.includes(url)) return;
+    setAudioRefUrls([...audioRefUrls, url]);
+    setAudioUrlInput("");
+  }
+
+  async function openAudioPicker() {
+    setAudioPickerOpen(true);
+    const { data } = await supabase
+      .from("imphq_studio_generations")
+      .select("*")
+      .eq("kind", "audio")
+      .not("output_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setGeneratedAudios((data as any) || []);
+  }
 
   // Audio form
   const [audVoice, setAudVoice] = useState(VOICES[0].value);
@@ -140,13 +172,29 @@ export function StudioGenerator() {
         };
       } else if (activeKind === "video") {
         if (!vidPrompt.trim()) return toast.error("Prompt vazio");
+        const isLipsync = vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel);
+        if (isLipsync && audioRefUrls.length === 0) {
+          return toast.error("Seedance 2: adicione pelo menos 1 URL de áudio de referência");
+        }
+        if (isLipsync && !vidImage) {
+          return toast.error("Seedance 2 com lipsync exige uma imagem inicial (first frame)");
+        }
+        const params: Record<string, any> = {
+          duration: Number(vidDuration),
+          aspect_ratio: vidAspect,
+          resolution: isLipsync ? vidResolution : "720p",
+        };
+        if (isLipsync) {
+          params.reference_audio_urls = audioRefUrls;
+          params.generate_audio = false;
+        }
         payload = {
           kind: "video",
           provider: vidProvider,
           model: vidModel,
           prompt: vidPrompt,
           image_url: vidImage || undefined,
-          params: { duration: Number(vidDuration), aspect_ratio: vidAspect, resolution: "720p" },
+          params,
         };
       } else {
         if (!audText.trim()) return toast.error("Texto vazio");
@@ -269,9 +317,67 @@ export function StudioGenerator() {
                 <Textarea rows={5} value={vidPrompt} onChange={(e) => setVidPrompt(e.target.value)} placeholder="Cena, ação, movimento de câmera..." />
               </div>
               <div>
-                <Label className="text-xs">Imagem inicial (opcional, image-to-video)</Label>
+                <Label className="text-xs">
+                  {vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel) ? "Imagem do avatar (first frame — obrigatório)" : "Imagem inicial (opcional, image-to-video)"}
+                </Label>
                 <Input value={vidImage} onChange={(e) => setVidImage(e.target.value)} placeholder="https://..." />
               </div>
+
+              {vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel) && (
+                <div className="rounded border border-primary/40 bg-primary/5 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Music className="h-4 w-4 text-primary" />
+                    <Label className="text-xs font-semibold">Áudio de Referência (Lipsync)</Label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-4">
+                    Até 3 áudios. Combinado ≤ 15s. O Seedance 2 sincroniza os lábios do avatar com este áudio.
+                  </p>
+                  {audioRefUrls.length > 0 && (
+                    <div className="space-y-1">
+                      {audioRefUrls.map((u, i) => (
+                        <div key={i} className="flex items-center gap-1 text-[11px] bg-background/40 rounded px-2 py-1">
+                          <span className="flex-1 truncate">{u}</span>
+                          <button onClick={() => setAudioRefUrls(audioRefUrls.filter((_, j) => j !== i))}>
+                            <X className="h-3 w-3 text-destructive" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-1">
+                    <Input
+                      value={audioUrlInput}
+                      onChange={(e) => setAudioUrlInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addAudioUrl(audioUrlInput))}
+                      placeholder="https://...mp3"
+                      className="h-8 text-xs"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => addAudioUrl(audioUrlInput)}>+</Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <FileUpload
+                      bucket="creative-assets"
+                      path="studio-audio"
+                      accept="audio/*"
+                      label="Upload"
+                      onUpload={(url) => addAudioUrl(url)}
+                    />
+                    <Button size="sm" variant="outline" onClick={openAudioPicker}>
+                      <Music className="h-3 w-3 mr-1" /> Áudio gerado
+                    </Button>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Resolução</Label>
+                    <Select value={vidResolution} onValueChange={setVidResolution}>
+                      <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="720p">720p</SelectItem>
+                        <SelectItem value="1080p">1080p</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Duração (s)</Label>
@@ -280,6 +386,7 @@ export function StudioGenerator() {
                     <SelectContent>
                       <SelectItem value="5">5s</SelectItem>
                       <SelectItem value="10">10s</SelectItem>
+                      {vidProvider === "kie" && LIPSYNC_MODELS.has(vidModel) && <SelectItem value="15">15s</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -379,6 +486,24 @@ export function StudioGenerator() {
           ))}
         </div>
       </div>
+
+      <Dialog open={audioPickerOpen} onOpenChange={setAudioPickerOpen}>
+        <DialogContent className="bg-secondary/95 border-border max-w-2xl">
+          <DialogHeader><DialogTitle>Selecionar áudio gerado</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {generatedAudios.length === 0 && <p className="text-sm text-muted-foreground">Nenhum áudio disponível.</p>}
+            {generatedAudios.map((a) => (
+              <div key={a.id} className="flex items-center gap-2 p-2 rounded bg-background/40">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs truncate leading-5">{a.prompt}</p>
+                  <audio src={a.output_url!} controls className="w-full h-8 mt-1" />
+                </div>
+                <Button size="sm" onClick={() => { addAudioUrl(a.output_url!); setAudioPickerOpen(false); }}>Usar</Button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

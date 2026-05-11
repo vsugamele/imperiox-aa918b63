@@ -7,6 +7,8 @@ export type WorkflowStep = {
   voice_id?: string;
   // Optional: reference an upstream step output as input image. e.g. "{{step1.output}}"
   image_url?: string;
+  // Optional: reference audio URL for lipsync (e.g. Seedance 2). Supports {{stepN.output}}.
+  audio_url?: string;
 };
 
 export type WorkflowTemplate = {
@@ -117,6 +119,36 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
         prompt: "Câmera orbital lenta ao redor do produto.",
         image_url: "{{step1.output}}",
         params: { aspect_ratio: "1:1", duration: 5, resolution: "720p" },
+      },
+    ],
+  },
+  {
+    key: "avatar_falante",
+    name: "Avatar Falante (Lipsync)",
+    description: "Gera o avatar → cria a fala com ElevenLabs → sincroniza lábios com Seedance 2 da Kie.ai.",
+    steps: [
+      {
+        kind: "image",
+        provider: "kie",
+        model: "nano-banana-2",
+        prompt: "Retrato vertical premium de um avatar olhando diretamente para a câmera, expressão neutra, iluminação cinematográfica suave, fundo desfocado, ultrarrealista, qualidade fotográfica.",
+        params: { aspect_ratio: "9:16", size: "864x1536", quality: "high" },
+      },
+      {
+        kind: "audio",
+        provider: "elevenlabs",
+        model: "eleven_multilingual_v2",
+        prompt: "Olá. Este é o roteiro que o avatar vai falar. Mantenha entre 10 e 15 segundos para garantir o lipsync perfeito.",
+        voice_id: "JBFqnCBsd6RMkjVDRZzb",
+      },
+      {
+        kind: "video",
+        provider: "kie",
+        model: "seedance-2",
+        prompt: "Avatar falando naturalmente para a câmera, micro-expressões realistas, lipsync perfeito.",
+        image_url: "{{step1.output}}",
+        audio_url: "{{step2.output}}",
+        params: { aspect_ratio: "9:16", duration: 10, resolution: "1080p", generate_audio: false },
       },
     ],
   },

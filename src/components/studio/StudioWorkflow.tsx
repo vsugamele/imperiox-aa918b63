@@ -35,6 +35,7 @@ const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
     { value: "bytedance/seedance-2.0", label: "Seedance 2.0 Pro" },
   ],
   "video:kie": [
+    { value: "seedance-2", label: "Seedance 2 (LIPSYNC)" },
     { value: "veo3-fast", label: "Veo 3 Fast" },
     { value: "veo3", label: "Veo 3" },
     { value: "veo3.1", label: "Veo 3.1" },
@@ -332,6 +333,22 @@ export function StudioWorkflow() {
                         onChange={(e) => updateStep(idx, { image_url: e.target.value || undefined })}
                         placeholder="https://... ou {{step1.output}}"
                       />
+                    </div>
+                  )}
+
+                  {step.kind === "video" && step.provider === "kie" && step.model === "seedance-2" && (
+                    <div>
+                      <Label className="text-xs flex items-center gap-1">
+                        🎤 Áudio de referência (Lipsync)
+                      </Label>
+                      <Input
+                        value={step.audio_url || ""}
+                        onChange={(e) => updateStep(idx, { audio_url: e.target.value || undefined })}
+                        placeholder="https://...mp3 ou {{step2.output}}"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Combinado ≤ 15s. Sincroniza lábios do avatar com este áudio.
+                      </p>
                     </div>
                   )}
 

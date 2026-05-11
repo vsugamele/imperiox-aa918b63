@@ -16,6 +16,7 @@ type Step = {
   params?: Record<string, any>;
   voice_id?: string;
   image_url?: string;
+  audio_url?: string;
 };
 
 function resolveVars(text: string | undefined, outputs: Record<string, string>): string | undefined {
@@ -28,6 +29,7 @@ function resolveStep(step: Step, outputs: Record<string, string>): Step {
     ...step,
     prompt: resolveVars(step.prompt, outputs) || step.prompt,
     image_url: resolveVars(step.image_url, outputs) || undefined,
+    audio_url: resolveVars(step.audio_url, outputs) || undefined,
   };
 }
 
@@ -96,12 +98,17 @@ Deno.serve(async (req) => {
         await supabase.from("imphq_studio_workflow_runs").update({ current_step: stepNum }).eq("id", run.id);
 
         const step = resolveStep(steps[i], outputs);
+        const stepParams: Record<string, any> = { ...(step.params || {}) };
+        if (step.audio_url) {
+          stepParams.reference_audio_urls = [step.audio_url];
+          if (stepParams.generate_audio === undefined) stepParams.generate_audio = false;
+        }
         const payload: any = {
           kind: step.kind,
           provider: step.provider,
           model: step.model,
           prompt: step.prompt,
-          params: step.params || {},
+          params: stepParams,
           projeto_id: projetoId,
         };
         if (step.image_url) payload.image_url = step.image_url;
