@@ -17318,6 +17318,39 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_mi_searches: {
+        Row: {
+          created_at: string
+          id: string
+          intel_data: Json | null
+          mode: string
+          project_id: string | null
+          query: string | null
+          result_md: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intel_data?: Json | null
+          mode: string
+          project_id?: string | null
+          query?: string | null
+          result_md?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intel_data?: Json | null
+          mode?: string
+          project_id?: string | null
+          query?: string | null
+          result_md?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_notification_preferences: {
         Row: {
           created_at: string | null
