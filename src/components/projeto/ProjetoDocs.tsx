@@ -5,17 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, FileText, Trash2, Save, Download, Upload, Eye } from "lucide-react";
+import { Plus, FileText, Trash2, Save, Download, Upload, Eye, FileIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DocViewerDialog } from "./DocViewerDialog";
 
 interface Props {
   projectId: string;
 }
 
+const FILE_MARKER = /^\[\[file:(.+?)\|(.+?)\]\]$/;
+function parseDocContent(content: string | null | undefined): { kind: "file" | "text"; url?: string; mime?: string } {
+  if (!content) return { kind: "text" };
+  const m = content.trim().match(FILE_MARKER);
+  if (m) return { kind: "file", url: m[1], mime: m[2] };
+  return { kind: "text" };
+}
+
 export function ProjetoDocs({ projectId }: Props) {
   const [docs, setDocs] = useState<any[]>([]);
   const [editing, setEditing] = useState<any>(null);
+  const [viewing, setViewing] = useState<any>(null);
   const [expertDocIds, setExpertDocIds] = useState<string[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
 
