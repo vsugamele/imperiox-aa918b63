@@ -779,6 +779,12 @@ export default function MarketIntel() {
           </CardContent>
         </Card>
       )}
+
+      <NicheComparator
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        offers={Array.from(compareSet).map(idx => NICHE_OFFERS[idx]).filter(Boolean) as any}
+      />
     </div>
   );
 }
