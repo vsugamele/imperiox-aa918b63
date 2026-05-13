@@ -12,6 +12,7 @@ import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
 import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
 import { AttributionDiagnostic } from "@/components/gerenciador/AttributionDiagnostic";
 import { TictoEventFlowDiagnostic } from "@/components/gerenciador/TictoEventFlowDiagnostic";
+import { RulesPanel } from "@/components/gerenciador/RulesPanel";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
@@ -178,6 +179,9 @@ export default function Gerenciador() {
 
           {/* Alertas críticos */}
           <AlertsHeader ads={metaAds} onFilter={(term) => setForcedSearch(term)} />
+
+          {/* Painel de Regras Automáticas */}
+          <RulesPanel />
 
           {/* Diagnóstico de atribuição */}
           <AttributionDiagnostic vendas={vendas} />

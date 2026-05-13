@@ -15,6 +15,7 @@ import { BulkActionsBar } from "./BulkActionsBar";
 import { BulkBudgetDialog, type BulkBudgetMode } from "./BulkBudgetDialog";
 import { DeltaBadge } from "./DeltaBadge";
 import { Sparkline } from "./Sparkline";
+import { AnomalyBadge } from "./AnomalyBadge";
 import { QuickFilters, type QuickFilterKey } from "./QuickFilters";
 import { InlineRename } from "./InlineRename";
 import { RowHistoryDrawer } from "./RowHistoryDrawer";
@@ -550,7 +551,10 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                     </TableCell>}
                     {isVisible("valor") && <TableCell className="text-right tabular-nums">
                       <div className="flex flex-col items-end">
-                        <span>{brl(row.valor)}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <AnomalyBadge series={dailySpendByCamp?.get(id) || []} label="gasto diário" />
+                          {brl(row.valor)}
+                        </span>
                         <DeltaBadge current={row.valor} previous={prevByCamp.get(row.id)?.valor || 0} inverse={false} />
                       </div>
                     </TableCell>}
