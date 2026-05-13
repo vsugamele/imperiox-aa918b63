@@ -605,7 +605,15 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
         onPause={() => runBulk("PAUSED")}
         onDuplicate={() => runBulk("DUPLICATE_CAMPAIGN")}
         onAdjustBudget={() => setBulkBudgetOpen(true)}
+        onCompare={() => setCompareOpen(true)}
         onClear={() => setSelected(new Set())}
+      />
+
+      <CampaignComparator
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        campaigns={enrichedCampaigns.filter(c => selected.has(c.id)).slice(0, 4) as any}
+        dailySpendByCamp={dailySpendByCamp}
       />
 
       <BulkBudgetDialog
