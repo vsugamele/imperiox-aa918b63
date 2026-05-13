@@ -396,6 +396,21 @@ export default function MarketIntel() {
                   return (
                     <TableRow key={i} className="hover:bg-muted/30 transition-colors">
                       <TableCell>
+                        <Checkbox
+                          checked={compareSet.has(origIndex)}
+                          onCheckedChange={(v) => {
+                            setCompareSet(prev => {
+                              const next = new Set(prev);
+                              if (v) {
+                                if (next.size >= 4) { toast.error("Máximo 4 ofertas"); return prev; }
+                                next.add(origIndex);
+                              } else next.delete(origIndex);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
                         <button onClick={() => toggleFav("offer", String(origIndex))} className="hover:scale-125 transition-transform">
                           <StarIcon className={`h-4 w-4 ${isFav("offer", String(origIndex)) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
                         </button>
