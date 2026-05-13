@@ -15,6 +15,9 @@ import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { SearchHistory } from "@/components/marketintel/SearchHistory";
+import { NicheComparator } from "@/components/marketintel/NicheComparator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { GitCompare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const NICHO_COLORS: Record<string, { bg: string; text: string; border: string; icon: any }> = {
@@ -76,6 +79,8 @@ export default function MarketIntel() {
   const [deepDiveTarget, setDeepDiveTarget] = useState("");
   const [historyKey, setHistoryKey] = useState(0);
   const [vendasNichos, setVendasNichos] = useState<Set<string>>(new Set());
+  const [compareSet, setCompareSet] = useState<Set<number>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -362,12 +367,21 @@ export default function MarketIntel() {
               </SelectContent>
             </Select>
             <Badge variant="outline" className="text-xs">{filteredOffers.length} ofertas</Badge>
+            {compareSet.size >= 2 && (
+              <Button size="sm" variant="outline" onClick={() => setCompareOpen(true)} className="gap-1.5">
+                <GitCompare className="h-3.5 w-3.5" /> Comparar {compareSet.size}
+              </Button>
+            )}
+            {compareSet.size > 0 && (
+              <Button size="sm" variant="ghost" onClick={() => setCompareSet(new Set())}>Limpar</Button>
+            )}
           </div>
 
           <div className="rounded-lg border border-border overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead className="w-8">⭐</TableHead>
                   <TableHead className="min-w-[100px]">Nicho</TableHead>
                   <TableHead className="min-w-[120px]">Micro-Nicho</TableHead>
@@ -389,6 +403,21 @@ export default function MarketIntel() {
                   const NichoIcon = ns.icon;
                   return (
                     <TableRow key={i} className="hover:bg-muted/30 transition-colors">
+                      <TableCell>
+                        <Checkbox
+                          checked={compareSet.has(origIndex)}
+                          onCheckedChange={(v) => {
+                            setCompareSet(prev => {
+                              const next = new Set(prev);
+                              if (v) {
+                                if (next.size >= 4) { toast.error("Máximo 4 ofertas"); return prev; }
+                                next.add(origIndex);
+                              } else next.delete(origIndex);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <button onClick={() => toggleFav("offer", String(origIndex))} className="hover:scale-125 transition-transform">
                           <StarIcon className={`h-4 w-4 ${isFav("offer", String(origIndex)) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
@@ -438,7 +467,7 @@ export default function MarketIntel() {
                   );
                 })}
                 {filteredOffers.length === 0 && (
-                  <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-8">
+                  <TableRow><TableCell colSpan={13} className="text-center text-sm text-muted-foreground py-8">
                     {showFavsOnly ? "Nenhuma oferta favorita encontrada" : "Nenhuma oferta encontrada"}
                   </TableCell></TableRow>
                 )}
@@ -750,6 +779,12 @@ export default function MarketIntel() {
           </CardContent>
         </Card>
       )}
+
+      <NicheComparator
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        offers={Array.from(compareSet).map(idx => NICHE_OFFERS[idx]).filter(Boolean) as any}
+      />
     </div>
   );
 }

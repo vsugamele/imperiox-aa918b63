@@ -19,6 +19,7 @@ import { AnomalyBadge } from "./AnomalyBadge";
 import { QuickFilters, type QuickFilterKey } from "./QuickFilters";
 import { InlineRename } from "./InlineRename";
 import { RowHistoryDrawer } from "./RowHistoryDrawer";
+import { CampaignComparator } from "./CampaignComparator";
 import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
 import { useRevenueMode, getRevenue, type RevenueMode } from "@/lib/revenueMode";
@@ -215,6 +216,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>(null);
   const [bulkBudgetOpen, setBulkBudgetOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<{ id: string; name: string } | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   const [revenueMode] = useRevenueMode();
   const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas, revenueMode), [ads, vendas, revenueMode]);
@@ -603,7 +605,15 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
         onPause={() => runBulk("PAUSED")}
         onDuplicate={() => runBulk("DUPLICATE_CAMPAIGN")}
         onAdjustBudget={() => setBulkBudgetOpen(true)}
+        onCompare={() => setCompareOpen(true)}
         onClear={() => setSelected(new Set())}
+      />
+
+      <CampaignComparator
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        campaigns={enrichedCampaigns.filter(c => selected.has(c.id)).slice(0, 4) as any}
+        dailySpendByCamp={dailySpendByCamp}
       />
 
       <BulkBudgetDialog
