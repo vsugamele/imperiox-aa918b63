@@ -373,6 +373,7 @@ export default function MarketIntel() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead className="w-8">⭐</TableHead>
                   <TableHead className="min-w-[100px]">Nicho</TableHead>
                   <TableHead className="min-w-[120px]">Micro-Nicho</TableHead>
