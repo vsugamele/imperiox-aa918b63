@@ -19,6 +19,7 @@ import { AnomalyBadge } from "./AnomalyBadge";
 import { QuickFilters, type QuickFilterKey } from "./QuickFilters";
 import { InlineRename } from "./InlineRename";
 import { RowHistoryDrawer } from "./RowHistoryDrawer";
+import { CampaignComparator } from "./CampaignComparator";
 import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
 import { useRevenueMode, getRevenue, type RevenueMode } from "@/lib/revenueMode";
