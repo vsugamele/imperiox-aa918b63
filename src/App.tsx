@@ -43,6 +43,7 @@ import Cohort from "./pages/Cohort";
 import Gerenciador from "./pages/Gerenciador";
 import Studio from "./pages/Studio";
 import Swipe from "./pages/Swipe";
+import Imperius from "./pages/Imperius";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -93,6 +94,7 @@ const App = () => (
               <Route path="gerenciador" element={<Gerenciador />} />
               <Route path="studio" element={<Studio />} />
               <Route path="swipe" element={<Swipe />} />
+              <Route path="imperius" element={<Imperius />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
