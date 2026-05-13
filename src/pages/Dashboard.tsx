@@ -24,6 +24,7 @@ import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 import LiveFunnelPanel from "@/components/dashboard/LiveFunnelPanel";
 import DailyBriefing from "@/components/dashboard/DailyBriefing";
 import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
+import AIRevenueRecoveredCard from "@/components/dashboard/AIRevenueRecoveredCard";
 import FacebookHealthAlert from "@/components/dashboard/FacebookHealthAlert";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 
@@ -134,6 +135,7 @@ export default function Dashboard() {
         </div>
         <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
       </div>
+      <AIRevenueRecoveredCard projectFilter={dashProject} />
       <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
       <ActivityFeed period={dashPeriod} projectFilter={dashProject} />

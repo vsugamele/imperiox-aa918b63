@@ -94,3 +94,28 @@ Nova tabela `imphq_ai_actions` (proposed/approved/rejected/executed/reverted) + 
 | 2 | ≥1 venda recuperada/dia atribuída à IA |
 | 3 | ≥5 criativos/semana auto-gerados aprovados; ≥3 ads pausados pela IA |
 | 4 | Chatbot fecha ≥1 venda autonomamente; reversão <10% (qualidade) |
+
+---
+
+## Status Semana 2 (entregue)
+
+- ✅ `payment-recovery` reescrito: 3 toques (15min/2h/24h), 2 variantes A/B por nível (hash determinístico do venda_id), fix da coluna `data` (era `metadata` inexistente), normalização BR (+55), log duplo em `imphq_recovery_logs` + `imphq_ai_actions`.
+- ✅ `hot-lead-responder` (novo): scan a cada 5min; lead score≥70 + Pix/Boleto <30min → mensagem IA (Lovable AI Gateway, Gemini Flash, persona via avatar/brand_kit do projeto). Anti-spam 24h por lead. Auto-executado.
+- ✅ `AIRevenueRecoveredCard` no `/dashboard`: R$ recuperado, vendas atribuídas (paga em ≤48h após toque), toques IA por categoria.
+- ⏳ Pendente Semana 2: nutrição preditiva (auto-enroll via `lead-predict`) — deslocada para junto da Semana 4 (CRM).
+
+### Crons a agendar (rodar no SQL Editor — contém ANON_KEY)
+
+```sql
+select cron.schedule('hot-lead-responder-5min','*/5 * * * *',
+  $$select net.http_post(
+    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/hot-lead-responder',
+    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
+    body:='{}'::jsonb) as request_id;$$);
+
+select cron.schedule('payment-recovery-15min','*/15 * * * *',
+  $$select net.http_post(
+    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/payment-recovery',
+    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
+    body:='{}'::jsonb) as request_id;$$);
+```
