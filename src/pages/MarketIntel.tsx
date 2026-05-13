@@ -79,6 +79,8 @@ export default function MarketIntel() {
   const [deepDiveTarget, setDeepDiveTarget] = useState("");
   const [historyKey, setHistoryKey] = useState(0);
   const [vendasNichos, setVendasNichos] = useState<Set<string>>(new Set());
+  const [compareSet, setCompareSet] = useState<Set<number>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
 
   // Load data
   useEffect(() => {
