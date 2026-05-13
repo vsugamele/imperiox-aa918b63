@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, TrendingUp, Target, Zap, ShoppingCart, Sparkles, Heart, Brain, Leaf, PawPrint, Users, Star, Download, StarIcon, FileText, Swords, Crosshair, Radar, ChevronDown } from "lucide-react";
+import { Search, TrendingUp, Target, Zap, ShoppingCart, Sparkles, Heart, Brain, Leaf, PawPrint, Users, Star, Download, StarIcon, FileText, Swords, Crosshair, Radar, ChevronDown, CheckCircle2, Plus } from "lucide-react";
 import { NICHE_OFFERS, MARKETING_ANGLES, OFFER_FACTORY, UNIQUE_NICHOS } from "@/data/marketIntelData";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { SearchHistory } from "@/components/marketintel/SearchHistory";
+import { useNavigate } from "react-router-dom";
 
 const NICHO_COLORS: Record<string, { bg: string; text: string; border: string; icon: any }> = {
   "Saúde": { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", icon: Heart },
@@ -56,6 +58,7 @@ function downloadCSV(data: Record<string, any>[], filename: string) {
 
 export default function MarketIntel() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [opps, setOpps] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [nichoFilter, setNichoFilter] = useState("all");
@@ -71,11 +74,23 @@ export default function MarketIntel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<"DISCOVERY" | "TREND_SCAN" | "DEEP_DIVE">("DISCOVERY");
   const [deepDiveTarget, setDeepDiveTarget] = useState("");
+  const [historyKey, setHistoryKey] = useState(0);
+  const [vendasNichos, setVendasNichos] = useState<Set<string>>(new Set());
 
   // Load data
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, data").order("name").then(({ data }) => setProjects(data || []));
     supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data }) => setOpps(data || []));
+    // Ponte com vendas: tokens de produtos vendidos nos últimos 90d
+    const since = new Date(Date.now() - 90*24*60*60*1000).toISOString().slice(0, 10);
+    supabase.from("imphq_vendas").select("produto_nome").gte("data_venda", since).limit(2000).then(({ data }) => {
+      const s = new Set<string>();
+      for (const v of data || []) {
+        const p = String(v.produto_nome || "").toLowerCase();
+        for (const tok of p.split(/[\s\-_/,.()]+/).filter(t => t.length > 3)) s.add(tok);
+      }
+      setVendasNichos(s);
+    });
   }, []);
 
   // Load favorites
