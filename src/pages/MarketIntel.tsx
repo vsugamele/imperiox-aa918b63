@@ -459,7 +459,7 @@ export default function MarketIntel() {
                   );
                 })}
                 {filteredOffers.length === 0 && (
-                  <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-8">
+                  <TableRow><TableCell colSpan={13} className="text-center text-sm text-muted-foreground py-8">
                     {showFavsOnly ? "Nenhuma oferta favorita encontrada" : "Nenhuma oferta encontrada"}
                   </TableCell></TableRow>
                 )}
