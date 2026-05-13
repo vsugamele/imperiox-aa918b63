@@ -215,6 +215,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>(null);
   const [bulkBudgetOpen, setBulkBudgetOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<{ id: string; name: string } | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   const [revenueMode] = useRevenueMode();
   const { campaigns, adsetsByCampaign, adsByAdset } = useMemo(() => buildRows(ads, vendas, revenueMode), [ads, vendas, revenueMode]);
