@@ -1,144 +1,88 @@
-# Roadmap 30 dias — Império Autônomo
+## Onde estamos hoje
 
-Objetivo: transformar o sistema de "painel de leitura" em **operador autônomo** que diagnostica, propõe e executa nas 4 frentes (IA decisória, receita, conteúdo, tráfego+CRM), com regra **híbrida**: low-risk roda sozinho, high-risk vai pra fila de aprovação com 1 clique.
+**Gerenciador** já tem: KPI cards com Δ%, alertas, tabela com verdict (ESCALAR/MATAR/SATURADO), bulk toggle, edição de orçamento, sparkline e histórico de ações. Falta autonomia operacional, contexto de criativo e visão de regras.
 
-## Princípio de Autonomia (aplicado a tudo)
-
-Toda ação da IA tem `risk_level` e roteamento automático:
-
-| Risco | Exemplos | Comportamento |
-|---|---|---|
-| **low** | Pausar criativo com CPA 3x acima da meta, follow-up de hot lead, criar tarefa, gerar conteúdo no Studio, marcar lead como frio | **Auto-executa** + log + notificação |
-| **medium** | Subir budget até +20%, disparar broadcast <50 pessoas, mudar oferta de step | Auto se confiança >85%, senão fila |
-| **high** | Pausar campanha inteira, broadcast >50, alterar preço, deletar dados | **Sempre fila** (botão Aprovar/Rejeitar) |
-
-Nova tabela `imphq_ai_actions` (proposed/approved/rejected/executed/reverted) + componente `ActionInbox` no header (sino dourado com badge).
+**Market Intel** já tem: 3 modos de pesquisa IA (Discovery / Trend Scan / Deep Dive), 4 abas (Nichos, Ângulos, Fábrica, DB), favoritos e export CSV. Falta persistência de histórico de pesquisas, comparação entre nichos e ponte com projetos.
 
 ---
 
-## Semana 1 — Fundação: Imperius Autônomo
+## Gerenciador — 6 melhorias prioritárias
 
-**Entregas:**
-1. **Tabela `imphq_ai_actions`** com `risk_level`, `confidence`, `payload`, `revert_payload`, `auto_executed`, `executed_at`.
-2. **Edge Function `imperius-executor`**: recebe action, valida risco, executa via tool calling (Vercel AI SDK + Gemini 3 Pro). Tools: `pauseAd`, `sendWhatsApp`, `createTask`, `updateLead`, `runStudio`, `adjustBudget`.
-3. **`ActionInbox`** no AppLayout (sino + drawer): mostra ações pendentes, executadas (últimas 24h) e botão "Reverter".
-4. **Cron `imperius-scout`** (15min): varre projetos `vendendo`, gera diagnóstico, propõe ações. Usa `healthScore.ts` + `intelligent-alerts` existentes.
-5. **Página `/imperius`**: feed de decisões + métricas (ações/dia, % auto, receita influenciada).
+### 1. Painel de Regras Ativas (visível)
+Hoje o `ads-rules-engine` roda toda hora mas o usuário não enxerga **quais regras estão ativas** nem **o que disparou**. Criar card no topo:
+- Lista de regras (auto-pause CPA > 1.5x, auto-pause CTR < 0.8%, propor escala ROAS ≥ 2.5x)
+- Toggle on/off por regra (persistido em `imphq_ads_rules`)
+- Última execução + nº de ações tomadas nas últimas 24h
 
-**Resultado esperado:** 20-40 micro-decisões/dia rodando sozinhas + fila visível.
+### 2. Bulk Actions expandidos
+Hoje só pausa/ativa/duplica em massa. Adicionar:
+- **Ajuste de orçamento em massa** (já existe BulkBudgetDialog — só conectar ao bulk bar)
+- **Aplicar regra customizada**: "para os selecionados, pausar se CPA > X"
+- **Exportar seleção como playbook** (json com ad_id + budget + status para replicar)
 
----
+### 3. Pré-visualização de criativo inline
+Coluna `thumbnail_url` já existe em `Row` mas não é exibida. Adicionar no nível "ad":
+- Thumbnail 40px à esquerda do nome
+- HoverCard com creative_body + creative_title (ambos já carregados)
 
-## Semana 2 — Receita Autônoma
+### 4. Comparador de Campanhas (lado a lado)
+Selecionar 2-3 campanhas → drawer com tabela comparativa de todas as métricas + gráfico de evolução de gasto (já temos `dailySpendByCamp`).
 
-**Entregas:**
-1. **Recuperador Pix/Boleto turbinado**: `payment-recovery` já existe — adicionar **3 toques escalonados** (15min, 2h, 24h) com copy A/B testada por IA (variação vencedora vira default).
-2. **Hot Lead Auto-Responder**: lead com `score >70` + ação Pix nos últimos 30min → IA dispara mensagem personalizada (usa avatar + branding) **sem aprovação**. Log completo em `imphq_ai_actions`.
-3. **Nutrição preditiva**: `lead-predict` já roda; agora a IA **escolhe automaticamente** qual sequência enrollar baseado no score+intent (low risk).
-4. **Dashboard "Receita Recuperada pela IA"** em `/dashboard`: mostra R$ atribuído às ações automáticas (vendas em até 48h após toque IA).
+### 5. Anomaly detection visual
+Marcar com badge ⚠️ campanhas onde a métrica do dia diverge >2σ da média histórica (CPA explodiu, CTR despencou). Já temos a série diária — basta calcular σ no front.
 
-**Resultado esperado:** +15-30% taxa de recuperação, zero hot lead esquecido.
-
----
-
-## Semana 3 — Studio em Escala + Tráfego Autônomo
-
-**Studio (lote diário automático):**
-1. **`studio-batch-cron`** (diário 6h): para projetos `vendendo`, gera **N criativos/dia** usando templates aprovados (avatar falante, hook+gancho, prova social). Usa Avatar Intelligence + Branding existentes.
-2. **Auto-publish para `imphq_creatives`** marcado como `ai_generated=true`, status `pendente_aprovacao` (high risk, sempre fila).
-3. **Aprendizado**: criativos com CTR top viram **referência automática** no próximo prompt (loop fechado).
-
-**Tráfego (Gerenciador autônomo):**
-1. **Regras Yoshitani automatizadas** (`facebook-ads-toggle` já existe):
-   - CPA > 1.5x meta + >50 cliques → **auto-pausa** (low)
-   - CTR <0.8% após 3 dias → **auto-pausa** (low)
-   - ROAS >2.5x + budget <R$500 → **propõe escala +20%** (medium)
-2. **Diário em `imphq_ads_actions`** com motivo IA + 1-clique reverter.
-3. **Alerta proativo** no WhatsApp do dono se >5 ações high-risk pendentes.
-
-**Resultado esperado:** -30% gasto em criativo ruim, +N criativos novos/semana sem operador.
+### 6. Atalhos de WhatsApp/Imperius
+Botão "Pedir análise IA" por linha → abre chat do Imperius pré-carregado com o contexto da campanha (gasto, CPA, vendas, criativo). Aproveita o `copilot-imperius` existente.
 
 ---
 
-## Semana 4 — CRM Preditivo + Closing Loop
+## Market Intel — 5 melhorias prioritárias
 
-**Entregas:**
-1. **Chatbot WhatsApp upgrade**: hoje é reativo (`autonomous-ai-chatbot`). Tornar **proativo** — dispara primeira mensagem quando `lead-predict` detecta janela ótima (ex.: 19h-21h, alto score).
-2. **Auto-qualificação**: IA conversa, extrai objeções, atualiza `imphq_leads.objecao` e `score`, move no kanban (low risk).
-3. **Handoff inteligente**: quando lead pede preço/link de pagamento → IA envia checkout + notifica humano (medium).
-4. **Relatório Imperador semanal** (segunda 7h, e-mail): "Esta semana a IA executou X ações, recuperou R$Y, gerou Z criativos, qualificou W leads. Fila precisa de sua atenção: N itens."
-5. **Métricas de autonomia** em `/imperius`: % ações auto vs aprovadas, taxa de reversão (qualidade), ROI por categoria.
+### 1. Histórico de Pesquisas
+Hoje cada `Pesquisa Profunda` sobrescreve `data.ai_market_intel` do projeto. Criar tabela `imphq_mi_searches` (project_id, mode, query, result_md, intel_data, created_at) e listar últimas 10 no header. Permite voltar pra análise antiga e comparar.
+
+### 2. Comparador de Nichos
+Checkbox nas linhas de "Mapa de Nichos" → seleciona 2-4 ofertas → abre painel com:
+- Score side-by-side
+- Ticket / Bump / Upsell / dor / sem-rosto
+- Ângulos sugeridos compatíveis (cross-tab com aba Ângulos)
+
+### 3. Ponte com Vendas Reais
+Cruzar `NICHE_OFFERS` com `imphq_vendas` (por nicho/produto) e mostrar coluna "Você já testou?":
+- ✅ se já vendeu produto similar (>0 vendas em 30d)
+- 📊 link pro Dashboard filtrado
+Transforma o Market Intel de catálogo estático em recomendador contextual.
+
+### 4. Geração de Avatar/Briefing direto da oferta
+Botão por linha: "Criar projeto com esta oferta" → pré-preenche briefing, avatar, oferta no `imphq_projects` usando o template. Reduz o tempo "vi nicho legal → testar" de horas pra 1 clique.
+
+### 5. Trend Scan agendado
+Hoje Trend Scan roda manual. Adicionar cron semanal (segundas 06h) que escaneia os 3 nichos favoritados do usuário e salva alerta se aparecer nova oportunidade com score > 8. Notifica via `notify-scheduler`.
 
 ---
 
 ## Detalhes técnicos
 
-- **Stack IA**: Vercel AI SDK + Lovable AI Gateway (`google/gemini-3-pro-preview` para decisões críticas, `flash` para classificação rápida).
-- **Tool calling**: `stopWhen: stepCountIs(50)`, `needsApproval` automático para risk=high.
-- **Tabelas novas**: `imphq_ai_actions`, `imphq_ai_action_logs` (auditoria).
-- **Edge functions novas**: `imperius-executor`, `imperius-scout` (cron), `studio-batch-cron`, `ads-rules-engine` (cron).
-- **Reaproveitar**: `healthScore`, `intelligent-alerts`, `lead-predict`, `payment-recovery`, `facebook-ads-toggle`, `studio-generate`, `autonomous-ai-chatbot`, `whatsapp-api`.
-- **Reversibilidade**: toda ação salva `revert_payload` (estado anterior) por 7 dias.
+**Novas tabelas (mínimo):**
+```sql
+imphq_ads_rules (id, user_id, rule_type, params jsonb, enabled, last_run_at, runs_24h)
+imphq_mi_searches (id, user_id, project_id, mode, query, result_md, intel_data jsonb, created_at)
+```
 
-## Fora de escopo
+**Novos componentes:**
+- `gerenciador/RulesPanel.tsx`, `gerenciador/CampaignComparator.tsx`, `gerenciador/AnomalyBadge.tsx`
+- `market-intel/SearchHistory.tsx`, `market-intel/NicheComparator.tsx`, `market-intel/CreateProjectFromOffer.tsx`
 
-- Reescrever sistemas existentes (apenas conectar via tools).
-- Autonomia em `Vendas`/`Finanças` (apenas leitura).
-- Integração com plataformas novas (Telegram, Instagram DM).
-
-## Marcos de validação
-
-| Semana | KPI |
-|---|---|
-| 1 | Imperius propõe ≥10 ações/dia, executa ≥3 low-risk |
-| 2 | ≥1 venda recuperada/dia atribuída à IA |
-| 3 | ≥5 criativos/semana auto-gerados aprovados; ≥3 ads pausados pela IA |
-| 4 | Chatbot fecha ≥1 venda autonomamente; reversão <10% (qualidade) |
+**Edge functions:**
+- estender `ads-rules-engine` para ler `imphq_ads_rules` (em vez de hardcode)
+- novo `mi-trend-scan-cron` (semanal)
 
 ---
 
-## Status Semana 2 (entregue)
+## Sequência sugerida
 
-- ✅ `payment-recovery` reescrito: 3 toques (15min/2h/24h), 2 variantes A/B por nível (hash determinístico do venda_id), fix da coluna `data` (era `metadata` inexistente), normalização BR (+55), log duplo em `imphq_recovery_logs` + `imphq_ai_actions`.
-- ✅ `hot-lead-responder` (novo): scan a cada 5min; lead score≥70 + Pix/Boleto <30min → mensagem IA (Lovable AI Gateway, Gemini Flash, persona via avatar/brand_kit do projeto). Anti-spam 24h por lead. Auto-executado.
-- ✅ `AIRevenueRecoveredCard` no `/dashboard`: R$ recuperado, vendas atribuídas (paga em ≤48h após toque), toques IA por categoria.
-- ⏳ Pendente Semana 2: nutrição preditiva (auto-enroll via `lead-predict`) — deslocada para junto da Semana 4 (CRM).
+**Sprint 1 (Gerenciador):** Painel de Regras (1) + Anomaly badges (5) + Thumbnail inline (3) → ~1 dia.
+**Sprint 2 (Market Intel):** Histórico de pesquisas (1) + Ponte com vendas (3) + Criar projeto da oferta (4) → ~1 dia.
+**Sprint 3:** Comparadores (Gerenciador 4 + MI 2) + bulk avançado + atalho Imperius → ~1 dia.
 
-## Status Semana 3 (entregue)
-
-- ✅ `studio-batch-cron` (novo): diário, para projetos `vendendo` cria batch com 3 ângulos (curiosidade/prova/antes-depois) e dispara `creative-factory`. Anti-duplicidade (1 lote/dia/projeto). Loga em `imphq_ai_actions` (high risk, status `executed` mas criativos vão para aprovação no Criativos).
-- ✅ `ads-rules-engine` (novo): a cada hora, agrega últimos 3 dias por adset:
-  - **Auto-pausa (low)**: CPA > 1.5x meta + >50 cliques · CTR < 0.8% + >100 cliques
-  - **Propõe escala (medium, fila)**: ROAS proxy ≥ 2.5x + budget < R$500 → +20%
-  - Anti-duplicate de 24h por entidade. Auto-executa low-risk com confidence ≥0.8 via `imperius-executor`.
-- ⏳ Pendente Semana 3: alerta WhatsApp ao dono quando >5 ações high-risk pendentes (move para Semana 4 junto com Relatório Imperador).
-
-### Crons a agendar (rodar no SQL Editor — contém ANON_KEY)
-
-```sql
--- Semana 2
-select cron.schedule('hot-lead-responder-5min','*/5 * * * *',
-  $$select net.http_post(
-    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/hot-lead-responder',
-    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
-    body:='{}'::jsonb) as request_id;$$);
-
-select cron.schedule('payment-recovery-15min','*/15 * * * *',
-  $$select net.http_post(
-    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/payment-recovery',
-    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
-    body:='{}'::jsonb) as request_id;$$);
-
--- Semana 3
-select cron.schedule('studio-batch-daily','0 9 * * *',
-  $$select net.http_post(
-    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/studio-batch-cron',
-    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
-    body:='{}'::jsonb) as request_id;$$);
-
-select cron.schedule('ads-rules-hourly','0 * * * *',
-  $$select net.http_post(
-    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/ads-rules-engine',
-    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
-    body:='{}'::jsonb) as request_id;$$);
-```
+Posso começar pelo **Sprint 1** ou priorizar diferente — qual frente te dá mais resultado agora?
