@@ -134,6 +134,7 @@ export default function Dashboard() {
         </div>
         <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
       </div>
+      <AIRevenueRecoveredCard projectFilter={dashProject} />
       <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
       <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
       <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
