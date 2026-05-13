@@ -14592,6 +14592,42 @@ export type Database = {
           },
         ]
       }
+      imphq_ads_rules: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          params: Json
+          rule_type: string
+          runs_24h: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          params?: Json
+          rule_type: string
+          runs_24h?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          params?: Json
+          rule_type?: string
+          runs_24h?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_ads_spend: {
         Row: {
           ad_id: string | null
