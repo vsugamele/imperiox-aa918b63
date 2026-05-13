@@ -197,8 +197,8 @@ export default function MarketIntel() {
       briefing_inicial: `Oferta: ${oferta.nomeOferta}\nNicho: ${oferta.nicho} > ${oferta.subNicho} > ${oferta.microNicho}\nDor central: ${oferta.dorCentral}\nTicket: ${oferta.ticket}\nBump: ${oferta.bump}\nUpsell: ${oferta.upsell}\nSem rosto: ${oferta.semAparecer}`,
     };
     const { error } = await supabase.from("imphq_projects").insert({
-      id, name: nome, status: "planejando", data: seedData, owner_id: user?.id,
-    } as any);
+      id, name: nome, data: seedData, user_id: user?.id,
+    });
     if (error) { toast.error(error.message); return; }
     toast.success("Projeto criado!");
     navigate(`/projetos/${id}`);
