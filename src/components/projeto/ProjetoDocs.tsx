@@ -90,7 +90,24 @@ export function ProjetoDocs({ projectId }: Props) {
     }
   };
 
-  const downloadDoc = (doc: any) => {
+  const downloadDoc = async (doc: any) => {
+    const parsed = parseDocContent(doc.content);
+    if (parsed.kind === "file" && parsed.url) {
+      try {
+        const res = await fetch(parsed.url);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const ext = parsed.url.split(".").pop()?.split("?")[0] || "bin";
+        a.href = url;
+        a.download = `${(doc.title || "documento").replace(/[^a-zA-Z0-9_.-]/g, "_")}.${ext}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch {
+        window.open(parsed.url, "_blank");
+      }
+      return;
+    }
     const blob = new Blob([doc.content || ""], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -103,14 +120,28 @@ export function ProjetoDocs({ projectId }: Props) {
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
+    let ok = 0;
     for (const file of Array.from(files)) {
-      const text = await file.text();
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
       const title = file.name.replace(/\.[^.]+$/, "");
+      const isText = ["txt", "md", "markdown"].includes(ext) || file.type.startsWith("text/");
+      let content = "";
+      if (isText) {
+        content = await file.text();
+      } else {
+        // upload binary to storage
+        const path = `docs/${projectId}/${crypto.randomUUID()}.${ext || "bin"}`;
+        const { error: upErr } = await supabase.storage.from("project-media").upload(path, file, { upsert: false, contentType: file.type || undefined });
+        if (upErr) { toast.error(`Falha ao subir ${file.name}: ${upErr.message}`); continue; }
+        const { data: urlData } = supabase.storage.from("project-media").getPublicUrl(path);
+        content = `[[file:${urlData.publicUrl}|${file.type || "application/octet-stream"}]]`;
+      }
       const newId = crypto.randomUUID();
-      const { data, error } = await supabase.from("imphq_docs").insert({ id: newId, project_id: projectId, title, content: text } as any).select().single();
-      if (!error && data) setDocs(prev => [data, ...prev]);
+      const { data, error } = await supabase.from("imphq_docs").insert({ id: newId, project_id: projectId, title, content } as any).select().single();
+      if (!error && data) { setDocs(prev => [data, ...prev]); ok++; }
+      else if (error) toast.error(`Erro: ${error.message}`);
     }
-    toast.success(`${files.length} doc(s) importado(s)`);
+    if (ok > 0) toast.success(`${ok} doc(s) importado(s)`);
     if (importRef.current) importRef.current.value = "";
   };
 
