@@ -378,6 +378,8 @@ export default function MarketIntel() {
                   <TableHead className="min-w-[140px]">Upsell</TableHead>
                   <TableHead>Sem Rosto?</TableHead>
                   <TableHead>Score</TableHead>
+                  <TableHead>Já testou?</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -419,6 +421,18 @@ export default function MarketIntel() {
                             <div className={`h-full rounded-full ${o.score >= 9.5 ? "bg-emerald-400" : o.score >= 9.0 ? "bg-amber-400" : "bg-muted-foreground"}`} style={{ width: `${(o.score / 10) * 100}%` }} />
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {jaTestou(o) ? (
+                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" />Sim</Badge>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Criar projeto a partir desta oferta" onClick={() => criarProjetoDaOferta(o)}>
+                          <Plus className="h-3.5 w-3.5 text-primary" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
