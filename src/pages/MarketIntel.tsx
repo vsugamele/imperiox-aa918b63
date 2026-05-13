@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, TrendingUp, Target, Zap, ShoppingCart, Sparkles, Heart, Brain, Leaf, PawPrint, Users, Star, Download, StarIcon, FileText, Swords, Crosshair, Radar, ChevronDown } from "lucide-react";
+import { Search, TrendingUp, Target, Zap, ShoppingCart, Sparkles, Heart, Brain, Leaf, PawPrint, Users, Star, Download, StarIcon, FileText, Swords, Crosshair, Radar, ChevronDown, CheckCircle2, Plus } from "lucide-react";
 import { NICHE_OFFERS, MARKETING_ANGLES, OFFER_FACTORY, UNIQUE_NICHOS } from "@/data/marketIntelData";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { SearchHistory } from "@/components/marketintel/SearchHistory";
+import { useNavigate } from "react-router-dom";
 
 const NICHO_COLORS: Record<string, { bg: string; text: string; border: string; icon: any }> = {
   "Saúde": { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", icon: Heart },
@@ -56,6 +58,7 @@ function downloadCSV(data: Record<string, any>[], filename: string) {
 
 export default function MarketIntel() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [opps, setOpps] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [nichoFilter, setNichoFilter] = useState("all");
@@ -71,11 +74,23 @@ export default function MarketIntel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<"DISCOVERY" | "TREND_SCAN" | "DEEP_DIVE">("DISCOVERY");
   const [deepDiveTarget, setDeepDiveTarget] = useState("");
+  const [historyKey, setHistoryKey] = useState(0);
+  const [vendasNichos, setVendasNichos] = useState<Set<string>>(new Set());
 
   // Load data
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, data").order("name").then(({ data }) => setProjects(data || []));
     supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data }) => setOpps(data || []));
+    // Ponte com vendas: tokens de produtos vendidos nos últimos 90d
+    const since = new Date(Date.now() - 90*24*60*60*1000).toISOString().slice(0, 10);
+    supabase.from("imphq_vendas").select("produto_nome").gte("data_venda", since).limit(2000).then(({ data }) => {
+      const s = new Set<string>();
+      for (const v of data || []) {
+        const p = String(v.produto_nome || "").toLowerCase();
+        for (const tok of p.split(/[\s\-_/,.()]+/).filter(t => t.length > 3)) s.add(tok);
+      }
+      setVendasNichos(s);
+    });
   }, []);
 
   // Load favorites
@@ -114,11 +129,12 @@ export default function MarketIntel() {
 
   // Save AI result persistently
   const handleAiResult = async (data: any) => {
-    // New structured response from market_intel_research
+    let resultMd = "";
+    let intelData: any = null;
     if (data?.intel) {
       const intel = data.intel;
-      setAiResult(intel.analise_markdown || intel.resumo_executivo || "");
-      setAiIntelData({
+      resultMd = intel.analise_markdown || intel.resumo_executivo || "";
+      intelData = {
         produtos: intel.produtos_encontrados,
         oportunidades: intel.oportunidades,
         angulos: intel.angulos_recomendados,
@@ -126,22 +142,68 @@ export default function MarketIntel() {
         tendencias: intel.tendencias,
         resumo: intel.resumo_executivo,
         updated_at: new Date().toISOString(),
-      });
-      // Reload opportunities from DB
+      };
+      setAiResult(resultMd);
+      setAiIntelData(intelData);
       supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data: d }) => setOpps(d || []));
       toast.success("Pesquisa de mercado completa! Dados salvos.");
-      return;
+    } else {
+      resultMd = data?.result || "";
+      setAiResult(resultMd);
+      if (selectedProject && resultMd) {
+        const proj = projects.find(p => p.id === selectedProject);
+        const currentData = (proj?.data as Record<string, any>) || {};
+        await supabase.from("imphq_projects").update({ data: { ...currentData, ai_market_intel: resultMd } }).eq("id", selectedProject);
+        toast.success("Resultado da IA salvo no projeto!");
+      }
     }
-    // Fallback for old execute_skill response
-    const result = data?.result || "";
-    setAiResult(result);
-    if (selectedProject && result) {
-      const proj = projects.find(p => p.id === selectedProject);
-      const currentData = (proj?.data as Record<string, any>) || {};
-      await supabase.from("imphq_projects").update({ data: { ...currentData, ai_market_intel: result } }).eq("id", selectedProject);
-      toast.success("Resultado da IA salvo no projeto!");
+    // Salva no histórico
+    if (user && (resultMd || intelData)) {
+      await supabase.from("imphq_mi_searches").insert({
+        user_id: user.id,
+        project_id: selectedProject || null,
+        mode: searchMode,
+        query: searchQuery,
+        result_md: resultMd,
+        intel_data: intelData,
+      });
+      setHistoryKey(k => k + 1);
     }
   };
+
+  // Recarrega pesquisa do histórico
+  const loadHistorical = (s: { mode: string; query: string | null; result_md: string | null; intel_data: any }) => {
+    setSearchMode(s.mode as any);
+    setSearchQuery(s.query || "");
+    setAiResult(s.result_md || "");
+    setAiIntelData(s.intel_data || null);
+    toast.success("Pesquisa recarregada do histórico.");
+  };
+
+  // Ponte com vendas: oferta já testada?
+  const jaTestou = (oferta: any): boolean => {
+    if (vendasNichos.size === 0) return false;
+    const tokens = String(oferta.nomeOferta + " " + oferta.microNicho + " " + oferta.subNicho).toLowerCase().split(/[\s\-_/,.()]+/).filter(t => t.length > 3);
+    return tokens.some(t => vendasNichos.has(t));
+  };
+
+  // Cria projeto a partir de uma oferta
+  const criarProjetoDaOferta = async (oferta: any) => {
+    const nome = window.prompt("Nome do novo projeto:", oferta.nomeOferta);
+    if (!nome) return;
+    const id = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const seedData = {
+      ai_market_intel_offer: oferta,
+      briefing_inicial: `Oferta: ${oferta.nomeOferta}\nNicho: ${oferta.nicho} > ${oferta.subNicho} > ${oferta.microNicho}\nDor central: ${oferta.dorCentral}\nTicket: ${oferta.ticket}\nBump: ${oferta.bump}\nUpsell: ${oferta.upsell}\nSem rosto: ${oferta.semAparecer}`,
+    };
+    const { error } = await supabase.from("imphq_projects").insert({
+      id, name: nome, data: seedData, user_id: user?.id,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Projeto criado!");
+    navigate(`/projetos/${id}`);
+  };
+
 
   // Filters
   const filteredOffers = useMemo(() => {
@@ -244,6 +306,7 @@ export default function MarketIntel() {
               onResult={handleAiResult}
               contextSources={["Briefing", "Avatar", "Concorrentes", "Produtos", "Vendas"]}
             />
+            <SearchHistory onLoad={loadHistorical} refreshKey={historyKey} />
             <Button variant="outline" size="sm" onClick={handleExport} className="gap-1">
               <Download className="h-3.5 w-3.5" /> CSV
             </Button>
@@ -315,6 +378,8 @@ export default function MarketIntel() {
                   <TableHead className="min-w-[140px]">Upsell</TableHead>
                   <TableHead>Sem Rosto?</TableHead>
                   <TableHead>Score</TableHead>
+                  <TableHead>Já testou?</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -357,11 +422,23 @@ export default function MarketIntel() {
                           </div>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {jaTestou(o) ? (
+                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" />Sim</Badge>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Criar projeto a partir desta oferta" onClick={() => criarProjetoDaOferta(o)}>
+                          <Plus className="h-3.5 w-3.5 text-primary" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {filteredOffers.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">
+                  <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-8">
                     {showFavsOnly ? "Nenhuma oferta favorita encontrada" : "Nenhuma oferta encontrada"}
                   </TableCell></TableRow>
                 )}
