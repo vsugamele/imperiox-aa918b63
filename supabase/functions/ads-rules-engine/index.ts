@@ -149,6 +149,28 @@ Deno.serve(async (req) => {
       } catch (e) { console.error("auto-exec fail", a.id, e); }
     }
 
+    // Atualiza painel de regras: last_run_at + runs_24h (ações criadas pela engine nas últimas 24h)
+    try {
+      const since24 = new Date(Date.now() - 24*60*60*1000).toISOString();
+      const { data: actions24 } = await supabase
+        .from("imphq_ai_actions")
+        .select("kind, title")
+        .eq("source", "ads-rules-engine")
+        .gte("created_at", since24);
+      const counts = { auto_pause_cpa: 0, auto_pause_ctr: 0, propose_scale_roas: 0 };
+      for (const a of actions24 || []) {
+        if (a.kind === "adjustBudget") counts.propose_scale_roas++;
+        else if (a.kind === "pauseAd" && /CTR/i.test(a.title || "")) counts.auto_pause_ctr++;
+        else if (a.kind === "pauseAd") counts.auto_pause_cpa++;
+      }
+      const now = new Date().toISOString();
+      for (const [type, count] of Object.entries(counts)) {
+        await supabase.from("imphq_ads_rules")
+          .update({ last_run_at: now, runs_24h: count })
+          .eq("rule_type", type);
+      }
+    } catch (e) { console.error("rules update fail", e); }
+
     return new Response(JSON.stringify({ ok: true, proposed: proposed.length, auto_executed: (lowAuto||[]).length, sample: proposed.slice(0,5) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
