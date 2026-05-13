@@ -129,11 +129,12 @@ export default function MarketIntel() {
 
   // Save AI result persistently
   const handleAiResult = async (data: any) => {
-    // New structured response from market_intel_research
+    let resultMd = "";
+    let intelData: any = null;
     if (data?.intel) {
       const intel = data.intel;
-      setAiResult(intel.analise_markdown || intel.resumo_executivo || "");
-      setAiIntelData({
+      resultMd = intel.analise_markdown || intel.resumo_executivo || "";
+      intelData = {
         produtos: intel.produtos_encontrados,
         oportunidades: intel.oportunidades,
         angulos: intel.angulos_recomendados,
@@ -141,22 +142,68 @@ export default function MarketIntel() {
         tendencias: intel.tendencias,
         resumo: intel.resumo_executivo,
         updated_at: new Date().toISOString(),
-      });
-      // Reload opportunities from DB
+      };
+      setAiResult(resultMd);
+      setAiIntelData(intelData);
       supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data: d }) => setOpps(d || []));
       toast.success("Pesquisa de mercado completa! Dados salvos.");
-      return;
+    } else {
+      resultMd = data?.result || "";
+      setAiResult(resultMd);
+      if (selectedProject && resultMd) {
+        const proj = projects.find(p => p.id === selectedProject);
+        const currentData = (proj?.data as Record<string, any>) || {};
+        await supabase.from("imphq_projects").update({ data: { ...currentData, ai_market_intel: resultMd } }).eq("id", selectedProject);
+        toast.success("Resultado da IA salvo no projeto!");
+      }
     }
-    // Fallback for old execute_skill response
-    const result = data?.result || "";
-    setAiResult(result);
-    if (selectedProject && result) {
-      const proj = projects.find(p => p.id === selectedProject);
-      const currentData = (proj?.data as Record<string, any>) || {};
-      await supabase.from("imphq_projects").update({ data: { ...currentData, ai_market_intel: result } }).eq("id", selectedProject);
-      toast.success("Resultado da IA salvo no projeto!");
+    // Salva no histórico
+    if (user && (resultMd || intelData)) {
+      await supabase.from("imphq_mi_searches").insert({
+        user_id: user.id,
+        project_id: selectedProject || null,
+        mode: searchMode,
+        query: searchQuery,
+        result_md: resultMd,
+        intel_data: intelData,
+      });
+      setHistoryKey(k => k + 1);
     }
   };
+
+  // Recarrega pesquisa do histórico
+  const loadHistorical = (s: { mode: string; query: string | null; result_md: string | null; intel_data: any }) => {
+    setSearchMode(s.mode as any);
+    setSearchQuery(s.query || "");
+    setAiResult(s.result_md || "");
+    setAiIntelData(s.intel_data || null);
+    toast.success("Pesquisa recarregada do histórico.");
+  };
+
+  // Ponte com vendas: oferta já testada?
+  const jaTestou = (oferta: any): boolean => {
+    if (vendasNichos.size === 0) return false;
+    const tokens = String(oferta.nomeOferta + " " + oferta.microNicho + " " + oferta.subNicho).toLowerCase().split(/[\s\-_/,.()]+/).filter(t => t.length > 3);
+    return tokens.some(t => vendasNichos.has(t));
+  };
+
+  // Cria projeto a partir de uma oferta
+  const criarProjetoDaOferta = async (oferta: any) => {
+    const nome = window.prompt("Nome do novo projeto:", oferta.nomeOferta);
+    if (!nome) return;
+    const id = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const seedData = {
+      ai_market_intel_offer: oferta,
+      briefing_inicial: `Oferta: ${oferta.nomeOferta}\nNicho: ${oferta.nicho} > ${oferta.subNicho} > ${oferta.microNicho}\nDor central: ${oferta.dorCentral}\nTicket: ${oferta.ticket}\nBump: ${oferta.bump}\nUpsell: ${oferta.upsell}\nSem rosto: ${oferta.semAparecer}`,
+    };
+    const { error } = await supabase.from("imphq_projects").insert({
+      id, name: nome, status: "planejando", data: seedData, owner_id: user?.id,
+    } as any);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Projeto criado!");
+    navigate(`/projetos/${id}`);
+  };
+
 
   // Filters
   const filteredOffers = useMemo(() => {
