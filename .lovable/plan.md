@@ -86,3 +86,9 @@ imphq_mi_searches (id, user_id, project_id, mode, query, result_md, intel_data j
 **Sprint 3:** Comparadores (Gerenciador 4 + MI 2) + bulk avançado + atalho Imperius → ~1 dia.
 
 Posso começar pelo **Sprint 1** ou priorizar diferente — qual frente te dá mais resultado agora?
+## Sprint 3 — Comparadores (entregue)
+
+- `gerenciador/CampaignComparator.tsx`: drawer com tabela métrica × campanha (vencedor destacado) + sparkline de gasto por campanha. Disparado por botão **Comparar** no `BulkActionsBar` (2-4 selecionadas).
+- `marketintel/NicheComparator.tsx`: checkbox por linha em "Mapa de Nichos" → drawer side-by-side comparando dor, ticket, bump/upsell, sem-rosto, score (vencedor em ouro).
+
+Restante do plano (próximas iterações): Imperius shortcut por linha, criativo inline thumbnail (item 3), Trend Scan agendado.
