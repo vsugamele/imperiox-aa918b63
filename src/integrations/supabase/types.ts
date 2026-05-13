@@ -5356,6 +5356,56 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_webhook_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_type: string | null
+          external_product_id: string | null
+          id: string
+          message: string | null
+          payload: Json | null
+          plan_id: string | null
+          provider: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_webhook_logs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_welcome_popup_views: {
         Row: {
           dismissed_at: string
