@@ -146,6 +146,7 @@ export function ProjetoDocs({ projectId }: Props) {
   };
 
   if (editing) {
+    const parsedEdit = parseDocContent(editing.content);
     return (
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -156,12 +157,22 @@ export function ProjetoDocs({ projectId }: Props) {
           </div>
         </CardHeader>
         <CardContent>
-          <Textarea
-            value={editing.content || ""}
-            onChange={(e) => setEditing({ ...editing, content: e.target.value })}
-            className="bg-secondary min-h-[400px] font-mono text-sm"
-            placeholder="Escreva o conteúdo do documento..."
-          />
+          {parsedEdit.kind === "file" ? (
+            <div className="p-6 rounded-md bg-secondary/40 text-sm space-y-3 leading-7">
+              <p className="flex items-center gap-2"><FileIcon className="h-4 w-4 text-primary" /> Documento de arquivo ({parsedEdit.mime}).</p>
+              <p className="text-muted-foreground">Use Visualizar ou Baixar na lista. O título pode ser editado acima.</p>
+              <Button size="sm" variant="outline" onClick={() => setViewing(editing)}>
+                <Eye className="h-3 w-3 mr-1" /> Visualizar
+              </Button>
+            </div>
+          ) : (
+            <Textarea
+              value={editing.content || ""}
+              onChange={(e) => setEditing({ ...editing, content: e.target.value })}
+              className="bg-secondary min-h-[400px] font-mono text-sm"
+              placeholder="Escreva o conteúdo do documento..."
+            />
+          )}
         </CardContent>
       </Card>
     );
@@ -172,7 +183,7 @@ export function ProjetoDocs({ projectId }: Props) {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📄 Documentos do Projeto</CardTitle>
         <div className="flex gap-2">
-          <input ref={importRef} type="file" multiple accept=".txt,.md,.doc,.docx" onChange={handleImport} className="hidden" />
+          <input ref={importRef} type="file" multiple accept=".txt,.md,.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" onChange={handleImport} className="hidden" />
           <Button size="sm" variant="outline" onClick={() => importRef.current?.click()}>
             <Upload className="h-3 w-3 mr-1" /> Importar
           </Button>
@@ -182,11 +193,18 @@ export function ProjetoDocs({ projectId }: Props) {
       <CardContent className="space-y-2">
         {docs.map((d) => {
           const isShared = expertDocIds.includes(d.id);
+          const parsed = parseDocContent(d.content);
+          const isFile = parsed.kind === "file";
           return (
-            <div key={d.id} className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-border hover:bg-secondary transition-colors cursor-pointer" onClick={() => setEditing(d)}>
-              <div className="flex items-center gap-3">
-                <FileText className="h-4 w-4 text-primary" />
-                <span className="text-sm">{d.title}</span>
+            <div
+              key={d.id}
+              className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-border hover:bg-secondary transition-colors cursor-pointer"
+              onClick={() => (isFile ? setViewing(d) : setEditing(d))}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                {isFile ? <FileIcon className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />}
+                <span className="text-sm truncate">{d.title}</span>
+                {isFile && <span className="text-[10px] text-muted-foreground uppercase">{parsed.mime?.split("/")[1]}</span>}
                 {isShared && (
                   <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-1">
                     <Eye className="h-3 w-3" /> Expert
@@ -208,10 +226,13 @@ export function ProjetoDocs({ projectId }: Props) {
                     <p className="text-xs">{isShared ? "Visível no Portal do Expert" : "Habilitar para o Expert"}</p>
                   </TooltipContent>
                 </Tooltip>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); downloadDoc(d); }}>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setViewing(d); }} title="Visualizar">
+                  <Eye className="h-3 w-3" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); downloadDoc(d); }} title="Baixar">
                   <Download className="h-3 w-3" />
                 </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteDoc(d.id); }}>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); deleteDoc(d.id); }} title="Excluir">
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
@@ -220,6 +241,20 @@ export function ProjetoDocs({ projectId }: Props) {
         })}
         {docs.length === 0 && <p className="text-sm text-muted-foreground">Nenhum documento ainda.</p>}
       </CardContent>
+      {viewing && (() => {
+        const p = parseDocContent(viewing.content);
+        return (
+          <DocViewerDialog
+            open={!!viewing}
+            onOpenChange={(v) => !v && setViewing(null)}
+            title={viewing.title}
+            kind={p.kind}
+            url={p.url}
+            mime={p.mime}
+            content={viewing.content}
+          />
+        );
+      })()}
     </Card>
   );
 }
