@@ -104,9 +104,19 @@ Nova tabela `imphq_ai_actions` (proposed/approved/rejected/executed/reverted) + 
 - ✅ `AIRevenueRecoveredCard` no `/dashboard`: R$ recuperado, vendas atribuídas (paga em ≤48h após toque), toques IA por categoria.
 - ⏳ Pendente Semana 2: nutrição preditiva (auto-enroll via `lead-predict`) — deslocada para junto da Semana 4 (CRM).
 
+## Status Semana 3 (entregue)
+
+- ✅ `studio-batch-cron` (novo): diário, para projetos `vendendo` cria batch com 3 ângulos (curiosidade/prova/antes-depois) e dispara `creative-factory`. Anti-duplicidade (1 lote/dia/projeto). Loga em `imphq_ai_actions` (high risk, status `executed` mas criativos vão para aprovação no Criativos).
+- ✅ `ads-rules-engine` (novo): a cada hora, agrega últimos 3 dias por adset:
+  - **Auto-pausa (low)**: CPA > 1.5x meta + >50 cliques · CTR < 0.8% + >100 cliques
+  - **Propõe escala (medium, fila)**: ROAS proxy ≥ 2.5x + budget < R$500 → +20%
+  - Anti-duplicate de 24h por entidade. Auto-executa low-risk com confidence ≥0.8 via `imperius-executor`.
+- ⏳ Pendente Semana 3: alerta WhatsApp ao dono quando >5 ações high-risk pendentes (move para Semana 4 junto com Relatório Imperador).
+
 ### Crons a agendar (rodar no SQL Editor — contém ANON_KEY)
 
 ```sql
+-- Semana 2
 select cron.schedule('hot-lead-responder-5min','*/5 * * * *',
   $$select net.http_post(
     url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/hot-lead-responder',
@@ -116,6 +126,19 @@ select cron.schedule('hot-lead-responder-5min','*/5 * * * *',
 select cron.schedule('payment-recovery-15min','*/15 * * * *',
   $$select net.http_post(
     url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/payment-recovery',
+    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
+    body:='{}'::jsonb) as request_id;$$);
+
+-- Semana 3
+select cron.schedule('studio-batch-daily','0 9 * * *',
+  $$select net.http_post(
+    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/studio-batch-cron',
+    headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
+    body:='{}'::jsonb) as request_id;$$);
+
+select cron.schedule('ads-rules-hourly','0 * * * *',
+  $$select net.http_post(
+    url:='https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/ads-rules-engine',
     headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
     body:='{}'::jsonb) as request_id;$$);
 ```
