@@ -367,6 +367,14 @@ export default function MarketIntel() {
               </SelectContent>
             </Select>
             <Badge variant="outline" className="text-xs">{filteredOffers.length} ofertas</Badge>
+            {compareSet.size >= 2 && (
+              <Button size="sm" variant="outline" onClick={() => setCompareOpen(true)} className="gap-1.5">
+                <GitCompare className="h-3.5 w-3.5" /> Comparar {compareSet.size}
+              </Button>
+            )}
+            {compareSet.size > 0 && (
+              <Button size="sm" variant="ghost" onClick={() => setCompareSet(new Set())}>Limpar</Button>
+            )}
           </div>
 
           <div className="rounded-lg border border-border overflow-auto">
