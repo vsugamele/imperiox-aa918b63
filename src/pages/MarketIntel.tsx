@@ -15,6 +15,9 @@ import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { SearchHistory } from "@/components/marketintel/SearchHistory";
+import { NicheComparator } from "@/components/marketintel/NicheComparator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { GitCompare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const NICHO_COLORS: Record<string, { bg: string; text: string; border: string; icon: any }> = {
