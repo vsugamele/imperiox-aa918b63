@@ -14739,6 +14739,75 @@ export type Database = {
           },
         ]
       }
+      imphq_ai_actions: {
+        Row: {
+          approved_by: string | null
+          auto_executed: boolean | null
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          executed_at: string | null
+          id: string
+          kind: string
+          payload: Json
+          projeto_id: string | null
+          reason: string | null
+          result: Json | null
+          revert_payload: Json | null
+          reverted_at: string | null
+          risk_level: string
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          auto_executed?: boolean | null
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          executed_at?: string | null
+          id?: string
+          kind: string
+          payload?: Json
+          projeto_id?: string | null
+          reason?: string | null
+          result?: Json | null
+          revert_payload?: Json | null
+          reverted_at?: string | null
+          risk_level: string
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          auto_executed?: boolean | null
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          executed_at?: string | null
+          id?: string
+          kind?: string
+          payload?: Json
+          projeto_id?: string | null
+          reason?: string | null
+          result?: Json | null
+          revert_payload?: Json | null
+          reverted_at?: string | null
+          risk_level?: string
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_ai_chats: {
         Row: {
           created_at: string | null

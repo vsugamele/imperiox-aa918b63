@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, MessageCircle, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, MessageCircle, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +12,7 @@ import {
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, color: "text-primary" },
+  { title: "Imperius", url: "/imperius", icon: Bot, color: "text-primary" },
   { title: "Projetos", url: "/projetos", icon: FolderKanban, color: "text-primary" },
   { title: "Kanban", url: "/kanban", icon: Kanban, color: "text-primary" },
   { title: "Tarefas", url: "/tarefas", icon: ListTodo, color: "text-primary" },

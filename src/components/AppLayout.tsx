@@ -6,6 +6,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { PushOptIn } from "@/components/PushOptIn";
 import { CopilotFab } from "@/components/copilot/CopilotFab";
+import { ActionInbox } from "@/components/imperius/ActionInbox";
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 
@@ -31,6 +32,7 @@ export function AppLayout() {
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
             <GlobalSearch />
             <div className="ml-auto flex items-center gap-1">
+              <ActionInbox />
               <PushOptIn />
               <NotificationBell />
             </div>
