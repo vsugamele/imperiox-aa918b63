@@ -306,6 +306,7 @@ export default function MarketIntel() {
               onResult={handleAiResult}
               contextSources={["Briefing", "Avatar", "Concorrentes", "Produtos", "Vendas"]}
             />
+            <SearchHistory onLoad={loadHistorical} refreshKey={historyKey} />
             <Button variant="outline" size="sm" onClick={handleExport} className="gap-1">
               <Download className="h-3.5 w-3.5" /> CSV
             </Button>
