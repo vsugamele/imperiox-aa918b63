@@ -1,6 +1,6 @@
-// Payment Recovery — busca vendas pendentes (Pix/Boleto) e envia follow-up via WhatsApp
-// Tenta 3 níveis de recovery: 2h, 12h, 24h após criação. Marca metadata para não duplicar.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// Payment Recovery — 3 toques escalonados (15min, 2h, 24h) com A/B copy.
+// Persiste estado em imphq_vendas.data, log em imphq_recovery_logs e imphq_ai_actions.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,18 +12,53 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const PENDING_STATUSES = ["aguardando_pagamento", "pix_gerado", "boleto_gerado", "pendente"];
 
-// Janelas (horas) de envio. Após N horas, envia mensagem nivel X.
-const RECOVERY_LEVELS = [
-  { level: 1, minHours: 2, maxHours: 11.99, msg: (nome: string, produto: string) =>
-    `Oi ${nome || ""}! 👋 Vi que você iniciou a compra de *${produto}* mas o pagamento ainda não foi confirmado. Quer ajuda pra finalizar? Posso te enviar o link novamente.` },
-  { level: 2, minHours: 12, maxHours: 23.99, msg: (nome: string, produto: string) =>
-    `${nome || "Olá"}, ainda dá tempo! 🔥 Sua reserva de *${produto}* está prestes a expirar. Se precisar de um novo link de pagamento ou de uma condição especial, me avise agora.` },
-  { level: 3, minHours: 24, maxHours: 48, msg: (nome: string, produto: string) =>
-    `Última chamada, ${nome || ""}! ⏰ A oferta de *${produto}* expira hoje. Posso liberar uma condição exclusiva pra você fechar agora — me responde aqui se tiver interesse.` },
+type Variant = { id: string; build: (nome: string, produto: string) => string };
+type Level = { level: number; minMin: number; maxMin: number; variants: Variant[] };
+
+// 3 toques: 15min, 2h, 24h. Cada nível tem 2 variantes A/B.
+const RECOVERY_LEVELS: Level[] = [
+  {
+    level: 1,
+    minMin: 15,
+    maxMin: 119,
+    variants: [
+      { id: "L1A", build: (n, p) => `Oi ${n || ""}! 👋 Vi que você gerou o pagamento de *${p}* mas ainda não foi confirmado. Posso te ajudar a finalizar agora?` },
+      { id: "L1B", build: (n, p) => `${n || "Olá"}! Notei que o pagamento de *${p}* está pendente há alguns minutos. Tá tudo certo? Se precisar de outro link ou Pix, me chama aqui.` },
+    ],
+  },
+  {
+    level: 2,
+    minMin: 120,
+    maxMin: 1439,
+    variants: [
+      { id: "L2A", build: (n, p) => `${n || "Ei"}, ainda dá tempo! 🔥 Sua reserva de *${produto(p)}* está prestes a expirar. Quer que eu gere um novo link rápido?` },
+      { id: "L2B", build: (n, p) => `${n || "Olá"}! Sua intenção de compra de *${produto(p)}* continua aberta. Se rolou alguma dúvida (preço, prazo, formato), me responde aqui que resolvo agora.` },
+    ],
+  },
+  {
+    level: 3,
+    minMin: 1440,
+    maxMin: 2880,
+    variants: [
+      { id: "L3A", build: (n, p) => `Última chamada, ${n || ""}! ⏰ A oferta de *${produto(p)}* expira hoje. Posso liberar uma condição exclusiva pra você fechar agora — me responde se ainda quiser.` },
+      { id: "L3B", build: (n, p) => `${n || "Olá"}, vou ser direto: *${produto(p)}* sai do carrinho em poucas horas. Se faltou só um empurrão, fala comigo que faço por você.` },
+    ],
+  },
 ];
 
+function produto(p: string) { return p || "seu pedido"; }
+
 function normalizePhone(p: string): string {
-  return (p || "").replace(/\D/g, "");
+  let s = (p || "").replace(/\D/g, "");
+  if (s.length === 10 || s.length === 11) s = "55" + s;
+  return s;
+}
+
+function pickVariant(level: Level, vendaId: string): Variant {
+  // Hash determinístico do venda_id para A/B estável
+  let h = 0;
+  for (let i = 0; i < vendaId.length; i++) h = (h * 31 + vendaId.charCodeAt(i)) | 0;
+  return level.variants[Math.abs(h) % level.variants.length];
 }
 
 async function findActiveProvider(supabase: any, projectId: string | null) {
@@ -73,10 +108,9 @@ Deno.serve(async (req) => {
     const now = new Date();
     const cutoff48h = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
 
-    // Busca vendas pendentes nas últimas 48h
     const { data: vendas, error: vendasErr } = await supabase
       .from("imphq_vendas")
-      .select("id, lead_id, project_id, valor, produto_nome, status, metadata, created_at")
+      .select("id, lead_id, project_id, valor, produto_nome, status, data, created_at")
       .in("status", PENDING_STATUSES)
       .gte("created_at", cutoff48h)
       .limit(500);
@@ -93,17 +127,15 @@ Deno.serve(async (req) => {
     const details: any[] = [];
 
     for (const v of vendas) {
-      const ageMs = now.getTime() - new Date(v.created_at).getTime();
-      const ageHours = ageMs / (1000 * 60 * 60);
-      const meta: any = v.metadata || {};
+      const ageMin = (now.getTime() - new Date(v.created_at).getTime()) / 60000;
+      const meta: any = v.data || {};
       const sentLevels: number[] = Array.isArray(meta.recovery_sent_levels) ? meta.recovery_sent_levels : [];
 
       const targetLevel = RECOVERY_LEVELS.find(
-        (r) => ageHours >= r.minHours && ageHours <= r.maxHours && !sentLevels.includes(r.level)
+        (r) => ageMin >= r.minMin && ageMin <= r.maxMin && !sentLevels.includes(r.level)
       );
       if (!targetLevel) { skipped++; continue; }
 
-      // Busca lead p/ telefone e nome
       if (!v.lead_id) { skipped++; continue; }
       const { data: lead } = await supabase
         .from("imphq_leads")
@@ -112,36 +144,59 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       const phone = normalizePhone(lead?.phone || "");
-      if (!phone || phone.length < 10) { skipped++; continue; }
+      if (!phone || phone.length < 12) { skipped++; continue; }
 
+      const variant = pickVariant(targetLevel, v.id);
       const provider = await findActiveProvider(supabase, v.project_id || lead?.project_id);
-      const message = targetLevel.msg(lead?.nome || "", v.produto_nome || "seu pedido");
+      const message = variant.build(lead?.nome || "", v.produto_nome || "");
       const result = await sendWhatsApp(provider, phone, message);
 
-      // Persiste resultado em metadata
       const newMeta = {
         ...meta,
         recovery_sent_levels: [...sentLevels, targetLevel.level],
         recovery_last: {
           level: targetLevel.level,
+          variant: variant.id,
           at: now.toISOString(),
           ok: result.ok,
           error: result.error || null,
           provider: provider?.id || null,
         },
       };
-      await supabase.from("imphq_vendas").update({ metadata: newMeta }).eq("id", v.id);
+      await supabase.from("imphq_vendas").update({ data: newMeta }).eq("id", v.id);
 
-      // Log em events
-      await supabase.from("imphq_events").insert({
+      // Log em recovery_logs (compat)
+      await supabase.from("imphq_recovery_logs").insert({
         project_id: v.project_id || lead?.project_id || null,
         lead_id: v.lead_id,
-        event_name: result.ok ? "payment_recovery_sent" : "payment_recovery_failed",
-        event_data: { level: targetLevel.level, venda_id: v.id, error: result.error || null, age_hours: Math.round(ageHours * 10) / 10 },
+        venda_id: v.id,
+        acao: `recovery_l${targetLevel.level}`,
+        bucket: `pix_pendente_${targetLevel.level}`,
+        canal: "whatsapp",
+        status: result.ok ? "enviado" : "falha",
+        valor: v.valor || null,
+        observacao: `Variant ${variant.id}${result.error ? ` | ${result.error}` : ""}`,
+      });
+
+      // Log em ai_actions (autonomia)
+      await supabase.from("imphq_ai_actions").insert({
+        kind: "payment_recovery",
+        risk_level: "low",
+        confidence: 0.9,
+        title: `Recovery L${targetLevel.level} → ${lead?.nome || phone}`,
+        reason: `Pix/Boleto pendente há ${Math.round(ageMin)}min. Variante ${variant.id}.`,
+        payload: { venda_id: v.id, lead_id: v.lead_id, level: targetLevel.level, variant: variant.id, valor: v.valor, message },
+        result: { ok: result.ok, error: result.error || null },
+        projeto_id: v.project_id || lead?.project_id || null,
+        source: "payment-recovery",
+        status: result.ok ? "executed" : "failed",
+        auto_executed: true,
+        executed_at: now.toISOString(),
+        error: result.ok ? null : (result.error || null),
       });
 
       if (result.ok) sent++; else skipped++;
-      details.push({ venda_id: v.id, level: targetLevel.level, ok: result.ok, error: result.error });
+      details.push({ venda_id: v.id, level: targetLevel.level, variant: variant.id, ok: result.ok, error: result.error });
     }
 
     return new Response(
