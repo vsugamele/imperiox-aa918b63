@@ -98,7 +98,7 @@ export function CampaignComparator({ open, onOpenChange, campaigns, dailySpendBy
                     return (
                       <div key={c.id} className="rounded-lg border border-border/30 p-3 bg-background/40">
                         <div className="text-xs text-muted-foreground truncate mb-2" title={c.name}>{c.name}</div>
-                        <Sparkline values={series} />
+                        <Sparkline data={series} width={200} height={48} />
                       </div>
                     );
                   })}
