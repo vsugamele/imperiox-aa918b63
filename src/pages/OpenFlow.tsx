@@ -433,7 +433,7 @@ export default function OpenFlow() {
 
       {/* ── New Automation Dialog ──────────────────────────────── */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Automação</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Recuperação de Carrinho" /></div>
