@@ -174,6 +174,9 @@ export default function OpenFlow() {
       nome: editing.nome, trigger_tipo: editing.trigger_tipo,
       acoes: editing.acoes as any, ativo: editing.ativo, project_id: editing.project_id,
       produto: (editing as any).produto || null, provider_id: editing.provider_id || null,
+      quiet_start: editing.quiet_start ?? null,
+      quiet_end: editing.quiet_end ?? null,
+      dedupe_hours: editing.dedupe_hours ?? 0,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
