@@ -1,36 +1,82 @@
-# Docs do Projeto: PDF + Visualizador
+## Expandir triggers e capacidades do OpenFlow
 
-## Problema
-Em `ProjetoDocs.tsx`:
-- Importação usa `file.text()` e aceita só `.txt,.md,.doc,.docx` → PDF/DOCX não funcionam (lê binário como texto).
-- Não existe botão "Visualizar" — só editar inline (textarea markdown).
+Hoje o FlowEditor expõe apenas 6 triggers (carrinho_abandonado, compra_aprovada, lead_novo, reembolso, aguardando_pagamento, inicio_checkout), mas o `webhook-pagamento` já recebe e roteia muitos outros eventos que ficam "órfãos" — sem automação possível. Vou destravar isso + adicionar capacidades novas.
 
-## Mudanças
+### 1. Novos triggers de pagamento (já chegam no webhook, falta expor)
 
-### 1. Upload de PDF (e binários)
-- Adicionar `.pdf` no `accept` do input de import.
-- Para PDF/DOCX: subir o arquivo no bucket `project-media` (já existe) em `docs/{projectId}/{uuid}.{ext}` e salvar em `imphq_docs` com:
-  - `title` = nome do arquivo
-  - `content` = marcador `[[file:{publicUrl}|{mimeType}]]` (mantém a tabela atual sem migration)
-- Para `.txt/.md`: comportamento atual (lê como texto).
+| Trigger | Caso de uso |
+|---|---|
+| `pagamento_recusado` | Cartão recusado → WhatsApp oferecendo Pix/2ª via |
+| `pagamento_expirado` | Pix/boleto expirou → reengajar com novo link |
+| `boleto_gerado` | Enviar boleto + lembrete D-1 do vencimento |
+| `chargeback` | Alerta interno + bloqueio de acesso |
+| `compra_cancelada` | Pesquisa de cancelamento + oferta de retenção |
+| `assinatura_cancelada` | Win-back de churn |
+| `assinatura_renovada` | Agradecimento + upsell |
+| `upsell_aprovado` / `orderbump_aprovado` | Onboarding diferenciado |
+| `primeiro_acesso` | Boas-vindas pós-login na área de membros |
 
-### 2. Botão Visualizar
-- Novo ícone `Eye` em cada linha (antes de download/delete).
-- Abre `Dialog` (max-w-4xl, h-[80vh]):
-  - Se `content` começa com `[[file:` e mime = PDF → renderiza `<iframe src={url}>` em altura total.
-  - Se mime = imagem → `<img>`.
-  - Caso contrário → preview do markdown/texto (render simples com `whitespace-pre-wrap`).
-- Não substitui o editor; clique no card continua abrindo edição (apenas para docs de texto). Para docs-arquivo, clique no card abre o visualizador.
+### 2. Novos triggers não-pagamento
 
-### 3. Detalhes técnicos
-- Helper `parseDocContent(content)` retorna `{ kind: "file"|"text", url?, mime? }`.
-- No editor existente: se `kind === "file"`, esconder textarea e mostrar aviso "Documento de arquivo — use Visualizar/Download".
-- Download de arquivo: trocar `Blob` por `fetch(url) → blob` quando for `kind=file` (preserva extensão original).
+- `tag_adicionada` / `tag_removida` (segmentação manual via CRM)
+- `lead_inativo_xd` (lead sem interação há N dias — cron)
+- `aniversario_lead` / `aniversario_compra` (cron diário)
+- `formulario_respondido` (já existe captura, falta gatilho)
+- `mensagem_recebida_whatsapp` com palavra-chave (ex.: "quero", "cancelar")
+- `clicou_link` (rastreio de cliques em campanhas)
 
-## Arquivos
-- `src/components/projeto/ProjetoDocs.tsx` (editar): accept inclui pdf, branch upload binário, botão Eye, Dialog viewer, helper parse.
-- Novo: `src/components/projeto/DocViewerDialog.tsx` (PDF iframe / imagem / texto).
+### 3. Novas ações no FlowEditor
 
-## Não muda
-- Schema de `imphq_docs` (sem migration).
-- Bucket `project-media` (já público).
+Hoje: whatsapp, email, telegram, aguardar, condicao. Adicionar:
+- **Adicionar/Remover tag** no lead
+- **Mover no Kanban** (status/coluna)
+- **Atribuir responsável** (membro da equipe)
+- **Criar tarefa** no Tarefas
+- **HTTP request** (webhook out para integrações externas)
+- **Atualizar campo do lead** (ex.: `interesse = "premium"`)
+- **Notificar interno** (push para a equipe)
+- **Split A/B** (50/50 entre dois caminhos)
+
+### 4. Melhorias na condição (`condicao`)
+
+Hoje só tem condição de tempo. Adicionar:
+- Se lead **respondeu** mensagem anterior
+- Se lead **abriu** email
+- Se valor da venda **> X**
+- Se lead **tem tag** Y
+- Se é **horário comercial**
+
+### 5. Resiliência e UX
+
+- **Janela de silêncio**: não disparar entre 22h–8h (config por automação)
+- **Dedupe**: não executar a mesma automação 2x no mesmo lead em N horas
+- **Limite de tentativas** com backoff no WhatsApp (já existe parcial, formalizar)
+- **Preview do fluxo** antes de ativar (simular com lead fictício)
+- **Métricas por step**: taxa de entrega, leitura, conversão (já existe `step_results`, falta UI)
+- **Templates prontos** ao criar automação: "Recuperação Pix", "Win-back Chargeback", "Boas-vindas Compra", "Aniversário"
+
+### Detalhes técnicos
+
+- **FlowEditor.tsx**: expandir `TRIGGERS_MAP` com os ~15 triggers novos, agrupar por categoria (Pagamento, Lead, Comportamento, Tempo) com `<SelectGroup>`.
+- **openflow-executor**: estender `triggerAliases` para os novos eventos, e adicionar handlers para os novos `tipo`s de ação (tag, kanban, http, etc.).
+- **webhook-pagamento**: já dispara a maior parte; verificar se `chargeback`, `assinatura_*`, `upsell_aprovado` chamam `openflow-executor` (linha ~1091). Hoje só dispara para variantes mapeadas — confirmar cobertura.
+- **Cron novos**: `openflow-time-triggers` (diário 9h) para `aniversario_*` e `lead_inativo_xd`.
+- **Sem migração obrigatória** — `imphq_flow_automacoes.trigger_tipo` já é TEXT livre. Só precisa migration se quiser tabela `imphq_flow_templates` para os templates prontos.
+
+### Escopo da entrega (sugiro 2 sprints)
+
+**Sprint A (essencial — agora):**
+1. Expandir TRIGGERS_MAP com os 9 triggers de pagamento + agrupamento
+2. Garantir que `webhook-pagamento` dispara `openflow-executor` para todos eles
+3. Janela de silêncio + dedupe na automação
+4. 3 templates prontos (Pix Recusado, Boleto Vencendo, Chargeback)
+
+**Sprint B (depois):**
+5. Ações novas (tag, kanban, http, A/B)
+6. Triggers de tempo (aniversário, inatividade) + cron
+7. Condições avançadas
+8. Métricas por step na UI
+
+### Pergunta antes de começar
+
+Confirma que quer **Sprint A** primeiro? Ou prefere outra ordem (ex.: priorizar ações novas em vez de triggers)?
