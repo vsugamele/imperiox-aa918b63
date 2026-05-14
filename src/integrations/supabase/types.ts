@@ -20368,6 +20368,3943 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_authors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          position: number
+          role: string | null
+          social_links: Json
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_badge_definitions: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          is_active: boolean
+          position: number
+          rule_type: string
+          rule_value: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_banners: {
+        Row: {
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          hide_title: boolean
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          link_url: string | null
+          position: number
+          starts_at: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          hide_title?: boolean
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          starts_at?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          hide_title?: boolean
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          starts_at?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      jonathan_cancellation_notices: {
+        Row: {
+          created_at: string
+          email: string | null
+          email_sent: boolean
+          id: string
+          plan_id: string | null
+          program_id: string | null
+          provider: string | null
+          push_sent: boolean
+          reactivation_url: string | null
+          scope: string
+          source_event: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jonathan_certificate_templates: {
+        Row: {
+          accent_color: string
+          background_height: number | null
+          background_url: string | null
+          background_width: number | null
+          body_text: string
+          created_at: string
+          field_positions: Json
+          id: string
+          is_active: boolean
+          is_default: boolean
+          logo_url: string | null
+          mode: string
+          name: string
+          primary_color: string
+          signature_name: string | null
+          signature_role: string | null
+          signature_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
+          body_text?: string
+          created_at?: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          mode?: string
+          name: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
+          body_text?: string
+          created_at?: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          mode?: string
+          name?: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_certificates: {
+        Row: {
+          duration_hours: number | null
+          id: string
+          instructor_name_snapshot: string | null
+          issued_at: string
+          pdf_url: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Insert: {
+          duration_hours?: number | null
+          id?: string
+          instructor_name_snapshot?: string | null
+          issued_at?: string
+          pdf_url?: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id?: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Update: {
+          duration_hours?: number | null
+          id?: string
+          instructor_name_snapshot?: string | null
+          issued_at?: string
+          pdf_url?: string | null
+          program_id?: string
+          program_title_snapshot?: string
+          template_id?: string | null
+          user_id?: string
+          user_name_snapshot?: string
+          validation_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_certificates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_certificate_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          program_id: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          program_id?: string | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          program_id?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_chat_messages_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_crm_exports: {
+        Row: {
+          created_at: string
+          exported_by: string | null
+          filters: Json
+          format: string
+          id: string
+          row_count: number
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Update: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Relationships: []
+      }
+      jonathan_crm_member_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          tag_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          tag_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          tag_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_crm_member_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_crm_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_crm_notes: {
+        Row: {
+          author_id: string | null
+          category: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          category?: string
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author_id?: string | null
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jonathan_crm_segments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_crm_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      jonathan_cta_leads: {
+        Row: {
+          created_at: string
+          cta_id: string | null
+          email: string
+          id: string
+          metadata: Json
+          name: string
+          source_id: string | null
+          source_type: string | null
+          user_id: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          created_at?: string
+          cta_id?: string | null
+          email: string
+          id?: string
+          metadata?: Json
+          name: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          created_at?: string
+          cta_id?: string | null
+          email?: string
+          id?: string
+          metadata?: Json
+          name?: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_cta_leads_cta_id_fkey"
+            columns: ["cta_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_ctas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_ctas: {
+        Row: {
+          button_label: string
+          capture_lead: boolean
+          created_at: string
+          delay_seconds: number
+          description: string | null
+          ends_at: string | null
+          frequency: string
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          position: string
+          random_display: boolean
+          scope: string
+          scope_id: string | null
+          starts_at: string | null
+          target_url: string
+          title: string
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          delay_seconds?: number
+          description?: string | null
+          ends_at?: string | null
+          frequency?: string
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: string
+          random_display?: boolean
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url: string
+          title: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          delay_seconds?: number
+          description?: string | null
+          ends_at?: string | null
+          frequency?: string
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: string
+          random_display?: boolean
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url?: string
+          title?: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_custom_palettes: {
+        Row: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at: string
+          created_by: string | null
+          foreground_hsl: string
+          id: string
+          mode: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Insert: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl: string
+          id?: string
+          mode?: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Update: {
+          accent_hsl?: string
+          background_hsl?: string
+          card_hsl?: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl?: string
+          id?: string
+          mode?: string
+          muted_hsl?: string
+          name?: string
+          primary_hsl?: string
+        }
+        Relationships: []
+      }
+      jonathan_events: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_hair_types: {
+        Row: {
+          code: string
+          created_at: string
+          is_enabled: boolean
+          label: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_enabled?: boolean
+          label: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_enabled?: boolean
+          label?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_install_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          platform: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      jonathan_languages: {
+        Row: {
+          code: string
+          created_at: string
+          is_default: boolean
+          is_enabled: boolean
+          name: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_lesson_notes: {
+        Row: {
+          content: string
+          id: string
+          lesson_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          id?: string
+          lesson_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          id?: string
+          lesson_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_lesson_playback: {
+        Row: {
+          duration_seconds: number | null
+          lesson_id: string
+          position_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          duration_seconds?: number | null
+          lesson_id: string
+          position_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          duration_seconds?: number | null
+          lesson_id?: string
+          position_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_lesson_playback_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_lessons: {
+        Row: {
+          attachments: Json
+          created_at: string
+          description: string | null
+          description_html: string | null
+          duration_min: number
+          id: string
+          is_preview: boolean
+          module_id: string
+          position: number
+          thumbnail_url: string | null
+          title: string
+          video_url: string | null
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          description?: string | null
+          description_html?: string | null
+          duration_min?: number
+          id?: string
+          is_preview?: boolean
+          module_id: string
+          position?: number
+          thumbnail_url?: string | null
+          title: string
+          video_url?: string | null
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          description?: string | null
+          description_html?: string | null
+          duration_min?: number
+          id?: string
+          is_preview?: boolean
+          module_id?: string
+          position?: number
+          thumbnail_url?: string | null
+          title?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_lessons_backup_reorg: {
+        Row: {
+          id: string | null
+          module_id: string | null
+          position: number | null
+          snapshotted_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Relationships: []
+      }
+      jonathan_levels: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level?: number
+          min_xp?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      jonathan_library_config: {
+        Row: {
+          created_at: string
+          description: string | null
+          fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_library_entries: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_published: boolean
+          position: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_link_presets: {
+        Row: {
+          created_at: string
+          href: string
+          id: string
+          is_active: boolean
+          label: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          href: string
+          id?: string
+          is_active?: boolean
+          label: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          href?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_lives: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          host_name: string | null
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          link_url: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_meditations: {
+        Row: {
+          audio_url: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          thumbnail_url: string | null
+          title: string
+        }
+        Insert: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title: string
+        }
+        Update: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      jonathan_modules: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          id: string
+          position: number
+          program_id: string
+          title: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          program_id: string
+          title: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          program_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_modules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_nav_items: {
+        Row: {
+          action_type: string
+          admin_only: boolean
+          created_at: string
+          has_megamenu: boolean
+          href: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_external: boolean
+          label: string
+          megamenu_config: Json
+          position: number
+          scope: string
+          show_in_mobile: boolean
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          action_type?: string
+          admin_only?: boolean
+          created_at?: string
+          has_megamenu?: boolean
+          href: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label: string
+          megamenu_config?: Json
+          position?: number
+          scope: string
+          show_in_mobile?: boolean
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          action_type?: string
+          admin_only?: boolean
+          created_at?: string
+          has_megamenu?: boolean
+          href?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label?: string
+          megamenu_config?: Json
+          position?: number
+          scope?: string
+          show_in_mobile?: boolean
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      jonathan_notification_prefs: {
+        Row: {
+          enabled: boolean
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jonathan_notification_reads: {
+        Row: {
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          notification_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          notification_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          link: string | null
+          media_url: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      jonathan_pages: {
+        Row: {
+          blocks: Json
+          created_at: string
+          id: string
+          is_published: boolean
+          seo_description: string | null
+          seo_image_url: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          seo_image_url?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          seo_image_url?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_payment_webhooks: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          matched_program_id: string | null
+          matched_user_id: string | null
+          processed: boolean
+          processed_at: string | null
+          provider: string
+          raw_payload: Json
+          user_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider: string
+          raw_payload: Json
+          user_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider?: string
+          raw_payload?: Json
+          user_email?: string | null
+        }
+        Relationships: []
+      }
+      jonathan_plan_external_products: {
+        Row: {
+          created_at: string
+          external_product_id: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          plan_id: string | null
+          program_id: string | null
+          provider: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_id: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          plan_id?: string | null
+          program_id?: string | null
+          provider: string
+          scope?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_product_id?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_plan_external_products_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_plan_external_products_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_plan_programs: {
+        Row: {
+          created_at: string
+          plan_id: string
+          program_id: string
+        }
+        Insert: {
+          created_at?: string
+          plan_id: string
+          program_id: string
+        }
+        Update: {
+          created_at?: string
+          plan_id?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_plan_programs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_plan_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_plans: {
+        Row: {
+          billing_period: string
+          color: string
+          created_at: string
+          currency: string
+          description: string | null
+          exclusion_program_ids: string[]
+          grants_all_programs: boolean
+          id: string
+          inclusion_program_ids: string[]
+          is_active: boolean
+          is_default: boolean
+          name: string
+          price_cents: number
+          reactivation_url: string | null
+          slug: string
+          tags: string[] | null
+          tier_level: number
+          trail_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string
+          color?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          exclusion_program_ids?: string[]
+          grants_all_programs?: boolean
+          id?: string
+          inclusion_program_ids?: string[]
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          price_cents?: number
+          reactivation_url?: string | null
+          slug: string
+          tags?: string[] | null
+          tier_level?: number
+          trail_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          color?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          exclusion_program_ids?: string[]
+          grants_all_programs?: boolean
+          id?: string
+          inclusion_program_ids?: string[]
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          price_cents?: number
+          reactivation_url?: string | null
+          slug?: string
+          tags?: string[] | null
+          tier_level?: number
+          trail_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_plans_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_post_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_post_comments_v2: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          is_seed: boolean
+          parent_id: string | null
+          post_id: string
+          scheduled_for: string | null
+          seed_persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_seed?: boolean
+          parent_id?: string | null
+          post_id: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_seed?: boolean
+          parent_id?: string | null
+          post_id?: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_post_comments_v2_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_post_comments_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_comments_v2_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_comments_v2_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_seed_personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_post_likes: {
+        Row: {
+          created_at: string
+          id: string
+          is_seed: boolean
+          post_id: string
+          seed_persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          post_id: string
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          post_id?: string
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_likes_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_seed_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_post_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_type: string
+          media_url: string
+          position: number
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url: string
+          position?: number
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url?: string
+          position?: number
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_posts: {
+        Row: {
+          comments_count: number
+          content: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_hidden: boolean
+          is_pinned: boolean
+          is_seed: boolean
+          likes_count: number
+          media_type: string | null
+          media_url: string | null
+          pinned_until: string | null
+          scheduled_for: string | null
+          seed_persona_id: string | null
+          type: string
+          updated_at: string
+          user_id: string | null
+          visibility: string
+        }
+        Insert: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          is_seed?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+          visibility?: string
+        }
+        Update: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          is_seed?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_posts_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_seed_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_presence_signals: {
+        Row: {
+          created_at: string
+          entity_label: string | null
+          entity_url: string | null
+          id: string
+          is_seed: boolean
+          persona_avatar: string | null
+          persona_name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      jonathan_profiles: {
+        Row: {
+          avatar: string | null
+          bio: string | null
+          blocked_at: string | null
+          blocked_reason: string | null
+          created_at: string
+          id: string
+          is_blocked: boolean
+          name: string | null
+          push_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          avatar?: string | null
+          bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          id: string
+          is_blocked?: boolean
+          name?: string | null
+          push_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          avatar?: string | null
+          bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          id?: string
+          is_blocked?: boolean
+          name?: string | null
+          push_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_program_ai_config: {
+        Row: {
+          avatar: string | null
+          model: string
+          name: string
+          program_id: string
+          provider: string
+          suggestions: Json
+          system_prompt: string
+          welcome: string | null
+        }
+        Insert: {
+          avatar?: string | null
+          model?: string
+          name: string
+          program_id: string
+          provider?: string
+          suggestions?: Json
+          system_prompt: string
+          welcome?: string | null
+        }
+        Update: {
+          avatar?: string | null
+          model?: string
+          name?: string
+          program_id?: string
+          provider?: string
+          suggestions?: Json
+          system_prompt?: string
+          welcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_program_ai_config_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_programs: {
+        Row: {
+          author_avatar: string | null
+          author_avatar_url: string | null
+          author_bio: string | null
+          author_id: string | null
+          author_name: string | null
+          author_role: string | null
+          banner_url: string | null
+          banner_url_mobile: string | null
+          bonus_items: Json
+          category: string | null
+          checkout_url: string | null
+          created_at: string
+          curriculum_intro: string | null
+          description: string | null
+          duration_min: number
+          enrolled_count: number
+          hair_types: string[]
+          hero_media_type: string
+          hero_media_type_mobile: string | null
+          hero_media_url: string | null
+          hero_media_url_mobile: string | null
+          id: string
+          is_active: boolean
+          is_free: boolean
+          is_hidden: boolean
+          is_new: boolean
+          is_premium: boolean
+          is_published: boolean
+          is_trending: boolean
+          language: string
+          learnings: Json
+          long_description: string | null
+          position: number
+          price_brl: number | null
+          reactivation_url: string | null
+          related_program_ids: string[]
+          subtitle: string | null
+          testimonials: Json
+          thumbnail_url: string | null
+          title: string
+          total_minutes: number
+          trailer_url: string | null
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_avatar_url?: string | null
+          author_bio?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          banner_url?: string | null
+          banner_url_mobile?: string | null
+          bonus_items?: Json
+          category?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          curriculum_intro?: string | null
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          hair_types?: string[]
+          hero_media_type?: string
+          hero_media_type_mobile?: string | null
+          hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          is_hidden?: boolean
+          is_new?: boolean
+          is_premium?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          language?: string
+          learnings?: Json
+          long_description?: string | null
+          position?: number
+          price_brl?: number | null
+          reactivation_url?: string | null
+          related_program_ids?: string[]
+          subtitle?: string | null
+          testimonials?: Json
+          thumbnail_url?: string | null
+          title: string
+          total_minutes?: number
+          trailer_url?: string | null
+        }
+        Update: {
+          author_avatar?: string | null
+          author_avatar_url?: string | null
+          author_bio?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          banner_url?: string | null
+          banner_url_mobile?: string | null
+          bonus_items?: Json
+          category?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          curriculum_intro?: string | null
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          hair_types?: string[]
+          hero_media_type?: string
+          hero_media_type_mobile?: string | null
+          hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          is_hidden?: boolean
+          is_new?: boolean
+          is_premium?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          language?: string
+          learnings?: Json
+          long_description?: string | null
+          position?: number
+          price_brl?: number | null
+          reactivation_url?: string | null
+          related_program_ids?: string[]
+          subtitle?: string | null
+          testimonials?: Json
+          thumbnail_url?: string | null
+          title?: string
+          total_minutes?: number
+          trailer_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_programs_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_authors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          platform: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_quiz_attempts: {
+        Row: {
+          answers: Json
+          completed_at: string
+          id: string
+          passed: boolean
+          quiz_id: string
+          score: number
+          started_at: string | null
+          time_spent_seconds: number | null
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id: string
+          score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id?: string
+          score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_quiz_questions: {
+        Row: {
+          created_at: string
+          explanation: string | null
+          id: string
+          image_url: string | null
+          options: Json
+          points: number
+          position: number
+          question: string
+          quiz_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json
+          points?: number
+          position?: number
+          question: string
+          quiz_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json
+          points?: number
+          position?: number
+          question?: string
+          quiz_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_quizzes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          lesson_id: string
+          max_attempts: number | null
+          pass_score: number
+          show_explanations: boolean
+          shuffle_options: boolean
+          shuffle_questions: boolean
+          time_limit_minutes: number | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lesson_id: string
+          max_attempts?: number | null
+          pass_score?: number
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string
+          max_attempts?: number | null
+          pass_score?: number
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_quizzes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_searches: {
+        Row: {
+          created_at: string
+          had_results: boolean | null
+          id: string
+          query: string
+          results_count: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          had_results?: boolean | null
+          id?: string
+          query: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          had_results?: boolean | null
+          id?: string
+          query?: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_seed_personas: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          country: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          profession: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      jonathan_shop_config: {
+        Row: {
+          categories: Json
+          created_at: string
+          cta_label: string
+          currency: string
+          description: string | null
+          extra_fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_shop_products: {
+        Row: {
+          affiliate_url: string | null
+          badge: string | null
+          category: string | null
+          compare_at_cents: number | null
+          created_at: string
+          currency: string
+          data: Json
+          description: string | null
+          gallery: Json
+          id: string
+          image_url: string | null
+          is_published: boolean
+          position: number
+          price_cents: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_stories: {
+        Row: {
+          author_name: string
+          author_photo: string | null
+          country: string | null
+          created_at: string
+          id: string
+          media_type: string
+          profession: string | null
+          program_id: string | null
+          quote: string
+          video_file_url: string | null
+          video_url: string | null
+        }
+        Insert: {
+          author_name: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          media_type?: string
+          profession?: string | null
+          program_id?: string | null
+          quote: string
+          video_file_url?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          author_name?: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          media_type?: string
+          profession?: string | null
+          program_id?: string | null
+          quote?: string
+          video_file_url?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_stories_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_survey_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: Json
+          position: number
+          question: string
+          required: boolean
+          survey_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question: string
+          required?: boolean
+          survey_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question?: string
+          required?: boolean
+          survey_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_survey_responses: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          id: string
+          scope_id: string | null
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_surveys: {
+        Row: {
+          created_at: string
+          description: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          title: string
+          trigger_scope_id: string | null
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_tenant_settings: {
+        Row: {
+          accent_hsl: string
+          app_name: string
+          authors_card_aspect: string
+          background_hsl: string
+          body_font: string
+          card_hsl: string
+          category_hidden: Json | null
+          category_order: Json | null
+          community_free_post_quota: number
+          community_free_reel_quota: number
+          community_gating_mode: string
+          community_lock_create: boolean
+          community_lock_engage: boolean
+          community_paywall_message: string
+          community_paywall_preview_chars: number
+          default_theme: string
+          email_api_key: string | null
+          email_welcome_enabled: boolean
+          email_welcome_html: string | null
+          email_welcome_subject: string
+          favicon_url: string | null
+          footer_about_links: Json
+          footer_about_title: string
+          footer_app_availability: string
+          footer_app_eyebrow: string
+          footer_app_subtitle: string
+          footer_app_title: string
+          footer_appstore_url: string | null
+          footer_brand_description: string
+          footer_copyright_tagline: string
+          footer_facebook_url: string | null
+          footer_instagram_url: string | null
+          footer_playstore_url: string | null
+          footer_social_subtitle: string
+          footer_social_title: string
+          footer_support_links: Json
+          footer_support_title: string
+          footer_twitter_url: string | null
+          footer_youtube_url: string | null
+          foreground_hsl: string
+          hair_types_label: string
+          hair_types_label_singular: string
+          heading_font: string
+          home_authors_subtitle: string
+          home_meditations_eyebrow: string
+          home_recommend_cta: Json | null
+          home_section_order: Json
+          home_section_titles: Json
+          home_sections_enabled: Json
+          home_welcome_image: string | null
+          home_welcome_image_mobile: string | null
+          id: boolean
+          landing_cta_text: string
+          landing_footer_html: string | null
+          landing_gradient_desktop: string | null
+          landing_gradient_mobile: string | null
+          landing_hero_image: string | null
+          landing_hero_image_mobile: string | null
+          landing_logo_url: string | null
+          landing_signin_label: string
+          landing_signup_label: string
+          landing_subtitle: string
+          landing_title: string
+          logo_url: string | null
+          meditations_label: string
+          meditations_label_singular: string
+          muted_hsl: string
+          notify_on_admin_post: boolean
+          onboarding_step: number
+          outbound_webhook_events: string[] | null
+          outbound_webhook_secret: string | null
+          outbound_webhook_tags: string[] | null
+          outbound_webhook_url: string | null
+          primary_hsl: string
+          program_card_aspect: string
+          program_card_aspect_by_section: Json
+          program_card_aspect_by_section_mobile: Json
+          program_card_aspect_mobile: string | null
+          programs_section_order: Json
+          programs_sections_enabled: Json
+          resend_from_email: string | null
+          resend_from_name: string | null
+          seed_engine_enabled: boolean
+          seed_likes_per_hour: number
+          seed_online_offset: number
+          seed_presence_frequency_seconds: number
+          seed_show_online_count: boolean
+          seed_show_ticker: boolean
+          show_continue_hero_text: boolean
+          show_program_card_text: boolean
+          show_quest_hero_text: boolean
+          show_trail_card_text: boolean
+          site_url: string | null
+          updated_at: string
+          webhook_secret: string | null
+          welcome_text: string
+        }
+        Insert: {
+          accent_hsl?: string
+          app_name?: string
+          authors_card_aspect?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
+          community_paywall_preview_chars?: number
+          default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
+          favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
+          foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
+          heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
+          home_section_order?: Json
+          home_section_titles?: Json
+          home_sections_enabled?: Json
+          home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
+          id?: boolean
+          landing_cta_text?: string
+          landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
+          landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
+          landing_subtitle?: string
+          landing_title?: string
+          logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
+          muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
+          primary_hsl?: string
+          program_card_aspect?: string
+          program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
+          site_url?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+          welcome_text?: string
+        }
+        Update: {
+          accent_hsl?: string
+          app_name?: string
+          authors_card_aspect?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
+          community_paywall_preview_chars?: number
+          default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
+          favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
+          foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
+          heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
+          home_section_order?: Json
+          home_section_titles?: Json
+          home_sections_enabled?: Json
+          home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
+          id?: boolean
+          landing_cta_text?: string
+          landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
+          landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
+          landing_subtitle?: string
+          landing_title?: string
+          logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
+          muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
+          primary_hsl?: string
+          program_card_aspect?: string
+          program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
+          site_url?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+          welcome_text?: string
+        }
+        Relationships: []
+      }
+      jonathan_trail_enrollments: {
+        Row: {
+          completed_at: string | null
+          enrolled_at: string
+          id: string
+          source: string
+          trail_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_trail_enrollments_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_trail_programs: {
+        Row: {
+          created_at: string
+          id: string
+          is_required: boolean
+          position: number
+          program_id: string
+          trail_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id: string
+          trail_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id?: string
+          trail_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_trail_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_trail_programs_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_trails: {
+        Row: {
+          auto_enroll_on_signup: boolean
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          is_sequential: boolean
+          position: number
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_upsell_events: {
+        Row: {
+          context_lesson_id: string | null
+          context_program_id: string | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          id: string
+          offer_id: string
+          user_id: string
+        }
+        Insert: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          id?: string
+          offer_id: string
+          user_id: string
+        }
+        Update: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          id?: string
+          offer_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_upsell_events_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_upsell_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_upsell_offers: {
+        Row: {
+          created_at: string
+          cta_label: string | null
+          headline: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          priority: number
+          sales_url: string | null
+          source_program_id: string | null
+          subheadline: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cta_label?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          priority?: number
+          sales_url?: string | null
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cta_label?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          priority?: number
+          sales_url?: string | null
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id?: string
+          trigger_type?: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_upsell_offers_source_program_id_fkey"
+            columns: ["source_program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_upsell_offers_target_program_id_fkey"
+            columns: ["target_program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_user_badges: {
+        Row: {
+          badge_id: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_badge_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_user_entitlements: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          plan_id: string | null
+          program_id: string | null
+          scope: string
+          source: string
+          source_ref: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          plan_id?: string | null
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          plan_id?: string | null
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_user_entitlements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_entitlements_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_user_favorites: {
+        Row: {
+          created_at: string
+          program_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          program_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          program_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_user_favorites_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_user_onboarding: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          goal: string | null
+          level: string | null
+          skipped: boolean
+          time_per_day: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          goal?: string | null
+          level?: string | null
+          skipped?: boolean
+          time_per_day?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          goal?: string | null
+          level?: string | null
+          skipped?: boolean
+          time_per_day?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_user_progress: {
+        Row: {
+          completed_at: string
+          id: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_user_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["areamembrojp_app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["areamembrojp_app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["areamembrojp_app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_user_xp: {
+        Row: {
+          level: number
+          total_xp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jonathan_webhook_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_type: string | null
+          external_product_id: string | null
+          id: string
+          message: string | null
+          payload: Json | null
+          plan_id: string | null
+          provider: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_webhook_logs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_welcome_popup_views: {
+        Row: {
+          dismissed_at: string
+          popup_id: string
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          popup_id: string
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          popup_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_welcome_popup_views_popup_id_fkey"
+            columns: ["popup_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_welcome_popups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_welcome_popups: {
+        Row: {
+          audience: string
+          body_html: string | null
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          display_mode: string
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          position: number
+          starts_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_xp_events: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id: string
+          xp: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: []
+      }
+      jonathan_xp_rules: {
+        Row: {
+          action: string
+          created_at: string
+          daily_cap: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       lessons: {
         Row: {
           attachments: Json | null
@@ -32624,6 +36561,20 @@ export type Database = {
       is_salao_ativo: { Args: { _salao_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_user_active: { Args: never; Returns: boolean }
+      jp_award_xp: {
+        Args: { _action: string; _entity_id?: string; _entity_type?: string }
+        Returns: Json
+      }
+      jp_enroll_user_plan_trails: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      jp_has_program_access: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
+      jp_is_admin: { Args: { _uid: string }; Returns: boolean }
+      jp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       list_admin_tables: { Args: never; Returns: Json }
       mark_admin_message_read: {
         Args: { message_id: string }
