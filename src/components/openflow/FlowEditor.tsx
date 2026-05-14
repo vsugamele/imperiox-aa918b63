@@ -27,13 +27,28 @@ const ACAO_TIPOS = [
   { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5" },
 ];
 
-const TRIGGERS_MAP: Record<string, { label: string; icon: string }> = {
-  carrinho_abandonado: { label: "Carrinho Abandonado", icon: "🛒" },
-  compra_aprovada: { label: "Compra Aprovada", icon: "✅" },
-  lead_novo: { label: "Novo Lead", icon: "👤" },
-  reembolso: { label: "Reembolso", icon: "↩️" },
-  aguardando_pagamento: { label: "Aguardando Pagamento / Pix Gerado", icon: "💰" },
-  inicio_checkout: { label: "Início de Checkout", icon: "🛍️" },
+const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
+  // Lead
+  lead_novo: { label: "Novo Lead", icon: "👤", group: "Lead" },
+  inicio_checkout: { label: "Início de Checkout", icon: "🛍️", group: "Lead" },
+  // Pagamento - pendente
+  carrinho_abandonado: { label: "Carrinho Abandonado", icon: "🛒", group: "Pagamento" },
+  aguardando_pagamento: { label: "Aguardando Pagamento / Pix Gerado", icon: "💰", group: "Pagamento" },
+  boleto_gerado: { label: "Boleto Gerado", icon: "📄", group: "Pagamento" },
+  pagamento_recusado: { label: "Pagamento Recusado", icon: "❌", group: "Pagamento" },
+  pagamento_expirado: { label: "Pagamento Expirado (Pix/Boleto)", icon: "⌛", group: "Pagamento" },
+  // Pagamento - aprovado / pós-venda
+  compra_aprovada: { label: "Compra Aprovada", icon: "✅", group: "Pós-venda" },
+  primeiro_acesso: { label: "Primeiro Acesso", icon: "🎉", group: "Pós-venda" },
+  upsell_aprovado: { label: "Upsell Aprovado", icon: "⬆️", group: "Pós-venda" },
+  orderbump_aprovado: { label: "Orderbump Aprovado", icon: "🎁", group: "Pós-venda" },
+  // Retenção / Churn
+  reembolso: { label: "Reembolso", icon: "↩️", group: "Retenção" },
+  chargeback: { label: "Chargeback", icon: "⚠️", group: "Retenção" },
+  compra_cancelada: { label: "Compra Cancelada", icon: "🚫", group: "Retenção" },
+  assinatura_cancelada: { label: "Assinatura Cancelada", icon: "💔", group: "Retenção" },
+  assinatura_renovada: { label: "Assinatura Renovada", icon: "🔄", group: "Retenção" },
+  trial_iniciado: { label: "Trial Iniciado", icon: "🆓", group: "Retenção" },
 };
 
 const DYNAMIC_VARS = [
