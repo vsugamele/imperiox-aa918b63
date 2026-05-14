@@ -489,7 +489,7 @@ export default function OpenFlow() {
                   <Label>Trigger</Label>
                   <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}</SelectContent>
+                    <SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent>
                   </Select>
                 </div>
               </div>
