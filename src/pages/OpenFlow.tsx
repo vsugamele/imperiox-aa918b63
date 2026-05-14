@@ -19,14 +19,31 @@ import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 
 // ── Constants ────────────────────────────────────────────────────
-const TRIGGERS = [
-  { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500" },
-  { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅", color: "border-l-emerald-500" },
-  { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500" },
-  { value: "reembolso", label: "Reembolso", icon: "↩️", color: "border-l-red-500" },
-  { value: "aguardando_pagamento", label: "Aguardando Pagamento / Pix", icon: "💰", color: "border-l-yellow-500" },
-  { value: "inicio_checkout", label: "Início de Checkout", icon: "🛍️", color: "border-l-purple-500" },
+const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
+  // Lead
+  { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
+  { value: "inicio_checkout", label: "Início de Checkout", icon: "🛍️", color: "border-l-purple-500", group: "Lead" },
+  // Pagamento - pendente
+  { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500", group: "Pagamento" },
+  { value: "aguardando_pagamento", label: "Aguardando Pagamento / Pix", icon: "💰", color: "border-l-yellow-500", group: "Pagamento" },
+  { value: "boleto_gerado", label: "Boleto Gerado", icon: "📄", color: "border-l-yellow-600", group: "Pagamento" },
+  { value: "pagamento_recusado", label: "Pagamento Recusado", icon: "❌", color: "border-l-red-500", group: "Pagamento" },
+  { value: "pagamento_expirado", label: "Pagamento Expirado", icon: "⌛", color: "border-l-orange-500", group: "Pagamento" },
+  // Pós-venda
+  { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅", color: "border-l-emerald-500", group: "Pós-venda" },
+  { value: "primeiro_acesso", label: "Primeiro Acesso", icon: "🎉", color: "border-l-emerald-400", group: "Pós-venda" },
+  { value: "upsell_aprovado", label: "Upsell Aprovado", icon: "⬆️", color: "border-l-green-600", group: "Pós-venda" },
+  { value: "orderbump_aprovado", label: "Orderbump Aprovado", icon: "🎁", color: "border-l-green-500", group: "Pós-venda" },
+  // Retenção
+  { value: "reembolso", label: "Reembolso", icon: "↩️", color: "border-l-red-500", group: "Retenção" },
+  { value: "chargeback", label: "Chargeback", icon: "⚠️", color: "border-l-red-600", group: "Retenção" },
+  { value: "compra_cancelada", label: "Compra Cancelada", icon: "🚫", color: "border-l-rose-500", group: "Retenção" },
+  { value: "assinatura_cancelada", label: "Assinatura Cancelada", icon: "💔", color: "border-l-pink-500", group: "Retenção" },
+  { value: "assinatura_renovada", label: "Assinatura Renovada", icon: "🔄", color: "border-l-teal-500", group: "Retenção" },
+  { value: "trial_iniciado", label: "Trial Iniciado", icon: "🆓", color: "border-l-cyan-500", group: "Retenção" },
 ];
+
+const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção"];
 
 const ACAO_TIPOS = [
   { value: "email", label: "Email (Resend)", icon: Mail },
@@ -39,10 +56,20 @@ interface Automacao {
   id: string; project_id?: string; produto?: string; nome: string;
   trigger_tipo: string; acoes: Acao[]; ativo: boolean; created_at?: string;
   provider_id?: string;
+  quiet_start?: number | null; quiet_end?: number | null; dedupe_hours?: number | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
 const triggerMeta = (t: string) => TRIGGERS.find(tr => tr.value === t) || { label: t, icon: "⚡", color: "border-l-primary" };
+
+const renderTriggerOptions = () => TRIGGER_GROUPS.map(g => (
+  <div key={g}>
+    <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{g}</div>
+    {TRIGGERS.filter(t => t.group === g).map(t => (
+      <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
+    ))}
+  </div>
+));
 
 // ── Main Component ───────────────────────────────────────────────
 export default function OpenFlow() {
