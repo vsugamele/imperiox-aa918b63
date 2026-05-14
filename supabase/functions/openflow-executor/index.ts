@@ -49,6 +49,17 @@ Deno.serve(async (req) => {
       lead_capturado: ["lead_capturado", "lead_novo"],
       aguardando_pagamento: ["aguardando_pagamento", "pix_gerado"],
       pix_gerado: ["pix_gerado", "aguardando_pagamento"],
+      boleto_gerado: ["boleto_gerado", "aguardando_pagamento"],
+      pagamento_recusado: ["pagamento_recusado"],
+      pagamento_expirado: ["pagamento_expirado"],
+      chargeback: ["chargeback"],
+      compra_cancelada: ["compra_cancelada"],
+      assinatura_cancelada: ["assinatura_cancelada"],
+      assinatura_renovada: ["assinatura_renovada"],
+      upsell_aprovado: ["upsell_aprovado"],
+      orderbump_aprovado: ["orderbump_aprovado"],
+      primeiro_acesso: ["primeiro_acesso"],
+      trial_iniciado: ["trial_iniciado"],
     };
     const triggerVariants = triggerAliases[trigger_tipo] || [trigger_tipo];
 
