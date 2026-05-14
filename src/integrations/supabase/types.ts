@@ -15048,12 +15048,15 @@ export type Database = {
           acoes: Json | null
           ativo: boolean | null
           created_at: string | null
+          dedupe_hours: number | null
           id: string
           link_checkout: string | null
           nome: string
           produto: string | null
           project_id: string | null
           provider_id: string | null
+          quiet_end: number | null
+          quiet_start: number | null
           trigger_tipo: string
           updated_at: string | null
         }
@@ -15061,12 +15064,15 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           created_at?: string | null
+          dedupe_hours?: number | null
           id: string
           link_checkout?: string | null
           nome: string
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
+          quiet_end?: number | null
+          quiet_start?: number | null
           trigger_tipo: string
           updated_at?: string | null
         }
@@ -15074,12 +15080,15 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           created_at?: string | null
+          dedupe_hours?: number | null
           id?: string
           link_checkout?: string | null
           nome?: string
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
+          quiet_end?: number | null
+          quiet_start?: number | null
           trigger_tipo?: string
           updated_at?: string | null
         }
@@ -16381,6 +16390,42 @@ export type Database = {
           step_results?: Json
           trigger_tipo?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_flow_templates: {
+        Row: {
+          acoes: Json
+          created_at: string
+          descricao: string | null
+          icon: string | null
+          id: string
+          nome: string
+          ordem: number | null
+          slug: string
+          trigger_tipo: string
+        }
+        Insert: {
+          acoes?: Json
+          created_at?: string
+          descricao?: string | null
+          icon?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+          slug: string
+          trigger_tipo: string
+        }
+        Update: {
+          acoes?: Json
+          created_at?: string
+          descricao?: string | null
+          icon?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+          slug?: string
+          trigger_tipo?: string
         }
         Relationships: []
       }

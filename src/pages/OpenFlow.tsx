@@ -19,14 +19,31 @@ import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 
 // ── Constants ────────────────────────────────────────────────────
-const TRIGGERS = [
-  { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500" },
-  { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅", color: "border-l-emerald-500" },
-  { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500" },
-  { value: "reembolso", label: "Reembolso", icon: "↩️", color: "border-l-red-500" },
-  { value: "aguardando_pagamento", label: "Aguardando Pagamento / Pix", icon: "💰", color: "border-l-yellow-500" },
-  { value: "inicio_checkout", label: "Início de Checkout", icon: "🛍️", color: "border-l-purple-500" },
+const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
+  // Lead
+  { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
+  { value: "inicio_checkout", label: "Início de Checkout", icon: "🛍️", color: "border-l-purple-500", group: "Lead" },
+  // Pagamento - pendente
+  { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500", group: "Pagamento" },
+  { value: "aguardando_pagamento", label: "Aguardando Pagamento / Pix", icon: "💰", color: "border-l-yellow-500", group: "Pagamento" },
+  { value: "boleto_gerado", label: "Boleto Gerado", icon: "📄", color: "border-l-yellow-600", group: "Pagamento" },
+  { value: "pagamento_recusado", label: "Pagamento Recusado", icon: "❌", color: "border-l-red-500", group: "Pagamento" },
+  { value: "pagamento_expirado", label: "Pagamento Expirado", icon: "⌛", color: "border-l-orange-500", group: "Pagamento" },
+  // Pós-venda
+  { value: "compra_aprovada", label: "Compra Aprovada", icon: "✅", color: "border-l-emerald-500", group: "Pós-venda" },
+  { value: "primeiro_acesso", label: "Primeiro Acesso", icon: "🎉", color: "border-l-emerald-400", group: "Pós-venda" },
+  { value: "upsell_aprovado", label: "Upsell Aprovado", icon: "⬆️", color: "border-l-green-600", group: "Pós-venda" },
+  { value: "orderbump_aprovado", label: "Orderbump Aprovado", icon: "🎁", color: "border-l-green-500", group: "Pós-venda" },
+  // Retenção
+  { value: "reembolso", label: "Reembolso", icon: "↩️", color: "border-l-red-500", group: "Retenção" },
+  { value: "chargeback", label: "Chargeback", icon: "⚠️", color: "border-l-red-600", group: "Retenção" },
+  { value: "compra_cancelada", label: "Compra Cancelada", icon: "🚫", color: "border-l-rose-500", group: "Retenção" },
+  { value: "assinatura_cancelada", label: "Assinatura Cancelada", icon: "💔", color: "border-l-pink-500", group: "Retenção" },
+  { value: "assinatura_renovada", label: "Assinatura Renovada", icon: "🔄", color: "border-l-teal-500", group: "Retenção" },
+  { value: "trial_iniciado", label: "Trial Iniciado", icon: "🆓", color: "border-l-cyan-500", group: "Retenção" },
 ];
+
+const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção"];
 
 const ACAO_TIPOS = [
   { value: "email", label: "Email (Resend)", icon: Mail },
@@ -39,10 +56,20 @@ interface Automacao {
   id: string; project_id?: string; produto?: string; nome: string;
   trigger_tipo: string; acoes: Acao[]; ativo: boolean; created_at?: string;
   provider_id?: string;
+  quiet_start?: number | null; quiet_end?: number | null; dedupe_hours?: number | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
 const triggerMeta = (t: string) => TRIGGERS.find(tr => tr.value === t) || { label: t, icon: "⚡", color: "border-l-primary" };
+
+const renderTriggerOptions = () => TRIGGER_GROUPS.map(g => (
+  <div key={g}>
+    <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{g}</div>
+    {TRIGGERS.filter(t => t.group === g).map(t => (
+      <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
+    ))}
+  </div>
+));
 
 // ── Main Component ───────────────────────────────────────────────
 export default function OpenFlow() {
@@ -129,17 +156,30 @@ export default function OpenFlow() {
   }, [editing?.project_id]);
 
   // ── CRUD operations ──────────────────────────────────────────
-  const createAutomacao = async () => {
-    if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
-    const { error } = await supabase.from("imphq_automacoes").insert({
-      id: crypto.randomUUID(), nome: form.nome, trigger_tipo: form.trigger_tipo,
-      project_id: form.project_id || null, acoes: [] as any, ativo: true,
+  const createAutomacao = async (preset?: { nome?: string; trigger_tipo?: string; acoes?: Acao[] }) => {
+    const nome = preset?.nome || form.nome;
+    if (!nome.trim()) { toast.error("Nome obrigatório"); return; }
+    const { data, error } = await supabase.from("imphq_automacoes").insert({
+      id: crypto.randomUUID(), nome, trigger_tipo: preset?.trigger_tipo || form.trigger_tipo,
+      project_id: form.project_id || null, acoes: (preset?.acoes || []) as any, ativo: true,
       produto: (form as any).produto || null,
-    } as any);
+    } as any).select("*").single();
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
     setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" }); load();
+    if (data && preset?.acoes?.length) setEditing(data as any);
   };
+
+  const [templates, setTemplates] = useState<any[]>([]);
+  useEffect(() => {
+    if (!showNew) return;
+    supabase.from("imphq_flow_templates" as any).select("*").order("ordem").then(({ data }) => setTemplates(data || []));
+  }, [showNew]);
+
+  const useTemplate = async (tpl: any) => {
+    await createAutomacao({ nome: tpl.nome, trigger_tipo: tpl.trigger_tipo, acoes: tpl.acoes || [] });
+  };
+
 
   const saveAutomacao = async () => {
     if (!editing) return;
@@ -147,6 +187,9 @@ export default function OpenFlow() {
       nome: editing.nome, trigger_tipo: editing.trigger_tipo,
       acoes: editing.acoes as any, ativo: editing.ativo, project_id: editing.project_id,
       produto: (editing as any).produto || null, provider_id: editing.provider_id || null,
+      quiet_start: editing.quiet_start ?? null,
+      quiet_end: editing.quiet_end ?? null,
+      dedupe_hours: editing.dedupe_hours ?? 0,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
@@ -390,7 +433,7 @@ export default function OpenFlow() {
 
       {/* ── New Automation Dialog ──────────────────────────────── */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Automação</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Recuperação de Carrinho" /></div>
@@ -398,7 +441,7 @@ export default function OpenFlow() {
               <Label>Trigger</Label>
               <Select value={form.trigger_tipo} onValueChange={v => setForm({ ...form, trigger_tipo: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}</SelectContent>
+                <SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent>
               </Select>
             </div>
             <div>
@@ -423,8 +466,29 @@ export default function OpenFlow() {
                 </Select>
               </div>
             )}
+
+            {templates.length > 0 && (
+              <div className="border-t border-border/40 pt-3 space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ou comece de um template</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {templates.map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => useTemplate(t)}
+                      className="text-left p-2.5 rounded border border-border/40 hover:border-primary/60 hover:bg-secondary/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <span>{t.icon}</span>{t.nome}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{t.descricao}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter><Button onClick={createAutomacao}>Criar</Button></DialogFooter>
+          <DialogFooter><Button onClick={() => createAutomacao()}>Criar vazio</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -462,7 +526,7 @@ export default function OpenFlow() {
                   <Label>Trigger</Label>
                   <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}</SelectContent>
+                    <SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent>
                   </Select>
                 </div>
               </div>
@@ -487,10 +551,25 @@ export default function OpenFlow() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center justify-between">
-                <Label>Ativo</Label>
-                <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                <div>
+                  <Label className="text-xs">Silêncio - início (h)</Label>
+                  <Input type="number" min={0} max={23} placeholder="ex: 22" value={editing.quiet_start ?? ""} onChange={e => setEditing({ ...editing, quiet_start: e.target.value === "" ? null : Number(e.target.value) })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Silêncio - fim (h)</Label>
+                  <Input type="number" min={0} max={23} placeholder="ex: 8" value={editing.quiet_end ?? ""} onChange={e => setEditing({ ...editing, quiet_end: e.target.value === "" ? null : Number(e.target.value) })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Dedupe (h)</Label>
+                  <Input type="number" min={0} placeholder="0" value={editing.dedupe_hours ?? 0} onChange={e => setEditing({ ...editing, dedupe_hours: Number(e.target.value) || 0 })} />
+                </div>
+                <div className="flex items-center justify-between gap-2 pb-1">
+                  <Label>Ativo</Label>
+                  <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
+                </div>
               </div>
+              <p className="text-[10px] text-muted-foreground -mt-2">Janela de silêncio: não dispara nesse intervalo (ex.: 22 → 8). Dedupe: bloqueia disparos repetidos pro mesmo lead pelas N horas.</p>
               <FlowEditor
                 triggerTipo={editing.trigger_tipo}
                 acoes={editing.acoes}

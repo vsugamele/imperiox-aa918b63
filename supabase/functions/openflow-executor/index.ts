@@ -49,6 +49,17 @@ Deno.serve(async (req) => {
       lead_capturado: ["lead_capturado", "lead_novo"],
       aguardando_pagamento: ["aguardando_pagamento", "pix_gerado"],
       pix_gerado: ["pix_gerado", "aguardando_pagamento"],
+      boleto_gerado: ["boleto_gerado", "aguardando_pagamento"],
+      pagamento_recusado: ["pagamento_recusado"],
+      pagamento_expirado: ["pagamento_expirado"],
+      chargeback: ["chargeback"],
+      compra_cancelada: ["compra_cancelada"],
+      assinatura_cancelada: ["assinatura_cancelada"],
+      assinatura_renovada: ["assinatura_renovada"],
+      upsell_aprovado: ["upsell_aprovado"],
+      orderbump_aprovado: ["orderbump_aprovado"],
+      primeiro_acesso: ["primeiro_acesso"],
+      trial_iniciado: ["trial_iniciado"],
     };
     const triggerVariants = triggerAliases[trigger_tipo] || [trigger_tipo];
 
@@ -88,6 +99,37 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const auto of matched) {
+      // ── Quiet hours: skip if current time falls inside the configured window
+      const qs = auto.quiet_start, qe = auto.quiet_end;
+      if (qs != null && qe != null && qs !== qe) {
+        const hourBR = Number(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
+        const inWindow = qs < qe ? (hourBR >= qs && hourBR < qe) : (hourBR >= qs || hourBR < qe);
+        if (inWindow) {
+          console.log(`[openflow-executor] Skipping ${auto.id}: dentro da janela de silêncio (${qs}-${qe}h, agora ${hourBR}h BR)`);
+          results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: "quiet_hours" });
+          continue;
+        }
+      }
+
+      // ── Dedupe: skip if same automation ran for same lead within N hours
+      const dedupeH = Number(auto.dedupe_hours || 0);
+      if (dedupeH > 0 && lead_data?.lead_id) {
+        const cutoff = new Date(Date.now() - dedupeH * 3600_000).toISOString();
+        const { data: recent } = await supabase
+          .from("imphq_flow_executions")
+          .select("id")
+          .eq("automacao_id", auto.id)
+          .eq("lead_id", lead_data.lead_id)
+          .in("status", ["running", "completed", "partial", "waiting"])
+          .gte("created_at", cutoff)
+          .limit(1);
+        if (recent && recent.length > 0) {
+          console.log(`[openflow-executor] Skipping ${auto.id}: dedupe ${dedupeH}h ativo para lead ${lead_data.lead_id}`);
+          results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: "dedupe" });
+          continue;
+        }
+      }
+
       // CRITICAL FIX: Read from 'acoes' (editor field) with fallback to 'etapas' (legacy)
       const rawSteps = auto.acoes || auto.etapas || [];
       const steps = rawSteps.map(normalizeStep);
