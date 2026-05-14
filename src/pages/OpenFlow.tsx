@@ -517,10 +517,25 @@ export default function OpenFlow() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center justify-between">
-                <Label>Ativo</Label>
-                <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                <div>
+                  <Label className="text-xs">Silêncio - início (h)</Label>
+                  <Input type="number" min={0} max={23} placeholder="ex: 22" value={editing.quiet_start ?? ""} onChange={e => setEditing({ ...editing, quiet_start: e.target.value === "" ? null : Number(e.target.value) })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Silêncio - fim (h)</Label>
+                  <Input type="number" min={0} max={23} placeholder="ex: 8" value={editing.quiet_end ?? ""} onChange={e => setEditing({ ...editing, quiet_end: e.target.value === "" ? null : Number(e.target.value) })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Dedupe (h)</Label>
+                  <Input type="number" min={0} placeholder="0" value={editing.dedupe_hours ?? 0} onChange={e => setEditing({ ...editing, dedupe_hours: Number(e.target.value) || 0 })} />
+                </div>
+                <div className="flex items-center justify-between gap-2 pb-1">
+                  <Label>Ativo</Label>
+                  <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
+                </div>
               </div>
+              <p className="text-[10px] text-muted-foreground -mt-2">Janela de silêncio: não dispara nesse intervalo (ex.: 22 → 8). Dedupe: bloqueia disparos repetidos pro mesmo lead pelas N horas.</p>
               <FlowEditor
                 triggerTipo={editing.trigger_tipo}
                 acoes={editing.acoes}
