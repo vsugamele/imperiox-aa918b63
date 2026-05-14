@@ -156,17 +156,30 @@ export default function OpenFlow() {
   }, [editing?.project_id]);
 
   // ── CRUD operations ──────────────────────────────────────────
-  const createAutomacao = async () => {
-    if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
-    const { error } = await supabase.from("imphq_automacoes").insert({
-      id: crypto.randomUUID(), nome: form.nome, trigger_tipo: form.trigger_tipo,
-      project_id: form.project_id || null, acoes: [] as any, ativo: true,
+  const createAutomacao = async (preset?: { nome?: string; trigger_tipo?: string; acoes?: Acao[] }) => {
+    const nome = preset?.nome || form.nome;
+    if (!nome.trim()) { toast.error("Nome obrigatório"); return; }
+    const { data, error } = await supabase.from("imphq_automacoes").insert({
+      id: crypto.randomUUID(), nome, trigger_tipo: preset?.trigger_tipo || form.trigger_tipo,
+      project_id: form.project_id || null, acoes: (preset?.acoes || []) as any, ativo: true,
       produto: (form as any).produto || null,
-    } as any);
+    } as any).select("*").single();
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
     setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" }); load();
+    if (data && preset?.acoes?.length) setEditing(data as any);
   };
+
+  const [templates, setTemplates] = useState<any[]>([]);
+  useEffect(() => {
+    if (!showNew) return;
+    supabase.from("imphq_flow_templates" as any).select("*").order("ordem").then(({ data }) => setTemplates(data || []));
+  }, [showNew]);
+
+  const useTemplate = async (tpl: any) => {
+    await createAutomacao({ nome: tpl.nome, trigger_tipo: tpl.trigger_tipo, acoes: tpl.acoes || [] });
+  };
+
 
   const saveAutomacao = async () => {
     if (!editing) return;
