@@ -466,8 +466,29 @@ export default function OpenFlow() {
                 </Select>
               </div>
             )}
+
+            {templates.length > 0 && (
+              <div className="border-t border-border/40 pt-3 space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ou comece de um template</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {templates.map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => useTemplate(t)}
+                      className="text-left p-2.5 rounded border border-border/40 hover:border-primary/60 hover:bg-secondary/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <span>{t.icon}</span>{t.nome}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{t.descricao}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter><Button onClick={createAutomacao}>Criar</Button></DialogFooter>
+          <DialogFooter><Button onClick={() => createAutomacao()}>Criar vazio</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
