@@ -263,16 +263,16 @@ export default function GroupDistributor() {
             </div>
             <div>
               <Label>Campanha (herda os grupos)</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={form.campaign_id}
-                onChange={e => setForm({ ...form, campaign_id: e.target.value })}
-              >
-                <option value="">Selecione uma campanha</option>
-                {campaigns.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} ({(c.groups || []).length} grupos)</option>
-                ))}
-              </select>
+              <Select value={form.campaign_id} onValueChange={v => setForm({ ...form, campaign_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma campanha" /></SelectTrigger>
+                <SelectContent>
+                  {campaigns.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} ({(c.groups || []).length} grupos)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Máximo de leads por grupo</Label>
