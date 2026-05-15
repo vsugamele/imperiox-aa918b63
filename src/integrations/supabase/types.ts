@@ -23658,7 +23658,7 @@ export type Database = {
           context_lesson_id: string | null
           context_program_id: string | null
           created_at: string
-          event_type: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          event_type: Database["public"]["Enums"]["jonathan_upsell_event_type"]
           id: string
           offer_id: string
           user_id: string
@@ -23667,7 +23667,7 @@ export type Database = {
           context_lesson_id?: string | null
           context_program_id?: string | null
           created_at?: string
-          event_type: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          event_type: Database["public"]["Enums"]["jonathan_upsell_event_type"]
           id?: string
           offer_id: string
           user_id: string
@@ -23676,7 +23676,7 @@ export type Database = {
           context_lesson_id?: string | null
           context_program_id?: string | null
           created_at?: string
-          event_type?: Database["public"]["Enums"]["areamembrojp_upsell_event_type"]
+          event_type?: Database["public"]["Enums"]["jonathan_upsell_event_type"]
           id?: string
           offer_id?: string
           user_id?: string
@@ -23705,7 +23705,7 @@ export type Database = {
           source_program_id: string | null
           subheadline: string | null
           target_program_id: string
-          trigger_type: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          trigger_type: Database["public"]["Enums"]["jonathan_upsell_trigger"]
           updated_at: string
         }
         Insert: {
@@ -23721,7 +23721,7 @@ export type Database = {
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id: string
-          trigger_type: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          trigger_type: Database["public"]["Enums"]["jonathan_upsell_trigger"]
           updated_at?: string
         }
         Update: {
@@ -23737,7 +23737,7 @@ export type Database = {
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id?: string
-          trigger_type?: Database["public"]["Enums"]["areamembrojp_upsell_trigger"]
+          trigger_type?: Database["public"]["Enums"]["jonathan_upsell_trigger"]
           updated_at?: string
         }
         Relationships: [
@@ -24044,19 +24044,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["areamembrojp_app_role"]
+          role: Database["public"]["Enums"]["jonathan_app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["areamembrojp_app_role"]
+          role: Database["public"]["Enums"]["jonathan_app_role"]
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["areamembrojp_app_role"]
+          role?: Database["public"]["Enums"]["jonathan_app_role"]
           user_id?: string
         }
         Relationships: [
@@ -36567,6 +36567,34 @@ export type Database = {
       is_salao_ativo: { Args: { _salao_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_user_active: { Args: never; Returns: boolean }
+      jonathan_award_xp: {
+        Args: { _action: string; _entity_id?: string; _entity_type?: string }
+        Returns: Json
+      }
+      jonathan_enroll_user_plan_trails: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      jonathan_has_program_access: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
+      jonathan_has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["jonathan_app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      jonathan_is_admin: { Args: { _uid: string }; Returns: boolean }
+      jonathan_issue_certificate: {
+        Args: { _program_id: string }
+        Returns: Json
+      }
+      jonathan_promote_admin_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
       jp_award_xp: {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
@@ -36683,6 +36711,9 @@ export type Database = {
       diri_admin_level: "administrator" | "editor"
       diri_post_status: "draft" | "published" | "scheduled"
       goal_priority: "urgent" | "important" | "strategic"
+      jonathan_app_role: "admin" | "member"
+      jonathan_upsell_event_type: "view" | "click" | "dismiss" | "convert"
+      jonathan_upsell_trigger: "lesson_preview_complete" | "program_complete"
       mission_status: "pending" | "submitted" | "approved" | "rejected"
       mission_type:
         | "deposit"
@@ -36848,6 +36879,9 @@ export const Constants = {
       diri_admin_level: ["administrator", "editor"],
       diri_post_status: ["draft", "published", "scheduled"],
       goal_priority: ["urgent", "important", "strategic"],
+      jonathan_app_role: ["admin", "member"],
+      jonathan_upsell_event_type: ["view", "click", "dismiss", "convert"],
+      jonathan_upsell_trigger: ["lesson_preview_complete", "program_complete"],
       mission_status: ["pending", "submitted", "approved", "rejected"],
       mission_type: [
         "deposit",
