@@ -274,6 +274,9 @@ export default function GroupDistributor() {
                       <span>👥 {(d.redirect_order || []).length} grupos</span>
                       <span>🖱️ {d.click_count} cliques</span>
                       <span>🔒 máx {d.max_per_group}</span>
+                      {d.rotation_mode && d.rotation_mode !== "none" && (
+                        <span className="text-gold">🔄 Semana {d.current_week || 1} ({d.rotation_mode === "weekly_cohort" ? "cohort" : "corrente"})</span>
+                      )}
                       {fullestPct >= 70 && (
                         <span className={fullestPct >= 90 ? "text-destructive" : "text-amber-400"}>
                           ⚠️ {fullestPct}% do mais cheio
