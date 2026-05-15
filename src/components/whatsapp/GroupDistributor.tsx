@@ -21,6 +21,7 @@ interface Distributor {
   is_active: boolean;
   created_at: string;
   weights?: Record<string, number> | null;
+  group_invites?: Record<string, string> | null;
 }
 
 interface WaCampaign {
