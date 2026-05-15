@@ -291,12 +291,43 @@ export default function CampaignManager({ projects, providers }: Props) {
 
       <CampaignKPICards />
 
+      {/* Filtros + busca */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 p-1 rounded-md bg-secondary/40 border border-border">
+          {([
+            ["all", "Todas", campaigns.length],
+            ["active", "Ativas", campaigns.filter(c => c.status === "active").length],
+            ["paused", "Pausadas", campaigns.filter(c => c.status === "paused").length],
+            ["draft", "Rascunho", campaigns.filter(c => c.status === "draft").length],
+          ] as const).map(([key, label, count]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key as any)}
+              className={`px-2.5 py-1 text-[11px] uppercase tracking-wider rounded transition-colors ${
+                filter === key ? "bg-gold/15 text-gold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label} <span className="text-muted-foreground/60">({count})</span>
+            </button>
+          ))}
+        </div>
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar campanha..."
+            className="pl-8 h-8 text-xs bg-secondary/40"
+          />
+        </div>
+      </div>
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : campaigns.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground text-sm">Nenhuma campanha criada ainda.</p>
+            <p className="text-muted-foreground text-sm font-display text-base">Nenhuma campanha criada ainda.</p>
             <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowCreate(true)}>
               <Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira campanha
             </Button>
@@ -304,30 +335,41 @@ export default function CampaignManager({ projects, providers }: Props) {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {campaigns.map(c => (
-            <Card key={c.id} className="hover:border-primary/30 transition-colors">
-              <CardContent className="p-4">
+          {campaigns
+            .filter(c => filter === "all" || c.status === filter)
+            .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))
+            .map(c => {
+              const sideColor =
+                c.status === "active" ? "bg-gold" :
+                c.status === "paused" ? "bg-amber-500" :
+                c.status === "completed" ? "bg-blue-500" : "bg-muted-foreground/40";
+              return (
+            <Card key={c.id} className="group relative overflow-hidden hover:border-primary/30 transition-colors">
+              <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${sideColor}`} />
+              <CardContent className="p-4 pl-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-sm">{c.name}</h3>
                       {statusBadge(c.status)}
+                      {c.status === "active" && <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />}
                     </div>
                     <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
                       <span>📁 {projectName(c.project_id)}</span>
                       <span>👥 {Array.isArray(c.groups) ? c.groups.length : 0} grupos</span>
-                      {c.start_date && <span>📅 Início: {c.start_date}</span>}
-                      {c.exit_message && <span>🚪 Msg saída ✓</span>}
+                      <span>📝 {stepCounts[c.id] || 0} steps</span>
+                      {c.start_date && <span>📅 {c.start_date}</span>}
+                      {c.exit_message && <span>🚪 saída ✓</span>}
                       {nextSteps[c.id] && (
-                        <span className="text-primary flex items-center gap-1">
+                        <span className="text-gold flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          Próximo: {nextSteps[c.id]!.date.split("-").reverse().join("/")} {nextSteps[c.id]!.time}
+                          {nextSteps[c.id]!.date.split("-").reverse().join("/")} {nextSteps[c.id]!.time}
                           {nextSteps[c.id]!.preview && ` — ${nextSteps[c.id]!.preview}…`}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openGroupSelector(c)} title="Grupos">
                       <Users className="h-3.5 w-3.5" />
                     </Button>
@@ -359,7 +401,8 @@ export default function CampaignManager({ projects, providers }: Props) {
                 </div>
               </CardContent>
             </Card>
-          ))}
+              );
+            })}
         </div>
       )}
 
