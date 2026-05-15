@@ -2810,6 +2810,7 @@ export type Database = {
       }
       areamembrojp_modules: {
         Row: {
+          author_id: string | null
           cover_url: string | null
           created_at: string
           id: string
@@ -2818,6 +2819,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
@@ -2826,6 +2828,7 @@ export type Database = {
           title: string
         }
         Update: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
