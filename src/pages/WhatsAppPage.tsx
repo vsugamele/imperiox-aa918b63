@@ -536,6 +536,7 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
           </div>
         </div>
         <div className="flex gap-1.5 items-center">
+          <AlertControls provider={provider} onChanged={onSynced} />
           <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 w-7 p-0">
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
           </Button>
