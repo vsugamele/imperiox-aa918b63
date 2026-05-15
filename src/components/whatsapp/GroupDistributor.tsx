@@ -53,6 +53,64 @@ export default function GroupDistributor() {
   const [showStats, setShowStats] = useState<Distributor | null>(null);
   const [clickStats, setClickStats] = useState<{ group_jid: string; count: number }[]>([]);
   const [cardStats, setCardStats] = useState<Record<string, { group_jid: string; count: number }[]>>({});
+  const [weeks, setWeeks] = useState<WeekRow[]>([]);
+  const [newWeek, setNewWeek] = useState({ group_jid: "", invite_url: "", start_at: "" });
+
+  const loadWeeks = useCallback(async (distId: string) => {
+    const { data } = await supabase
+      .from("imphq_wa_distributor_weeks" as any)
+      .select("*")
+      .eq("distributor_id", distId)
+      .order("week_index", { ascending: true });
+    setWeeks(((data as any[]) || []) as WeekRow[]);
+  }, []);
+
+  useEffect(() => {
+    if (showStats?.id) loadWeeks(showStats.id);
+    else setWeeks([]);
+  }, [showStats?.id, loadWeeks]);
+
+  const updateRotation = async (patch: Partial<Distributor>) => {
+    if (!showStats) return;
+    setShowStats(prev => prev ? { ...prev, ...patch } : prev);
+    await supabase
+      .from("imphq_wa_group_distributors")
+      .update(patch as any)
+      .eq("id", showStats.id);
+  };
+
+  const addWeek = async () => {
+    if (!showStats || !newWeek.group_jid.trim()) {
+      toast.error("Informe o JID do grupo da nova semana");
+      return;
+    }
+    const nextIdx = (weeks[weeks.length - 1]?.week_index || 0) + 1;
+    const { error } = await supabase.from("imphq_wa_distributor_weeks" as any).insert({
+      distributor_id: showStats.id,
+      week_index: nextIdx,
+      group_jid: newWeek.group_jid.trim(),
+      invite_url: newWeek.invite_url.trim() || null,
+      start_at: newWeek.start_at || new Date().toISOString(),
+    });
+    if (error) { toast.error(error.message); return; }
+    setNewWeek({ group_jid: "", invite_url: "", start_at: "" });
+    await loadWeeks(showStats.id);
+    toast.success(`Semana ${nextIdx} adicionada`);
+  };
+
+  const advanceNow = async () => {
+    if (!showStats) return;
+    const next = weeks.find(w => w.week_index > (showStats.current_week || 1) && !w.archived_at);
+    if (!next) { toast.error("Sem próxima semana cadastrada"); return; }
+    await supabase
+      .from("imphq_wa_distributor_weeks" as any)
+      .update({ archived_at: new Date().toISOString() })
+      .eq("distributor_id", showStats.id)
+      .eq("week_index", showStats.current_week || 1);
+    await updateRotation({ current_week: next.week_index, last_rotation_at: new Date().toISOString() });
+    await loadWeeks(showStats.id);
+    toast.success(`Avançou para semana ${next.week_index}`);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
