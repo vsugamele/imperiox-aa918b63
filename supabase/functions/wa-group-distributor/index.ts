@@ -41,6 +41,69 @@ serve(async (req) => {
       });
     }
 
+    // Hash IP cedo (necessário para cohort)
+    const forwardedEarly = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
+    const ipEarly = forwardedEarly.split(",")[0].trim();
+    const encEarly = new TextEncoder();
+    const hashEarly = await crypto.subtle.digest("SHA-256", encEarly.encode(ipEarly + slug));
+    const ipHashEarly = Array.from(new Uint8Array(hashEarly)).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+
+    // === ROTAÇÃO SEMANAL ===
+    if (dist.rotation_mode && dist.rotation_mode !== "none") {
+      let targetWeekIndex = dist.current_week || 1;
+
+      if (dist.rotation_mode === "weekly_cohort") {
+        const { data: cohort } = await supabase
+          .from("imphq_wa_distributor_cohorts")
+          .select("week_index")
+          .eq("distributor_id", dist.id)
+          .eq("ip_hash", ipHashEarly)
+          .maybeSingle();
+        if (cohort) {
+          targetWeekIndex = cohort.week_index;
+        } else {
+          await supabase.from("imphq_wa_distributor_cohorts").insert({
+            distributor_id: dist.id,
+            ip_hash: ipHashEarly,
+            week_index: targetWeekIndex,
+          });
+        }
+      }
+
+      const { data: week } = await supabase
+        .from("imphq_wa_distributor_weeks")
+        .select("group_jid, invite_url")
+        .eq("distributor_id", dist.id)
+        .eq("week_index", targetWeekIndex)
+        .maybeSingle();
+
+      if (week) {
+        // Registra clique
+        await supabase.from("imphq_wa_distributor_clicks").insert({
+          distributor_id: dist.id,
+          group_jid: week.group_jid,
+          ip_hash: ipHashEarly,
+          user_agent: (req.headers.get("user-agent") || "").slice(0, 500),
+        });
+        await supabase.rpc("increment_distributor_click", { _dist_id: dist.id });
+
+        if (week.invite_url && /^https?:\/\//i.test(week.invite_url)) {
+          return new Response(null, {
+            status: 302,
+            headers: { ...corsHeaders, Location: week.invite_url },
+          });
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          mode: dist.rotation_mode,
+          week_index: targetWeekIndex,
+          target_group: week.group_jid,
+          hint: "Configure invite_url na semana para redirect 302.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // sem semana configurada: cai no fluxo legado
+    }
+
     const groups: string[] = dist.redirect_order || [];
     if (groups.length === 0) {
       return new Response(JSON.stringify({ error: "Nenhum grupo configurado" }), {
