@@ -364,9 +364,96 @@ export default function GroupDistributor() {
 
       {/* Stats + Weights Dialog */}
       <Dialog open={!!showStats} onOpenChange={() => setShowStats(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display text-xl text-gold">Estatísticas — {showStats?.slug}</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            {/* Rotação semanal */}
+            <div className="bg-secondary/40 rounded-md p-3 border border-border/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="font-display text-sm text-gold">🔄 Rotação semanal</div>
+                {showStats?.rotation_mode && showStats.rotation_mode !== "none" && (
+                  <Badge variant="outline" className="text-[10px]">
+                    Semana {showStats.current_week || 1}{weeks.length ? ` / ${weeks.length}` : ""}
+                  </Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Modo</Label>
+                  <Select
+                    value={showStats?.rotation_mode || "none"}
+                    onValueChange={(v) => updateRotation({ rotation_mode: v as any })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum (peso/sequencial)</SelectItem>
+                      <SelectItem value="weekly_current">Semana corrente</SelectItem>
+                      <SelectItem value="weekly_cohort">Cohort fixo por lead</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Cron de avanço</Label>
+                  <Select
+                    value={showStats?.rotation_cron || "0 9 * * 1"}
+                    onValueChange={(v) => updateRotation({ rotation_cron: v })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0 9 * * 1">Toda segunda 09h</SelectItem>
+                      <SelectItem value="0 9 * * 4">Toda quinta 09h</SelectItem>
+                      <SelectItem value="0 20 * * 0">Todo domingo 20h</SelectItem>
+                      <SelectItem value="0 9 * * 6">Todo sábado 09h</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {showStats?.rotation_mode && showStats.rotation_mode !== "none" && (
+                <>
+                  <div className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded leading-7">
+                    {showStats.rotation_mode === "weekly_current"
+                      ? "✦ Todo lead que clicar é redirecionado para o grupo da semana corrente. Ideal para webinars evergreen com reset semanal."
+                      : "✦ Cada lead fica fixo no grupo da semana em que clicou pela primeira vez (cohort). Ideal para sequência de aquecimento."}
+                  </div>
+                  <div className="space-y-1.5">
+                    {weeks.map((w) => {
+                      const isActive = w.week_index === (showStats.current_week || 1) && !w.archived_at;
+                      return (
+                        <div key={w.id} className={`flex items-center gap-2 text-xs p-2 rounded border ${isActive ? "border-gold/60 bg-gold/5" : w.archived_at ? "border-border/30 bg-muted/20 opacity-60" : "border-border/40"}`}>
+                          <Badge variant={isActive ? "default" : "outline"} className="text-[10px] shrink-0">S{w.week_index}</Badge>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-mono truncate">{w.group_jid}</div>
+                            {w.invite_url && <div className="font-mono truncate text-[10px] text-emerald-400">{w.invite_url}</div>}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground shrink-0">
+                            {w.archived_at ? "🗄 arquivada" : isActive ? "✓ ativa" : new Date(w.start_at).toLocaleDateString("pt-BR")}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={async () => {
+                              await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", w.id);
+                              await loadWeeks(showStats.id);
+                            }}
+                          ><Trash2 className="h-3 w-3" /></Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="grid grid-cols-[1fr_1fr_120px_auto] gap-1.5">
+                    <Input placeholder="JID grupo" value={newWeek.group_jid} onChange={(e) => setNewWeek(p => ({ ...p, group_jid: e.target.value }))} className="h-8 text-xs font-mono" />
+                    <Input placeholder="https://chat.whatsapp.com/..." value={newWeek.invite_url} onChange={(e) => setNewWeek(p => ({ ...p, invite_url: e.target.value }))} className="h-8 text-xs font-mono" />
+                    <Input type="datetime-local" value={newWeek.start_at} onChange={(e) => setNewWeek(p => ({ ...p, start_at: e.target.value }))} className="h-8 text-xs" />
+                    <Button size="sm" className="h-8" onClick={addWeek}><Plus className="h-3 w-3 mr-1" />Semana</Button>
+                  </div>
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={advanceNow}>
+                    ⏭ Avançar agora (manual)
+                  </Button>
+                </>
+              )}
+            </div>
+
             {/* Mini-dashboard */}
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-secondary/40 rounded-md p-2.5 border border-border/40">
