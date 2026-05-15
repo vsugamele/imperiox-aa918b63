@@ -316,7 +316,7 @@ export default function GroupDistributor() {
               </div>
             </div>
             <div className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded">
-              💡 Defina pesos (1-10) para distribuir mais leads em grupos específicos. Sem pesos = preenchimento sequencial.
+              💡 <b>Pesos</b> (1-10) distribuem mais leads em grupos específicos. <b>Link de convite</b> habilita redirect 302 direto ao WhatsApp (chat.whatsapp.com/...).
             </div>
             <ScrollArea className="max-h-[360px]">
               <div className="space-y-3">
