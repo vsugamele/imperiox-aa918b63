@@ -93,3 +93,76 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--gold) / 0.5);
 }
+
+/* ───────── Editorial utilities (Premium Dark) ───────── */
+@layer utilities {
+  .editorial-divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--gold) / 0.45) 20%,
+      hsl(var(--gold) / 0.6) 50%,
+      hsl(var(--gold) / 0.45) 80%,
+      transparent 100%
+    );
+  }
+  .gold-glow {
+    box-shadow: 0 0 0 1px hsl(var(--gold) / 0.25), 0 0 22px -6px hsl(var(--gold) / 0.45);
+  }
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+  .tracking-editorial {
+    letter-spacing: 0.18em;
+  }
+  /* Editorial tabs — underline animado */
+  .editorial-tabs {
+    background: transparent !important;
+    padding: 0 !important;
+    height: auto !important;
+    gap: 0.25rem !important;
+    border-bottom: 1px solid hsl(var(--border) / 0.6);
+    border-radius: 0 !important;
+    justify-content: flex-start !important;
+  }
+  .editorial-tab {
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0.65rem 0.9rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 500 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: hsl(var(--muted-foreground)) !important;
+    box-shadow: none !important;
+    position: relative;
+    transition: color 220ms ease;
+  }
+  .editorial-tab:hover {
+    color: hsl(var(--foreground)) !important;
+  }
+  .editorial-tab[data-state="active"] {
+    color: hsl(var(--gold)) !important;
+    background: transparent !important;
+  }
+  .editorial-tab[data-state="active"]::after {
+    content: "";
+    position: absolute;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--gold) / 0.2), hsl(var(--gold)), hsl(var(--gold) / 0.2));
+    border-radius: 2px;
+    box-shadow: 0 0 10px hsl(var(--gold) / 0.55);
+  }
+  .card-hover-gold {
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  }
+  .card-hover-gold:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--gold) / 0.35) !important;
+    box-shadow: 0 12px 32px -18px hsl(var(--gold) / 0.45);
+  }
+}
