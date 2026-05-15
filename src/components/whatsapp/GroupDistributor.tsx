@@ -292,9 +292,28 @@ export default function GroupDistributor() {
       {/* Stats + Weights Dialog */}
       <Dialog open={!!showStats} onOpenChange={() => setShowStats(null)}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>📊 Estatísticas — {showStats?.slug}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display text-xl text-gold">Estatísticas — {showStats?.slug}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Total de cliques: <span className="font-bold text-foreground">{showStats?.click_count || 0}</span></p>
+            {/* Mini-dashboard */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-secondary/40 rounded-md p-2.5 border border-border/40">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Cliques</div>
+                <div className="font-display text-xl text-foreground">{showStats?.click_count || 0}</div>
+              </div>
+              <div className="bg-secondary/40 rounded-md p-2.5 border border-border/40">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Grupo + cheio</div>
+                <div className="font-display text-xl text-foreground">
+                  {clickStats.length ? Math.max(...clickStats.map(s => s.count)) : 0}
+                  <span className="text-xs text-muted-foreground">/{showStats?.max_per_group}</span>
+                </div>
+              </div>
+              <div className="bg-secondary/40 rounded-md p-2.5 border border-border/40">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Vagas livres</div>
+                <div className="font-display text-xl text-gold">
+                  {clickStats.reduce((sum, s) => sum + Math.max(0, (showStats?.max_per_group || 0) - s.count), 0)}
+                </div>
+              </div>
+            </div>
             <div className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded">
               💡 Defina pesos (1-10) para distribuir mais leads em grupos específicos. Sem pesos = preenchimento sequencial.
             </div>
