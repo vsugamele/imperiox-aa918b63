@@ -554,3 +554,52 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
     </div>
   );
 }
+
+// ── Controle de alertas de queda por instância ──
+function AlertControls({ provider, onChanged }: { provider: any; onChanged: () => void }) {
+  const enabled = provider.health_alerts_enabled !== false;
+  const mutedUntil = provider.health_alerts_muted_until ? new Date(provider.health_alerts_muted_until) : null;
+  const isMuted = mutedUntil && mutedUntil.getTime() > Date.now();
+  const active = enabled && !isMuted;
+
+  const update = async (patch: any, msg: string) => {
+    const { error } = await supabase.from("imphq_wa_providers").update(patch).eq("id", provider.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(msg);
+    onChanged();
+  };
+
+  const muteFor = (hours: number) => {
+    const until = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+    update({ health_alerts_muted_until: until }, `Alertas silenciados por ${hours}h`);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title={active ? "Alertas ativos" : "Alertas silenciados"}>
+          {active ? <Bell className="h-3 w-3 text-emerald-400" /> : <BellOff className="h-3 w-3 text-amber-400" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="text-xs">Alertas de queda</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {isMuted && (
+          <DropdownMenuItem className="text-xs text-amber-400" onClick={() => update({ health_alerts_muted_until: null }, "Alertas reativados")}>
+            Reativar agora (silenciado até {mutedUntil!.toLocaleTimeString().slice(0, 5)})
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem className="text-xs" onClick={() => muteFor(1)}>Silenciar por 1h</DropdownMenuItem>
+        <DropdownMenuItem className="text-xs" onClick={() => muteFor(6)}>Silenciar por 6h</DropdownMenuItem>
+        <DropdownMenuItem className="text-xs" onClick={() => muteFor(24)}>Silenciar por 24h</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-xs" onClick={() => update({ health_alerts_enabled: !enabled, health_alerts_muted_until: null }, enabled ? "Alertas desativados" : "Alertas ativados")}>
+          {enabled ? "Desativar alertas" : "Ativar alertas"}
+        </DropdownMenuItem>
+        <div className="px-2 py-1.5 text-[10px] text-muted-foreground border-t border-border mt-1">
+          Throttle: 1 e-mail / instância a cada 6h
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
