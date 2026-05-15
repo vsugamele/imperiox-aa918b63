@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, GripVertical } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Distributor {
@@ -36,6 +37,7 @@ export default function GroupDistributor() {
   const [form, setForm] = useState({ slug: "", max_per_group: 250, campaign_id: "" });
   const [showStats, setShowStats] = useState<Distributor | null>(null);
   const [clickStats, setClickStats] = useState<{ group_jid: string; count: number }[]>([]);
+  const [cardStats, setCardStats] = useState<Record<string, { group_jid: string; count: number }[]>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,9 +45,29 @@ export default function GroupDistributor() {
       supabase.from("imphq_wa_group_distributors").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_wa_campaigns").select("id, name, groups").order("name"),
     ]);
-    setDistributors((distRes.data as any[]) || []);
+    const dists = (distRes.data as any[]) || [];
+    setDistributors(dists);
     setCampaigns((campRes.data as any[]) || []);
     setLoading(false);
+
+    // Fetch click counts per distributor for sparklines (parallel)
+    if (dists.length > 0) {
+      const stats: Record<string, { group_jid: string; count: number }[]> = {};
+      await Promise.all(dists.map(async (d) => {
+        const groups: string[] = d.redirect_order || [];
+        if (groups.length === 0) { stats[d.id] = []; return; }
+        const counts = await Promise.all(groups.map(async (jid) => {
+          const { count } = await supabase
+            .from("imphq_wa_distributor_clicks")
+            .select("id", { count: "exact", head: true })
+            .eq("distributor_id", d.id)
+            .eq("group_jid", jid);
+          return { group_jid: jid, count: count || 0 };
+        }));
+        stats[d.id] = counts;
+      }));
+      setCardStats(stats);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -148,26 +170,63 @@ export default function GroupDistributor() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {distributors.map(d => (
-            <Card key={d.id} className="hover:border-primary/30 transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+          {distributors.map(d => {
+            const stats = cardStats[d.id] || [];
+            const maxCount = Math.max(1, ...stats.map(s => s.count));
+            const fullestPct = stats.length ? Math.round((maxCount / (d.max_per_group || 250)) * 100) : 0;
+            const fullUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/wa-group-distributor?slug=${d.slug}`;
+            return (
+            <Card key={d.id} className="group relative overflow-hidden hover:border-primary/30 transition-colors">
+              <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${d.is_active ? "bg-gold" : "bg-muted-foreground/40"}`} />
+              <CardContent className="p-4 pl-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4 text-primary" />
+                      <Link2 className="h-4 w-4 text-gold" />
                       <span className="font-mono text-sm font-semibold">{d.slug}</span>
                       <Badge className={`text-[10px] ${d.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
                         {d.is_active ? "ativo" : "inativo"}
                       </Badge>
+                      {d.is_active && <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />}
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <button
+                      onClick={() => copyLink(d.slug)}
+                      title="Clique para copiar"
+                      className="block max-w-full truncate text-[10px] text-muted-foreground/70 font-mono hover:text-gold transition-colors text-left"
+                    >
+                      {fullUrl}
+                    </button>
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
                       <span>📢 {campaignName(d.campaign_id)}</span>
                       <span>👥 {(d.redirect_order || []).length} grupos</span>
                       <span>🖱️ {d.click_count} cliques</span>
-                      <span>🔒 máx {d.max_per_group}/grupo</span>
+                      <span>🔒 máx {d.max_per_group}</span>
+                      {fullestPct >= 70 && (
+                        <span className={fullestPct >= 90 ? "text-destructive" : "text-amber-400"}>
+                          ⚠️ {fullestPct}% do mais cheio
+                        </span>
+                      )}
                     </div>
+                    {/* Sparkline horizontal */}
+                    {stats.length > 0 && (
+                      <div className="flex items-end gap-0.5 h-6 mt-1">
+                        {stats.slice(0, 24).map((s, i) => {
+                          const h = Math.max(2, (s.count / maxCount) * 100);
+                          const pct = (s.count / (d.max_per_group || 250)) * 100;
+                          const color = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-gold/70";
+                          return (
+                            <div
+                              key={i}
+                              className={`w-1.5 rounded-sm ${color} transition-all`}
+                              style={{ height: `${h}%` }}
+                              title={`${s.count} cliques`}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copyLink(d.slug)} title="Copiar link">
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
@@ -184,7 +243,8 @@ export default function GroupDistributor() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -203,16 +263,16 @@ export default function GroupDistributor() {
             </div>
             <div>
               <Label>Campanha (herda os grupos)</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={form.campaign_id}
-                onChange={e => setForm({ ...form, campaign_id: e.target.value })}
-              >
-                <option value="">Selecione uma campanha</option>
-                {campaigns.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} ({(c.groups || []).length} grupos)</option>
-                ))}
-              </select>
+              <Select value={form.campaign_id} onValueChange={v => setForm({ ...form, campaign_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma campanha" /></SelectTrigger>
+                <SelectContent>
+                  {campaigns.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} ({(c.groups || []).length} grupos)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Máximo de leads por grupo</Label>
@@ -232,9 +292,28 @@ export default function GroupDistributor() {
       {/* Stats + Weights Dialog */}
       <Dialog open={!!showStats} onOpenChange={() => setShowStats(null)}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>📊 Estatísticas — {showStats?.slug}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display text-xl text-gold">Estatísticas — {showStats?.slug}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Total de cliques: <span className="font-bold text-foreground">{showStats?.click_count || 0}</span></p>
+            {/* Mini-dashboard */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-secondary/40 rounded-md p-2.5 border border-border/40">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Cliques</div>
+                <div className="font-display text-xl text-foreground">{showStats?.click_count || 0}</div>
+              </div>
+              <div className="bg-secondary/40 rounded-md p-2.5 border border-border/40">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Grupo + cheio</div>
+                <div className="font-display text-xl text-foreground">
+                  {clickStats.length ? Math.max(...clickStats.map(s => s.count)) : 0}
+                  <span className="text-xs text-muted-foreground">/{showStats?.max_per_group}</span>
+                </div>
+              </div>
+              <div className="bg-secondary/40 rounded-md p-2.5 border border-border/40">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Vagas livres</div>
+                <div className="font-display text-xl text-gold">
+                  {clickStats.reduce((sum, s) => sum + Math.max(0, (showStats?.max_per_group || 0) - s.count), 0)}
+                </div>
+              </div>
+            </div>
             <div className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded">
               💡 Defina pesos (1-10) para distribuir mais leads em grupos específicos. Sem pesos = preenchimento sequencial.
             </div>
