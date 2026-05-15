@@ -22,6 +22,20 @@ interface Distributor {
   created_at: string;
   weights?: Record<string, number> | null;
   group_invites?: Record<string, string> | null;
+  rotation_mode?: "none" | "weekly_current" | "weekly_cohort" | string;
+  rotation_cron?: string | null;
+  current_week?: number | null;
+  last_rotation_at?: string | null;
+}
+
+interface WeekRow {
+  id: string;
+  distributor_id: string;
+  week_index: number;
+  group_jid: string;
+  invite_url: string | null;
+  start_at: string;
+  archived_at: string | null;
 }
 
 interface WaCampaign {
