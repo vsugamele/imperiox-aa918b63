@@ -204,6 +204,17 @@ export default function CampaignManager({ projects, providers }: Props) {
   };
 
   const toggleStatus = async (campaign: Campaign) => {
+    // Pre-flight check before activating
+    if (campaign.status !== "active") {
+      const issues: string[] = [];
+      if (!campaign.provider_id) issues.push("provider WhatsApp");
+      if (!Array.isArray(campaign.groups) || campaign.groups.length === 0) issues.push("ao menos 1 grupo");
+      if ((stepCounts[campaign.id] || 0) === 0) issues.push("ao menos 1 step ativo");
+      if (issues.length > 0) {
+        toast.error(`Antes de ativar, configure: ${issues.join(", ")}.`);
+        return;
+      }
+    }
     const newStatus = campaign.status === "active" ? "paused" : "active";
     await supabase.from("imphq_wa_campaigns").update({ status: newStatus } as any).eq("id", campaign.id);
     toast.success(`Campanha ${newStatus === "active" ? "ativada" : "pausada"}`);
