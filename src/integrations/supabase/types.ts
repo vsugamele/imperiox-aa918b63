@@ -19909,16 +19909,93 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_distributor_cohorts: {
+        Row: {
+          created_at: string
+          distributor_id: string
+          id: string
+          ip_hash: string
+          week_index: number
+        }
+        Insert: {
+          created_at?: string
+          distributor_id: string
+          id?: string
+          ip_hash: string
+          week_index: number
+        }
+        Update: {
+          created_at?: string
+          distributor_id?: string
+          id?: string
+          ip_hash?: string
+          week_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_distributor_cohorts_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_group_distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_distributor_weeks: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          distributor_id: string
+          group_jid: string
+          id: string
+          invite_url: string | null
+          start_at: string
+          week_index: number
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          distributor_id: string
+          group_jid: string
+          id?: string
+          invite_url?: string | null
+          start_at?: string
+          week_index: number
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          distributor_id?: string
+          group_jid?: string
+          id?: string
+          invite_url?: string | null
+          start_at?: string
+          week_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_distributor_weeks_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_group_distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_group_distributors: {
         Row: {
           campaign_id: string | null
           click_count: number
           created_at: string
+          current_week: number
           group_invites: Json
           id: string
           is_active: boolean
+          last_rotation_at: string | null
           max_per_group: number
           redirect_order: string[]
+          rotation_cron: string | null
+          rotation_mode: string
           slug: string
           updated_at: string
           weights: Json
@@ -19927,11 +20004,15 @@ export type Database = {
           campaign_id?: string | null
           click_count?: number
           created_at?: string
+          current_week?: number
           group_invites?: Json
           id?: string
           is_active?: boolean
+          last_rotation_at?: string | null
           max_per_group?: number
           redirect_order?: string[]
+          rotation_cron?: string | null
+          rotation_mode?: string
           slug: string
           updated_at?: string
           weights?: Json
@@ -19940,11 +20021,15 @@ export type Database = {
           campaign_id?: string | null
           click_count?: number
           created_at?: string
+          current_week?: number
           group_invites?: Json
           id?: string
           is_active?: boolean
+          last_rotation_at?: string | null
           max_per_group?: number
           redirect_order?: string[]
+          rotation_cron?: string | null
+          rotation_mode?: string
           slug?: string
           updated_at?: string
           weights?: Json
