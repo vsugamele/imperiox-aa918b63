@@ -67,151 +67,182 @@ export default function ProjetoDetalhe() {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          {/* Editable Icon */}
-          {editingIcon ? (
-            <Input
-              value={project.icon || ""}
-              onChange={(e) => setProject((p: any) => ({ ...p, icon: e.target.value }))}
-              onBlur={() => { setEditingIcon(false); updateField("icon", project.icon); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { setEditingIcon(false); updateField("icon", project.icon); } }}
-              className="w-16 h-14 text-4xl text-center bg-secondary"
-              autoFocus
-            />
-          ) : (
-            <span className="text-4xl cursor-pointer hover:opacity-70 transition-opacity" onClick={() => setEditingIcon(true)}>
-              {project.icon || "📁"}
-            </span>
-          )}
-          <div>
-            {/* Editable Name */}
-            {editingName ? (
+    <div className="space-y-8">
+      {/* ───────── Editorial Hero Header ───────── */}
+      <header className="relative">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex items-start gap-5 min-w-0">
+            {editingIcon ? (
               <Input
-                value={project.name || ""}
-                onChange={(e) => setProject((p: any) => ({ ...p, name: e.target.value }))}
-                onBlur={() => { setEditingName(false); updateField("name", project.name); }}
-                onKeyDown={(e) => { if (e.key === "Enter") { setEditingName(false); updateField("name", project.name); } }}
-                className="text-2xl font-bold bg-secondary h-10 max-w-md"
+                value={project.icon || ""}
+                onChange={(e) => setProject((p: any) => ({ ...p, icon: e.target.value }))}
+                onBlur={() => { setEditingIcon(false); updateField("icon", project.icon); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setEditingIcon(false); updateField("icon", project.icon); } }}
+                className="w-16 h-14 text-4xl text-center bg-secondary"
                 autoFocus
               />
             ) : (
-              <h1
-                className="font-display text-3xl font-bold cursor-pointer hover:opacity-70 transition-opacity inline-flex items-center gap-2 group"
-                onClick={() => setEditingName(true)}
+              <span
+                className="text-5xl leading-none cursor-pointer hover:opacity-70 transition-opacity select-none"
+                onClick={() => setEditingIcon(true)}
               >
-                {project.name}
-                <Pencil className="h-4 w-4 opacity-0 group-hover:opacity-50 transition-opacity" />
-              </h1>
+                {project.icon || "📁"}
+              </span>
             )}
-            <p className="text-sm text-muted-foreground mt-1">{project.description || "Sem descrição"}</p>
-            <div className="flex gap-2 mt-2 items-center">
-              {/* Editable Category */}
-              {editingCategory ? (
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground/70 mb-1">
+                Projeto · {project.id}
+              </p>
+              {editingName ? (
                 <Input
-                  value={project.category || ""}
-                  onChange={(e) => setProject((p: any) => ({ ...p, category: e.target.value }))}
-                  onBlur={() => { setEditingCategory(false); updateField("category", project.category); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { setEditingCategory(false); updateField("category", project.category); } }}
-                  className="bg-secondary h-7 text-xs max-w-[160px]"
-                  placeholder="Categoria..."
+                  value={project.name || ""}
+                  onChange={(e) => setProject((p: any) => ({ ...p, name: e.target.value }))}
+                  onBlur={() => { setEditingName(false); updateField("name", project.name); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { setEditingName(false); updateField("name", project.name); } }}
+                  className="text-3xl font-bold bg-secondary h-12 max-w-md"
                   autoFocus
                 />
               ) : (
-                <Badge
-                  variant="secondary"
-                  className="cursor-pointer hover:opacity-70 transition-opacity"
-                  onClick={() => setEditingCategory(true)}
+                <h1
+                  className="font-display text-4xl md:text-5xl font-semibold cursor-pointer hover:opacity-80 transition-opacity inline-flex items-center gap-3 group leading-tight"
+                  onClick={() => setEditingName(true)}
                 >
-                  {project.category || "Sem categoria"}
-                </Badge>
+                  <span className="bg-gradient-to-r from-foreground via-foreground to-gold/80 bg-clip-text text-transparent">
+                    {project.name}
+                  </span>
+                  <Pencil className="h-4 w-4 opacity-0 group-hover:opacity-50 transition-opacity" />
+                </h1>
               )}
-              {project.data?.status && <Badge variant="outline" className="capitalize">{project.data.status}</Badge>}
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-xl">
+                {project.description || "Sem descrição"}
+              </p>
+              <div className="flex gap-2 mt-3 items-center flex-wrap">
+                {editingCategory ? (
+                  <Input
+                    value={project.category || ""}
+                    onChange={(e) => setProject((p: any) => ({ ...p, category: e.target.value }))}
+                    onBlur={() => { setEditingCategory(false); updateField("category", project.category); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { setEditingCategory(false); updateField("category", project.category); } }}
+                    className="bg-secondary h-7 text-xs max-w-[160px]"
+                    placeholder="Categoria..."
+                    autoFocus
+                  />
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer hover:border-gold/50 hover:text-gold transition-colors text-[10px] uppercase tracking-editorial border-border/60"
+                    onClick={() => setEditingCategory(true)}
+                  >
+                    {project.category || "Sem categoria"}
+                  </Badge>
+                )}
+                {project.data?.status && (
+                  <Badge
+                    variant="outline"
+                    className={`capitalize text-[10px] uppercase tracking-editorial ${
+                      String(project.data.status).toLowerCase() === "vendendo"
+                        ? "border-gold/40 text-gold gold-glow bg-gold/5"
+                        : "border-border/60 text-muted-foreground"
+                    }`}
+                  >
+                    {project.data.status}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-3 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <SalesPathButton projectId={id!} projectName={project.name} />
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs border-border/60 hover:border-gold/40"
+                onClick={() => {
+                  const ctx = {
+                    projeto: { name: project.name, category: project.category, description: project.description },
+                    expert: project.data?.expert || {},
+                    briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
+                    avatar: project.avatar || {},
+                    brand_kit: project.brand_kit || {},
+                    kpis: project.data?.kpis || {},
+                    pipeline: project.pipeline || {},
+                  };
+                  navigator.clipboard.writeText(JSON.stringify(ctx, null, 2));
+                  toast.success("Contexto copiado para a área de transferência!");
+                }}
+              >
+                <Copy className="h-3 w-3" /> Copiar Contexto
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs border-border/60 hover:border-gold/40"
+                onClick={() => {
+                  const ctx = {
+                    projeto: { name: project.name, category: project.category, description: project.description },
+                    expert: project.data?.expert || {},
+                    briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
+                    avatar: project.avatar || {},
+                    brand_kit: project.brand_kit || {},
+                    kpis: project.data?.kpis || {},
+                    pipeline: project.pipeline || {},
+                  };
+                  const blob = new Blob([JSON.stringify(ctx, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `${project.id}_contexto.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast.success("Contexto exportado!");
+                }}
+              >
+                <Download className="h-3 w-3" /> Exportar JSON
+              </Button>
+            </div>
+            <div className="text-right">
+              <div className="flex items-baseline justify-end gap-2">
+                <span className="font-display text-4xl font-semibold text-gold leading-none">
+                  {pipelineAvg}
+                </span>
+                <span className="text-sm text-muted-foreground">%</span>
+              </div>
+              <Progress value={pipelineAvg} className="h-1 w-40 mt-2" />
+              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground/70 mt-1.5">
+                Pipeline Geral
+              </p>
             </div>
           </div>
         </div>
-        <div className="text-right space-y-1">
-          <div className="flex justify-end mb-2">
-            <SalesPathButton projectId={id!} projectName={project.name} />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mb-2 gap-1.5 text-xs"
-            onClick={() => {
-              const ctx = {
-                projeto: { name: project.name, category: project.category, description: project.description },
-                expert: project.data?.expert || {},
-                briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
-                avatar: project.avatar || {},
-                brand_kit: project.brand_kit || {},
-                kpis: project.data?.kpis || {},
-                pipeline: project.pipeline || {},
-              };
-              const json = JSON.stringify(ctx, null, 2);
-              navigator.clipboard.writeText(json);
-              toast.success("Contexto copiado para a área de transferência!");
-            }}
-          >
-            <Copy className="h-3 w-3" /> Copiar Contexto
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-2 gap-1.5 text-xs"
-            onClick={() => {
-              const ctx = {
-                projeto: { name: project.name, category: project.category, description: project.description },
-                expert: project.data?.expert || {},
-                briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
-                avatar: project.avatar || {},
-                brand_kit: project.brand_kit || {},
-                kpis: project.data?.kpis || {},
-                pipeline: project.pipeline || {},
-              };
-              const blob = new Blob([JSON.stringify(ctx, null, 2)], { type: "application/json" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `${project.id}_contexto.json`;
-              a.click();
-              URL.revokeObjectURL(url);
-              toast.success("Contexto exportado!");
-            }}
-          >
-            <Download className="h-3 w-3" /> Exportar JSON
-          </Button>
-          <div className="mt-2">
-            <span className="text-3xl font-mono font-bold text-primary">{pipelineAvg}%</span>
-            <Progress value={pipelineAvg} className="h-2 w-32" />
-            <p className="text-xs text-muted-foreground">Pipeline Geral</p>
-          </div>
-        </div>
-      </div>
 
-      {/* Tabs */}
+        <div className="editorial-divider mt-6" />
+      </header>
+
+      {/* ───────── Editorial Tabs ───────── */}
       <Tabs defaultValue="comando">
-        <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="comando">🎯 Comando</TabsTrigger>
-          <TabsTrigger value="identidade">🎨 Identidade</TabsTrigger>
-          <TabsTrigger value="expert">👤 Expert</TabsTrigger>
-          <TabsTrigger value="avatar">🎭 Avatar</TabsTrigger>
-          <TabsTrigger value="kpis">📊 KPIs</TabsTrigger>
-          <TabsTrigger value="pesquisa">🔍 Pesquisa</TabsTrigger>
-          <TabsTrigger value="midia">🖼️ Mídia & Conteúdo</TabsTrigger>
-          <TabsTrigger value="docs">📄 Docs</TabsTrigger>
-          <TabsTrigger value="concorrentes">🏆 Concorrentes</TabsTrigger>
-          <TabsTrigger value="calendario">📅 Calendário</TabsTrigger>
-          <TabsTrigger value="financas">💰 Finanças</TabsTrigger>
-          <TabsTrigger value="emails">✉️ Emails</TabsTrigger>
-          <TabsTrigger value="central">✍️ Conteúdo</TabsTrigger>
-          <TabsTrigger value="flowcharts">🗺️ Fluxogramas</TabsTrigger>
-          <TabsTrigger value="expert_panel">🧭 Painel Expert</TabsTrigger>
-          <TabsTrigger value="insights">✨ Insights</TabsTrigger>
-          <TabsTrigger value="analytics">📈 Analytics</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="editorial-tabs flex-nowrap min-w-max">
+            <TabsTrigger value="comando" className="editorial-tab">🎯 Comando</TabsTrigger>
+            <TabsTrigger value="identidade" className="editorial-tab">🎨 Identidade</TabsTrigger>
+            <TabsTrigger value="expert" className="editorial-tab">👤 Expert</TabsTrigger>
+            <TabsTrigger value="avatar" className="editorial-tab">🎭 Avatar</TabsTrigger>
+            <TabsTrigger value="kpis" className="editorial-tab">📊 KPIs</TabsTrigger>
+            <TabsTrigger value="pesquisa" className="editorial-tab">🔍 Pesquisa</TabsTrigger>
+            <TabsTrigger value="midia" className="editorial-tab">🖼️ Mídia</TabsTrigger>
+            <TabsTrigger value="docs" className="editorial-tab">📄 Docs</TabsTrigger>
+            <TabsTrigger value="concorrentes" className="editorial-tab">🏆 Concorrentes</TabsTrigger>
+            <TabsTrigger value="calendario" className="editorial-tab">📅 Calendário</TabsTrigger>
+            <TabsTrigger value="financas" className="editorial-tab">💰 Finanças</TabsTrigger>
+            <TabsTrigger value="emails" className="editorial-tab">✉️ Emails</TabsTrigger>
+            <TabsTrigger value="central" className="editorial-tab">✍️ Conteúdo</TabsTrigger>
+            <TabsTrigger value="flowcharts" className="editorial-tab">🗺️ Fluxogramas</TabsTrigger>
+            <TabsTrigger value="expert_panel" className="editorial-tab">🧭 Painel</TabsTrigger>
+            <TabsTrigger value="insights" className="editorial-tab">✨ Insights</TabsTrigger>
+            <TabsTrigger value="analytics" className="editorial-tab">📈 Analytics</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="comando" className="mt-4">
           <ProjetoComando projectId={id!} project={project} />

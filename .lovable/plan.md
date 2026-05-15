@@ -1,35 +1,54 @@
-## Problema
-O `wa-health-monitor` roda periodicamente e quando uma instância cai, dispara e-mail de alerta. O throttle atual é só 30min, então em quedas longas chegam vários e-mails. Não há controle manual para silenciar.
+## Refinamento de Design — Projeto & Lead
 
-## Solução
+Objetivo: elevar a sensação editorial/luxo já presente (Cormorant + ouro #c9922a) sem reescrever lógica. Foco em hierarquia, respiro e ritmo visual.
 
-### 1. Toggle "Alertas de queda" por provider
-- Adicionar coluna `health_alerts_enabled` (boolean, default true) em `imphq_wa_providers`
-- No `ProviderConfigDialog.tsx`: switch "Receber alerta por e-mail quando cair"
-- `wa-health-monitor` ignora providers com `health_alerts_enabled = false` ao montar a lista de failures (continua monitorando estado, só não notifica)
+### 1. Cabeçalho do Projeto (ProjetoDetalhe)
+- Hero header com nome em Cormorant 4xl/5xl, ouro sutil, subtítulo em DM Sans uppercase tracking-wider
+- Linha decorativa dourada (1px gradient) separando hero das tabs
+- Status "Vendendo/Validando" como pill ouro com glow leve
+- Métricas-chave (faturamento, leads, ROAS) em tira horizontal abaixo do nome — KPI inline em vez de cards soltos
 
-### 2. Pausa global temporária
-- Adicionar `health_alerts_muted_until` (timestamptz, null) em `imphq_wa_providers`
-- Botão na UI do WhatsApp: "Silenciar alertas por 1h / 6h / 24h"
-- Health monitor checa o timestamp antes de enfileirar failure
+### 2. Sistema de Tabs
+- Trocar tabs atuais (visual genérico shadcn) por nav editorial: underline dourado animado, espaçamento amplo, tipografia em uppercase
+- Indicador ativo com transição suave (motion)
+- Sticky no scroll com blur backdrop
 
-### 3. Reduzir frequência de e-mail
-- Trocar throttle de 30min → **6h por instância** (hoje é global p/ todos)
-- Tornar throttle **por instância** (não global), usando `data->>instance_name` no `imphq_events`
-- Só re-enviar e-mail se o estado piorou OU se passou 6h
-- Sempre logar em `imphq_events` (sem e-mail) para histórico
+### 3. Cards internos (Avatar, Branding, KPIs, Insights)
+- Padronizar: `bg-card/40 border border-border/50`, padding 6-8, radius consistente
+- Headers de card com ícone ouro pequeno + título serifa + descrição muted
+- Substituir bordas duras por divisores `border-border/30` e hover com `border-primary/30`
+- Espaçamento vertical entre seções: 8 → 12
 
-### 4. UI no /whatsapp
-- Badge de status por instância já existe; adicionar:
-  - Switch "Alertas ativos" (persistente)
-  - Menu "Silenciar por…" (1h/6h/24h/até reconectar)
-  - Indicador visual quando mutado
+### 4. Lead Detail / Sidebar
+- Avatar do lead maior, com ring dourado sutil
+- Score como anel circular animado (em vez de número solto)
+- Timeline com linha vertical ouro, dots maiores, tipografia hierarquizada
+- Tags como chips pill, ouro translúcido para tags-chave
 
-## Arquivos afetados
-- Migration: `imphq_wa_providers` + 2 colunas
-- `supabase/functions/wa-health-monitor/index.ts` (filtros + throttle por instância de 6h)
-- `src/components/whatsapp/ProviderConfigDialog.tsx` (switch)
-- `src/pages/WhatsAppPage.tsx` ou `SessionDetailView.tsx` (botão silenciar)
+### 5. Vazios e estados
+- Empty states com ilustração mínima (ícone grande muted + frase serifa) no lugar dos textos secos atuais
+- Loading: skeletons que respeitam o layout final, não spinners genéricos
 
-## Pergunta rápida
-Quer que o **auto-reconnect** continue rodando mesmo com alertas silenciados? (recomendo: sim — só silencia o e-mail, não o monitoramento)
+### 6. Microinterações
+- Hover em cards: leve lift (translateY -2px) + sombra ouro 5%
+- Botão "Imperador" (Sales Path): gradient ouro animado pulsante discreto
+- Toasts e modais: já estão bons, só padronizar leading-7
+
+### 7. Tipografia & ritmo
+- Tamanhos: H1 4xl, H2 2xl, H3 lg — hoje misturado
+- Body: leading-relaxed em descrições, leading-tight em dados
+- Adicionar `tracking-[0.18em]` em uppercase labels
+
+### Escopo técnico
+Arquivos afetados (somente UI/Tailwind, zero lógica):
+- `src/pages/ProjetoDetalhe.tsx` — header + tabs
+- `src/components/projeto/Projeto*.tsx` — padronização de cards
+- `src/pages/Leads.tsx` + `src/components/leads/LeadsSidebar.tsx` — sidebar e timeline
+- `src/index.css` — adicionar utilitários (ex: `.editorial-divider`, sombra ouro)
+
+### Entrega sugerida em 3 ondas
+1. Header + tabs + tipografia (impacto visual imediato)
+2. Padronização de cards e estados vazios
+3. Lead sidebar + microinterações
+
+Quer que eu execute as 3 ondas ou prefere começar só pela onda 1 pra validar a direção?
