@@ -45,9 +45,29 @@ export default function GroupDistributor() {
       supabase.from("imphq_wa_group_distributors").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_wa_campaigns").select("id, name, groups").order("name"),
     ]);
-    setDistributors((distRes.data as any[]) || []);
+    const dists = (distRes.data as any[]) || [];
+    setDistributors(dists);
     setCampaigns((campRes.data as any[]) || []);
     setLoading(false);
+
+    // Fetch click counts per distributor for sparklines (parallel)
+    if (dists.length > 0) {
+      const stats: Record<string, { group_jid: string; count: number }[]> = {};
+      await Promise.all(dists.map(async (d) => {
+        const groups: string[] = d.redirect_order || [];
+        if (groups.length === 0) { stats[d.id] = []; return; }
+        const counts = await Promise.all(groups.map(async (jid) => {
+          const { count } = await supabase
+            .from("imphq_wa_distributor_clicks")
+            .select("id", { count: "exact", head: true })
+            .eq("distributor_id", d.id)
+            .eq("group_jid", jid);
+          return { group_jid: jid, count: count || 0 };
+        }));
+        stats[d.id] = counts;
+      }));
+      setCardStats(stats);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
