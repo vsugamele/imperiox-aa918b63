@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     // Fetch all active WhatsApp providers
     const { data: providers, error: provErr } = await supabase
       .from("imphq_wa_providers")
-      .select("id, instance_name, api_url, api_key, project_id")
+      .select("id, instance_name, api_url, api_key, project_id, health_alerts_enabled, health_alerts_muted_until")
       .eq("is_active", true);
 
     if (provErr) {
