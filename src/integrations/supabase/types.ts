@@ -36581,6 +36581,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_distributor_click: {
+        Args: { _dist_id: string }
+        Returns: undefined
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_appbrabas_super_admin: { Args: { _user_id: string }; Returns: boolean }

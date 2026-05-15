@@ -52,19 +52,18 @@ serve(async (req) => {
     const maxPerGroup = dist.max_per_group || 250;
     const weights: Record<string, number> = (dist.weights && typeof dist.weights === "object") ? dist.weights : {};
 
-    // Count clicks per group to find the least full
-    const { data: clickCounts } = await supabase
-      .from("imphq_wa_distributor_clicks")
-      .select("group_jid")
-      .eq("distributor_id", dist.id);
-
+    // Count clicks per group via parallel HEAD requests (avoids 1000-row select limit)
     const countMap: Record<string, number> = {};
-    for (const jid of groups) countMap[jid] = 0;
-    for (const click of clickCounts || []) {
-      if (countMap[click.group_jid] !== undefined) {
-        countMap[click.group_jid]++;
-      }
-    }
+    await Promise.all(
+      groups.map(async (jid) => {
+        const { count } = await supabase
+          .from("imphq_wa_distributor_clicks")
+          .select("group_jid", { count: "exact", head: true })
+          .eq("distributor_id", dist.id)
+          .eq("group_jid", jid);
+        countMap[jid] = count || 0;
+      })
+    );
 
     // 6C: skip full groups, then pick by weighted rotation among non-full
     const available = groups.filter((jid) => countMap[jid] < maxPerGroup);
@@ -100,6 +99,22 @@ serve(async (req) => {
 
     const userAgent = req.headers.get("user-agent") || "";
 
+    // Anti-fraud: rate-limit per IP hash (max 3 clicks / hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentByIp } = await supabase
+      .from("imphq_wa_distributor_clicks")
+      .select("id", { count: "exact", head: true })
+      .eq("distributor_id", dist.id)
+      .eq("ip_hash", ipHash)
+      .gte("created_at", oneHourAgo);
+
+    if ((recentByIp || 0) >= 3) {
+      return new Response(JSON.stringify({ error: "rate_limited" }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Record click
     await supabase.from("imphq_wa_distributor_clicks").insert({
       distributor_id: dist.id,
@@ -108,11 +123,8 @@ serve(async (req) => {
       user_agent: userAgent.slice(0, 500),
     });
 
-    // Increment click count
-    await supabase
-      .from("imphq_wa_group_distributors")
-      .update({ click_count: (dist.click_count || 0) + 1 })
-      .eq("id", dist.id);
+    // Atomic increment via RPC (avoids race condition)
+    await supabase.rpc("increment_distributor_click", { _dist_id: dist.id });
 
     // Build WhatsApp group invite link from JID
     // JID format: 123456789@g.us → https://chat.whatsapp.com/invite/<code>
