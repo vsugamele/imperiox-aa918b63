@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, GripVertical } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Distributor {
@@ -36,6 +37,7 @@ export default function GroupDistributor() {
   const [form, setForm] = useState({ slug: "", max_per_group: 250, campaign_id: "" });
   const [showStats, setShowStats] = useState<Distributor | null>(null);
   const [clickStats, setClickStats] = useState<{ group_jid: string; count: number }[]>([]);
+  const [cardStats, setCardStats] = useState<Record<string, { group_jid: string; count: number }[]>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
