@@ -21,6 +21,7 @@ interface Distributor {
   is_active: boolean;
   created_at: string;
   weights?: Record<string, number> | null;
+  group_invites?: Record<string, string> | null;
 }
 
 interface WaCampaign {
@@ -315,7 +316,7 @@ export default function GroupDistributor() {
               </div>
             </div>
             <div className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded">
-              💡 Defina pesos (1-10) para distribuir mais leads em grupos específicos. Sem pesos = preenchimento sequencial.
+              💡 <b>Pesos</b> (1-10) distribuem mais leads em grupos específicos. <b>Link de convite</b> habilita redirect 302 direto ao WhatsApp (chat.whatsapp.com/...).
             </div>
             <ScrollArea className="max-h-[360px]">
               <div className="space-y-3">
@@ -356,6 +357,27 @@ export default function GroupDistributor() {
                         <span className="text-[10px] text-muted-foreground">
                           {weight === 0 ? "(pausado)" : weight === 1 ? "(padrão)" : `(${weight}x mais leads)`}
                         </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-[10px] text-muted-foreground w-12">Link:</Label>
+                        <Input
+                          type="url"
+                          placeholder="https://chat.whatsapp.com/..."
+                          defaultValue={showStats?.group_invites?.[s.group_jid] || ""}
+                          className="h-7 flex-1 text-xs font-mono"
+                          onBlur={async (e) => {
+                            const url = e.target.value.trim();
+                            const cur = showStats?.group_invites || {};
+                            const next = { ...cur };
+                            if (url) next[s.group_jid] = url; else delete next[s.group_jid];
+                            setShowStats(prev => prev ? { ...prev, group_invites: next } : prev);
+                            await supabase
+                              .from("imphq_wa_group_distributors")
+                              .update({ group_invites: next } as any)
+                              .eq("id", showStats!.id);
+                            toast.success("Convite salvo");
+                          }}
+                        />
                       </div>
                     </div>
                   );
