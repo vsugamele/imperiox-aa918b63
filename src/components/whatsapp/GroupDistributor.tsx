@@ -358,6 +358,27 @@ export default function GroupDistributor() {
                           {weight === 0 ? "(pausado)" : weight === 1 ? "(padrão)" : `(${weight}x mais leads)`}
                         </span>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-[10px] text-muted-foreground w-12">Link:</Label>
+                        <Input
+                          type="url"
+                          placeholder="https://chat.whatsapp.com/..."
+                          defaultValue={showStats?.group_invites?.[s.group_jid] || ""}
+                          className="h-7 flex-1 text-xs font-mono"
+                          onBlur={async (e) => {
+                            const url = e.target.value.trim();
+                            const cur = showStats?.group_invites || {};
+                            const next = { ...cur };
+                            if (url) next[s.group_jid] = url; else delete next[s.group_jid];
+                            setShowStats(prev => prev ? { ...prev, group_invites: next } : prev);
+                            await supabase
+                              .from("imphq_wa_group_distributors")
+                              .update({ group_invites: next } as any)
+                              .eq("id", showStats!.id);
+                            toast.success("Convite salvo");
+                          }}
+                        />
+                      </div>
                     </div>
                   );
                 })}
