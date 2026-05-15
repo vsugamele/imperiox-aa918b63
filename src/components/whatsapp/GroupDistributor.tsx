@@ -170,26 +170,63 @@ export default function GroupDistributor() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {distributors.map(d => (
-            <Card key={d.id} className="hover:border-primary/30 transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+          {distributors.map(d => {
+            const stats = cardStats[d.id] || [];
+            const maxCount = Math.max(1, ...stats.map(s => s.count));
+            const fullestPct = stats.length ? Math.round((maxCount / (d.max_per_group || 250)) * 100) : 0;
+            const fullUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/wa-group-distributor?slug=${d.slug}`;
+            return (
+            <Card key={d.id} className="group relative overflow-hidden hover:border-primary/30 transition-colors">
+              <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${d.is_active ? "bg-gold" : "bg-muted-foreground/40"}`} />
+              <CardContent className="p-4 pl-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4 text-primary" />
+                      <Link2 className="h-4 w-4 text-gold" />
                       <span className="font-mono text-sm font-semibold">{d.slug}</span>
                       <Badge className={`text-[10px] ${d.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
                         {d.is_active ? "ativo" : "inativo"}
                       </Badge>
+                      {d.is_active && <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />}
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <button
+                      onClick={() => copyLink(d.slug)}
+                      title="Clique para copiar"
+                      className="block max-w-full truncate text-[10px] text-muted-foreground/70 font-mono hover:text-gold transition-colors text-left"
+                    >
+                      {fullUrl}
+                    </button>
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
                       <span>📢 {campaignName(d.campaign_id)}</span>
                       <span>👥 {(d.redirect_order || []).length} grupos</span>
                       <span>🖱️ {d.click_count} cliques</span>
-                      <span>🔒 máx {d.max_per_group}/grupo</span>
+                      <span>🔒 máx {d.max_per_group}</span>
+                      {fullestPct >= 70 && (
+                        <span className={fullestPct >= 90 ? "text-destructive" : "text-amber-400"}>
+                          ⚠️ {fullestPct}% do mais cheio
+                        </span>
+                      )}
                     </div>
+                    {/* Sparkline horizontal */}
+                    {stats.length > 0 && (
+                      <div className="flex items-end gap-0.5 h-6 mt-1">
+                        {stats.slice(0, 24).map((s, i) => {
+                          const h = Math.max(2, (s.count / maxCount) * 100);
+                          const pct = (s.count / (d.max_per_group || 250)) * 100;
+                          const color = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-gold/70";
+                          return (
+                            <div
+                              key={i}
+                              className={`w-1.5 rounded-sm ${color} transition-all`}
+                              style={{ height: `${h}%` }}
+                              title={`${s.count} cliques`}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copyLink(d.slug)} title="Copiar link">
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
@@ -206,7 +243,8 @@ export default function GroupDistributor() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
