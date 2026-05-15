@@ -60,6 +60,9 @@ export default function CampaignManager({ projects, providers }: Props) {
     send_window_end: "22:00",
   });
   const [nextSteps, setNextSteps] = useState<Record<string, { date: string; time: string; preview: string } | null>>({});
+  const [stepCounts, setStepCounts] = useState<Record<string, number>>({});
+  const [filter, setFilter] = useState<"all" | "active" | "paused" | "draft">("all");
+  const [search, setSearch] = useState("");
   const [availableGroups, setAvailableGroups] = useState<{ id: string; subject: string }[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
@@ -82,17 +85,15 @@ export default function CampaignManager({ projects, providers }: Props) {
       const { data: stepsData } = await supabase
         .from("imphq_wa_campaign_steps")
         .select("campaign_id, content, send_date, send_time, days_offset, is_active")
-        .in("campaign_id", ids)
-        .eq("is_active", true);
+        .in("campaign_id", ids);
       const map: Record<string, { date: string; time: string; preview: string } | null> = {};
+      const counts: Record<string, number> = {};
       for (const c of campaignsData) {
         const stepsForCamp = (stepsData || []).filter((s: any) => s.campaign_id === c.id);
-        // Find next step >= today (or matching offset for today)
+        counts[c.id] = stepsForCamp.filter((s: any) => s.is_active).length;
         const upcoming = stepsForCamp
-          .map((s: any) => {
-            const date = s.send_date || todayStr;
-            return { ...s, _date: date };
-          })
+          .filter((s: any) => s.is_active)
+          .map((s: any) => ({ ...s, _date: s.send_date || todayStr }))
           .filter((s: any) => s._date >= todayStr)
           .sort((a: any, b: any) => {
             if (a._date !== b._date) return a._date < b._date ? -1 : 1;
@@ -108,6 +109,7 @@ export default function CampaignManager({ projects, providers }: Props) {
           : null;
       }
       setNextSteps(map);
+      setStepCounts(counts);
     }
   }, []);
 
