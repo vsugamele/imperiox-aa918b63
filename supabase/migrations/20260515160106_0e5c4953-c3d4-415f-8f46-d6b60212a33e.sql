@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_wa_group_distributors ADD COLUMN IF NOT EXISTS group_invites jsonb NOT NULL DEFAULT '{}'::jsonb;

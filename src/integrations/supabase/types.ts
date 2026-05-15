@@ -19914,6 +19914,7 @@ export type Database = {
           campaign_id: string | null
           click_count: number
           created_at: string
+          group_invites: Json
           id: string
           is_active: boolean
           max_per_group: number
@@ -19926,6 +19927,7 @@ export type Database = {
           campaign_id?: string | null
           click_count?: number
           created_at?: string
+          group_invites?: Json
           id?: string
           is_active?: boolean
           max_per_group?: number
@@ -19938,6 +19940,7 @@ export type Database = {
           campaign_id?: string | null
           click_count?: number
           created_at?: string
+          group_invites?: Json
           id?: string
           is_active?: boolean
           max_per_group?: number
