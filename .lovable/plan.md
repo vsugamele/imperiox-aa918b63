@@ -1,82 +1,73 @@
-## Diagnóstico — Sistema de Campanhas WhatsApp + Distribuidor
+## Distribuidor com Rotação Semanal (Webinar)
 
-Analisei `CampaignManager`, `CampaignStepEditor`, `GroupDistributor` e a Edge `wa-group-distributor`. O sistema funciona, mas tem fricções claras de UX, lacunas operacionais e dívidas técnicas. Abaixo, o plano dividido em **3 ondas**.
+Sim, dá pra fazer **ambas**: grupo da semana corrente (default para anúncios "evergreen") **e** cohort fixo por lead (quem entrou na semana 1 sempre cai no grupo 1, mesmo clicando depois). Será um toggle por distribuidor.
 
----
+### Fluxo conceitual
 
-### Onda 1 — Visual / UX (alto impacto, baixo risco)
+```text
+Lead clica no link → edge function calcula "semana atual"
+   ├── modo CORRENTE   → redirect ao grupo ativo da semana
+   └── modo COHORT     → checa cookie/IP-hash:
+                         ├── já visto antes → grupo da 1ª semana dele
+                         └── novo           → grupo da semana atual + grava cohort
+```
 
-**Campanhas (`CampaignManager.tsx`)**
-- Substituir o card-linha atual por um **card editorial** com 3 zonas: header (nome + status pill com glow gold quando `active`), KPI strip inline (grupos / próximo disparo / steps ativos / cliques) e action rail discreta (ícones só aparecem em hover).
-- **Status visual claro**: barra lateral colorida de 2px (gold = active, âmbar = paused, muted = draft, blue = completed) em vez de badge solto.
-- **"Próximo disparo"** vira um mini-bloco com ícone `Clock`, contagem regressiva relativa ("em 3h12") e preview de copy truncada com `...`.
-- **Empty state** com ilustração serif minimal (Cormorant) + CTA gold.
-- **Filtros no topo**: tabs `Todas / Ativas / Pausadas / Rascunho` + busca por nome.
-- Modal "Nova Campanha" reorganizado em **2 colunas** (identidade à esquerda, agendamento à direita) com `editorial-divider`.
+### Modelo de dados
 
-**Distribuidor (`GroupDistributor.tsx`)**
-- Card mostra **mini-gráfico de barras** (sparkline) da distribuição atual entre grupos, em vez de só números.
-- **Botão "QR do link"** que abre popover com QR code escaneável para colar em criativos / story.
-- Modal de stats vira **dashboard**: cards de "Total cliques / Grupo mais cheio / Disponibilidade restante" no topo, depois lista com pesos.
-- Substituir `<select>` nativo (linha 206) pelo `Select` do shadcn para consistência.
-- Slug com **preview do link completo** copiável no card, não escondido em ícone.
+Nova tabela `imphq_wa_distributor_weeks` (uma linha por grupo semanal):
+- `distributor_id`, `week_index` (1,2,3...), `group_jid`, `invite_url`
+- `start_at` timestamptz (quando vira ativo), `archived_at` (auto preenchido pelo cron)
 
----
+Coluna nova em `imphq_wa_group_distributors`:
+- `rotation_mode` text: `'none' | 'weekly_current' | 'weekly_cohort'`
+- `rotation_cron` text: ex `'0 9 * * 1'` (toda segunda 09h)
+- `current_week` integer (ponteiro mantido pelo cron)
 
-### Onda 2 — Processual (preencher buracos do fluxo)
+Tabela `imphq_wa_distributor_cohorts` (só usada no modo cohort):
+- `distributor_id`, `ip_hash`, `week_index`, `created_at`
+- chave única `(distributor_id, ip_hash)` → idempotência
 
-**Campanhas**
-1. **Wizard de criação em 3 passos** (Identidade → Provider/Janela → Primeiros steps) — hoje cria campanha vazia e o usuário precisa lembrar de configurar grupos + steps separados. Isso é a maior fonte de campanhas "draft" abandonadas.
-2. **Botão "Testar agora"** em cada step: dispara a mensagem para um número de teste do usuário (sem afetar grupos reais).
-3. **Pré-flight check** antes de ativar: valida (a) provider conectado, (b) ≥1 grupo, (c) ≥1 step ativo, (d) janela coerente. Bloqueia ativação com toast detalhando o que falta.
-4. **Pausar grupo individual** dentro de uma campanha ativa (usar `paused_groups` que já existe no schema mas não tem UI).
-5. **Histórico consolidado**: aba "Performance" por campanha com taxa de entrega, taxa de leitura (se Evolution suportar), opt-outs e cliques rastreados via distribuidor vinculado.
+### Cron semanal automático
 
-**Distribuidor**
-1. **Modo "rotação por horário"**: além de sequencial/peso, permitir definir que grupo X recebe leads das 9h-18h e grupo Y das 18h-9h.
-2. **Auto-arquivar grupo cheio**: quando atinge `max_per_group`, marcar visualmente como "fechado" e gerar evento em `imphq_events` para alertar.
-3. **UTM passthrough**: distribuidor aceita `?utm_source=...` e armazena em `imphq_wa_distributor_clicks` para cruzar com vendas (atribuição real de grupos a receita).
-4. **A/B de mensagem de boas-vindas** entre grupos (já existe `welcome_message` na campanha — falta variante B).
-5. **Bloqueio anti-fraude**: hoje só hasheia IP. Adicionar rate-limit por `ip_hash` (ex: máx 3 cliques/hora) para evitar inflar contadores.
+`pg_cron` a cada 5 min roda função `wa-distributor-rotate`:
+- Para cada distribuidor com `rotation_mode != 'none'`, verifica se `now() >= próxima execução do cron`.
+- Se sim: arquiva semana atual (`archived_at = now()`) e incrementa `current_week` para o próximo registro com `start_at <= now()`.
+- Dispara webhook opcional pra notificar (futuro).
 
----
+### Edge function `wa-group-distributor` — mudanças
 
-### Onda 3 — Técnico (qualidade + escala)
+```text
+1. Buscar distribuidor + suas weeks ordenadas
+2. Se rotation_mode = 'weekly_current':
+     activeWeek = weeks.find(w => w.week_index == dist.current_week && !w.archived_at)
+     redirect 302 → activeWeek.invite_url
+3. Se rotation_mode = 'weekly_cohort':
+     cohort = busca em distributor_cohorts por ip_hash
+     se existe → redirect ao group_jid daquele week_index
+     se não existe → grava cohort com current_week + redirect normal
+4. Se rotation_mode = 'none' → mantém comportamento atual (peso/sequencial)
+```
 
-**Backend / Edge Functions**
-- `wa-group-distributor/index.ts`: o cálculo de `clickCounts` faz `select` sem limite — com >1000 cliques quebra. Trocar por **count agregado** (`count: 'exact', head: true`) por `group_jid` ou criar coluna materializada `current_count` em `imphq_wa_group_distributors` atualizada por trigger.
-- Mesma função: o **incremento de `click_count`** é race-condition (read-modify-write). Trocar por RPC `increment_distributor_clicks(dist_id)` usando `UPDATE ... SET click_count = click_count + 1`.
-- **Retornar redirect HTTP 302** real para `https://chat.whatsapp.com/<invite_code>` em vez de JSON. Hoje o front precisa interpretar — fora do app, o link "puro" não funciona em criativos/Stories. Exigirá armazenar `invite_code` por grupo (nova coluna em `imphq_wa_group_distributors.group_invites jsonb`).
-- **Webhook `wa-campaign-scheduler`**: adicionar `try/catch` com fallback que marca step como `error` em `imphq_wa_campaign_logs` para o `CampaignLogViewer` exibir.
-- **Janela anti-ban**: validar `send_window_start/end` no scheduler e respeitar timezone do projeto (hoje é America/Sao_Paulo hardcoded).
+Grupos arquivados ficam visíveis nas stats mas **fora da rotação** (consulta sempre filtra `archived_at IS NULL` para escolha).
 
-**Frontend**
-- `CampaignManager.load()` faz 2 queries sequenciais — paralelizar com `Promise.all` (já temos esse padrão no `GroupDistributor`).
-- Extrair `nextSteps` em hook `useCampaignNextSteps(campaignIds)` para reuso no Dashboard.
-- Tipos: criar `src/types/whatsapp.ts` com `Campaign`, `Distributor`, `Step` — hoje duplicados.
-- **Realtime subscription** em `imphq_wa_campaigns` para refletir status quando o scheduler atualiza, sem precisar de F5.
+### UI no modal Estatísticas
 
-**Observabilidade**
-- Botão "Diagnóstico" em cada campanha: mostra últimos 20 logs de `imphq_wa_campaign_logs` + último ping do health monitor do provider associado.
-- Métrica em `imphq_growth_metrics`: `wa_campaigns_active`, `wa_distributor_clicks_24h` para alimentar Growth Dashboard.
+- Novo seletor "Modo de rotação": Nenhum / Semana corrente / Cohort por lead.
+- Quando semanal: campo de cron preset (toda segunda 09h, toda quinta 20h, custom) + lista de "Semanas":
+  - `Semana 1 — JID — invite URL — start_at — [✓ ativa | 🗄 arquivada]`
+  - Botões: "Adicionar semana", "Avançar agora" (manual override do cron).
+- Indicador visual no card: `🔄 Rotação semanal · Semana 3/8 · próxima em 2d 14h`.
 
----
+### Entregáveis
 
-### Arquivos impactados
+1. Migration: tabela `imphq_wa_distributor_weeks`, tabela `imphq_wa_distributor_cohorts`, colunas em `imphq_wa_group_distributors`.
+2. Edge function `wa-distributor-rotate` (chamada por pg_cron a cada 5 min).
+3. Edge function `wa-group-distributor`: lógica de rotação + cohort.
+4. UI em `GroupDistributor.tsx`: seletor de modo, gestor de semanas, badge no card.
+5. pg_cron job (via insert tool, não migration).
 
-- `src/components/whatsapp/CampaignManager.tsx` (reorg visual + filtros + wizard)
-- `src/components/whatsapp/GroupDistributor.tsx` (sparklines + QR + dashboard stats)
-- `src/components/whatsapp/CampaignStepEditor.tsx` (botão "Testar agora" + variantes A/B)
-- `src/components/whatsapp/CampaignLogViewer.tsx` (status `error` visual)
-- `supabase/functions/wa-group-distributor/index.ts` (302 redirect + count agregado + RPC)
-- `supabase/functions/wa-campaign-scheduler/index.ts` (timezone + error handling)
-- Migração: coluna `group_invites jsonb`, RPC `increment_distributor_clicks`, índice em `imphq_wa_distributor_clicks(distributor_id, group_jid)`
-- `src/types/whatsapp.ts` (novo)
+### Não incluído (para discutir depois)
 
----
-
-### Sugestão de execução
-
-Cada onda é independente. Recomendo começar pela **Onda 2.1 (wizard)** + **Onda 3 backend (302 redirect + race-condition)** pois desbloqueiam uso real fora do app e eliminam bugs silenciosos. Visual (Onda 1) entra depois para não retrabalhar.
-
-**Quer que eu execute todas, ou priorizar uma onda específica?**
+- Campanhas de WhatsApp também avançando junto com a rotação (conectar `campaign_id` ao `current_week`).
+- Exportar CSV de cohorts (quem caiu em qual semana).
+- Notificação automática quando uma semana lota antes da próxima virar.
