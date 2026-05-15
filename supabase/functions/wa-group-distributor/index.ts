@@ -126,18 +126,23 @@ serve(async (req) => {
     // Atomic increment via RPC (avoids race condition)
     await supabase.rpc("increment_distributor_click", { _dist_id: dist.id });
 
-    // Build WhatsApp group invite link from JID
-    // JID format: 123456789@g.us → https://chat.whatsapp.com/invite/<code>
-    // We can't generate invite links from JID alone, so we redirect to a stored invite URL
-    // For now, return the target group info for the frontend to handle
-    // OR if the group JID contains an invite code stored in redirect_order metadata
+    // 302 redirect when invite URL is configured for the chosen group
+    const invites: Record<string, string> = (dist.group_invites && typeof dist.group_invites === "object") ? dist.group_invites : {};
+    const inviteUrl = invites[targetGroup];
+    if (inviteUrl && /^https?:\/\//i.test(inviteUrl)) {
+      return new Response(null, {
+        status: 302,
+        headers: { ...corsHeaders, Location: inviteUrl },
+      });
+    }
 
-    // Return redirect info
+    // Fallback JSON (no invite URL configured)
     return new Response(JSON.stringify({
       success: true,
       target_group: targetGroup,
       click_count: (dist.click_count || 0) + 1,
       group_counts: countMap,
+      hint: "Configure group_invites no distribuidor para redirect 302 direto ao WhatsApp.",
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
