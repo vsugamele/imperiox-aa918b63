@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     // Fetch all active WhatsApp providers
     const { data: providers, error: provErr } = await supabase
       .from("imphq_wa_providers")
-      .select("id, instance_name, api_url, api_key, project_id")
+      .select("id, instance_name, api_url, api_key, project_id, health_alerts_enabled, health_alerts_muted_until")
       .eq("is_active", true);
 
     if (provErr) {
@@ -37,12 +37,18 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     const failures: any[] = [];
 
+    const nowMs = Date.now();
     for (const p of providers) {
+      const alertsEnabled = p.health_alerts_enabled !== false;
+      const mutedUntil = p.health_alerts_muted_until ? new Date(p.health_alerts_muted_until).getTime() : 0;
+      const isMuted = !alertsEnabled || mutedUntil > nowMs;
+
       const instanceResult: any = {
         id: p.id,
         instance_name: p.instance_name,
         project_id: p.project_id,
         status: "unknown",
+        alerts_muted: isMuted,
       };
 
       try {
@@ -67,7 +73,7 @@ Deno.serve(async (req) => {
           if (state !== "open") {
             instanceResult.warning = `Estado: ${state}`;
 
-            // Auto-reconnect proativo (seguro: throttle 10min, só reativa sessão pareada)
+            // Auto-reconnect proativo (sempre roda, mesmo com alertas mutados)
             const reconnected = await tryAutoReconnect(supabase, p, state);
             instanceResult.auto_reconnect_attempted = reconnected.attempted;
             instanceResult.auto_reconnect_result = reconnected.result;
@@ -77,6 +83,7 @@ Deno.serve(async (req) => {
               project_id: p.project_id,
               reason: `Estado da conexão: ${state}${reconnected.attempted ? ` (auto-reconnect: ${reconnected.result})` : ""}`,
               severity: state === "close" ? "critical" : "warning",
+              alerts_muted: isMuted,
             });
           }
         } else {
@@ -90,6 +97,7 @@ Deno.serve(async (req) => {
             project_id: p.project_id,
             reason: `API retornou HTTP ${res.status}`,
             severity: "critical",
+            alerts_muted: isMuted,
           });
         }
       } catch (e: any) {
@@ -103,6 +111,7 @@ Deno.serve(async (req) => {
           project_id: p.project_id,
           reason: isTimeout ? "API não respondeu em 10s" : `API inacessível: ${e.message}`,
           severity: "critical",
+          alerts_muted: isMuted,
         });
       }
 
@@ -113,7 +122,7 @@ Deno.serve(async (req) => {
     if (failures.length > 0) {
       console.warn(`[wa-health-monitor] ${failures.length} instance(s) com problema!`);
 
-      // Log the health check failure in imphq_events
+      // Log the health check failure in imphq_events (sempre, sem e-mail)
       await supabase.from("imphq_events").insert({
         project_id: failures[0].project_id || "system",
         event_name: "wa_health_check_failed",
@@ -121,30 +130,42 @@ Deno.serve(async (req) => {
         data: { failures, checked_at: new Date().toISOString(), total_providers: providers.length },
       });
 
-      // Check if we already sent an alert in the last 30 minutes (avoid spam)
-      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      const { data: recentAlert } = await supabase
-        .from("imphq_events")
-        .select("id")
-        .eq("event_name", "wa_health_alert_sent")
-        .gte("created_at", thirtyMinAgo)
-        .limit(1)
-        .maybeSingle();
-
-      if (!recentAlert) {
-        // Send email alert via Resend (try to find any project with Resend configured)
-        const alertSent = await sendAlertEmail(supabase, failures, providers.length);
-
-        if (alertSent) {
-          await supabase.from("imphq_events").insert({
-            project_id: failures[0].project_id || "system",
-            event_name: "wa_health_alert_sent",
-            page_url: "",
-            data: { failures_count: failures.length, sent_to: "ipcompanidigital@gmail.com" },
-          });
-        }
+      // Filtra só falhas com alertas ativos
+      const alertable = failures.filter((f) => !f.alerts_muted);
+      if (alertable.length === 0) {
+        console.log("[wa-health-monitor] Todas as falhas estão com alertas silenciados, pulando e-mail");
       } else {
-        console.log("[wa-health-monitor] Alert already sent in the last 30 min, skipping email");
+        // Throttle POR INSTÂNCIA: 6h entre e-mails da mesma instância
+        const sixHoursAgo = new Date(nowMs - 6 * 60 * 60 * 1000).toISOString();
+        const toAlert: any[] = [];
+        for (const f of alertable) {
+          const { data: recent } = await supabase
+            .from("imphq_events")
+            .select("id")
+            .eq("event_name", "wa_health_alert_sent")
+            .gte("created_at", sixHoursAgo)
+            .filter("data->>instance_name", "eq", f.instance)
+            .limit(1)
+            .maybeSingle();
+          if (!recent) toAlert.push(f);
+        }
+
+        if (toAlert.length === 0) {
+          console.log("[wa-health-monitor] Todas as instâncias já alertadas nas últimas 6h, pulando");
+        } else {
+          const alertSent = await sendAlertEmail(supabase, toAlert, providers.length);
+          if (alertSent) {
+            // Registra um evento por instância p/ throttle granular
+            await supabase.from("imphq_events").insert(
+              toAlert.map((f) => ({
+                project_id: f.project_id || "system",
+                event_name: "wa_health_alert_sent",
+                page_url: "",
+                data: { instance_name: f.instance, severity: f.severity, sent_to: "ipcompanidigital@gmail.com" },
+              }))
+            );
+          }
+        }
       }
     } else {
       console.log("[wa-health-monitor] All instances healthy ✅");

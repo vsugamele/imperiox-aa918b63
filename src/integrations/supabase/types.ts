@@ -20034,6 +20034,8 @@ export type Database = {
           api_key: string | null
           api_url: string | null
           created_at: string | null
+          health_alerts_enabled: boolean
+          health_alerts_muted_until: string | null
           id: string
           instance_name: string | null
           is_active: boolean | null
@@ -20045,6 +20047,8 @@ export type Database = {
           api_key?: string | null
           api_url?: string | null
           created_at?: string | null
+          health_alerts_enabled?: boolean
+          health_alerts_muted_until?: string | null
           id?: string
           instance_name?: string | null
           is_active?: boolean | null
@@ -20056,6 +20060,8 @@ export type Database = {
           api_key?: string | null
           api_url?: string | null
           created_at?: string | null
+          health_alerts_enabled?: boolean
+          health_alerts_muted_until?: string | null
           id?: string
           instance_name?: string | null
           is_active?: boolean | null
