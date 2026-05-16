@@ -502,6 +502,14 @@ serve(async (req) => {
           await fetch(`${provider.api_url}/instance/delete/${encodeURIComponent(provider.instance_name)}`, { method: "DELETE", headers: { apikey: provider.api_key } });
         } catch (e) { console.warn("[delete_instance] remote fail:", e); }
       }
+      // Cascade: remove dependentes antes do provider (FK restrict)
+      const { data: convs } = await supabase.from("imphq_wa_conversations").select("id").eq("provider_id", providerId);
+      const convIds = (convs || []).map((c: any) => c.id);
+      if (convIds.length) {
+        await supabase.from("imphq_wa_messages").delete().in("conversation_id", convIds);
+      }
+      await supabase.from("imphq_wa_conversations").delete().eq("provider_id", providerId);
+      await supabase.from("imphq_wa_instances").delete().eq("provider_id", providerId).then(() => {}, () => {});
       const { error } = await supabase.from("imphq_wa_providers").delete().eq("id", providerId);
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
