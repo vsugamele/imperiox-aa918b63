@@ -125,9 +125,14 @@ export function ActionInbox() {
                       <p className="text-sm font-medium text-foreground">{a.title}</p>
                       {a.reason && <p className="text-xs text-muted-foreground mt-1">{a.reason}</p>}
                     </div>
-                    <Badge variant="outline" className={`text-[10px] uppercase shrink-0 ${riskColor(a.risk_level)}`}>
-                      {a.risk_level}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Badge variant="outline" className={`text-[10px] uppercase ${riskColor(a.risk_level)}`}>
+                        {a.risk_level}
+                      </Badge>
+                      {Number(a.impact_brl || 0) > 0 && (
+                        <span className="text-[10px] font-mono text-amber-400">{fmtBRL(Number(a.impact_brl))}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-2">
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
