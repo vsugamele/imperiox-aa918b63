@@ -56,6 +56,7 @@ interface Props {
   pageSize: number;
   loading: boolean;
   onPageChange: (page: number) => void;
+  automations?: any[];
 }
 
 export default function LeadsTable({
