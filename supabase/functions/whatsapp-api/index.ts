@@ -467,6 +467,46 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: restart_instance (Evolution — força reconexão) ──
+    if (action === "restart_instance") {
+      const body = await req.json().catch(() => ({}));
+      const providerId = body.provider_id || url.searchParams.get("provider_id");
+      if (!providerId) throw new Error("provider_id required");
+      const provider = await getProvider(providerId);
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ error: "Apenas Evolution" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // Tenta logout (encerra sessão WA) e depois connect (gera novo QR)
+      try {
+        await fetch(`${provider.api_url}/instance/logout/${encodeURIComponent(provider.instance_name)}`, { method: "DELETE", headers: { apikey: provider.api_key } });
+      } catch (e) { console.warn("[restart] logout fail:", e); }
+      let connectData: any = null;
+      try {
+        const res = await fetch(`${provider.api_url}/instance/connect/${encodeURIComponent(provider.instance_name)}`, { headers: { apikey: provider.api_key } });
+        connectData = await res.json();
+      } catch (e) { console.warn("[restart] connect fail:", e); }
+      return new Response(JSON.stringify({ success: true, data: connectData }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── ACTION: delete_instance (Evolution — apaga instância remota + provider local) ──
+    if (action === "delete_instance") {
+      const body = await req.json().catch(() => ({}));
+      const providerId = body.provider_id || url.searchParams.get("provider_id");
+      if (!providerId) throw new Error("provider_id required");
+      const provider = await getProvider(providerId);
+      if (provider.provider === "evolution") {
+        try {
+          await fetch(`${provider.api_url}/instance/logout/${encodeURIComponent(provider.instance_name)}`, { method: "DELETE", headers: { apikey: provider.api_key } });
+        } catch {}
+        try {
+          await fetch(`${provider.api_url}/instance/delete/${encodeURIComponent(provider.instance_name)}`, { method: "DELETE", headers: { apikey: provider.api_key } });
+        } catch (e) { console.warn("[delete_instance] remote fail:", e); }
+      }
+      const { error } = await supabase.from("imphq_wa_providers").delete().eq("id", providerId);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ── ACTION: instance_info (Evolution — real-time status + number) ──
     if (action === "instance_info") {
       const providerId = url.searchParams.get("provider_id");
