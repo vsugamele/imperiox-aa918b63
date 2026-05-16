@@ -58,9 +58,6 @@ export function ActionInbox() {
     setActions((data as any) || []);
     setLoading(false);
   };
-    setActions((data as any) || []);
-    setLoading(false);
-  };
 
   useEffect(() => {
     load();
