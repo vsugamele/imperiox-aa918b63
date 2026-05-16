@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     const { data: projetos } = await supabase
       .from("imphq_projects")
-      .select("id, name, nicho, status")
+      .select("id, name, status")
       .eq("status", "vendendo")
       .limit(20);
 
@@ -53,28 +53,27 @@ Deno.serve(async (req) => {
         supabase
           .from("imphq_vendas")
           .select("produto_nome, valor")
-          .eq("projeto_id", p.id)
+          .eq("project_id", p.id)
           .eq("status", "aprovada")
           .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
           .limit(50),
-        supabase.from("imphq_avatars").select("data").eq("projeto_id", p.id).maybeSingle(),
-        supabase.from("imphq_kanban_columns").select("id").eq("projeto_id", p.id).ilike("name", "%ideias%").maybeSingle(),
+        supabase.from("imphq_avatars").select("data").eq("project_id", p.id).maybeSingle(),
+        supabase.from("imphq_kanban_columns").select("id").eq("project_id", p.id).ilike("title", "%ideias%").maybeSingle(),
       ]);
 
       const vendasResumo = (vendas || []).length > 0
-        ? `${vendas?.length} vendas, top produtos: ${[...new Set((vendas || []).map((v: any) => v.produto_nome).filter(Boolean))].slice(0, 3).join(", ")}`
+        ? `${vendas?.length} vendas, top: ${[...new Set((vendas || []).map((v: any) => v.produto_nome).filter(Boolean))].slice(0, 3).join(", ")}`
         : "Sem vendas recentes";
       const avatarStr = JSON.stringify(avatarData?.data || {}).slice(0, 500);
 
       const result = await genIdeas(p, vendasResumo, avatarStr);
       if (!result?.ideias) continue;
 
-      // Garante coluna "Ideias IA"
       let columnId = col?.id;
       if (!columnId) {
         const { data: newCol } = await supabase
           .from("imphq_kanban_columns")
-          .insert({ projeto_id: p.id, name: "💡 Ideias IA", position: 0 })
+          .insert({ project_id: p.id, title: "💡 Ideias IA", position: 0 })
           .select()
           .single();
         columnId = newCol?.id;
@@ -84,10 +83,11 @@ Deno.serve(async (req) => {
         for (const ideia of result.ideias) {
           await supabase.from("imphq_kanban_cards").insert({
             column_id: columnId,
-            projeto_id: p.id,
-            title: `${ideia.formato?.toUpperCase()} · ${ideia.titulo}`,
+            project_id: p.id,
+            title: `${(ideia.formato || "").toUpperCase()} · ${ideia.titulo}`,
             description: `**Hook:** ${ideia.hook}\n\n**CTA:** ${ideia.cta}\n\n---\n**Prompt Studio:**\n${ideia.prompt_studio}`,
             tags: ["ia-gerado", ideia.formato, ideia.dia].filter(Boolean),
+            ai_generated: true,
             metadata: { source: "content-calendar-ai", ideia },
           });
           totalIdeas++;
