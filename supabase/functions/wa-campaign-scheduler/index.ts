@@ -240,6 +240,7 @@ serve(async (req) => {
       if (steps.length === 0) continue;
 
       let provider = null;
+      let fallbackProvider: any = null;
       if (campaign.provider_id) {
         const { data } = await supabase
           .from("imphq_wa_providers")
@@ -247,6 +248,14 @@ serve(async (req) => {
           .eq("id", campaign.provider_id)
           .single();
         provider = data;
+      }
+      if ((campaign as any).fallback_provider_id && (campaign as any).auto_fallback !== false) {
+        const { data: fb } = await supabase
+          .from("imphq_wa_providers")
+          .select("*")
+          .eq("id", (campaign as any).fallback_provider_id)
+          .single();
+        fallbackProvider = fb;
       }
 
       if (!provider) {
@@ -257,6 +266,9 @@ serve(async (req) => {
       const apiUrl = (provider.api_url || "").replace(/\/+$/, "");
       const apiKey = provider.api_key || "";
       const instanceName = provider.instance_name || "";
+
+      let consecutiveFailures = 0;
+      let bothFailed = false;
 
       for (const step of steps) {
         // Already sent today?
