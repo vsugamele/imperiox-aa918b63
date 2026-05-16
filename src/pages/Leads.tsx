@@ -526,7 +526,7 @@ export default function Leads() {
               <Card className="bg-card border-border"><CardContent className="p-3"><p className="text-lg font-bold font-mono text-primary">R$ {leads.reduce((s, l) => s + (parseFloat(String(l.total_gasto)) || 0), 0).toFixed(0)}</p><p className="text-[10px] text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> Receita</p></CardContent></Card>
             </div>
 
-            <LeadsTable leads={filtered} projects={projects} captureForms={captureForms} selectedIds={selectedIds} onToggleSelect={toggleSelect} onToggleSelectAll={toggleSelectAll} allFilteredSelected={allFilteredSelected} onEditLead={setEditLead} page={page} totalPages={totalPages} totalCount={totalCount} pageSize={PAGE_SIZE} loading={loading} onPageChange={setPage} />
+            <LeadsTable leads={filtered} projects={projects} captureForms={captureForms} selectedIds={selectedIds} onToggleSelect={toggleSelect} onToggleSelectAll={toggleSelectAll} allFilteredSelected={allFilteredSelected} onEditLead={setEditLead} page={page} totalPages={totalPages} totalCount={totalCount} pageSize={PAGE_SIZE} loading={loading} onPageChange={setPage} automations={automations} />
           </TabsContent>
 
           {/* TAB: ANALYTICS */}

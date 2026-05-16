@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageCircle, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import LeadActionsMenu from "./LeadActionsMenu";
 import { parseISO, isValid, format } from "date-fns";
 
 interface LeadVenda {
@@ -55,11 +56,12 @@ interface Props {
   pageSize: number;
   loading: boolean;
   onPageChange: (page: number) => void;
+  automations?: any[];
 }
 
 export default function LeadsTable({
   leads, projects, captureForms, selectedIds, onToggleSelect, onToggleSelectAll,
-  allFilteredSelected, onEditLead, page, totalPages, totalCount, pageSize, loading, onPageChange,
+  allFilteredSelected, onEditLead, page, totalPages, totalCount, pageSize, loading, onPageChange, automations = [],
 }: Props) {
   return (
     <>
@@ -132,7 +134,7 @@ export default function LeadsTable({
                   <TableCell className="text-xs text-muted-foreground">{(() => { const refDate = getLeadReferenceDate(l); if (!refDate) return "—"; try { const d = parseISO(refDate); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      {l.phone && <Button size="icon" variant="ghost" asChild className="h-7 w-7"><a href={`https://wa.me/${(() => { const d = l.phone!.replace(/\D/g, ""); return d.startsWith("55") ? d : "55" + d; })()}`} target="_blank" rel="noopener"><MessageCircle className="h-4 w-4 text-emerald-400" /></a></Button>}
+                      <LeadActionsMenu lead={l} automations={automations} />
                     </div>
                   </TableCell>
                 </TableRow>
