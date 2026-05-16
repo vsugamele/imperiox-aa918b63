@@ -55,7 +55,7 @@ export default function WhatsApp() {
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai" | "triagem" | "objecoes">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
 
