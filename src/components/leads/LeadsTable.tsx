@@ -61,7 +61,7 @@ interface Props {
 
 export default function LeadsTable({
   leads, projects, captureForms, selectedIds, onToggleSelect, onToggleSelectAll,
-  allFilteredSelected, onEditLead, page, totalPages, totalCount, pageSize, loading, onPageChange,
+  allFilteredSelected, onEditLead, page, totalPages, totalCount, pageSize, loading, onPageChange, automations = [],
 }: Props) {
   return (
     <>
