@@ -41,6 +41,9 @@ export function ActionInbox() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const pending = actions.filter((a) => a.status === "proposed").length;
+  const totalImpact = actions
+    .filter((a) => a.status === "proposed")
+    .reduce((s, a) => s + Number(a.impact_brl || 0), 0);
 
   const load = async () => {
     setLoading(true);
@@ -49,8 +52,12 @@ export function ActionInbox() {
       .from("imphq_ai_actions")
       .select("*")
       .or(`status.eq.proposed,executed_at.gte.${since}`)
+      .order("priority_score", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(50);
+    setActions((data as any) || []);
+    setLoading(false);
+  };
     setActions((data as any) || []);
     setLoading(false);
   };
