@@ -19681,15 +19681,96 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_campaign_templates: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          import_count: number
+          is_public: boolean
+          name: string
+          produto: string | null
+          slug: string
+          steps: Json
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          import_count?: number
+          is_public?: boolean
+          name: string
+          produto?: string | null
+          slug: string
+          steps?: Json
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          import_count?: number
+          is_public?: boolean
+          name?: string
+          produto?: string | null
+          slug?: string
+          steps?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_campaign_templates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_campaign_templates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_campaign_templates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_campaign_templates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_campaign_templates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_campaigns: {
         Row: {
           anti_hack: boolean | null
+          auto_fallback: boolean
           created_at: string
           exit_message: string | null
+          fallback_provider_id: string | null
           groups: Json
           id: string
           mention_all: boolean | null
           name: string
+          pause_on_failure: boolean
           paused_groups: string[]
           produto: string | null
           project_id: string | null
@@ -19703,12 +19784,15 @@ export type Database = {
         }
         Insert: {
           anti_hack?: boolean | null
+          auto_fallback?: boolean
           created_at?: string
           exit_message?: string | null
+          fallback_provider_id?: string | null
           groups?: Json
           id?: string
           mention_all?: boolean | null
           name: string
+          pause_on_failure?: boolean
           paused_groups?: string[]
           produto?: string | null
           project_id?: string | null
@@ -19722,12 +19806,15 @@ export type Database = {
         }
         Update: {
           anti_hack?: boolean | null
+          auto_fallback?: boolean
           created_at?: string
           exit_message?: string | null
+          fallback_provider_id?: string | null
           groups?: Json
           id?: string
           mention_all?: boolean | null
           name?: string
+          pause_on_failure?: boolean
           paused_groups?: string[]
           produto?: string | null
           project_id?: string | null
@@ -19740,6 +19827,13 @@ export type Database = {
           welcome_message?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_wa_campaigns_fallback_provider_id_fkey"
+            columns: ["fallback_provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_wa_campaigns_provider_id_fkey"
             columns: ["provider_id"]

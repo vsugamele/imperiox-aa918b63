@@ -17,6 +17,7 @@ import CampaignStepEditor from "./CampaignStepEditor";
 import CampaignLogViewer from "./CampaignLogViewer";
 import CampaignKPICards from "./CampaignKPICards";
 import CampaignAutomationPanel from "./CampaignAutomationPanel";
+import CampaignSettingsDialog from "./CampaignSettingsDialog";
 
 interface Campaign {
   id: string;
@@ -49,6 +50,7 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [showLogs, setShowLogs] = useState<Campaign | null>(null);
   const [showGroups, setShowGroups] = useState<Campaign | null>(null);
   const [showAutomation, setShowAutomation] = useState<Campaign | null>(null);
+  const [showSettings, setShowSettings] = useState<Campaign | null>(null);
   const [form, setForm] = useState({
     name: "",
     project_id: "",
@@ -382,6 +384,9 @@ export default function CampaignManager({ projects, providers }: Props) {
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowAutomation(c)} title="Automações">
                       <Cog className="h-3.5 w-3.5" />
                     </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setShowSettings(c)} title="Configurações (provider, fallback...)">
+                      <Settings2 className="h-3.5 w-3.5" />
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => duplicateCampaign(c)} title="Duplicar">
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
@@ -564,6 +569,17 @@ export default function CampaignManager({ projects, providers }: Props) {
           )}
         </DialogContent>
       </Dialog>
+
+      {showSettings && (
+        <CampaignSettingsDialog
+          open={!!showSettings}
+          onClose={() => setShowSettings(null)}
+          campaign={showSettings}
+          projects={projects}
+          providers={providers}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }

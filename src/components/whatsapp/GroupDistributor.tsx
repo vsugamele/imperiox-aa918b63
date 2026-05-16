@@ -218,26 +218,53 @@ export default function GroupDistributor() {
 
   const campaignName = (id: string | null) => campaigns.find(c => c.id === id)?.name || "—";
 
+  const totalClicks = distributors.reduce((acc, d) => acc + (d.click_count || 0), 0);
+  const totalActive = distributors.filter(d => d.is_active).length;
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">🔗 Distribuidor de Grupos</h2>
-          <p className="text-xs text-muted-foreground">Links inteligentes que distribuem leads entre grupos automaticamente</p>
+    <div className="p-4 space-y-5">
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-xl border border-gold/20 bg-gradient-to-br from-gold/10 via-secondary/40 to-background p-5">
+        <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
+        <div className="relative flex items-center justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <h2 className="font-display text-2xl text-gold flex items-center gap-2">
+              <Link2 className="h-5 w-5" /> Distribuidor de Grupos
+            </h2>
+            <p className="text-xs text-muted-foreground max-w-md leading-relaxed">
+              Links inteligentes que distribuem leads entre grupos automaticamente, evitando filas cheias e queimadas.
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-2xl font-display text-foreground">{totalClicks.toLocaleString("pt-BR")}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">cliques totais</div>
+            </div>
+            <div className="text-right border-l border-border/40 pl-4">
+              <div className="text-2xl font-display text-gold">{totalActive}<span className="text-base text-muted-foreground">/{distributors.length}</span></div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ativos</div>
+            </div>
+            <Button size="sm" className="bg-gold text-background hover:bg-gold/90 shadow-lg shadow-gold/20" onClick={() => { generateSlug(); setShowCreate(true); }}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Novo Link
+            </Button>
+          </div>
         </div>
-        <Button size="sm" onClick={() => { generateSlug(); setShowCreate(true); }}>
-          <Plus className="h-3.5 w-3.5 mr-1" /> Novo Link
-        </Button>
       </div>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : distributors.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground text-sm">Nenhum distribuidor criado.</p>
-            <Button size="sm" variant="outline" className="mt-3" onClick={() => { generateSlug(); setShowCreate(true); }}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> Criar primeiro
+        <Card className="border-dashed border-gold/20">
+          <CardContent className="p-12 text-center space-y-3">
+            <div className="mx-auto w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
+              <Link2 className="h-8 w-8 text-gold" />
+            </div>
+            <p className="text-foreground font-display text-lg">Nenhum link criado ainda</p>
+            <p className="text-muted-foreground text-xs max-w-sm mx-auto leading-relaxed">
+              Crie um link único que rotaciona leads entre seus grupos de WhatsApp, com limites e contingência.
+            </p>
+            <Button size="sm" className="mt-2" onClick={() => { generateSlug(); setShowCreate(true); }}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Criar primeiro link
             </Button>
           </CardContent>
         </Card>
@@ -248,71 +275,100 @@ export default function GroupDistributor() {
             const maxCount = Math.max(1, ...stats.map(s => s.count));
             const fullestPct = stats.length ? Math.round((maxCount / (d.max_per_group || 250)) * 100) : 0;
             const fullUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/wa-group-distributor?slug=${d.slug}`;
+            const progressColor = fullestPct >= 90 ? "bg-destructive" : fullestPct >= 70 ? "bg-amber-500" : "bg-gold";
             return (
-            <Card key={d.id} className="group relative overflow-hidden hover:border-primary/30 transition-colors">
+            <Card key={d.id} className="group relative overflow-hidden hover:border-gold/40 hover:shadow-lg hover:shadow-gold/5 transition-all duration-200">
               <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${d.is_active ? "bg-gold" : "bg-muted-foreground/40"}`} />
-              <CardContent className="p-4 pl-5">
+              <CardContent className="p-4 pl-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-2 min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4 text-gold" />
-                      <span className="font-mono text-sm font-semibold">{d.slug}</span>
-                      <Badge className={`text-[10px] ${d.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-                        {d.is_active ? "ativo" : "inativo"}
-                      </Badge>
-                      {d.is_active && <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />}
+                  <div className="space-y-2.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${d.is_active ? "bg-gold/15 text-gold" : "bg-muted/40 text-muted-foreground"}`}>
+                        <Link2 className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-semibold">{d.slug}</span>
+                          <Badge className={`text-[10px] ${d.is_active ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}>
+                            {d.is_active ? "● ativo" : "○ inativo"}
+                          </Badge>
+                          {d.rotation_mode && d.rotation_mode !== "none" && (
+                            <Badge variant="outline" className="text-[10px] border-gold/40 text-gold">
+                              🔄 Semana {d.current_week || 1}
+                            </Badge>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => copyLink(d.slug)}
+                          title="Clique para copiar"
+                          className="block max-w-full truncate text-[10px] text-muted-foreground/70 font-mono hover:text-gold transition-colors text-left mt-0.5"
+                        >
+                          {fullUrl}
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => copyLink(d.slug)}
-                      title="Clique para copiar"
-                      className="block max-w-full truncate text-[10px] text-muted-foreground/70 font-mono hover:text-gold transition-colors text-left"
-                    >
-                      {fullUrl}
-                    </button>
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
-                      <span>📢 {campaignName(d.campaign_id)}</span>
-                      <span>👥 {(d.redirect_order || []).length} grupos</span>
-                      <span>🖱️ {d.click_count} cliques</span>
-                      <span>🔒 máx {d.max_per_group}</span>
-                      {d.rotation_mode && d.rotation_mode !== "none" && (
-                        <span className="text-gold">🔄 Semana {d.current_week || 1} ({d.rotation_mode === "weekly_cohort" ? "cohort" : "corrente"})</span>
-                      )}
-                      {fullestPct >= 70 && (
-                        <span className={fullestPct >= 90 ? "text-destructive" : "text-amber-400"}>
-                          ⚠️ {fullestPct}% do mais cheio
-                        </span>
-                      )}
+
+                    <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/60 border border-border/40 text-muted-foreground">
+                        📢 {campaignName(d.campaign_id)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/60 border border-border/40 text-muted-foreground">
+                        👥 {(d.redirect_order || []).length} grupos
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold/10 border border-gold/30 text-gold">
+                        🖱️ {d.click_count} cliques
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/60 border border-border/40 text-muted-foreground">
+                        🔒 máx {d.max_per_group}
+                      </span>
                     </div>
-                    {/* Sparkline horizontal */}
+
+                    {/* Progress bar for fullest group */}
                     {stats.length > 0 && (
-                      <div className="flex items-end gap-0.5 h-6 mt-1">
-                        {stats.slice(0, 24).map((s, i) => {
-                          const h = Math.max(2, (s.count / maxCount) * 100);
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-muted-foreground">Grupo mais cheio</span>
+                          <span className={fullestPct >= 90 ? "text-destructive font-semibold" : fullestPct >= 70 ? "text-amber-400 font-semibold" : "text-muted-foreground"}>
+                            {fullestPct}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-secondary/60 overflow-hidden">
+                          <div className={`h-full ${progressColor} transition-all duration-500`} style={{ width: `${Math.min(100, fullestPct)}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sparkline */}
+                    {stats.length > 0 && (
+                      <div className="flex items-end gap-0.5 h-7">
+                        {stats.slice(0, 32).map((s, i) => {
+                          const h = Math.max(3, (s.count / maxCount) * 100);
                           const pct = (s.count / (d.max_per_group || 250)) * 100;
                           const color = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-gold/70";
                           return (
                             <div
                               key={i}
-                              className={`w-1.5 rounded-sm ${color} transition-all`}
+                              className={`flex-1 max-w-[8px] rounded-sm ${color} hover:opacity-100 opacity-80 transition-all`}
                               style={{ height: `${h}%` }}
-                              title={`${s.count} cliques`}
+                              title={`${s.count} cliques (${Math.round(pct)}%)`}
                             />
                           );
                         })}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copyLink(d.slug)} title="Copiar link">
+
+                  <div className="flex flex-col items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-gold/10 hover:text-gold" onClick={() => copyLink(d.slug)} title="Copiar link">
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openStats(d)} title="Estatísticas">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-gold/10 hover:text-gold" onClick={() => openStats(d)} title="Estatísticas">
                       <BarChart3 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => toggleActive(d)} title={d.is_active ? "Desativar" : "Ativar"}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => toggleActive(d)} title={d.is_active ? "Desativar" : "Ativar"}>
                       {d.is_active ? <PowerOff className="h-3.5 w-3.5 text-amber-400" /> : <Power className="h-3.5 w-3.5 text-emerald-400" />}
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteDist(d.id)}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => deleteDist(d.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

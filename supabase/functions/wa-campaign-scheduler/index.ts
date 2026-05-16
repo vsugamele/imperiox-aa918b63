@@ -240,6 +240,7 @@ serve(async (req) => {
       if (steps.length === 0) continue;
 
       let provider = null;
+      let fallbackProvider: any = null;
       if (campaign.provider_id) {
         const { data } = await supabase
           .from("imphq_wa_providers")
@@ -247,6 +248,14 @@ serve(async (req) => {
           .eq("id", campaign.provider_id)
           .single();
         provider = data;
+      }
+      if ((campaign as any).fallback_provider_id && (campaign as any).auto_fallback !== false) {
+        const { data: fb } = await supabase
+          .from("imphq_wa_providers")
+          .select("*")
+          .eq("id", (campaign as any).fallback_provider_id)
+          .single();
+        fallbackProvider = fb;
       }
 
       if (!provider) {
@@ -257,6 +266,9 @@ serve(async (req) => {
       const apiUrl = (provider.api_url || "").replace(/\/+$/, "");
       const apiKey = provider.api_key || "";
       const instanceName = provider.instance_name || "";
+
+      let consecutiveFailures = 0;
+      let bothFailed = false;
 
       for (const step of steps) {
         // Already sent today?
@@ -334,20 +346,60 @@ serve(async (req) => {
             });
 
             totalSent++;
+            consecutiveFailures = 0;
             console.log(`[Campaign ${campaign.name}] Sent step ${step.step_order} to ${groupJid}`);
           } catch (err: any) {
-            await supabase.from("imphq_wa_campaign_logs").insert({
-              step_id: step.id,
-              campaign_id: campaign.id,
-              group_jid: groupJid,
-              status: "failed",
-              error: (err.message || "").slice(0, 500),
-            });
+            consecutiveFailures++;
+            let fallbackOk = false;
 
-            totalFailed++;
-            console.error(`[Campaign ${campaign.name}] Failed step ${step.step_order} to ${groupJid}: ${err.message}`);
+            // Try fallback after 2 consecutive failures on primary
+            if (fallbackProvider && consecutiveFailures >= 2) {
+              try {
+                const fbUrl = (fallbackProvider.api_url || "").replace(/\/+$/, "");
+                const fbKey = fallbackProvider.api_key || "";
+                const fbInst = fallbackProvider.instance_name || "";
+                const fbEndpoint = (step.media_type === "text" || !step.media_url)
+                  ? `${fbUrl}/message/sendText/${encodeURIComponent(fbInst)}`
+                  : step.media_type === "audio"
+                  ? `${fbUrl}/message/sendWhatsAppAudio/${encodeURIComponent(fbInst)}`
+                  : `${fbUrl}/message/sendMedia/${encodeURIComponent(fbInst)}`;
+                const fbBody = (step.media_type === "text" || !step.media_url)
+                  ? { number: groupJid, text: renderVariables(step.content || "", { produto: campaign.produto || "", campanha: campaign.name || "", grupo: "", grupo_nome: "", nome: "" }) }
+                  : step.media_type === "audio"
+                  ? { number: groupJid, audio: step.media_url }
+                  : { number: groupJid, mediatype: step.media_type, media: step.media_url, caption: renderVariables(step.content || "", { produto: campaign.produto || "", campanha: campaign.name || "", grupo: "", grupo_nome: "", nome: "" }), fileName: "document" };
+                await sendWithRetry(fbEndpoint, { "Content-Type": "application/json", apikey: fbKey }, fbBody, 1);
+                await supabase.from("imphq_wa_campaign_logs").insert({
+                  step_id: step.id, campaign_id: campaign.id, group_jid: groupJid, status: "sent", error: "FALLBACK_USED",
+                });
+                totalSent++;
+                fallbackOk = true;
+                console.log(`[Campaign ${campaign.name}] FALLBACK sent to ${groupJid}`);
+              } catch (fbErr: any) {
+                bothFailed = true;
+                console.error(`[Campaign ${campaign.name}] FALLBACK also failed: ${fbErr.message}`);
+              }
+            }
+
+            if (!fallbackOk) {
+              await supabase.from("imphq_wa_campaign_logs").insert({
+                step_id: step.id,
+                campaign_id: campaign.id,
+                group_jid: groupJid,
+                status: "failed",
+                error: ((bothFailed ? "BOTH_FAILED: " : "") + (err.message || "")).slice(0, 500),
+              });
+              totalFailed++;
+              console.error(`[Campaign ${campaign.name}] Failed step ${step.step_order} to ${groupJid}: ${err.message}`);
+            }
           }
         }
+      }
+
+      // Pause campaign if both providers failed and toggle is on
+      if (bothFailed && (campaign as any).pause_on_failure) {
+        await supabase.from("imphq_wa_campaigns").update({ status: "paused" } as any).eq("id", campaign.id);
+        console.warn(`[Campaign ${campaign.name}] PAUSED (both providers failed)`);
       }
     }
 
