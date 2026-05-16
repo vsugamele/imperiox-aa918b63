@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
       if (lead_id) {
         await supabase
           .from("imphq_leads")
-          .update({ hot_lead: true, hot_lead_at: new Date().toISOString() })
+          .update({ score: 90, updated_at: new Date().toISOString() })
           .eq("id", lead_id);
       }
       await supabase.from("imphq_ai_actions").insert({
