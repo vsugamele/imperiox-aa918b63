@@ -1,73 +1,40 @@
-## Distribuidor com Rotação Semanal (Webinar)
+## Objetivo
+Transformar o ícone 💬 (WhatsApp) na linha do lead em um **menu dropdown** com duas ações:
+1. Abrir WhatsApp (wa.me + LeadWhatsAppDialog)
+2. Rodar automação OpenFlow do projeto do lead
 
-Sim, dá pra fazer **ambas**: grupo da semana corrente (default para anúncios "evergreen") **e** cohort fixo por lead (quem entrou na semana 1 sempre cai no grupo 1, mesmo clicando depois). Será um toggle por distribuidor.
+## UX
+Clique no ícone abre um `DropdownMenu`:
+- **Abrir conversa (wa.me)** → comportamento atual
+- **Enviar via provider** → abre `LeadWhatsAppDialog` (já existe)
+- **Rodar automação ▸** submenu lista automações ativas (`imphq_automacoes` filtradas por `project_id` do lead). Ao escolher → confirma e dispara.
 
-### Fluxo conceitual
+## Disparo da automação
+- Insere registro em `imphq_automacao_execucoes` com:
+  - `automacao_id`, `project_id`, `lead_id`, `trigger_tipo: 'manual_lead'`, `status: 'pending'`, `payload: { lead }`
+- O `openflow-executor` (cron já existente) processa pendentes — mesmo padrão usado em outros disparos manuais. Se a tabela/edge não suportar gatilho manual ainda, adicionamos suporte mínimo (sem mexer no resto do executor).
+- Toast de sucesso: "Automação enfileirada".
 
-```text
-Lead clica no link → edge function calcula "semana atual"
-   ├── modo CORRENTE   → redirect ao grupo ativo da semana
-   └── modo COHORT     → checa cookie/IP-hash:
-                         ├── já visto antes → grupo da 1ª semana dele
-                         └── novo           → grupo da semana atual + grava cohort
-```
+## Mudanças
 
-### Modelo de dados
+**`src/components/leads/LeadsTable.tsx`** (linha 135)
+- Substituir o `<Button asChild><a href=wa.me>` por `<LeadActionsMenu lead={l} onSendWa={...} onRunAutomation={...} />`.
+- Manter cor verde no trigger.
 
-Nova tabela `imphq_wa_distributor_weeks` (uma linha por grupo semanal):
-- `distributor_id`, `week_index` (1,2,3...), `group_jid`, `invite_url`
-- `start_at` timestamptz (quando vira ativo), `archived_at` (auto preenchido pelo cron)
+**`src/components/leads/LeadActionsMenu.tsx`** (novo, ~80 linhas)
+- DropdownMenu com `MessageCircle` trigger.
+- Carrega automações do projeto do lead via prop (passadas pela página) ou hook leve.
+- Submenu "Rodar automação" lista nome + tipo de trigger.
 
-Coluna nova em `imphq_wa_group_distributors`:
-- `rotation_mode` text: `'none' | 'weekly_current' | 'weekly_cohort'`
-- `rotation_cron` text: ex `'0 9 * * 1'` (toda segunda 09h)
-- `current_week` integer (ponteiro mantido pelo cron)
+**`src/pages/Leads.tsx`**
+- Já carrega `automacoes`? Se não, adiciona fetch leve de `imphq_automacoes` (id, nome, project_id, ativo, trigger_tipo) na carga inicial.
+- Passa `automacoes` e `onRunAutomation(lead, automacaoId)` para `LeadsTable`.
+- `onRunAutomation` faz o `insert` em `imphq_automacao_execucoes` e mostra toast.
 
-Tabela `imphq_wa_distributor_cohorts` (só usada no modo cohort):
-- `distributor_id`, `ip_hash`, `week_index`, `created_at`
-- chave única `(distributor_id, ip_hash)` → idempotência
+## Não-incluído
+- Editor de automação (já existe em /openflow).
+- Disparo em massa (multi-lead) — fica para próximo passo se quiser.
 
-### Cron semanal automático
-
-`pg_cron` a cada 5 min roda função `wa-distributor-rotate`:
-- Para cada distribuidor com `rotation_mode != 'none'`, verifica se `now() >= próxima execução do cron`.
-- Se sim: arquiva semana atual (`archived_at = now()`) e incrementa `current_week` para o próximo registro com `start_at <= now()`.
-- Dispara webhook opcional pra notificar (futuro).
-
-### Edge function `wa-group-distributor` — mudanças
-
-```text
-1. Buscar distribuidor + suas weeks ordenadas
-2. Se rotation_mode = 'weekly_current':
-     activeWeek = weeks.find(w => w.week_index == dist.current_week && !w.archived_at)
-     redirect 302 → activeWeek.invite_url
-3. Se rotation_mode = 'weekly_cohort':
-     cohort = busca em distributor_cohorts por ip_hash
-     se existe → redirect ao group_jid daquele week_index
-     se não existe → grava cohort com current_week + redirect normal
-4. Se rotation_mode = 'none' → mantém comportamento atual (peso/sequencial)
-```
-
-Grupos arquivados ficam visíveis nas stats mas **fora da rotação** (consulta sempre filtra `archived_at IS NULL` para escolha).
-
-### UI no modal Estatísticas
-
-- Novo seletor "Modo de rotação": Nenhum / Semana corrente / Cohort por lead.
-- Quando semanal: campo de cron preset (toda segunda 09h, toda quinta 20h, custom) + lista de "Semanas":
-  - `Semana 1 — JID — invite URL — start_at — [✓ ativa | 🗄 arquivada]`
-  - Botões: "Adicionar semana", "Avançar agora" (manual override do cron).
-- Indicador visual no card: `🔄 Rotação semanal · Semana 3/8 · próxima em 2d 14h`.
-
-### Entregáveis
-
-1. Migration: tabela `imphq_wa_distributor_weeks`, tabela `imphq_wa_distributor_cohorts`, colunas em `imphq_wa_group_distributors`.
-2. Edge function `wa-distributor-rotate` (chamada por pg_cron a cada 5 min).
-3. Edge function `wa-group-distributor`: lógica de rotação + cohort.
-4. UI em `GroupDistributor.tsx`: seletor de modo, gestor de semanas, badge no card.
-5. pg_cron job (via insert tool, não migration).
-
-### Não incluído (para discutir depois)
-
-- Campanhas de WhatsApp também avançando junto com a rotação (conectar `campaign_id` ao `current_week`).
-- Exportar CSV de cohorts (quem caiu em qual semana).
-- Notificação automática quando uma semana lota antes da próxima virar.
+## Verificação
+- Confirmar que `imphq_automacao_execucoes` aceita `trigger_tipo='manual_lead'` (ou usar valor já aceito como `manual`).
+- Testar: clicar no 💬 de um lead com projeto que tem automação ativa → menu mostra a automação → disparar → registro criado.
