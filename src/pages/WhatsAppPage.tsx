@@ -28,6 +28,8 @@ import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 import CampaignManager from "@/components/whatsapp/CampaignManager";
 import GroupDistributor from "@/components/whatsapp/GroupDistributor";
+import { TriagemPanel } from "@/components/whatsapp/TriagemPanel";
+import { ObjectionsLibrary } from "@/components/whatsapp/ObjectionsLibrary";
 import CommandManager from "@/components/whatsapp/CommandManager";
 import WhatsAppAIConfig from "@/components/whatsapp/WhatsAppAIConfig";
 
