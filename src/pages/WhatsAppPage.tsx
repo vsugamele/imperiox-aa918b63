@@ -324,7 +324,7 @@ export default function WhatsApp() {
         </DialogContent>
       </Dialog>
 
-      <ProviderConfigDialog open={showProviderConfig} onOpenChange={setShowProviderConfig} projects={projects} onCreated={load} />
+      <ProviderConfigDialog open={showProviderConfig} onOpenChange={setShowProviderConfig} projects={projects} existingProviders={providers} onCreated={load} />
       <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} templates={templates} />
     </div>
   );
