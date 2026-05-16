@@ -23,7 +23,11 @@ type AIAction = {
   error: string | null;
   projeto_id: string | null;
   created_at: string;
+  impact_brl: number | null;
+  priority_score: number | null;
 };
+
+const fmtBRL = (n: number) => `R$ ${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 
 const riskColor = (r: string) =>
   r === "high" ? "bg-red-500/15 text-red-400 border-red-500/30" :
