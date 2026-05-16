@@ -122,7 +122,7 @@ export default function WhatsApp() {
 
       {/* Provider status strip */}
       {providers.filter(p => p.provider === "evolution").map(p => (
-        <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} onSynced={load} />
+        <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} />
       ))}
       {providers.length === 0 && (
         <div className="px-4 py-2 bg-muted/30 border-b border-border text-center shrink-0">
