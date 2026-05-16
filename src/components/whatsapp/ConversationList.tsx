@@ -18,16 +18,26 @@ interface WaSession {
   avatar_url?: string | null;
 }
 
+interface Provider {
+  id: string;
+  instance_name?: string;
+  twilio_from?: string;
+  provider: string;
+  project_id: string;
+}
+
 interface Props {
   sessions: WaSession[];
   projects: { id: string; name: string }[];
-  providers?: { id: string; instance_name?: string; twilio_from?: string; provider: string; project_id: string }[];
+  providers?: Provider[];
   selectedId: string | null;
   loading: boolean;
   onSelect: (session: WaSession) => void;
   onNewSession: () => void;
   filterProject: string;
   onFilterProject: (v: string) => void;
+  filterProvider?: string;
+  onFilterProvider?: (v: string) => void;
 }
 
 function timeAgo(dateStr: string | undefined) {
@@ -51,26 +61,37 @@ function getInitials(name: string | null, phone: string): string {
   return phone.slice(-2);
 }
 
+// Cor estável por provider_id (hash simples → HSL)
+function providerColor(id: string | null | undefined): string {
+  if (!id) return "hsl(0, 0%, 50%)";
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, 65%, 55%)`;
+}
+
+function providerLabel(prov: Provider | undefined): string | null {
+  if (!prov) return null;
+  if (prov.provider === "evolution") return prov.instance_name || "Evolution";
+  return prov.twilio_from ? `Twilio ...${prov.twilio_from.slice(-4)}` : "Twilio";
+}
+
 export default function ConversationList({
-  sessions, projects, providers, selectedId, loading, onSelect, onNewSession, filterProject, onFilterProject,
+  sessions, projects, providers, selectedId, loading, onSelect, onNewSession,
+  filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
 }: Props) {
   const [search, setSearch] = useState("");
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
-  const getProviderLabel = (providerId: string | null) => {
-    if (!providerId || !providers) return null;
-    const prov = providers.find(p => p.id === providerId);
-    if (!prov) return null;
-    if (prov.provider === "evolution") return prov.instance_name || "Evolution";
-    return prov.twilio_from ? `Twilio ...${prov.twilio_from.slice(-4)}` : "Twilio";
-  };
+  const findProvider = (providerId: string | null) =>
+    providerId && providers ? providers.find(p => p.id === providerId) : undefined;
 
   const filtered = sessions.filter(s => {
     const matchProject = filterProject === "all" || s.project_id === filterProject;
-    const matchSearch = !search || 
+    const matchProvider = filterProvider === "all" || s.provider_id === filterProvider;
+    const matchSearch = !search ||
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
-    return matchProject && matchSearch;
+    return matchProject && matchProvider && matchSearch;
   });
 
   return (
@@ -99,6 +120,22 @@ export default function ConversationList({
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        {onFilterProvider && providers && providers.length > 0 && (
+          <Select value={filterProvider} onValueChange={onFilterProvider}>
+            <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Filtrar instância" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Instâncias</SelectItem>
+              {providers.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ background: providerColor(p.id) }} />
+                    {providerLabel(p) || p.id}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* List */}
@@ -136,7 +173,9 @@ export default function ConversationList({
           <div className="py-1">
             {filtered.map(s => {
               const isSelected = s.id === selectedId;
-              const provLabel = getProviderLabel(s.provider_id);
+              const prov = findProvider(s.provider_id);
+              const provLabel = providerLabel(prov);
+              const color = providerColor(s.provider_id);
               return (
                 <button
                   key={s.id}
@@ -144,19 +183,43 @@ export default function ConversationList({
                   className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 ${
                     isSelected ? "bg-accent" : ""
                   }`}
+                  title={provLabel ? `Instância: ${provLabel}` : undefined}
                 >
-                  <Avatar className="h-10 w-10 shrink-0">
-                    {s.avatar_url && <AvatarImage src={s.avatar_url} alt={s.contact_name || s.phone} />}
-                    <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
-                      {getInitials(s.contact_name, s.phone)}
-                    </AvatarFallback>
-                  </Avatar>
-                    <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium truncate">
-                        {s.contact_name || s.phone}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                  <div className="relative shrink-0">
+                    <Avatar className="h-10 w-10">
+                      {s.avatar_url && <AvatarImage src={s.avatar_url} alt={s.contact_name || s.phone} />}
+                      <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+                        {getInitials(s.contact_name, s.phone)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {provLabel && (
+                      <span
+                        className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card"
+                        style={{ background: color }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-medium truncate">
+                          {s.contact_name || s.phone}
+                        </span>
+                        {provLabel && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] h-4 px-1.5 shrink-0 font-medium"
+                            style={{
+                              background: `${color.replace("hsl", "hsla").replace(")", ", 0.15)")}`,
+                              borderColor: `${color.replace("hsl", "hsla").replace(")", ", 0.5)")}`,
+                              color,
+                            }}
+                          >
+                            {provLabel}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
                         {timeAgo(s.updated_at || s.created_at)}
                       </span>
                     </div>
@@ -173,16 +236,9 @@ export default function ConversationList({
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <p className="text-[10px] text-muted-foreground/70 truncate">
-                        {projectName(s.project_id)}
-                      </p>
-                      {provLabel && (
-                        <Badge variant="outline" className="text-[8px] h-3.5 px-1 shrink-0 font-normal">
-                          {provLabel}
-                        </Badge>
-                      )}
-                    </div>
+                    <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">
+                      {projectName(s.project_id)}
+                    </p>
                   </div>
                 </button>
               );

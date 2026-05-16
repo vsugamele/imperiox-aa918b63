@@ -53,6 +53,7 @@ export default function WhatsApp() {
   const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterProject, setFilterProject] = useState("all");
+  const [filterProvider, setFilterProvider] = useState("all");
   const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
@@ -179,6 +180,8 @@ export default function WhatsApp() {
                 onNewSession={() => setShowNew(true)}
                 filterProject={filterProject}
                 onFilterProject={setFilterProject}
+                filterProvider={filterProvider}
+                onFilterProvider={setFilterProvider}
               />
             </ResizablePanel>
 
