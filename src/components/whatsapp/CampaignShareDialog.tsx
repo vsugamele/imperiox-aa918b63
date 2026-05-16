@@ -53,7 +53,7 @@ export default function CampaignShareDialog({ open, onClose, campaignId, campaig
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Faça login");
       const slug = genSlug();
-      const { error } = await supabase.from("imphq_wa_campaign_templates").insert({
+      const { error } = await supabase.from("imphq_wa_campaign_templates" as any).insert({
         slug,
         name,
         description: description || null,
