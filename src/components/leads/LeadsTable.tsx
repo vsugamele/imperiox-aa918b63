@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageCircle, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import LeadActionsMenu from "./LeadActionsMenu";
 import { parseISO, isValid, format } from "date-fns";
 
 interface LeadVenda {
