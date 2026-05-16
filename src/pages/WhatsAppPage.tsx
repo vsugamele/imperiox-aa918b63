@@ -53,6 +53,7 @@ export default function WhatsApp() {
   const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterProject, setFilterProject] = useState("all");
+  const [filterProvider, setFilterProvider] = useState("all");
   const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
