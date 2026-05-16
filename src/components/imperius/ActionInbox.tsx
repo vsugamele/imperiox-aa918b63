@@ -104,6 +104,9 @@ export function ActionInbox() {
           <SheetTitle className="flex items-center gap-2 font-serif text-2xl">
             <Bot className="h-5 w-5 text-primary" /> Imperius — Fila de Ações
           </SheetTitle>
+          {totalImpact > 0 && (
+            <p className="text-xs text-amber-400 font-medium mt-1">🔥 {fmtBRL(totalImpact)} em jogo</p>
+          )}
         </SheetHeader>
 
         <ScrollArea className="h-[calc(100vh-100px)] mt-4 pr-3">
