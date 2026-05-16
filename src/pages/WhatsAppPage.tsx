@@ -284,6 +284,14 @@ export default function WhatsApp() {
           </ScrollArea>
         )}
 
+        {activeTab === "triagem" && (
+          <ScrollArea className="h-full"><div className="p-4 max-w-5xl mx-auto"><TriagemPanel /></div></ScrollArea>
+        )}
+
+        {activeTab === "objecoes" && (
+          <ScrollArea className="h-full"><div className="p-4 max-w-4xl mx-auto"><ObjectionsLibrary /></div></ScrollArea>
+        )}
+
         {activeTab === "comandos" && (
           <ScrollArea className="h-full">
             <CommandManager projects={projects} />
