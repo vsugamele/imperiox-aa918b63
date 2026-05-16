@@ -134,7 +134,7 @@ export default function LeadsTable({
                   <TableCell className="text-xs text-muted-foreground">{(() => { const refDate = getLeadReferenceDate(l); if (!refDate) return "—"; try { const d = parseISO(refDate); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      {l.phone && <Button size="icon" variant="ghost" asChild className="h-7 w-7"><a href={`https://wa.me/${(() => { const d = l.phone!.replace(/\D/g, ""); return d.startsWith("55") ? d : "55" + d; })()}`} target="_blank" rel="noopener"><MessageCircle className="h-4 w-4 text-emerald-400" /></a></Button>}
+                      <LeadActionsMenu lead={l} automations={automations} />
                     </div>
                   </TableCell>
                 </TableRow>
