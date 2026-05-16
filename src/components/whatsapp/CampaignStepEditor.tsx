@@ -14,13 +14,15 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Plus, Trash2, Image as ImageIcon, Mic, Video, FileText, Type, CalendarIcon,
-  ArrowUp, ArrowDown, Send, Eye, Variable,
+  ArrowUp, ArrowDown, Send, Eye, Variable, Sparkles, Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
+import CampaignAIGenerateDialog from "./CampaignAIGenerateDialog";
+import CampaignShareDialog from "./CampaignShareDialog";
 
 interface Step {
   id: string;
@@ -168,6 +170,8 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   const [testStep, setTestStep] = useState<Step | null>(null);
   const [testGroupJid, setTestGroupJid] = useState("");
   const [testing, setTesting] = useState(false);
+  const [showAI, setShowAI] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -287,11 +291,25 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
 
   return (
     <>
-      <ScrollArea className="max-h-[65vh]">
+      <div className="flex items-center justify-between gap-2 px-1 pb-2 mb-2 border-b border-border/40">
+        <p className="text-[11px] text-muted-foreground">{steps.length} mensagem{steps.length === 1 ? "" : "s"} nesta sequência</p>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="outline" className="h-7 text-[11px] border-gold/40 text-gold hover:bg-gold/10" onClick={() => setShowAI(true)}>
+            <Sparkles className="h-3 w-3 mr-1" /> Gerar com IA
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowShare(true)} disabled={steps.length === 0}>
+            <Share2 className="h-3 w-3 mr-1" /> Compartilhar
+          </Button>
+        </div>
+      </div>
+      <ScrollArea className="max-h-[60vh]">
         <div className="space-y-3 p-1">
           {steps.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-muted-foreground mb-3">Nenhuma mensagem na sequência.</p>
+              <Button size="sm" variant="outline" className="border-gold/40 text-gold hover:bg-gold/10" onClick={() => setShowAI(true)}>
+                <Sparkles className="h-3.5 w-3.5 mr-1" /> Gerar sequência com IA
+              </Button>
             </div>
           ) : (
             steps.map((step, idx) => {
@@ -526,6 +544,23 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CampaignAIGenerateDialog
+        open={showAI}
+        onClose={() => setShowAI(false)}
+        campaignId={campaignId}
+        projectId={projectId}
+        produto={produto}
+        onDone={load}
+      />
+
+      <CampaignShareDialog
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        campaignId={campaignId}
+        campaignName={produto || "Sequência"}
+        produto={produto}
+      />
     </>
   );
 }
