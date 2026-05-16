@@ -23,7 +23,11 @@ type AIAction = {
   error: string | null;
   projeto_id: string | null;
   created_at: string;
+  impact_brl: number | null;
+  priority_score: number | null;
 };
+
+const fmtBRL = (n: number) => `R$ ${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 
 const riskColor = (r: string) =>
   r === "high" ? "bg-red-500/15 text-red-400 border-red-500/30" :
@@ -37,6 +41,9 @@ export function ActionInbox() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const pending = actions.filter((a) => a.status === "proposed").length;
+  const totalImpact = actions
+    .filter((a) => a.status === "proposed")
+    .reduce((s, a) => s + Number(a.impact_brl || 0), 0);
 
   const load = async () => {
     setLoading(true);
@@ -45,6 +52,7 @@ export function ActionInbox() {
       .from("imphq_ai_actions")
       .select("*")
       .or(`status.eq.proposed,executed_at.gte.${since}`)
+      .order("priority_score", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(50);
     setActions((data as any) || []);
@@ -96,6 +104,9 @@ export function ActionInbox() {
           <SheetTitle className="flex items-center gap-2 font-serif text-2xl">
             <Bot className="h-5 w-5 text-primary" /> Imperius — Fila de Ações
           </SheetTitle>
+          {totalImpact > 0 && (
+            <p className="text-xs text-amber-400 font-medium mt-1">🔥 {fmtBRL(totalImpact)} em jogo</p>
+          )}
         </SheetHeader>
 
         <ScrollArea className="h-[calc(100vh-100px)] mt-4 pr-3">
@@ -114,9 +125,14 @@ export function ActionInbox() {
                       <p className="text-sm font-medium text-foreground">{a.title}</p>
                       {a.reason && <p className="text-xs text-muted-foreground mt-1">{a.reason}</p>}
                     </div>
-                    <Badge variant="outline" className={`text-[10px] uppercase shrink-0 ${riskColor(a.risk_level)}`}>
-                      {a.risk_level}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Badge variant="outline" className={`text-[10px] uppercase ${riskColor(a.risk_level)}`}>
+                        {a.risk_level}
+                      </Badge>
+                      {Number(a.impact_brl || 0) > 0 && (
+                        <span className="text-[10px] font-mono text-amber-400">{fmtBRL(Number(a.impact_brl))}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-2">
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
