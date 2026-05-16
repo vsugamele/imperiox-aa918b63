@@ -23561,6 +23561,15 @@ export type Database = {
           hair_types_label_singular: string
           heading_font: string
           home_authors_subtitle: string
+          home_hero_button_label: string | null
+          home_hero_button_link: string | null
+          home_hero_button_style: string | null
+          home_hero_show_brand: boolean | null
+          home_hero_show_greeting: boolean | null
+          home_hero_show_notifications: boolean | null
+          home_hero_show_search: boolean | null
+          home_hero_show_stats: boolean | null
+          home_hero_show_streak: boolean | null
           home_meditations_eyebrow: string
           home_recommend_cta: Json | null
           home_section_order: Json
@@ -23659,6 +23668,15 @@ export type Database = {
           hair_types_label_singular?: string
           heading_font?: string
           home_authors_subtitle?: string
+          home_hero_button_label?: string | null
+          home_hero_button_link?: string | null
+          home_hero_button_style?: string | null
+          home_hero_show_brand?: boolean | null
+          home_hero_show_greeting?: boolean | null
+          home_hero_show_notifications?: boolean | null
+          home_hero_show_search?: boolean | null
+          home_hero_show_stats?: boolean | null
+          home_hero_show_streak?: boolean | null
           home_meditations_eyebrow?: string
           home_recommend_cta?: Json | null
           home_section_order?: Json
@@ -23757,6 +23775,15 @@ export type Database = {
           hair_types_label_singular?: string
           heading_font?: string
           home_authors_subtitle?: string
+          home_hero_button_label?: string | null
+          home_hero_button_link?: string | null
+          home_hero_button_style?: string | null
+          home_hero_show_brand?: boolean | null
+          home_hero_show_greeting?: boolean | null
+          home_hero_show_notifications?: boolean | null
+          home_hero_show_search?: boolean | null
+          home_hero_show_stats?: boolean | null
+          home_hero_show_streak?: boolean | null
           home_meditations_eyebrow?: string
           home_recommend_cta?: Json | null
           home_section_order?: Json
