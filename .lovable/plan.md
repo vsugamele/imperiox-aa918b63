@@ -1,40 +1,36 @@
-## Objetivo
-Transformar o ícone 💬 (WhatsApp) na linha do lead em um **menu dropdown** com duas ações:
-1. Abrir WhatsApp (wa.me + LeadWhatsAppDialog)
-2. Rodar automação OpenFlow do projeto do lead
+## Diagnóstico
 
-## UX
-Clique no ícone abre um `DropdownMenu`:
-- **Abrir conversa (wa.me)** → comportamento atual
-- **Enviar via provider** → abre `LeadWhatsAppDialog` (já existe)
-- **Rodar automação ▸** submenu lista automações ativas (`imphq_automacoes` filtradas por `project_id` do lead). Ao escolher → confirma e dispara.
+Hoje o WhatsApp Hub já amarra cada provider a 1 projeto (campo `project_id` no `imphq_wa_providers`), mas a UX esconde isso e não dá controle:
 
-## Disparo da automação
-- Insere registro em `imphq_automacao_execucoes` com:
-  - `automacao_id`, `project_id`, `lead_id`, `trigger_tipo: 'manual_lead'`, `status: 'pending'`, `payload: { lead }`
-- O `openflow-executor` (cron já existente) processa pendentes — mesmo padrão usado em outros disparos manuais. Se a tabela/edge não suportar gatilho manual ainda, adicionamos suporte mínimo (sem mexer no resto do executor).
-- Toast de sucesso: "Automação enfileirada".
+1. **Card do provider** mostra só o nome da instância + "Evolution". O projeto vinculado some — não dá pra saber pra qual projeto cada linha responde.
+2. **Não existe botão de excluir** provider. Quando uma instância cai/quebra, você fica com fantasma na lista (ex: "JP Freitas · Desconectado" travado).
+3. **Não dá pra editar** o projeto/nome depois de criar — só recriar do zero.
+4. **Sem reconectar/restart**: provider desconectado só permite copiar webhook, não consegue forçar reconexão.
 
-## Mudanças
+## O que vou implementar
 
-**`src/components/leads/LeadsTable.tsx`** (linha 135)
-- Substituir o `<Button asChild><a href=wa.me>` por `<LeadActionsMenu lead={l} onSendWa={...} onRunAutomation={...} />`.
-- Manter cor verde no trigger.
+### 1. Card do provider com projeto visível e ações
+Reformular o `EvolutionStatusCard` (linha 472 de `WhatsAppPage.tsx`):
+- Badge claro do projeto vinculado (`📁 {projectName}`) ao lado do nome da instância
+- Novo menu `⋯` no canto direito com:
+  - **Trocar projeto** → Select inline com lista de projetos, salva em `imphq_wa_providers.project_id`
+  - **Reconectar** (Evolution) → chama `whatsapp-api?action=restart_instance` e atualiza status
+  - **Ver QR Code** (atalho que já existe na conversa, mas faltava aqui)
+  - **Excluir provider** → AlertDialog de confirmação ("Isso vai remover a instância {nome}. Conversas vinculadas continuam, mas você perde o envio.") → `DELETE imphq_wa_providers WHERE id`
 
-**`src/components/leads/LeadActionsMenu.tsx`** (novo, ~80 linhas)
-- DropdownMenu com `MessageCircle` trigger.
-- Carrega automações do projeto do lead via prop (passadas pela página) ou hook leve.
-- Submenu "Rodar automação" lista nome + tipo de trigger.
+### 2. Estado "Desconectado" mais acionável
+- Quando `status !== "open"`, mostrar pílula "Reconectar" diretamente (não esconder atrás do menu).
+- Texto explicativo curto: "Sessão perdida — clique para gerar novo QR".
 
-**`src/pages/Leads.tsx`**
-- Já carrega `automacoes`? Se não, adiciona fetch leve de `imphq_automacoes` (id, nome, project_id, ativo, trigger_tipo) na carga inicial.
-- Passa `automacoes` e `onRunAutomation(lead, automacaoId)` para `LeadsTable`.
-- `onRunAutomation` faz o `insert` em `imphq_automacao_execucoes` e mostra toast.
+### 3. Validação no Dialog de criar
+- Mostrar warning se já existe provider ativo para o projeto selecionado (atualmente sobrescreve silenciosamente).
+- Permitir múltiplos providers por projeto (caso queira backup), mas pedir confirmação.
 
-## Não-incluído
-- Editor de automação (já existe em /openflow).
-- Disparo em massa (multi-lead) — fica para próximo passo se quiser.
+## Arquivos tocados
+- `src/pages/WhatsAppPage.tsx` — refatorar `EvolutionStatusCard` (+ handlers `deleteProvider`, `updateProviderProject`, `restartInstance`)
+- `src/components/whatsapp/ProviderConfigDialog.tsx` — warning de duplicidade
+- Sem migração (colunas já existem). Sem nova edge function (uso `whatsapp-api?action=restart_instance` que já existe; se não existir, adiciono case no `whatsapp-api/index.ts`).
 
-## Verificação
-- Confirmar que `imphq_automacao_execucoes` aceita `trigger_tipo='manual_lead'` (ou usar valor já aceito como `manual`).
-- Testar: clicar no 💬 de um lead com projeto que tem automação ativa → menu mostra a automação → disparar → registro criado.
+## Fora do escopo
+- Redesign completo das abas (Sessões/Templates/Campanhas) — mantenho o layout atual.
+- Hub Local (Beta) — já tem seu próprio fluxo de exclusão.
