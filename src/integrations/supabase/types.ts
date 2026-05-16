@@ -14868,8 +14868,10 @@ export type Database = {
           error: string | null
           executed_at: string | null
           id: string
+          impact_brl: number | null
           kind: string
           payload: Json
+          priority_score: number | null
           projeto_id: string | null
           reason: string | null
           result: Json | null
@@ -14890,8 +14892,10 @@ export type Database = {
           error?: string | null
           executed_at?: string | null
           id?: string
+          impact_brl?: number | null
           kind: string
           payload?: Json
+          priority_score?: number | null
           projeto_id?: string | null
           reason?: string | null
           result?: Json | null
@@ -14912,8 +14916,10 @@ export type Database = {
           error?: string | null
           executed_at?: string | null
           id?: string
+          impact_brl?: number | null
           kind?: string
           payload?: Json
+          priority_score?: number | null
           projeto_id?: string | null
           reason?: string | null
           result?: Json | null
@@ -20244,6 +20250,60 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_objections: {
+        Row: {
+          contexto_produto: string | null
+          created_at: string
+          id: string
+          objecao: string
+          origem: string
+          projeto_id: string | null
+          resposta_padrao: string | null
+          score_uso: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contexto_produto?: string | null
+          created_at?: string
+          id?: string
+          objecao: string
+          origem?: string
+          projeto_id?: string | null
+          resposta_padrao?: string | null
+          score_uso?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contexto_produto?: string | null
+          created_at?: string
+          id?: string
+          objecao?: string
+          origem?: string
+          projeto_id?: string | null
+          resposta_padrao?: string | null
+          score_uso?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_objections_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_objections_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_wa_providers: {
         Row: {
           api_key: string | null
@@ -20351,6 +20411,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_wa_triage: {
+        Row: {
+          ai_response: string | null
+          conversation_id: string | null
+          created_at: string
+          escalated: boolean
+          fit_score: number | null
+          id: string
+          intent: string | null
+          lead_id: string | null
+          message_id: string | null
+          projeto_id: string | null
+          raw_message: string | null
+          sentiment: string | null
+          urgency: string | null
+        }
+        Insert: {
+          ai_response?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          escalated?: boolean
+          fit_score?: number | null
+          id?: string
+          intent?: string | null
+          lead_id?: string | null
+          message_id?: string | null
+          projeto_id?: string | null
+          raw_message?: string | null
+          sentiment?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          ai_response?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          escalated?: boolean
+          fit_score?: number | null
+          id?: string
+          intent?: string | null
+          lead_id?: string | null
+          message_id?: string | null
+          projeto_id?: string | null
+          raw_message?: string | null
+          sentiment?: string | null
+          urgency?: string | null
+        }
+        Relationships: []
       }
       imphq_webhook_errors: {
         Row: {
