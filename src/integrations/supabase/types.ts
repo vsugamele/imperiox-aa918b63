@@ -23673,6 +23673,7 @@ export type Database = {
           home_hero_button_link: string | null
           home_hero_button_style: string | null
           home_hero_show_brand: boolean | null
+          home_hero_show_cta: boolean | null
           home_hero_show_greeting: boolean | null
           home_hero_show_notifications: boolean | null
           home_hero_show_search: boolean | null
@@ -23780,6 +23781,7 @@ export type Database = {
           home_hero_button_link?: string | null
           home_hero_button_style?: string | null
           home_hero_show_brand?: boolean | null
+          home_hero_show_cta?: boolean | null
           home_hero_show_greeting?: boolean | null
           home_hero_show_notifications?: boolean | null
           home_hero_show_search?: boolean | null
@@ -23887,6 +23889,7 @@ export type Database = {
           home_hero_button_link?: string | null
           home_hero_button_style?: string | null
           home_hero_show_brand?: boolean | null
+          home_hero_show_cta?: boolean | null
           home_hero_show_greeting?: boolean | null
           home_hero_show_notifications?: boolean | null
           home_hero_show_search?: boolean | null
