@@ -180,6 +180,8 @@ export default function WhatsApp() {
                 onNewSession={() => setShowNew(true)}
                 filterProject={filterProject}
                 onFilterProject={setFilterProject}
+                filterProvider={filterProvider}
+                onFilterProvider={setFilterProvider}
               />
             </ResizablePanel>
 
