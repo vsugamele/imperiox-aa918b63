@@ -20911,6 +20911,72 @@ export type Database = {
           },
         ]
       }
+      jonathan_community_posts: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_community_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_community_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_community_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jonathan_community_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_community_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jonathan_crm_exports: {
         Row: {
           created_at: string
@@ -36798,13 +36864,15 @@ export type Database = {
         Args: { _program_id: string; _user_id: string }
         Returns: boolean
       }
-      jonathan_has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["jonathan_app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      jonathan_has_role:
+        | { Args: { _role: string; _uid: string }; Returns: boolean }
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["jonathan_app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
       jonathan_is_admin: { Args: { _uid: string }; Returns: boolean }
       jonathan_issue_certificate: {
         Args: { _program_id: string }
