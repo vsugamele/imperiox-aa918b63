@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
@@ -121,7 +122,7 @@ export default function WhatsApp() {
 
       {/* Provider status strip */}
       {providers.filter(p => p.provider === "evolution").map(p => (
-        <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} onSynced={load} />
+        <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} />
       ))}
       {providers.length === 0 && (
         <div className="px-4 py-2 bg-muted/30 border-b border-border text-center shrink-0">
@@ -323,7 +324,7 @@ export default function WhatsApp() {
         </DialogContent>
       </Dialog>
 
-      <ProviderConfigDialog open={showProviderConfig} onOpenChange={setShowProviderConfig} projects={projects} onCreated={load} />
+      <ProviderConfigDialog open={showProviderConfig} onOpenChange={setShowProviderConfig} projects={projects} existingProviders={providers} onCreated={load} />
       <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} templates={templates} />
     </div>
   );
@@ -469,12 +470,14 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 }
 
 // ── Evolution Status Card ──
-function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: any; projectName: string; onSynced: () => void }) {
+function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void }) {
   const [status, setStatus] = useState<string>("loading");
   const [number, setNumber] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const webhookUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-api?action=webhook&provider=evolution`;
 
@@ -510,6 +513,34 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
     setSyncing(false);
   };
 
+  const restartInstance = async () => {
+    setRestarting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-api?action=restart_instance", { body: { provider_id: provider.id } });
+      if (error) throw error;
+      if ((data as any)?.success) { toast.success("Reconectando — abra o QR Code para escanear"); setTimeout(fetchStatus, 1500); }
+      else toast.error("Falha ao reconectar");
+    } catch (err: any) { toast.error("Erro: " + err.message); }
+    setRestarting(false);
+  };
+
+  const deleteProvider = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-api?action=delete_instance", { body: { provider_id: provider.id } });
+      if (error) throw error;
+      if ((data as any)?.success) { toast.success("Provider removido"); onSynced(); }
+      else toast.error("Falha ao remover");
+    } catch (err: any) { toast.error("Erro: " + err.message); }
+    setConfirmDelete(false);
+  };
+
+  const changeProject = async (newProjectId: string) => {
+    const { error } = await supabase.from("imphq_wa_providers").update({ project_id: newProjectId }).eq("id", provider.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Projeto atualizado");
+    onSynced();
+  };
+
   const copyWebhook = () => { navigator.clipboard.writeText(webhookUrl); setCopied(true); toast.success("URL copiada!"); setTimeout(() => setCopied(false), 2000); };
 
   const isConnected = status === "open" || status === "connected";
@@ -522,22 +553,31 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
 
   return (
     <div className="px-4 py-2 border-b border-border bg-card shrink-0">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : isConnected ? <Wifi className="h-4 w-4 text-emerald-400" /> : <WifiOff className="h-4 w-4 text-destructive" />}
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-xs">{provider.instance_name}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-xs truncate">{provider.instance_name}</span>
+              <Badge variant="outline" className="text-[9px] gap-1 bg-primary/10 text-primary border-primary/30">
+                <FolderOpen className="h-2.5 w-2.5" /> {projectName}
+              </Badge>
               <Badge variant="outline" className={`text-[9px] ${isConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
                 {loading ? "..." : isConnected ? "Conectado" : "Desconectado"}
               </Badge>
             </div>
-            <p className="text-[10px] text-muted-foreground">{number ? formatNumber(number) : projectName} · Evolution</p>
+            <p className="text-[10px] text-muted-foreground">{number ? formatNumber(number) : "—"} · Evolution</p>
           </div>
         </div>
         <div className="flex gap-1.5 items-center">
+          {!isConnected && !loading && (
+            <Button size="sm" variant="outline" onClick={restartInstance} disabled={restarting} className="h-7 text-[10px] border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
+              {restarting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Power className="h-3 w-3 mr-1" />}
+              Reconectar
+            </Button>
+          )}
           <AlertControls provider={provider} onChanged={onSynced} />
-          <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 w-7 p-0">
+          <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 w-7 p-0" title="Atualizar status">
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
           </Button>
           {isConnected && (
@@ -546,11 +586,50 @@ function EvolutionStatusCard({ provider, projectName, onSynced }: { provider: an
               Sync
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={copyWebhook} className="h-7 w-7 p-0" title="Copiar webhook URL">
-            <Copy className={`h-3 w-3 ${copied ? "text-emerald-400" : ""}`} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Mais ações">
+                <MoreVertical className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs">Trocar projeto</DropdownMenuLabel>
+              {projects.map(p => (
+                <DropdownMenuItem key={p.id} className="text-xs" onClick={() => changeProject(p.id)} disabled={p.id === provider.project_id}>
+                  <FolderOpen className="h-3 w-3 mr-2" />
+                  {p.name} {p.id === provider.project_id && "✓"}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs" onClick={restartInstance} disabled={restarting}>
+                <Power className="h-3 w-3 mr-2" /> Reconectar / Novo QR
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-xs" onClick={copyWebhook}>
+                <Copy className={`h-3 w-3 mr-2 ${copied ? "text-emerald-400" : ""}`} /> Copiar webhook URL
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-3 w-3 mr-2" /> Excluir provider
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /> Excluir provider?</AlertDialogTitle>
+            <AlertDialogDescription className="leading-7">
+              Isso vai remover a instância <strong>{provider.instance_name}</strong> do projeto <strong>{projectName}</strong>, encerrar a sessão WhatsApp na Evolution e apagar o provider local. As conversas continuam, mas você perde o envio até reconfigurar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteProvider} className="bg-destructive hover:bg-destructive/90">Excluir definitivamente</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

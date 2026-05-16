@@ -12,10 +12,11 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   projects: any[];
+  existingProviders?: any[];
   onCreated: () => void;
 }
 
-export default function ProviderConfigDialog({ open, onOpenChange, projects, onCreated }: Props) {
+export default function ProviderConfigDialog({ open, onOpenChange, projects, existingProviders = [], onCreated }: Props) {
   const [form, setForm] = useState({
     project_id: "",
     provider: "evolution" as "evolution" | "twilio",
@@ -26,11 +27,14 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, onC
   });
   const [showApiKey, setShowApiKey] = useState(false);
 
+  const duplicate = form.project_id ? existingProviders.find(p => p.project_id === form.project_id) : null;
+
   const save = async () => {
     if (!form.project_id || !form.provider) {
       toast.error("Projeto e provider obrigatórios");
       return;
     }
+    if (duplicate && !confirm(`Já existe um provider (${duplicate.instance_name || duplicate.provider}) para esse projeto. Criar outro mesmo assim?`)) return;
     const { error } = await supabase.from("imphq_wa_providers").insert({
       project_id: form.project_id,
       provider: form.provider,
@@ -58,6 +62,11 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, onC
               <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+          {duplicate && (
+            <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 leading-5">
+              ⚠ Já existe um provider <strong>{duplicate.instance_name || duplicate.provider}</strong> para esse projeto. Criar outro vai gerar provider duplicado.
+            </div>
+          )}
           <div>
             <Label>Provider</Label>
             <Select value={form.provider} onValueChange={(v: "evolution" | "twilio") => setForm({ ...form, provider: v })}>
