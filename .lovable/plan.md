@@ -1,30 +1,46 @@
 ## Problema
 
-Na lista de Conversas, a instância (sessão conectada) aparece como um badge cinza minúsculo de 8px no rodapé do item, ao lado do nome do projeto. Resultado: visualmente é impossível bater o olho e saber se aquela conversa pertence à `JP Freitas` ou à `jpfreitas`.
+Existem 2 providers Evolution ativos para o projeto `jp_freitas`:
+- `cd3bbdb5-059e-4f79-bec6-a978ddb5fa38` → instance_name `JP Freitas` (não existe mais no servidor Evolution → 404)
+- `6effd737-7c2d-4ff2-adce-fcdbb5b81a47` → instance_name `jpfreitas` (ativa, funcionando)
+
+A UI/automações estão selecionando o provider errado em alguns fluxos → erro `The "JP Freitas" instance does not exist`.
 
 ## Solução
 
-Três melhorias em `ConversationList.tsx` (UI apenas, sem mexer em backend/queries):
+**Migration única** que limpa o provider obsoleto com cascata (mesmo padrão já usado em `whatsapp-api/index.ts` action `delete_instance`):
 
-### 1. Bolinha colorida por instância no avatar
-Gerar uma cor estável a partir do `provider_id` (hash → HSL) e renderizar um **dot** de 10px no canto inferior direito do Avatar. Cada instância vira reconhecível na hora.
+```sql
+-- 1. Apagar mensagens das conversas desse provider
+DELETE FROM imphq_wa_messages
+WHERE conversation_id IN (
+  SELECT id FROM imphq_wa_conversations
+  WHERE provider_id = 'cd3bbdb5-059e-4f79-bec6-a978ddb5fa38'
+);
 
-### 2. Badge da instância mais visível
-Mover o badge da instância para a **linha do nome do contato** (à direita do nome, antes do timestamp), com a mesma cor da bolinha (fundo `bg-{cor}/15` + borda `border-{cor}/40`). Manter o nome do projeto na linha de baixo.
+-- 2. Apagar conversas
+DELETE FROM imphq_wa_conversations
+WHERE provider_id = 'cd3bbdb5-059e-4f79-bec6-a978ddb5fa38';
 
-### 3. Filtro por instância
-Adicionar um segundo `<Select>` no header da lista, abaixo do filtro de projeto:
-- "Todas as instâncias" (default)
-- Uma opção por provider conectado (`instance_name` ou `Twilio ...XXXX`)
+-- 3. Apagar instances (QR/sessões)
+DELETE FROM imphq_wa_instances
+WHERE provider_id = 'cd3bbdb5-059e-4f79-bec6-a978ddb5fa38';
 
-Combina com o filtro de projeto via AND.
+-- 4. Apagar o provider obsoleto
+DELETE FROM imphq_wa_providers
+WHERE id = 'cd3bbdb5-059e-4f79-bec6-a978ddb5fa38';
+```
 
-### Detalhes técnicos
-- Função `providerColor(providerId: string)`: hash simples → `hsl(${h}, 65%, 55%)`.
-- Adicionar prop `filterProvider: string` + `onFilterProvider` em `Props`; estado controlado no `WhatsAppPage.tsx`.
-- Filtro: `(filterProvider === "all" || s.provider_id === filterProvider)`.
-- Lista de providers já chega via prop `providers` — só usar.
+Resultado: sobra só o `jpfreitas` ativo e correto. O dropdown de "Sessão" no envio passa a mostrar uma única opção válida.
 
-### Fora de escopo
-- Não mexer em ordenação, polling, fetch de mensagens ou no painel direito.
-- Não criar nova tabela nem alterar schema.
+## Fora de escopo
+
+- Não mudar código de envio (já está correto, era dado sujo)
+- Não tocar no provider `jpfreitas` que está saudável
+- Histórico de conversas do provider antigo será perdido (não recuperável, já que a instância nem existe mais no Evolution)
+
+## Alternativa (se quiser preservar histórico)
+
+Em vez de DELETE, fazer `UPDATE imphq_wa_providers SET is_active=false WHERE id='cd3bbdb5...'` — mas isso mantém conversas órfãs aparecendo na lista.
+
+**Recomendado: DELETE com cascata.** Confirma?
