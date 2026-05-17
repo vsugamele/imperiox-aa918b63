@@ -528,6 +528,22 @@ Deno.serve(async (req) => {
 
     // Handle checkout intent (inicio_checkout, carrinho_abandonado, pix_gerado, boleto_gerado, aguardando_pagamento, pagamento_pendente, pagamento_recusado, pagamento_expirado)
     const checkoutIntentEvents = ["inicio_checkout", "carrinho_abandonado", "pix_gerado", "boleto_gerado", "aguardando_pagamento", "pagamento_pendente", "pagamento_recusado", "pagamento_expirado"];
+
+    // Log missing leadId as observability error (so /configuracoes shows it)
+    if (checkoutIntentEvents.includes(evento) && !leadId) {
+      console.warn("[webhook-pagamento] checkout-intent sem leadId resolvido:", evento, plataforma);
+      await supabase.from("imphq_webhook_errors").insert({
+        webhook_id: webhookRow?.id || null,
+        project_id: projectId,
+        plataforma,
+        evento,
+        erro: "lead_not_resolved: checkout-intent recebido mas não foi possível resolver o lead (email/phone ausentes ou desconhecidos).",
+        payload: body,
+      });
+    }
+
+    let touchedVendaId: string | null = null;
+
     if (checkoutIntentEvents.includes(evento) && leadId) {
       const statusMap: Record<string, string> = {
         inicio_checkout: "inicio_checkout",
@@ -546,7 +562,7 @@ Deno.serve(async (req) => {
       if (externalTxId && projectId) {
         const { data } = await supabase
           .from("imphq_vendas")
-          .select("id")
+          .select("id, status, created_at")
           .eq("project_id", projectId)
           .eq("external_transaction_id", externalTxId)
           .eq("produto_nome", produto || "")
@@ -556,7 +572,7 @@ Deno.serve(async (req) => {
       if (!dupCheck || dupCheck.length === 0) {
         const { data } = await supabase
           .from("imphq_vendas")
-          .select("id")
+          .select("id, status, created_at")
           .eq("lead_id", leadId)
           .eq("status", vendaStatus)
           .gte("created_at", new Date(Date.now() - 30 * 60000).toISOString())
@@ -588,6 +604,8 @@ Deno.serve(async (req) => {
           data: {
             ...(webhookUtms ? { utms: webhookUtms } : {}),
             ...(matchedCampaignId ? { matched_campaign_id: matchedCampaignId } : {}),
+            last_intent_at: new Date().toISOString(),
+            last_intent_event: evento,
           },
         };
         if (data_compra) {
@@ -595,19 +613,73 @@ Deno.serve(async (req) => {
           vendaInsert.data_venda = data_compra;
         }
         const { error: ciErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
-        if (ciErr && ciErr.code !== "23505") console.error("[webhook-pagamento] Erro ao inserir checkout intent:", ciErr);
-        else if (!ciErr) console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus, "utm:", webhookUtms?.utm_campaign);
+        if (ciErr) {
+          console.error("[webhook-pagamento] Erro ao inserir checkout intent (code=", ciErr.code, "):", ciErr.message);
+          if (ciErr.code !== "23505") {
+            await supabase.from("imphq_webhook_errors").insert({
+              webhook_id: webhookRow?.id || null,
+              project_id: projectId,
+              plataforma,
+              evento,
+              erro: `insert_venda_failed: ${ciErr.message}`,
+              payload: body,
+            });
+          }
+        } else {
+          console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus, "utm:", webhookUtms?.utm_campaign);
+          touchedVendaId = vendaInsert.id;
+        }
+      } else {
+        // Existing venda — bump activity timestamp so hot-lead-responder reconhece como reemissão
+        const existingId = dupCheck[0].id;
+        touchedVendaId = existingId;
+        const { data: existVenda } = await supabase
+          .from("imphq_vendas")
+          .select("data")
+          .eq("id", existingId)
+          .maybeSingle();
+        const prevData = (existVenda?.data || {}) as Record<string, any>;
+        // Clear stale hot_lead_responder_sent if older than 24h, so re-disparo is possível
+        const hlrSent = prevData.hot_lead_responder_sent;
+        const hlrOlderThan24h = !hlrSent || (Date.now() - new Date(hlrSent).getTime() > 24 * 3600 * 1000);
+        const newData = {
+          ...prevData,
+          last_intent_at: new Date().toISOString(),
+          last_intent_event: evento,
+          intent_reemissions: ((prevData.intent_reemissions as number) || 0) + 1,
+          ...(hlrOlderThan24h ? { hot_lead_responder_sent: null, hot_lead_responder_ok: null } : {}),
+        };
+        await supabase
+          .from("imphq_vendas")
+          .update({ data: newData, updated_at: new Date().toISOString() })
+          .eq("id", existingId);
+        console.log("[webhook-pagamento] Reemissão", evento, "→ venda existente", existingId, "(reemissoes:", newData.intent_reemissions, ")");
+      }
 
-        // Hot lead notification: Pix gerado is high-intent
-        if (evento === "pix_gerado") {
-          const recipients = await resolveProjectRecipients(supabase, projectId);
-          await pushNotifyByPref({
-            supabase,
-            prefKey: "hot_lead",
-            title: "🔥 Lead quente — Pix gerado",
-            message: `${nome || email || "Um lead"} gerou um Pix${produto ? ` para ${produto}` : ""}${valor ? ` (R$ ${valor.toFixed(2)})` : ""}.`,
-            user_ids: recipients,
-          });
+      // Hot lead notification + AUTO-FIRE hot-lead-responder p/ pix_gerado
+      if (evento === "pix_gerado") {
+        const recipients = await resolveProjectRecipients(supabase, projectId);
+        await pushNotifyByPref({
+          supabase,
+          prefKey: "hot_lead",
+          title: "🔥 Lead quente — Pix gerado",
+          message: `${nome || email || "Um lead"} gerou um Pix${produto ? ` para ${produto}` : ""}${valor ? ` (R$ ${valor.toFixed(2)})` : ""}.`,
+          user_ids: recipients,
+        });
+
+        // Dispara responder IMEDIATAMENTE para a venda específica (não espera cron)
+        if (touchedVendaId) {
+          try {
+            supabase.functions.invoke("hot-lead-responder", {
+              body: { venda_id: touchedVendaId, source: "webhook_pix_inline" },
+            }).then((r: any) => {
+              console.log("[webhook-pagamento] hot-lead-responder inline:", r?.data?.ok ?? r?.error);
+            }).catch((e: any) => {
+              console.warn("[webhook-pagamento] hot-lead-responder inline error:", e?.message);
+            });
+          } catch (e) {
+            console.warn("[webhook-pagamento] failed to invoke hot-lead-responder:", e);
+          }
         }
       }
     }
