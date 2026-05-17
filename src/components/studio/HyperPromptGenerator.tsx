@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, RotateCcw, Wand2, Check, Save } from "lucide-react";
+import { Copy, RotateCcw, Wand2, Check, Save, Sparkles, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { buildHyperPrompt, emptyHyperFields, type HyperFields } from "@/lib/hyperPromptBuilder";
 import * as opts from "./hyperPromptOptions";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +78,9 @@ export function HyperPromptGenerator({
   const [fields, setFields] = useState<HyperFields>(emptyHyperFields);
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [refined, setRefined] = useState<string>("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (externalFields) {
@@ -125,6 +129,42 @@ export function HyperPromptGenerator({
     if (error) return toast.error("Falha ao salvar: " + error.message);
     toast.success("Salvo no cofre");
     onSaved?.();
+  };
+
+  const refinar = async () => {
+    if (!prompt.trim()) return toast.error("Preencha alguns campos primeiro");
+    setRefining(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("prompt-refiner", {
+        body: { prompt, target: "midjourney" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setRefined(data?.refined || "");
+      toast.success("Prompt refinado pela IA");
+    } catch (e: any) {
+      toast.error("Falha ao refinar: " + (e?.message || ""));
+    } finally {
+      setRefining(false);
+    }
+  };
+
+  const usarEmCriativo = () => {
+    const text = refined || prompt;
+    try {
+      sessionStorage.setItem("criativo:promptVisual", text);
+    } catch {}
+    navigate("/criativos/novo?from=hyper");
+    toast.success("Prompt enviado para Criativos");
+  };
+
+  const copyRefined = async () => {
+    try {
+      await navigator.clipboard.writeText(refined);
+      toast.success("Refinado copiado");
+    } catch {
+      toast.error("Falha ao copiar");
+    }
   };
 
   const Section = ({ title, icon, children, cols = 2 }: any) => (
@@ -206,6 +246,12 @@ export function HyperPromptGenerator({
         <Button onClick={copy} className="flex-1 min-w-[200px] h-12 font-display tracking-[2px] uppercase" size="lg">
           <Wand2 className="h-4 w-4 mr-2" /> Gerar & Copiar
         </Button>
+        <Button onClick={refinar} disabled={refining} variant="secondary" size="lg" className="h-12">
+          <Sparkles className="h-4 w-4 mr-2" /> {refining ? "Refinando..." : "Refinar com IA"}
+        </Button>
+        <Button onClick={usarEmCriativo} variant="secondary" size="lg" className="h-12">
+          <ImageIcon className="h-4 w-4 mr-2" /> Usar em Criativo
+        </Button>
         <Button onClick={salvar} disabled={saving} variant="secondary" size="lg" className="h-12">
           <Save className="h-4 w-4 mr-2" /> {saving ? "Salvando..." : "Salvar no Cofre"}
         </Button>
@@ -228,6 +274,22 @@ export function HyperPromptGenerator({
           {prompt}
         </pre>
       </Card>
+
+      {refined && (
+        <Card className="bg-secondary/30 border-l-4 border-l-primary border-y-border border-r-border p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-sm font-bold uppercase tracking-[2.5px] text-primary">
+              ✨ Refinado pela IA
+            </h3>
+            <Button size="sm" variant="ghost" onClick={copyRefined}>
+              <Copy className="h-4 w-4 mr-1" /> Copiar
+            </Button>
+          </div>
+          <pre className="font-mono text-[13px] leading-7 text-foreground/90 whitespace-pre-wrap break-words">
+            {refined}
+          </pre>
+        </Card>
+      )}
     </div>
   );
 }
