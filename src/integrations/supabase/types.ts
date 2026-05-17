@@ -18436,6 +18436,42 @@ export type Database = {
           },
         ]
       }
+      imphq_prompts_salvos: {
+        Row: {
+          campos: Json
+          created_at: string
+          id: string
+          nome: string
+          project_id: string | null
+          prompt_text: string
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campos?: Json
+          created_at?: string
+          id?: string
+          nome: string
+          project_id?: string | null
+          prompt_text: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campos?: Json
+          created_at?: string
+          id?: string
+          nome?: string
+          project_id?: string | null
+          prompt_text?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_push_subscriptions: {
         Row: {
           created_at: string

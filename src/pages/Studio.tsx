@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap } from "lucide-react";
+import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault } from "lucide-react";
 import { StudioPrompts } from "@/components/studio/StudioPrompts";
 import { StudioGenerator } from "@/components/studio/StudioGenerator";
 import { StudioWorkflow } from "@/components/studio/StudioWorkflow";
 import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
+import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
+import type { HyperFields } from "@/lib/hyperPromptBuilder";
 
 export default function Studio() {
   const [tab, setTab] = useState("generator");
+  const [vaultRefresh, setVaultRefresh] = useState(0);
+  const [loadedFields, setLoadedFields] = useState<HyperFields | null>(null);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -22,12 +26,15 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-5xl grid-cols-6">
+        <TabsList className="grid w-full max-w-6xl grid-cols-7">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
           </TabsTrigger>
           <TabsTrigger value="hyper" className="gap-2">
             <Zap className="h-4 w-4" /> Hyper
+          </TabsTrigger>
+          <TabsTrigger value="cofre" className="gap-2">
+            <Vault className="h-4 w-4" /> Cofre
           </TabsTrigger>
           <TabsTrigger value="workflow" className="gap-2">
             <Workflow className="h-4 w-4" /> Workflow
@@ -48,7 +55,20 @@ export default function Studio() {
         </TabsContent>
 
         <TabsContent value="hyper" className="mt-6">
-          <HyperPromptGenerator />
+          <HyperPromptGenerator
+            externalFields={loadedFields}
+            onSaved={() => setVaultRefresh((v) => v + 1)}
+          />
+        </TabsContent>
+
+        <TabsContent value="cofre" className="mt-6">
+          <HyperPromptVault
+            refreshKey={vaultRefresh}
+            onLoad={(f) => {
+              setLoadedFields(f);
+              setTab("hyper");
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="workflow" className="mt-6">

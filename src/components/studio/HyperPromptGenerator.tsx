@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, RotateCcw, Wand2, Check } from "lucide-react";
+import { Copy, RotateCcw, Wand2, Check, Save } from "lucide-react";
 import { toast } from "sonner";
 import { buildHyperPrompt, emptyHyperFields, type HyperFields } from "@/lib/hyperPromptBuilder";
 import * as opts from "./hyperPromptOptions";
+import { supabase } from "@/integrations/supabase/client";
 
 type FieldKey = keyof HyperFields;
 
@@ -66,9 +67,23 @@ function FieldSelect({
   );
 }
 
-export function HyperPromptGenerator() {
+export function HyperPromptGenerator({
+  externalFields,
+  onSaved,
+}: {
+  externalFields?: HyperFields | null;
+  onSaved?: () => void;
+} = {}) {
   const [fields, setFields] = useState<HyperFields>(emptyHyperFields);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (externalFields) {
+      setFields(externalFields);
+      toast.success("Prompt carregado do cofre");
+    }
+  }, [externalFields]);
 
   const prompt = useMemo(() => buildHyperPrompt(fields), [fields]);
 
@@ -88,6 +103,28 @@ export function HyperPromptGenerator() {
   const reset = () => {
     setFields(emptyHyperFields);
     toast.info("Valores restaurados");
+  };
+
+  const salvar = async () => {
+    const nome = window.prompt("Nome para este prompt:", `${fields.tipoPersonagem || "prompt"} ${new Date().toLocaleDateString("pt-BR")}`);
+    if (!nome) return;
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Faça login para salvar");
+      setSaving(false);
+      return;
+    }
+    const { error } = await supabase.from("imphq_prompts_salvos").insert({
+      user_id: user.id,
+      nome,
+      prompt_text: prompt,
+      campos: fields as any,
+    });
+    setSaving(false);
+    if (error) return toast.error("Falha ao salvar: " + error.message);
+    toast.success("Salvo no cofre");
+    onSaved?.();
   };
 
   const Section = ({ title, icon, children, cols = 2 }: any) => (
@@ -165,9 +202,12 @@ export function HyperPromptGenerator() {
         <FieldSelect label="Estilo final" value={fields.estiloFinal} options={opts.estiloFinal} onChange={set("estiloFinal")} freePlaceholder="ex.: noir cinematic" />
       </Section>
 
-      <div className="flex gap-3">
-        <Button onClick={copy} className="flex-1 h-12 font-display tracking-[2px] uppercase" size="lg">
+      <div className="flex gap-3 flex-wrap">
+        <Button onClick={copy} className="flex-1 min-w-[200px] h-12 font-display tracking-[2px] uppercase" size="lg">
           <Wand2 className="h-4 w-4 mr-2" /> Gerar & Copiar
+        </Button>
+        <Button onClick={salvar} disabled={saving} variant="secondary" size="lg" className="h-12">
+          <Save className="h-4 w-4 mr-2" /> {saving ? "Salvando..." : "Salvar no Cofre"}
         </Button>
         <Button onClick={reset} variant="outline" size="lg" className="h-12">
           <RotateCcw className="h-4 w-4 mr-2" /> Resetar
