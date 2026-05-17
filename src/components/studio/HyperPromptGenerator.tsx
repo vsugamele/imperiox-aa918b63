@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, RotateCcw, Wand2, Check } from "lucide-react";
+import { Copy, RotateCcw, Wand2, Check, Save } from "lucide-react";
 import { toast } from "sonner";
 import { buildHyperPrompt, emptyHyperFields, type HyperFields } from "@/lib/hyperPromptBuilder";
 import * as opts from "./hyperPromptOptions";
+import { supabase } from "@/integrations/supabase/client";
 
 type FieldKey = keyof HyperFields;
 
