@@ -100,6 +100,15 @@ export default function CriativoNovo() {
         .order("name", { ascending: true });
       setProjetos((data as Projeto[]) || []);
     })();
+    // Pré-preenche extras se veio do Hyper Prompt Generator
+    try {
+      const fromHyper = sessionStorage.getItem("criativo:promptVisual");
+      if (fromHyper) {
+        setExtras((prev) => (prev ? prev + "\n\n" : "") + "[PROMPT VISUAL]\n" + fromHyper);
+        sessionStorage.removeItem("criativo:promptVisual");
+        toast.success("Prompt visual carregado nos Extras");
+      }
+    } catch {}
   }, []);
 
   // Load project-scoped resources when project changes
