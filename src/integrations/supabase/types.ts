@@ -2760,6 +2760,11 @@ export type Database = {
           position: number
           thumbnail_url: string | null
           title: string
+          transcript: string | null
+          transcript_error: string | null
+          transcript_source: string | null
+          transcript_status: string
+          transcript_updated_at: string | null
           video_url: string | null
         }
         Insert: {
@@ -2774,6 +2779,11 @@ export type Database = {
           position?: number
           thumbnail_url?: string | null
           title: string
+          transcript?: string | null
+          transcript_error?: string | null
+          transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Update: {
@@ -2788,6 +2798,11 @@ export type Database = {
           position?: number
           thumbnail_url?: string | null
           title?: string
+          transcript?: string | null
+          transcript_error?: string | null
+          transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Relationships: [
@@ -22070,6 +22085,9 @@ export type Database = {
           position: number
           thumbnail_url: string | null
           title: string
+          transcript: string | null
+          transcript_fetched_at: string | null
+          transcript_source: string | null
           video_url: string | null
         }
         Insert: {
@@ -22084,6 +22102,9 @@ export type Database = {
           position?: number
           thumbnail_url?: string | null
           title: string
+          transcript?: string | null
+          transcript_fetched_at?: string | null
+          transcript_source?: string | null
           video_url?: string | null
         }
         Update: {
@@ -22098,6 +22119,9 @@ export type Database = {
           position?: number
           thumbnail_url?: string | null
           title?: string
+          transcript?: string | null
+          transcript_fetched_at?: string | null
+          transcript_source?: string | null
           video_url?: string | null
         }
         Relationships: [
