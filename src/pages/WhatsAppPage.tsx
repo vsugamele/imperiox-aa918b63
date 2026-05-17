@@ -52,8 +52,11 @@ export default function WhatsApp() {
   const [providers, setProviders] = useState<any[]>([]);
   const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterProject, setFilterProject] = useState("all");
-  const [filterProvider, setFilterProvider] = useState("all");
+  const [filterProject, setFilterProject] = useState(() => localStorage.getItem("wa.filterProject") || "all");
+  const [filterProvider, setFilterProvider] = useState(() => localStorage.getItem("wa.filterProvider") || "all");
+
+  useEffect(() => { localStorage.setItem("wa.filterProject", filterProject); }, [filterProject]);
+  useEffect(() => { localStorage.setItem("wa.filterProvider", filterProvider); }, [filterProvider]);
   const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
