@@ -22,9 +22,12 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-4xl grid-cols-5">
+        <TabsList className="grid w-full max-w-5xl grid-cols-6">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
+          </TabsTrigger>
+          <TabsTrigger value="hyper" className="gap-2">
+            <Zap className="h-4 w-4" /> Hyper
           </TabsTrigger>
           <TabsTrigger value="workflow" className="gap-2">
             <Workflow className="h-4 w-4" /> Workflow
