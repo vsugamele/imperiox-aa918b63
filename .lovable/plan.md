@@ -1,110 +1,65 @@
-## Diagnóstico do PIX de hoje (12:06)
+## Gerador de Prompts Ultrarrealistas — Integração ao Imperius
 
-Achei a evidência:
-- `imphq_webhooks`: chegou `pix_gerado` Ticto/jp_freitas às 12:06, marcado `processado=true`.
-- `imphq_vendas`: **nenhuma venda criada hoje**. A última é de ontem.
-- `imphq_webhook_errors`: vazio (nenhum erro registrado).
-- `imphq_ai_actions`: nenhuma `hot_lead_responder` rodou hoje.
+Sim, dá pra adaptar 100% — e melhor que um HTML único, porque já temos design system (dark, gold #c9922a), Studio/Criativos/ConteúdoIA, e Lovable AI Gateway pra enriquecer com IA.
 
-**Causa raiz provável (a confirmar na Fase 1):**
-1. No `webhook-pagamento` (linha 531), o bloco de checkout intent só insere venda **se `leadId` existir**. Se a resolução de lead falha (telefone/email não bate), ele apenas pula — **sem log de erro, sem entrada em `imphq_webhook_errors`**.
-2. Mesmo que inserisse, o `hot-lead-responder` **não tem cron job ativo**: só roda manual. Por isso nada disparou.
-3. O `recovery` de hoje falhou com `no_provider` — chip não resolvido pra jp_freitas naquele caminho.
+### Onde encaixar
 
----
+Nova rota `/studio/prompts` (sub-aba dentro do Studio) + atalho no hub Conteúdo IA. Não cria página solta — entra no pipeline **Ideia → Roteiro → Criativo → Vídeo** como gerador de prompts visuais para a etapa **Criativo**.
 
-## Fase 1 — Fix PIX/logs/disparo (urgente, ~1h)
+### Estrutura
 
-**Backend (`webhook-pagamento`):**
-- Sempre gravar `imphq_webhook_errors` quando `checkoutIntentEvents` chega mas `leadId` é null (com motivo: "lead_not_resolved", payload original).
-- Logar `ciErr` mesmo em `23505` (duplicado) para auditoria.
-- Quando `pix_gerado` cria/promove venda, enfileirar imediatamente uma `imphq_ai_actions` `kind=hot_lead_responder` (não esperar cron) com `risk_level=low`, executada inline pelo `imperius-executor` ou disparada via `supabase.functions.invoke('hot-lead-responder', { venda_id })`.
-
-**Cron:**
-- Agendar `hot-lead-responder` `*/5 * * * *` (rede de segurança caso o invoke inline falhe).
-- Verificar `payment-recovery` `no_provider` → usar a hierarquia de 5 níveis (mem `whatsapp/provider-resolution-hierarchy`) corretamente.
-
-**UI (nova aba em `/configuracoes/integracoes`):**
-- "Webhooks brutos (últimas 48h)": tabela `imphq_webhooks` + `imphq_webhook_errors` lado a lado, com botão **Reprocessar** (já existe lógica, expor pro `pix_gerado` órfão).
-- Badge de saúde: "X% dos webhooks viraram venda nas últimas 24h".
-
----
-
-## Fase 2 — Hub Comando (Kanban | Chat | Tarefas) (~3-4h)
-
-Nova rota `/comando` com 3 colunas resizable:
 ```
-┌──────────────────┬──────────────────┬──────────────────┐
-│ Kanban (col 1)   │ Chat ativo (2)   │ Tarefas (col 3)  │
-│ - filtra projeto │ - convo do card  │ - tasks do card  │
-│ - clica no card  │   selecionado    │ - +Nova rápida   │
-│ → seleciona      │ - slash commands │ - check inline   │
-│   contexto       │ - sugestões IA   │                  │
-└──────────────────┴──────────────────┴──────────────────┘
+src/pages/PromptGenerator.tsx           ← página principal
+src/components/prompts/
+  ├─ PromptSection.tsx                  ← wrapper de seção (título + grid)
+  ├─ PromptField.tsx                    ← select + campo LIVRE (lida com __free__)
+  ├─ PromptOutput.tsx                   ← output box + copiar + salvar
+  └─ promptOptions.ts                   ← todas as 22 listas PT→EN
+src/lib/promptBuilder.ts                ← monta o template da Seção 6
 ```
 
-- Componente novo: `src/pages/Comando.tsx` usando `ResizablePanelGroup` (já existe `ui/resizable`).
-- Estado compartilhado por contexto: `ActiveLeadContext` (lead_id + project_id + kanban_card_id). Persistido em URL (`?lead=...`).
-- Reutiliza componentes já existentes: `KanbanPage` board → modo embedded sem header; `ChatView` filtrado por lead; `CardDetailPanel` (parte de tarefas) lateral.
-- Atalho global `Cmd/Ctrl+K` para alternar lead ativo via busca.
-- Mantém páginas atuais intactas — Comando é o "modo unificado" opcional, item novo na sidebar entre Dashboard e Projetos.
+### Adaptações ao nosso sistema (vs HTML puro)
 
----
+1. **Design tokens nossos** — usa `bg-background`, `border-border`, `text-primary` (gold). Sem hardcode de `#F7D200`. Mantém vibe dark premium já existente (Cormorant + DM Sans em vez de Tomorrow/Montserrat — coerência de marca).
+2. **Componentes shadcn** — `Select`, `Input`, `Button`, `Card` em vez de `<select>` cru. Comportamento `__free__` revela um `Input` inline.
+3. **Persistência** — botão **"Salvar no Cofre"** grava o prompt em `imphq_prompts_salvos` (nova tabela: id, user_id, project_id, titulo, prompt_text, campos jsonb, created_at) com RLS por user_id. Nada se perde.
+4. **Integração com Criativos** — botão **"Usar em novo Criativo"** navega para `/criativos/novo?prompt=<id>` pré-preenchendo o campo de prompt visual.
+5. **IA opcional (Lovable AI)** — botão **"✨ Refinar com IA"** envia o prompt montado + briefing do projeto ativo para edge function `prompt-refiner` (Gemini), retorna versão otimizada para Midjourney/DALL-E.
+6. **Histórico** — lista lateral dos últimos 10 prompts salvos do usuário, com restore de todos os campos.
 
-## Fase 3 — OpenFlow IA (~3h)
+### Template de geração (Seção 6 — idêntico)
 
-3 capacidades novas no `/openflow`:
+Função `buildPrompt(fields)` em `promptBuilder.ts` segue exatamente a ordem das linhas, omite vazios, anexa fenótipo antes de `skin`. Sem alteração na lógica.
 
-**3a. Gerar sequência de nutrição via briefing**
-- Botão "✨ Gerar com IA" no editor de fluxo.
-- Modal: escolhe projeto/produto, objetivo, nº mensagens, canal (WA/email).
-- Edge function nova `openflow-ai-generate`: usa Lovable AI Gateway (`google/gemini-3-flash-preview`) + contexto do projeto (avatar, branding, vendas) + skills `nurture-generator` existente.
-- Devolve N passos prontos (delay, copy, condição) → insere no fluxo.
+### Backend mínimo
 
-**3b. Triagem automática de lead novo**
-- Novo node type `ai_triage` no editor.
-- Edge function `openflow-ai-triage`: classifica lead (quente/morno/frio, dor primária, objeção provável) e roteia para branch correspondente.
-- Reaproveita `wa-ai-triage` existente, generalizando.
-
-**3c. Auto-otimização**
-- Em cada fluxo, painel "💡 Sugestões IA": lê `imphq_automacao_logs`, identifica passos com baixa conversão (drop > 40%), propõe reescrita do copy.
-- Botão "Aplicar sugestão" cria nova versão do passo (não sobrescreve — histórico em `imphq_ai_actions`).
-
----
-
-## Fase 4 — Hub Conteúdo (pipeline Ideia → Roteiro → Criativo → Vídeo) (~3-4h)
-
-Nova rota `/conteudo` que substitui as 3 entradas separadas (Conteúdo IA, Criativos, Studio) na sidebar — páginas antigas viram tabs dentro dela.
-
-**Pipeline visual (Kanban horizontal de 4 colunas):**
+Migration:
+```sql
+create table imphq_prompts_salvos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  project_id text references imphq_projetos(id) on delete set null,
+  titulo text,
+  prompt_text text not null,
+  campos jsonb not null default '{}',
+  created_at timestamptz default now()
+);
+alter table imphq_prompts_salvos enable row level security;
+create policy "own" on imphq_prompts_salvos for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
 ```
-Ideia → Roteiro → Criativo (img) → Vídeo
-```
-- Cada "card" é uma `imphq_content_piece` (tabela nova) que carrega contexto entre etapas: prompt original, copy, asset gerado, vídeo final.
-- Avança 1 etapa com botão: "Roteirizar com IA" → "Gerar imagem" → "Gerar vídeo (Studio)".
-- Reutiliza: `ContentGenerator` (texto), `creative-factory` (imagem), `studio-generate` (vídeo).
-- Biblioteca compartilhada: prompts, avatar, branding ficam num único `ContextBar` no topo.
-- Histórico unificado: tudo que foi gerado vira card persistente, filtrável por projeto/produto.
 
-**Migration nova:**
-- Tabela `imphq_content_pieces` (id, project_id, produto_nome, stage, idea, script, image_url, video_url, prompt_history jsonb, status, created_at).
-- RLS: leitura/escrita por membros do projeto.
+Edge function `prompt-refiner` (opcional, fase 2): chama `google/gemini-2.5-flash` via Lovable AI Gateway.
 
----
+### Fases
 
-## Importante "nada se perde"
+1. **Fase A (core, ~rápido)** — página + 22 selects + builder + copiar/resetar. Sem backend.
+2. **Fase B** — tabela + salvar/histórico + RLS.
+3. **Fase C** — refinar com IA + integração Criativos.
 
-- **Nenhuma página antiga é removida.** Comando e Conteúdo são novos hubs que **agregam** o que já existe.
-- Sidebar reordena: Comando (novo) e Conteúdo (novo) no topo; páginas antigas permanecem acessíveis em "Avançado".
-- Memórias do projeto atualizadas a cada fase.
+### O que NÃO vou fazer
 
----
+- Não vou criar um `.html` standalone — viraria silo fora do sistema.
+- Não vou usar fontes Tomorrow/Montserrat (quebra identidade Cormorant/DM Sans).
+- Não vou hardcodar cores — tudo via tokens do `index.css`.
 
-## Ordem de execução (sua escolha confirmada)
-
-1. **Fase 1** — Fix PIX/logs (1 migration + edits em `webhook-pagamento` + cron + 1 aba UI)
-2. **Fase 2** — Hub Comando (1 página nova + contexto)
-3. **Fase 3** — OpenFlow IA (3 edge functions + UI)
-4. **Fase 4** — Hub Conteúdo (1 migration + 1 página nova)
-
-Posso começar pela Fase 1 imediatamente após aprovação.
+Confirma se faço **só Fase A** primeiro (entregável já hoje) ou **A+B juntas** (salva no Cofre desde o início)?
