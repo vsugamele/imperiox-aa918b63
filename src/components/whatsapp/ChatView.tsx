@@ -25,7 +25,8 @@ interface WaTemplate {
 }
 
 interface WaCommand {
-  id: string; command: string; response_text: string;
+  id: string; trigger_word: string; response_text: string | null;
+  sequence?: Array<{ content: string; delay_seconds?: number; media_url?: string; media_type?: string }>;
 }
 
 interface Props {
@@ -140,9 +141,10 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
 
     // Load commands for slash autocomplete
     useEffect(() => {
-      supabase.from("imphq_wa_commands").select("id, command, response_text")
+      supabase.from("imphq_wa_commands").select("id, trigger_word, response_text, sequence")
         .or(`project_id.eq.${projectId},project_id.is.null`)
-        .order("command")
+        .eq("is_active", true)
+        .order("trigger_word")
         .then(({ data }) => setCommands((data as any[]) || []));
     }, [projectId]);
 
@@ -226,7 +228,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       // Slash command detection
       if (val.startsWith("/") && val.length > 0) {
         const query = val.substring(1).toLowerCase();
-        const matched = commands.filter(c => c.command.toLowerCase().includes(query));
+        const matched = commands.filter(c => c.trigger_word.toLowerCase().includes(query));
         setCommandSuggestions(matched);
         setShowCommands(matched.length > 0);
       } else {
@@ -235,11 +237,40 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       }
     };
 
-    const selectCommand = (cmd: WaCommand) => {
-      setText(cmd.response_text);
+    const selectCommand = async (cmd: WaCommand) => {
       setShowCommands(false);
       setCommandSuggestions([]);
-      textareaRef.current?.focus();
+      const seq = Array.isArray(cmd.sequence) ? cmd.sequence : [];
+      // If has sequence, send it as multi-step; otherwise fill input with response_text
+      if (seq.length > 0) {
+        setText("");
+        if (textareaRef.current) textareaRef.current.style.height = "auto";
+        toast.info(`Enviando sequência (${seq.length} mensagens)…`);
+        for (let i = 0; i < seq.length; i++) {
+          const step = seq[i];
+          if (i > 0 && step.delay_seconds) await new Promise(r => setTimeout(r, step.delay_seconds * 1000));
+          await sendRaw(step.content, step.media_url, step.media_type);
+        }
+        setTimeout(() => pollNew(), 600);
+      } else {
+        setText(cmd.response_text || "");
+        textareaRef.current?.focus();
+      }
+    };
+
+    const sendRaw = async (content: string, mediaUrl?: string, mediaType?: string) => {
+      if (!providerId) return;
+      try {
+        await supabase.functions.invoke("whatsapp-api?action=send_message", {
+          body: {
+            provider_id: providerId, phone, content,
+            conversation_id: conversationId, project_id: projectId,
+            ...(mediaUrl ? { media_url: mediaUrl, media_type: mediaType || "image" } : {}),
+          },
+        });
+      } catch (e: any) {
+        toast.error("Falha em passo da sequência: " + e.message);
+      }
     };
 
     // Image upload handler
@@ -336,6 +367,9 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           setText(msgText);
           setSending(false);
           return;
+        }
+        if (data?.failover) {
+          toast.warning(`Chip "${data.original_provider}" caiu — enviado via "${data.sent_via}".`);
         }
         setTimeout(() => pollNew(), 500);
       } catch (err: any) {
@@ -444,8 +478,11 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                   className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
                   onClick={() => selectCommand(cmd)}
                 >
-                  <span className="font-mono text-primary">/{cmd.command}</span>
-                  <span className="text-muted-foreground truncate flex-1">{cmd.response_text.substring(0, 60)}...</span>
+                  <span className="font-mono text-primary">/{cmd.trigger_word}</span>
+                  {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
+                    <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded">seq {cmd.sequence.length}</span>
+                  )}
+                  <span className="text-muted-foreground truncate flex-1">{(cmd.response_text || (cmd.sequence?.[0]?.content) || "").substring(0, 60)}{cmd.response_text && cmd.response_text.length > 60 ? "..." : ""}</span>
                 </button>
               ))}
             </div>

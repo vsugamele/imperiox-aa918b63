@@ -52,8 +52,11 @@ export default function WhatsApp() {
   const [providers, setProviders] = useState<any[]>([]);
   const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterProject, setFilterProject] = useState("all");
-  const [filterProvider, setFilterProvider] = useState("all");
+  const [filterProject, setFilterProject] = useState(() => localStorage.getItem("wa.filterProject") || "all");
+  const [filterProvider, setFilterProvider] = useState(() => localStorage.getItem("wa.filterProvider") || "all");
+
+  useEffect(() => { localStorage.setItem("wa.filterProject", filterProject); }, [filterProject]);
+  useEffect(() => { localStorage.setItem("wa.filterProvider", filterProvider); }, [filterProvider]);
   const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
@@ -78,6 +81,39 @@ export default function WhatsApp() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-sync avatars for visible conversations missing avatar_url (batch, by provider)
+  useEffect(() => {
+    if (loading || sessions.length === 0 || providers.length === 0) return;
+    const missing = sessions.filter(s => !(s as any).avatar_url && s.provider_id).slice(0, 30);
+    if (missing.length === 0) return;
+    // Group by provider_id
+    const byProvider = new Map<string, string[]>();
+    missing.forEach(s => {
+      const arr = byProvider.get(s.provider_id!) || [];
+      arr.push(s.phone);
+      byProvider.set(s.provider_id!, arr);
+    });
+    (async () => {
+      for (const [providerId, phones] of byProvider.entries()) {
+        try {
+          await supabase.functions.invoke("whatsapp-api?action=fetch_avatars_batch", {
+            body: { provider_id: providerId, phones: phones.slice(0, 15) },
+          });
+        } catch {/* silent */}
+      }
+      // Refresh once after batch
+      const { data } = await supabase.from("imphq_wa_conversations")
+        .select("id, avatar_url").in("id", missing.map(s => s.id));
+      if (data) {
+        setSessions(prev => prev.map(s => {
+          const u = (data as any[]).find(d => d.id === s.id);
+          return u?.avatar_url ? { ...s, avatar_url: u.avatar_url } as any : s;
+        }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, providers.length, sessions.length]);
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "—";
   const getProvider = (projectId: string) => providers.find(p => p.project_id === projectId) || null;

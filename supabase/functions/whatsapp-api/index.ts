@@ -240,42 +240,79 @@ serve(async (req) => {
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type } = body;
+      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover } = body;
       const phone = normalizeBRPhone(rawPhone || "");
-      const provider = await getProvider(provider_id);
+      let provider = await getProvider(provider_id);
+      let usedFailover = false;
+      let originalProviderName: string | null = null;
+
+      // Helper to actually send via given provider
+      async function attemptSend(p: any) {
+        if (media_url && p.provider === "evolution") {
+          return await sendEvolutionMedia(p, phone, media_url, media_type || "image", content || undefined);
+        } else if (p.provider === "evolution") {
+          return await sendEvolution(p, phone, content);
+        } else {
+          return await sendTwilio(p, phone, content);
+        }
+      }
 
       // Send via provider (media or text)
       let result;
       try {
-        if (media_url && provider.provider === "evolution") {
-          result = await sendEvolutionMedia(provider, phone, media_url, media_type || "image", content || undefined);
-        } else if (provider.provider === "evolution") {
-          result = await sendEvolution(provider, phone, content);
-        } else {
-          result = await sendTwilio(provider, phone, content);
-        }
+        result = await attemptSend(provider);
       } catch (sendErr: any) {
         console.error("[send_message] provider error:", sendErr.message);
         const isConnectionClosed = isTransientConnError(sendErr.message || "");
-        if (isConnectionClosed) {
-          // Log para visibilidade no painel de saúde
-          await supabase.from("imphq_events").insert({
-            type: "wa_session_disconnected",
-            entity_type: "wa_provider",
-            entity_id: provider.id,
-            metadata: { instance: provider.instance_name, error: sendErr.message?.slice(0, 300) },
-          }).then(() => {}, () => {});
+
+        // ── AUTO FAILOVER ── try sibling providers in same project (if not disabled)
+        if (!_no_failover && project_id) {
+          const { data: siblings } = await supabase
+            .from("imphq_wa_providers")
+            .select("*")
+            .eq("project_id", project_id || provider.project_id)
+            .eq("is_active", true)
+            .neq("id", provider.id)
+            .order("last_seen_at", { ascending: false, nullsFirst: false });
+
+          for (const sib of (siblings || [])) {
+            try {
+              if (sib.api_url) sib.api_url = sib.api_url.replace(/\/+$/, "");
+              const r = await attemptSend(sib);
+              if (r && r.ok !== false) {
+                console.log(`[send_message] failover success: ${provider.instance_name} → ${sib.instance_name}`);
+                originalProviderName = provider.instance_name || provider.id;
+                provider = sib;
+                result = r;
+                usedFailover = true;
+                break;
+              }
+            } catch (e: any) {
+              console.warn(`[send_message] failover attempt failed on ${sib.instance_name}:`, e.message);
+            }
+          }
         }
-        return new Response(JSON.stringify({
-          success: false,
-          error: isConnectionClosed
-            ? "Sessão WhatsApp desconectada. Reconecte via QR Code no painel."
-            : `Falha ao enviar: ${sendErr.message}`,
-          fallback: true,
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+
+        if (!result) {
+          if (isConnectionClosed) {
+            await supabase.from("imphq_events").insert({
+              type: "wa_session_disconnected",
+              entity_type: "wa_provider",
+              entity_id: provider.id,
+              metadata: { instance: provider.instance_name, error: sendErr.message?.slice(0, 300) },
+            }).then(() => {}, () => {});
+          }
+          return new Response(JSON.stringify({
+            success: false,
+            error: isConnectionClosed
+              ? "Sessão WhatsApp desconectada e nenhum chip alternativo disponível. Reconecte via QR Code."
+              : `Falha ao enviar: ${sendErr.message}`,
+            fallback: true,
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
 
       // Handle invalid number gracefully
@@ -289,6 +326,11 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // Mark provider as healthy
+      await supabase.from("imphq_wa_providers")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", provider.id).then(() => {}, () => {});
 
       // Find or create conversation
       const conv = conversation_id
@@ -312,6 +354,9 @@ serve(async (req) => {
         msgPayload.message_type = media_type || "image";
         msgPayload.media_url = media_url;
       }
+      if (usedFailover) {
+        msgPayload.metadata = { failover_from: originalProviderName, sent_via: provider.instance_name };
+      }
 
       const { error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload);
 
@@ -323,7 +368,14 @@ serve(async (req) => {
       // Update conversation metadata
       await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0);
 
-      return new Response(JSON.stringify({ success: true, result, conversation_id: conv.id }), {
+      return new Response(JSON.stringify({
+        success: true,
+        result,
+        conversation_id: conv.id,
+        failover: usedFailover,
+        sent_via: usedFailover ? provider.instance_name : undefined,
+        original_provider: usedFailover ? originalProviderName : undefined,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
