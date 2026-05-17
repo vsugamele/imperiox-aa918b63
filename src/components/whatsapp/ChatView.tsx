@@ -479,7 +479,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                   {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
                     <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded">seq {cmd.sequence.length}</span>
                   )}
-                  <span className="text-muted-foreground truncate flex-1">{cmd.response_text.substring(0, 60)}...</span>
+                  <span className="text-muted-foreground truncate flex-1">{(cmd.response_text || (cmd.sequence?.[0]?.content) || "").substring(0, 60)}{cmd.response_text && cmd.response_text.length > 60 ? "..." : ""}</span>
                 </button>
               ))}
             </div>
