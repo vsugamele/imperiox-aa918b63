@@ -19,15 +19,23 @@ function normalizePhone(p: string): string {
 }
 
 async function findActiveProvider(supabase: any, projectId: string | null) {
+  // Hierarquia: 1) provider ativo do projeto  2) qualquer provider ativo global (fallback)
   if (projectId) {
     const { data } = await supabase
-      .from("imphq_whatsapp_config")
-      .select("*").eq("project_id", projectId).eq("is_active", true).limit(1).maybeSingle();
+      .from("imphq_wa_providers")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("is_active", true)
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
+      .limit(1).maybeSingle();
     if (data) return data;
   }
   const { data } = await supabase
-    .from("imphq_whatsapp_config")
-    .select("*").eq("is_active", true).limit(1).maybeSingle();
+    .from("imphq_wa_providers")
+    .select("*")
+    .eq("is_active", true)
+    .order("last_seen_at", { ascending: false, nullsFirst: false })
+    .limit(1).maybeSingle();
   return data;
 }
 
