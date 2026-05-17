@@ -475,7 +475,10 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                   className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
                   onClick={() => selectCommand(cmd)}
                 >
-                  <span className="font-mono text-primary">/{cmd.command}</span>
+                  <span className="font-mono text-primary">/{cmd.trigger_word}</span>
+                  {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
+                    <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded">seq {cmd.sequence.length}</span>
+                  )}
                   <span className="text-muted-foreground truncate flex-1">{cmd.response_text.substring(0, 60)}...</span>
                 </button>
               ))}
