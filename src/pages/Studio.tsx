@@ -47,6 +47,10 @@ export default function Studio() {
           <StudioGenerator />
         </TabsContent>
 
+        <TabsContent value="hyper" className="mt-6">
+          <HyperPromptGenerator />
+        </TabsContent>
+
         <TabsContent value="workflow" className="mt-6">
           <StudioWorkflow />
         </TabsContent>
