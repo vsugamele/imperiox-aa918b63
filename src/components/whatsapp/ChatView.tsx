@@ -367,6 +367,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           setText(msgText);
           setSending(false);
           return;
+        }
         if (data?.failover) {
           toast.warning(`Chip "${data.original_provider}" caiu — enviado via "${data.sent_via}".`);
         }
