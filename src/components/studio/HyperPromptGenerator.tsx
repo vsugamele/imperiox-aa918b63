@@ -67,9 +67,23 @@ function FieldSelect({
   );
 }
 
-export function HyperPromptGenerator() {
+export function HyperPromptGenerator({
+  externalFields,
+  onSaved,
+}: {
+  externalFields?: HyperFields | null;
+  onSaved?: () => void;
+} = {}) {
   const [fields, setFields] = useState<HyperFields>(emptyHyperFields);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (externalFields) {
+      setFields(externalFields);
+      toast.success("Prompt carregado do cofre");
+    }
+  }, [externalFields]);
 
   const prompt = useMemo(() => buildHyperPrompt(fields), [fields]);
 
@@ -89,6 +103,28 @@ export function HyperPromptGenerator() {
   const reset = () => {
     setFields(emptyHyperFields);
     toast.info("Valores restaurados");
+  };
+
+  const salvar = async () => {
+    const nome = window.prompt("Nome para este prompt:", `${fields.tipoPersonagem || "prompt"} ${new Date().toLocaleDateString("pt-BR")}`);
+    if (!nome) return;
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Faça login para salvar");
+      setSaving(false);
+      return;
+    }
+    const { error } = await supabase.from("imphq_prompts_salvos").insert({
+      user_id: user.id,
+      nome,
+      prompt_text: prompt,
+      campos: fields as any,
+    });
+    setSaving(false);
+    if (error) return toast.error("Falha ao salvar: " + error.message);
+    toast.success("Salvo no cofre");
+    onSaved?.();
   };
 
   const Section = ({ title, icon, children, cols = 2 }: any) => (
