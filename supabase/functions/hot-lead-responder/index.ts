@@ -88,16 +88,32 @@ Deno.serve(async (req) => {
     const since30min = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
     const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-    // Vendas pendentes Pix/Boleto criadas nos últimos 30min
-    const { data: vendas } = await supabase
-      .from("imphq_vendas")
-      .select("id, lead_id, project_id, produto_nome, valor, status, data, created_at")
-      .in("status", ["aguardando_pagamento", "pix_gerado", "boleto_gerado", "pendente"])
-      .gte("created_at", since30min)
-      .limit(100);
+    // Modo direcionado: { venda_id } enviado pelo webhook-pagamento (inline) → processa SÓ aquela venda
+    let body: any = null;
+    try { body = await req.json(); } catch { body = null; }
+    const targetVendaId: string | null = body?.venda_id || null;
+
+    let vendas: any[] | null = null;
+    if (targetVendaId) {
+      const { data } = await supabase
+        .from("imphq_vendas")
+        .select("id, lead_id, project_id, produto_nome, valor, status, data, created_at")
+        .eq("id", targetVendaId)
+        .limit(1);
+      vendas = data || [];
+    } else {
+      // Modo cron: varre últimos 30min
+      const { data } = await supabase
+        .from("imphq_vendas")
+        .select("id, lead_id, project_id, produto_nome, valor, status, data, created_at")
+        .in("status", ["aguardando_pagamento", "pix_gerado", "boleto_gerado", "pendente"])
+        .or(`created_at.gte.${since30min},data->>last_intent_at.gte.${since30min}`)
+        .limit(100);
+      vendas = data || [];
+    }
 
     if (!vendas || vendas.length === 0) {
-      return new Response(JSON.stringify({ ok: true, processed: 0, sent: 0 }), {
+      return new Response(JSON.stringify({ ok: true, processed: 0, sent: 0, mode: targetVendaId ? "direct" : "cron" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
