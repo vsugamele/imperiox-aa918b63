@@ -1,0 +1,2 @@
+DELETE FROM imphq_ai_actions WHERE kind='hot_lead_responder' AND created_at > now() - interval '5 minutes' AND error='no_provider';
+UPDATE imphq_vendas SET data = data - 'hot_lead_responder_sent' - 'hot_lead_responder_ok' WHERE id='9b1413fc-6a76-4338-b70c-cf3a093d29f0';
