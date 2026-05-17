@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap } from "lucide-react";
+import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault } from "lucide-react";
 import { StudioPrompts } from "@/components/studio/StudioPrompts";
 import { StudioGenerator } from "@/components/studio/StudioGenerator";
 import { StudioWorkflow } from "@/components/studio/StudioWorkflow";
 import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
+import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
+import type { HyperFields } from "@/lib/hyperPromptBuilder";
 
 export default function Studio() {
   const [tab, setTab] = useState("generator");
+  const [vaultRefresh, setVaultRefresh] = useState(0);
+  const [loadedFields, setLoadedFields] = useState<HyperFields | null>(null);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
