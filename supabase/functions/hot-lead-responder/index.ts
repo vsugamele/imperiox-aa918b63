@@ -133,7 +133,8 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!lead) { skipped++; continue; }
-      if ((lead.score || 0) < 70) { skipped++; continue; }
+      // No modo "direct" (invocado pelo webhook do PIX), ignora threshold de score
+      if (!targetVendaId && (lead.score || 0) < 70) { skipped++; continue; }
 
       const phone = normalizePhone(lead.phone || "");
       if (phone.length < 12) { skipped++; continue; }
@@ -146,6 +147,7 @@ Deno.serve(async (req) => {
         .gte("created_at", since24h)
         .contains("payload", { lead_id: lead.id });
       if ((recentCount || 0) > 0) { skipped++; continue; }
+
 
       const projectId = v.project_id || lead.project_id;
       const { data: projeto } = projectId
