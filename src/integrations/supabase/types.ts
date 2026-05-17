@@ -2267,6 +2267,235 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_email_jobs: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          dedupe_key: string
+          generated_html: string | null
+          generated_subject: string | null
+          id: string
+          last_error: string | null
+          recipient_email: string
+          scheduled_at: string
+          sent_at: string | null
+          sequence_id: string | null
+          status: Database["public"]["Enums"]["areamembrojp_email_job_status"]
+          step_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["areamembrojp_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key?: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["areamembrojp_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_jobs_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_email_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_email_jobs_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_email_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_email_log: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          job_id: string | null
+          payload: Json
+          resend_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_email_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_email_sequence_steps: {
+        Row: {
+          ai_prompt_override: string | null
+          created_at: string
+          delay_hours: number
+          id: string
+          sequence_id: string
+          step_order: number
+          subject_override: string | null
+        }
+        Insert: {
+          ai_prompt_override?: string | null
+          created_at?: string
+          delay_hours?: number
+          id?: string
+          sequence_id: string
+          step_order?: number
+          subject_override?: string | null
+        }
+        Update: {
+          ai_prompt_override?: string | null
+          created_at?: string
+          delay_hours?: number
+          id?: string
+          sequence_id?: string
+          step_order?: number
+          subject_override?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_email_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_email_sequences: {
+        Row: {
+          ai_model: string
+          ai_prompt: string
+          ai_provider: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          from_name: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject_template: string
+          trigger_config: Json
+          trigger_type: Database["public"]["Enums"]["areamembrojp_email_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string
+          ai_prompt: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type: Database["public"]["Enums"]["areamembrojp_email_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string
+          ai_prompt?: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["areamembrojp_email_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_email_unsubscribes: {
+        Row: {
+          category: string
+          created_at: string
+          email: string
+          id: string
+          token: string
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       areamembrojp_events: {
         Row: {
           created_at: string
@@ -3643,6 +3872,7 @@ export type Database = {
           created_at: string
           id: string
           is_blocked: boolean
+          last_seen_at: string | null
           name: string | null
           push_enabled: boolean
           updated_at: string
@@ -3655,6 +3885,7 @@ export type Database = {
           created_at?: string
           id: string
           is_blocked?: boolean
+          last_seen_at?: string | null
           name?: string | null
           push_enabled?: boolean
           updated_at?: string
@@ -3667,6 +3898,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_blocked?: boolean
+          last_seen_at?: string | null
           name?: string | null
           push_enabled?: boolean
           updated_at?: string
@@ -19858,6 +20090,7 @@ export type Database = {
           project_id: string
           response_media_url: string | null
           response_text: string | null
+          sequence: Json
           trigger_word: string
           updated_at: string
         }
@@ -19869,6 +20102,7 @@ export type Database = {
           project_id: string
           response_media_url?: string | null
           response_text?: string | null
+          sequence?: Json
           trigger_word: string
           updated_at?: string
         }
@@ -19880,6 +20114,7 @@ export type Database = {
           project_id?: string
           response_media_url?: string | null
           response_text?: string | null
+          sequence?: Json
           trigger_word?: string
           updated_at?: string
         }
@@ -19896,6 +20131,8 @@ export type Database = {
           message_count: number
           metadata: Json | null
           phone: string
+          profile_pic_updated_at: string | null
+          profile_pic_url: string | null
           project_id: string
           provider_id: string | null
           session: string
@@ -19912,6 +20149,8 @@ export type Database = {
           message_count?: number
           metadata?: Json | null
           phone: string
+          profile_pic_updated_at?: string | null
+          profile_pic_url?: string | null
           project_id: string
           provider_id?: string | null
           session: string
@@ -19928,6 +20167,8 @@ export type Database = {
           message_count?: number
           metadata?: Json | null
           phone?: string
+          profile_pic_updated_at?: string | null
+          profile_pic_url?: string | null
           project_id?: string
           provider_id?: string | null
           session?: string
@@ -20314,6 +20555,7 @@ export type Database = {
           id: string
           instance_name: string | null
           is_active: boolean | null
+          last_seen_at: string | null
           project_id: string
           provider: string
           twilio_from: string | null
@@ -20327,6 +20569,7 @@ export type Database = {
           id?: string
           instance_name?: string | null
           is_active?: boolean | null
+          last_seen_at?: string | null
           project_id: string
           provider: string
           twilio_from?: string | null
@@ -20340,6 +20583,7 @@ export type Database = {
           id?: string
           instance_name?: string | null
           is_active?: boolean | null
+          last_seen_at?: string | null
           project_id?: string
           provider?: string
           twilio_from?: string | null
@@ -22905,6 +23149,7 @@ export type Database = {
           created_at: string
           id: string
           is_blocked: boolean
+          last_seen_at: string | null
           name: string | null
           push_enabled: boolean
           updated_at: string
@@ -22917,6 +23162,7 @@ export type Database = {
           created_at?: string
           id: string
           is_blocked?: boolean
+          last_seen_at?: string | null
           name?: string | null
           push_enabled?: boolean
           updated_at?: string
@@ -22929,6 +23175,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_blocked?: boolean
+          last_seen_at?: string | null
           name?: string | null
           push_enabled?: boolean
           updated_at?: string
@@ -37267,6 +37514,19 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       areamembrojp_app_role: "admin" | "member"
+      areamembrojp_email_job_status:
+        | "pending"
+        | "sent"
+        | "failed"
+        | "skipped"
+        | "cancelled"
+      areamembrojp_email_trigger_type:
+        | "inactivity"
+        | "lesson_abandoned"
+        | "lesson_completed"
+        | "progress_milestone"
+        | "upsell"
+        | "weekly_digest"
       areamembrojp_upsell_event_type: "view" | "click" | "dismiss" | "convert"
       areamembrojp_upsell_trigger:
         | "lesson_preview_complete"
@@ -37434,6 +37694,21 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       areamembrojp_app_role: ["admin", "member"],
+      areamembrojp_email_job_status: [
+        "pending",
+        "sent",
+        "failed",
+        "skipped",
+        "cancelled",
+      ],
+      areamembrojp_email_trigger_type: [
+        "inactivity",
+        "lesson_abandoned",
+        "lesson_completed",
+        "progress_milestone",
+        "upsell",
+        "weekly_digest",
+      ],
       areamembrojp_upsell_event_type: ["view", "click", "dismiss", "convert"],
       areamembrojp_upsell_trigger: [
         "lesson_preview_complete",
