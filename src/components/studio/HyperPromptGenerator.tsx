@@ -202,9 +202,12 @@ export function HyperPromptGenerator({
         <FieldSelect label="Estilo final" value={fields.estiloFinal} options={opts.estiloFinal} onChange={set("estiloFinal")} freePlaceholder="ex.: noir cinematic" />
       </Section>
 
-      <div className="flex gap-3">
-        <Button onClick={copy} className="flex-1 h-12 font-display tracking-[2px] uppercase" size="lg">
+      <div className="flex gap-3 flex-wrap">
+        <Button onClick={copy} className="flex-1 min-w-[200px] h-12 font-display tracking-[2px] uppercase" size="lg">
           <Wand2 className="h-4 w-4 mr-2" /> Gerar & Copiar
+        </Button>
+        <Button onClick={salvar} disabled={saving} variant="secondary" size="lg" className="h-12">
+          <Save className="h-4 w-4 mr-2" /> {saving ? "Salvando..." : "Salvar no Cofre"}
         </Button>
         <Button onClick={reset} variant="outline" size="lg" className="h-12">
           <RotateCcw className="h-4 w-4 mr-2" /> Resetar
