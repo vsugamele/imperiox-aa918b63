@@ -18966,6 +18966,7 @@ export type Database = {
           id: string
           model_used: string | null
           oportunidades: Json | null
+          progress: Json
           project_id: string
           resumo_executivo: string | null
           riscos: Json | null
@@ -18985,6 +18986,7 @@ export type Database = {
           id?: string
           model_used?: string | null
           oportunidades?: Json | null
+          progress?: Json
           project_id: string
           resumo_executivo?: string | null
           riscos?: Json | null
@@ -19004,6 +19006,7 @@ export type Database = {
           id?: string
           model_used?: string | null
           oportunidades?: Json | null
+          progress?: Json
           project_id?: string
           resumo_executivo?: string | null
           riscos?: Json | null
