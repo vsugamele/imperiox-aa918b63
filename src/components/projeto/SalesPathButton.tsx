@@ -383,12 +383,22 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                             <CardTitle className="text-xs uppercase text-primary tracking-wider font-semibold">Semana {semana}</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            {acoes.map((a: any, i: number) => (
-                              <div key={i} className="border-l-2 border-primary/40 pl-3">
-                                <p className="text-sm text-foreground leading-6">{a.acao}</p>
-                                <p className="text-xs text-muted-foreground leading-6 mt-1">🎯 {a.objetivo}</p>
-                              </div>
-                            ))}
+                            {acoes.map((a: any, i: number) => {
+                              const key = hashAction(String(a?.acao || ""));
+                              const st = (plan.progress || {})[key] || "todo";
+                              const M = statusMeta[st]; const Icon = M.icon;
+                              return (
+                                <div key={i} className={`border-l-2 border-primary/40 pl-3 ${st === "done" ? "opacity-60" : ""}`}>
+                                  <div className="flex items-start gap-2">
+                                    <button onClick={() => cycleStatus(key)} title={M.label} className="mt-0.5 shrink-0 hover:scale-110 transition">
+                                      <Icon className={`h-3.5 w-3.5 ${M.cls} ${st === "doing" ? "animate-spin" : ""}`} />
+                                    </button>
+                                    <p className={`text-sm text-foreground leading-6 ${st === "skip" ? "line-through text-muted-foreground" : ""}`}>{a.acao}</p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground leading-6 mt-1 pl-6">🎯 {a.objetivo}</p>
+                                </div>
+                              );
+                            })}
                           </CardContent>
                         </Card>
                       );
