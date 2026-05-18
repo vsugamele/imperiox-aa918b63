@@ -16,6 +16,7 @@ import { ProjetoNotasCard } from "@/components/projeto/ProjetoNotasCard";
 import { RecoveryKpiBlock } from "@/components/recuperacao/RecoveryKpiBlock";
 import { calcHealthScore } from "@/lib/healthScore";
 import { FocoDoDia } from "@/components/projeto/FocoDoDia";
+import { PlanProgressBanner } from "@/components/projeto/PlanProgressBanner";
 
 interface Props {
   projectId: string;
@@ -228,6 +229,8 @@ export function ProjetoComando({ projectId, project }: Props) {
           <RefreshCw className="h-3 w-3" /> Atualizar
         </Button>
       </div>
+
+      <PlanProgressBanner projectId={projectId} />
 
       {/* ===== Foco do Dia (Imperius-ready) ===== */}
       {(() => {

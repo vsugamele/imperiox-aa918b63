@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Crown, Loader2, Sparkles, AlertTriangle, TrendingUp, Target, Calendar, ShieldAlert, ChevronRight, History, RefreshCw } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Crown, Loader2, Sparkles, AlertTriangle, TrendingUp, Target, Calendar, ShieldAlert, ChevronRight, History, RefreshCw, CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+type ActionStatus = "todo" | "doing" | "done" | "skip";
+function hashAction(text: string): string {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) - h + text.charCodeAt(i)) | 0;
+  return "a" + Math.abs(h).toString(36);
+}
+const statusOrder: ActionStatus[] = ["todo", "doing", "done", "skip"];
+const statusMeta: Record<ActionStatus, { icon: any; cls: string; label: string }> = {
+  todo:  { icon: Circle,        cls: "text-muted-foreground",          label: "A fazer" },
+  doing: { icon: Loader2,       cls: "text-amber-400",                 label: "Em andamento" },
+  done:  { icon: CheckCircle2,  cls: "text-emerald-400",               label: "Feito" },
+  skip:  { icon: XCircle,       cls: "text-zinc-500 line-through",     label: "Descartado" },
+};
 
 interface SalesPathButtonProps {
   projectId: string;
@@ -29,6 +43,7 @@ interface SalesPath {
   riscos: string[];
   model_used?: string;
   created_at?: string;
+  progress?: Record<string, ActionStatus>;
 }
 
 const severidadeColor: Record<string, string> = {
@@ -121,6 +136,36 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
   const healthLabel = (s: number) => (s >= 75 ? "Saudável" : s >= 50 ? "Atenção" : s >= 25 ? "Crítico" : "Emergência");
   const healthColor = (s: number) => (s >= 75 ? "text-emerald-400" : s >= 50 ? "text-yellow-400" : "text-red-400");
 
+  const allActionKeys = useMemo(() => {
+    if (!plan) return [] as string[];
+    const list = [...(plan.acoes_72h || []), ...(plan.acoes_30d || [])];
+    return list.map((a: any) => hashAction(String(a?.acao || "")));
+  }, [plan]);
+
+  const progressStats = useMemo(() => {
+    const total = allActionKeys.length;
+    const prog = plan?.progress || {};
+    const done = allActionKeys.filter((k) => prog[k] === "done").length;
+    const doing = allActionKeys.filter((k) => prog[k] === "doing").length;
+    const skip = allActionKeys.filter((k) => prog[k] === "skip").length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, doing, skip, pct };
+  }, [allActionKeys, plan?.progress]);
+
+  const planAgeDays = plan?.created_at ? (Date.now() - new Date(plan.created_at).getTime()) / 86400000 : 999;
+  const canRenew = !plan || progressStats.pct >= 70 || planAgeDays >= 14;
+
+  const cycleStatus = async (key: string) => {
+    if (!plan?.id) return;
+    const cur = (plan.progress || {})[key] || "todo";
+    const next = statusOrder[(statusOrder.indexOf(cur) + 1) % statusOrder.length];
+    const newProgress = { ...(plan.progress || {}), [key]: next };
+    setPlan({ ...plan, progress: newProgress });
+    const { error } = await supabase.from("imphq_sales_paths").update({ progress: newProgress }).eq("id", plan.id);
+    if (error) toast.error("Falha ao salvar progresso");
+  };
+
+
   return (
     <>
       <Button
@@ -148,7 +193,13 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                 <Button size="sm" variant={view === "history" ? "secondary" : "ghost"} className="gap-1.5 h-8 text-xs" onClick={() => setView("history")}>
                   <History className="h-3 w-3" /> Histórico ({history.length})
                 </Button>
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={generate} disabled={loading}>
+                <Button
+                  size="sm" variant="outline"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={generate}
+                  disabled={loading || !canRenew}
+                  title={!canRenew ? `Conclua mais ações antes de regenerar (${progressStats.pct}% feito, ${Math.round(planAgeDays)}d)` : "Gerar novo plano"}
+                >
                   <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Gerar
                 </Button>
               </div>
@@ -216,6 +267,19 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                     </div>
                     <Progress value={plan.health_score} className="h-2" />
                     <p className="text-sm text-foreground/90 leading-7 mt-4">{plan.resumo_executivo}</p>
+
+                    {progressStats.total > 0 && (
+                      <div className="mt-4 pt-4 border-t border-border/40">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Execução do plano</span>
+                          <span className="text-xs font-mono text-foreground/80">
+                            {progressStats.done}/{progressStats.total} feitas · {progressStats.pct}%
+                            {progressStats.doing > 0 && <span className="text-amber-400"> · {progressStats.doing} em andamento</span>}
+                          </span>
+                        </div>
+                        <Progress value={progressStats.pct} className="h-1.5" />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -230,18 +294,32 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
 
                   <TabsContent value="acoes_72h" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> O que fazer nas próximas 72h</h3>
-                    {plan.acoes_72h?.map((a: any, i: number) => (
-                      <Card key={i} className="bg-secondary/40 border-border/40">
-                        <CardContent className="pt-4 space-y-2">
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="font-semibold text-foreground leading-6 text-sm">{a.acao}</p>
-                            <Badge variant="outline" className={prioridadeColor[a.prioridade] || ""}>{a.prioridade}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-6">→ {a.resultado_esperado}</p>
-                          <Badge variant="secondary" className="text-[10px] uppercase">{a.responsavel_sugerido}</Badge>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {plan.acoes_72h?.map((a: any, i: number) => {
+                      const key = hashAction(String(a?.acao || ""));
+                      const st = (plan.progress || {})[key] || "todo";
+                      const M = statusMeta[st]; const Icon = M.icon;
+                      return (
+                        <Card key={i} className={`bg-secondary/40 border-border/40 ${st === "done" ? "opacity-60" : ""}`}>
+                          <CardContent className="pt-4 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-2 min-w-0 flex-1">
+                                <button
+                                  onClick={() => cycleStatus(key)}
+                                  title={`${M.label} · clique para alterar`}
+                                  className="mt-0.5 shrink-0 hover:scale-110 transition"
+                                >
+                                  <Icon className={`h-4 w-4 ${M.cls} ${st === "doing" ? "animate-spin" : ""}`} />
+                                </button>
+                                <p className={`font-semibold text-foreground leading-6 text-sm ${st === "skip" ? "line-through text-muted-foreground" : ""}`}>{a.acao}</p>
+                              </div>
+                              <Badge variant="outline" className={prioridadeColor[a.prioridade] || ""}>{a.prioridade}</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-6 pl-6">→ {a.resultado_esperado}</p>
+                            <Badge variant="secondary" className="text-[10px] uppercase ml-6">{a.responsavel_sugerido}</Badge>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </TabsContent>
 
                   <TabsContent value="diagnostico" className="mt-4 space-y-2">
@@ -305,12 +383,22 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                             <CardTitle className="text-xs uppercase text-primary tracking-wider font-semibold">Semana {semana}</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            {acoes.map((a: any, i: number) => (
-                              <div key={i} className="border-l-2 border-primary/40 pl-3">
-                                <p className="text-sm text-foreground leading-6">{a.acao}</p>
-                                <p className="text-xs text-muted-foreground leading-6 mt-1">🎯 {a.objetivo}</p>
-                              </div>
-                            ))}
+                            {acoes.map((a: any, i: number) => {
+                              const key = hashAction(String(a?.acao || ""));
+                              const st = (plan.progress || {})[key] || "todo";
+                              const M = statusMeta[st]; const Icon = M.icon;
+                              return (
+                                <div key={i} className={`border-l-2 border-primary/40 pl-3 ${st === "done" ? "opacity-60" : ""}`}>
+                                  <div className="flex items-start gap-2">
+                                    <button onClick={() => cycleStatus(key)} title={M.label} className="mt-0.5 shrink-0 hover:scale-110 transition">
+                                      <Icon className={`h-3.5 w-3.5 ${M.cls} ${st === "doing" ? "animate-spin" : ""}`} />
+                                    </button>
+                                    <p className={`text-sm text-foreground leading-6 ${st === "skip" ? "line-through text-muted-foreground" : ""}`}>{a.acao}</p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground leading-6 mt-1 pl-6">🎯 {a.objetivo}</p>
+                                </div>
+                              );
+                            })}
                           </CardContent>
                         </Card>
                       );

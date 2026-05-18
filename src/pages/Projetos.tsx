@@ -354,6 +354,119 @@ export default function Projetos() {
         )}
       </div>
 
+      {/* ===== Portfólio Cross-Project ===== */}
+      {(() => {
+        const allK = Object.values(kpisMap);
+        if (allK.length === 0) return null;
+        const totalRec30 = allK.reduce((s, k) => s + k.receita30, 0);
+        const totalRecPrev = allK.reduce((s, k) => s + k.receitaPrev30, 0);
+        const totalSpend = allK.reduce((s, k) => s + k.spend30, 0);
+        const totalLeads7 = allK.reduce((s, k) => s + k.leads7, 0);
+        const roasGlobal = totalSpend > 0 ? totalRec30 / totalSpend : 0;
+        const deltaGlobal = totalRecPrev > 0 ? ((totalRec30 - totalRecPrev) / totalRecPrev) * 100 : 0;
+        const enriched = projects
+          .map((p) => ({ p, k: kpisMap[p.id] }))
+          .filter((x) => x.k);
+        const topRev = [...enriched].sort((a, b) => b.k.receita30 - a.k.receita30).slice(0, 3);
+        const topGrowth = [...enriched].filter((x) => x.k.receitaPrev30 > 0).sort((a, b) => b.k.delta - a.k.delta).slice(0, 3);
+        const inAlert = enriched.filter((x) => x.k.health === "cold" || (x.k.spend30 > 50 && x.k.receita30 === 0));
+
+        const triage = async (id: string, name: string) => {
+          await supabase.from("imphq_ai_actions").insert({
+            projeto_id: id,
+            kind: "portfolio_triage",
+            risk_level: "medium",
+            status: "pending",
+            title: `Triagem de portfólio: ${name}`,
+            reason: "Projeto em alerta no painel cross-project (frio ou queimando budget)",
+            payload: { project_name: name, source: "projetos_portfolio" },
+            source: "projetos_portfolio",
+            priority_score: 80,
+          } as any);
+          toast({ title: "Enviado ao Imperius", description: `${name} entrou na fila de triagem.` });
+        };
+
+        return (
+          <Card className="bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  📊 Portfólio
+                </h2>
+                <span className="text-[10px] text-muted-foreground">{enriched.length} projetos · janela 30d</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-md border border-border/40 bg-secondary/30 p-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita 30d</div>
+                  <div className="font-mono text-base font-bold text-foreground">{fmtBRL(totalRec30)}</div>
+                  {totalRecPrev > 0 && (
+                    <div className={`text-[10px] tabular-nums ${deltaGlobal >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {deltaGlobal >= 0 ? "▲" : "▼"} {Math.abs(deltaGlobal).toFixed(0)}% vs 30d ant.
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-md border border-border/40 bg-secondary/30 p-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">ROAS médio</div>
+                  <div className={`font-mono text-base font-bold ${roasGlobal >= 2 ? "text-emerald-400" : roasGlobal >= 1 ? "text-amber-400" : "text-red-400"}`}>
+                    {roasGlobal > 0 ? roasGlobal.toFixed(2) + "x" : "—"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground tabular-nums">spend {fmtBRL(totalSpend)}</div>
+                </div>
+                <div className="rounded-md border border-border/40 bg-secondary/30 p-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Leads 7d</div>
+                  <div className="font-mono text-base font-bold text-foreground">{totalLeads7}</div>
+                </div>
+                <div className="rounded-md border border-border/40 bg-secondary/30 p-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Em alerta</div>
+                  <div className={`font-mono text-base font-bold ${inAlert.length > 0 ? "text-red-400" : "text-emerald-400"}`}>{inAlert.length}</div>
+                  <div className="text-[10px] text-muted-foreground">frios ou queimando budget</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">🏆 Top receita 30d</div>
+                  <div className="space-y-1">
+                    {topRev.map(({ p, k }, i) => (
+                      <button key={p.id} onClick={() => navigate(`/projetos/${p.id}`)} className="w-full text-left flex items-center justify-between text-xs hover:bg-secondary/40 rounded px-2 py-1">
+                        <span className="truncate">{i + 1}. {p.icon} {p.name}</span>
+                        <span className="font-mono text-primary tabular-nums">{fmtBRL(k.receita30)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">📈 Maior crescimento</div>
+                  <div className="space-y-1">
+                    {topGrowth.length === 0 && <span className="text-xs text-muted-foreground italic">sem comparativo</span>}
+                    {topGrowth.map(({ p, k }) => (
+                      <button key={p.id} onClick={() => navigate(`/projetos/${p.id}`)} className="w-full text-left flex items-center justify-between text-xs hover:bg-secondary/40 rounded px-2 py-1">
+                        <span className="truncate">{p.icon} {p.name}</span>
+                        <span className="font-mono text-emerald-400 tabular-nums">▲ {k.delta.toFixed(0)}%</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">⚠️ Precisam atenção</div>
+                  <div className="space-y-1">
+                    {inAlert.length === 0 && <span className="text-xs text-emerald-400 italic">tudo no azul</span>}
+                    {inAlert.slice(0, 4).map(({ p, k }) => (
+                      <div key={p.id} className="flex items-center justify-between text-xs hover:bg-secondary/40 rounded px-2 py-1">
+                        <button onClick={() => navigate(`/projetos/${p.id}`)} className="truncate text-left flex-1">
+                          {p.icon} {p.name} <span className="text-muted-foreground">· {k.spend30 > 0 && k.receita30 === 0 ? `queima ${fmtBRL(k.spend30)}` : "frio"}</span>
+                        </button>
+                        <button onClick={() => triage(p.id, p.name)} className="text-[10px] text-primary hover:underline shrink-0 ml-2">→ Imperius</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Grouped Projects */}
       {groupedByFolder().map(group => (
         <div key={group.folder || "sem-pasta"} className="space-y-3">

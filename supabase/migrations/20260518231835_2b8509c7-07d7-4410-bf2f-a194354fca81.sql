@@ -1,0 +1,1 @@
+ALTER TABLE imphq_sales_paths ADD COLUMN IF NOT EXISTS progress jsonb NOT NULL DEFAULT '{}'::jsonb;
