@@ -16,12 +16,15 @@ interface BucketCardProps {
   bucket: RecoveryBucketSummary;
   active?: boolean;
   disabledAutomate?: boolean;
+  dispatching?: boolean;
   onSelect: () => void;
   onAutomate: () => void;
+  onDispatch?: () => void;
 }
 
-export function BucketCard({ bucket, active, disabledAutomate, onSelect, onAutomate }: BucketCardProps) {
+export function BucketCard({ bucket, active, disabledAutomate, dispatching, onSelect, onAutomate, onDispatch }: BucketCardProps) {
   const Icon = bucketIcons[bucket.id];
+  const canDispatch = !!onDispatch && bucket.items.length > 0 && bucket.id !== "refunds";
 
   return (
     <Card className={`border-border bg-card transition-colors ${active ? "border-primary" : "hover:border-primary/40"}`}>
@@ -51,14 +54,26 @@ export function BucketCard({ bucket, active, disabledAutomate, onSelect, onAutom
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant={active ? "default" : "outline"} size="sm" className="flex-1" onClick={onSelect}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant={active ? "default" : "outline"} size="sm" className="flex-1 min-w-[90px]" onClick={onSelect}>
             Ver itens
           </Button>
-          <Button variant="outline" size="sm" className="flex-1" onClick={onAutomate} disabled={disabledAutomate}>
+          <Button variant="outline" size="sm" className="flex-1 min-w-[90px]" onClick={onAutomate} disabled={disabledAutomate}>
             <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
             Automatizar
           </Button>
+          {canDispatch && (
+            <Button
+              variant="default"
+              size="sm"
+              className="flex-1 min-w-[110px]"
+              onClick={onDispatch}
+              disabled={disabledAutomate || dispatching}
+            >
+              {dispatching ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
+              Disparar IA
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
