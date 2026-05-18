@@ -345,17 +345,14 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const handleVariation = async () => {
     setGenerating(true);
     try {
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: projectId,
-          action: "generate_content",
-          model: selectedModelId,
-          content_type: activeType,
-          prompt: `Crie uma VARIAÇÃO DIFERENTE do conteúdo abaixo. Mantenha o mesmo formato e objetivo, mas mude abordagem, ângulo e tom.\n\nConteúdo original:\n${generatedContent.slice(0, 2000)}\n\n${customPrompt ? `Instruções: ${customPrompt}` : ""}`,
-          ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
-        },
+      const aiData = await invokeOpenflow({
+        project_id: projectId,
+        action: "generate_content",
+        model: selectedModelId,
+        content_type: activeType,
+        prompt: `Crie uma VARIAÇÃO DIFERENTE do conteúdo abaixo. Mantenha o mesmo formato e objetivo, mas mude abordagem, ângulo e tom.\n\nConteúdo original:\n${generatedContent.slice(0, 2000)}\n\n${customPrompt ? `Instruções: ${customPrompt}` : ""}`,
+        ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      if (error) throw error;
       const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, getProductForPrompt());
@@ -370,17 +367,14 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
     setRefineDialogOpen(false);
     setGenerating(true);
     try {
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: projectId,
-          action: "generate_content",
-          model: selectedModelId,
-          content_type: activeType,
-          prompt: `REFINE o conteúdo abaixo com base no feedback do usuário.\n\nConteúdo atual:\n${generatedContent.slice(0, 2000)}\n\nFeedback:\n${refineFeedback}`,
-          ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
-        },
+      const aiData = await invokeOpenflow({
+        project_id: projectId,
+        action: "generate_content",
+        model: selectedModelId,
+        content_type: activeType,
+        prompt: `REFINE o conteúdo abaixo com base no feedback do usuário.\n\nConteúdo atual:\n${generatedContent.slice(0, 2000)}\n\nFeedback:\n${refineFeedback}`,
+        ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      if (error) throw error;
       const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
       setGeneratedContent(content);
       setRefineFeedback("");
@@ -394,17 +388,14 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const handleExpand = async () => {
     setGenerating(true);
     try {
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: projectId,
-          action: "generate_content",
-          model: selectedModelId,
-          content_type: activeType,
-          prompt: `EXPANDA o conteúdo abaixo em uma versão mais completa e detalhada. Adicione mais profundidade, exemplos e detalhes.\n\nConteúdo resumido:\n${generatedContent.slice(0, 2000)}`,
-          ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
-        },
+      const aiData = await invokeOpenflow({
+        project_id: projectId,
+        action: "generate_content",
+        model: selectedModelId,
+        content_type: activeType,
+        prompt: `EXPANDA o conteúdo abaixo em uma versão mais completa e detalhada. Adicione mais profundidade, exemplos e detalhes.\n\nConteúdo resumido:\n${generatedContent.slice(0, 2000)}`,
+        ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      if (error) throw error;
       const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, getProductForPrompt());
