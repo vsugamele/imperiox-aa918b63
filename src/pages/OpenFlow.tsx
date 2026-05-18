@@ -610,6 +610,7 @@ export default function OpenFlow() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent>
                   </Select>
+                </div>
               </div>
               {editing.project_id && (
                 <div>
