@@ -27,6 +27,8 @@ import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
 import AIRevenueRecoveredCard from "@/components/dashboard/AIRevenueRecoveredCard";
 import FacebookHealthAlert from "@/components/dashboard/FacebookHealthAlert";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
+import { PageHeader } from "@/components/shared/PageHeader";
+import TodayCard from "@/components/dashboard/TodayCard";
 
 
 export default function Dashboard() {
