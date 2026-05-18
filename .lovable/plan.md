@@ -1,48 +1,52 @@
-## Diagnóstico
+# Plano: Conversas históricas + IA Autônoma operacional (JP Freitas)
 
-O JP Freitas hoje tem **1 só provider** cadastrado (`jpfreitas`, Evolution). A boa notícia é que a arquitetura WhatsApp do Império **já é multi-chip por design**:
+Objetivo: resolver os 2 buracos detectados — (1) chips conectados não mostram conversas antigas, (2) Triagem/IA/Objeções existem na UI mas não estão ativas em produção.
 
-- `imphq_wa_providers` aceita N instâncias por `project_id`
-- `imphq_wa_sessions.provider_id` já amarra cada conversa ao chip de origem
-- `ConversationList` já tem filtro `filterProvider` + badge de cor por provider
-- `WhatsAppPage` já agrupa avatares por `provider_id`
-- Envio (`send_message`) já tem failover automático entre chips (v2)
+## 1. Sync de histórico (Evolution → Supabase)
 
-Ou seja: **não precisa migration nem código novo de backend**. O trabalho é operacional + 2 ajustes finos de UX pra evitar confusão.
+Nova action `sync_messages` no edge `whatsapp-api`:
+- Chama `chat/findMessages/{instance}` (Evolution) paginado, últimos 30 dias.
+- Para cada mensagem: upsert em `imphq_wa_conversations` (por `remote_jid` + `provider_id`) e `imphq_wa_messages` (dedup por `external_id`).
+- Baixa mídias volátiles pro bucket `whatsapp-media` (padrão já existente).
+- Vincula `lead_id` quando telefone bate com `imphq_leads.telefone`.
 
-## O que fazer
+Botão "Importar histórico" no header do provider (ao lado de "Sincronizar contatos"), com progress toast. Roda 1 chip por vez (os 2 do JP separados, mantendo `provider_id` correto → tabs já funcionam).
 
-### 1. Cadastrar o 2º chip (operacional, sem código)
-- Em `/whatsapp` no projeto JP Freitas → **+ Nova instância** → criar `jpfreitas2` (ou nome que faça sentido: `jp-suporte`, `jp-vendas`)
-- Conectar via QR Code o segundo número
-- Marcar `is_active = true` nos dois
+## 2. Triagem real (mata o mock)
 
-### 2. Ajustes de UX no chat (código)
+Tabela `imphq_wa_triagem_rules` já não existe — mas `imphq_wa_triage` (resultados) existe e o edge `wa-ai-triage` já classifica. O que falta:
+- **Disparar** `wa-ai-triage` automaticamente dentro do webhook `whatsapp-api` quando `MESSAGES_UPSERT` chega com `from_me=false`.
+- Hoje a triagem só roda se alguém invocar manual. Vou plugar no fluxo do webhook (fire-and-forget, não bloqueia resposta).
+- Painel `TriagemPanel` já lê de `imphq_wa_triage` → vai popular sozinho.
 
-**a) Renomear providers com label amigável**
-Adicionar campo `display_name` opcional em `imphq_wa_providers` (ex: "Suporte 1", "Suporte 2") e exibir esse rótulo em vez de `instance_name` na lista de conversas, no header do chat e no filtro. Hoje aparece `jpfreitas` cru, o que confunde quando vier `jpfreitas2`.
+## 3. IA Autônoma ativa no JP
 
-**b) Abas/Tabs no topo do chat**
-Acima da `ConversationList`, adicionar tabs: **Todos · Suporte 1 · Suporte 2**, com contador de não-lidas por chip. Hoje existe um Select de filtro escondido — tabs deixam óbvio de qual número é cada conversa.
+- Criar registro em `imphq_wa_ai_config` pro projeto JP com `enabled=true`, personality `vendedor`, contexto: briefing+avatar+produtos+objeções.
+- Edge `wa-ai-autoresponder` (verificar se já existe; se não, criar) é chamado após triagem quando: `intent != compra_quente` (esses escalam pra humano) e `escalation_keywords` não batem e dentro do horário comercial.
+- Respeita `response_delay_seconds` e marca `from_me=true, sent_by='ai'` em `imphq_wa_messages`.
 
-**c) Badge de cor sempre visível no header da conversa aberta**
-No `ChatView`, mostrar no topo "Atendendo via: 🟢 Suporte 1" para o atendente nunca responder pelo chip errado. Já existe a cor estável por `provider_id` — só falta puxar pro header.
+## 4. Objeções — seed inicial
 
-**d) Ao enviar manual, travar o chip de origem da última msg recebida**
-Hoje o envio escolhe provider via failover. Pra atendimento humano isso é ruim — se o lead falou no Suporte 1, a resposta tem que sair do Suporte 1. Adicionar regra: se a conversa tem `provider_id` definido, força aquele chip no envio manual (failover continua valendo só pra disparo em massa/automação).
+Inserir 8-10 objeções clássicas do nicho do JP (preço, tempo, "vou pensar", funciona pra mim?, etc) em `imphq_wa_objections` com `projeto_id` do JP, baseadas no que tiver em `funnel-hacking-jpfreitas/` e briefing. Triagem já cruza essas automaticamente.
 
-### 3. Memória
-Atualizar `mem://features/whatsapp/v2-failover-and-commands` registrando a regra "envio manual respeita provider_id da sessão; failover só em automação/massa".
+## Detalhes técnicos
 
-## Arquivos afetados
+```
+Arquivos:
+- supabase/functions/whatsapp-api/index.ts       (action sync_messages + hook triagem)
+- supabase/functions/wa-ai-autoresponder/index.ts (criar se não existir)
+- src/components/whatsapp/ProviderConfigDialog.tsx (botão Importar histórico)
+- migration: índice em imphq_wa_messages(external_id, provider_id) UNIQUE pra dedup
 
-```text
-supabase/migrations/...        — ADD COLUMN display_name (opcional)
-src/components/whatsapp/ConversationList.tsx   — tabs + label amigável
-src/components/whatsapp/ChatView.tsx           — badge no header + lock provider no envio manual
-src/pages/WhatsAppPage.tsx                     — exibir display_name
+Sem mudança de UI estrutural — só botão novo + painéis existentes começam a popular.
 ```
 
-## Fora de escopo
-- Roteamento automático por função (vendas x pós-venda) — fica pra depois se quiser
-- Distribuidor de leads entre os 2 chips — já existe em `Smart Group Links`, não precisa mexer agora
+## Ordem de execução
+
+1. Migration (índice dedup + seed objeções JP + ai_config JP)
+2. Edge `whatsapp-api`: action `sync_messages` + hook auto-triagem no webhook
+3. Edge `wa-ai-autoresponder` (verificar/criar)
+4. Botão "Importar histórico" no ProviderConfigDialog
+5. Você roda o import nos 2 chips → conversas aparecem nas tabs Suporte 1 / Suporte 2
+
+Posso prosseguir?
