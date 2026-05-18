@@ -4605,6 +4605,8 @@ export type Database = {
           author_photo: string | null
           country: string | null
           created_at: string
+          featured_on_home: boolean
+          home_order: number | null
           id: string
           media_type: string
           profession: string | null
@@ -4618,6 +4620,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
@@ -4631,6 +4635,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
