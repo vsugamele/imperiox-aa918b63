@@ -94,6 +94,7 @@ export default function OpenFlow() {
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [filterCampanha, setFilterCampanha] = useState<string>("__all__");
+  const [leadCounts, setLeadCounts] = useState<{ byCamp: Map<string, number>; byProject: Map<string, number>; global: number }>({ byCamp: new Map(), byProject: new Map(), global: 0 });
 
   // ── Data loading ─────────────────────────────────────────────
   const load = async () => {
