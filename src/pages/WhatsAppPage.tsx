@@ -571,6 +571,25 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { pr
     setSyncing(false);
   };
 
+  const [importingMsgs, setImportingMsgs] = useState(false);
+  const importMessages = async () => {
+    setImportingMsgs(true);
+    toast.info("Importando histórico (pode levar 1-2 min)…");
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/whatsapp-api?action=sync_messages`,
+        { method: "POST", headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: JSON.stringify({ provider_id: provider.id, days: 30 }) }
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${data.imported} mensagens · ${data.conversations_created} conversas novas`);
+        onSynced();
+      } else toast.error(data.error || "Erro ao importar histórico");
+    } catch (err: any) { toast.error("Falha: " + err.message); }
+    setImportingMsgs(false);
+  };
+
   const restartInstance = async () => {
     setRestarting(true);
     try {
