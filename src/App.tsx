@@ -46,7 +46,19 @@ import Swipe from "./pages/Swipe";
 import Imperius from "./pages/Imperius";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Semana 2 — defaults conservadores p/ reduzir egress e refetches desnecessários.
+// staleTime 60s evita refetch instantâneo ao trocar de aba/rota. gcTime 5min mantém cache.
+// refetchOnWindowFocus false: nada de hammering ao voltar pra aba.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
