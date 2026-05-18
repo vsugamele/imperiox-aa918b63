@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Heart, TrendingUp, Activity, FileText, Target } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Heart, TrendingUp, Activity, FileText, Target, Sparkles, Loader2 } from "lucide-react";
 import { HealthBreakdown } from "@/lib/healthScore";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   health: HealthBreakdown;
+  projectId?: string;
 }
 
 export function HealthScoreCard({ health }: Props) {
