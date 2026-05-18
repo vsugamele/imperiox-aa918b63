@@ -470,13 +470,15 @@ export default function Leads() {
         <Tabs value={mainTab} onValueChange={setMainTab}>
           <div className="flex items-center gap-3 flex-wrap">
             <TabsList>
+              <TabsTrigger value="quentes" className="text-xs relative">
+                🔥 Quentes
+                {pixHoje.length > 0 && <span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span>}
+              </TabsTrigger>
               <TabsTrigger value="leads" className="text-xs">📋 Leads</TabsTrigger>
               <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
-              <TabsTrigger value="formularios" className="text-xs">📝 Formulários</TabsTrigger>
-              <TabsTrigger value="insights" className="text-xs">💡 Insights</TabsTrigger>
+              <TabsTrigger value="formularios" className="text-xs">📝 Formulários & Insights</TabsTrigger>
               <TabsTrigger value="predicoes" className="text-xs">🧠 Predições</TabsTrigger>
-              <TabsTrigger value="quentes" className="text-xs">🔥 Quentes</TabsTrigger>
-              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs relative">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span></TabsTrigger>)}
+              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
               <Button size="sm" variant="outline" onClick={() => {
