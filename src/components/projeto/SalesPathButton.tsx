@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Crown, Loader2, Sparkles, AlertTriangle, TrendingUp, Target, Calendar, ShieldAlert, ChevronRight, History, RefreshCw } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Crown, Loader2, Sparkles, AlertTriangle, TrendingUp, Target, Calendar, ShieldAlert, ChevronRight, History, RefreshCw, CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+type ActionStatus = "todo" | "doing" | "done" | "skip";
+function hashAction(text: string): string {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) - h + text.charCodeAt(i)) | 0;
+  return "a" + Math.abs(h).toString(36);
+}
+const statusOrder: ActionStatus[] = ["todo", "doing", "done", "skip"];
+const statusMeta: Record<ActionStatus, { icon: any; cls: string; label: string }> = {
+  todo:  { icon: Circle,        cls: "text-muted-foreground",          label: "A fazer" },
+  doing: { icon: Loader2,       cls: "text-amber-400",                 label: "Em andamento" },
+  done:  { icon: CheckCircle2,  cls: "text-emerald-400",               label: "Feito" },
+  skip:  { icon: XCircle,       cls: "text-zinc-500 line-through",     label: "Descartado" },
+};
 
 interface SalesPathButtonProps {
   projectId: string;
