@@ -49,6 +49,7 @@ interface AIRecommendation {
   title: string;
   description: string;
   priority: "high" | "medium" | "low";
+  cta?: { label: string; to: string };
 }
 
 // Simple linear regression
