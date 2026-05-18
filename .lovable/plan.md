@@ -1,52 +1,52 @@
-# Plano: Conversas históricas + IA Autônoma operacional (JP Freitas)
+## Respostas rápidas
 
-Objetivo: resolver os 2 buracos detectados — (1) chips conectados não mostram conversas antigas, (2) Triagem/IA/Objeções existem na UI mas não estão ativas em produção.
+**1) Botão Imperador salva histórico?** Sim — grava em `imphq_sales_paths` (status `processing`→`ready`, com snapshot, plano, model_used). Confirmei 2 registros recentes em `jp_freitas`. **Só falta a UI mostrar** — hoje cada clique gera novo e descarta o anterior visualmente.
 
-## 1. Sync de histórico (Evolution → Supabase)
+**2) Timeouts do gerador de IA — dá pra ir batch?** Sim. Edge function tem 150s. Hoje `openflow-ai` chama o modelo síncrono e responde — modelos lentos (Gemini Pro, Opus, R1) estouram. `sales-path-engine` já tem a base certa (`imphq_sales_paths` com `status`), só não é assíncrono. Solução: padrão **fire-and-forget + polling**.
 
-Nova action `sync_messages` no edge `whatsapp-api`:
-- Chama `chat/findMessages/{instance}` (Evolution) paginado, últimos 30 dias.
-- Para cada mensagem: upsert em `imphq_wa_conversations` (por `remote_jid` + `provider_id`) e `imphq_wa_messages` (dedup por `external_id`).
-- Baixa mídias volátiles pro bucket `whatsapp-media` (padrão já existente).
-- Vincula `lead_id` quando telefone bate com `imphq_leads.telefone`.
+**3) Estamos usando todos os modelos do OpenRouter?** Não. Hoje só **5 hardcoded** (`AIGenerateButton.tsx`): Claude Opus 4, Sonnet 4, 3.5 Sonnet, DeepSeek R1, Llama 4 Maverick. OpenRouter tem 300+. Vale puxar dinamicamente do endpoint `/api/v1/models`.
 
-Botão "Importar histórico" no header do provider (ao lado de "Sincronizar contatos"), com progress toast. Roda 1 chip por vez (os 2 do JP separados, mantendo `provider_id` correto → tabs já funcionam).
+---
 
-## 2. Triagem real (mata o mock)
+## Plano de implementação
 
-Tabela `imphq_wa_triagem_rules` já não existe — mas `imphq_wa_triage` (resultados) existe e o edge `wa-ai-triage` já classifica. O que falta:
-- **Disparar** `wa-ai-triage` automaticamente dentro do webhook `whatsapp-api` quando `MESSAGES_UPSERT` chega com `from_me=false`.
-- Hoje a triagem só roda se alguém invocar manual. Vou plugar no fluxo do webhook (fire-and-forget, não bloqueia resposta).
-- Painel `TriagemPanel` já lê de `imphq_wa_triage` → vai popular sozinho.
+### A. Histórico do Imperador (UI)
+1. Nova tabela query em `SalesPathButton.tsx`: ao abrir o Sheet, listar últimos 10 planos de `imphq_sales_paths` para o `projectId` (status `ready`).
+2. Adicionar Tab "Histórico" no Sheet com cards (data, health_score, model_used, botão "Ver").
+3. Ao clicar, hidratar o estado `plan` com a linha salva (sem gerar nova).
+4. Botão "Gerar novo" continua chamando `sales-path-engine`.
 
-## 3. IA Autônoma ativa no JP
+### B. Batch / Async para geração longa
+**Padrão:** edge function enfileira job, retorna `job_id` imediato, worker processa em background, frontend faz polling.
 
-- Criar registro em `imphq_wa_ai_config` pro projeto JP com `enabled=true`, personality `vendedor`, contexto: briefing+avatar+produtos+objeções.
-- Edge `wa-ai-autoresponder` (verificar se já existe; se não, criar) é chamado após triagem quando: `intent != compra_quente` (esses escalam pra humano) e `escalation_keywords` não batem e dentro do horário comercial.
-- Respeita `response_delay_seconds` e marca `from_me=true, sent_by='ai'` em `imphq_wa_messages`.
+1. **Tabela `imphq_ai_jobs`** (nova):
+   - `id`, `user_id`, `project_id`, `action`, `model`, `payload jsonb`, `status` (queued/processing/ready/failed), `result jsonb`, `error`, `created_at`, `completed_at`.
 
-## 4. Objeções — seed inicial
+2. **Refactor `openflow-ai`**:
+   - Modo `async: true` no body → cria job, retorna `{ job_id, status: "queued" }` em <1s.
+   - Usa `EdgeRuntime.waitUntil()` para rodar a chamada AI em background após responder (não bloqueia HTTP).
+   - Atualiza `imphq_ai_jobs` com result/error.
+   - Mantém modo síncrono para chamadas curtas (Flash/Mini).
 
-Inserir 8-10 objeções clássicas do nicho do JP (preço, tempo, "vou pensar", funciona pra mim?, etc) em `imphq_wa_objections` com `projeto_id` do JP, baseadas no que tiver em `funnel-hacking-jpfreitas/` e briefing. Triagem já cruza essas automaticamente.
+3. **Novo endpoint `ai-job-status`** (ou reusar via `action: "get_job"`): retorna status + result.
 
-## Detalhes técnicos
+4. **Frontend (`AIGenerateButton.tsx`)**:
+   - Se modelo for "lento" (Pro/Opus/R1) ou `async` selecionado → envia `async:true`, recebe `job_id`, faz polling a cada 3s, mostra progresso. Sem timeout artificial.
+   - Toast "Gerando em background — você pode continuar usando o app".
 
-```
-Arquivos:
-- supabase/functions/whatsapp-api/index.ts       (action sync_messages + hook triagem)
-- supabase/functions/wa-ai-autoresponder/index.ts (criar se não existir)
-- src/components/whatsapp/ProviderConfigDialog.tsx (botão Importar histórico)
-- migration: índice em imphq_wa_messages(external_id, provider_id) UNIQUE pra dedup
+5. **Aplicar mesmo padrão ao `sales-path-engine`**: já tem `imphq_sales_paths` com `status processing` — só falta retornar imediato e processar via `waitUntil`. Frontend faz polling no `pathId`.
 
-Sem mudança de UI estrutural — só botão novo + painéis existentes começam a popular.
-```
+### C. Catálogo OpenRouter dinâmico
+1. **Edge function nova `openrouter-models`**: chama `GET https://openrouter.ai/api/v1/models` com cache de 1h (em memória ou tabela `imphq_ai_models_cache`). Retorna lista filtrada (id, name, pricing, context_length).
+2. **`AIGenerateButton.tsx`**: substituir array `MODELS` hardcoded por fetch dinâmico no mount. Manter os Gateway (Gemini/GPT) hardcoded no topo + lista OpenRouter abaixo com search/filtro (são 300+).
+3. UI: Select com input de busca, badges de preço (📈 caro / 💰 médio / 💨 barato) e contexto (128k, 1M, etc).
+4. Favoritos: salvar top 10 mais usados em `localStorage` no topo do select.
 
-## Ordem de execução
+---
 
-1. Migration (índice dedup + seed objeções JP + ai_config JP)
-2. Edge `whatsapp-api`: action `sync_messages` + hook auto-triagem no webhook
-3. Edge `wa-ai-autoresponder` (verificar/criar)
-4. Botão "Importar histórico" no ProviderConfigDialog
-5. Você roda o import nos 2 chips → conversas aparecem nas tabs Suporte 1 / Suporte 2
+## Ordem de execução sugerida
+1. **A** (rápido, sem migration) → resolve dor imediata do histórico.
+2. **C** (1 edge function + UI) → resolve "todos modelos OpenRouter".
+3. **B** (mais pesado, migration + refactor) → resolve timeouts de vez.
 
-Posso prosseguir?
+Confirma essa ordem ou prefere começar por outro item?
