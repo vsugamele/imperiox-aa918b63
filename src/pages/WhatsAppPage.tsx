@@ -244,15 +244,16 @@ export default function WhatsApp() {
                         📞 {selectedSession.phone} · {projectName(selectedSession.project_id)}
                         {selectedProvider && (
                           <span className="ml-1.5 text-[10px] opacity-70">
-                            · via {selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from}
+                            · via {(selectedProvider as any).display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from)}
                           </span>
                         )}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
                       {selectedProvider && (
-                        <Badge variant="outline" className="text-[9px]">
-                          {selectedProvider.provider === "evolution" ? "🟢 Evolution" : "🔵 Twilio"}
+                        <Badge variant="outline" className="text-[9px] flex items-center gap-1.5" title={selectedProvider.instance_name || ""}>
+                          <span className="inline-block w-2 h-2 rounded-full" style={{ background: `hsl(${[...selectedProvider.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % 360}, 65%, 55%)` }} />
+                          {(selectedProvider as any).display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : "Twilio")}
                         </Badge>
                       )}
                       <Tabs value={chatTab} onValueChange={(v) => setChatTab(v as any)}>
