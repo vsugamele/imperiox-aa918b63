@@ -366,6 +366,8 @@ export default function Recuperacao() {
             disabledAutomate={selectedProject === "all"}
             onSelect={() => setActiveBucket(bucket.id)}
             onAutomate={() => handleAutomateBucket(bucket.id)}
+            onDispatch={() => handleDispatchBucket(bucket.id)}
+            dispatching={dispatchingBucket === bucket.id}
           />
         ))}
       </div>
