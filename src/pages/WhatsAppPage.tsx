@@ -664,6 +664,12 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { pr
               Sync
             </Button>
           )}
+          {isConnected && (
+            <Button size="sm" variant="outline" onClick={importMessages} disabled={importingMsgs} className="h-7 text-[10px] border-primary/40 text-primary hover:bg-primary/10" title="Importa últimos 30 dias de conversas do chip">
+              {importingMsgs ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <History className="h-3 w-3 mr-1" />}
+              Importar histórico
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Mais ações">
