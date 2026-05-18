@@ -63,9 +63,9 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
               <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          {duplicate && (
-            <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 leading-5">
-              ⚠ Já existe um provider <strong>{duplicate.instance_name || duplicate.provider}</strong> para esse projeto. Criar outro vai gerar provider duplicado.
+          {existingForProject.length > 0 && (
+            <div className="text-[11px] text-sky-300 bg-sky-500/10 border border-sky-500/30 rounded px-2 py-1.5 leading-5">
+              ℹ Esse projeto já tem {existingForProject.length} chip(s): <strong>{existingForProject.map(p => p.display_name || p.instance_name || p.provider).join(", ")}</strong>. Você pode adicionar mais um (failover/2º número).
             </div>
           )}
           <div>
