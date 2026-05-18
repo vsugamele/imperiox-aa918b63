@@ -279,10 +279,14 @@ export default function Funis() {
   const load = async () => {
     const [fRes, pRes] = await Promise.all([
       supabase.from("imphq_funis").select("*").order("updated_at", { ascending: false }),
-      supabase.from("imphq_projects").select("id, name, briefing, data").order("name"),
+      supabase.from("imphq_projects").select("id, name, data").order("name"),
     ]);
     setFunis((fRes.data || []).map((f: any) => ({ ...f, data: f.data || {} })));
-    setProjects(pRes.data || []);
+    const projRows = (pRes.data || []).map((p: any) => {
+      const d = typeof p.data === "string" ? (() => { try { return JSON.parse(p.data); } catch { return {}; } })() : (p.data || {});
+      return { ...p, briefing: d.briefing || d };
+    });
+    setProjects(projRows);
   };
 
   useEffect(() => { load(); }, []);

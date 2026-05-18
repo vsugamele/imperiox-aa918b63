@@ -18,7 +18,7 @@ export default function Metas() {
       const mes = now.getMonth() + 1;
       const monthStart = `${ano}-${String(mes).padStart(2, "0")}-01T03:00:00.000Z`;
 
-      const { data: projects } = await sb.from("imphq_projects").select("id, nome").order("nome");
+      const { data: projects } = await sb.from("imphq_projects").select("id, name").order("name");
       const { data: goals } = await sb.from("imphq_project_goals").select("*").eq("ano", ano).eq("mes", mes);
       const { data: vendas } = await sb.from("imphq_vendas").select("project_id, valor").eq("status", "aprovado").gte("created_at", monthStart);
 
@@ -41,7 +41,7 @@ export default function Metas() {
           if (proj < meta * 0.8) cor = "text-red-400";
           else if (proj < meta) cor = "text-amber-400";
         }
-        return { id: p.id, nome: p.nome, meta, receita, pct, projecao: proj, cor };
+        return { id: p.id, nome: p.name, meta, receita, pct, projecao: proj, cor };
       }).sort((a, b) => b.pct - a.pct);
 
       setRows(result);

@@ -119,8 +119,14 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
   }, []);
 
   useEffect(() => {
-    supabase.from("imphq_projects").select("id,name,produto,categoria,objetivo,avatar,contexto,data")
-      .order("name").then(({ data }) => setProjects(data || []));
+    supabase.from("imphq_projects").select("id,name,category,avatar,data")
+      .order("name").then(({ data }) => {
+        const rows = (data || []).map((p: any) => {
+          const d = typeof p.data === "string" ? (() => { try { return JSON.parse(p.data); } catch { return {}; } })() : (p.data || {});
+          return { ...p, produto: d.produto, categoria: p.category, objetivo: d.objetivo, contexto: d.contexto };
+        });
+        setProjects(rows);
+      });
   }, []);
 
   // Load competitors & KB when project changes
