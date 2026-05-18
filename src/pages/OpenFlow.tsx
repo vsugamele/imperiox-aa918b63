@@ -79,9 +79,10 @@ export default function OpenFlow() {
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
+  const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
-  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" });
+  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "" });
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
   const [webhookProject, setWebhookProject] = useState("none");
@@ -92,6 +93,7 @@ export default function OpenFlow() {
   const [testForm, setTestForm] = useState({ nome: "João Teste", email: "joao@teste.com", telefone: "(11) 99999-9999", produto: "Produto Teste", provider_id: "" });
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [filterCampanha, setFilterCampanha] = useState<string>("__all__");
 
   // ── Data loading ─────────────────────────────────────────────
   const load = async () => {
