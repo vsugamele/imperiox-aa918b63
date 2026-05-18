@@ -250,14 +250,14 @@ Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template"
         tool_choice: { type: "function", function: { name: "generate_flow" } },
     });
 
-    let response = await fetch(`${aiBaseUrl}/chat/completions`, { method: "POST", headers: makeH(aiApiKey, !isLovableModel), body: flowPayload });
+    let response = await fetchAI(`${aiBaseUrl}/chat/completions`, { method: "POST", headers: makeH(aiApiKey, !isLovableModel), body: flowPayload });
 
     // Fallback: if Lovable gateway returns 402, retry via OpenRouter
     if (isLovableModel && response.status === 402) {
       const orKey = Deno.env.get("OPENROUTER_API_KEY");
       if (orKey) {
         console.log("Lovable gateway 402, falling back to OpenRouter (default flow)");
-        response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: makeH(orKey, true), body: flowPayload });
+        response = await fetchAI("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: makeH(orKey, true), body: flowPayload });
       }
     }
 
@@ -273,10 +273,29 @@ Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template"
   }
 });
 
+async function fetchAI(url: string, init: RequestInit, timeoutMs = 90_000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      return new Response(JSON.stringify({ error: "TIMEOUT_GUARD: modelo demorou mais de 90s. Use modo background/modelo mais rápido ou reduza contexto." }), {
+        status: 408,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function handleAIError(response: Response) {
   const status = response.status;
   if (status === 429) return new Response(JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   if (status === 402) return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  if (status === 408) return new Response(JSON.stringify({ error: "Modelo demorou demais. Use background, modelo mais rápido ou reduza contexto." }), { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   const t = await response.text();
   console.error("AI gateway error:", status, t);
   throw new Error("AI gateway error: " + status);
@@ -292,7 +311,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], tools, tool_choice: { type: "function", function: { name: toolName } } });
 
   // Abort upstream calls before edge runtime's 150s IDLE_TIMEOUT to return a clear error
-  const fetchWithTimeout = async (url: string, headers: Record<string, string>, timeoutMs = 120_000) => {
+  const fetchWithTimeout = async (url: string, headers: Record<string, string>, timeoutMs = 90_000) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -307,7 +326,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
     response = await fetchWithTimeout(`${baseUrl}/chat/completions`, makeHeaders(apiKey, isOpenRouter));
   } catch (e: any) {
     if (e?.name === "AbortError") {
-      return { error: `Modelo "${model}" demorou demais (>120s). Use um modelo mais rápido (ex.: gemini-3-flash, gpt-5-mini) ou reduza o contexto.` };
+      return { error: `Modelo "${model}" demorou demais (>90s). Use um modelo mais rápido (ex.: gemini-3-flash, gpt-5-mini) ou reduza o contexto.` };
     }
     throw e;
   }
@@ -321,7 +340,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
         response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", makeHeaders(orKey, true));
       } catch (e: any) {
         if (e?.name === "AbortError") {
-          return { error: `Modelo "${model}" via OpenRouter excedeu 120s. Tente um modelo mais rápido.` };
+          return { error: `Modelo "${model}" via OpenRouter excedeu 90s. Tente um modelo mais rápido.` };
         }
         throw e;
       }
@@ -876,13 +895,13 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
   };
   const skillPayload = JSON.stringify({ model, messages: [{ role: "system", content: fullSystem }, { role: "user", content: userMsg }] });
 
-  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: skillPayload });
+  let response = await fetchAI(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: skillPayload });
 
   if (!isOR && response.status === 402) {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
       console.log("Lovable gateway 402, falling back to OpenRouter (skill)");
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: skillPayload });
+      response = await fetchAI("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: skillPayload });
     }
   }
 
@@ -913,13 +932,13 @@ REGRAS:
   };
   const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMsg }] });
 
-  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+  let response = await fetchAI(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
 
   if (!isOR && response.status === 402) {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
       console.log("Lovable gateway 402, falling back to OpenRouter (generate_content)");
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+      response = await fetchAI("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
     }
   }
 
@@ -1214,12 +1233,12 @@ Seja direto, prático e motivacional. Máximo 500 palavras.`;
 
   const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: "Gere as instruções da semana para o expert." }] });
 
-  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+  let response = await fetchAI(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
 
   if (!isOR && response.status === 402) {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+      response = await fetchAI("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
     }
   }
 
@@ -1272,7 +1291,7 @@ REGRAS:
   const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
   if (isOpenRouter) { headers["HTTP-Referer"] = "https://imperiox.lovable.app"; headers["X-Title"] = "ImperioHQ"; }
 
-  let response = await fetch(`${baseUrl}/chat/completions`, {
+  let response = await fetchAI(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers,
     body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
@@ -1282,7 +1301,7 @@ REGRAS:
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
       const orHeaders: Record<string, string> = { Authorization: `Bearer ${orKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://imperiox.lovable.app", "X-Title": "ImperioHQ" };
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: orHeaders, body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }) });
+      response = await fetchAI("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: orHeaders, body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }) });
     }
   }
 
@@ -1369,13 +1388,13 @@ ${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}${s
   };
   const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] });
 
-  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+  let response = await fetchAI(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
 
   if (!isOR && response.status === 402) {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
       console.log("Lovable gateway 402, falling back to OpenRouter (content_pack)");
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+      response = await fetchAI("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
     }
   }
 
@@ -1467,13 +1486,13 @@ Organize o funil completo com todas as etapas necessárias.`;
     tool_choice: { type: "function", function: { name: "organize_funnel" } },
   });
 
-  let response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
+  let response = await fetchAI(`${baseUrl}/chat/completions`, { method: "POST", headers: mkH(apiKey, isOR), body: payload });
 
   if (!isOR && response.status === 402) {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
       console.log("Lovable gateway 402, falling back to OpenRouter (organize_funnel)");
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
+      response = await fetchAI("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: mkH(orKey, true), body: payload });
     }
   }
 
@@ -1582,7 +1601,7 @@ async function handleGenerateImage(body: any, sb: any, projectContext: string, a
 
   const userPrompt = `Gere um criativo visual de alta qualidade com base na descrição: "${prompt}". A imagem deve ser profissional, atrativa e adequada para uso em anúncios ou redes sociais.`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetchAI("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1630,7 +1649,7 @@ async function handleGenerateImage(body: any, sb: any, projectContext: string, a
 async function handleEditImage(body: any, sb: any, projectContext: string, apiKey: string, mentePrefix = "") {
   const { project_id, source_image_url, instruction } = body;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetchAI("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({

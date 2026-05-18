@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,16 +51,27 @@ const CONTENT_TYPES: { value: ContentType; label: string; icon: any; desc: strin
   { value: "lp", label: "LP de Vendas (HTML)", icon: Code2, desc: "Landing page HTML exportável" },
 ];
 
-const MODELS = [
+const GATEWAY_MODELS = [
   { id: "google/gemini-3-flash-preview", label: "⚡ Gemini 3 Flash", via: "gateway" },
   { id: "google/gemini-3.1-pro-preview", label: "🧠 Gemini 3.1 Pro", via: "gateway" },
   { id: "google/gemini-2.5-pro", label: "🔬 Gemini 2.5 Pro", via: "gateway" },
+  { id: "google/gemini-2.5-flash", label: "⚡ Gemini 2.5 Flash", via: "gateway" },
   { id: "openai/gpt-5.2", label: "🚀 GPT-5.2", via: "gateway" },
   { id: "openai/gpt-5", label: "💪 GPT-5", via: "gateway" },
-  { id: "anthropic/claude-opus-4", label: "🟣 Claude Opus 4", via: "openrouter" },
-  { id: "anthropic/claude-sonnet-4", label: "🟣 Claude Sonnet 4", via: "openrouter" },
-  { id: "deepseek/deepseek-r1", label: "🔵 DeepSeek R1", via: "openrouter" },
+  { id: "openai/gpt-5-mini", label: "⚡ GPT-5 Mini", via: "gateway" },
+  { id: "openai/gpt-5-nano", label: "💨 GPT-5 Nano", via: "gateway" },
 ];
+
+interface OpenRouterModel {
+  id: string;
+  name: string;
+  context: number;
+  tier: "free" | "cheap" | "mid" | "premium";
+}
+
+const SLOW_MODEL_HINTS = ["opus", "sonnet", "pro", "r1", "deepseek", "gpt-5.2", "405b", "70b", "large"];
+const isSlowModel = (id: string) => SLOW_MODEL_HINTS.some((h) => id.toLowerCase().includes(h));
+const normalizeModel = (value: string) => value.startsWith("openrouter:") ? value.replace("openrouter:", "") : value;
 
 const IMAGE_TYPES: ContentType[] = ["ai_image"];
 
@@ -84,7 +95,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const [customPrompt, setCustomPrompt] = useState("");
   const [lpTopic, setLpTopic] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
+  const [selectedModel, setSelectedModel] = useState(GATEWAY_MODELS[0].id);
   const [selectedMente, setSelectedMente] = useState("none");
   const [selectedProduct, setSelectedProduct] = useState("");
   const [loadingSaved, setLoadingSaved] = useState(false);
@@ -93,8 +104,19 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const [refineFeedback, setRefineFeedback] = useState("");
   const [historyFilter, setHistoryFilter] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
+  const [orModels, setOrModels] = useState<OpenRouterModel[]>([]);
+  const [modelSearch, setModelSearch] = useState("");
 
   const produtos: any[] = data.produtos || [];
+  const selectedModelId = normalizeModel(selectedModel);
+  const selectedIsOpenRouter = selectedModel.startsWith("openrouter:");
+  const shouldUseAsync = selectedIsOpenRouter || isSlowModel(selectedModelId) || ["ai_image", "lp", "vsl", "webinar", "ads_video"].includes(activeType);
+
+  const filteredOrModels = useMemo(() => {
+    const q = modelSearch.toLowerCase().trim();
+    const base = q ? orModels.filter((m) => m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q)) : orModels;
+    return base.slice(0, 80);
+  }, [orModels, modelSearch]);
 
   const loadSavedContents = useCallback(async () => {
     setLoadingSaved(true);
@@ -109,6 +131,19 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   }, [projectId]);
 
   useEffect(() => { loadSavedContents(); }, [loadSavedContents]);
+
+  useEffect(() => {
+    if (!dialogOpen || activeType === "ai_image" || orModels.length > 0) return;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("openrouter-models");
+        if (error) throw error;
+        setOrModels(data?.models || []);
+      } catch (e) {
+        console.warn("Falha ao carregar modelos OpenRouter", e);
+      }
+    })();
+  }, [dialogOpen, activeType, orModels.length]);
 
   const getOpenRouterKey = (): string | null => {
     try {
@@ -148,16 +183,65 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
       content_type: contentType,
       content,
       product_name: productName || null,
-      model_used: activeType === "ai_image" ? (imageQuality === "high" ? "gemini-3-pro-image" : "gemini-2.5-flash-image") : selectedModel,
+      model_used: activeType === "ai_image" ? (imageQuality === "high" ? "gemini-3-pro-image" : "gemini-2.5-flash-image") : selectedModelId,
       custom_prompt: customPrompt || null,
       metadata: { mente: selectedMente !== "none" ? selectedMente : null },
     });
     loadSavedContents();
   };
 
+  const pollAiJob = async (jobId: string): Promise<any> => {
+    const start = Date.now();
+    const MAX_MS = 8 * 60 * 1000;
+    while (Date.now() - start < MAX_MS) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const { data: job } = await supabase
+        .from("imphq_ai_jobs")
+        .select("status,result,error")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (!job) continue;
+      if (job.status === "ready") return job.result as any;
+      if (job.status === "failed") throw new Error(job.error || "Job de IA falhou");
+    }
+    throw new Error("Timeout: geração demorou mais de 8 minutos");
+  };
+
+  const invokeOpenflow = async (bodyPayload: Record<string, any>, useAsync = shouldUseAsync) => {
+    const finalPayload: Record<string, any> = { ...bodyPayload, model: normalizeModel(bodyPayload.model || selectedModel) };
+    const payloadIsOR = selectedIsOpenRouter || String(bodyPayload.model || "").startsWith("openrouter:");
+    if (payloadIsOR && !finalPayload.openrouter_key) finalPayload.openrouter_key = getOpenRouterKey();
+
+    if (!useAsync) {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", { body: finalPayload });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Sessão expirada");
+    const { data: job, error: jobErr } = await supabase
+      .from("imphq_ai_jobs")
+      .insert({
+        user_id: user.id,
+        project_id: projectId,
+        action: finalPayload.action || "generate_content",
+        model: finalPayload.model,
+        payload: finalPayload as any,
+        status: "queued",
+      })
+      .select("id")
+      .single();
+    if (jobErr || !job) throw jobErr || new Error("Falha ao criar job de IA");
+
+    toast.info("Gerando em background — evitando timeout de 150s.", { duration: 5000 });
+    await supabase.functions.invoke("ai-job-runner", { body: { job_id: job.id } });
+    return await pollAiJob(job.id);
+  };
+
   const handleGenerate = async () => {
-    const modelObj = MODELS.find(m => m.id === selectedModel);
-    const isOpenRouter = modelObj?.via === "openrouter";
+    const isOpenRouter = selectedIsOpenRouter;
     if (isOpenRouter) {
       const orKey = getOpenRouterKey();
       if (!orKey) { toast.error("Chave OpenRouter não configurada. Vá em Configurações → APIs & Keys."); return; }
@@ -175,15 +259,13 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
 
       // ── Image generation ──
       if (activeType === "ai_image") {
-        const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-          body: {
-            project_id: projectId,
-            action: "generate_image",
-            prompt: customPrompt || `Criativo profissional para o produto "${productName}"`,
-            quality: imageQuality,
-          },
+        const aiData = await invokeOpenflow({
+          project_id: projectId,
+          action: "generate_image",
+          prompt: customPrompt || `Criativo profissional para o produto "${productName}"`,
+          quality: imageQuality,
+          model: selectedModelId,
         });
-        if (error) throw error;
         if (aiData?.image_url) {
           setGeneratedImageUrl(aiData.image_url);
           setGeneratedContent(aiData.text || "Imagem gerada com sucesso.");
@@ -195,17 +277,14 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
 
       // ── Brainstorm ──
       if (activeType === "ideias") {
-        const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-          body: {
-            project_id: projectId,
-            action: "generate_brainstorm",
-            model: selectedModel,
-            content_focus: customPrompt,
-            ...(isOpenRouter ? { openrouter_key: getOpenRouterKey() } : {}),
-            ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
-          },
+        const aiData = await invokeOpenflow({
+          project_id: projectId,
+          action: "generate_brainstorm",
+          model: selectedModelId,
+          content_focus: customPrompt,
+          ...(isOpenRouter ? { openrouter_key: getOpenRouterKey() } : {}),
+          ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
         });
-        if (error) throw error;
         const ideas = aiData?.brainstorm?.ideas || [];
         const content = ideas.map((idea: any, i: number) =>
           `### ${i + 1}. ${idea.titulo}\n**Formato:** ${idea.formato} | **Dificuldade:** ${idea.nivel_dificuldade || "—"} | **Viral:** ${idea.potencial_viral || "—"}/10\n\n> ${idea.gancho}\n`
@@ -246,8 +325,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         bodyPayload.prompt = customPrompt ? `${prompts[activeType] || ""}\n\nInstruções extras: ${customPrompt}` : prompts[activeType];
       }
 
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", { body: bodyPayload });
-      if (error) throw error;
+      const aiData = await invokeOpenflow(bodyPayload);
       const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, productName);
@@ -265,17 +343,14 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const handleVariation = async () => {
     setGenerating(true);
     try {
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: projectId,
-          action: "generate_content",
-          model: selectedModel,
-          content_type: activeType,
-          prompt: `Crie uma VARIAÇÃO DIFERENTE do conteúdo abaixo. Mantenha o mesmo formato e objetivo, mas mude abordagem, ângulo e tom.\n\nConteúdo original:\n${generatedContent.slice(0, 2000)}\n\n${customPrompt ? `Instruções: ${customPrompt}` : ""}`,
-          ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
-        },
+      const aiData = await invokeOpenflow({
+        project_id: projectId,
+        action: "generate_content",
+        model: selectedModelId,
+        content_type: activeType,
+        prompt: `Crie uma VARIAÇÃO DIFERENTE do conteúdo abaixo. Mantenha o mesmo formato e objetivo, mas mude abordagem, ângulo e tom.\n\nConteúdo original:\n${generatedContent.slice(0, 2000)}\n\n${customPrompt ? `Instruções: ${customPrompt}` : ""}`,
+        ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      if (error) throw error;
       const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, getProductForPrompt());
@@ -290,17 +365,14 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
     setRefineDialogOpen(false);
     setGenerating(true);
     try {
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: projectId,
-          action: "generate_content",
-          model: selectedModel,
-          content_type: activeType,
-          prompt: `REFINE o conteúdo abaixo com base no feedback do usuário.\n\nConteúdo atual:\n${generatedContent.slice(0, 2000)}\n\nFeedback:\n${refineFeedback}`,
-          ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
-        },
+      const aiData = await invokeOpenflow({
+        project_id: projectId,
+        action: "generate_content",
+        model: selectedModelId,
+        content_type: activeType,
+        prompt: `REFINE o conteúdo abaixo com base no feedback do usuário.\n\nConteúdo atual:\n${generatedContent.slice(0, 2000)}\n\nFeedback:\n${refineFeedback}`,
+        ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      if (error) throw error;
       const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
       setGeneratedContent(content);
       setRefineFeedback("");
@@ -314,17 +386,14 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const handleExpand = async () => {
     setGenerating(true);
     try {
-      const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: projectId,
-          action: "generate_content",
-          model: selectedModel,
-          content_type: activeType,
-          prompt: `EXPANDA o conteúdo abaixo em uma versão mais completa e detalhada. Adicione mais profundidade, exemplos e detalhes.\n\nConteúdo resumido:\n${generatedContent.slice(0, 2000)}`,
-          ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
-        },
+      const aiData = await invokeOpenflow({
+        project_id: projectId,
+        action: "generate_content",
+        model: selectedModelId,
+        content_type: activeType,
+        prompt: `EXPANDA o conteúdo abaixo em uma versão mais completa e detalhada. Adicione mais profundidade, exemplos e detalhes.\n\nConteúdo resumido:\n${generatedContent.slice(0, 2000)}`,
+        ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      if (error) throw error;
       const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, getProductForPrompt());
@@ -578,19 +647,29 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
             {!isImageType && (
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo de IA</Label>
+                <div className="relative mb-2">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2 top-1/2 -translate-y-1/2" />
+                  <Input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={`Buscar OpenRouter (${orModels.length || "..."} modelos)`} className="h-8 pl-7 text-xs bg-secondary" />
+                </div>
                 <Select value={selectedModel} onValueChange={setSelectedModel}>
                   <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MODELS.map(m => (
+                  <SelectContent className="max-h-[320px]">
+                    {GATEWAY_MODELS.map(m => (
                       <SelectItem key={m.id} value={m.id}>
                         <span className="font-medium">{m.label}</span>
-                        <Badge variant={m.via === "gateway" ? "secondary" : "outline"} className="ml-2 text-[9px] px-1 py-0">
-                          {m.via === "gateway" ? "Gateway" : "OpenRouter"}
-                        </Badge>
+                        <Badge variant="secondary" className="ml-2 text-[9px] px-1 py-0">Gateway</Badge>
+                      </SelectItem>
+                    ))}
+                    {filteredOrModels.map(m => (
+                      <SelectItem key={m.id} value={`openrouter:${m.id}`}>
+                        <span className="font-medium">{m.name}</span>
+                        <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0">OpenRouter</Badge>
+                        {m.context >= 100000 && <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0">{Math.round(m.context / 1000)}k</Badge>}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {shouldUseAsync && <p className="text-[10px] text-primary mt-1">Background ativado para evitar timeout.</p>}
               </div>
             )}
 
