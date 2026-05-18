@@ -318,7 +318,7 @@ export function ProjetoComando({ projectId, project }: Props) {
         });
         return (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <HealthScoreCard health={health} />
+            <HealthScoreCard health={health} projectId={projectId} />
             <ProjetoMetaCard projectId={projectId} receitaMes={receitaMes} leadsMes={leadsMes.length} vendasMes={vendasMes.length} />
             <ProjetoNotasCard projectId={projectId} />
           </div>
