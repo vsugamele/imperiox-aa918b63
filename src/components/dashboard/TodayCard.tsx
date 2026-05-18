@@ -62,7 +62,7 @@ export default function TodayCard({ projectId }: { projectId?: string }) {
       let adsCount = 0;
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const spendsRes: any = await supabase
+        const spendsRes: any = await (supabase as any)
           .from("imphq_ads_spend")
           .select("ad_id, spend, purchases")
           .eq("date", today)
