@@ -131,49 +131,57 @@ function generateRecommendations(
   if (forecast.trend === "down" && forecast.trendPct < -15) {
     recs.push({
       icon: "📉", title: "Receita em queda", priority: "high",
-      description: `Tendência de queda de ${Math.abs(forecast.trendPct).toFixed(0)}%. Revise seus criativos e landing pages — a fadiga de anúncio pode estar afetando a performance.`
+      description: `Tendência de queda de ${Math.abs(forecast.trendPct).toFixed(0)}%. Revise seus criativos e landing pages — a fadiga de anúncio pode estar afetando a performance.`,
+      cta: { label: "Auditar criativos", to: "/criativos" },
     });
   }
   if (data.roas > 0 && data.roas < 1.5) {
     recs.push({
       icon: "🚨", title: "ROAS baixo", priority: "high",
-      description: `ROAS atual de ${data.roas.toFixed(1)}x. Considere pausar campanhas com ROAS < 1x e concentrar budget nas que performam melhor.`
+      description: `ROAS atual de ${data.roas.toFixed(1)}x. Considere pausar campanhas com ROAS < 1x e concentrar budget nas que performam melhor.`,
+      cta: { label: "Abrir Gerenciador", to: "/gerenciador" },
     });
   }
   if (data.avgCPL > 40) {
     recs.push({
       icon: "💰", title: "CPL elevado", priority: "medium",
-      description: `CPL médio de R$ ${data.avgCPL.toFixed(2)}. Teste novos públicos, copys mais diretas ou formatos de vídeo curto para reduzir o custo.`
+      description: `CPL médio de R$ ${data.avgCPL.toFixed(2)}. Teste novos públicos, copys mais diretas ou formatos de vídeo curto para reduzir o custo.`,
+      cta: { label: "Otimizar campanhas", to: "/gerenciador" },
     });
   }
   if (health.details.find(d => d.label === "Checkout → Venda" && d.status === "critical")) {
     recs.push({
       icon: "🛒", title: "Abandono de checkout alto", priority: "high",
-      description: "Menos de 15% dos checkouts convertem. Revise: preço, formas de pagamento, sequência de recuperação e urgência na página."
+      description: "Menos de 15% dos checkouts convertem. Revise: preço, formas de pagamento, sequência de recuperação e urgência na página.",
+      cta: { label: "Recuperar agora", to: "/recuperacao" },
     });
   }
   if (health.details.find(d => d.label === "Lead → Checkout" && d.status === "critical")) {
     recs.push({
       icon: "🎯", title: "Leads não avançam no funil", priority: "medium",
-      description: "Poucos leads chegam ao checkout. Melhore a sequência de nutrição (emails + WhatsApp) e a proposta de valor na página de vendas."
+      description: "Poucos leads chegam ao checkout. Melhore a sequência de nutrição (emails + WhatsApp) e a proposta de valor na página de vendas.",
+      cta: { label: "Ajustar nutrição", to: "/nutricao" },
     });
   }
   if (forecast.trend === "up" && forecast.trendPct > 20) {
     recs.push({
       icon: "🚀", title: "Momento de escala", priority: "medium",
-      description: `Crescimento de ${forecast.trendPct.toFixed(0)}%! Aproveite para aumentar budget gradualmente (20-30% por semana) e duplicar criativos vencedores.`
+      description: `Crescimento de ${forecast.trendPct.toFixed(0)}%! Aproveite para aumentar budget gradualmente (20-30% por semana) e duplicar criativos vencedores.`,
+      cta: { label: "Escalar budget", to: "/gerenciador" },
     });
   }
   if (anomalies.some(a => a.type === "spike")) {
     recs.push({
       icon: "⚡", title: "Pico detectado", priority: "low",
-      description: "Houve um pico anormal de receita. Investigue se foi uma campanha específica que funcionou — duplique e escale essa abordagem."
+      description: "Houve um pico anormal de receita. Investigue se foi uma campanha específica que funcionou — duplique e escale essa abordagem.",
+      cta: { label: "Ver campanhas", to: "/gerenciador" },
     });
   }
   if (data.totalLeads > 100 && data.totalVendas < 3) {
     recs.push({
       icon: "🔍", title: "Qualidade de lead baixa", priority: "high",
-      description: "Muitos leads mas poucas vendas. O público pode estar desqualificado. Revise segmentação e adicione perguntas de qualificação no formulário."
+      description: "Muitos leads mas poucas vendas. O público pode estar desqualificado. Revise segmentação e adicione perguntas de qualificação no formulário.",
+      cta: { label: "Revisar leads", to: "/leads" },
     });
   }
 
