@@ -1349,6 +1349,157 @@ REGRAS:
       });
     }
 
+    // ── ACTION: sync_messages — import histórico do chip ──
+    if (action === "sync_messages") {
+      const body = await req.json();
+      const { provider_id, days = 30 } = body;
+      const provider = await getProvider(provider_id);
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ error: "sync_messages só disponível para Evolution" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const apiBase = provider.api_url.replace(/\/+$/, "");
+      const inst = encodeURIComponent(provider.instance_name);
+      const sinceTs = Date.now() - days * 24 * 60 * 60 * 1000;
+
+      // Evolution: POST /chat/findMessages/{instance} retorna paginado
+      let imported = 0;
+      let skipped = 0;
+      let convsCreated = 0;
+      let page = 1;
+      const pageSize = 100;
+      const maxPages = 50; // ceiling 5000 msgs por chip
+
+      while (page <= maxPages) {
+        let msgs: any[] = [];
+        try {
+          const res = await fetch(`${apiBase}/chat/findMessages/${inst}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: provider.api_key },
+            body: JSON.stringify({ where: {}, page, offset: pageSize }),
+          });
+          if (!res.ok) {
+            console.warn(`[sync_messages] page ${page} status ${res.status}`);
+            break;
+          }
+          const data = await res.json();
+          // Evolution pode retornar array direto OU { messages: { records: [...] } }
+          if (Array.isArray(data)) msgs = data;
+          else if (Array.isArray(data?.messages)) msgs = data.messages;
+          else if (Array.isArray(data?.messages?.records)) msgs = data.messages.records;
+          else msgs = [];
+        } catch (e: any) {
+          console.warn(`[sync_messages] fetch page ${page} error:`, e?.message);
+          break;
+        }
+
+        if (msgs.length === 0) break;
+
+        // Cache de conversations por phone pra evitar lookup repetido
+        const convCache = new Map<string, string>();
+
+        for (const m of msgs) {
+          try {
+            const key = m.key || {};
+            const remoteJid = key.remoteJid || m.remoteJid || "";
+            if (!remoteJid || remoteJid.includes("@g.us") || remoteJid.includes("@broadcast")) {
+              skipped++; continue;
+            }
+            const phone = remoteJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+            if (!phone) { skipped++; continue; }
+            const providerMsgId = key.id || m.id || "";
+            if (!providerMsgId) { skipped++; continue; }
+
+            // Timestamp em segundos ou ms
+            const tsRaw = m.messageTimestamp || m.timestamp || 0;
+            const tsMs = tsRaw > 1e12 ? tsRaw : tsRaw * 1000;
+            if (tsMs && tsMs < sinceTs) { skipped++; continue; }
+
+            const msg = m.message || {};
+            let content = ""; let messageType = "text";
+            if (msg.conversation) content = msg.conversation;
+            else if (msg.extendedTextMessage?.text) content = msg.extendedTextMessage.text;
+            else if (msg.imageMessage) { content = msg.imageMessage.caption || "📷 Imagem"; messageType = "image"; }
+            else if (msg.audioMessage) { content = msg.audioMessage.ptt ? "🎤 Áudio" : "🔊 Áudio"; messageType = "audio"; }
+            else if (msg.videoMessage) { content = msg.videoMessage.caption || "🎬 Vídeo"; messageType = "video"; }
+            else if (msg.documentMessage) { content = `📎 ${msg.documentMessage.fileName || "arquivo"}`; messageType = "document"; }
+            else if (msg.stickerMessage) { content = "🏷️ Sticker"; messageType = "sticker"; }
+            else if (msg.locationMessage) { content = "📍 Localização"; messageType = "location"; }
+            else { skipped++; continue; }
+
+            if (!content) { skipped++; continue; }
+
+            // Conversation: lookup ou create
+            let convId = convCache.get(phone);
+            if (!convId) {
+              const { data: existConv } = await supabase
+                .from("imphq_wa_conversations")
+                .select("id")
+                .eq("project_id", provider.project_id)
+                .eq("phone", phone)
+                .eq("provider_id", provider.id)
+                .maybeSingle();
+              if (existConv) {
+                convId = existConv.id;
+              } else {
+                const { data: newConv, error: cErr } = await supabase
+                  .from("imphq_wa_conversations")
+                  .insert({
+                    phone,
+                    contact_name: m.pushName || null,
+                    session: `evo-import-${Date.now()}`,
+                    project_id: provider.project_id,
+                    provider_id: provider.id,
+                    status: "active",
+                    message_count: 0,
+                  })
+                  .select("id")
+                  .single();
+                if (cErr) { skipped++; continue; }
+                convId = newConv.id;
+                convsCreated++;
+              }
+              convCache.set(phone, convId!);
+            }
+
+            // Insert message (dedup via unique index em provider_message_id)
+            const { error: insErr } = await supabase.from("imphq_wa_messages").insert({
+              conversation_id: convId,
+              direction: key.fromMe ? "outgoing" : "incoming",
+              phone,
+              content: content.slice(0, 4000),
+              message_type: messageType,
+              project_id: provider.project_id,
+              provider: "evolution",
+              provider_message_id: providerMsgId,
+              status: key.fromMe ? "sent" : "received",
+              created_at: tsMs ? new Date(tsMs).toISOString() : new Date().toISOString(),
+            });
+            if (insErr) {
+              if (insErr.code === "23505") skipped++;
+              else { console.warn("[sync_messages] insert err:", insErr.message); skipped++; }
+            } else {
+              imported++;
+            }
+          } catch (mErr: any) {
+            console.warn("[sync_messages] msg error:", mErr?.message);
+            skipped++;
+          }
+        }
+
+        if (msgs.length < pageSize) break;
+        page++;
+      }
+
+      console.log(`[sync_messages] done provider=${provider.instance_name} imported=${imported} skipped=${skipped} convs=${convsCreated}`);
+      return new Response(
+        JSON.stringify({ success: true, imported, skipped, conversations_created: convsCreated, pages: page }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(JSON.stringify({ error: "Action not found: " + action }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
