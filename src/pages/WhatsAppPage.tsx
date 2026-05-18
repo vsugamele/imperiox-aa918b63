@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -571,6 +571,25 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { pr
     setSyncing(false);
   };
 
+  const [importingMsgs, setImportingMsgs] = useState(false);
+  const importMessages = async () => {
+    setImportingMsgs(true);
+    toast.info("Importando histórico (pode levar 1-2 min)…");
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/whatsapp-api?action=sync_messages`,
+        { method: "POST", headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: JSON.stringify({ provider_id: provider.id, days: 30 }) }
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${data.imported} mensagens · ${data.conversations_created} conversas novas`);
+        onSynced();
+      } else toast.error(data.error || "Erro ao importar histórico");
+    } catch (err: any) { toast.error("Falha: " + err.message); }
+    setImportingMsgs(false);
+  };
+
   const restartInstance = async () => {
     setRestarting(true);
     try {
@@ -643,6 +662,12 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { pr
             <Button size="sm" variant="outline" onClick={syncContacts} disabled={syncing} className="h-7 text-[10px]">
               {syncing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
               Sync
+            </Button>
+          )}
+          {isConnected && (
+            <Button size="sm" variant="outline" onClick={importMessages} disabled={importingMsgs} className="h-7 text-[10px] border-primary/40 text-primary hover:bg-primary/10" title="Importa últimos 30 dias de conversas do chip">
+              {importingMsgs ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <History className="h-3 w-3 mr-1" />}
+              Importar histórico
             </Button>
           )}
           <DropdownMenu>
