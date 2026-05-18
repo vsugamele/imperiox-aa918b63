@@ -79,9 +79,9 @@ export default function NextActionCard({ projectId }: Props) {
             <h3 className="text-base font-semibold text-foreground mb-1">{action.title}</h3>
             {action.reason && <p className="text-xs text-muted-foreground leading-5 line-clamp-2">{action.reason}</p>}
           </div>
-          <Link to="/imperius">
+          <Link to="/imperius" aria-label="Abrir Imperius para ver detalhes da ação">
             <Button size="sm" className="shrink-0">
-              Ver <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              Ver <ArrowRight className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
             </Button>
           </Link>
         </div>
