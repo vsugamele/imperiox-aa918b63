@@ -61,7 +61,7 @@ const configurarItems = [
   { title: "Guia", url: "/guia", icon: BookOpen, color: "text-amber-400" },
 ];
 
-function NavGroup({ label, items }: { label: string; items: typeof mainItems }) {
+function NavGroup({ label, items }: { label: string; items: typeof operarItems }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
