@@ -2380,30 +2380,42 @@ export type Database = {
       areamembrojp_email_sequence_steps: {
         Row: {
           ai_prompt_override: string | null
+          body_static_html: string | null
           created_at: string
           delay_hours: number
+          dynamic_reason: string | null
           id: string
+          render_mode: string
           sequence_id: string
           step_order: number
           subject_override: string | null
+          subject_static: string | null
         }
         Insert: {
           ai_prompt_override?: string | null
+          body_static_html?: string | null
           created_at?: string
           delay_hours?: number
+          dynamic_reason?: string | null
           id?: string
+          render_mode?: string
           sequence_id: string
           step_order?: number
           subject_override?: string | null
+          subject_static?: string | null
         }
         Update: {
           ai_prompt_override?: string | null
+          body_static_html?: string | null
           created_at?: string
           delay_hours?: number
+          dynamic_reason?: string | null
           id?: string
+          render_mode?: string
           sequence_id?: string
           step_order?: number
           subject_override?: string | null
+          subject_static?: string | null
         }
         Relationships: [
           {
