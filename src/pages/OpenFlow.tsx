@@ -58,6 +58,7 @@ interface Automacao {
   trigger_tipo: string; acoes: Acao[]; ativo: boolean; created_at?: string;
   provider_id?: string;
   quiet_start?: number | null; quiet_end?: number | null; dedupe_hours?: number | null;
+  campanha_id?: string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
