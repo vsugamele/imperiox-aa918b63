@@ -334,10 +334,35 @@ export default function OpenFlow() {
             </CardContent>
           </Card>
 
-          {/* Automações grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {automacoes.map(a => {
+          {/* Filtro por campanha */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtrar por campanha:</span>
+            <Select value={filterCampanha} onValueChange={setFilterCampanha}>
+              <SelectTrigger className="h-7 w-[220px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas</SelectItem>
+                <SelectItem value="__none__">Sem campanha</SelectItem>
+                {campanhas.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Automações agrupadas por campanha */}
+          {(() => {
+            const filtered = automacoes.filter(a => {
+              if (filterCampanha === "__all__") return true;
+              if (filterCampanha === "__none__") return !a.campanha_id;
+              return a.campanha_id === filterCampanha;
+            });
+            const groups = new Map<string, Automacao[]>();
+            filtered.forEach(a => {
+              const key = a.campanha_id || "__none__";
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key)!.push(a);
+            });
+            const renderCard = (a: Automacao) => {
               const tm = triggerMeta(a.trigger_tipo);
+              const camp = campanhas.find(c => c.id === a.campanha_id);
               return (
                 <Card
                   key={a.id}
@@ -363,6 +388,7 @@ export default function OpenFlow() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge variant="outline" className="text-[10px]">{tm.label}</Badge>
                       {a.project_id && <Badge className="text-[9px] bg-primary/10 text-primary border-0">{projectName(a.project_id)}</Badge>}
+                      {camp && <Badge className="text-[9px] bg-violet-500/10 text-violet-400 border-0">📣 {camp.nome}</Badge>}
                       {(a as any).produto && <Badge variant="outline" className="text-[9px]">🏷️ {(a as any).produto}</Badge>}
                     </div>
                     <div className="flex items-center gap-1">
@@ -381,9 +407,37 @@ export default function OpenFlow() {
                   </CardContent>
                 </Card>
               );
-            })}
-            {automacoes.length === 0 && <p className="text-sm text-muted-foreground col-span-full text-center py-8">Nenhuma automação criada</p>}
-          </div>
+            };
+            const groupKeys = Array.from(groups.keys()).sort((a, b) => (a === "__none__" ? 1 : b === "__none__" ? -1 : 0));
+            return (
+              <div className="space-y-5">
+                {groupKeys.map(key => {
+                  const camp = campanhas.find(c => c.id === key);
+                  return (
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        {camp ? (
+                          <>
+                            <Megaphone className="h-3.5 w-3.5 text-violet-400" />
+                            <h3 className="text-xs uppercase tracking-wider font-medium text-foreground">{camp.nome}</h3>
+                            <Badge variant="outline" className="text-[9px]">{projectName(camp.project_id)}</Badge>
+                            {camp.status !== "ativa" && <Badge variant="outline" className="text-[9px]">{camp.status}</Badge>}
+                          </>
+                        ) : (
+                          <h3 className="text-xs uppercase tracking-wider text-muted-foreground">Sem campanha</h3>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">· {groups.get(key)!.length} fluxo(s)</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {groups.get(key)!.map(renderCard)}
+                      </div>
+                    </div>
+                  );
+                })}
+                {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Nenhuma automação</p>}
+              </div>
+            );
+          })()}
 
           {/* Recent Webhooks */}
           {webhooks.length > 0 && (
