@@ -110,7 +110,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const produtos: any[] = data.produtos || [];
   const selectedModelId = normalizeModel(selectedModel);
   const selectedIsOpenRouter = selectedModel.startsWith("openrouter:");
-  const shouldUseAsync = selectedIsOpenRouter || isSlowModel(selectedModelId) || ["lp", "vsl", "webinar", "ads_video"].includes(activeType);
+  const shouldUseAsync = selectedIsOpenRouter || isSlowModel(selectedModelId) || ["ai_image", "lp", "vsl", "webinar", "ads_video"].includes(activeType);
 
   const filteredOrModels = useMemo(() => {
     const q = modelSearch.toLowerCase().trim();
