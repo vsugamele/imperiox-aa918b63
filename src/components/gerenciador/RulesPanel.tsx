@@ -111,7 +111,10 @@ export function RulesPanel() {
   };
 
   const adoptSuggestion = async (s: Suggestion) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error("Faça login para criar regras"); return; }
     const { error } = await supabase.from("imphq_ads_rules").insert({
+      user_id: user.id,
       rule_type: s.rule_type,
       params: s.conditions,
       enabled: false,
