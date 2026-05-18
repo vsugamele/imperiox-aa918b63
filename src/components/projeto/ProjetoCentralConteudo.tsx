@@ -208,7 +208,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   };
 
   const invokeOpenflow = async (bodyPayload: Record<string, any>, useAsync = shouldUseAsync) => {
-    const finalPayload = { ...bodyPayload, model: normalizeModel(bodyPayload.model || selectedModel) };
+    const finalPayload: Record<string, any> = { ...bodyPayload, model: normalizeModel(bodyPayload.model || selectedModel) };
     const payloadIsOR = selectedIsOpenRouter || String(bodyPayload.model || "").startsWith("openrouter:");
     if (payloadIsOR && !finalPayload.openrouter_key) finalPayload.openrouter_key = getOpenRouterKey();
 
