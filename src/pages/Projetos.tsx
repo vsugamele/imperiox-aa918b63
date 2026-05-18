@@ -323,9 +323,18 @@ export default function Projetos() {
 
       {/* Search + Folder Filter */}
       <div className="space-y-3">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar projetos..." className="pl-9 bg-secondary" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar projetos..." className="pl-9 bg-secondary" />
+          </div>
+          <div className="flex gap-1 text-[10px] uppercase tracking-wider">
+            {(["smart", "name", "recent"] as const).map(m => (
+              <Badge key={m} variant={sortMode === m ? "default" : "outline"} className="cursor-pointer" onClick={() => setSortMode(m)}>
+                {m === "smart" ? "📊 Performance" : m === "name" ? "A→Z" : "Recente"}
+              </Badge>
+            ))}
+          </div>
         </div>
         {folders.length > 0 && (
           <div className="flex gap-1.5 flex-wrap items-center">
