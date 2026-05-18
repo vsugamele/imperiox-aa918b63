@@ -21,6 +21,7 @@ interface WaSession {
 interface Provider {
   id: string;
   instance_name?: string;
+  display_name?: string | null;
   twilio_from?: string;
   provider: string;
   project_id: string;
