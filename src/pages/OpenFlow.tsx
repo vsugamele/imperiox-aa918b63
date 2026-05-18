@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -94,6 +94,7 @@ export default function OpenFlow() {
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [filterCampanha, setFilterCampanha] = useState<string>("__all__");
+  const [leadCounts, setLeadCounts] = useState<{ byCamp: Map<string, number>; byProject: Map<string, number>; global: number }>({ byCamp: new Map(), byProject: new Map(), global: 0 });
 
   // ── Data loading ─────────────────────────────────────────────
   const load = async () => {
@@ -114,6 +115,23 @@ export default function OpenFlow() {
       twilio_from: null, project_id: s.tenant_id || null,
     }));
     setProviders([...(provRes.data || []), ...hubProviders]);
+
+    // Lead counts (últimos 30 dias) para badges nos cards
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data: leadsRecent } = await supabase
+      .from("imphq_leads")
+      .select("project_id, campanha_id")
+      .gte("criado_em", since)
+      .limit(5000);
+    const byCamp = new Map<string, number>();
+    const byProject = new Map<string, number>();
+    let global = 0;
+    (leadsRecent || []).forEach((l: any) => {
+      global++;
+      if (l.campanha_id) byCamp.set(l.campanha_id, (byCamp.get(l.campanha_id) || 0) + 1);
+      if (l.project_id) byProject.set(l.project_id, (byProject.get(l.project_id) || 0) + 1);
+    });
+    setLeadCounts({ byCamp, byProject, global });
   };
 
   const loadKpis = async () => {
@@ -390,6 +408,18 @@ export default function OpenFlow() {
                       {a.project_id && <Badge className="text-[9px] bg-primary/10 text-primary border-0">{projectName(a.project_id)}</Badge>}
                       {camp && <Badge className="text-[9px] bg-violet-500/10 text-violet-400 border-0">📣 {camp.nome}</Badge>}
                       {(a as any).produto && <Badge variant="outline" className="text-[9px]">🏷️ {(a as any).produto}</Badge>}
+                      {(() => {
+                        const n = a.campanha_id
+                          ? (leadCounts.byCamp.get(a.campanha_id) || 0)
+                          : a.project_id
+                          ? (leadCounts.byProject.get(a.project_id) || 0)
+                          : leadCounts.global;
+                        return (
+                          <Badge variant="outline" className="text-[9px] gap-1" title="Leads no escopo (últimos 30 dias)">
+                            <Users className="h-2.5 w-2.5" /> {n}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-1">
                       {a.acoes.map((ac, i) => {

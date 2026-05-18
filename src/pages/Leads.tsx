@@ -648,6 +648,33 @@ export default function Leads() {
                 </TabsContent>
 
                 <TabsContent value="automacoes" className="space-y-4">
+                  {(() => {
+                    const matching = automations.filter(a => {
+                      if (!a.ativo) return false;
+                      if (a.project_id && editLead?.project_id && a.project_id !== editLead.project_id) return false;
+                      if (a.campanha_id) {
+                        if (!(editLead as any)?.campanha_id) return false;
+                        if (a.campanha_id !== (editLead as any).campanha_id) return false;
+                      }
+                      return true;
+                    });
+                    return (
+                      <div className="space-y-2 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20">
+                        <p className="text-xs font-bold text-violet-300 uppercase tracking-wider">🎯 Fluxos que atendem este lead ({matching.length})</p>
+                        {(editLead as any)?.campanha_id && <Badge variant="outline" className="text-[9px] bg-violet-500/10 text-violet-400 border-violet-500/30">📣 Campanha vinculada</Badge>}
+                        {matching.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground italic">Nenhum fluxo ativo com escopo compatível.</p>
+                        ) : (
+                          <div className="space-y-1">{matching.map(a => (
+                            <div key={a.id} className="flex items-center justify-between text-[11px] p-1.5 bg-secondary/40 rounded">
+                              <span className="truncate">⚡ {a.nome}</span>
+                              <Badge variant="outline" className="text-[9px]">{a.trigger_tipo}</Badge>
+                            </div>
+                          ))}</div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="space-y-2"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">⚡ Disparar Automação</p>{(() => { const filteredAutos = editLead?.project_id ? automations.filter(a => !a.project_id || a.project_id === editLead.project_id) : automations; return filteredAutos.length === 0 ? (<p className="text-xs text-muted-foreground">Nenhuma automação cadastrada. Crie em OpenFlow.</p>) : (<div className="grid grid-cols-2 gap-2">{filteredAutos.map(a => (<Button key={a.id} size="sm" variant="outline" className="text-xs justify-start" onClick={() => editLead && triggerAutomation(editLead, a)}><Play className="h-3 w-3 mr-1" /> {a.nome}</Button>))}</div>); })()}</div>
                   <div className="space-y-2 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Histórico de Ações</p>{leadAutomationLogs.length === 0 ? (<p className="text-xs text-muted-foreground text-center py-4">Nenhuma ação registrada</p>) : (<div className="space-y-2 max-h-[250px] overflow-y-auto">{leadAutomationLogs.map(log => (<div key={log.id} className="p-2 bg-secondary/50 rounded-lg"><div className="flex items-center justify-between"><span className="text-xs font-medium">{log.action}</span><span className="text-[10px] text-muted-foreground">{log.created_at ? (() => { try { const d = new Date(log.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })() : ""}</span></div>{log.details && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(log.details as Record<string, any>).filter(([, v]) => v).map(([k, v]) => (<Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 25)}</Badge>))}</div>)}</div>))}</div>)}</div>
                 </TabsContent>
