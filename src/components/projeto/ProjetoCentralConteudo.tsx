@@ -259,15 +259,13 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
 
       // ── Image generation ──
       if (activeType === "ai_image") {
-        const { data: aiData, error } = await supabase.functions.invoke("openflow-ai", {
-          body: {
-            project_id: projectId,
-            action: "generate_image",
-            prompt: customPrompt || `Criativo profissional para o produto "${productName}"`,
-            quality: imageQuality,
-          },
+        const aiData = await invokeOpenflow({
+          project_id: projectId,
+          action: "generate_image",
+          prompt: customPrompt || `Criativo profissional para o produto "${productName}"`,
+          quality: imageQuality,
+          model: selectedModelId,
         });
-        if (error) throw error;
         if (aiData?.image_url) {
           setGeneratedImageUrl(aiData.image_url);
           setGeneratedContent(aiData.text || "Imagem gerada com sucesso.");
