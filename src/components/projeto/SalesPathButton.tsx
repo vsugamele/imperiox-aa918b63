@@ -78,9 +78,33 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
       const { data, error } = await supabase.functions.invoke("sales-path-engine", { body: { projectId } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setPlan(data);
-      loadHistory();
-      toast.success("Plano de Ataque pronto.");
+      const pathId = data?.id;
+      if (!pathId) throw new Error("Engine não retornou id do plano");
+
+      toast.info("Imperius está analisando... (pode levar 1-3 min)", { duration: 4000 });
+
+      // Polling do registro até status ready/failed (max 8 min)
+      const start = Date.now();
+      const MAX_MS = 8 * 60 * 1000;
+      while (Date.now() - start < MAX_MS) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const { data: row } = await supabase
+          .from("imphq_sales_paths")
+          .select("*")
+          .eq("id", pathId)
+          .maybeSingle();
+        if (!row) continue;
+        if (row.status === "ready") {
+          setPlan(row as any);
+          loadHistory();
+          toast.success("Plano de Ataque pronto.");
+          return;
+        }
+        if (row.status === "failed") {
+          throw new Error((row as any).error_message || "Falha ao gerar plano");
+        }
+      }
+      throw new Error("Timeout: análise demorou mais de 8 minutos");
     } catch (e: any) {
       toast.error(e.message || "Falha ao gerar plano");
       setOpen(false);
