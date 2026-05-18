@@ -530,6 +530,14 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
                       </Badge>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{r.description}</p>
+                    {r.cta && (
+                      <Button asChild size="sm" variant="outline" className="mt-2 h-7 text-[11px] gap-1">
+                        <Link to={r.cta.to}>
+                          {r.cta.label}
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
