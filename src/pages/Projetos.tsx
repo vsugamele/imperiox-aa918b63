@@ -98,8 +98,20 @@ const DEFAULT_TEMPLATES: Omit<ProjectTemplate, "id">[] = [
   },
 ];
 
+type ProjectKpis = {
+  receita7: number; receita30: number; receitaPrev30: number;
+  delta: number; spend30: number; roas: number;
+  leads7: number; health: "hot" | "warm" | "cold";
+};
+
+function fmtBRL(v: number) {
+  if (v >= 1000) return `R$ ${(v / 1000).toFixed(1)}k`;
+  return `R$ ${v.toFixed(0)}`;
+}
+
 export default function Projetos() {
   const [projects, setProjects] = useState<any[]>([]);
+  const [kpisMap, setKpisMap] = useState<Record<string, ProjectKpis>>({});
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -107,16 +119,48 @@ export default function Projetos() {
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [creatingFromTemplate, setCreatingFromTemplate] = useState(false);
   const [activeFolder, setActiveFolder] = useState("all");
+  const [sortMode, setSortMode] = useState<"smart" | "name" | "recent">("smart");
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const loadKpis = async (projs: any[]) => {
+    const now = new Date();
+    const d7 = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+    const d30 = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+    const d60 = new Date(now.getTime() - 60 * 86400000).toISOString().slice(0, 10);
+    const ts7 = new Date(now.getTime() - 7 * 86400000).toISOString();
+
+    const [vRes, aRes, lRes] = await Promise.all([
+      supabase.from("imphq_vendas").select("project_id, valor, valor_liquido, data_venda").gte("data_venda", d60).limit(5000),
+      supabase.from("imphq_ads_spend").select("project_id, gasto, data_ref").gte("data_ref", d30).limit(5000),
+      supabase.from("imphq_leads").select("project_id, created_at").gte("created_at", ts7).limit(5000),
+    ]) as any;
+
+    const map: Record<string, ProjectKpis> = {};
+    for (const p of projs) {
+      const vs = (vRes.data || []).filter((v: any) => v.project_id === p.id);
+      const r7 = vs.filter((v: any) => v.data_venda >= d7).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const r30 = vs.filter((v: any) => v.data_venda >= d30).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const rPrev = vs.filter((v: any) => v.data_venda < d30 && v.data_venda >= d60).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const spend30 = (aRes.data || []).filter((a: any) => a.project_id === p.id).reduce((s: number, a: any) => s + Number(a.gasto ?? 0), 0);
+      const leads7 = (lRes.data || []).filter((l: any) => l.project_id === p.id).length;
+      const delta = rPrev > 0 ? ((r30 - rPrev) / rPrev) * 100 : (r30 > 0 ? 100 : 0);
+      const roas = spend30 > 0 ? r30 / spend30 : 0;
+      const health: ProjectKpis["health"] = r7 > 0 || leads7 >= 5 ? "hot" : (r30 > 0 || leads7 > 0 ? "warm" : "cold");
+      map[p.id] = { receita7: r7, receita30: r30, receitaPrev30: rPrev, delta, spend30, roas, leads7, health };
+    }
+    setKpisMap(map);
+  };
 
   const load = async () => {
     const [projRes, tplRes] = await Promise.all([
       supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_project_templates").select("*").order("created_at", { ascending: false }),
     ]);
-    setProjects(projRes.data || []);
+    const projs = projRes.data || [];
+    setProjects(projs);
     setTemplates((tplRes.data || []) as ProjectTemplate[]);
+    loadKpis(projs);
   };
 
   useEffect(() => { load(); }, []);
