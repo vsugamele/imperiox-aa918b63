@@ -72,6 +72,7 @@ function providerColor(id: string | null | undefined): string {
 
 function providerLabel(prov: Provider | undefined): string | null {
   if (!prov) return null;
+  if (prov.display_name) return prov.display_name;
   if (prov.provider === "evolution") return prov.instance_name || "Evolution";
   return prov.twilio_from ? `Twilio ...${prov.twilio_from.slice(-4)}` : "Twilio";
 }
