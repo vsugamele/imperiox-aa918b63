@@ -191,7 +191,7 @@ export default function Referencias() {
 
   const subfolders = getSubfoldersAtLevel();
 
-  const filtered = refs.filter(r => {
+  const filteredRaw = refs.filter(r => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
@@ -210,6 +210,11 @@ export default function Referencias() {
 
     return ms && mt && mp && mpr && mpa && mo && mc;
   });
+
+  // Sort: when viewing ads, show top performers first by default
+  const filtered = filterOrigem === "ads"
+    ? [...filteredRaw].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    : filteredRaw;
 
   // Group by project for display
   const groupedByProject = () => {
