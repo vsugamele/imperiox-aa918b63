@@ -230,6 +230,8 @@ export function ProjetoComando({ projectId, project }: Props) {
         </Button>
       </div>
 
+      <PlanProgressBanner projectId={projectId} />
+
       {/* ===== Foco do Dia (Imperius-ready) ===== */}
       {(() => {
         const receitaMes = vendasMes.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0);
