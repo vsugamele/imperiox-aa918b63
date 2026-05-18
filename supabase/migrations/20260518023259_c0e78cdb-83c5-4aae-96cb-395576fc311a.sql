@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_wa_providers ADD COLUMN IF NOT EXISTS display_name TEXT;
