@@ -34,6 +34,7 @@ export default function Recuperacao() {
   const [activeBucket, setActiveBucket] = useState<RecoveryBucketId>("pix_urgent");
   const [savingTemplateKey, setSavingTemplateKey] = useState<string | null>(null);
   const [templates, setTemplates] = useState<RecoveryTemplateDraft[]>([]);
+  const [dispatchingBucket, setDispatchingBucket] = useState<RecoveryBucketId | null>(null);
 
   const selectedProject = searchParams.get("projeto") || "all";
   const selectedProjectName = useMemo(
@@ -255,6 +256,45 @@ export default function Recuperacao() {
     toast.success("Automação criada no OpenFlow em modo rascunho.");
   };
 
+  const handleDispatchBucket = async (bucketId: RecoveryBucketId) => {
+    if (selectedProject === "all") {
+      toast.error("Selecione um projeto para disparar.");
+      return;
+    }
+    const bucket = buckets.find((b) => b.id === bucketId);
+    if (!bucket || bucket.items.length === 0) {
+      toast.error("Nenhum item neste bucket.");
+      return;
+    }
+    try {
+      setDispatchingBucket(bucketId);
+      const payload = {
+        project_id: selectedProject,
+        bucket: bucketId,
+        max: 25,
+        items: bucket.items.slice(0, 25).map((it) => ({
+          id: it.id,
+          leadId: it.leadId,
+          vendaId: it.vendaId,
+          leadName: it.leadName,
+          phone: it.phone,
+          product: it.product,
+          value: it.value,
+        })),
+      };
+      const { data, error } = await supabase.functions.invoke("recovery-bucket-dispatch", { body: payload });
+      if (error) throw error;
+      const sent = (data as any)?.sent ?? 0;
+      const skipped = (data as any)?.skipped ?? 0;
+      toast.success(`Disparo concluído: ${sent} enviadas, ${skipped} ignoradas.`);
+      load();
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao disparar bucket.");
+    } finally {
+      setDispatchingBucket(null);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -326,6 +366,8 @@ export default function Recuperacao() {
             disabledAutomate={selectedProject === "all"}
             onSelect={() => setActiveBucket(bucket.id)}
             onAutomate={() => handleAutomateBucket(bucket.id)}
+            onDispatch={() => handleDispatchBucket(bucket.id)}
+            dispatching={dispatchingBucket === bucket.id}
           />
         ))}
       </div>
