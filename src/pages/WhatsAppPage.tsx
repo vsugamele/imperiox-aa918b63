@@ -142,7 +142,9 @@ export default function WhatsApp() {
     load();
   };
 
-  const selectedProvider = selectedSession ? getProvider(selectedSession.project_id) : null;
+  const selectedProvider = selectedSession
+    ? (selectedSession.provider_id ? providers.find(p => p.id === selectedSession.provider_id) : null) || getProvider(selectedSession.project_id)
+    : null;
 
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col">
@@ -242,15 +244,16 @@ export default function WhatsApp() {
                         📞 {selectedSession.phone} · {projectName(selectedSession.project_id)}
                         {selectedProvider && (
                           <span className="ml-1.5 text-[10px] opacity-70">
-                            · via {selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from}
+                            · via {(selectedProvider as any).display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from)}
                           </span>
                         )}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
                       {selectedProvider && (
-                        <Badge variant="outline" className="text-[9px]">
-                          {selectedProvider.provider === "evolution" ? "🟢 Evolution" : "🔵 Twilio"}
+                        <Badge variant="outline" className="text-[9px] flex items-center gap-1.5" title={selectedProvider.instance_name || ""}>
+                          <span className="inline-block w-2 h-2 rounded-full" style={{ background: `hsl(${[...selectedProvider.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % 360}, 65%, 55%)` }} />
+                          {(selectedProvider as any).display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : "Twilio")}
                         </Badge>
                       )}
                       <Tabs value={chatTab} onValueChange={(v) => setChatTab(v as any)}>
@@ -613,7 +616,8 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { pr
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : isConnected ? <Wifi className="h-4 w-4 text-emerald-400" /> : <WifiOff className="h-4 w-4 text-destructive" />}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-xs truncate">{provider.instance_name}</span>
+              <span className="font-medium text-xs truncate">{(provider as any).display_name || provider.instance_name}</span>
+              {(provider as any).display_name && <span className="text-[10px] text-muted-foreground/70 truncate">({provider.instance_name})</span>}
               <Badge variant="outline" className="text-[9px] gap-1 bg-primary/10 text-primary border-primary/30">
                 <FolderOpen className="h-2.5 w-2.5" /> {projectName}
               </Badge>

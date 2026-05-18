@@ -21,24 +21,25 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
     project_id: "",
     provider: "evolution" as "evolution" | "twilio",
     instance_name: "",
+    display_name: "",
     api_url: "",
     api_key: "",
     twilio_from: "",
   });
   const [showApiKey, setShowApiKey] = useState(false);
 
-  const duplicate = form.project_id ? existingProviders.find(p => p.project_id === form.project_id) : null;
+  const existingForProject = form.project_id ? existingProviders.filter(p => p.project_id === form.project_id) : [];
 
   const save = async () => {
     if (!form.project_id || !form.provider) {
       toast.error("Projeto e provider obrigatórios");
       return;
     }
-    if (duplicate && !confirm(`Já existe um provider (${duplicate.instance_name || duplicate.provider}) para esse projeto. Criar outro mesmo assim?`)) return;
     const { error } = await supabase.from("imphq_wa_providers").insert({
       project_id: form.project_id,
       provider: form.provider,
       instance_name: form.instance_name || null,
+      display_name: form.display_name || null,
       api_url: form.api_url || null,
       api_key: form.api_key || null,
       twilio_from: form.twilio_from || null,
@@ -46,7 +47,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
     if (error) { toast.error(error.message); return; }
     toast.success("Provider configurado!");
     onOpenChange(false);
-    setForm({ project_id: "", provider: "evolution", instance_name: "", api_url: "", api_key: "", twilio_from: "" });
+    setForm({ project_id: "", provider: "evolution", instance_name: "", display_name: "", api_url: "", api_key: "", twilio_from: "" });
     onCreated();
   };
 
@@ -62,9 +63,9 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
               <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          {duplicate && (
-            <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 leading-5">
-              ⚠ Já existe um provider <strong>{duplicate.instance_name || duplicate.provider}</strong> para esse projeto. Criar outro vai gerar provider duplicado.
+          {existingForProject.length > 0 && (
+            <div className="text-[11px] text-sky-300 bg-sky-500/10 border border-sky-500/30 rounded px-2 py-1.5 leading-5">
+              ℹ Esse projeto já tem {existingForProject.length} chip(s): <strong>{existingForProject.map(p => p.display_name || p.instance_name || p.provider).join(", ")}</strong>. Você pode adicionar mais um (failover/2º número).
             </div>
           )}
           <div>
@@ -81,7 +82,8 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
             <>
               <div><Label>URL da API</Label><Input value={form.api_url} onChange={e => setForm({ ...form, api_url: e.target.value })} placeholder="https://evolution.seuserver.com" /></div>
               <div><Label>API Key</Label><div className="relative"><Input value={form.api_key} onChange={e => setForm({ ...form, api_key: e.target.value })} placeholder="Sua API Key" type={showApiKey ? "text" : "password"} className="pr-10" /><Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10" onClick={() => setShowApiKey(!showApiKey)}>{showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button></div></div>
-              <div><Label>Nome da Instância</Label><Input value={form.instance_name} onChange={e => setForm({ ...form, instance_name: e.target.value })} placeholder="minha-instancia" /></div>
+              <div><Label>Nome da Instância (técnico)</Label><Input value={form.instance_name} onChange={e => setForm({ ...form, instance_name: e.target.value })} placeholder="minha-instancia" /></div>
+              <div><Label>Apelido do chip (opcional)</Label><Input value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} placeholder="Ex: Suporte 1, Vendas, Pós-venda" /></div>
             </>
           )}
           {form.provider === "twilio" && (
