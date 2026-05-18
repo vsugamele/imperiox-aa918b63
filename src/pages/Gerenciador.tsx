@@ -178,7 +178,7 @@ export default function Gerenciador() {
           <KpiCardsHeader current={totals.cur} previous={totals.prev} />
 
           {/* Alertas críticos */}
-          <AlertsHeader ads={metaAds} onFilter={(term) => setForcedSearch(term)} />
+          <AlertsHeader ads={metaAds} onFilter={(term) => setForcedSearch(term)} projectId={projectId !== "__all__" ? projectId : undefined} />
 
           {/* Painel de Regras Automáticas */}
           <RulesPanel />

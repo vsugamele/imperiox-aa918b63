@@ -43,6 +43,23 @@ serve(async (req) => {
       }
     }
 
+    // Fetch top-rated references (swipes) for inspiration
+    let refsCtx = "";
+    if (project_id) {
+      const { data: refs } = await supabase
+        .from("imphq_swipes")
+        .select("title, raw_text, rating, gatilhos, mecanismo")
+        .eq("project_id", project_id)
+        .gte("rating", 4)
+        .order("rating", { ascending: false })
+        .limit(5);
+      if (refs && refs.length) {
+        refsCtx = "\n\nReferências de alta performance (inspire-se em estrutura/gatilhos, NÃO copie literal):\n" +
+          refs.map((r: any, i: number) => `[${i + 1}] ${r.title} (rating ${r.rating}) — gatilhos: ${(r.gatilhos || []).join(", ")} — mecanismo: ${r.mecanismo || "—"}\nTrecho: ${String(r.raw_text || "").slice(0, 300)}`).join("\n");
+      }
+    }
+
+
     const N = Math.max(1, Math.min(14, Number(count) || 7));
 
     const systemPrompt = `Você é Imperius, estrategista de copy WhatsApp para grupos. Escreva em pt-BR. Mensagens curtas (máx 8 linhas), emojis sutis, CTA claro. Use {nome}, {produto}, {grupo_nome} quando fizer sentido.`;
@@ -50,7 +67,7 @@ serve(async (req) => {
     const userPrompt = `Gere uma sequência de ${N} mensagens WhatsApp para grupos.
 Produto: ${produto || "(não informado)"}
 Tom: ${tom}
-Briefing: ${briefing || "(livre)"}${projectCtx}
+Briefing: ${briefing || "(livre)"}${projectCtx}${refsCtx}
 
 Estrutura de cada mensagem:
 - day_offset (0 = dia da entrada, 1 = dia seguinte, etc.) — distribua de forma natural ao longo de ${N} dias

@@ -1,13 +1,19 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Heart, TrendingUp, Activity, FileText, Target } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Heart, TrendingUp, Activity, FileText, Target, Sparkles, Loader2 } from "lucide-react";
 import { HealthBreakdown } from "@/lib/healthScore";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   health: HealthBreakdown;
+  projectId?: string;
 }
 
-export function HealthScoreCard({ health }: Props) {
+export function HealthScoreCard({ health, projectId }: Props) {
+  const [enq, setEnq] = useState(false);
   const ringColor = health.score >= 80 ? "stroke-emerald-400"
     : health.score >= 60 ? "stroke-emerald-400"
     : health.score >= 40 ? "stroke-amber-400"
@@ -15,6 +21,29 @@ export function HealthScoreCard({ health }: Props) {
 
   const circumference = 2 * Math.PI * 36;
   const offset = circumference - (health.score / 100) * circumference;
+
+  const askImperius = async () => {
+    if (!projectId) return;
+    setEnq(true);
+    try {
+      const { error } = await supabase.from("imphq_ai_actions").insert({
+        projeto_id: projectId,
+        kind: "health_recovery",
+        risk_level: "low",
+        status: "pending",
+        title: `Health Score ${health.score} — gerar plano de recuperação`,
+        reason: `Score ${health.score}/100 (${health.statusLabel}). ROAS=${Math.round(health.roasScore)}, Conv=${Math.round(health.conversaoScore)}, Ativ=${Math.round(health.atividadeScore)}, Conteúdo=${Math.round(health.conteudoScore)}.`,
+        source: "health_score_card",
+        payload: { breakdown: health },
+      } as any);
+      if (error) throw error;
+      toast.success("Plano solicitado ao Imperius");
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao enviar");
+    } finally {
+      setEnq(false);
+    }
+  };
 
   return (
     <Card className="bg-card border-border">
@@ -53,6 +82,12 @@ export function HealthScoreCard({ health }: Props) {
             <Breakdown icon={<FileText className="h-3 w-3" />} label="Conteúdo 14d" value={health.conteudoScore} />
           </div>
         </div>
+        {projectId && health.score < 60 && (
+          <Button size="sm" variant="outline" className="mt-3 w-full h-7 text-[11px] gap-1.5" onClick={askImperius} disabled={enq}>
+            {enq ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-gold" />}
+            Pedir plano de recuperação ao Imperius
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
