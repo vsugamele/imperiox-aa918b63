@@ -229,8 +229,39 @@ export function ProjetoComando({ projectId, project }: Props) {
         </Button>
       </div>
 
+      {/* ===== Foco do Dia (Imperius-ready) ===== */}
+      {(() => {
+        const receitaMes = vendasMes.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0);
+        const gastoMes = adsMes.reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0);
+        const roasMes = gastoMes > 0 ? receitaMes / gastoMes : 0;
+        const h = calcHealthScore({
+          roas: roasMes,
+          leadsRecent: leadsMes.length,
+          vendasRecent: vendasMes.length,
+          vendas7d: vendas7dArr.length,
+          conteudos14d,
+        });
+        return (
+          <FocoDoDia
+            projectId={projectId}
+            signals={{
+              healthScore: h.score,
+              roas: roasMes,
+              leadsToday,
+              salesToday,
+              pendingTotal,
+              vendas7d: vendas7dArr.length,
+              conteudos14d,
+              adsHojeTotal,
+              receitaHoje: totalVendasHojeValor,
+            }}
+          />
+        );
+      })()}
+
       {/* ===== 1. Pulso de Hoje ===== */}
       <div>
+
         <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-2">
           <Zap className="h-3.5 w-3.5 text-primary" /> Pulso de Hoje
         </h3>
