@@ -197,6 +197,7 @@ export default function OpenFlow() {
       quiet_start: editing.quiet_start ?? null,
       quiet_end: editing.quiet_end ?? null,
       dedupe_hours: editing.dedupe_hours ?? 0,
+      campanha_id: editing.campanha_id || null,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
