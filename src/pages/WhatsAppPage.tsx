@@ -616,7 +616,8 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { pr
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : isConnected ? <Wifi className="h-4 w-4 text-emerald-400" /> : <WifiOff className="h-4 w-4 text-destructive" />}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-xs truncate">{provider.instance_name}</span>
+              <span className="font-medium text-xs truncate">{(provider as any).display_name || provider.instance_name}</span>
+              {(provider as any).display_name && <span className="text-[10px] text-muted-foreground/70 truncate">({provider.instance_name})</span>}
               <Badge variant="outline" className="text-[9px] gap-1 bg-primary/10 text-primary border-primary/30">
                 <FolderOpen className="h-2.5 w-2.5" /> {projectName}
               </Badge>
