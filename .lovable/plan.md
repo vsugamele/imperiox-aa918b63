@@ -1,52 +1,43 @@
-# Semana 2 — Performance & Confiabilidade
+# Semana 3 — Inteligência & Receita
 
-Objetivo: reduzir egress do Supabase, cortar refetches inúteis, e endurecer pontos frágeis (realtime, polling, queries sem filtro). Tudo frontend + 1-2 índices se necessário.
+Objetivo: transformar dados que já temos em ações que geram receita. Foco em recuperação, hot leads e ações automáticas do Imperius — sem novas integrações.
 
-## 1. React Query defaults globais ✅
+## 1. Hot Lead Auto-Action ⏳
 
-`src/App.tsx` — `QueryClient` agora vem com:
-- `staleTime: 60s` — não refetch ao trocar de aba/rota dentro de 1min
-- `gcTime: 5min` — cache vive mais
-- `refetchOnWindowFocus: false` — fim do hammering ao voltar pra aba
-- `retry: 1` — falha rápido em vez de 3 tentativas
+Hoje o pipeline detecta lead quente (Pix/Boleto em 2h) mas a ação fica pendente no inbox. Mudança:
+- Para leads com score ≥ 80 + intent de Pix < 30min → Imperius dispara WhatsApp INLINE (não fila), igual ao `hot-lead-responder` mas sem esperar cron.
+- Log obrigatório em `imphq_ai_actions` com `risk='medium'` (auto-executa) e link para conversa.
 
-Impacto esperado: -40% de chamadas redundantes ao Supabase.
+## 2. Recuperação inteligente ⏳
 
-## 2. Queries pesadas — corrigidas ✅
+`Recuperacao.tsx` hoje mostra buckets. Adicionar:
+- Botão "Disparar campanha" por bucket → cria step de WhatsApp em massa via `BulkSendDialog` já existente.
+- Sugestão de copy do Imperius por bucket (ex: bucket 24h usa tom de urgência, 7d usa tom de quebra de objeção).
 
-- **`Leads.tsx` timeline** — eventos `LeadCapture`/`CSVImport` agora filtram por `project_id` quando o lead tem um, e usam `select` específico de colunas (corta ~60% do payload). `imphq_clicks` agora filtra direto por `utm_source` no servidor em vez de baixar 50 linhas e filtrar no cliente.
-- **Próximos**: `Gerenciador.tsx` linha 56 (`select("*")` → colunas usadas) — fica pra próxima passada se aparecer slow query.
+## 3. Dashboard "Próxima Ação" ⏳
 
-## 3. Realtime hygiene
+Card no topo do Dashboard (acima de `TodayCard`) com **1 única ação** que o Imperius recomenda agora:
+- "Disparar recovery do bucket 48h (R$ X em risco)"
+- "Responder 3 hot leads esperando há > 15min"
+- "Pausar campanha X (CPA 3× meta)"
+Fonte: query `imphq_ai_actions` ordenada por `impact_score` desc.
 
-- Verificar `supabase.channel(...)` órfãos (sem `removeChannel` no cleanup).
-- WhatsApp já usa polling 30s — manter.
-- Garantir 1 channel por hook, não por componente render.
+## 4. Predições acionáveis ⏳
 
-## 4. Skeleton states + suspense boundaries
-
-Trocar `loading ? <Spinner /> : <Page />` por skeletons localizados nos cards pesados (Dashboard, Financas). Sensação de velocidade > velocidade real.
-
-## 5. Índices DB (se sinal de slow query aparecer)
-
-Candidatos prováveis (validar antes):
-- `imphq_events(visitor_id, created_at desc)`
-- `imphq_vendas(lead_id, created_at desc)`
-- `imphq_clicks(utm_source, created_at desc)`
-
-Só criar via migration depois de medir.
-
-## O que NÃO muda nesta semana
-
-- Lógica de negócio, edge functions, schema (exceto índices puros).
-- Layout — Semana 1 já fechou isso.
+`PredictiveDashboard` já mostra forecast. Adicionar:
+- Se `funnel_health < 50` → mostrar CTA "Ver gargalo" abrindo modal com o stage problemático e ação sugerida.
+- Linkar previsão de receita com meta de `imphq_metas` (se existir): "Para bater R$ Y faltam Z vendas/dia".
 
 ## Ordem
 
-1. ✅ React Query defaults
-2. Filtro `project_id` em `Leads.tsx` (eventos órfãos)
-3. Auditoria de `select("*")` em páginas top
-4. Skeletons localizados
-5. Índices (só se houver slow query medida)
+1. Card "Próxima Ação" no Dashboard (mais visível, mais barato)
+2. Recuperação: botão de disparo + copy IA por bucket
+3. Hot Lead auto-action (já tem infra, só trocar enfileiramento por inline)
+4. Predições com CTA de gargalo
 
-Ao terminar: seguimos pra Semana 3 (Inteligência & Receita).
+## Fora de escopo
+
+- Nova edge function. Reutilizar `hot-lead-responder`, `imperius-scout`, `imperius-executor`.
+- Schema novo. Só `imphq_ai_actions` (já existe).
+
+Ao terminar: Semana 4 (Polish & QA).
