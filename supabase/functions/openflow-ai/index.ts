@@ -273,14 +273,14 @@ Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template"
   }
 });
 
-async function fetchAI(url: string, init: RequestInit, timeoutMs = 115_000) {
+async function fetchAI(url: string, init: RequestInit, timeoutMs = 90_000) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: ctrl.signal });
   } catch (e: any) {
     if (e?.name === "AbortError") {
-      return new Response(JSON.stringify({ error: "TIMEOUT_GUARD: modelo demorou mais de 115s. Use modo background/modelo mais rápido ou reduza contexto." }), {
+      return new Response(JSON.stringify({ error: "TIMEOUT_GUARD: modelo demorou mais de 90s. Use modo background/modelo mais rápido ou reduza contexto." }), {
         status: 408,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
