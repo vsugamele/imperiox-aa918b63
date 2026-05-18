@@ -11,12 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
 import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
+import { CampanhasManager, type Campanha } from "@/components/openflow/CampanhasManager";
 
 // ── Constants ────────────────────────────────────────────────────
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
@@ -57,6 +58,7 @@ interface Automacao {
   trigger_tipo: string; acoes: Acao[]; ativo: boolean; created_at?: string;
   provider_id?: string;
   quiet_start?: number | null; quiet_end?: number | null; dedupe_hours?: number | null;
+  campanha_id?: string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -77,9 +79,10 @@ export default function OpenFlow() {
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
+  const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
-  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" });
+  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "" });
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
   const [webhookProject, setWebhookProject] = useState("none");
@@ -90,19 +93,22 @@ export default function OpenFlow() {
   const [testForm, setTestForm] = useState({ nome: "João Teste", email: "joao@teste.com", telefone: "(11) 99999-9999", produto: "Produto Teste", provider_id: "" });
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [filterCampanha, setFilterCampanha] = useState<string>("__all__");
 
   // ── Data loading ─────────────────────────────────────────────
   const load = async () => {
-    const [aRes, wRes, pRes, provRes, hubRes] = await Promise.all([
+    const [aRes, wRes, pRes, provRes, hubRes, cRes] = await Promise.all([
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_webhooks").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
+      supabase.from("imphq_campanhas" as any).select("*").order("created_at", { ascending: false }),
     ]);
     setAutomacoes((aRes.data || []).map((a: any) => ({ ...a, acoes: a.acoes || [] })));
     setWebhooks(wRes.data || []);
     setProjects(pRes.data || []);
+    setCampanhas(((cRes.data || []) as any) as Campanha[]);
     const hubProviders = (hubRes.data || []).map((s: any) => ({
       id: `hub_${s.id}`, provider: "hub_local", instance_name: s.session_key,
       twilio_from: null, project_id: s.tenant_id || null,
@@ -163,10 +169,11 @@ export default function OpenFlow() {
       id: crypto.randomUUID(), nome, trigger_tipo: preset?.trigger_tipo || form.trigger_tipo,
       project_id: form.project_id || null, acoes: (preset?.acoes || []) as any, ativo: true,
       produto: (form as any).produto || null,
+      campanha_id: form.campanha_id || null,
     } as any).select("*").single();
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
-    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" }); load();
+    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "" }); load();
     if (data && preset?.acoes?.length) setEditing(data as any);
   };
 
@@ -190,6 +197,7 @@ export default function OpenFlow() {
       quiet_start: editing.quiet_start ?? null,
       quiet_end: editing.quiet_end ?? null,
       dedupe_hours: editing.dedupe_hours ?? 0,
+      campanha_id: editing.campanha_id || null,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
@@ -291,11 +299,16 @@ export default function OpenFlow() {
       {/* Tabs */}
       <Tabs defaultValue="automacoes">
         <TabsList>
-          <TabsTrigger value="automacoes">Automações</TabsTrigger>
+          <TabsTrigger value="automacoes">Fluxos</TabsTrigger>
+          <TabsTrigger value="campanhas"><Megaphone className="h-3 w-3 mr-1" /> Campanhas</TabsTrigger>
           <TabsTrigger value="execucoes"><Activity className="h-3 w-3 mr-1" /> Execuções</TabsTrigger>
           <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
           <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="campanhas" className="mt-4">
+          <CampanhasManager projects={projects} onChange={load} />
+        </TabsContent>
 
         {/* ── Automações Tab ────────────────────────────────────── */}
         <TabsContent value="automacoes" className="space-y-5 mt-4">
@@ -321,10 +334,35 @@ export default function OpenFlow() {
             </CardContent>
           </Card>
 
-          {/* Automações grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {automacoes.map(a => {
+          {/* Filtro por campanha */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtrar por campanha:</span>
+            <Select value={filterCampanha} onValueChange={setFilterCampanha}>
+              <SelectTrigger className="h-7 w-[220px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas</SelectItem>
+                <SelectItem value="__none__">Sem campanha</SelectItem>
+                {campanhas.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Automações agrupadas por campanha */}
+          {(() => {
+            const filtered = automacoes.filter(a => {
+              if (filterCampanha === "__all__") return true;
+              if (filterCampanha === "__none__") return !a.campanha_id;
+              return a.campanha_id === filterCampanha;
+            });
+            const groups = new Map<string, Automacao[]>();
+            filtered.forEach(a => {
+              const key = a.campanha_id || "__none__";
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key)!.push(a);
+            });
+            const renderCard = (a: Automacao) => {
               const tm = triggerMeta(a.trigger_tipo);
+              const camp = campanhas.find(c => c.id === a.campanha_id);
               return (
                 <Card
                   key={a.id}
@@ -350,6 +388,7 @@ export default function OpenFlow() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge variant="outline" className="text-[10px]">{tm.label}</Badge>
                       {a.project_id && <Badge className="text-[9px] bg-primary/10 text-primary border-0">{projectName(a.project_id)}</Badge>}
+                      {camp && <Badge className="text-[9px] bg-violet-500/10 text-violet-400 border-0">📣 {camp.nome}</Badge>}
                       {(a as any).produto && <Badge variant="outline" className="text-[9px]">🏷️ {(a as any).produto}</Badge>}
                     </div>
                     <div className="flex items-center gap-1">
@@ -368,9 +407,37 @@ export default function OpenFlow() {
                   </CardContent>
                 </Card>
               );
-            })}
-            {automacoes.length === 0 && <p className="text-sm text-muted-foreground col-span-full text-center py-8">Nenhuma automação criada</p>}
-          </div>
+            };
+            const groupKeys = Array.from(groups.keys()).sort((a, b) => (a === "__none__" ? 1 : b === "__none__" ? -1 : 0));
+            return (
+              <div className="space-y-5">
+                {groupKeys.map(key => {
+                  const camp = campanhas.find(c => c.id === key);
+                  return (
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        {camp ? (
+                          <>
+                            <Megaphone className="h-3.5 w-3.5 text-violet-400" />
+                            <h3 className="text-xs uppercase tracking-wider font-medium text-foreground">{camp.nome}</h3>
+                            <Badge variant="outline" className="text-[9px]">{projectName(camp.project_id)}</Badge>
+                            {camp.status !== "ativa" && <Badge variant="outline" className="text-[9px]">{camp.status}</Badge>}
+                          </>
+                        ) : (
+                          <h3 className="text-xs uppercase tracking-wider text-muted-foreground">Sem campanha</h3>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">· {groups.get(key)!.length} fluxo(s)</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {groups.get(key)!.map(renderCard)}
+                      </div>
+                    </div>
+                  );
+                })}
+                {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Nenhuma automação</p>}
+              </div>
+            );
+          })()}
 
           {/* Recent Webhooks */}
           {webhooks.length > 0 && (
@@ -466,6 +533,21 @@ export default function OpenFlow() {
                 </Select>
               </div>
             )}
+            {form.project_id && (
+              <div>
+                <Label>Campanha (opcional)</Label>
+                <Select value={form.campanha_id || "none"} onValueChange={v => setForm({ ...form, campanha_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Sem campanha" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem campanha</SelectItem>
+                    {campanhas.filter(c => c.project_id === form.project_id).map(c => (
+                      <SelectItem key={c.id} value={c.id}>📣 {c.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">Vincular a uma campanha permite agrupar formulários e fluxos por iniciativa.</p>
+              </div>
+            )}
 
             {templates.length > 0 && (
               <div className="border-t border-border/40 pt-3 space-y-2">
@@ -530,6 +612,20 @@ export default function OpenFlow() {
                   </Select>
                 </div>
               </div>
+              {editing.project_id && (
+                <div>
+                  <Label>Campanha</Label>
+                  <Select value={editing.campanha_id || "none"} onValueChange={v => setEditing({ ...editing, campanha_id: v === "none" ? null : v })}>
+                    <SelectTrigger><SelectValue placeholder="Sem campanha" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem campanha (escopo: projeto inteiro)</SelectItem>
+                      {campanhas.filter(c => c.project_id === editing.project_id).map(c => (
+                        <SelectItem key={c.id} value={c.id}>📣 {c.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>WhatsApp Padrão</Label>
                 <Select 

@@ -15429,6 +15429,7 @@ export type Database = {
         Row: {
           acoes: Json | null
           ativo: boolean | null
+          campanha_id: string | null
           created_at: string | null
           dedupe_hours: number | null
           id: string
@@ -15445,6 +15446,7 @@ export type Database = {
         Insert: {
           acoes?: Json | null
           ativo?: boolean | null
+          campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
           id: string
@@ -15461,6 +15463,7 @@ export type Database = {
         Update: {
           acoes?: Json | null
           ativo?: boolean | null
+          campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
           id?: string
@@ -15556,6 +15559,95 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_campanha_forms: {
+        Row: {
+          campanha_id: string
+          created_at: string
+          form_id: string
+          id: string
+          user_id: string
+          versao: number
+          vigente_ate: string | null
+          vigente_de: string
+        }
+        Insert: {
+          campanha_id: string
+          created_at?: string
+          form_id: string
+          id?: string
+          user_id: string
+          versao?: number
+          vigente_ate?: string | null
+          vigente_de?: string
+        }
+        Update: {
+          campanha_id?: string
+          created_at?: string
+          form_id?: string
+          id?: string
+          user_id?: string
+          versao?: number
+          vigente_ate?: string | null
+          vigente_de?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_campanha_forms_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_campanhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_campanhas: {
+        Row: {
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          produto: string | null
+          project_id: string
+          slug: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          utm_campaign: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          produto?: string | null
+          project_id: string
+          slug?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          utm_campaign?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          produto?: string | null
+          project_id?: string
+          slug?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          utm_campaign?: string | null
+        }
+        Relationships: []
       }
       imphq_capture_forms: {
         Row: {
@@ -17529,6 +17621,7 @@ export type Database = {
       }
       imphq_leads: {
         Row: {
+          campanha_id: string | null
           criado_em: string | null
           data: Json | null
           email: string | null
@@ -17545,6 +17638,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          campanha_id?: string | null
           criado_em?: string | null
           data?: Json | null
           email?: string | null
@@ -17561,6 +17655,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          campanha_id?: string | null
           criado_em?: string | null
           data?: Json | null
           email?: string | null

@@ -81,11 +81,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Filter by project and product
+    // Filter by project, product and campanha
+    const leadCampanha = lead_data?.campanha_id;
     const matched = (automacoes || []).filter((a: any) => {
       if (a.project_id && a.project_id !== project_id) return false;
       if (a.produto && lead_data?.produto) {
         if (a.produto.toLowerCase() !== lead_data.produto.toLowerCase()) return false;
+      }
+      // Se a automação tem campanha definida, só dispara para leads da mesma campanha
+      if (a.campanha_id) {
+        if (!leadCampanha || a.campanha_id !== leadCampanha) return false;
       }
       return true;
     });
