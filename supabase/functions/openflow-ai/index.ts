@@ -290,23 +290,41 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
     return h;
   };
   const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], tools, tool_choice: { type: "function", function: { name: toolName } } });
-  
-  let response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: makeHeaders(apiKey, isOpenRouter),
-    body: payload,
-  });
+
+  // Abort upstream calls before edge runtime's 150s IDLE_TIMEOUT to return a clear error
+  const fetchWithTimeout = async (url: string, headers: Record<string, string>, timeoutMs = 120_000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(url, { method: "POST", headers, body: payload, signal: ctrl.signal });
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${baseUrl}/chat/completions`, makeHeaders(apiKey, isOpenRouter));
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      return { error: `Modelo "${model}" demorou demais (>120s). Use um modelo mais rápido (ex.: gemini-3-flash, gpt-5-mini) ou reduza o contexto.` };
+    }
+    throw e;
+  }
 
   // Fallback: if Lovable gateway returns 402 (no credits), retry via OpenRouter
   if (!isOpenRouter && response.status === 402) {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
       console.log("Lovable gateway 402, falling back to OpenRouter for model:", model);
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: makeHeaders(orKey, true),
-        body: payload,
-      });
+      try {
+        response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", makeHeaders(orKey, true));
+      } catch (e: any) {
+        if (e?.name === "AbortError") {
+          return { error: `Modelo "${model}" via OpenRouter excedeu 120s. Tente um modelo mais rápido.` };
+        }
+        throw e;
+      }
     }
   }
 
