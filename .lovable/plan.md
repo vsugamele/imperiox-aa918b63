@@ -1,43 +1,26 @@
-# Semana 3 — Inteligência & Receita
+# Semana 4 — Polish & QA
 
-Objetivo: transformar dados que já temos em ações que geram receita. Foco em recuperação, hot leads e ações automáticas do Imperius — sem novas integrações.
+Objetivo: amarrar pontas soltas, remover atrito e deixar tudo que foi entregue nas semanas 1–3 production-ready. Sem novas features.
 
-## 1. Hot Lead Auto-Action ⏳
+## 1. Loading & empty states ⏳
+- `NextActionCard`, `BucketCard` (após dispatch), `PredictiveDashboard` recommendations: skeletons + estados vazios consistentes (copy curto, ícone, sem placeholder genérico).
 
-Hoje o pipeline detecta lead quente (Pix/Boleto em 2h) mas a ação fica pendente no inbox. Mudança:
-- Para leads com score ≥ 80 + intent de Pix < 30min → Imperius dispara WhatsApp INLINE (não fila), igual ao `hot-lead-responder` mas sem esperar cron.
-- Log obrigatório em `imphq_ai_actions` com `risk='medium'` (auto-executa) e link para conversa.
+## 2. Toasts & feedback ⏳
+- `recovery-bucket-dispatch`: toast com `sent/skipped/total`, link "Ver logs" → `/imperius`.
+- Erros de provider WhatsApp ausente: toast `destructive` com CTA "Configurar" → `/whatsapp`.
 
-## 2. Recuperação inteligente ⏳
+## 3. Anti-spam visual ⏳
+- Em `BucketCard`, mostrar count de "já disparados nas últimas 24h" pra evitar clique duplicado.
 
-`Recuperacao.tsx` hoje mostra buckets. Adicionar:
-- Botão "Disparar campanha" por bucket → cria step de WhatsApp em massa via `BulkSendDialog` já existente.
-- Sugestão de copy do Imperius por bucket (ex: bucket 24h usa tom de urgência, 7d usa tom de quebra de objeção).
+## 4. Performance ⏳
+- `NextActionCard`: usar `staleTime: 30s` (já temos default 60s, mas card é tempo-real).
+- `PredictiveDashboard`: memoizar mapping de CTAs.
 
-## 3. Dashboard "Próxima Ação" ⏳
-
-Card no topo do Dashboard (acima de `TodayCard`) com **1 única ação** que o Imperius recomenda agora:
-- "Disparar recovery do bucket 48h (R$ X em risco)"
-- "Responder 3 hot leads esperando há > 15min"
-- "Pausar campanha X (CPA 3× meta)"
-Fonte: query `imphq_ai_actions` ordenada por `impact_score` desc.
-
-## 4. Predições acionáveis ⏳
-
-`PredictiveDashboard` já mostra forecast. Adicionar:
-- Se `funnel_health < 50` → mostrar CTA "Ver gargalo" abrindo modal com o stage problemático e ação sugerida.
-- Linkar previsão de receita com meta de `imphq_metas` (se existir): "Para bater R$ Y faltam Z vendas/dia".
-
-## Ordem
-
-1. Card "Próxima Ação" no Dashboard (mais visível, mais barato)
-2. Recuperação: botão de disparo + copy IA por bucket
-3. Hot Lead auto-action (já tem infra, só trocar enfileiramento por inline)
-4. Predições com CTA de gargalo
+## 5. Acessibilidade ⏳
+- `aria-label` em botões de ícone (`Send`, `Crown`, `ArrowRight`).
+- Foco visível em cards clicáveis.
 
 ## Fora de escopo
+- Novas edge functions, novas tabelas, redesign visual.
 
-- Nova edge function. Reutilizar `hot-lead-responder`, `imperius-scout`, `imperius-executor`.
-- Schema novo. Só `imphq_ai_actions` (já existe).
-
-Ao terminar: Semana 4 (Polish & QA).
+Pós-Semana 4: roadmap concluído. Próximos passos definidos pelo usuário.
