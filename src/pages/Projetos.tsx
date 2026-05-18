@@ -98,8 +98,20 @@ const DEFAULT_TEMPLATES: Omit<ProjectTemplate, "id">[] = [
   },
 ];
 
+type ProjectKpis = {
+  receita7: number; receita30: number; receitaPrev30: number;
+  delta: number; spend30: number; roas: number;
+  leads7: number; health: "hot" | "warm" | "cold";
+};
+
+function fmtBRL(v: number) {
+  if (v >= 1000) return `R$ ${(v / 1000).toFixed(1)}k`;
+  return `R$ ${v.toFixed(0)}`;
+}
+
 export default function Projetos() {
   const [projects, setProjects] = useState<any[]>([]);
+  const [kpisMap, setKpisMap] = useState<Record<string, ProjectKpis>>({});
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -107,16 +119,48 @@ export default function Projetos() {
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [creatingFromTemplate, setCreatingFromTemplate] = useState(false);
   const [activeFolder, setActiveFolder] = useState("all");
+  const [sortMode, setSortMode] = useState<"smart" | "name" | "recent">("smart");
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const loadKpis = async (projs: any[]) => {
+    const now = new Date();
+    const d7 = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+    const d30 = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+    const d60 = new Date(now.getTime() - 60 * 86400000).toISOString().slice(0, 10);
+    const ts7 = new Date(now.getTime() - 7 * 86400000).toISOString();
+
+    const [vRes, aRes, lRes] = await Promise.all([
+      supabase.from("imphq_vendas").select("project_id, valor, valor_liquido, data_venda").gte("data_venda", d60).limit(5000),
+      supabase.from("imphq_ads_spend").select("project_id, valor, data_ref").gte("data_ref", d30).limit(5000),
+      supabase.from("imphq_leads").select("project_id, created_at").gte("created_at", ts7).limit(5000),
+    ]) as any;
+
+    const map: Record<string, ProjectKpis> = {};
+    for (const p of projs) {
+      const vs = (vRes.data || []).filter((v: any) => v.project_id === p.id);
+      const r7 = vs.filter((v: any) => v.data_venda >= d7).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const r30 = vs.filter((v: any) => v.data_venda >= d30).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const rPrev = vs.filter((v: any) => v.data_venda < d30 && v.data_venda >= d60).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const spend30 = (aRes.data || []).filter((a: any) => a.project_id === p.id).reduce((s: number, a: any) => s + Number(a.valor ?? 0), 0);
+      const leads7 = (lRes.data || []).filter((l: any) => l.project_id === p.id).length;
+      const delta = rPrev > 0 ? ((r30 - rPrev) / rPrev) * 100 : (r30 > 0 ? 100 : 0);
+      const roas = spend30 > 0 ? r30 / spend30 : 0;
+      const health: ProjectKpis["health"] = r7 > 0 || leads7 >= 5 ? "hot" : (r30 > 0 || leads7 > 0 ? "warm" : "cold");
+      map[p.id] = { receita7: r7, receita30: r30, receitaPrev30: rPrev, delta, spend30, roas, leads7, health };
+    }
+    setKpisMap(map);
+  };
 
   const load = async () => {
     const [projRes, tplRes] = await Promise.all([
       supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_project_templates").select("*").order("created_at", { ascending: false }),
     ]);
-    setProjects(projRes.data || []);
+    const projs = projRes.data || [];
+    setProjects(projs);
     setTemplates((tplRes.data || []) as ProjectTemplate[]);
+    loadKpis(projs);
   };
 
   useEffect(() => { load(); }, []);
@@ -131,9 +175,21 @@ export default function Projetos() {
     return matchesSearch && matchesFolder;
   });
 
+  // Smart sort: vendendo first, then by 30d revenue desc, then warm, then cold
+  const sortProjects = (items: any[]) => {
+    if (sortMode === "name") return [...items].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    if (sortMode === "recent") return items;
+    return [...items].sort((a, b) => {
+      const ka = kpisMap[a.id]; const kb = kpisMap[b.id];
+      const va = (a.category?.toLowerCase().includes("vendendo") ? 1e9 : 0) + (ka?.receita30 ?? 0);
+      const vb = (b.category?.toLowerCase().includes("vendendo") ? 1e9 : 0) + (kb?.receita30 ?? 0);
+      return vb - va;
+    });
+  };
+
   // Group by folder
   const groupedByFolder = () => {
-    if (activeFolder !== "all") return [{ folder: activeFolder, items: filtered }];
+    if (activeFolder !== "all") return [{ folder: activeFolder, items: sortProjects(filtered) }];
     const groups: { folder: string; items: any[] }[] = [];
     const folderMap = new Map<string, any[]>();
     filtered.forEach(p => {
@@ -143,9 +199,9 @@ export default function Projetos() {
     });
     // Named folders first, then "Sem pasta"
     folders.forEach(f => {
-      if (folderMap.has(f)) groups.push({ folder: f, items: folderMap.get(f)! });
+      if (folderMap.has(f)) groups.push({ folder: f, items: sortProjects(folderMap.get(f)!) });
     });
-    if (folderMap.has("")) groups.push({ folder: "", items: folderMap.get("")! });
+    if (folderMap.has("")) groups.push({ folder: "", items: sortProjects(folderMap.get("")!) });
     return groups;
   };
 
@@ -267,9 +323,18 @@ export default function Projetos() {
 
       {/* Search + Folder Filter */}
       <div className="space-y-3">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar projetos..." className="pl-9 bg-secondary" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar projetos..." className="pl-9 bg-secondary" />
+          </div>
+          <div className="flex gap-1 text-[10px] uppercase tracking-wider">
+            {(["smart", "name", "recent"] as const).map(m => (
+              <Badge key={m} variant={sortMode === m ? "default" : "outline"} className="cursor-pointer" onClick={() => setSortMode(m)}>
+                {m === "smart" ? "📊 Performance" : m === "name" ? "A→Z" : "Recente"}
+              </Badge>
+            ))}
+          </div>
         </div>
         {folders.length > 0 && (
           <div className="flex gap-1.5 flex-wrap items-center">
@@ -298,15 +363,45 @@ export default function Projetos() {
             <span className="text-xs text-muted-foreground">({group.items.length})</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {group.items.map((p) => (
+            {group.items.map((p) => {
+              const k = kpisMap[p.id];
+              const healthColor = k?.health === "hot" ? "bg-emerald-500" : k?.health === "warm" ? "bg-amber-500" : "bg-muted-foreground/40";
+              const deltaUp = (k?.delta ?? 0) >= 0;
+              return (
               <Card key={p.id} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 group relative">
                 <CardContent className="p-4" onClick={() => navigate(`/projetos/${p.id}`)}>
                   <div className="flex items-start justify-between">
                     <span className="text-2xl">{p.icon || "📁"}</span>
-                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${healthColor}`} title={k?.health || ""} />
                   </div>
-                  <h3 className="mt-2 font-medium text-sm">{p.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">{p.category || "Sem categoria"}</p>
+                  <h3 className="mt-2 font-medium text-sm truncate">{p.name}</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">{p.category || "Sem categoria"}</p>
+
+                  {k && (k.receita30 > 0 || k.leads7 > 0 || k.spend30 > 0) ? (
+                    <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-3 gap-2 text-[10px]">
+                      <div>
+                        <div className="text-muted-foreground uppercase tracking-wider">Rec 30d</div>
+                        <div className="font-semibold tabular-nums text-foreground">{fmtBRL(k.receita30)}</div>
+                        {k.receitaPrev30 > 0 && (
+                          <div className={`tabular-nums ${deltaUp ? "text-emerald-400" : "text-red-400"}`}>
+                            {deltaUp ? "▲" : "▼"} {Math.abs(k.delta).toFixed(0)}%
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground uppercase tracking-wider">ROAS</div>
+                        <div className={`font-semibold tabular-nums ${k.roas >= 2 ? "text-emerald-400" : k.roas >= 1 ? "text-amber-400" : k.roas > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                          {k.roas > 0 ? k.roas.toFixed(2) + "x" : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground uppercase tracking-wider">Leads 7d</div>
+                        <div className="font-semibold tabular-nums text-foreground">{k.leads7}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 pt-3 border-t border-border/40 text-[10px] text-muted-foreground italic">Sem atividade recente</div>
+                  )}
                 </CardContent>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -326,7 +421,8 @@ export default function Projetos() {
                   </AlertDialogContent>
                 </AlertDialog>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}

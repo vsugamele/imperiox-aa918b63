@@ -81,7 +81,7 @@ export default function Referencias() {
       supabase.from("imphq_referencias").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_content_library" as any).select("id, project_id, title, file_url, file_type, thumbnail_url, tags, description, content_category, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_ads_spend" as any).select("id, project_id, campanha, conjunto_anuncios, anuncio, plataforma, ctr, impressoes, cliques, data_ref, created_at").order("created_at", { ascending: false }).limit(200),
+      supabase.from("imphq_ads_spend" as any).select("id, project_id, campanha, conjunto_anuncios, anuncio, plataforma, ctr, impressoes, cliques, compras, valor, custo_por_compra, data_ref, created_at").order("created_at", { ascending: false }).limit(200),
     ]);
 
     const projs = pRes.data || [];
@@ -130,19 +130,32 @@ export default function Referencias() {
     const adsRefs: Ref[] = Array.from(adsMap.values())
       .filter((ad: any) => ad.anuncio || ad.campanha)
       .slice(0, 50)
-      .map((ad: any) => ({
-        id: `ads_${ad.id}`,
-        project_id: ad.project_id || undefined,
-        titulo: ad.anuncio || ad.conjunto_anuncios || ad.campanha || "Anúncio",
-        tags: [ad.plataforma, ad.ctr ? `CTR: ${Number(ad.ctr).toFixed(2)}%` : null].filter(Boolean) as string[],
-        notas: `Campanha: ${ad.campanha || "—"} | Impressões: ${ad.impressoes || 0} | Cliques: ${ad.cliques || 0}`,
-        score: ad.ctr >= 2 ? 5 : ad.ctr >= 1 ? 3 : 1,
-        tipo: "criativo" as const,
-        plataforma: ad.plataforma || "Meta Ads",
-        created_at: ad.data_ref || ad.created_at,
-        source: "ads" as SourceType,
-        project_name: projMap[ad.project_id] || undefined,
-      }));
+      .map((ad: any) => {
+        const ctr = Number(ad.ctr ?? 0);
+        const impr = Number(ad.impressoes ?? 0);
+        const compras = Number(ad.compras ?? 0);
+        const cpc = Number(ad.custo_por_compra ?? 0);
+        // Score 1-5 ponderando CTR, volume e compras
+        let s = 1;
+        if (compras >= 3 && cpc > 0 && cpc < 100) s = 5;
+        else if (ctr >= 2 && impr >= 1000) s = 5;
+        else if (ctr >= 1.5 && impr >= 500) s = 4;
+        else if (ctr >= 1) s = 3;
+        else if (ctr >= 0.5) s = 2;
+        return ({
+          id: `ads_${ad.id}`,
+          project_id: ad.project_id || undefined,
+          titulo: ad.anuncio || ad.conjunto_anuncios || ad.campanha || "Anúncio",
+          tags: [ad.plataforma, ctr ? `CTR ${ctr.toFixed(2)}%` : null, compras ? `${compras} venda${compras > 1 ? "s" : ""}` : null].filter(Boolean) as string[],
+          notas: `Campanha: ${ad.campanha || "—"} | Impr: ${impr} | Cliques: ${ad.cliques || 0}${compras ? ` | Compras: ${compras}` : ""}${cpc ? ` | CPA: R$ ${cpc.toFixed(0)}` : ""}`,
+          score: s,
+          tipo: "criativo" as const,
+          plataforma: ad.plataforma || "Meta Ads",
+          created_at: ad.data_ref || ad.created_at,
+          source: "ads" as SourceType,
+          project_name: projMap[ad.project_id] || undefined,
+        });
+      });
 
     setRefs([...manualRefs, ...libraryRefs, ...adsRefs]);
   };
@@ -178,7 +191,7 @@ export default function Referencias() {
 
   const subfolders = getSubfoldersAtLevel();
 
-  const filtered = refs.filter(r => {
+  const filteredRaw = refs.filter(r => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
@@ -197,6 +210,11 @@ export default function Referencias() {
 
     return ms && mt && mp && mpr && mpa && mo && mc;
   });
+
+  // Sort: when viewing ads, show top performers first by default
+  const filtered = filterOrigem === "ads"
+    ? [...filteredRaw].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    : filteredRaw;
 
   // Group by project for display
   const groupedByProject = () => {
