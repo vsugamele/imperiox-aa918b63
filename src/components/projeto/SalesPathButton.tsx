@@ -193,7 +193,13 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                 <Button size="sm" variant={view === "history" ? "secondary" : "ghost"} className="gap-1.5 h-8 text-xs" onClick={() => setView("history")}>
                   <History className="h-3 w-3" /> Histórico ({history.length})
                 </Button>
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={generate} disabled={loading}>
+                <Button
+                  size="sm" variant="outline"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={generate}
+                  disabled={loading || !canRenew}
+                  title={!canRenew ? `Conclua mais ações antes de regenerar (${progressStats.pct}% feito, ${Math.round(planAgeDays)}d)` : "Gerar novo plano"}
+                >
                   <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Gerar
                 </Button>
               </div>
