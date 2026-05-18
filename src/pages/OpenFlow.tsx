@@ -115,6 +115,23 @@ export default function OpenFlow() {
       twilio_from: null, project_id: s.tenant_id || null,
     }));
     setProviders([...(provRes.data || []), ...hubProviders]);
+
+    // Lead counts (últimos 30 dias) para badges nos cards
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data: leadsRecent } = await supabase
+      .from("imphq_leads")
+      .select("project_id, campanha_id")
+      .gte("criado_em", since)
+      .limit(5000);
+    const byCamp = new Map<string, number>();
+    const byProject = new Map<string, number>();
+    let global = 0;
+    (leadsRecent || []).forEach((l: any) => {
+      global++;
+      if (l.campanha_id) byCamp.set(l.campanha_id, (byCamp.get(l.campanha_id) || 0) + 1);
+      if (l.project_id) byProject.set(l.project_id, (byProject.get(l.project_id) || 0) + 1);
+    });
+    setLeadCounts({ byCamp, byProject, global });
   };
 
   const loadKpis = async () => {
