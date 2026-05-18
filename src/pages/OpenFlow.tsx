@@ -408,6 +408,18 @@ export default function OpenFlow() {
                       {a.project_id && <Badge className="text-[9px] bg-primary/10 text-primary border-0">{projectName(a.project_id)}</Badge>}
                       {camp && <Badge className="text-[9px] bg-violet-500/10 text-violet-400 border-0">📣 {camp.nome}</Badge>}
                       {(a as any).produto && <Badge variant="outline" className="text-[9px]">🏷️ {(a as any).produto}</Badge>}
+                      {(() => {
+                        const n = a.campanha_id
+                          ? (leadCounts.byCamp.get(a.campanha_id) || 0)
+                          : a.project_id
+                          ? (leadCounts.byProject.get(a.project_id) || 0)
+                          : leadCounts.global;
+                        return (
+                          <Badge variant="outline" className="text-[9px] gap-1" title="Leads no escopo (últimos 30 dias)">
+                            <Users className="h-2.5 w-2.5" /> {n}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-1">
                       {a.acoes.map((ac, i) => {
