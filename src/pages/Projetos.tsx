@@ -175,9 +175,21 @@ export default function Projetos() {
     return matchesSearch && matchesFolder;
   });
 
+  // Smart sort: vendendo first, then by 30d revenue desc, then warm, then cold
+  const sortProjects = (items: any[]) => {
+    if (sortMode === "name") return [...items].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    if (sortMode === "recent") return items;
+    return [...items].sort((a, b) => {
+      const ka = kpisMap[a.id]; const kb = kpisMap[b.id];
+      const va = (a.category?.toLowerCase().includes("vendendo") ? 1e9 : 0) + (ka?.receita30 ?? 0);
+      const vb = (b.category?.toLowerCase().includes("vendendo") ? 1e9 : 0) + (kb?.receita30 ?? 0);
+      return vb - va;
+    });
+  };
+
   // Group by folder
   const groupedByFolder = () => {
-    if (activeFolder !== "all") return [{ folder: activeFolder, items: filtered }];
+    if (activeFolder !== "all") return [{ folder: activeFolder, items: sortProjects(filtered) }];
     const groups: { folder: string; items: any[] }[] = [];
     const folderMap = new Map<string, any[]>();
     filtered.forEach(p => {
@@ -187,9 +199,9 @@ export default function Projetos() {
     });
     // Named folders first, then "Sem pasta"
     folders.forEach(f => {
-      if (folderMap.has(f)) groups.push({ folder: f, items: folderMap.get(f)! });
+      if (folderMap.has(f)) groups.push({ folder: f, items: sortProjects(folderMap.get(f)!) });
     });
-    if (folderMap.has("")) groups.push({ folder: "", items: folderMap.get("")! });
+    if (folderMap.has("")) groups.push({ folder: "", items: sortProjects(folderMap.get("")!) });
     return groups;
   };
 
