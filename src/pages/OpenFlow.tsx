@@ -18,6 +18,7 @@ import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
 import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 import { CampanhasManager, type Campanha } from "@/components/openflow/CampanhasManager";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 // ── Constants ────────────────────────────────────────────────────
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
