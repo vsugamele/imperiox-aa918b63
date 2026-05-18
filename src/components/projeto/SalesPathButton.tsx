@@ -267,6 +267,19 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                     </div>
                     <Progress value={plan.health_score} className="h-2" />
                     <p className="text-sm text-foreground/90 leading-7 mt-4">{plan.resumo_executivo}</p>
+
+                    {progressStats.total > 0 && (
+                      <div className="mt-4 pt-4 border-t border-border/40">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Execução do plano</span>
+                          <span className="text-xs font-mono text-foreground/80">
+                            {progressStats.done}/{progressStats.total} feitas · {progressStats.pct}%
+                            {progressStats.doing > 0 && <span className="text-amber-400"> · {progressStats.doing} em andamento</span>}
+                          </span>
+                        </div>
+                        <Progress value={progressStats.pct} className="h-1.5" />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
