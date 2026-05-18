@@ -67,7 +67,7 @@ serve(async (req) => {
     const userPrompt = `Gere uma sequência de ${N} mensagens WhatsApp para grupos.
 Produto: ${produto || "(não informado)"}
 Tom: ${tom}
-Briefing: ${briefing || "(livre)"}${projectCtx}
+Briefing: ${briefing || "(livre)"}${projectCtx}${refsCtx}
 
 Estrutura de cada mensagem:
 - day_offset (0 = dia da entrada, 1 = dia seguinte, etc.) — distribua de forma natural ao longo de ${N} dias
