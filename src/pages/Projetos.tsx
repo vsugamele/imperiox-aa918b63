@@ -132,7 +132,7 @@ export default function Projetos() {
 
     const [vRes, aRes, lRes] = await Promise.all([
       supabase.from("imphq_vendas").select("project_id, valor, valor_liquido, data_venda").gte("data_venda", d60).limit(5000),
-      supabase.from("imphq_ads_spend").select("project_id, gasto, data_ref").gte("data_ref", d30).limit(5000),
+      supabase.from("imphq_ads_spend").select("project_id, valor, data_ref").gte("data_ref", d30).limit(5000),
       supabase.from("imphq_leads").select("project_id, created_at").gte("created_at", ts7).limit(5000),
     ]) as any;
 
@@ -142,7 +142,7 @@ export default function Projetos() {
       const r7 = vs.filter((v: any) => v.data_venda >= d7).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
       const r30 = vs.filter((v: any) => v.data_venda >= d30).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
       const rPrev = vs.filter((v: any) => v.data_venda < d30 && v.data_venda >= d60).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
-      const spend30 = (aRes.data || []).filter((a: any) => a.project_id === p.id).reduce((s: number, a: any) => s + Number(a.gasto ?? 0), 0);
+      const spend30 = (aRes.data || []).filter((a: any) => a.project_id === p.id).reduce((s: number, a: any) => s + Number(a.valor ?? 0), 0);
       const leads7 = (lRes.data || []).filter((l: any) => l.project_id === p.id).length;
       const delta = rPrev > 0 ? ((r30 - rPrev) / rPrev) * 100 : (r30 > 0 ? 100 : 0);
       const roas = spend30 > 0 ? r30 / spend30 : 0;
