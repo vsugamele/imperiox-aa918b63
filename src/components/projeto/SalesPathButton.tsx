@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Crown, Loader2, Sparkles, AlertTriangle, CheckCircle2, TrendingUp, Target, Calendar, ShieldAlert, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Crown, Loader2, Sparkles, AlertTriangle, TrendingUp, Target, Calendar, ShieldAlert, ChevronRight, History, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface SalesPathButtonProps {
   projectId: string;
@@ -26,6 +28,7 @@ interface SalesPath {
   sales_path: { trafego: string; captura: string; nutricao: string; oferta: string; upsell: string };
   riscos: string[];
   model_used?: string;
+  created_at?: string;
 }
 
 const severidadeColor: Record<string, string> = {
@@ -48,18 +51,35 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<SalesPath | null>(null);
+  const [history, setHistory] = useState<SalesPath[]>([]);
+  const [view, setView] = useState<"plan" | "history">("plan");
+
+  const loadHistory = async () => {
+    const { data } = await supabase
+      .from("imphq_sales_paths")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("status", "ready")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setHistory((data as any) || []);
+  };
+
+  useEffect(() => {
+    if (open) loadHistory();
+  }, [open, projectId]);
 
   const generate = async () => {
     setLoading(true);
     setPlan(null);
+    setView("plan");
     setOpen(true);
     try {
-      const { data, error } = await supabase.functions.invoke("sales-path-engine", {
-        body: { projectId },
-      });
+      const { data, error } = await supabase.functions.invoke("sales-path-engine", { body: { projectId } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setPlan(data);
+      loadHistory();
       toast.success("Plano de Ataque pronto.");
     } catch (e: any) {
       toast.error(e.message || "Falha ao gerar plano");
@@ -69,13 +89,18 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
     }
   };
 
+  const openExisting = (item: SalesPath) => {
+    setPlan(item);
+    setView("plan");
+  };
+
   const healthLabel = (s: number) => (s >= 75 ? "Saudável" : s >= 50 ? "Atenção" : s >= 25 ? "Crítico" : "Emergência");
   const healthColor = (s: number) => (s >= 75 ? "text-emerald-400" : s >= 50 ? "text-yellow-400" : "text-red-400");
 
   return (
     <>
       <Button
-        onClick={generate}
+        onClick={() => { setOpen(true); setView(history.length > 0 || plan ? "plan" : "plan"); }}
         disabled={loading}
         className="gap-2 bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 border border-primary/40"
         size="sm"
@@ -87,9 +112,22 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="w-full sm:max-w-2xl bg-secondary/40 backdrop-blur border-l border-primary/20 overflow-hidden flex flex-col p-0">
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/40">
-            <div className="flex items-center gap-2">
-              <Crown className="h-5 w-5 text-primary" />
-              <SheetTitle className="font-display text-2xl">Plano de Ataque de Vendas</SheetTitle>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-primary" />
+                <SheetTitle className="font-display text-2xl">Plano de Ataque de Vendas</SheetTitle>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant={view === "plan" ? "secondary" : "ghost"} className="gap-1.5 h-8 text-xs" onClick={() => setView("plan")}>
+                  <Sparkles className="h-3 w-3" /> Plano
+                </Button>
+                <Button size="sm" variant={view === "history" ? "secondary" : "ghost"} className="gap-1.5 h-8 text-xs" onClick={() => setView("history")}>
+                  <History className="h-3 w-3" /> Histórico ({history.length})
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={generate} disabled={loading}>
+                  <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Gerar
+                </Button>
+              </div>
             </div>
             <SheetDescription className="text-muted-foreground">
               {projectName ? `Projeto: ${projectName}` : "Diagnóstico estratégico do projeto"}
@@ -97,7 +135,31 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
           </SheetHeader>
 
           <ScrollArea className="flex-1 px-6 py-4">
-            {loading && (
+            {view === "history" && (
+              <div className="space-y-2">
+                {history.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-12">Nenhuma análise salva ainda.</p>
+                )}
+                {history.map((h) => (
+                  <Card key={h.id} className="bg-secondary/40 border-border/40 cursor-pointer hover:border-primary/40 transition" onClick={() => openExisting(h)}>
+                    <CardContent className="pt-4 pb-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-2xl font-mono font-bold ${healthColor(h.health_score)}`}>{h.health_score}</span>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{healthLabel(h.health_score)}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {h.created_at ? formatDistanceToNow(new Date(h.created_at), { addSuffix: true, locale: ptBR }) : "—"} · {h.model_used?.split("/").pop() || "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {view === "plan" && loading && (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground text-center max-w-xs">
@@ -106,9 +168,17 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
               </div>
             )}
 
-            {plan && !loading && (
+            {view === "plan" && !loading && !plan && (
+              <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+                <Crown className="h-12 w-12 text-primary/40" />
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Clique em <strong>Gerar</strong> para criar um novo Plano de Ataque, ou abra o <strong>Histórico</strong> para ver análises anteriores.
+                </p>
+              </div>
+            )}
+
+            {view === "plan" && plan && !loading && (
               <div className="space-y-4">
-                {/* Health Score */}
                 <Card className="bg-secondary/60 border-primary/20">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground font-normal">
@@ -134,10 +204,9 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                     <TabsTrigger value="30d" className="text-xs">30 dias</TabsTrigger>
                   </TabsList>
 
-                  {/* Ações 72h */}
                   <TabsContent value="acoes_72h" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> O que fazer nas próximas 72h</h3>
-                    {plan.acoes_72h.map((a, i) => (
+                    {plan.acoes_72h?.map((a: any, i: number) => (
                       <Card key={i} className="bg-secondary/40 border-border/40">
                         <CardContent className="pt-4 space-y-2">
                           <div className="flex items-start justify-between gap-3">
@@ -151,10 +220,9 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                     ))}
                   </TabsContent>
 
-                  {/* Diagnóstico */}
                   <TabsContent value="diagnostico" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-primary" /> Onde está sangrando</h3>
-                    {plan.diagnostico.map((d, i) => (
+                    {plan.diagnostico?.map((d: any, i: number) => (
                       <Card key={i} className={`bg-secondary/40 border ${severidadeColor[d.severidade] || ""}`}>
                         <CardContent className="pt-4 space-y-2">
                           <div className="flex items-start justify-between gap-3">
@@ -170,10 +238,9 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                     ))}
                   </TabsContent>
 
-                  {/* Oportunidades */}
                   <TabsContent value="oportunidades" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Alavancas mapeadas</h3>
-                    {plan.oportunidades.map((o, i) => (
+                    {plan.oportunidades?.map((o: any, i: number) => (
                       <Card key={i} className="bg-secondary/40 border-border/40">
                         <CardContent className="pt-4 space-y-2">
                           <div className="flex items-start justify-between gap-3">
@@ -189,7 +256,6 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                     ))}
                   </TabsContent>
 
-                  {/* Caminho de Vendas */}
                   <TabsContent value="caminho" className="mt-4 space-y-3">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><ChevronRight className="h-4 w-4 text-primary" /> Caminho de Vendas Recomendado</h3>
                     {(["trafego", "captura", "nutricao", "oferta", "upsell"] as const).map((k) => (
@@ -198,17 +264,16 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                           <CardTitle className="text-xs uppercase text-primary tracking-wider font-semibold">{k}</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-sm text-foreground leading-7">{plan.sales_path[k]}</p>
+                          <p className="text-sm text-foreground leading-7">{plan.sales_path?.[k]}</p>
                         </CardContent>
                       </Card>
                     ))}
                   </TabsContent>
 
-                  {/* 30 dias */}
                   <TabsContent value="30d" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" /> Sequência estratégica 30 dias</h3>
                     {[1, 2, 3, 4].map((semana) => {
-                      const acoes = plan.acoes_30d.filter((a) => a.semana === semana);
+                      const acoes = (plan.acoes_30d || []).filter((a: any) => a.semana === semana);
                       if (acoes.length === 0) return null;
                       return (
                         <Card key={semana} className="bg-secondary/40 border-border/40">
@@ -216,7 +281,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                             <CardTitle className="text-xs uppercase text-primary tracking-wider font-semibold">Semana {semana}</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            {acoes.map((a, i) => (
+                            {acoes.map((a: any, i: number) => (
                               <div key={i} className="border-l-2 border-primary/40 pl-3">
                                 <p className="text-sm text-foreground leading-6">{a.acao}</p>
                                 <p className="text-xs text-muted-foreground leading-6 mt-1">🎯 {a.objetivo}</p>
@@ -229,8 +294,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                   </TabsContent>
                 </Tabs>
 
-                {/* Riscos */}
-                {plan.riscos?.length > 0 && (
+                {plan.riscos && plan.riscos.length > 0 && (
                   <Card className="bg-red-500/5 border-red-500/30">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center gap-2 text-red-400 font-semibold">
@@ -250,12 +314,11 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                   </Card>
                 )}
 
-                {/* Footer */}
                 <div className="flex items-center justify-between pt-2">
-                  <p className="text-[10px] text-muted-foreground">Modelo: {plan.model_used || "—"}</p>
-                  <Button onClick={generate} variant="outline" size="sm" className="gap-1.5 text-xs">
-                    <Sparkles className="h-3 w-3" /> Gerar de novo
-                  </Button>
+                  <p className="text-[10px] text-muted-foreground">
+                    Modelo: {plan.model_used || "—"}
+                    {plan.created_at && ` · ${formatDistanceToNow(new Date(plan.created_at), { addSuffix: true, locale: ptBR })}`}
+                  </p>
                 </div>
               </div>
             )}

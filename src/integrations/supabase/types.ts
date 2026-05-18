@@ -15275,6 +15275,48 @@ export type Database = {
           },
         ]
       }
+      imphq_ai_jobs: {
+        Row: {
+          action: string
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          model: string
+          payload: Json
+          project_id: string | null
+          result: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          model: string
+          payload?: Json
+          project_id?: string | null
+          result?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          model?: string
+          payload?: Json
+          project_id?: string | null
+          result?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_api_keys: {
         Row: {
           created_at: string | null

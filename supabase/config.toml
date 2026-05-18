@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.funnel-track]
 verify_jwt = false
+
+[functions.openrouter-models]
+verify_jwt = false
+
+[functions.ai-job-runner]
+verify_jwt = false
