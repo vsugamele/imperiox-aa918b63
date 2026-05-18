@@ -547,7 +547,7 @@ export default function OpenFlow() {
                 </Select>
                 <p className="text-[10px] text-muted-foreground mt-1">Vincular a uma campanha permite agrupar formulários e fluxos por iniciativa.</p>
               </div>
-            )
+            )}
 
             {templates.length > 0 && (
               <div className="border-t border-border/40 pt-3 space-y-2">
