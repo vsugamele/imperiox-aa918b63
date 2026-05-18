@@ -43,6 +43,7 @@ interface SalesPath {
   riscos: string[];
   model_used?: string;
   created_at?: string;
+  progress?: Record<string, ActionStatus>;
 }
 
 const severidadeColor: Record<string, string> = {
