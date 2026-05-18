@@ -533,6 +533,21 @@ export default function OpenFlow() {
                 </Select>
               </div>
             )}
+            {form.project_id && (
+              <div>
+                <Label>Campanha (opcional)</Label>
+                <Select value={form.campanha_id || "none"} onValueChange={v => setForm({ ...form, campanha_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Sem campanha" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem campanha</SelectItem>
+                    {campanhas.filter(c => c.project_id === form.project_id).map(c => (
+                      <SelectItem key={c.id} value={c.id}>📣 {c.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">Vincular a uma campanha permite agrupar formulários e fluxos por iniciativa.</p>
+              </div>
+            )
 
             {templates.length > 0 && (
               <div className="border-t border-border/40 pt-3 space-y-2">
