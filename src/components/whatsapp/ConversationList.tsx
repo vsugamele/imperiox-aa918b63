@@ -122,22 +122,44 @@ export default function ConversationList({
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {onFilterProvider && providers && providers.length > 0 && (
-          <Select value={filterProvider} onValueChange={onFilterProvider}>
-            <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Filtrar instância" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as Instâncias</SelectItem>
-              {providers.map(p => (
-                <SelectItem key={p.id} value={p.id}>
-                  <span className="flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 rounded-full" style={{ background: providerColor(p.id) }} />
-                    {providerLabel(p) || p.id}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        {onFilterProvider && providers && providers.length > 1 && (() => {
+          // Filter chip-tabs to chips of the active project (or all if "all")
+          const visibleProvs = filterProject === "all"
+            ? providers
+            : providers.filter(p => p.project_id === filterProject);
+          if (visibleProvs.length < 2) return null;
+          // Unread/count per chip respecting current project filter
+          const countFor = (provId: string | "all") => sessions.filter(s => {
+            const matchProject = filterProject === "all" || s.project_id === filterProject;
+            return matchProject && (provId === "all" || s.provider_id === provId);
+          }).length;
+          return (
+            <div className="flex gap-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin">
+              <button
+                onClick={() => onFilterProvider("all")}
+                className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors ${filterProvider === "all" ? "bg-primary/15 border-primary/40 text-primary" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
+              >
+                Todos <span className="opacity-60">({countFor("all")})</span>
+              </button>
+              {visibleProvs.map(p => {
+                const active = filterProvider === p.id;
+                const color = providerColor(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onFilterProvider(p.id)}
+                    className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"}`}
+                    style={active ? { background: `${color.replace("hsl", "hsla").replace(")", ", 0.18)")}`, borderColor: `${color.replace("hsl", "hsla").replace(")", ", 0.55)")}` } : { background: "hsl(var(--muted) / 0.3)", borderColor: "hsl(var(--border))" }}
+                    title={providerLabel(p) || p.id}
+                  >
+                    <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                    {providerLabel(p) || "Chip"} <span className="opacity-60">({countFor(p.id)})</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* List */}
