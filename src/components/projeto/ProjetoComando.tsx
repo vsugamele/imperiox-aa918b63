@@ -15,6 +15,7 @@ import { ProjetoMetaCard } from "@/components/projeto/ProjetoMetaCard";
 import { ProjetoNotasCard } from "@/components/projeto/ProjetoNotasCard";
 import { RecoveryKpiBlock } from "@/components/recuperacao/RecoveryKpiBlock";
 import { calcHealthScore } from "@/lib/healthScore";
+import { FocoDoDia } from "@/components/projeto/FocoDoDia";
 
 interface Props {
   projectId: string;
