@@ -1,85 +1,48 @@
-## Plano — Hyper Prompt v2 (polir + Cofre + Criativos)
+## Diagnóstico
 
-Foco em 3 frentes integradas. Sem mexer em outras áreas do sistema.
+O JP Freitas hoje tem **1 só provider** cadastrado (`jpfreitas`, Evolution). A boa notícia é que a arquitetura WhatsApp do Império **já é multi-chip por design**:
 
----
+- `imphq_wa_providers` aceita N instâncias por `project_id`
+- `imphq_wa_sessions.provider_id` já amarra cada conversa ao chip de origem
+- `ConversationList` já tem filtro `filterProvider` + badge de cor por provider
+- `WhatsAppPage` já agrupa avatares por `provider_id`
+- Envio (`send_message`) já tem failover automático entre chips (v2)
 
-### 1. Hyper Prompt — polir & extras
+Ou seja: **não precisa migration nem código novo de backend**. O trabalho é operacional + 2 ajustes finos de UX pra evitar confusão.
 
-**Novos campos** em `hyperPromptOptions.ts` + `hyperPromptBuilder.ts`:
-- Composição (rule of thirds, centered, leading lines, dutch angle…)
-- Aspect ratio (`--ar 9:16`, `1:1`, `16:9`, `2:3`, `21:9`)
-- Plataforma alvo (Midjourney / DALL·E / Firefly / Sora / Flux) → muda sufixos automáticos (`--v 7 --s 250`, `--style raw` etc.)
-- Negative prompt (campo livre opcional, anexa `--no ...` no MJ)
-- Estilo de pós (grain intensity, halation, bloom)
+## O que fazer
 
-**Presets por nicho** (botões no topo que pré-preenchem campos):
-- Cartomante místico, Coach executivo, Fitness, Lifestyle premium, Produto e-commerce, Retrato editorial
-- Salvos em `src/data/studio/hyperPresets.ts`
+### 1. Cadastrar o 2º chip (operacional, sem código)
+- Em `/whatsapp` no projeto JP Freitas → **+ Nova instância** → criar `jpfreitas2` (ou nome que faça sentido: `jp-suporte`, `jp-vendas`)
+- Conectar via QR Code o segundo número
+- Marcar `is_active = true` nos dois
 
-**UX**:
-- Barra fixa no topo do prompt gerado com contagem de caracteres + plataforma alvo
-- Botão "🎲 Surpreenda-me" → randomiza campos vazios
-- Persistência de rascunho em `localStorage` (`hyperPrompt:draft`)
+### 2. Ajustes de UX no chat (código)
 
----
+**a) Renomear providers com label amigável**
+Adicionar campo `display_name` opcional em `imphq_wa_providers` (ex: "Suporte 1", "Suporte 2") e exibir esse rótulo em vez de `instance_name` na lista de conversas, no header do chat e no filtro. Hoje aparece `jpfreitas` cru, o que confunde quando vier `jpfreitas2`.
 
-### 2. Cofre — organização
+**b) Abas/Tabs no topo do chat**
+Acima da `ConversationList`, adicionar tabs: **Todos · Suporte 1 · Suporte 2**, com contador de não-lidas por chip. Hoje existe um Select de filtro escondido — tabs deixam óbvio de qual número é cada conversa.
 
-Adicionar colunas em `imphq_prompts_salvos` (migration):
-- `tags TEXT[]` (já existe no plan original, confirmar)
-- `favorito BOOLEAN DEFAULT false`
-- `plataforma TEXT` (mj/dalle/firefly/sora)
-- `thumbnail_url TEXT` (preview gerado, opcional)
+**c) Badge de cor sempre visível no header da conversa aberta**
+No `ChatView`, mostrar no topo "Atendendo via: 🟢 Suporte 1" para o atendente nunca responder pelo chip errado. Já existe a cor estável por `provider_id` — só falta puxar pro header.
 
-Refatorar `HyperPromptVault.tsx`:
-- Busca por nome/tags (input no topo)
-- Filtros: plataforma, favoritos, projeto
-- Toggle ⭐ favorito inline
-- Duplicar prompt (clona como novo)
-- Editar nome/tags inline
+**d) Ao enviar manual, travar o chip de origem da última msg recebida**
+Hoje o envio escolhe provider via failover. Pra atendimento humano isso é ruim — se o lead falou no Suporte 1, a resposta tem que sair do Suporte 1. Adicionar regra: se a conversa tem `provider_id` definido, força aquele chip no envio manual (failover continua valendo só pra disparo em massa/automação).
 
----
+### 3. Memória
+Atualizar `mem://features/whatsapp/v2-failover-and-commands` registrando a regra "envio manual respeita provider_id da sessão; failover só em automação/massa".
 
-### 3. Integração Criativos — preview real
+## Arquivos afetados
 
-**Nova edge function** `hyper-prompt-preview`:
-- Recebe `{ prompt }`
-- Chama Lovable AI Gateway com `google/gemini-2.5-flash-image` (Nano Banana)
-- Retorna `image_base64` ou faz upload no bucket `studio-previews` e retorna URL
-- Salva em `thumbnail_url` se `save_to_vault_id` for passado
-
-**No HyperPromptGenerator**:
-- Botão "🖼️ Gerar Preview" ao lado de "Refinar com IA"
-- Mostra imagem inline (Card 512×512) com botões: Baixar / Regerar / Anexar a Criativo
-
-**Fluxo "Usar em Criativo"** (melhorar o atual):
-- Em vez de só sessionStorage, criar registro temporário em `imphq_criativos_drafts` (ou usar sessionStorage com mais campos) contendo: `prompt_text`, `refined_text`, `preview_url`, `plataforma`, `campos`
-- `/criativos/novo` lê e pré-preenche prompt visual + anexa preview como referência
-
----
-
-### Arquivos afetados
-
-```
-src/components/studio/HyperPromptGenerator.tsx   (editar)
-src/components/studio/HyperPromptVault.tsx       (refatorar)
-src/components/studio/hyperPromptOptions.ts      (adicionar campos)
-src/lib/hyperPromptBuilder.ts                    (sufixos por plataforma)
-src/data/studio/hyperPresets.ts                  (novo)
-src/pages/CriativoNovo.tsx                       (ler preview_url)
-supabase/functions/hyper-prompt-preview/index.ts (nova)
-supabase/migrations/<nova>                       (tags/favorito/plataforma/thumbnail)
+```text
+supabase/migrations/...        — ADD COLUMN display_name (opcional)
+src/components/whatsapp/ConversationList.tsx   — tabs + label amigável
+src/components/whatsapp/ChatView.tsx           — badge no header + lock provider no envio manual
+src/pages/WhatsAppPage.tsx                     — exibir display_name
 ```
 
----
-
-### Ordem de execução
-
-1. Migration (tags/favorito/plataforma/thumbnail) — requer aprovação
-2. Builder + opções novas + presets (frontend puro)
-3. Cofre refatorado (busca/filtros/favoritos)
-4. Edge function de preview + botão no gerador
-5. Pipeline Criativo com preview anexado
-
-Posso fazer tudo de uma vez ou fatiar em 2 entregas (1+2+3 primeiro, depois 4+5). Qual prefere?
+## Fora de escopo
+- Roteamento automático por função (vendas x pós-venda) — fica pra depois se quiser
+- Distribuidor de leads entre os 2 chips — já existe em `Smart Group Links`, não precisa mexer agora
