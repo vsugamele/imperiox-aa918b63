@@ -18,6 +18,7 @@ import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
 import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 import { CampanhasManager, type Campanha } from "@/components/openflow/CampanhasManager";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 // ── Constants ────────────────────────────────────────────────────
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
@@ -286,13 +287,19 @@ export default function OpenFlow() {
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold text-foreground flex items-center gap-2">
-          ⚡ OpenFlow <SectionInfo {...sectionHelpTexts.openflow} />
-        </h1>
-        <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova</Button>
-      </div>
+      <PageHeader
+        icon={Zap}
+        title="OpenFlow"
+        subtitle="Automações por gatilho · webhooks unificados"
+        kpi={{ label: "Ativas", value: automacoes.filter((a) => a.ativo).length, hint: `${automacoes.length} total` }}
+        primaryAction={
+          <div className="flex items-center gap-2">
+            <SectionInfo {...sectionHelpTexts.openflow} />
+            <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Nova</Button>
+          </div>
+        }
+      />
+
 
       {/* KPI Strip */}
       <div className="grid grid-cols-4 gap-3">
