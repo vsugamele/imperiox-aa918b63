@@ -142,7 +142,9 @@ export default function WhatsApp() {
     load();
   };
 
-  const selectedProvider = selectedSession ? getProvider(selectedSession.project_id) : null;
+  const selectedProvider = selectedSession
+    ? (selectedSession.provider_id ? providers.find(p => p.id === selectedSession.provider_id) : null) || getProvider(selectedSession.project_id)
+    : null;
 
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col">
