@@ -82,6 +82,12 @@ export function HealthScoreCard({ health, projectId }: Props) {
             <Breakdown icon={<FileText className="h-3 w-3" />} label="Conteúdo 14d" value={health.conteudoScore} />
           </div>
         </div>
+        {projectId && health.score < 60 && (
+          <Button size="sm" variant="outline" className="mt-3 w-full h-7 text-[11px] gap-1.5" onClick={askImperius} disabled={enq}>
+            {enq ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-gold" />}
+            Pedir plano de recuperação ao Imperius
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
