@@ -34,6 +34,7 @@ export default function Recuperacao() {
   const [activeBucket, setActiveBucket] = useState<RecoveryBucketId>("pix_urgent");
   const [savingTemplateKey, setSavingTemplateKey] = useState<string | null>(null);
   const [templates, setTemplates] = useState<RecoveryTemplateDraft[]>([]);
+  const [dispatchingBucket, setDispatchingBucket] = useState<RecoveryBucketId | null>(null);
 
   const selectedProject = searchParams.get("projeto") || "all";
   const selectedProjectName = useMemo(
