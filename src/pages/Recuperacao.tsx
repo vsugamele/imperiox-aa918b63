@@ -284,9 +284,18 @@ export default function Recuperacao() {
       };
       const { data, error } = await supabase.functions.invoke("recovery-bucket-dispatch", { body: payload });
       if (error) throw error;
+      const errMsg = (data as any)?.error as string | undefined;
+      if (errMsg?.toLowerCase().includes("provider")) {
+        toast.error("Nenhum WhatsApp ativo neste projeto.", {
+          action: { label: "Configurar", onClick: () => window.location.assign("/whatsapp") },
+        });
+        return;
+      }
       const sent = (data as any)?.sent ?? 0;
       const skipped = (data as any)?.skipped ?? 0;
-      toast.success(`Disparo concluído: ${sent} enviadas, ${skipped} ignoradas.`);
+      toast.success(`Disparo: ${sent} enviadas, ${skipped} ignoradas.`, {
+        action: { label: "Ver logs", onClick: () => window.location.assign("/imperius") },
+      });
       load();
     } catch (err: any) {
       toast.error(err?.message || "Erro ao disparar bucket.");
