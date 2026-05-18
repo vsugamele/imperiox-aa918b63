@@ -29,6 +29,7 @@ import FacebookHealthAlert from "@/components/dashboard/FacebookHealthAlert";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import { PageHeader } from "@/components/shared/PageHeader";
 import TodayCard from "@/components/dashboard/TodayCard";
+import NextActionCard from "@/components/dashboard/NextActionCard";
 
 
 export default function Dashboard() {
@@ -80,6 +81,7 @@ export default function Dashboard() {
         }
       />
 
+      <NextActionCard projectId={dashProject} />
       <TodayCard projectId={dashProject} />
 
 
