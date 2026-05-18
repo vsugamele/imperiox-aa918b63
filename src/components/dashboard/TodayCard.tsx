@@ -35,37 +35,39 @@ export default function TodayCard({ projectId }: { projectId?: string }) {
       const thirtyMinAgo = new Date(now - 30 * 60 * 1000).toISOString();
       const yesterday = new Date(now - 24 * 60 * 60 * 1000).toISOString();
 
-      // 1) Hot leads: last_intent_at nas últimas 2h, sem resposta há >10min
-      let hotQ = supabase
+      // 1) Hot leads: leads recentes com Pix/Boleto e sem outgoing recente
+      const hotQ: any = supabase
         .from("imphq_leads")
-        .select("id", { count: "exact", head: true })
+        .select("id, data", { count: "exact" })
         .gte("data->>last_intent_at", twoHoursAgo)
-        .or(`data->>last_outgoing_at.is.null,data->>last_outgoing_at.lte.${tenMinAgo}`);
-      if (projectId && projectId !== "all") hotQ = hotQ.eq("project_id", projectId);
-      const { count: hotCount } = await hotQ;
+        .limit(200);
+      if (projectId && projectId !== "all") hotQ.eq("project_id", projectId);
+      const hotRes = await hotQ;
+      const hotCount = (hotRes.data || []).filter((l: any) => {
+        const last = l?.data?.last_outgoing_at;
+        return !last || new Date(last).toISOString() <= tenMinAgo;
+      }).length;
 
       // 2) Pix/Boleto pendentes >30min (últimas 24h)
-      let pixQ = supabase
+      const pixQ: any = supabase
         .from("imphq_vendas")
         .select("id", { count: "exact", head: true })
         .in("status", ["pendente", "aguardando_pagamento", "pix_gerado", "boleto_gerado"])
         .gte("data_venda", yesterday)
         .lte("data_venda", thirtyMinAgo);
-      if (projectId && projectId !== "all") pixQ = pixQ.eq("project_id", projectId);
+      if (projectId && projectId !== "all") pixQ.eq("project_id", projectId);
       const { count: pixCount } = await pixQ;
 
-      // 3) Ads com alerta nas últimas 24h (usa imphq_ads_actions categoria 'alert' ou CPA ruim em imphq_ads)
+      // 3) Ads ativos com gasto sem retorno nas últimas 24h
       let adsCount = 0;
       try {
-        let adsQ = supabase
-          .from("imphq_ads")
-          .select("id", { count: "exact", head: true })
-          .gte("data", new Date(now - 86400000).toISOString().slice(0, 10))
-          .eq("status", "ACTIVE")
-          .gt("spend", 50)
-          .or("purchases.is.null,purchases.eq.0");
-        const { count } = await adsQ;
-        adsCount = count || 0;
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: spends } = await supabase
+          .from("imphq_ads_spend")
+          .select("ad_id, spend, purchases")
+          .eq("date", today)
+          .limit(500);
+        adsCount = (spends || []).filter((s: any) => (s.spend || 0) > 50 && (!s.purchases || s.purchases === 0)).length;
       } catch {
         adsCount = 0;
       }
