@@ -12,7 +12,8 @@ interface Props {
   projectId?: string;
 }
 
-export function HealthScoreCard({ health }: Props) {
+export function HealthScoreCard({ health, projectId }: Props) {
+  const [enq, setEnq] = useState(false);
   const ringColor = health.score >= 80 ? "stroke-emerald-400"
     : health.score >= 60 ? "stroke-emerald-400"
     : health.score >= 40 ? "stroke-amber-400"
@@ -20,6 +21,29 @@ export function HealthScoreCard({ health }: Props) {
 
   const circumference = 2 * Math.PI * 36;
   const offset = circumference - (health.score / 100) * circumference;
+
+  const askImperius = async () => {
+    if (!projectId) return;
+    setEnq(true);
+    try {
+      const { error } = await supabase.from("imphq_ai_actions").insert({
+        projeto_id: projectId,
+        kind: "health_recovery",
+        risk_level: "low",
+        status: "pending",
+        title: `Health Score ${health.score} — gerar plano de recuperação`,
+        reason: `Score ${health.score}/100 (${health.statusLabel}). ROAS=${Math.round(health.roasScore)}, Conv=${Math.round(health.conversaoScore)}, Ativ=${Math.round(health.atividadeScore)}, Conteúdo=${Math.round(health.conteudoScore)}.`,
+        source: "health_score_card",
+        payload: { breakdown: health },
+      } as any);
+      if (error) throw error;
+      toast.success("Plano solicitado ao Imperius");
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao enviar");
+    } finally {
+      setEnq(false);
+    }
+  };
 
   return (
     <Card className="bg-card border-border">
