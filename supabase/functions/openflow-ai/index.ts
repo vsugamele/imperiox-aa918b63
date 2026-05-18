@@ -1290,7 +1290,7 @@ REGRAS:
   const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
   if (isOpenRouter) { headers["HTTP-Referer"] = "https://imperiox.lovable.app"; headers["X-Title"] = "ImperioHQ"; }
 
-  let response = await fetch(`${baseUrl}/chat/completions`, {
+  let response = await fetchAI(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers,
     body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }] }),
@@ -1600,7 +1600,7 @@ async function handleGenerateImage(body: any, sb: any, projectContext: string, a
 
   const userPrompt = `Gere um criativo visual de alta qualidade com base na descrição: "${prompt}". A imagem deve ser profissional, atrativa e adequada para uso em anúncios ou redes sociais.`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetchAI("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1648,7 +1648,7 @@ async function handleGenerateImage(body: any, sb: any, projectContext: string, a
 async function handleEditImage(body: any, sb: any, projectContext: string, apiKey: string, mentePrefix = "") {
   const { project_id, source_image_url, instruction } = body;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetchAI("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
