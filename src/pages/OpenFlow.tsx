@@ -610,8 +610,21 @@ export default function OpenFlow() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent>
                   </Select>
-                </div>
               </div>
+              {editing.project_id && (
+                <div>
+                  <Label>Campanha</Label>
+                  <Select value={editing.campanha_id || "none"} onValueChange={v => setEditing({ ...editing, campanha_id: v === "none" ? null : v })}>
+                    <SelectTrigger><SelectValue placeholder="Sem campanha" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem campanha (escopo: projeto inteiro)</SelectItem>
+                      {campanhas.filter(c => c.project_id === editing.project_id).map(c => (
+                        <SelectItem key={c.id} value={c.id}>📣 {c.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>WhatsApp Padrão</Label>
                 <Select 
