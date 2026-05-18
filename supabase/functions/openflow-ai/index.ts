@@ -311,7 +311,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   const payload = JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], tools, tool_choice: { type: "function", function: { name: toolName } } });
 
   // Abort upstream calls before edge runtime's 150s IDLE_TIMEOUT to return a clear error
-  const fetchWithTimeout = async (url: string, headers: Record<string, string>, timeoutMs = 120_000) => {
+  const fetchWithTimeout = async (url: string, headers: Record<string, string>, timeoutMs = 90_000) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -326,7 +326,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
     response = await fetchWithTimeout(`${baseUrl}/chat/completions`, makeHeaders(apiKey, isOpenRouter));
   } catch (e: any) {
     if (e?.name === "AbortError") {
-      return { error: `Modelo "${model}" demorou demais (>120s). Use um modelo mais rápido (ex.: gemini-3-flash, gpt-5-mini) ou reduza o contexto.` };
+      return { error: `Modelo "${model}" demorou demais (>90s). Use um modelo mais rápido (ex.: gemini-3-flash, gpt-5-mini) ou reduza o contexto.` };
     }
     throw e;
   }
@@ -340,7 +340,7 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
         response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", makeHeaders(orKey, true));
       } catch (e: any) {
         if (e?.name === "AbortError") {
-          return { error: `Modelo "${model}" via OpenRouter excedeu 120s. Tente um modelo mais rápido.` };
+          return { error: `Modelo "${model}" via OpenRouter excedeu 90s. Tente um modelo mais rápido.` };
         }
         throw e;
       }
