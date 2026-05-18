@@ -1,77 +1,55 @@
+# Semana 2 — Performance & Confiabilidade
 
-# Semana 1 — Resto da entrega (Clareza & UX)
+Objetivo: reduzir egress do Supabase, cortar refetches inúteis, e endurecer pontos frágeis (realtime, polling, queries sem filtro). Tudo frontend + 1-2 índices se necessário.
 
-Continuação do roadmap. Sidebar e `PageHeader` já estão prontos. Falta aplicar nas páginas e entregar o card "Hoje" no Dashboard + simplificação das tabs do Leads + OpenFlow v2.
+## 1. React Query defaults globais ✅
 
-## 1. Aplicar `PageHeader` nas páginas top
+`src/App.tsx` — `QueryClient` agora vem com:
+- `staleTime: 60s` — não refetch ao trocar de aba/rota dentro de 1min
+- `gcTime: 5min` — cache vive mais
+- `refetchOnWindowFocus: false` — fim do hammering ao voltar pra aba
+- `retry: 1` — falha rápido em vez de 3 tentativas
 
-Substituir o cabeçalho atual (cada página tem o seu) por `<PageHeader />` padronizado em:
+Impacto esperado: -40% de chamadas redundantes ao Supabase.
 
-- `Dashboard.tsx` — KPI hero = Receita hoje | ação = "Ver alertas"
-- `Leads.tsx` — KPI = Leads quentes agora | ação = "Importar lead"
-- `Financas.tsx` — KPI = Receita do mês | ação = "Importar venda/ads"
-- `OpenFlow.tsx` — KPI = Fluxos ativos | ação = "Nova automação"
-- `Gerenciador.tsx` — KPI = ROAS dia | ação = "Atualizar Meta Ads"
-- `Imperius.tsx` — KPI = Ações pendentes | ação = "Rodar scout"
-- `Projetos.tsx`, `WhatsAppPage.tsx`, `Recuperacao.tsx`, `Metas.tsx`, `Cohort.tsx`, `Funis.tsx` — header padrão sem KPI hero (só título + ação)
+## 2. Auditoria de queries pesadas (próximo passo)
 
-Resultado: todas as páginas com mesma altura de header, mesma posição de ação primária, mesma tipografia. Hoje cada uma reinventa.
+Páginas a revisar com filtros estritos + `select` de colunas específicas:
 
-## 2. Dashboard: card "Hoje" (3 coisas que precisam de você agora)
+- **`Dashboard.tsx`** — qualquer `select("*")` em tabelas grandes (`imphq_vendas`, `imphq_events`) precisa de `select` específico + filtro de data
+- **`Leads.tsx` linhas 261-263** — fetch `imphq_events` LeadCapture e CSVImport SEM `project_id` filter. Adicionar `eq("project_id", projectId)`.
+- **`Gerenciador.tsx` linha 56** — já tem `limit(2000)` mas pode trocar `select("*")` por colunas usadas.
 
-Novo componente `src/components/dashboard/TodayCard.tsx` no topo do Dashboard, acima de qualquer outro bloco.
+## 3. Realtime hygiene
 
-Lógica (1 query consolidada via edge function nova `dashboard-today` ou query no front por enquanto):
-1. **Hot leads sem resposta há >10min** — count + link "Responder" → `/leads?filter=hot`
-2. **Ads com CPA 2x acima da meta nas últimas 24h** — count + link → `/gerenciador?filter=alert`
-3. **Vendas Pix/Boleto geradas e não pagas em >30min** — count + link → `/recuperacao`
+- Verificar `supabase.channel(...)` órfãos (sem `removeChannel` no cleanup).
+- WhatsApp já usa polling 30s — manter.
+- Garantir 1 channel por hook, não por componente render.
 
-Visual: 3 cards horizontais com semáforo (vermelho/amarelo/verde), número grande, 1 botão de ação. Se tudo zerado: "Tudo sob controle ✓".
+## 4. Skeleton states + suspense boundaries
 
-## 3. Leads: consolidar tabs (8 → 4)
+Trocar `loading ? <Spinner /> : <Page />` por skeletons localizados nos cards pesados (Dashboard, Financas). Sensação de velocidade > velocidade real.
 
-Tabs atuais incluem duplicação Automações + Nutrição + Jornada. Consolidar em:
+## 5. Índices DB (se sinal de slow query aparecer)
 
-- **Visão** (resumo, predições, UTMs)
-- **Conversas** (WhatsApp + email)
-- **Jornada** (timeline + automações ativas + nutrição — tudo num só lugar)
-- **Vendas** (vendas + recuperação)
+Candidatos prováveis (validar antes):
+- `imphq_events(visitor_id, created_at desc)`
+- `imphq_vendas(lead_id, created_at desc)`
+- `imphq_clicks(utm_source, created_at desc)`
 
-Mover o que sobra para um menu "Mais" se necessário. Sem perder funcionalidade — só reagrupar.
+Só criar via migration depois de medir.
 
-## 4. OpenFlow v2 (layout 2 colunas)
+## O que NÃO muda nesta semana
 
-Refatorar `OpenFlow.tsx`:
-- **Coluna esquerda (280px)**: árvore Projeto → Campanha → Fluxo. Item selecionado destaca em ouro.
-- **Coluna direita**: editor do item selecionado (campanha ou fluxo).
-- **Topo**: filtro de projeto + botões "+ Campanha" / "+ Fluxo".
-- **Drawer único "Como conectar"**: junta Webhook URL + Guia + Templates num só lugar acessível pelo botão de info no topo.
+- Lógica de negócio, edge functions, schema (exceto índices puros).
+- Layout — Semana 1 já fechou isso.
 
-Componente novo: `src/components/openflow/CampanhaTree.tsx`. Reusa `CampanhasManager` e `FlowEditor` existentes.
+## Ordem
 
-## Detalhes técnicos
+1. ✅ React Query defaults
+2. Filtro `project_id` em `Leads.tsx` (eventos órfãos)
+3. Auditoria de `select("*")` em páginas top
+4. Skeletons localizados
+5. Índices (só se houver slow query medida)
 
-**Sem migrações nesta semana.** Tudo frontend.
-
-**Arquivos novos:**
-- `src/components/dashboard/TodayCard.tsx`
-- `src/components/openflow/CampanhaTree.tsx`
-
-**Arquivos editados:**
-- `src/pages/Dashboard.tsx` (adiciona TodayCard + PageHeader)
-- `src/pages/Leads.tsx` (consolida tabs + PageHeader)
-- `src/pages/OpenFlow.tsx` (layout 2 colunas + PageHeader)
-- `src/pages/Financas.tsx`, `Gerenciador.tsx`, `Imperius.tsx`, `Projetos.tsx`, `WhatsAppPage.tsx`, `Recuperacao.tsx`, `Metas.tsx`, `Cohort.tsx`, `Funis.tsx` (só PageHeader)
-
-**O que NÃO muda:**
-- Lógica de queries, dados, edge functions, schema
-- Funcionalidades existentes — só layout/agrupamento
-
-## Ordem de execução
-
-1. PageHeader em todas as páginas (batch, baixo risco)
-2. TodayCard no Dashboard
-3. Consolidação de tabs no Leads
-4. OpenFlow v2 (maior risco, deixar por último)
-
-Ao terminar: Semana 1 fechada e seguimos para Semana 2 (Performance & Custo).
+Ao terminar: seguimos pra Semana 3 (Inteligência & Receita).
