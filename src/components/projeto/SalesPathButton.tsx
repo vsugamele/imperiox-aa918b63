@@ -294,18 +294,32 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
 
                   <TabsContent value="acoes_72h" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> O que fazer nas próximas 72h</h3>
-                    {plan.acoes_72h?.map((a: any, i: number) => (
-                      <Card key={i} className="bg-secondary/40 border-border/40">
-                        <CardContent className="pt-4 space-y-2">
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="font-semibold text-foreground leading-6 text-sm">{a.acao}</p>
-                            <Badge variant="outline" className={prioridadeColor[a.prioridade] || ""}>{a.prioridade}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-6">→ {a.resultado_esperado}</p>
-                          <Badge variant="secondary" className="text-[10px] uppercase">{a.responsavel_sugerido}</Badge>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {plan.acoes_72h?.map((a: any, i: number) => {
+                      const key = hashAction(String(a?.acao || ""));
+                      const st = (plan.progress || {})[key] || "todo";
+                      const M = statusMeta[st]; const Icon = M.icon;
+                      return (
+                        <Card key={i} className={`bg-secondary/40 border-border/40 ${st === "done" ? "opacity-60" : ""}`}>
+                          <CardContent className="pt-4 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-2 min-w-0 flex-1">
+                                <button
+                                  onClick={() => cycleStatus(key)}
+                                  title={`${M.label} · clique para alterar`}
+                                  className="mt-0.5 shrink-0 hover:scale-110 transition"
+                                >
+                                  <Icon className={`h-4 w-4 ${M.cls} ${st === "doing" ? "animate-spin" : ""}`} />
+                                </button>
+                                <p className={`font-semibold text-foreground leading-6 text-sm ${st === "skip" ? "line-through text-muted-foreground" : ""}`}>{a.acao}</p>
+                              </div>
+                              <Badge variant="outline" className={prioridadeColor[a.prioridade] || ""}>{a.prioridade}</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-6 pl-6">→ {a.resultado_esperado}</p>
+                            <Badge variant="secondary" className="text-[10px] uppercase ml-6">{a.responsavel_sugerido}</Badge>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </TabsContent>
 
                   <TabsContent value="diagnostico" className="mt-4 space-y-2">
