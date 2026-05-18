@@ -4,6 +4,7 @@ import { getPeriodRange } from "@/lib/periodUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, TrendingDown, Activity, Brain, Target, AlertTriangle, Sparkles, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
@@ -308,11 +309,17 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
 
   if (loading) {
     return (
-      <Card className="border-border bg-card/50">
-        <CardContent className="p-6 flex items-center justify-center gap-2 text-muted-foreground">
-          <RefreshCw className="h-4 w-4 animate-spin" /> Calculando predições...
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-6 w-24" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-32 rounded-lg" />
+          <Skeleton className="h-32 rounded-lg" />
+          <Skeleton className="h-32 rounded-lg" />
+        </div>
+      </div>
     );
   }
 
