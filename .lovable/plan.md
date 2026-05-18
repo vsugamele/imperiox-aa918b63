@@ -1,83 +1,77 @@
 
-# Roadmap 30 dias — ImperioHQ
+# Semana 1 — Resto da entrega (Clareza & UX)
 
-Diagnóstico rápido após revisar OpenFlow, Leads, Dashboard, Imperius, WhatsApp e Finanças: o sistema tem features demais para a navegação atual, telas misturam conceitos (KPI + ação + config na mesma view), há queries pesadas sem paginação consistente, integrações falham em silêncio e a IA ainda depende muito de clique do usuário. O plano abaixo ataca isso em 4 semanas, sem quebrar nada existente.
+Continuação do roadmap. Sidebar e `PageHeader` já estão prontos. Falta aplicar nas páginas e entregar o card "Hoje" no Dashboard + simplificação das tabs do Leads + OpenFlow v2.
 
-## Semana 1 — Clareza & Navegação (UX)
+## 1. Aplicar `PageHeader` nas páginas top
 
-Objetivo: cada tela responde "o que faço aqui agora?" em 3 segundos.
+Substituir o cabeçalho atual (cada página tem o seu) por `<PageHeader />` padronizado em:
 
-- **Sidebar reorganizada por intenção** (não por feature): `Operar` (Dashboard, Leads, WhatsApp, OpenFlow, Recuperação), `Vender` (Funis, Criativos, Gerenciador, Cohort, Metas), `Inteligência` (Imperius, Mentes, MarketIntel, Studio), `Configurar` (Empresa, Equipe, Integrações, Cofre). Hoje são 30+ itens chapados.
-- **Header de página padronizado**: título + 1 KPI hero + 1 ação primária + filtro de projeto. Hoje cada página inventa seu próprio cabeçalho.
-- **OpenFlow v2 (já planejado)**: hierarquia Projeto → Campanha → Fluxo na sidebar esquerda, editor à direita, drawer "Como conectar" único.
-- **Dashboard com modo "Hoje"**: card único no topo "3 coisas que precisam de você agora" (hot leads, ads ruins, leads parados) — resto vira tabs.
-- **Leads: tabs reduzidas** de 8 para 4 (Visão, Conversas, Jornada, Predições). Eliminar duplicação Automações/Nutrição.
+- `Dashboard.tsx` — KPI hero = Receita hoje | ação = "Ver alertas"
+- `Leads.tsx` — KPI = Leads quentes agora | ação = "Importar lead"
+- `Financas.tsx` — KPI = Receita do mês | ação = "Importar venda/ads"
+- `OpenFlow.tsx` — KPI = Fluxos ativos | ação = "Nova automação"
+- `Gerenciador.tsx` — KPI = ROAS dia | ação = "Atualizar Meta Ads"
+- `Imperius.tsx` — KPI = Ações pendentes | ação = "Rodar scout"
+- `Projetos.tsx`, `WhatsAppPage.tsx`, `Recuperacao.tsx`, `Metas.tsx`, `Cohort.tsx`, `Funis.tsx` — header padrão sem KPI hero (só título + ação)
 
-## Semana 2 — Performance & Custo (egress Supabase)
+Resultado: todas as páginas com mesma altura de header, mesma posição de ação primária, mesma tipografia. Hoje cada uma reinventa.
 
-Objetivo: -50% no egress mensal e p95 < 800ms nas telas pesadas.
+## 2. Dashboard: card "Hoje" (3 coisas que precisam de você agora)
 
-- **Paginação obrigatória via `fetchAll`** em Leads, Vendas, Ads (hoje várias queries trazem 1000+ linhas no client). Já existe helper em `src/lib/supabasePaginate.ts` mas é subusado.
-- **Materialized views** para os KPIs do Dashboard, Finanças e Cohort (refresh a cada 5min via pg_cron) — hoje cada load recalcula tudo.
-- **React Query com staleTime** padronizado (3min para listas, 30s para inboxes). Eliminar `refetchOnWindowFocus` indiscriminado.
-- **Realtime só onde importa**: WhatsApp inbox e ActionInbox. Remover subscriptions em Dashboard/Finanças (já há polling 30s).
-- **Índices faltantes**: `imphq_leads(project_id, created_at desc)`, `imphq_vendas(project_id, status, created_at desc)`, `imphq_automacao_logs(automacao_id, created_at desc)`.
-- **Edge function `dashboard-kpis`** que devolve 1 JSON consolidado em vez de 6 queries paralelas do frontend.
+Novo componente `src/components/dashboard/TodayCard.tsx` no topo do Dashboard, acima de qualquer outro bloco.
 
-## Semana 3 — Confiabilidade & Observabilidade
+Lógica (1 query consolidada via edge function nova `dashboard-today` ou query no front por enquanto):
+1. **Hot leads sem resposta há >10min** — count + link "Responder" → `/leads?filter=hot`
+2. **Ads com CPA 2x acima da meta nas últimas 24h** — count + link → `/gerenciador?filter=alert`
+3. **Vendas Pix/Boleto geradas e não pagas em >30min** — count + link → `/recuperacao`
 
-Objetivo: integração quebrada nunca mais passa despercebida >5min.
+Visual: 3 cards horizontais com semáforo (vermelho/amarelo/verde), número grande, 1 botão de ação. Se tudo zerado: "Tudo sob controle ✓".
 
-- **Health Center** (nova página `/saude`): semáforo por integração (WhatsApp providers, Meta Ads, webhooks de venda, OpenAI/Gemini, pg_cron jobs). Última execução, taxa de erro 24h, último erro.
-- **Tabela `imphq_system_health`** + cron a cada 2min testando cada integração (ping leve). Falha 2x seguidas → cria `imphq_ai_action` notify com severidade alta.
-- **Retry exponencial nas edge functions críticas** (`webhook-pagamento`, `whatsapp-api send_message`, `facebook-ads-toggle`): 3 tentativas com backoff, fallback para fila `imphq_failed_jobs` reprocessável.
-- **Idempotência em webhooks**: dedup key por `event_id` em vendas (já existe em CAPI, expandir para todos os providers).
-- **Alertas push** quando: provider WhatsApp cai, webhook de venda falha 3x, ROAS de campanha despenca >40% em 2h.
-- **Logs estruturados** nas edge functions (level + context + project_id) e um viewer simples em `/saude/logs`.
+## 3. Leads: consolidar tabs (8 → 4)
 
-## Semana 4 — Inteligência & Receita (Imperius autônomo de verdade)
+Tabs atuais incluem duplicação Automações + Nutrição + Jornada. Consolidar em:
 
-Objetivo: IA agindo sozinha em decisões reversíveis e gerando receita mensurável.
+- **Visão** (resumo, predições, UTMs)
+- **Conversas** (WhatsApp + email)
+- **Jornada** (timeline + automações ativas + nutrição — tudo num só lugar)
+- **Vendas** (vendas + recuperação)
 
-- **Imperius Scout 24/7**: cron a cada 15min varrendo cada projeto ativo. Detecta padrões (hot lead sem resposta >10min, ad com CPA 2x acima da meta, lead que abandonou checkout) e enfileira ação. Hoje é manual.
-- **Auto-execução por risco**: low (responder WhatsApp para hot lead, pausar ad com CPA 3x meta) executa direto; medium (mudar budget, criar campanha) vai para inbox; high (deletar, gastar >R$500) sempre humano.
-- **Loop de aprendizado**: cada ação executada grava resultado 24/48h depois (`outcome_metric`). Scout usa histórico para ajustar confiança — ação que deu certo 5x vira low risk automaticamente.
-- **Atribuição multi-touch**: hoje é last-click via UTM. Adicionar first-touch + linear no `/cohort` para ver o real ROAS por criativo.
-- **Predições no Lead**: já existe `imphq_lead_predictions`. Expor probabilidade de compra direto na linha da tabela `/leads` com badge colorido, ordenação por score.
-- **Recuperação automática**: lead com Pix gerado e não pago em 30min → Imperius dispara mensagem personalizada via OpenFlow (template do projeto). Hoje depende de campanha manual.
-- **Painel `/imperius` com ROI**: "IA gerou R$ X em vendas recuperadas / economizou R$ Y em ads pausados este mês". Justifica o sistema.
+Mover o que sobra para um menu "Mais" se necessário. Sem perder funcionalidade — só reagrupar.
+
+## 4. OpenFlow v2 (layout 2 colunas)
+
+Refatorar `OpenFlow.tsx`:
+- **Coluna esquerda (280px)**: árvore Projeto → Campanha → Fluxo. Item selecionado destaca em ouro.
+- **Coluna direita**: editor do item selecionado (campanha ou fluxo).
+- **Topo**: filtro de projeto + botões "+ Campanha" / "+ Fluxo".
+- **Drawer único "Como conectar"**: junta Webhook URL + Guia + Templates num só lugar acessível pelo botão de info no topo.
+
+Componente novo: `src/components/openflow/CampanhaTree.tsx`. Reusa `CampanhasManager` e `FlowEditor` existentes.
 
 ## Detalhes técnicos
 
-**Migrações novas:**
-- `imphq_system_health` (integration_name, status, last_ok_at, last_error, project_id nullable)
-- `imphq_failed_jobs` (function_name, payload jsonb, error, retry_count, next_retry_at)
-- `imphq_ai_action_outcomes` (action_id, metric_name, value_before, value_after, measured_at)
-- 3 materialized views: `mv_dashboard_kpis`, `mv_financas_overview`, `mv_cohort_matrix`
-- Índices listados na Semana 2
+**Sem migrações nesta semana.** Tudo frontend.
 
-**Edge functions novas:**
-- `dashboard-kpis` (consolidador)
-- `system-health-check` (cron 2min)
-- `imperius-scout` (cron 15min) — expandir o atual
-- `imperius-outcome-tracker` (cron 1h) — mede resultado de ações executadas
+**Arquivos novos:**
+- `src/components/dashboard/TodayCard.tsx`
+- `src/components/openflow/CampanhaTree.tsx`
 
-**Frontend:**
-- Refactor `AppSidebar.tsx` em grupos
-- Novo componente `PageHeader` reutilizável + aplicar em todas as páginas top
-- Novo `src/pages/Saude.tsx` + `src/components/saude/HealthGrid.tsx`
-- Refactor `Leads.tsx` consolidando tabs
-- `imperius-autonomous` ganha tab "ROI" agregando outcomes
+**Arquivos editados:**
+- `src/pages/Dashboard.tsx` (adiciona TodayCard + PageHeader)
+- `src/pages/Leads.tsx` (consolida tabs + PageHeader)
+- `src/pages/OpenFlow.tsx` (layout 2 colunas + PageHeader)
+- `src/pages/Financas.tsx`, `Gerenciador.tsx`, `Imperius.tsx`, `Projetos.tsx`, `WhatsAppPage.tsx`, `Recuperacao.tsx`, `Metas.tsx`, `Cohort.tsx`, `Funis.tsx` (só PageHeader)
 
 **O que NÃO muda:**
-- Stack, schema dos `imphq_*` core (vendas, leads, projects), auth, design tokens, edge functions estáveis (webhook-pagamento, whatsapp-api). Tudo aditivo.
+- Lógica de queries, dados, edge functions, schema
+- Funcionalidades existentes — só layout/agrupamento
 
-## Entregáveis ao fim dos 30 dias
+## Ordem de execução
 
-1. Navegação 50% mais enxuta, padronizada
-2. Egress -50%, telas críticas <800ms
-3. Página `/saude` com semáforo vivo + alertas push
-4. Imperius rodando sozinho com loop de aprendizado e ROI visível
-5. Salvar este plano em `.lovable/plan.md` na aprovação
+1. PageHeader em todas as páginas (batch, baixo risco)
+2. TodayCard no Dashboard
+3. Consolidação de tabs no Leads
+4. OpenFlow v2 (maior risco, deixar por último)
 
-Posso começar pela Semana 1 (clareza/UX) ou você prefere ordem diferente?
+Ao terminar: Semana 1 fechada e seguimos para Semana 2 (Performance & Custo).
