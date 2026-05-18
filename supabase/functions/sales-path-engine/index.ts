@@ -394,50 +394,53 @@ serve(async (req) => {
     }).select("id").single();
     const pathId = pathRow?.id;
 
-    try {
-      const snapshot = await collectProjectSnapshot(supabase, projectId);
-      const deterministic = deterministicDiagnostics(snapshot);
-      if (focus) (snapshot as any).foco_solicitado = focus;
-
-      let plan: any;
-      let modelUsed = MODEL_PRIMARY;
+    // Roda IA em background pra evitar 504 (IDLE_TIMEOUT 150s)
+    const runInBackground = async () => {
       try {
-        plan = await callAI(MODEL_PRIMARY, snapshot, deterministic, "high");
-      } catch (e: any) {
-        console.warn("Primary model falhou, tentando fallback:", e.message);
-        if (e.status === 429 || e.status === 402) throw e;
-        plan = await callAI(MODEL_FALLBACK, snapshot, deterministic, "medium");
-        modelUsed = MODEL_FALLBACK;
+        const snapshot = await collectProjectSnapshot(supabase, projectId);
+        const deterministic = deterministicDiagnostics(snapshot);
+        if (focus) (snapshot as any).foco_solicitado = focus;
+
+        let plan: any;
+        let modelUsed = MODEL_PRIMARY;
+        try {
+          plan = await callAI(MODEL_PRIMARY, snapshot, deterministic, "high");
+        } catch (e: any) {
+          console.warn("Primary model falhou, tentando fallback:", e.message);
+          if (e.status === 429 || e.status === 402) throw e;
+          plan = await callAI(MODEL_FALLBACK, snapshot, deterministic, "medium");
+          modelUsed = MODEL_FALLBACK;
+        }
+
+        await supabase.from("imphq_sales_paths").update({
+          status: "ready",
+          snapshot,
+          health_score: deterministic.health_score,
+          diagnostico: plan.diagnostico,
+          oportunidades: plan.oportunidades,
+          acoes_72h: plan.acoes_72h,
+          acoes_30d: plan.acoes_30d,
+          sales_path: plan.sales_path,
+          riscos: plan.riscos,
+          resumo_executivo: plan.resumo_executivo,
+          model_used: modelUsed,
+        }).eq("id", pathId);
+      } catch (innerErr: any) {
+        console.error("sales-path-engine inner error:", innerErr);
+        await supabase.from("imphq_sales_paths").update({
+          status: "failed",
+          error_message: innerErr.message || String(innerErr),
+        }).eq("id", pathId);
       }
+    };
 
-      await supabase.from("imphq_sales_paths").update({
-        status: "ready",
-        snapshot,
-        health_score: deterministic.health_score,
-        diagnostico: plan.diagnostico,
-        oportunidades: plan.oportunidades,
-        acoes_72h: plan.acoes_72h,
-        acoes_30d: plan.acoes_30d,
-        sales_path: plan.sales_path,
-        riscos: plan.riscos,
-        resumo_executivo: plan.resumo_executivo,
-        model_used: modelUsed,
-      }).eq("id", pathId);
+    // @ts-ignore EdgeRuntime fornecido pelo Supabase
+    EdgeRuntime.waitUntil(runInBackground());
 
-      return new Response(JSON.stringify({ id: pathId, ...plan, health_score: deterministic.health_score, snapshot, model_used: modelUsed }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (innerErr: any) {
-      console.error("sales-path-engine inner error:", innerErr);
-      await supabase.from("imphq_sales_paths").update({
-        status: "failed",
-        error_message: innerErr.message || String(innerErr),
-      }).eq("id", pathId);
-
-      if (innerErr.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições atingido. Tenta de novo em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (innerErr.status === 402) return new Response(JSON.stringify({ error: "Créditos do Lovable AI esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      return new Response(JSON.stringify({ error: innerErr.message || "Falha ao gerar plano" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    return new Response(JSON.stringify({ id: pathId, status: "processing" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 202,
+    });
   } catch (err: any) {
     console.error("sales-path-engine error", err);
     return new Response(JSON.stringify({ error: err.message || "Erro interno" }), {
