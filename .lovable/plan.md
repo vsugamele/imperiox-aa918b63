@@ -1,52 +1,53 @@
-## Respostas rápidas
+# Correções: 400 nas queries + 504 do openflow-ai
 
-**1) Botão Imperador salva histórico?** Sim — grava em `imphq_sales_paths` (status `processing`→`ready`, com snapshot, plano, model_used). Confirmei 2 registros recentes em `jp_freitas`. **Só falta a UI mostrar** — hoje cada clique gera novo e descarta o anterior visualmente.
+## Diagnóstico
 
-**2) Timeouts do gerador de IA — dá pra ir batch?** Sim. Edge function tem 150s. Hoje `openflow-ai` chama o modelo síncrono e responde — modelos lentos (Gemini Pro, Opus, R1) estouram. `sales-path-engine` já tem a base certa (`imphq_sales_paths` com `status`), só não é assíncrono. Solução: padrão **fire-and-forget + polling**.
+Os erros principais não são causados pela IA. São queries com colunas inexistentes em `imphq_projects` retornando **HTTP 400**, o que quebra a tela `/metas` e outras.
 
-**3) Estamos usando todos os modelos do OpenRouter?** Não. Hoje só **5 hardcoded** (`AIGenerateButton.tsx`): Claude Opus 4, Sonnet 4, 3.5 Sonnet, DeepSeek R1, Llama 4 Maverick. OpenRouter tem 300+. Vale puxar dinamicamente do endpoint `/api/v1/models`.
+Schema real de `imphq_projects` (colunas relevantes): `id, name, category, color, parent_id, icon, description, members, data (jsonb), avatar, pipeline, brand_kit, settings, is_archived, user_id, daily_revenue_goal, …`
 
----
+Não existem: `nome`, `briefing`, `produto`, `categoria`, `objetivo`, `contexto`. Todos esses dados vivem dentro do JSONB `data`.
 
-## Plano de implementação
+Locais com query inválida (causa dos 400 no console):
+- `src/pages/Metas.tsx:21` → `select("id, nome").order("nome")` (tela atual do usuário)
+- `src/pages/Funis.tsx:282` → `select("id, name, briefing, data")`
+- `src/pages/Mentes.tsx:122` → `select("id,name,produto,categoria,objetivo,avatar,contexto,data")`
 
-### A. Histórico do Imperador (UI)
-1. Nova tabela query em `SalesPathButton.tsx`: ao abrir o Sheet, listar últimos 10 planos de `imphq_sales_paths` para o `projectId` (status `ready`).
-2. Adicionar Tab "Histórico" no Sheet com cards (data, health_score, model_used, botão "Ver").
-3. Ao clicar, hidratar o estado `plan` com a linha salva (sem gerar nova).
-4. Botão "Gerar novo" continua chamando `sales-path-engine`.
+Sobre os erros de console "A listener indicated an asynchronous response…": ruído de extensão do Chrome, ignorar.
 
-### B. Batch / Async para geração longa
-**Padrão:** edge function enfileira job, retorna `job_id` imediato, worker processa em background, frontend faz polling.
+Sobre o 504 do `openflow-ai`: o guard de 90s e o fluxo de background via `imphq_ai_jobs` já foram implementados nas iterações anteriores. O 504 que apareceu no replay veio de uma chamada anterior à tela atual (Metas não invoca IA). Para evitar reincidência, vamos reduzir o guard de 90s → **60s** e garantir 408 estruturado.
 
-1. **Tabela `imphq_ai_jobs`** (nova):
-   - `id`, `user_id`, `project_id`, `action`, `model`, `payload jsonb`, `status` (queued/processing/ready/failed), `result jsonb`, `error`, `created_at`, `completed_at`.
+## Mudanças
 
-2. **Refactor `openflow-ai`**:
-   - Modo `async: true` no body → cria job, retorna `{ job_id, status: "queued" }` em <1s.
-   - Usa `EdgeRuntime.waitUntil()` para rodar a chamada AI em background após responder (não bloqueia HTTP).
-   - Atualiza `imphq_ai_jobs` com result/error.
-   - Mantém modo síncrono para chamadas curtas (Flash/Mini).
+### 1. `src/pages/Metas.tsx` (linha 21 e usos de `r.nome`)
+Trocar para coluna real `name` e ler campos extras via `data` jsonb se necessário:
+```ts
+const { data: projects } = await sb.from("imphq_projects")
+  .select("id, name").order("name");
+// ...
+return { id: p.id, nome: p.name, /* resto igual */ };
+```
+(Mantém `r.nome` no JSX — apenas a fonte muda.)
 
-3. **Novo endpoint `ai-job-status`** (ou reusar via `action: "get_job"`): retorna status + result.
+### 2. `src/pages/Funis.tsx` (linha 282 + leitura de `proj.briefing`)
+```ts
+supabase.from("imphq_projects").select("id, name, data").order("name"),
+```
+E onde lê `proj.briefing`, usar `proj.data?.briefing` (já há fallback `typeof === "string"`, manter).
 
-4. **Frontend (`AIGenerateButton.tsx`)**:
-   - Se modelo for "lento" (Pro/Opus/R1) ou `async` selecionado → envia `async:true`, recebe `job_id`, faz polling a cada 3s, mostra progresso. Sem timeout artificial.
-   - Toast "Gerando em background — você pode continuar usando o app".
+### 3. `src/pages/Mentes.tsx` (linha 122)
+```ts
+supabase.from("imphq_projects")
+  .select("id, name, category, avatar, data")
+  .order("name").then(({ data }) => setProjects(data || []));
+```
+E ajustar leituras: `p.produto → p.data?.produto`, `p.objetivo → p.data?.objetivo`, `p.contexto → p.data?.contexto`, `p.categoria → p.category`.
 
-5. **Aplicar mesmo padrão ao `sales-path-engine`**: já tem `imphq_sales_paths` com `status processing` — só falta retornar imediato e processar via `waitUntil`. Frontend faz polling no `pathId`.
+### 4. `supabase/functions/openflow-ai/index.ts`
+- Reduzir `TIMEOUT_MS` de 90_000 → **60_000** no `fetchAI`.
+- Garantir que toda resposta de timeout retorne `408` com JSON `{ error: "TIMEOUT_GUARD", suggest_background: true }` + `corsHeaders`.
 
-### C. Catálogo OpenRouter dinâmico
-1. **Edge function nova `openrouter-models`**: chama `GET https://openrouter.ai/api/v1/models` com cache de 1h (em memória ou tabela `imphq_ai_models_cache`). Retorna lista filtrada (id, name, pricing, context_length).
-2. **`AIGenerateButton.tsx`**: substituir array `MODELS` hardcoded por fetch dinâmico no mount. Manter os Gateway (Gemini/GPT) hardcoded no topo + lista OpenRouter abaixo com search/filtro (são 300+).
-3. UI: Select com input de busca, badges de preço (📈 caro / 💰 médio / 💨 barato) e contexto (128k, 1M, etc).
-4. Favoritos: salvar top 10 mais usados em `localStorage` no topo do select.
-
----
-
-## Ordem de execução sugerida
-1. **A** (rápido, sem migration) → resolve dor imediata do histórico.
-2. **C** (1 edge function + UI) → resolve "todos modelos OpenRouter".
-3. **B** (mais pesado, migration + refactor) → resolve timeouts de vez.
-
-Confirma essa ordem ou prefere começar por outro item?
+## Fora do escopo
+- Não tocar no `sales-path-engine` (já está em background).
+- Não tocar nas demais telas que já usam `select("id, name")` corretamente.
+- Erros do manifest.json 401 e de extensão são ruído, ignorar.
