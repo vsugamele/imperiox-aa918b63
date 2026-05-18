@@ -18440,33 +18440,42 @@ export type Database = {
         Row: {
           campos: Json
           created_at: string
+          favorito: boolean
           id: string
           nome: string
+          plataforma: string | null
           project_id: string | null
           prompt_text: string
           tags: string[] | null
+          thumbnail_url: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           campos?: Json
           created_at?: string
+          favorito?: boolean
           id?: string
           nome: string
+          plataforma?: string | null
           project_id?: string | null
           prompt_text: string
           tags?: string[] | null
+          thumbnail_url?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           campos?: Json
           created_at?: string
+          favorito?: boolean
           id?: string
           nome?: string
+          plataforma?: string | null
           project_id?: string | null
           prompt_text?: string
           tags?: string[] | null
+          thumbnail_url?: string | null
           updated_at?: string
           user_id?: string
         }
