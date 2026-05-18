@@ -136,6 +136,36 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
   const healthLabel = (s: number) => (s >= 75 ? "Saudável" : s >= 50 ? "Atenção" : s >= 25 ? "Crítico" : "Emergência");
   const healthColor = (s: number) => (s >= 75 ? "text-emerald-400" : s >= 50 ? "text-yellow-400" : "text-red-400");
 
+  const allActionKeys = useMemo(() => {
+    if (!plan) return [] as string[];
+    const list = [...(plan.acoes_72h || []), ...(plan.acoes_30d || [])];
+    return list.map((a: any) => hashAction(String(a?.acao || "")));
+  }, [plan]);
+
+  const progressStats = useMemo(() => {
+    const total = allActionKeys.length;
+    const prog = plan?.progress || {};
+    const done = allActionKeys.filter((k) => prog[k] === "done").length;
+    const doing = allActionKeys.filter((k) => prog[k] === "doing").length;
+    const skip = allActionKeys.filter((k) => prog[k] === "skip").length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, doing, skip, pct };
+  }, [allActionKeys, plan?.progress]);
+
+  const planAgeDays = plan?.created_at ? (Date.now() - new Date(plan.created_at).getTime()) / 86400000 : 999;
+  const canRenew = !plan || progressStats.pct >= 70 || planAgeDays >= 14;
+
+  const cycleStatus = async (key: string) => {
+    if (!plan?.id) return;
+    const cur = (plan.progress || {})[key] || "todo";
+    const next = statusOrder[(statusOrder.indexOf(cur) + 1) % statusOrder.length];
+    const newProgress = { ...(plan.progress || {}), [key]: next };
+    setPlan({ ...plan, progress: newProgress });
+    const { error } = await supabase.from("imphq_sales_paths").update({ progress: newProgress }).eq("id", plan.id);
+    if (error) toast.error("Falha ao salvar progresso");
+  };
+
+
   return (
     <>
       <Button
