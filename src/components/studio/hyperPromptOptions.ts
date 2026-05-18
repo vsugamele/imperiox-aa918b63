@@ -296,6 +296,54 @@ const filmesList = [
 ];
 export const filme: Opt[] = [...filmesList.map(f => ({ label: f, value: f })), FREE];
 
+export const composicao: Opt[] = [
+  { label: "— sem especificar —", value: "" },
+  { label: "Regra dos terços", value: "rule of thirds composition" },
+  { label: "Centralizado simétrico", value: "centered symmetrical composition" },
+  { label: "Linhas de fuga", value: "leading lines composition" },
+  { label: "Dutch angle", value: "dutch angle composition" },
+  { label: "Over-the-shoulder", value: "over-the-shoulder framing" },
+  { label: "Close-up extremo", value: "extreme close-up framing" },
+  { label: "Plano americano", value: "medium-wide American shot framing" },
+  { label: "Plano-detalhe nas mãos", value: "detail shot focused on hands" },
+  { label: "Low angle heroico", value: "low-angle heroic perspective" },
+  { label: "High angle introspectivo", value: "high-angle introspective perspective" },
+  FREE,
+];
+
+export const posProcesso: Opt[] = [
+  { label: "— sem especificar —", value: "" },
+  { label: "Halation suave", value: "subtle halation around highlights" },
+  { label: "Bloom dreamy", value: "soft bloom on bright areas" },
+  { label: "Grain intenso", value: "heavy organic film grain" },
+  { label: "Grain sutil", value: "fine subtle film grain" },
+  { label: "Vinheta suave", value: "soft vignette darkening corners" },
+  { label: "Cromática vintage", value: "vintage chromatic aberration on edges" },
+  { label: "Sem pós-processamento", value: "clean unprocessed look" },
+  FREE,
+];
+
+export const aspectRatio: Opt[] = [
+  { label: "2:3 — retrato editorial", value: "2:3" },
+  { label: "3:4 — retrato clássico", value: "3:4" },
+  { label: "4:5 — Instagram feed", value: "4:5" },
+  { label: "1:1 — quadrado", value: "1:1" },
+  { label: "9:16 — Reels/Stories", value: "9:16" },
+  { label: "16:9 — cinema/YouTube", value: "16:9" },
+  { label: "21:9 — ultra-wide cinema", value: "21:9" },
+  { label: "3:2 — fotografia clássica", value: "3:2" },
+  FREE,
+];
+
+export const plataforma: Opt[] = [
+  { label: "Midjourney (--ar --v --s)", value: "midjourney" },
+  { label: "DALL·E 3", value: "dalle" },
+  { label: "Adobe Firefly", value: "firefly" },
+  { label: "Sora (vídeo)", value: "sora" },
+  { label: "Flux", value: "flux" },
+  { label: "Genérico (sem sufixo)", value: "generic" },
+];
+
 export const estiloFinal: Opt[] = [
   { label: "Documentário candid / UGC", value: "candid documentary, UGC style" },
   { label: "Editorial moderno / revista", value: "modern editorial, magazine quality" },
