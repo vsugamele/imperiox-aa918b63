@@ -558,11 +558,14 @@ export default function Leads() {
             </div>
           </TabsContent>
 
-          <TabsContent value="formularios" className="space-y-4">
+          <TabsContent value="formularios" className="space-y-6">
             <MembrosWebhookGuide projectId={projectFilter !== "all" ? projectFilter : undefined} />
             <FormBuilder projects={projects} />
+            <div className="pt-4 border-t border-border">
+              <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">💡 Insights de formulários</h3>
+              <FormInsights projects={projects} />
+            </div>
           </TabsContent>
-          <TabsContent value="insights" className="space-y-4"><FormInsights projects={projects} /></TabsContent>
           <TabsContent value="predicoes" className="space-y-4"><LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} /></TabsContent>
 
           {/* TAB: LEADS QUENTES */}
