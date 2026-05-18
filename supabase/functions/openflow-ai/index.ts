@@ -295,6 +295,7 @@ async function handleAIError(response: Response) {
   const status = response.status;
   if (status === 429) return new Response(JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   if (status === 402) return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  if (status === 408) return new Response(JSON.stringify({ error: "Modelo demorou demais. Use background, modelo mais rápido ou reduza contexto." }), { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   const t = await response.text();
   console.error("AI gateway error:", status, t);
   throw new Error("AI gateway error: " + status);
