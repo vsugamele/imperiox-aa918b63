@@ -103,9 +103,14 @@ export default function CriativoNovo() {
     // Pré-preenche extras se veio do Hyper Prompt Generator
     try {
       const fromHyper = sessionStorage.getItem("criativo:promptVisual");
+      const previewUrl = sessionStorage.getItem("criativo:previewUrl");
       if (fromHyper) {
-        setExtras((prev) => (prev ? prev + "\n\n" : "") + "[PROMPT VISUAL]\n" + fromHyper);
+        const block =
+          "[PROMPT VISUAL]\n" + fromHyper +
+          (previewUrl ? `\n\n[PREVIEW]\n${previewUrl}` : "");
+        setExtras((prev) => (prev ? prev + "\n\n" : "") + block);
         sessionStorage.removeItem("criativo:promptVisual");
+        sessionStorage.removeItem("criativo:previewUrl");
         toast.success("Prompt visual carregado nos Extras");
       }
     } catch {}
