@@ -299,11 +299,16 @@ export default function OpenFlow() {
       {/* Tabs */}
       <Tabs defaultValue="automacoes">
         <TabsList>
-          <TabsTrigger value="automacoes">Automações</TabsTrigger>
+          <TabsTrigger value="automacoes">Fluxos</TabsTrigger>
+          <TabsTrigger value="campanhas"><Megaphone className="h-3 w-3 mr-1" /> Campanhas</TabsTrigger>
           <TabsTrigger value="execucoes"><Activity className="h-3 w-3 mr-1" /> Execuções</TabsTrigger>
           <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
           <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="campanhas" className="mt-4">
+          <CampanhasManager projects={projects} onChange={load} />
+        </TabsContent>
 
         {/* ── Automações Tab ────────────────────────────────────── */}
         <TabsContent value="automacoes" className="space-y-5 mt-4">
