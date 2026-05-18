@@ -21,24 +21,25 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
     project_id: "",
     provider: "evolution" as "evolution" | "twilio",
     instance_name: "",
+    display_name: "",
     api_url: "",
     api_key: "",
     twilio_from: "",
   });
   const [showApiKey, setShowApiKey] = useState(false);
 
-  const duplicate = form.project_id ? existingProviders.find(p => p.project_id === form.project_id) : null;
+  const existingForProject = form.project_id ? existingProviders.filter(p => p.project_id === form.project_id) : [];
 
   const save = async () => {
     if (!form.project_id || !form.provider) {
       toast.error("Projeto e provider obrigatórios");
       return;
     }
-    if (duplicate && !confirm(`Já existe um provider (${duplicate.instance_name || duplicate.provider}) para esse projeto. Criar outro mesmo assim?`)) return;
     const { error } = await supabase.from("imphq_wa_providers").insert({
       project_id: form.project_id,
       provider: form.provider,
       instance_name: form.instance_name || null,
+      display_name: form.display_name || null,
       api_url: form.api_url || null,
       api_key: form.api_key || null,
       twilio_from: form.twilio_from || null,
@@ -46,7 +47,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
     if (error) { toast.error(error.message); return; }
     toast.success("Provider configurado!");
     onOpenChange(false);
-    setForm({ project_id: "", provider: "evolution", instance_name: "", api_url: "", api_key: "", twilio_from: "" });
+    setForm({ project_id: "", provider: "evolution", instance_name: "", display_name: "", api_url: "", api_key: "", twilio_from: "" });
     onCreated();
   };
 
