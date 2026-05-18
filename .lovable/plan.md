@@ -1,65 +1,85 @@
-## Gerador de Prompts Ultrarrealistas — Integração ao Imperius
+## Plano — Hyper Prompt v2 (polir + Cofre + Criativos)
 
-Sim, dá pra adaptar 100% — e melhor que um HTML único, porque já temos design system (dark, gold #c9922a), Studio/Criativos/ConteúdoIA, e Lovable AI Gateway pra enriquecer com IA.
+Foco em 3 frentes integradas. Sem mexer em outras áreas do sistema.
 
-### Onde encaixar
+---
 
-Nova rota `/studio/prompts` (sub-aba dentro do Studio) + atalho no hub Conteúdo IA. Não cria página solta — entra no pipeline **Ideia → Roteiro → Criativo → Vídeo** como gerador de prompts visuais para a etapa **Criativo**.
+### 1. Hyper Prompt — polir & extras
 
-### Estrutura
+**Novos campos** em `hyperPromptOptions.ts` + `hyperPromptBuilder.ts`:
+- Composição (rule of thirds, centered, leading lines, dutch angle…)
+- Aspect ratio (`--ar 9:16`, `1:1`, `16:9`, `2:3`, `21:9`)
+- Plataforma alvo (Midjourney / DALL·E / Firefly / Sora / Flux) → muda sufixos automáticos (`--v 7 --s 250`, `--style raw` etc.)
+- Negative prompt (campo livre opcional, anexa `--no ...` no MJ)
+- Estilo de pós (grain intensity, halation, bloom)
+
+**Presets por nicho** (botões no topo que pré-preenchem campos):
+- Cartomante místico, Coach executivo, Fitness, Lifestyle premium, Produto e-commerce, Retrato editorial
+- Salvos em `src/data/studio/hyperPresets.ts`
+
+**UX**:
+- Barra fixa no topo do prompt gerado com contagem de caracteres + plataforma alvo
+- Botão "🎲 Surpreenda-me" → randomiza campos vazios
+- Persistência de rascunho em `localStorage` (`hyperPrompt:draft`)
+
+---
+
+### 2. Cofre — organização
+
+Adicionar colunas em `imphq_prompts_salvos` (migration):
+- `tags TEXT[]` (já existe no plan original, confirmar)
+- `favorito BOOLEAN DEFAULT false`
+- `plataforma TEXT` (mj/dalle/firefly/sora)
+- `thumbnail_url TEXT` (preview gerado, opcional)
+
+Refatorar `HyperPromptVault.tsx`:
+- Busca por nome/tags (input no topo)
+- Filtros: plataforma, favoritos, projeto
+- Toggle ⭐ favorito inline
+- Duplicar prompt (clona como novo)
+- Editar nome/tags inline
+
+---
+
+### 3. Integração Criativos — preview real
+
+**Nova edge function** `hyper-prompt-preview`:
+- Recebe `{ prompt }`
+- Chama Lovable AI Gateway com `google/gemini-2.5-flash-image` (Nano Banana)
+- Retorna `image_base64` ou faz upload no bucket `studio-previews` e retorna URL
+- Salva em `thumbnail_url` se `save_to_vault_id` for passado
+
+**No HyperPromptGenerator**:
+- Botão "🖼️ Gerar Preview" ao lado de "Refinar com IA"
+- Mostra imagem inline (Card 512×512) com botões: Baixar / Regerar / Anexar a Criativo
+
+**Fluxo "Usar em Criativo"** (melhorar o atual):
+- Em vez de só sessionStorage, criar registro temporário em `imphq_criativos_drafts` (ou usar sessionStorage com mais campos) contendo: `prompt_text`, `refined_text`, `preview_url`, `plataforma`, `campos`
+- `/criativos/novo` lê e pré-preenche prompt visual + anexa preview como referência
+
+---
+
+### Arquivos afetados
 
 ```
-src/pages/PromptGenerator.tsx           ← página principal
-src/components/prompts/
-  ├─ PromptSection.tsx                  ← wrapper de seção (título + grid)
-  ├─ PromptField.tsx                    ← select + campo LIVRE (lida com __free__)
-  ├─ PromptOutput.tsx                   ← output box + copiar + salvar
-  └─ promptOptions.ts                   ← todas as 22 listas PT→EN
-src/lib/promptBuilder.ts                ← monta o template da Seção 6
+src/components/studio/HyperPromptGenerator.tsx   (editar)
+src/components/studio/HyperPromptVault.tsx       (refatorar)
+src/components/studio/hyperPromptOptions.ts      (adicionar campos)
+src/lib/hyperPromptBuilder.ts                    (sufixos por plataforma)
+src/data/studio/hyperPresets.ts                  (novo)
+src/pages/CriativoNovo.tsx                       (ler preview_url)
+supabase/functions/hyper-prompt-preview/index.ts (nova)
+supabase/migrations/<nova>                       (tags/favorito/plataforma/thumbnail)
 ```
 
-### Adaptações ao nosso sistema (vs HTML puro)
+---
 
-1. **Design tokens nossos** — usa `bg-background`, `border-border`, `text-primary` (gold). Sem hardcode de `#F7D200`. Mantém vibe dark premium já existente (Cormorant + DM Sans em vez de Tomorrow/Montserrat — coerência de marca).
-2. **Componentes shadcn** — `Select`, `Input`, `Button`, `Card` em vez de `<select>` cru. Comportamento `__free__` revela um `Input` inline.
-3. **Persistência** — botão **"Salvar no Cofre"** grava o prompt em `imphq_prompts_salvos` (nova tabela: id, user_id, project_id, titulo, prompt_text, campos jsonb, created_at) com RLS por user_id. Nada se perde.
-4. **Integração com Criativos** — botão **"Usar em novo Criativo"** navega para `/criativos/novo?prompt=<id>` pré-preenchendo o campo de prompt visual.
-5. **IA opcional (Lovable AI)** — botão **"✨ Refinar com IA"** envia o prompt montado + briefing do projeto ativo para edge function `prompt-refiner` (Gemini), retorna versão otimizada para Midjourney/DALL-E.
-6. **Histórico** — lista lateral dos últimos 10 prompts salvos do usuário, com restore de todos os campos.
+### Ordem de execução
 
-### Template de geração (Seção 6 — idêntico)
+1. Migration (tags/favorito/plataforma/thumbnail) — requer aprovação
+2. Builder + opções novas + presets (frontend puro)
+3. Cofre refatorado (busca/filtros/favoritos)
+4. Edge function de preview + botão no gerador
+5. Pipeline Criativo com preview anexado
 
-Função `buildPrompt(fields)` em `promptBuilder.ts` segue exatamente a ordem das linhas, omite vazios, anexa fenótipo antes de `skin`. Sem alteração na lógica.
-
-### Backend mínimo
-
-Migration:
-```sql
-create table imphq_prompts_salvos (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  project_id text references imphq_projetos(id) on delete set null,
-  titulo text,
-  prompt_text text not null,
-  campos jsonb not null default '{}',
-  created_at timestamptz default now()
-);
-alter table imphq_prompts_salvos enable row level security;
-create policy "own" on imphq_prompts_salvos for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
-```
-
-Edge function `prompt-refiner` (opcional, fase 2): chama `google/gemini-2.5-flash` via Lovable AI Gateway.
-
-### Fases
-
-1. **Fase A (core, ~rápido)** — página + 22 selects + builder + copiar/resetar. Sem backend.
-2. **Fase B** — tabela + salvar/histórico + RLS.
-3. **Fase C** — refinar com IA + integração Criativos.
-
-### O que NÃO vou fazer
-
-- Não vou criar um `.html` standalone — viraria silo fora do sistema.
-- Não vou usar fontes Tomorrow/Montserrat (quebra identidade Cormorant/DM Sans).
-- Não vou hardcodar cores — tudo via tokens do `index.css`.
-
-Confirma se faço **só Fase A** primeiro (entregável já hoje) ou **A+B juntas** (salva no Cofre desde o início)?
+Posso fazer tudo de uma vez ou fatiar em 2 entregas (1+2+3 primeiro, depois 4+5). Qual prefere?
