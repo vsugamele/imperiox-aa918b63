@@ -105,11 +105,11 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="mt-2">
-        <NavGroup label="Principal" items={mainItems} />
-        <NavGroup label="CRM & Intel" items={crmItems} />
-        <NavGroup label="IA" items={aiItems} />
-        <NavGroup label="Ferramentas" items={toolsItems} />
-        <NavGroup label="Organização" items={orgItems} />
+        <NavGroup label="Operar" items={operarItems} />
+        <NavGroup label="Vender" items={venderItems} />
+        <NavGroup label="Inteligência" items={inteligenciaItems} />
+        <NavGroup label="Planejar" items={planejarItems} />
+        <NavGroup label="Configurar" items={configurarItems} />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-2">
