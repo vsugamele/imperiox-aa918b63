@@ -354,15 +354,45 @@ export default function Projetos() {
             <span className="text-xs text-muted-foreground">({group.items.length})</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {group.items.map((p) => (
+            {group.items.map((p) => {
+              const k = kpisMap[p.id];
+              const healthColor = k?.health === "hot" ? "bg-emerald-500" : k?.health === "warm" ? "bg-amber-500" : "bg-muted-foreground/40";
+              const deltaUp = (k?.delta ?? 0) >= 0;
+              return (
               <Card key={p.id} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 group relative">
                 <CardContent className="p-4" onClick={() => navigate(`/projetos/${p.id}`)}>
                   <div className="flex items-start justify-between">
                     <span className="text-2xl">{p.icon || "📁"}</span>
-                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color || "hsl(var(--primary))" }} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${healthColor}`} title={k?.health || ""} />
                   </div>
-                  <h3 className="mt-2 font-medium text-sm">{p.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">{p.category || "Sem categoria"}</p>
+                  <h3 className="mt-2 font-medium text-sm truncate">{p.name}</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">{p.category || "Sem categoria"}</p>
+
+                  {k && (k.receita30 > 0 || k.leads7 > 0 || k.spend30 > 0) ? (
+                    <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-3 gap-2 text-[10px]">
+                      <div>
+                        <div className="text-muted-foreground uppercase tracking-wider">Rec 30d</div>
+                        <div className="font-semibold tabular-nums text-foreground">{fmtBRL(k.receita30)}</div>
+                        {k.receitaPrev30 > 0 && (
+                          <div className={`tabular-nums ${deltaUp ? "text-emerald-400" : "text-red-400"}`}>
+                            {deltaUp ? "▲" : "▼"} {Math.abs(k.delta).toFixed(0)}%
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground uppercase tracking-wider">ROAS</div>
+                        <div className={`font-semibold tabular-nums ${k.roas >= 2 ? "text-emerald-400" : k.roas >= 1 ? "text-amber-400" : k.roas > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                          {k.roas > 0 ? k.roas.toFixed(2) + "x" : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground uppercase tracking-wider">Leads 7d</div>
+                        <div className="font-semibold tabular-nums text-foreground">{k.leads7}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 pt-3 border-t border-border/40 text-[10px] text-muted-foreground italic">Sem atividade recente</div>
+                  )}
                 </CardContent>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -382,7 +412,8 @@ export default function Projetos() {
                   </AlertDialogContent>
                 </AlertDialog>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}
