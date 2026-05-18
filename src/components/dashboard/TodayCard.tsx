@@ -62,12 +62,13 @@ export default function TodayCard({ projectId }: { projectId?: string }) {
       let adsCount = 0;
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const { data: spends } = await supabase
+        const spendsRes: any = await supabase
           .from("imphq_ads_spend")
           .select("ad_id, spend, purchases")
           .eq("date", today)
           .limit(500);
-        adsCount = (spends || []).filter((s: any) => (s.spend || 0) > 50 && (!s.purchases || s.purchases === 0)).length;
+        const spends = spendsRes.data || [];
+        adsCount = spends.filter((s: any) => (s.spend || 0) > 50 && (!s.purchases || s.purchases === 0)).length;
       } catch {
         adsCount = 0;
       }
