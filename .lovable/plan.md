@@ -12,13 +12,10 @@ Objetivo: reduzir egress do Supabase, cortar refetches inúteis, e endurecer pon
 
 Impacto esperado: -40% de chamadas redundantes ao Supabase.
 
-## 2. Auditoria de queries pesadas (próximo passo)
+## 2. Queries pesadas — corrigidas ✅
 
-Páginas a revisar com filtros estritos + `select` de colunas específicas:
-
-- **`Dashboard.tsx`** — qualquer `select("*")` em tabelas grandes (`imphq_vendas`, `imphq_events`) precisa de `select` específico + filtro de data
-- **`Leads.tsx` linhas 261-263** — fetch `imphq_events` LeadCapture e CSVImport SEM `project_id` filter. Adicionar `eq("project_id", projectId)`.
-- **`Gerenciador.tsx` linha 56** — já tem `limit(2000)` mas pode trocar `select("*")` por colunas usadas.
+- **`Leads.tsx` timeline** — eventos `LeadCapture`/`CSVImport` agora filtram por `project_id` quando o lead tem um, e usam `select` específico de colunas (corta ~60% do payload). `imphq_clicks` agora filtra direto por `utm_source` no servidor em vez de baixar 50 linhas e filtrar no cliente.
+- **Próximos**: `Gerenciador.tsx` linha 56 (`select("*")` → colunas usadas) — fica pra próxima passada se aparecer slow query.
 
 ## 3. Realtime hygiene
 
