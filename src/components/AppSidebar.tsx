@@ -10,53 +10,58 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems = [
+// Reorganizado por INTENÇÃO (não por feature)
+// Operar = dia-a-dia / responder agora
+// Vender = construir oferta e escalar
+// Inteligência = IA, pesquisa, criação
+// Configurar = setup e governança
+const operarItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, color: "text-primary" },
   { title: "Imperius", url: "/imperius", icon: Bot, color: "text-primary" },
-  { title: "Projetos", url: "/projetos", icon: FolderKanban, color: "text-primary" },
-  { title: "Kanban", url: "/kanban", icon: Kanban, color: "text-primary" },
-  { title: "Tarefas", url: "/tarefas", icon: ListTodo, color: "text-primary" },
+  { title: "Leads", url: "/leads", icon: Users, color: "text-primary" },
+  { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, color: "text-primary" },
+  { title: "OpenFlow", url: "/openflow", icon: Workflow, color: "text-primary" },
+  { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy, color: "text-primary" },
   { title: "Chat", url: "/chat", icon: MessageCircle, color: "text-primary" },
 ];
 
-const crmItems = [
-  { title: "Leads", url: "/leads", icon: Users, color: "text-emerald-400" },
+const venderItems = [
+  { title: "Projetos", url: "/projetos", icon: FolderKanban, color: "text-emerald-400" },
   { title: "Finanças", url: "/financas", icon: DollarSign, color: "text-emerald-400" },
-  { title: "Gerenciador", url: "/gerenciador", icon: Activity, color: "text-emerald-400" },
-  { title: "Market Intel", url: "/market-intel", icon: Search, color: "text-emerald-400" },
+  { title: "Gerenciador Ads", url: "/gerenciador", icon: Activity, color: "text-emerald-400" },
   { title: "Funis", url: "/funis", icon: Target, color: "text-emerald-400" },
   { title: "Metas", url: "/metas", icon: Target, color: "text-emerald-400" },
-  { title: "Nutrição", url: "/nutricao", icon: Mail, color: "text-emerald-400" },
-  { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy, color: "text-emerald-400" },
   { title: "Cohort & LTV", url: "/cohort", icon: Layers, color: "text-emerald-400" },
+  { title: "Nutrição", url: "/nutricao", icon: Mail, color: "text-emerald-400" },
+  { title: "Tracker UTM", url: "/tracker", icon: Link2, color: "text-emerald-400" },
 ];
 
-const aiItems = [
+const inteligenciaItems = [
   { title: "Mentes IA", url: "/mentes", icon: Brain, color: "text-violet-400" },
+  { title: "Market Intel", url: "/market-intel", icon: Search, color: "text-violet-400" },
   { title: "Conteúdo IA", url: "/conteudo-ia", icon: Zap, color: "text-violet-400" },
   { title: "Criativos IA", url: "/criativos", icon: Sparkles, color: "text-violet-400" },
   { title: "Studio", url: "/studio", icon: Clapperboard, color: "text-violet-400" },
   { title: "Swipe File", url: "/swipe", icon: Library, color: "text-violet-400" },
-  { title: "OpenFlow", url: "/openflow", icon: Workflow, color: "text-violet-400" },
+  { title: "Referências", url: "/referencias", icon: Image, color: "text-violet-400" },
+  { title: "Skills", url: "/skills", icon: Zap, color: "text-violet-400" },
 ];
 
-const toolsItems = [
+const planejarItems = [
+  { title: "Kanban", url: "/kanban", icon: Kanban, color: "text-cyan-400" },
+  { title: "Tarefas", url: "/tarefas", icon: ListTodo, color: "text-cyan-400" },
   { title: "Docs / KB", url: "/docs", icon: FileText, color: "text-cyan-400" },
-  { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, color: "text-cyan-400" },
-  { title: "Tracker UTM", url: "/tracker", icon: Link2, color: "text-cyan-400" },
-  { title: "Referências", url: "/referencias", icon: Image, color: "text-cyan-400" },
-  { title: "Skills", url: "/skills", icon: Zap, color: "text-cyan-400" },
-  { title: "Cofre", url: "/cofre", icon: KeyRound, color: "text-cyan-400" },
 ];
 
-const orgItems = [
-  { title: "Equipe", url: "/equipe", icon: UsersRound, color: "text-amber-400" },
+const configurarItems = [
   { title: "Empresa", url: "/empresa", icon: Building2, color: "text-amber-400" },
+  { title: "Equipe", url: "/equipe", icon: UsersRound, color: "text-amber-400" },
+  { title: "Cofre", url: "/cofre", icon: KeyRound, color: "text-amber-400" },
   { title: "Config", url: "/configuracoes", icon: Settings, color: "text-amber-400" },
   { title: "Guia", url: "/guia", icon: BookOpen, color: "text-amber-400" },
 ];
 
-function NavGroup({ label, items }: { label: string; items: typeof mainItems }) {
+function NavGroup({ label, items }: { label: string; items: typeof operarItems }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -100,11 +105,11 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="mt-2">
-        <NavGroup label="Principal" items={mainItems} />
-        <NavGroup label="CRM & Intel" items={crmItems} />
-        <NavGroup label="IA" items={aiItems} />
-        <NavGroup label="Ferramentas" items={toolsItems} />
-        <NavGroup label="Organização" items={orgItems} />
+        <NavGroup label="Operar" items={operarItems} />
+        <NavGroup label="Vender" items={venderItems} />
+        <NavGroup label="Inteligência" items={inteligenciaItems} />
+        <NavGroup label="Planejar" items={planejarItems} />
+        <NavGroup label="Configurar" items={configurarItems} />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-2">
