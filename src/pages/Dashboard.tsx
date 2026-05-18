@@ -81,6 +81,7 @@ export default function Dashboard() {
         }
       />
 
+      <NextActionCard projectId={dashProject} />
       <TodayCard projectId={dashProject} />
 
 
