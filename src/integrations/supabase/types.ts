@@ -3350,6 +3350,7 @@ export type Database = {
       areamembrojp_plan_external_products: {
         Row: {
           created_at: string
+          delivery_name: string | null
           external_product_id: string
           id: string
           is_active: boolean
@@ -3357,11 +3358,14 @@ export type Database = {
           plan_id: string | null
           program_id: string | null
           provider: string
+          sale_mode: string
           scope: string
+          tag_ids: string[]
           updated_at: string
         }
         Insert: {
           created_at?: string
+          delivery_name?: string | null
           external_product_id: string
           id?: string
           is_active?: boolean
@@ -3369,11 +3373,14 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Update: {
           created_at?: string
+          delivery_name?: string | null
           external_product_id?: string
           id?: string
           is_active?: boolean
@@ -3381,7 +3388,9 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider?: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -5445,6 +5454,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      areamembrojp_user_logins: {
+        Row: {
+          created_at: string
+          device: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       areamembrojp_user_onboarding: {
         Row: {
