@@ -170,7 +170,7 @@ export default function OpenFlow() {
     } as any).select("*").single();
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
-    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "" }); load();
+    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "" }); load();
     if (data && preset?.acoes?.length) setEditing(data as any);
   };
 
