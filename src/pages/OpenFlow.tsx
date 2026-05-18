@@ -169,6 +169,7 @@ export default function OpenFlow() {
       id: crypto.randomUUID(), nome, trigger_tipo: preset?.trigger_tipo || form.trigger_tipo,
       project_id: form.project_id || null, acoes: (preset?.acoes || []) as any, ativo: true,
       produto: (form as any).produto || null,
+      campanha_id: form.campanha_id || null,
     } as any).select("*").single();
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
