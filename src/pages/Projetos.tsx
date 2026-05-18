@@ -373,12 +373,15 @@ export default function Projetos() {
 
         const triage = async (id: string, name: string) => {
           await supabase.from("imphq_ai_actions").insert({
-            project_id: id,
+            projeto_id: id,
             kind: "portfolio_triage",
-            priority: "high",
+            risk_level: "medium",
             status: "pending",
-            payload: { project_name: name, reason: "alerta no portfólio" },
+            title: `Triagem de portfólio: ${name}`,
+            reason: "Projeto em alerta no painel cross-project (frio ou queimando budget)",
+            payload: { project_name: name, source: "projetos_portfolio" },
             source: "projetos_portfolio",
+            priority_score: 80,
           } as any);
           toast({ title: "Enviado ao Imperius", description: `${name} entrou na fila de triagem.` });
         };
