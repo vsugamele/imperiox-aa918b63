@@ -20382,6 +20382,8 @@ export type Database = {
           id: string
           last_message: string | null
           last_message_at: string | null
+          last_message_direction: string | null
+          last_read_at: string | null
           message_count: number
           metadata: Json | null
           phone: string
@@ -20391,6 +20393,7 @@ export type Database = {
           provider_id: string | null
           session: string
           status: string
+          unread_count: number
           updated_at: string
         }
         Insert: {
@@ -20400,6 +20403,8 @@ export type Database = {
           id?: string
           last_message?: string | null
           last_message_at?: string | null
+          last_message_direction?: string | null
+          last_read_at?: string | null
           message_count?: number
           metadata?: Json | null
           phone: string
@@ -20409,6 +20414,7 @@ export type Database = {
           provider_id?: string | null
           session: string
           status?: string
+          unread_count?: number
           updated_at?: string
         }
         Update: {
@@ -20418,6 +20424,8 @@ export type Database = {
           id?: string
           last_message?: string | null
           last_message_at?: string | null
+          last_message_direction?: string | null
+          last_read_at?: string | null
           message_count?: number
           metadata?: Json | null
           phone?: string
@@ -20427,6 +20435,7 @@ export type Database = {
           provider_id?: string | null
           session?: string
           status?: string
+          unread_count?: number
           updated_at?: string
         }
         Relationships: [
