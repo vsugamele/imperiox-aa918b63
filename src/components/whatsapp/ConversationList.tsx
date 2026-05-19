@@ -15,7 +15,10 @@ interface WaSession {
   provider_id: string | null;
   last_message?: string | null;
   updated_at?: string;
+  last_message_at?: string | null;
   avatar_url?: string | null;
+  unread_count?: number;
+  last_message_direction?: string | null;
 }
 
 interface Provider {
@@ -82,6 +85,7 @@ export default function ConversationList({
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
 }: Props) {
   const [search, setSearch] = useState("");
+  const [onlyUnread, setOnlyUnread] = useState(false);
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
   const findProvider = (providerId: string | null) =>
@@ -93,18 +97,41 @@ export default function ConversationList({
     const matchSearch = !search ||
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
-    return matchProject && matchProvider && matchSearch;
+    const matchUnread = !onlyUnread || (s.unread_count || 0) > 0;
+    return matchProject && matchProvider && matchSearch && matchUnread;
+  }).sort((a, b) => {
+    const ta = new Date(a.last_message_at || a.updated_at || a.created_at || 0).getTime();
+    const tb = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
+    return tb - ta;
   });
+
+  const totalUnread = sessions.reduce((acc, s) => acc + (s.unread_count || 0), 0);
 
   return (
     <div className="flex flex-col h-full border-r border-border bg-card">
       {/* Header */}
       <div className="p-3 space-y-2 border-b border-border shrink-0">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-sm text-foreground">Conversas</h2>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova sessão">
-            <Plus className="h-4 w-4" />
-          </Button>
+          <h2 className="font-semibold text-sm text-foreground flex items-center gap-2">
+            Conversas
+            {totalUnread > 0 && (
+              <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                {totalUnread} nova{totalUnread > 1 ? "s" : ""}
+              </span>
+            )}
+          </h2>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setOnlyUnread(v => !v)}
+              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${onlyUnread ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
+              title="Mostrar apenas não lidas"
+            >
+              Não lidas
+            </button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova sessão">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -200,12 +227,14 @@ export default function ConversationList({
               const prov = findProvider(s.provider_id);
               const provLabel = providerLabel(prov);
               const color = providerColor(s.provider_id);
+              const unread = s.unread_count || 0;
+              const hasUnread = unread > 0;
               return (
                 <button
                   key={s.id}
                   onClick={() => onSelect(s)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 ${
-                    isSelected ? "bg-accent" : ""
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-2 ${
+                    isSelected ? "bg-accent border-l-primary" : hasUnread ? "border-l-emerald-500 bg-emerald-500/[0.04]" : "border-l-transparent"
                   }`}
                   title={provLabel ? `Instância: ${provLabel}` : undefined}
                 >
@@ -226,7 +255,7 @@ export default function ConversationList({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm font-medium truncate">
+                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-foreground" : "font-medium"}`}>
                           {s.contact_name || s.phone}
                         </span>
                         {provLabel && (
@@ -243,22 +272,29 @@ export default function ConversationList({
                           </Badge>
                         )}
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {timeAgo(s.updated_at || s.created_at)}
+                      <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                        {timeAgo(s.last_message_at || s.updated_at || s.created_at)}
                       </span>
                     </div>
                     {s.contact_name && (
                       <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
                     )}
-                    <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-xs text-muted-foreground truncate pr-2">
-                        {s.last_message || (s.contact_name ? "" : s.phone)}
+                    <div className="flex items-center justify-between mt-0.5 gap-2">
+                      <p className={`text-xs truncate pr-2 flex items-center gap-1 ${hasUnread ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                        {s.last_message_direction === "out" && !hasUnread && (
+                          <span className="text-[10px] text-muted-foreground/70 shrink-0">↩</span>
+                        )}
+                        <span className="truncate">{s.last_message || (s.contact_name ? "" : s.phone)}</span>
                       </p>
-                      {s.message_count > 0 && (
+                      {hasUnread ? (
+                        <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center shrink-0 leading-none">
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      ) : s.message_count > 0 ? (
                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 shrink-0">
                           {s.message_count}
                         </Badge>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">
                       {projectName(s.project_id)}

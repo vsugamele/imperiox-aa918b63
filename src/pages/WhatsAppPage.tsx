@@ -44,6 +44,9 @@ interface WaSession {
   provider_id: string | null;
   last_message?: string | null;
   updated_at?: string;
+  last_message_at?: string | null;
+  unread_count?: number;
+  last_message_direction?: string | null;
 }
 
 export default function WhatsApp() {
@@ -68,7 +71,7 @@ export default function WhatsApp() {
   const load = useCallback(async () => {
     setLoading(true);
     const [sRes, pRes, provRes, tRes] = await Promise.all([
-      supabase.from("imphq_wa_conversations").select("*").order("updated_at", { ascending: false }),
+      supabase.from("imphq_wa_conversations").select("*").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
       supabase.from("imphq_wa_templates").select("*").order("created_at", { ascending: false }),
@@ -81,6 +84,40 @@ export default function WhatsApp() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Realtime: nova mensagem → atualiza preview + incrementa unread localmente e move pro topo
+  useEffect(() => {
+    const ch = supabase
+      .channel("wa-msgs-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_wa_messages" }, (payload) => {
+        const m: any = payload.new;
+        setSessions(prev => {
+          const idx = prev.findIndex(s => s.id === m.conversation_id);
+          if (idx === -1) return prev;
+          const isInbound = m.direction === "in";
+          const isOpen = selectedSession?.id === m.conversation_id;
+          const updated = {
+            ...prev[idx],
+            last_message: (m.content || "").slice(0, 200),
+            last_message_at: m.created_at || new Date().toISOString(),
+            last_message_direction: m.direction,
+            unread_count: isInbound && !isOpen ? (prev[idx].unread_count || 0) + 1 : prev[idx].unread_count || 0,
+          };
+          const rest = prev.filter((_, i) => i !== idx);
+          return [updated, ...rest];
+        });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [selectedSession?.id]);
+
+  // Marca como lida ao selecionar
+  const markRead = useCallback(async (id: string) => {
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 0 } : s));
+    await supabase.from("imphq_wa_conversations")
+      .update({ unread_count: 0, last_read_at: new Date().toISOString() } as any)
+      .eq("id", id);
+  }, []);
 
   // Auto-sync avatars for visible conversations missing avatar_url (batch, by provider)
   useEffect(() => {
@@ -214,7 +251,7 @@ export default function WhatsApp() {
                 providers={providers}
                 selectedId={selectedSession?.id || null}
                 loading={loading}
-                onSelect={(s) => { setSelectedSession(s); setChatTab("chat"); }}
+                onSelect={(s) => { setSelectedSession(s); setChatTab("chat"); markRead(s.id); }}
                 onNewSession={() => setShowNew(true)}
                 filterProject={filterProject}
                 onFilterProject={setFilterProject}
