@@ -140,6 +140,9 @@ export function FormBuilder({ projects }: Props) {
   const [formDescription, setFormDescription] = useState("");
   const [formType, setFormType] = useState<string>("captura");
   const [formCampaign, setFormCampaign] = useState("");
+  const [formCampaignId, setFormCampaignId] = useState<string>("none");
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; nome: string; project_id: string | null; produto: string | null }>>([]);
+  const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [listFilterProject, setListFilterProject] = useState("all");
   const [listFilterType, setListFilterType] = useState("all");
@@ -159,7 +162,12 @@ export function FormBuilder({ projects }: Props) {
     setForms((data || []) as any[]);
   };
 
-  useEffect(() => { loadForms(); }, []);
+  const loadCampaigns = async () => {
+    const { data } = await supabase.from("imphq_campaigns").select("id,nome,project_id,produto").order("created_at", { ascending: false });
+    setCampaigns((data || []) as any);
+  };
+
+  useEffect(() => { loadForms(); loadCampaigns(); }, []);
 
   const filteredForms = forms.filter(f => {
     if (listFilterProject !== "all" && f.project_id !== listFilterProject) return false;
@@ -230,6 +238,7 @@ export function FormBuilder({ projects }: Props) {
     setFormDescription("");
     setFormType("captura");
     setFormCampaign("");
+    setFormCampaignId("none");
     setShowTemplates(false);
     setShowNew(true);
   };
@@ -277,7 +286,13 @@ export function FormBuilder({ projects }: Props) {
     const settings: Record<string, any> = {
       form_type: formType,
     };
-    if (formCampaign.trim()) settings.campaign_name = formCampaign.trim();
+    if (formCampaignId && formCampaignId !== "none") {
+      settings.campaign_id = formCampaignId;
+      const c = campaigns.find(x => x.id === formCampaignId);
+      if (c) settings.campaign_name = c.nome;
+    } else if (formCampaign.trim()) {
+      settings.campaign_name = formCampaign.trim();
+    }
     if (formProduct) settings.product_name = formProduct;
     if (formTag.trim()) settings.tag = formTag.trim();
     if (formDescription.trim()) settings.description = formDescription.trim();
@@ -315,6 +330,7 @@ export function FormBuilder({ projects }: Props) {
     setFormDescription((form.settings as any)?.description || "");
     setFormType((form.settings as any)?.form_type || "captura");
     setFormCampaign((form.settings as any)?.campaign_name || "");
+    setFormCampaignId((form.settings as any)?.campaign_id || "none");
     setShowNew(true);
   };
 
@@ -652,8 +668,46 @@ async function imphqSubmit(e) {
                 </Select>
               </div>
               <div>
-                <Label>Nome da Campanha</Label>
-                <Input value={formCampaign} onChange={e => setFormCampaign(e.target.value)} placeholder="Ex: Lançamento Cortes — Abril 2026" className="bg-secondary" />
+                <Label>Campanha</Label>
+                <div className="flex gap-2">
+                  <Select value={formCampaignId} onValueChange={setFormCampaignId}>
+                    <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Sem campanha —</SelectItem>
+                      {campaigns
+                        .filter(c => formProject === "none" || !c.project_id || c.project_id === formProject)
+                        .map(c => <SelectItem key={c.id} value={c.id}>🎯 {c.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={creatingCampaign}
+                    onClick={async () => {
+                      const nome = window.prompt("Nome da nova campanha:");
+                      if (!nome?.trim()) return;
+                      setCreatingCampaign(true);
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (!user) { setCreatingCampaign(false); return; }
+                      const { data, error } = await supabase.from("imphq_campaigns").insert({
+                        user_id: user.id,
+                        project_id: formProject !== "none" ? formProject : null,
+                        nome: nome.trim(),
+                        produto: formProduct || null,
+                        form_type_default: formType,
+                        status: "ativa",
+                      }).select().single();
+                      setCreatingCampaign(false);
+                      if (error) { toast.error("Falha ao criar campanha"); return; }
+                      await loadCampaigns();
+                      setFormCampaignId(data.id);
+                      toast.success("Campanha criada");
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

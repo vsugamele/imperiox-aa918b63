@@ -2342,29 +2342,47 @@ export type Database = {
       areamembrojp_email_log: {
         Row: {
           created_at: string
+          error: string | null
           event: string
+          from_email: string | null
           id: string
           job_id: string | null
           payload: Json
           resend_id: string | null
+          source: string | null
+          status: string | null
+          subject: string | null
+          to_email: string | null
           user_id: string | null
         }
         Insert: {
           created_at?: string
+          error?: string | null
           event: string
+          from_email?: string | null
           id?: string
           job_id?: string | null
           payload?: Json
           resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
           user_id?: string | null
         }
         Update: {
           created_at?: string
+          error?: string | null
           event?: string
+          from_email?: string | null
           id?: string
           job_id?: string | null
           payload?: Json
           resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -15559,6 +15577,51 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_campaigns: {
+        Row: {
+          created_at: string
+          data: Json
+          form_type_default: string | null
+          funil: string | null
+          id: string
+          nome: string
+          produto: string | null
+          project_id: string | null
+          slug: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          form_type_default?: string | null
+          funil?: string | null
+          id?: string
+          nome: string
+          produto?: string | null
+          project_id?: string | null
+          slug?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          form_type_default?: string | null
+          funil?: string | null
+          id?: string
+          nome?: string
+          produto?: string | null
+          project_id?: string | null
+          slug?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       imphq_campanha_forms: {
         Row: {

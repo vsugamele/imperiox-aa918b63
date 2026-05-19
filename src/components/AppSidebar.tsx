@@ -27,6 +27,7 @@ const operarItems = [
 
 const venderItems = [
   { title: "Projetos", url: "/projetos", icon: FolderKanban, color: "text-emerald-400" },
+  { title: "Campanhas", url: "/campanhas", icon: Target, color: "text-emerald-400" },
   { title: "Finanças", url: "/financas", icon: DollarSign, color: "text-emerald-400" },
   { title: "Gerenciador Ads", url: "/gerenciador", icon: Activity, color: "text-emerald-400" },
   { title: "Funis", url: "/funis", icon: Target, color: "text-emerald-400" },
