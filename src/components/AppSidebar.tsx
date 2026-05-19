@@ -22,7 +22,7 @@ const operarItems = [
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, color: "text-primary" },
   { title: "OpenFlow", url: "/openflow", icon: Workflow, color: "text-primary" },
   { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy, color: "text-primary" },
-  { title: "Chat", url: "/chat", icon: MessageCircle, color: "text-primary" },
+  
 ];
 
 const venderItems = [
