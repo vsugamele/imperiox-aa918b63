@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Save, Megaphone, FileText, Users, Zap } from "lucide-react";
+import { Plus, Trash2, Save, Megaphone, FileText, Users, Zap, Sparkles, Link2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export interface Campanha {
@@ -40,6 +40,43 @@ export function CampanhasManager({ projects, onChange }: Props) {
   const [editForms, setEditForms] = useState<any[]>([]);
   const [newForm, setNewForm] = useState<Partial<Campanha>>({ nome: "", project_id: "", status: "ativa" });
   const [filterProject, setFilterProject] = useState<string>("__all__");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loadingSug, setLoadingSug] = useState(false);
+  const [linkingLeads, setLinkingLeads] = useState(false);
+
+  const loadSuggestions = async () => {
+    setLoadingSug(true);
+    const { data, error } = await supabase.rpc("get_unmatched_utm_campaigns" as any, { p_days: 30, p_project_id: null });
+    if (error) console.error(error);
+    setSuggestions(((data || []) as any[]).filter(s => !s.already_linked));
+    setLoadingSug(false);
+  };
+
+  const applySuggestion = (s: any) => {
+    const cleanName = s.utm_campaign.length > 40
+      ? s.utm_campaign.replace(/\|.*$/, "").replace(/\[.*?\]\s*/g, "").trim().slice(0, 60) || s.utm_campaign.slice(0, 40)
+      : s.utm_campaign;
+    setNewForm({
+      nome: cleanName,
+      project_id: s.project_id || "",
+      status: "ativa",
+      utm_campaign: s.utm_campaign,
+      produto: s.top_produto || "",
+      data_inicio: s.first_seen,
+    });
+    toast.success("Pré-preenchido — revise e clique Criar");
+  };
+
+  const linkExistingLeads = async () => {
+    if (!editing) return;
+    if (!editing.utm_campaign) { toast.error("Defina o UTM campaign primeiro"); return; }
+    setLinkingLeads(true);
+    const { data, error } = await supabase.rpc("link_leads_by_utm" as any, { p_campanha_id: editing.id });
+    setLinkingLeads(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${data || 0} lead(s) vinculado(s) à campanha`);
+    load();
+  };
 
   const load = async () => {
     const [cRes, fRes] = await Promise.all([
@@ -183,9 +220,43 @@ export function CampanhasManager({ projects, onChange }: Props) {
       </div>
 
       {/* New */}
-      <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="bg-secondary/40 max-w-lg">
+      <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadSuggestions(); }}>
+        <DialogContent className="bg-secondary/40 max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Campanha</DialogTitle></DialogHeader>
+
+          {/* Sugestões automáticas */}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1.5 text-primary">
+                <Sparkles className="h-3 w-3" /> Detectadas nos últimos 30 dias
+              </Label>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={loadSuggestions} disabled={loadingSug}>
+                <RefreshCw className={`h-3 w-3 ${loadingSug ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+            {loadingSug && <p className="text-[11px] text-muted-foreground">Buscando UTMs reais…</p>}
+            {!loadingSug && suggestions.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic">Nenhuma UTM nova detectada. Preencha manualmente abaixo.</p>
+            )}
+            <div className="space-y-1 max-h-[180px] overflow-y-auto">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => applySuggestion(s)}
+                  className="w-full text-left p-2 rounded bg-secondary/60 hover:bg-secondary/90 transition-colors text-[11px] flex items-center justify-between gap-2"
+                >
+                  <span className="truncate flex-1 font-mono">{s.utm_campaign}</span>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {s.eventos > 0 && <>📊 {s.eventos}</>}
+                    {s.vendas > 0 && <> · 💰 {s.vendas}</>}
+                    {s.project_id && <> · {projectName(s.project_id).slice(0, 12)}</>}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={newForm.nome || ""} onChange={e => setNewForm({ ...newForm, nome: e.target.value })} placeholder="Ex: Webinar Produto X - Maio" /></div>
             <div>
@@ -197,7 +268,18 @@ export function CampanhasManager({ projects, onChange }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Produto (opcional)</Label><Input value={newForm.produto || ""} onChange={e => setNewForm({ ...newForm, produto: e.target.value })} /></div>
-              <div><Label>UTM campaign</Label><Input value={newForm.utm_campaign || ""} onChange={e => setNewForm({ ...newForm, utm_campaign: e.target.value })} placeholder="webinar-maio-x" /></div>
+              <div>
+                <Label>UTM campaign</Label>
+                <Input
+                  value={newForm.utm_campaign || ""}
+                  onChange={e => setNewForm({ ...newForm, utm_campaign: e.target.value })}
+                  placeholder="webinar-maio-x"
+                  list="utm-suggestions"
+                />
+                <datalist id="utm-suggestions">
+                  {suggestions.map((s, i) => <option key={i} value={s.utm_campaign} />)}
+                </datalist>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Início</Label><Input type="date" value={newForm.data_inicio?.slice(0, 10) || ""} onChange={e => setNewForm({ ...newForm, data_inicio: e.target.value || null })} /></div>
@@ -233,6 +315,12 @@ export function CampanhasManager({ projects, onChange }: Props) {
                 <div><Label>Produto</Label><Input value={editing.produto || ""} onChange={e => setEditing({ ...editing, produto: e.target.value })} /></div>
                 <div><Label>UTM campaign</Label><Input value={editing.utm_campaign || ""} onChange={e => setEditing({ ...editing, utm_campaign: e.target.value })} /></div>
               </div>
+              {editing.utm_campaign && (
+                <Button variant="outline" size="sm" onClick={linkExistingLeads} disabled={linkingLeads} className="w-full">
+                  <Link2 className="h-3 w-3 mr-1" />
+                  {linkingLeads ? "Vinculando…" : "Vincular leads existentes por este UTM"}
+                </Button>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div><Label>Início</Label><Input type="date" value={editing.data_inicio?.slice(0, 10) || ""} onChange={e => setEditing({ ...editing, data_inicio: e.target.value || null })} /></div>
                 <div><Label>Fim</Label><Input type="date" value={editing.data_fim?.slice(0, 10) || ""} onChange={e => setEditing({ ...editing, data_fim: e.target.value || null })} /></div>
