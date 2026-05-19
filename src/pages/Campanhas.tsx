@@ -38,6 +38,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Campanhas() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [projects, setProjects] = useState<Array<{ id: string; nome: string }>>([]);
+  const [sequences, setSequences] = useState<Array<{ id: string; nome: string; project_id: string | null }>>([]);
   const [leadCounts, setLeadCounts] = useState<Record<string, { d7: number; d30: number; total: number }>>({});
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
@@ -46,12 +47,14 @@ export default function Campanhas() {
   const [edit, setEdit] = useState<Partial<Campaign> | null>(null);
 
   const load = async () => {
-    const [{ data: cps }, { data: prjs }] = await Promise.all([
+    const [{ data: cps }, { data: prjs }, { data: seqs }] = await Promise.all([
       supabase.from("imphq_campaigns").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id,nome"),
-    ]);
+      supabase.from("imphq_nurture_sequences").select("id,nome,project_id").order("created_at", { ascending: false }),
+    ] as PromiseLike<any>[]);
     setCampaigns((cps || []) as any);
     setProjects((prjs || []) as any);
+    setSequences((seqs || []) as any);
 
     // Aggregate leads per campaign_id via leads.data.campaign_id
     const ids = (cps || []).map((c: any) => c.id);
