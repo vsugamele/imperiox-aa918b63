@@ -858,6 +858,23 @@ serve(async (req) => {
             }
           }
 
+          // Echo dedupe — if we sent the same text outgoing in the last 15s, this is an echo
+          const echoCutoff = new Date(Date.now() - 15000).toISOString();
+          const { data: echoRows } = await supabase
+            .from("imphq_wa_messages")
+            .select("id")
+            .eq("conversation_id", conv.id)
+            .eq("direction", "outgoing")
+            .eq("content", content)
+            .gte("created_at", echoCutoff)
+            .limit(1);
+          if (echoRows && echoRows.length > 0) {
+            console.log(`[webhook] Skipping echo of our own outgoing message`);
+            return new Response(JSON.stringify({ success: true, skipped: "echo" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
           const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
             conversation_id: conv.id,
             direction: "incoming",
@@ -870,6 +887,7 @@ serve(async (req) => {
             provider_message_id: providerMsgId,
             status: "received",
           });
+
 
           if (msgError) {
             console.error("[webhook] DB save error:", msgError.message);
