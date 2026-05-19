@@ -138,8 +138,21 @@ export function FormBuilder({ projects }: Props) {
   const [formProduct, setFormProduct] = useState("");
   const [formTag, setFormTag] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [formType, setFormType] = useState<string>("captura");
+  const [formCampaign, setFormCampaign] = useState("");
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [listFilterProject, setListFilterProject] = useState("all");
+  const [listFilterType, setListFilterType] = useState("all");
+  const [listSearch, setListSearch] = useState("");
+
+  // AI dialog
+  const [showAI, setShowAI] = useState(false);
+  const [aiBriefing, setAiBriefing] = useState("");
+  const [aiProject, setAiProject] = useState("none");
+  const [aiProduct, setAiProduct] = useState("");
+  const [aiType, setAiType] = useState("auto");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiProductsList, setAiProductsList] = useState<string[]>([]);
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
@@ -148,7 +161,27 @@ export function FormBuilder({ projects }: Props) {
 
   useEffect(() => { loadForms(); }, []);
 
-  const filteredForms = listFilterProject === "all" ? forms : forms.filter(f => f.project_id === listFilterProject);
+  const filteredForms = forms.filter(f => {
+    if (listFilterProject !== "all" && f.project_id !== listFilterProject) return false;
+    if (listFilterType !== "all" && (f.settings as any)?.form_type !== listFilterType) return false;
+    if (listSearch.trim()) {
+      const q = listSearch.toLowerCase();
+      const cn = ((f.settings as any)?.campaign_name || "").toLowerCase();
+      if (!f.nome.toLowerCase().includes(q) && !cn.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Load products for AI dialog
+  useEffect(() => {
+    if (aiProject === "none") { setAiProductsList([]); setAiProduct(""); return; }
+    (async () => {
+      const { data } = await supabase.from("imphq_projects").select("data").eq("id", aiProject).single();
+      const produtos = (data?.data as any)?.produtos;
+      if (Array.isArray(produtos)) setAiProductsList(produtos.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
+      else setAiProductsList([]);
+    })();
+  }, [aiProject]);
 
   // Load products when project changes
   useEffect(() => {
