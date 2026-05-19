@@ -313,6 +313,8 @@ export function FormBuilder({ projects }: Props) {
     setFormProduct((form.settings as any)?.product_name || "");
     setFormTag((form.settings as any)?.tag || "");
     setFormDescription((form.settings as any)?.description || "");
+    setFormType((form.settings as any)?.form_type || "captura");
+    setFormCampaign((form.settings as any)?.campaign_name || "");
     setShowNew(true);
   };
 
