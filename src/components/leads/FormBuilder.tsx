@@ -286,7 +286,13 @@ export function FormBuilder({ projects }: Props) {
     const settings: Record<string, any> = {
       form_type: formType,
     };
-    if (formCampaign.trim()) settings.campaign_name = formCampaign.trim();
+    if (formCampaignId && formCampaignId !== "none") {
+      settings.campaign_id = formCampaignId;
+      const c = campaigns.find(x => x.id === formCampaignId);
+      if (c) settings.campaign_name = c.nome;
+    } else if (formCampaign.trim()) {
+      settings.campaign_name = formCampaign.trim();
+    }
     if (formProduct) settings.product_name = formProduct;
     if (formTag.trim()) settings.tag = formTag.trim();
     if (formDescription.trim()) settings.description = formDescription.trim();
