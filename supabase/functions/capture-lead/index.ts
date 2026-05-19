@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
       formMeta.captura_form_step = step || null;
       if (s.form_type) formMeta.form_type = s.form_type;
       if (s.campaign_name) formMeta.campaign_name = s.campaign_name;
+      if (s.campaign_id) formMeta.campaign_id = s.campaign_id;
       if (s.product_name) formMeta.ultimo_produto = s.product_name;
       if (s.tag) formMeta.form_tag = s.tag;
     }
