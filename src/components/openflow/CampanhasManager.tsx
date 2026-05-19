@@ -220,9 +220,43 @@ export function CampanhasManager({ projects, onChange }: Props) {
       </div>
 
       {/* New */}
-      <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="bg-secondary/40 max-w-lg">
+      <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadSuggestions(); }}>
+        <DialogContent className="bg-secondary/40 max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Campanha</DialogTitle></DialogHeader>
+
+          {/* Sugestões automáticas */}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1.5 text-primary">
+                <Sparkles className="h-3 w-3" /> Detectadas nos últimos 30 dias
+              </Label>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={loadSuggestions} disabled={loadingSug}>
+                <RefreshCw className={`h-3 w-3 ${loadingSug ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+            {loadingSug && <p className="text-[11px] text-muted-foreground">Buscando UTMs reais…</p>}
+            {!loadingSug && suggestions.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic">Nenhuma UTM nova detectada. Preencha manualmente abaixo.</p>
+            )}
+            <div className="space-y-1 max-h-[180px] overflow-y-auto">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => applySuggestion(s)}
+                  className="w-full text-left p-2 rounded bg-secondary/60 hover:bg-secondary/90 transition-colors text-[11px] flex items-center justify-between gap-2"
+                >
+                  <span className="truncate flex-1 font-mono">{s.utm_campaign}</span>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {s.eventos > 0 && <>📊 {s.eventos}</>}
+                    {s.vendas > 0 && <> · 💰 {s.vendas}</>}
+                    {s.project_id && <> · {projectName(s.project_id).slice(0, 12)}</>}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={newForm.nome || ""} onChange={e => setNewForm({ ...newForm, nome: e.target.value })} placeholder="Ex: Webinar Produto X - Maio" /></div>
             <div>
@@ -234,7 +268,18 @@ export function CampanhasManager({ projects, onChange }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Produto (opcional)</Label><Input value={newForm.produto || ""} onChange={e => setNewForm({ ...newForm, produto: e.target.value })} /></div>
-              <div><Label>UTM campaign</Label><Input value={newForm.utm_campaign || ""} onChange={e => setNewForm({ ...newForm, utm_campaign: e.target.value })} placeholder="webinar-maio-x" /></div>
+              <div>
+                <Label>UTM campaign</Label>
+                <Input
+                  value={newForm.utm_campaign || ""}
+                  onChange={e => setNewForm({ ...newForm, utm_campaign: e.target.value })}
+                  placeholder="webinar-maio-x"
+                  list="utm-suggestions"
+                />
+                <datalist id="utm-suggestions">
+                  {suggestions.map((s, i) => <option key={i} value={s.utm_campaign} />)}
+                </datalist>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Início</Label><Input type="date" value={newForm.data_inicio?.slice(0, 10) || ""} onChange={e => setNewForm({ ...newForm, data_inicio: e.target.value || null })} /></div>
