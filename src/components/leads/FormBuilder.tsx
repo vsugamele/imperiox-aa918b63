@@ -238,6 +238,7 @@ export function FormBuilder({ projects }: Props) {
     setFormDescription("");
     setFormType("captura");
     setFormCampaign("");
+    setFormCampaignId("none");
     setShowTemplates(false);
     setShowNew(true);
   };
