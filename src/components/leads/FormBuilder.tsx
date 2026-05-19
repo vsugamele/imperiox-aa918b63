@@ -643,12 +643,27 @@ async function imphqSubmit(e) {
             <div><Label>Nome do Formulário</Label><Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Ex: Captura Webinar" className="bg-secondary" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <Label>Tipo de Campanha</Label>
+                <Select value={formType} onValueChange={setFormType}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FORM_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Nome da Campanha</Label>
+                <Input value={formCampaign} onChange={e => setFormCampaign(e.target.value)} placeholder="Ex: Lançamento Cortes — Abril 2026" className="bg-secondary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <Label>Tag (opcional)</Label>
-                <Input value={formTag} onChange={e => setFormTag(e.target.value)} placeholder="Ex: webinar-abril, lancamento" className="bg-secondary" />
+                <Input value={formTag} onChange={e => setFormTag(e.target.value)} placeholder="Ex: webinar-abril" className="bg-secondary" />
               </div>
               <div>
                 <Label>Descrição curta (opcional)</Label>
-                <Input value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Sobre o que é este formulário" className="bg-secondary" />
+                <Input value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Sobre o que é" className="bg-secondary" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
