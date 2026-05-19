@@ -85,6 +85,7 @@ export default function ConversationList({
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
 }: Props) {
   const [search, setSearch] = useState("");
+  const [onlyUnread, setOnlyUnread] = useState(false);
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
   const findProvider = (providerId: string | null) =>
@@ -96,8 +97,15 @@ export default function ConversationList({
     const matchSearch = !search ||
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
-    return matchProject && matchProvider && matchSearch;
+    const matchUnread = !onlyUnread || (s.unread_count || 0) > 0;
+    return matchProject && matchProvider && matchSearch && matchUnread;
+  }).sort((a, b) => {
+    const ta = new Date(a.last_message_at || a.updated_at || a.created_at || 0).getTime();
+    const tb = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
+    return tb - ta;
   });
+
+  const totalUnread = sessions.reduce((acc, s) => acc + (s.unread_count || 0), 0);
 
   return (
     <div className="flex flex-col h-full border-r border-border bg-card">
