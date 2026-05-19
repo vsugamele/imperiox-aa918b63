@@ -71,7 +71,7 @@ export default function WhatsApp() {
   const load = useCallback(async () => {
     setLoading(true);
     const [sRes, pRes, provRes, tRes] = await Promise.all([
-      supabase.from("imphq_wa_conversations").select("*").order("updated_at", { ascending: false }),
+      supabase.from("imphq_wa_conversations").select("*").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
       supabase.from("imphq_wa_templates").select("*").order("created_at", { ascending: false }),
