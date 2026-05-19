@@ -112,7 +112,7 @@ REGRAS:
       },
     }];
 
-    const userMsg = `${contexto ? contexto + "\n---\n" : ""}BRIEFING: ${briefing}${form_type ? `\nTIPO SUGERIDO: ${form_type}` : ""}`;
+    const userMsg = `${contexto ? contexto + "\n---\n" : ""}${briefing ? `BRIEFING: ${briefing}` : "Otimize o formulário acima com base nas estatísticas."}${form_type ? `\nTIPO SUGERIDO: ${form_type}` : ""}`;
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
