@@ -512,10 +512,18 @@ async function imphqSubmit(e) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-sm">{form.nome}</p>
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {(() => { const tm = getTypeMeta((form.settings as any)?.form_type); return tm ? (
+                        <Badge variant="outline" className={`text-[10px] py-0 ${tm.color}`}>{tm.label}</Badge>
+                      ) : null; })()}
                       <Badge variant="outline" className="text-[10px] py-0 bg-primary/10 text-primary border-primary/20">
                         {getProjectName(form.project_id)}
                       </Badge>
+                      {(form.settings as any)?.campaign_name && (
+                        <Badge variant="outline" className="text-[10px] py-0 bg-secondary/60 text-foreground border-border">
+                          🎯 {(form.settings as any).campaign_name}
+                        </Badge>
+                      )}
                       {(form.settings as any)?.product_name && (
                         <Badge variant="outline" className="text-[10px] py-0 bg-amber-500/10 text-amber-400 border-amber-500/20">
                           📦 {(form.settings as any).product_name}
@@ -525,6 +533,9 @@ async function imphqSubmit(e) {
                         <Badge variant="outline" className="text-[10px] py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                           🏷️ {(form.settings as any).tag}
                         </Badge>
+                      )}
+                      {form.created_at && (
+                        <span className="text-[10px] text-muted-foreground">• {new Date(form.created_at).toLocaleDateString("pt-BR")}</span>
                       )}
                     </div>
                     {(form.settings as any)?.description && (
