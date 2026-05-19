@@ -162,7 +162,12 @@ export function FormBuilder({ projects }: Props) {
     setForms((data || []) as any[]);
   };
 
-  useEffect(() => { loadForms(); }, []);
+  const loadCampaigns = async () => {
+    const { data } = await supabase.from("imphq_campaigns").select("id,nome,project_id,produto").order("created_at", { ascending: false });
+    setCampaigns((data || []) as any);
+  };
+
+  useEffect(() => { loadForms(); loadCampaigns(); }, []);
 
   const filteredForms = forms.filter(f => {
     if (listFilterProject !== "all" && f.project_id !== listFilterProject) return false;
