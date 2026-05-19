@@ -730,13 +730,27 @@ serve(async (req) => {
         const msg = body?.data?.message;
         const pushName = body?.data?.pushName || "";
 
-        // Skip outgoing messages (fromMe) to avoid duplicates
-        if (key?.fromMe && eventType === "MESSAGES_UPSERT") {
+        // SEND_MESSAGE is always our own outbound — skip to avoid echo dup
+        if (eventType === "SEND_MESSAGE") {
+          console.log("[webhook] Skipping SEND_MESSAGE (own outbound echo)");
+          return new Response(JSON.stringify({ success: true, skipped: "send_message_echo" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Skip outgoing messages (fromMe) to avoid duplicates — check all common envelopes
+        const isFromMe =
+          key?.fromMe === true ||
+          body?.data?.fromMe === true ||
+          body?.data?.key?.fromMe === true ||
+          body?.fromMe === true;
+        if (isFromMe) {
           console.log("[webhook] Skipping fromMe message");
           return new Response(JSON.stringify({ success: true, skipped: "fromMe" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
 
         const phone = (key?.remoteJid || "").replace("@s.whatsapp.net", "").replace(/\D/g, "");
         const providerMsgId = key?.id || "";
@@ -844,6 +858,23 @@ serve(async (req) => {
             }
           }
 
+          // Echo dedupe — if we sent the same text outgoing in the last 15s, this is an echo
+          const echoCutoff = new Date(Date.now() - 15000).toISOString();
+          const { data: echoRows } = await supabase
+            .from("imphq_wa_messages")
+            .select("id")
+            .eq("conversation_id", conv.id)
+            .eq("direction", "outgoing")
+            .eq("content", content)
+            .gte("created_at", echoCutoff)
+            .limit(1);
+          if (echoRows && echoRows.length > 0) {
+            console.log(`[webhook] Skipping echo of our own outgoing message`);
+            return new Response(JSON.stringify({ success: true, skipped: "echo" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
           const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
             conversation_id: conv.id,
             direction: "incoming",
@@ -856,6 +887,7 @@ serve(async (req) => {
             provider_message_id: providerMsgId,
             status: "received",
           });
+
 
           if (msgError) {
             console.error("[webhook] DB save error:", msgError.message);

@@ -160,6 +160,14 @@ export default function ConversationList({
             const matchProject = filterProject === "all" || s.project_id === filterProject;
             return matchProject && (provId === "all" || s.provider_id === provId);
           }).length;
+          // Activity in last 24h per provider (for cross-instance "novo" hint)
+          const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+          const hasRecent = (provId: string) => sessions.some(s => {
+            if (s.provider_id !== provId) return false;
+            const t = s.last_message_at ? new Date(s.last_message_at).getTime() : 0;
+            return t >= dayAgo;
+          });
+
           return (
             <div className="flex gap-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin">
               <button
@@ -171,19 +179,24 @@ export default function ConversationList({
               {visibleProvs.map(p => {
                 const active = filterProvider === p.id;
                 const color = providerColor(p.id);
+                const recent = !active && hasRecent(p.id);
                 return (
                   <button
                     key={p.id}
                     onClick={() => onFilterProvider(p.id)}
-                    className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"}`}
+                    className={`relative shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"}`}
                     style={active ? { background: `${color.replace("hsl", "hsla").replace(")", ", 0.18)")}`, borderColor: `${color.replace("hsl", "hsla").replace(")", ", 0.55)")}` } : { background: "hsl(var(--muted) / 0.3)", borderColor: "hsl(var(--border))" }}
-                    title={providerLabel(p) || p.id}
+                    title={(providerLabel(p) || p.id) + (recent ? " — novas mensagens nas últimas 24h" : "")}
                   >
                     <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color }} />
                     {providerLabel(p) || "Chip"} <span className="opacity-60">({countFor(p.id)})</span>
+                    {recent && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                    )}
                   </button>
                 );
               })}
+
             </div>
           );
         })()}

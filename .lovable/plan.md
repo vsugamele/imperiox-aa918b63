@@ -1,50 +1,45 @@
-## Problemas identificados
+## Diagnóstico
 
-**1. IA disparou várias mensagens longas seguidas no "OI"**  
-No `whatsapp-api/index.ts` (linhas 925-1090), cada `MESSAGES_UPSERT` dispara uma chamada Gemini independente. Se o lead manda 3 mensagens rápidas ("Oi", "tudo bem?", "queria saber..."), o webhook roda 3 vezes em paralelo e a IA responde 3 vezes — daí a sensação de "looping". Além disso não há trava nem debounce.
+Confirmei pelo banco que as respostas da IA **estão sim sendo salvas em `imphq_wa_messages`** com `direction: outgoing`, `status: sent`. Não é bug de persistência.
 
-**2. Resposta da IA não apareceu no painel do app**  
-O código insere em `imphq_wa_messages` (linha 1066), mas não há refresh em tempo real garantido na UI, e se o `conversation_id` foi recriado por race condition (lead novo + 2 webhooks simultâneos = duplicate key, que já vimos antes), o INSERT da resposta pode estar caindo em conversa órfã. Também falta `updated_at` para reordenar a lista.
+O que está acontecendo:
 
----
+1. O lead que mandou "oi" (`5511976546714`, contato "Vini") está na conversa `92b89bfd…` que pertence à instância **jpfreitas** (projeto `jp_freitas`).
+2. Na tela que você tirou screenshot, o filtro de instância está em **Suporte Oficial (72)** — então a conversa do jpfreitas simplesmente não aparece na lista da esquerda.
+3. Resultado: as respostas existem, mas estão escondidas pelo filtro.
 
-## Plano
+Para confirmar agora: clique no filtro **jpfreitas (46)** (ou em **Todos (118)**) e abra a conversa do "Vini" / `5511976546714`. Você vai ver as respostas da IA lá.
 
-### A. Debounce + trava anti-loop (backend)
+## Problema secundário descoberto
 
-Em `supabase/functions/whatsapp-api/index.ts`, no bloco "AI Autoresponder":
+Para cada resposta `outgoing` da IA, existe uma cópia `incoming` com o mesmo conteúdo gravada ~200ms depois (ex.: 21:37:19.988 outgoing + 21:37:20.196 incoming, mesmo texto). Há um filtro `key.fromMe` no webhook (linha 734) mas algo está furando — provavelmente quando a Evolution reentrega o evento com `fromMe` em outro envelope, ou via outro caminho (`SEND_MESSAGE` / `messages.update`).
 
-1. **Trava por conversa (10s)**: antes de chamar Gemini, fazer `UPDATE imphq_wa_conversations SET ai_lock_until = now() + interval '10 seconds' WHERE id = conv.id AND (ai_lock_until IS NULL OR ai_lock_until < now()) RETURNING id`. Se não retornar linha, outro webhook já está respondendo → `return`.
+Isso polui a timeline e pode estar realimentando a IA (ela "vê" sua própria mensagem como se fosse do lead → loop, exatamente o sintoma da imagem com IA pedindo desculpa por estar em loop).
 
-2. **Debounce de 6s**: após pegar a trava, dormir 6s e então buscar a ÚLTIMA mensagem da conversa. Se a última `incoming` for mais nova que `content` atual, abortar (outra mensagem chegou depois — a próxima execução cuidará). Isso agrupa rajadas.
+## Plano de correção
 
-3. **Cooldown pós-resposta**: depois de responder, setar `ai_last_reply_at = now()`. Se nova msg chegar em <15s, IA fica em silêncio (o lead ainda está digitando reação).
+### A. UI — não esconder conversas com atividade recente
+- Em `ConversationList`, quando uma conversa receber/enviar mensagem nas últimas 24h, mostrar um badge "novo" no chip da instância que está oculta, ou ao menos um aviso "X conversas em outras instâncias com atividade".
+- Persistir o último filtro escolhido (já existe localStorage em outros lugares) e mostrar contagem de não-lidas por filtro.
 
-4. **Migração**: adicionar colunas `ai_lock_until timestamptz` e `ai_last_reply_at timestamptz` em `imphq_wa_conversations`.
+### B. Backend — blindar contra eco / fromMe
+Em `supabase/functions/whatsapp-api/index.ts`:
+1. Expandir o filtro fromMe no início do `MESSAGES_UPSERT` para também olhar:
+   - `body?.data?.key?.fromMe`
+   - `body?.data?.fromMe`
+   - `body?.sender === provider.instance_name`
+   - participante igual ao número da instância
+2. Antes de inserir qualquer mensagem `incoming`, fazer dedupe via `provider_message_id` (já existe índice único — só checar o erro 23505 silenciosamente) **e** dedupe por janela curta: se já existe uma `outgoing` com o mesmo `content` nos últimos 10s na mesma `conversation_id`, descartar (é eco).
+3. No bloco da IA autorresponder, ignorar mensagens cuja origem seja eco (mesmo critério acima) antes de chamar o Gemini — corta o loop na raiz.
 
-### B. Garantir que aparece no chat do app
-
-5. No INSERT da resposta da IA, incluir `created_at: new Date().toISOString()` explícito e fazer `UPDATE imphq_wa_conversations SET last_message = aiReply, last_message_at = now(), updated_at = now() WHERE id = conv.id` (já existe via `updateConversationAfterMessage` — verificar se está mexendo em `last_message_at`).
-
-6. Em `src/components/whatsapp/ChatView.tsx` (e `ConversationList`), garantir Realtime subscription em `imphq_wa_messages` filtrado por `conversation_id`, ou polling de 10s na conversa aberta. Se já existe, validar que está ativo na rota atual.
-
-7. **Diagnóstico extra**: rodar uma query nos logs do webhook (últimas 24h) buscando `"AI auto-reply sent"` e cruzar com `imphq_wa_messages` para confirmar se o INSERT realmente persistiu nos casos da imagem.
-
-### C. UX no painel de configuração da IA
-
-8. Em `WhatsAppAIConfig.tsx`, expor sliders novos:
-   - "Aguardar resposta do lead (debounce)" — 3 a 15s, default 6s
-   - "Cooldown após responder" — 0 a 60s, default 15s
-   - Tooltip explicando que evita "looping" e múltiplas respostas seguidas.
-
----
+### C. Verificação
+- Após deploy, mandar novamente "oi" do número de teste e conferir no banco:
+  - 1 linha `incoming` com "oi"
+  - 1 linha `outgoing` com a resposta da IA
+  - **zero** duplicatas `incoming` da resposta
+- E conferir que a conversa aparece na ferramenta sem precisar trocar filtro (badge cross-instância).
 
 ## Fora de escopo
-- Mudar tom/persona da IA (resposta longa no print é configuração de `max_tokens` + tom, ajustável depois).
-- Reescrever o pipeline de webhook ou trocar Gemini.
-- Bug do "system entered a loop" (autoreferência) — virá naturalmente quando a trava A1 impedir as 3 respostas seguidas.
-
-## Detalhes técnicos
-- Trava usa `UPDATE ... WHERE ai_lock_until < now() RETURNING` como CAS atômico (Postgres garante).
-- Debounce dentro do edge function via `setTimeout` + re-query — seguro porque webhook tem 150s de budget e usamos 6-10s.
-- Não precisa fila externa (Redis/pg_cron) — escala suficiente para volume atual.
+- Mudar persona/tom da IA.
+- Reescrever o pipeline de webhook.
+- Tocar em `ChatView` polling (já funciona; a mensagem chega em até 8s).
