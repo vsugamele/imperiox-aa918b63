@@ -796,8 +796,8 @@ export default function Tarefas() {
         </TabsList>
 
         {/* ====== CHAT TAB ====== */}
-        <TabsContent value="chat" className="mt-4 -mx-4 md:-mx-6">
-          <div className="h-[calc(100vh-16rem)] min-h-[500px] border-t border-border">
+        <TabsContent value="chat" className="mt-4">
+          <div className="h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-lg border border-border [&>div]:!h-full">
             <Chat />
           </div>
         </TabsContent>
