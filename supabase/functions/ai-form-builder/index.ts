@@ -113,37 +113,49 @@ REGRAS:
       },
     }];
 
-    const userMsg = `${contexto ? contexto + "\n---\n" : ""}${briefing ? `BRIEFING: ${briefing}` : "Otimize o formulário acima com base nas estatísticas."}${form_type ? `\nTIPO SUGERIDO: ${form_type}` : ""}`;
+    const baseUserMsg = `${contexto ? contexto + "\n---\n" : ""}${briefing ? `BRIEFING: ${briefing}` : "Otimize o formulário acima com base nas estatísticas."}${form_type ? `\nTIPO SUGERIDO: ${form_type}` : ""}`;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
-        tools,
-        tool_choice: { type: "function", function: { name: "criar_formulario" } },
-      }),
-    });
+    const variantHints = wantVariants === 2
+      ? [
+          "\n\nVARIANTE A: hipótese MÍNIMA — menos campos, copy direta, foco em conversão alta. Inclua 'A' no nome.",
+          "\n\nVARIANTE B: hipótese QUALIFICADORA — 1-2 perguntas extras de qualificação, copy provocativa. Inclua 'B' no nome.",
+        ]
+      : [""];
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      if (resp.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições. Tente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (resp.status === 402) return new Response(JSON.stringify({ error: "Créditos esgotados. Adicione créditos em Settings → Workspace → Usage." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`AI Gateway ${resp.status}: ${txt}`);
+    const callOnce = async (extra: string) => {
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("LOVABLE_API_KEY")}` },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [{ role: "system", content: sys }, { role: "user", content: baseUserMsg + extra }],
+          tools, tool_choice: { type: "function", function: { name: "criar_formulario" } },
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        if (r.status === 429) throw new Response(JSON.stringify({ error: "Limite de requisições. Tente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (r.status === 402) throw new Response(JSON.stringify({ error: "Créditos esgotados. Adicione créditos em Settings → Workspace → Usage." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw new Error(`AI Gateway ${r.status}: ${txt}`);
+      }
+      const d = await r.json();
+      const t = d.choices?.[0]?.message?.tool_calls?.[0];
+      if (!t) throw new Error("IA não retornou estrutura válida");
+      return JSON.parse(t.function.arguments);
+    };
+
+    try {
+      const results = await Promise.all(variantHints.map(callOnce));
+      const responseBody = wantVariants === 2
+        ? { success: true, forms: results }
+        : { success: true, form: results[0] };
+      return new Response(JSON.stringify(responseBody), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (e: any) {
+      if (e instanceof Response) return e;
+      throw e;
     }
-
-    const data = await resp.json();
-    const tc = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!tc) throw new Error("IA não retornou estrutura válida");
-    const formData = JSON.parse(tc.function.arguments);
-
-    return new Response(JSON.stringify({ success: true, form: formData }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   } catch (err: any) {
     console.error("[ai-form-builder]", err);
     return new Response(JSON.stringify({ error: err.message || "Falha ao gerar formulário" }), {
