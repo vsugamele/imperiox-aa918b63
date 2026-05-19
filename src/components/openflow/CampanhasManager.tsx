@@ -40,6 +40,43 @@ export function CampanhasManager({ projects, onChange }: Props) {
   const [editForms, setEditForms] = useState<any[]>([]);
   const [newForm, setNewForm] = useState<Partial<Campanha>>({ nome: "", project_id: "", status: "ativa" });
   const [filterProject, setFilterProject] = useState<string>("__all__");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loadingSug, setLoadingSug] = useState(false);
+  const [linkingLeads, setLinkingLeads] = useState(false);
+
+  const loadSuggestions = async () => {
+    setLoadingSug(true);
+    const { data, error } = await supabase.rpc("get_unmatched_utm_campaigns" as any, { p_days: 30, p_project_id: null });
+    if (error) console.error(error);
+    setSuggestions(((data || []) as any[]).filter(s => !s.already_linked));
+    setLoadingSug(false);
+  };
+
+  const applySuggestion = (s: any) => {
+    const cleanName = s.utm_campaign.length > 40
+      ? s.utm_campaign.replace(/\|.*$/, "").replace(/\[.*?\]\s*/g, "").trim().slice(0, 60) || s.utm_campaign.slice(0, 40)
+      : s.utm_campaign;
+    setNewForm({
+      nome: cleanName,
+      project_id: s.project_id || "",
+      status: "ativa",
+      utm_campaign: s.utm_campaign,
+      produto: s.top_produto || "",
+      data_inicio: s.first_seen,
+    });
+    toast.success("Pré-preenchido — revise e clique Criar");
+  };
+
+  const linkExistingLeads = async () => {
+    if (!editing) return;
+    if (!editing.utm_campaign) { toast.error("Defina o UTM campaign primeiro"); return; }
+    setLinkingLeads(true);
+    const { data, error } = await supabase.rpc("link_leads_by_utm" as any, { p_campanha_id: editing.id });
+    setLinkingLeads(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${data || 0} lead(s) vinculado(s) à campanha`);
+    load();
+  };
 
   const load = async () => {
     const [cRes, fRes] = await Promise.all([
