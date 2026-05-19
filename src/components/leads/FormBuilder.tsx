@@ -140,6 +140,9 @@ export function FormBuilder({ projects }: Props) {
   const [formDescription, setFormDescription] = useState("");
   const [formType, setFormType] = useState<string>("captura");
   const [formCampaign, setFormCampaign] = useState("");
+  const [formCampaignId, setFormCampaignId] = useState<string>("none");
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; nome: string; project_id: string | null; produto: string | null }>>([]);
+  const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [listFilterProject, setListFilterProject] = useState("all");
   const [listFilterType, setListFilterType] = useState("all");
