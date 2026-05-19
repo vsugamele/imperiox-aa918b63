@@ -227,12 +227,14 @@ export default function ConversationList({
               const prov = findProvider(s.provider_id);
               const provLabel = providerLabel(prov);
               const color = providerColor(s.provider_id);
+              const unread = s.unread_count || 0;
+              const hasUnread = unread > 0;
               return (
                 <button
                   key={s.id}
                   onClick={() => onSelect(s)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 ${
-                    isSelected ? "bg-accent" : ""
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-2 ${
+                    isSelected ? "bg-accent border-l-primary" : hasUnread ? "border-l-emerald-500 bg-emerald-500/[0.04]" : "border-l-transparent"
                   }`}
                   title={provLabel ? `Instância: ${provLabel}` : undefined}
                 >
@@ -253,7 +255,7 @@ export default function ConversationList({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm font-medium truncate">
+                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-foreground" : "font-medium"}`}>
                           {s.contact_name || s.phone}
                         </span>
                         {provLabel && (
@@ -270,22 +272,29 @@ export default function ConversationList({
                           </Badge>
                         )}
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {timeAgo(s.updated_at || s.created_at)}
+                      <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                        {timeAgo(s.last_message_at || s.updated_at || s.created_at)}
                       </span>
                     </div>
                     {s.contact_name && (
                       <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
                     )}
-                    <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-xs text-muted-foreground truncate pr-2">
-                        {s.last_message || (s.contact_name ? "" : s.phone)}
+                    <div className="flex items-center justify-between mt-0.5 gap-2">
+                      <p className={`text-xs truncate pr-2 flex items-center gap-1 ${hasUnread ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                        {s.last_message_direction === "out" && !hasUnread && (
+                          <span className="text-[10px] text-muted-foreground/70 shrink-0">↩</span>
+                        )}
+                        <span className="truncate">{s.last_message || (s.contact_name ? "" : s.phone)}</span>
                       </p>
-                      {s.message_count > 0 && (
+                      {hasUnread ? (
+                        <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center shrink-0 leading-none">
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      ) : s.message_count > 0 ? (
                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 shrink-0">
                           {s.message_count}
                         </Badge>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">
                       {projectName(s.project_id)}
