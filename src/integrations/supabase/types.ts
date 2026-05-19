@@ -37601,6 +37601,18 @@ export type Database = {
         Returns: string
       }
       get_total_tickets_count: { Args: { user_uuid: string }; Returns: number }
+      get_unmatched_utm_campaigns: {
+        Args: { p_days?: number; p_project_id?: string }
+        Returns: {
+          already_linked: boolean
+          eventos: number
+          first_seen: string
+          project_id: string
+          top_produto: string
+          utm_campaign: string
+          vendas: number
+        }[]
+      }
       get_user_points: { Args: { user_uuid: string }; Returns: number }
       get_user_salao_id: { Args: { _user_id: string }; Returns: string }
       handle_points_deduction: {
@@ -37691,6 +37703,7 @@ export type Database = {
       }
       jp_is_admin: { Args: { _uid: string }; Returns: boolean }
       jp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
+      link_leads_by_utm: { Args: { p_campanha_id: string }; Returns: number }
       list_admin_tables: { Args: never; Returns: Json }
       mark_admin_message_read: {
         Args: { message_id: string }
