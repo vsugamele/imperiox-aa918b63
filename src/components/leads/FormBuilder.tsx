@@ -9,7 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet, Save, CopyPlus } from "lucide-react";
+import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet, Save, CopyPlus, Sparkles, Loader2, Search } from "lucide-react";
+
+const FORM_TYPES = [
+  { value: "captura", label: "Captura", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  { value: "vendas", label: "Vendas", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  { value: "pesquisa", label: "Pesquisa", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+  { value: "aplicacao", label: "Aplicação", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  { value: "pos_compra", label: "Pós-compra", color: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
+  { value: "lead_magnet", label: "Lead Magnet", color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
+];
+const getTypeMeta = (t?: string) => FORM_TYPES.find(x => x.value === t);
 
 interface FormField {
   key: string;
