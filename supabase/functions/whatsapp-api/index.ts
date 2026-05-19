@@ -1291,20 +1291,20 @@ REGRAS:
       const inst = encodeURIComponent(provider.instance_name);
       const results: Record<string, string | null> = {};
 
-      // Process in small batches to avoid timeouts and rate limits (max 15)
+      // Process in parallel with per-request timeout to avoid 150s edge timeout
       const batch = phones.slice(0, 15);
-      for (let idx = 0; idx < batch.length; idx++) {
-        const phone = batch[idx];
+      await Promise.allSettled(batch.map(async (phone: string) => {
+        const cleanPhone = phone.replace(/\D/g, "");
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 6000);
         try {
-          // Rate limit: 200ms delay between API calls
-          if (idx > 0) await new Promise(r => setTimeout(r, 200));
-          const cleanPhone = phone.replace(/\D/g, "");
           const res = await fetch(`${provider.api_url}/chat/fetchProfilePictureUrl/${inst}`, {
             method: "POST",
             headers: { "Content-Type": "application/json", apikey: provider.api_key },
             body: JSON.stringify({ number: cleanPhone }),
+            signal: ctrl.signal,
           });
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           const picUrl = data?.profilePictureUrl || data?.picture || data?.imgUrl || null;
           results[cleanPhone] = picUrl;
 
@@ -1316,10 +1316,13 @@ REGRAS:
               .eq("project_id", provider.project_id);
           }
         } catch (e) {
-          console.warn("[fetch_avatars_batch] Error for", phone, e);
-          results[phone] = null;
+          console.warn("[fetch_avatars_batch] Error for", phone, (e as Error).message);
+          results[cleanPhone] = null;
+        } finally {
+          clearTimeout(t);
         }
-      }
+      }));
+
 
       return new Response(JSON.stringify({ success: true, results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
