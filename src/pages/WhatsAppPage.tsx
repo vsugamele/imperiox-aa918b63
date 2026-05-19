@@ -44,6 +44,9 @@ interface WaSession {
   provider_id: string | null;
   last_message?: string | null;
   updated_at?: string;
+  last_message_at?: string | null;
+  unread_count?: number;
+  last_message_direction?: string | null;
 }
 
 export default function WhatsApp() {
