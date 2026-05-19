@@ -9,7 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet, Save, CopyPlus } from "lucide-react";
+import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet, Save, CopyPlus, Sparkles, Loader2, Search } from "lucide-react";
+
+const FORM_TYPES = [
+  { value: "captura", label: "Captura", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  { value: "vendas", label: "Vendas", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  { value: "pesquisa", label: "Pesquisa", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+  { value: "aplicacao", label: "Aplicação", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  { value: "pos_compra", label: "Pós-compra", color: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
+  { value: "lead_magnet", label: "Lead Magnet", color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
+];
+const getTypeMeta = (t?: string) => FORM_TYPES.find(x => x.value === t);
 
 interface FormField {
   key: string;
@@ -128,8 +138,21 @@ export function FormBuilder({ projects }: Props) {
   const [formProduct, setFormProduct] = useState("");
   const [formTag, setFormTag] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [formType, setFormType] = useState<string>("captura");
+  const [formCampaign, setFormCampaign] = useState("");
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [listFilterProject, setListFilterProject] = useState("all");
+  const [listFilterType, setListFilterType] = useState("all");
+  const [listSearch, setListSearch] = useState("");
+
+  // AI dialog
+  const [showAI, setShowAI] = useState(false);
+  const [aiBriefing, setAiBriefing] = useState("");
+  const [aiProject, setAiProject] = useState("none");
+  const [aiProduct, setAiProduct] = useState("");
+  const [aiType, setAiType] = useState("auto");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiProductsList, setAiProductsList] = useState<string[]>([]);
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
@@ -138,7 +161,27 @@ export function FormBuilder({ projects }: Props) {
 
   useEffect(() => { loadForms(); }, []);
 
-  const filteredForms = listFilterProject === "all" ? forms : forms.filter(f => f.project_id === listFilterProject);
+  const filteredForms = forms.filter(f => {
+    if (listFilterProject !== "all" && f.project_id !== listFilterProject) return false;
+    if (listFilterType !== "all" && (f.settings as any)?.form_type !== listFilterType) return false;
+    if (listSearch.trim()) {
+      const q = listSearch.toLowerCase();
+      const cn = ((f.settings as any)?.campaign_name || "").toLowerCase();
+      if (!f.nome.toLowerCase().includes(q) && !cn.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Load products for AI dialog
+  useEffect(() => {
+    if (aiProject === "none") { setAiProductsList([]); setAiProduct(""); return; }
+    (async () => {
+      const { data } = await supabase.from("imphq_projects").select("data").eq("id", aiProject).single();
+      const produtos = (data?.data as any)?.produtos;
+      if (Array.isArray(produtos)) setAiProductsList(produtos.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
+      else setAiProductsList([]);
+    })();
+  }, [aiProject]);
 
   // Load products when project changes
   useEffect(() => {
@@ -185,8 +228,45 @@ export function FormBuilder({ projects }: Props) {
     setFormProduct("");
     setFormTag("");
     setFormDescription("");
+    setFormType("captura");
+    setFormCampaign("");
     setShowTemplates(false);
     setShowNew(true);
+  };
+
+  const runAI = async () => {
+    if (!aiBriefing.trim()) { toast.error("Descreva o que precisa"); return; }
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+        body: {
+          briefing: aiBriefing,
+          project_id: aiProject !== "none" ? aiProject : null,
+          product_name: aiProduct || null,
+          form_type: aiType !== "auto" ? aiType : null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const f = data.form;
+      setFormName(f.nome || "");
+      setFormType(f.form_type || "captura");
+      setFormCampaign(f.campaign_name || "");
+      setFormStage(f.stage || "lead_capturado");
+      setFormDescription(f.description || "");
+      setFormTag(f.tag || "");
+      setFormFields(f.fields || []);
+      setFormProject(aiProject);
+      setFormProduct(aiProduct);
+      setShowAI(false);
+      setShowTemplates(false);
+      setShowNew(true);
+      toast.success("Formulário gerado pela IA! Revise e salve.");
+    } catch (err: any) {
+      toast.error(err.message || "Falha ao gerar com IA");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const saveForm = async () => {
@@ -194,7 +274,10 @@ export function FormBuilder({ projects }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const settings: Record<string, any> = {};
+    const settings: Record<string, any> = {
+      form_type: formType,
+    };
+    if (formCampaign.trim()) settings.campaign_name = formCampaign.trim();
     if (formProduct) settings.product_name = formProduct;
     if (formTag.trim()) settings.tag = formTag.trim();
     if (formDescription.trim()) settings.description = formDescription.trim();
@@ -230,6 +313,8 @@ export function FormBuilder({ projects }: Props) {
     setFormProduct((form.settings as any)?.product_name || "");
     setFormTag((form.settings as any)?.tag || "");
     setFormDescription((form.settings as any)?.description || "");
+    setFormType((form.settings as any)?.form_type || "captura");
+    setFormCampaign((form.settings as any)?.campaign_name || "");
     setShowNew(true);
   };
 
@@ -385,7 +470,18 @@ async function imphqSubmit(e) {
           <h3 className="font-display text-lg font-bold">Formulários de Captura</h3>
           <p className="text-xs text-muted-foreground">Crie formulários dinâmicos e gere snippets para suas landing pages</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="h-3 w-3 absolute left-2 top-2.5 text-muted-foreground" />
+            <Input value={listSearch} onChange={e => setListSearch(e.target.value)} placeholder="Buscar campanha..." className="h-8 text-xs pl-7 w-[180px] bg-secondary" />
+          </div>
+          <Select value={listFilterType} onValueChange={setListFilterType}>
+            <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              {FORM_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={listFilterProject} onValueChange={setListFilterProject}>
             <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -393,6 +489,9 @@ async function imphqSubmit(e) {
               {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button size="sm" variant="outline" className="border-primary/40 text-primary hover:bg-primary/10" onClick={() => { setAiBriefing(""); setAiProject("none"); setAiProduct(""); setAiType("auto"); setShowAI(true); }}>
+            <Sparkles className="h-4 w-4 mr-1" /> Gerar com IA
+          </Button>
           <Button size="sm" onClick={() => { setEditForm(null); setShowTemplates(true); }}>
             <Plus className="h-4 w-4 mr-1" /> Novo Formulário
           </Button>
@@ -413,10 +512,18 @@ async function imphqSubmit(e) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-sm">{form.nome}</p>
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {(() => { const tm = getTypeMeta((form.settings as any)?.form_type); return tm ? (
+                        <Badge variant="outline" className={`text-[10px] py-0 ${tm.color}`}>{tm.label}</Badge>
+                      ) : null; })()}
                       <Badge variant="outline" className="text-[10px] py-0 bg-primary/10 text-primary border-primary/20">
                         {getProjectName(form.project_id)}
                       </Badge>
+                      {(form.settings as any)?.campaign_name && (
+                        <Badge variant="outline" className="text-[10px] py-0 bg-secondary/60 text-foreground border-border">
+                          🎯 {(form.settings as any).campaign_name}
+                        </Badge>
+                      )}
                       {(form.settings as any)?.product_name && (
                         <Badge variant="outline" className="text-[10px] py-0 bg-amber-500/10 text-amber-400 border-amber-500/20">
                           📦 {(form.settings as any).product_name}
@@ -426,6 +533,9 @@ async function imphqSubmit(e) {
                         <Badge variant="outline" className="text-[10px] py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                           🏷️ {(form.settings as any).tag}
                         </Badge>
+                      )}
+                      {form.created_at && (
+                        <span className="text-[10px] text-muted-foreground">• {new Date(form.created_at).toLocaleDateString("pt-BR")}</span>
                       )}
                     </div>
                     {(form.settings as any)?.description && (
@@ -533,12 +643,27 @@ async function imphqSubmit(e) {
             <div><Label>Nome do Formulário</Label><Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Ex: Captura Webinar" className="bg-secondary" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <Label>Tipo de Campanha</Label>
+                <Select value={formType} onValueChange={setFormType}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FORM_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Nome da Campanha</Label>
+                <Input value={formCampaign} onChange={e => setFormCampaign(e.target.value)} placeholder="Ex: Lançamento Cortes — Abril 2026" className="bg-secondary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <Label>Tag (opcional)</Label>
-                <Input value={formTag} onChange={e => setFormTag(e.target.value)} placeholder="Ex: webinar-abril, lancamento" className="bg-secondary" />
+                <Input value={formTag} onChange={e => setFormTag(e.target.value)} placeholder="Ex: webinar-abril" className="bg-secondary" />
               </div>
               <div>
                 <Label>Descrição curta (opcional)</Label>
-                <Input value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Sobre o que é este formulário" className="bg-secondary" />
+                <Input value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Sobre o que é" className="bg-secondary" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -664,6 +789,69 @@ async function imphqSubmit(e) {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Generate Dialog */}
+      <Dialog open={showAI} onOpenChange={setShowAI}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Gerar Formulário com IA</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>O que você precisa?</Label>
+              <Textarea
+                value={aiBriefing}
+                onChange={e => setAiBriefing(e.target.value)}
+                placeholder="Ex: pesquisa pré-aula do webinar de Cortes Perfeitos no dia 25, quero saber faturamento e maior dor"
+                className="bg-secondary min-h-[90px] leading-7"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Projeto</Label>
+                <Select value={aiProject} onValueChange={setAiProject}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem projeto</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Tipo (opcional)</Label>
+                <Select value={aiType} onValueChange={setAiType}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">IA detecta</SelectItem>
+                    {FORM_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {aiProject !== "none" && aiProductsList.length > 0 && (
+              <div>
+                <Label>Produto (opcional)</Label>
+                <Select value={aiProduct || "none"} onValueChange={v => setAiProduct(v === "none" ? "" : v)}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem produto específico</SelectItem>
+                    {aiProductsList.map(p => <SelectItem key={p} value={p}>📦 {p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground leading-6">
+              A IA consulta o avatar e produtos do projeto pra gerar campos qualificadores na medida certa.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowAI(false)} disabled={aiLoading}>Cancelar</Button>
+            <Button onClick={runAI} disabled={aiLoading || !aiBriefing.trim()}>
+              {aiLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Gerando...</> : <><Sparkles className="h-4 w-4 mr-1" /> Gerar</>}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

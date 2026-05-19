@@ -77,9 +77,14 @@ Deno.serve(async (req) => {
     // Build form metadata to persist in lead.data
     const formMeta: Record<string, any> = {};
     if (body.form_id && formConfig) {
+      const s = (formConfig.settings || {}) as Record<string, any>;
       formMeta.form_id = body.form_id;
       formMeta.form_name = formConfig.nome || formConfig.name || null;
       formMeta.captura_form_step = step || null;
+      if (s.form_type) formMeta.form_type = s.form_type;
+      if (s.campaign_name) formMeta.campaign_name = s.campaign_name;
+      if (s.product_name) formMeta.ultimo_produto = s.product_name;
+      if (s.tag) formMeta.form_tag = s.tag;
     }
 
     if (existing) {
