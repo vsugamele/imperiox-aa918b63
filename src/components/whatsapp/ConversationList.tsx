@@ -112,10 +112,26 @@ export default function ConversationList({
       {/* Header */}
       <div className="p-3 space-y-2 border-b border-border shrink-0">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-sm text-foreground">Conversas</h2>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova sessão">
-            <Plus className="h-4 w-4" />
-          </Button>
+          <h2 className="font-semibold text-sm text-foreground flex items-center gap-2">
+            Conversas
+            {totalUnread > 0 && (
+              <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                {totalUnread} nova{totalUnread > 1 ? "s" : ""}
+              </span>
+            )}
+          </h2>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setOnlyUnread(v => !v)}
+              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${onlyUnread ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
+              title="Mostrar apenas não lidas"
+            >
+              Não lidas
+            </button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova sessão">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
