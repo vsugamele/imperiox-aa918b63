@@ -1,95 +1,60 @@
-# Plano — IA no Construtor de Formulários + Categorização por Campanha
+# Plano — Campanhas vivas + Painel + Loop com Ads/WhatsApp
 
-## Objetivo
-1. Botão "✨ Gerar com IA" que monta o formulário completo (nome, tipo, campos, descrição) a partir de um briefing curto.
-2. Classificar cada formulário por **tipo de campanha** (Captura / Vendas / Pesquisa / Aplicação / Pós-compra), **produto**, **nome da campanha** e **data**.
-3. A IA recebe esse contexto ao gerar snippet/webhook/JS para segregar leads corretamente (UTM `utm_campaign`, tag, `form_type`).
+Ordem por ROI. Cada fase entrega valor sozinha.
 
 ---
 
-## 1. Banco — novos campos em `imphq_capture_forms.settings` (JSONB, sem migration nova)
+## Fase 1 — Campanhas como entidade (base de tudo)
 
-Campos consolidados em `settings`:
-- `form_type`: `'captura' | 'vendas' | 'pesquisa' | 'aplicacao' | 'pos_compra' | 'lead_magnet'`
-- `campaign_name`: string (ex: "Lançamento Cortes Perfeitos — Abril")
-- `product_name`: já existe
-- `tag`: já existe
-- `description`: já existe
-- `ai_briefing`: string (briefing original usado pela IA, p/ regenerar depois)
+**Objetivo:** parar de tratar `campaign_name` como string solta. Criar índice real para agregar leads, CPL, conversão.
 
-Sem migration — `settings` já é JSONB livre.
+- Migration: nova tabela `imphq_campaigns`
+  - `id` (uuid), `project_id`, `nome`, `slug`, `produto`, `funil` (aquisicao/conversao/maximizacao/retencao), `form_type_default`, `status` (rascunho/ativa/pausada/arquivada), `created_at`, `data` (jsonb p/ metas, utm_campaign esperado, observações)
+- `imphq_capture_forms.settings.campaign_id` passa a referenciar a campanha (mantém `campaign_name` como cache p/ retrocompat)
+- `FormBuilder`: campo "Campanha" vira **Select + criar nova** (combobox) — lista campanhas do projeto, ao escolher já preenche produto/funil
+- Migration de backfill: cria 1 campanha por `campaign_name` único existente e linka os forms
+- `capture-lead`: propaga `campaign_id` para `lead.data.campaign_id`
 
-## 2. Nova Edge Function: `ai-form-builder`
+## Fase 2 — Painel `/campanhas`
 
-`supabase/functions/ai-form-builder/index.ts`
+**Objetivo:** ver performance por campanha sem montar relatório.
 
-**Input:**
-```json
-{
-  "briefing": "Quero captar leads para o webinar de cortes do dia 25",
-  "project_id": "uuid",
-  "product_name": "Cortes Perfeitos"
-}
-```
+- Nova rota `/campanhas` (e link no sidebar)
+- Tabela com: campanha, status, produto, leads (7/30d), CPL real (cruza `imphq_ads_insights` por `utm_campaign` esperado), conversão para venda (cruza `imphq_vendas.utm_campaign`), receita, ROAS
+- Drilldown por campanha: lista de forms vinculados, leads recentes, vendas atribuídas, gráfico de leads/dia
+- Filtros: projeto, status, funil
+- Botão "Pausar campanha" → marca status + opcionalmente pausa adsets vinculados (fase 3)
 
-**Processo:**
-- Busca contexto do projeto: avatar, produtos, branding (`imphq_projects.data`)
-- Chama Lovable AI Gateway (`google/gemini-3-flash-preview`) com tool calling estruturado retornando:
-  - `nome`, `form_type`, `campaign_name`, `stage`, `description`, `tag`
-  - `fields[]` (key/label/type/required/options/placeholder)
-- Prompt instrui: usar avatar do projeto para perguntas de qualificação, evitar campos demais (regra: captura ≤ 3 campos, pesquisa pode 6-10, aplicação 5-8).
+## Fase 3 — Loop com Ads & WhatsApp
 
-**Output:** JSON pronto para preencher o estado do FormBuilder.
+**Objetivo:** o `form_type` deixar de ser etiqueta e virar gatilho.
 
-## 3. UI — `src/components/leads/FormBuilder.tsx`
+- `capture-lead`: ao criar lead, se a campanha tem `form_type` mapeado, enfileira automação WhatsApp default:
+  - `captura/lead_magnet` → mensagem de boas-vindas + entrega
+  - `aplicacao` → triagem automática (já existe TriagemPanel)
+  - `pesquisa` → agradecimento
+  - `pos_compra` → pedir depoimento
+- Disparar **CAPI `Lead`** do `capture-lead` com `custom_data.campaign_name` e `event_id` (dedup) — fecha loop de otimização do Ads sem depender do Pixel do navegador
+- Form salvo gera **link curto + QR** via tracker existente (já temos `xcod`), exibe no card do form
 
-### a) Novo botão na tela de templates
-"✨ Gerar com IA" (acima de "Começar do Zero") abre um mini-dialog com:
-- Textarea: "O que você precisa? (ex: pesquisa pré-aula do produto X)"
-- Select tipo de campanha (opcional, IA detecta)
-- Select projeto e produto (já filtrado)
-- Botão "Gerar" → invoca `ai-form-builder` → preenche `formName/formFields/formStage/formType/...` → abre dialog de edição normal já populado.
+## Fase 4 — IA mais inteligente (polish)
 
-### b) Novos campos no dialog de criação/edição
-- **Tipo de Campanha** (Select obrigatório): Captura / Vendas / Pesquisa / Aplicação / Pós-compra / Lead Magnet
-- **Nome da Campanha** (Input): "Ex: Lançamento Abril 2026"
-- Mantém Projeto, Produto, Tag, Descrição
-- Botão secundário "✨ Sugerir campos com IA" dentro do dialog (regenera só `fields[]` mantendo contexto)
-
-### c) Card do formulário (listagem)
-Adicionar badges:
-- Tipo de campanha (cor por tipo: captura=azul, vendas=verde, pesquisa=roxo, etc.)
-- Nome da campanha
-- Data de criação formatada (`created_at` já existe)
-
-### d) Filtros no topo
-Além do filtro por projeto, adicionar:
-- Select "Tipo": todos / captura / vendas / pesquisa / aplicação / pós-compra
-- Input busca por nome de campanha
-
-## 4. Snippet com contexto (segregação)
-
-`getSnippetHTML` passa a injetar no `body` do POST:
-```js
-body.form_type = "vendas";
-body.campaign_name = "Lançamento Abril";
-body.product_name = "Cortes Perfeitos";
-body.tag = "webinar-abril";
-```
-
-Edge function `capture-lead` (já existe) salva esses campos em `imphq_leads.metadata` / `ultimo_produto` / `ultimo_evento` — já está mapeado pela memória `Lead Responses`. Apenas garantir leitura de `form_type`/`campaign_name` do body.
-
-## 5. Secrets
-`LOVABLE_API_KEY` já está disponível (memória confirma uso do Gateway).
+- **"Otimizar este form"**: botão que lê `imphq_lead_responses` + taxa de conversão e a IA sugere remover/reescrever campos fracos
+- **Variantes A/B**: gera 2 versões com hipóteses diferentes em uma chamada
+- IA recebe contexto de **formulários anteriores do projeto** para não repetir perguntas
+- Validação no FormBuilder: avisa se IA gerou >3 campos num form tipo `captura`
 
 ---
 
-## Arquivos tocados
-- **Novo:** `supabase/functions/ai-form-builder/index.ts`
-- **Editado:** `src/components/leads/FormBuilder.tsx` (UI + estados + chamadas)
-- **Editado:** `supabase/functions/capture-lead/index.ts` (ler form_type/campaign_name do body)
+## Detalhes técnicos
+
+- **IDs**: `imphq_campaigns.id` UUID (não é projeto/lead/venda).
+- **RLS**: `imphq_campaigns` espelha policy de `imphq_projects` (membros do projeto leem/escrevem).
+- **Edge functions tocadas**: `capture-lead` (campaign_id + automação + CAPI), nova `campaign-optimize` (fase 4).
+- **Frontend tocado**: `FormBuilder.tsx` (combobox campanha), nova page `Campanhas.tsx`, `AppSidebar.tsx` (link).
+- **Sem breaking change**: forms antigos com `campaign_name` string continuam funcionando até o backfill.
 
 ## Fora do escopo
-- Não cria nova tabela
-- Não mexe na timeline do lead
-- Não automatiza envio para CRM/WhatsApp baseado no tipo (pode ser fase 2)
+- Não mexe na timeline do lead nem no scoring atual
+- Não automatiza pausa real de adset na fase 1-2 (só marca status)
+- Variantes A/B não vão para teste automático, só geração
