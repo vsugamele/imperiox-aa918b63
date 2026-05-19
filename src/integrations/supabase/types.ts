@@ -20439,6 +20439,8 @@ export type Database = {
       }
       imphq_wa_conversations: {
         Row: {
+          ai_last_reply_at: string | null
+          ai_lock_until: string | null
           avatar_url: string | null
           contact_name: string | null
           created_at: string
@@ -20460,6 +20462,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_last_reply_at?: string | null
+          ai_lock_until?: string | null
           avatar_url?: string | null
           contact_name?: string | null
           created_at?: string
@@ -20481,6 +20485,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_last_reply_at?: string | null
+          ai_lock_until?: string | null
           avatar_url?: string | null
           contact_name?: string | null
           created_at?: string
