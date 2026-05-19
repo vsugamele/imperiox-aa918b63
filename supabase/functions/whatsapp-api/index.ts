@@ -979,7 +979,7 @@ serve(async (req) => {
                     .order("created_at", { ascending: false })
                     .limit(1)
                     .maybeSingle();
-                  if (newer && messageRow?.created_at && new Date((newer as any).created_at).getTime() > new Date(messageRow.created_at).getTime()) {
+                  if (newer && (newer as any).created_at && new Date((newer as any).created_at).getTime() > incomingAt + 1000) {
                     console.log(`[webhook] Newer incoming msg arrived during debounce, skip ${phone}`);
                     await supabase.from("imphq_wa_conversations").update({ ai_lock_until: null }).eq("id", conv.id);
                     return new Response(JSON.stringify({ success: true, skipped: "debounced" }), {
