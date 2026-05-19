@@ -961,9 +961,12 @@ async function imphqSubmit(e) {
               A IA consulta o avatar e produtos do projeto pra gerar campos qualificadores na medida certa.
             </p>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setShowAI(false)} disabled={aiLoading}>Cancelar</Button>
-            <Button onClick={runAI} disabled={aiLoading || !aiBriefing.trim()}>
+            <Button variant="outline" onClick={() => runAI(2)} disabled={aiLoading || !aiBriefing.trim()} title="Gera 2 versões (mínima vs qualificadora) e salva direto">
+              {aiLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CopyPlus className="h-4 w-4 mr-1" />} Gerar A/B
+            </Button>
+            <Button onClick={() => runAI(1)} disabled={aiLoading || !aiBriefing.trim()}>
               {aiLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Gerando...</> : <><Sparkles className="h-4 w-4 mr-1" /> Gerar</>}
             </Button>
           </DialogFooter>
