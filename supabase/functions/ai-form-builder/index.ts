@@ -9,18 +9,42 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { briefing, project_id, product_name, form_type } = await req.json();
-    if (!briefing || typeof briefing !== "string") {
-      return new Response(JSON.stringify({ error: "briefing obrigatório" }), {
+    const { briefing, project_id, product_name, form_type, optimize_form_id } = await req.json();
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Modo OTIMIZAR: precisa de form_id, briefing fica opcional
+    let optimizeCtx = "";
+    let resolvedProjectId = project_id || null;
+    if (optimize_form_id) {
+      const { data: form } = await sb.from("imphq_capture_forms").select("*").eq("id", optimize_form_id).maybeSingle();
+      if (form) {
+        resolvedProjectId = resolvedProjectId || form.project_id;
+        const since = new Date(Date.now() - 30 * 86400000).toISOString();
+        const { data: resps } = await sb.from("imphq_lead_responses")
+          .select("field_key,answer").eq("form_id", optimize_form_id).gte("created_at", since).limit(2000);
+        const stats: Record<string, { total: number; empty: number }> = {};
+        (resps || []).forEach((r: any) => {
+          stats[r.field_key] = stats[r.field_key] || { total: 0, empty: 0 };
+          stats[r.field_key].total++;
+          if (!r.answer || r.answer.trim() === "") stats[r.field_key].empty++;
+        });
+        optimizeCtx = `MODO OTIMIZAR — formulário atual: ${form.nome}\n` +
+          `CAMPOS ATUAIS: ${JSON.stringify(form.fields)}\n` +
+          `ESTATÍSTICAS 30d (${(resps || []).length} respostas): ${JSON.stringify(stats)}\n` +
+          `OBJETIVO: reduzir campos fracos (alto % vazio), reescrever labels confusos, manter as perguntas que mais qualificam. NÃO mude o form_type.\n`;
+      }
+    }
+
+    if (!briefing && !optimize_form_id) {
+      return new Response(JSON.stringify({ error: "briefing ou optimize_form_id obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Carrega contexto do projeto (avatar, produtos, branding)
+    // Carrega contexto do projeto (avatar, produtos, branding) + formulários anteriores
     let contexto = "";
-    if (project_id) {
-      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      const { data: proj } = await sb.from("imphq_projects").select("name, data").eq("id", project_id).maybeSingle();
+    if (resolvedProjectId) {
+      const { data: proj } = await sb.from("imphq_projects").select("name, data").eq("id", resolvedProjectId).maybeSingle();
       if (proj) {
         const d: any = proj.data || {};
         contexto = `PROJETO: ${proj.name}\n`;
@@ -28,8 +52,15 @@ Deno.serve(async (req) => {
         if (d.produtos) contexto += `PRODUTOS: ${JSON.stringify(d.produtos).slice(0, 800)}\n`;
         if (d.branding?.tom) contexto += `TOM DE VOZ: ${d.branding.tom}\n`;
       }
+      const { data: priorForms } = await sb.from("imphq_capture_forms")
+        .select("nome,settings,fields").eq("project_id", resolvedProjectId).limit(8);
+      if (priorForms?.length) {
+        const resumo = priorForms.map((f: any) => `- ${f.nome} [${(f.settings || {}).form_type || "?"}]: ${(f.fields || []).map((x: any) => x.label).join(", ")}`).join("\n");
+        contexto += `FORMULÁRIOS JÁ EXISTENTES NO PROJETO (evite duplicar perguntas):\n${resumo}\n`;
+      }
     }
     if (product_name) contexto += `PRODUTO ALVO: ${product_name}\n`;
+    if (optimizeCtx) contexto += `\n${optimizeCtx}`;
 
     const sys = `Você é Imperius, estrategista de captura. Receba um briefing e gere um formulário OTIMIZADO em pt-BR.
 
