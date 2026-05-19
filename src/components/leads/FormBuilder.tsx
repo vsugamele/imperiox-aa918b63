@@ -280,6 +280,9 @@ export function FormBuilder({ projects }: Props) {
 
   const saveForm = async () => {
     if (!formName.trim()) { toast.error("Nome obrigatório"); return; }
+    if (formType === "captura" && formFields.length > 3) {
+      if (!window.confirm(`Formulários de captura convertem mais com até 3 campos. Você tem ${formFields.length}. Salvar mesmo assim?`)) return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -338,6 +341,39 @@ export function FormBuilder({ projects }: Props) {
     await supabase.from("imphq_capture_forms").delete().eq("id", id);
     toast.success("Formulário removido");
     loadForms();
+  };
+
+  const optimizeWithAI = async (form: CaptureForm) => {
+    const briefing = window.prompt("O que melhorar? (deixe vazio para otimização automática)") ?? "";
+    toast.loading("IA analisando respostas...", { id: "opt" });
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+        body: {
+          optimize_form_id: form.id,
+          briefing: briefing || undefined,
+          project_id: form.project_id,
+          form_type: (form.settings as any)?.form_type,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const f = data.form;
+      setEditForm(form);
+      setFormName(f.nome || form.nome);
+      setFormType(f.form_type || (form.settings as any)?.form_type || "captura");
+      setFormCampaign(f.campaign_name || (form.settings as any)?.campaign_name || "");
+      setFormCampaignId((form.settings as any)?.campaign_id || "none");
+      setFormStage(f.stage || form.step || "lead_capturado");
+      setFormDescription(f.description || "");
+      setFormTag(f.tag || "");
+      setFormFields(f.fields || []);
+      setFormProject(form.project_id || "none");
+      setFormProduct((form.settings as any)?.product_name || "");
+      setShowNew(true);
+      toast.success("Sugestão da IA aplicada. Revise e salve.", { id: "opt" });
+    } catch (err: any) {
+      toast.error(err.message || "Falha ao otimizar", { id: "opt" });
+    }
   };
 
   const duplicateForm = async (form: CaptureForm) => {
@@ -579,6 +615,9 @@ async function imphqSubmit(e) {
                   </Button>
                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => saveAsTemplate(form)} title="Salvar como template reutilizável">
                     <Save className="h-3 w-3 mr-1" /> Template
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => optimizeWithAI(form)} title="Pedir para IA otimizar com base nos dados reais">
+                    <Sparkles className="h-3 w-3 mr-1" /> Otimizar
                   </Button>
                   <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive" onClick={() => deleteForm(form.id)}>
                     <Trash2 className="h-3 w-3" />
