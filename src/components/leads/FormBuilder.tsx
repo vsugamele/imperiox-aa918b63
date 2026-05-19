@@ -243,7 +243,7 @@ export function FormBuilder({ projects }: Props) {
     setShowNew(true);
   };
 
-  const runAI = async () => {
+  const runAI = async (variants: 1 | 2 = 1) => {
     if (!aiBriefing.trim()) { toast.error("Descreva o que precisa"); return; }
     setAiLoading(true);
     try {
@@ -253,10 +253,40 @@ export function FormBuilder({ projects }: Props) {
           project_id: aiProject !== "none" ? aiProject : null,
           product_name: aiProduct || null,
           form_type: aiType !== "auto" ? aiType : null,
+          variants,
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      if (variants === 2 && Array.isArray(data.forms)) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Sem usuário");
+        const rows = data.forms.map((f: any, i: number) => {
+          const settings: Record<string, any> = { form_type: f.form_type || "captura" };
+          if (f.campaign_name) settings.campaign_name = f.campaign_name;
+          if (aiProduct) settings.product_name = aiProduct;
+          if (f.tag) settings.tag = f.tag;
+          if (f.description) settings.description = f.description;
+          settings.ab_variant = i === 0 ? "A" : "B";
+          return {
+            nome: `${f.nome || "Form IA"} · ${i === 0 ? "A" : "B"}`,
+            project_id: aiProject !== "none" ? aiProject : null,
+            step: f.stage || "lead_capturado",
+            fields: f.fields || [],
+            is_active: true,
+            user_id: user.id,
+            settings,
+          };
+        });
+        const { error: insErr } = await supabase.from("imphq_capture_forms").insert(rows as any);
+        if (insErr) throw insErr;
+        toast.success("2 variantes A/B criadas! Distribua o tráfego entre elas.");
+        setShowAI(false);
+        loadForms();
+        return;
+      }
+
       const f = data.form;
       setFormName(f.nome || "");
       setFormType(f.form_type || "captura");
