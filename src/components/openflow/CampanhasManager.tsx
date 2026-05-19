@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Save, Megaphone, FileText, Users, Zap } from "lucide-react";
+import { Plus, Trash2, Save, Megaphone, FileText, Users, Zap, Sparkles, Link2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export interface Campanha {
