@@ -259,6 +259,22 @@ export default function Campanhas() {
               <Label>Produto (opcional)</Label>
               <Input value={edit?.produto || ""} onChange={e => setEdit({ ...edit!, produto: e.target.value })} className="bg-background" />
             </div>
+            <div>
+              <Label>Sequência de nutrição padrão (auto-enroll de novos leads)</Label>
+              <Select
+                value={(edit?.data as any)?.default_sequence_id || "__none__"}
+                onValueChange={v => setEdit({ ...edit!, data: { ...(edit?.data || {}), default_sequence_id: v === "__none__" ? null : v } })}
+              >
+                <SelectTrigger className="bg-background"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhuma</SelectItem>
+                  {sequences
+                    .filter(s => !edit?.project_id || !s.project_id || s.project_id === edit.project_id)
+                    .map(s => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">Leads capturados em forms desta campanha entram automaticamente nesta sequência.</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEdit(null)}>Cancelar</Button>
