@@ -315,6 +315,12 @@ export function CampanhasManager({ projects, onChange }: Props) {
                 <div><Label>Produto</Label><Input value={editing.produto || ""} onChange={e => setEditing({ ...editing, produto: e.target.value })} /></div>
                 <div><Label>UTM campaign</Label><Input value={editing.utm_campaign || ""} onChange={e => setEditing({ ...editing, utm_campaign: e.target.value })} /></div>
               </div>
+              {editing.utm_campaign && (
+                <Button variant="outline" size="sm" onClick={linkExistingLeads} disabled={linkingLeads} className="w-full">
+                  <Link2 className="h-3 w-3 mr-1" />
+                  {linkingLeads ? "Vinculando…" : "Vincular leads existentes por este UTM"}
+                </Button>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div><Label>Início</Label><Input type="date" value={editing.data_inicio?.slice(0, 10) || ""} onChange={e => setEditing({ ...editing, data_inicio: e.target.value || null })} /></div>
                 <div><Label>Fim</Label><Input type="date" value={editing.data_fim?.slice(0, 10) || ""} onChange={e => setEditing({ ...editing, data_fim: e.target.value || null })} /></div>
