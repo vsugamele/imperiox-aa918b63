@@ -725,6 +725,7 @@ serve(async (req) => {
 
       // ── MESSAGES_UPSERT — incoming message ──
       if (providerType === "evolution" && (eventType === "MESSAGES_UPSERT" || eventType === "SEND_MESSAGE")) {
+        const incomingAt = Date.now();
         const key = body?.data?.key;
         const msg = body?.data?.message;
         const pushName = body?.data?.pushName || "";
