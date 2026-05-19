@@ -251,6 +251,35 @@ Deno.serve(async (req) => {
       utm_campaign: body.utm_campaign || null,
     });
 
+    // --- CAPI Lead (server-side) com dedup via event_id ---
+    try {
+      if (projectId) {
+        const { data: proj } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
+        const pd: any = proj?.data || {};
+        const fbToken = (pd.facebook_access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
+        const fbPixel = pd.facebook_pixel_id;
+        if (fbToken && fbPixel) {
+          const eventId = `lead_${leadId}_${Date.now()}`;
+          const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || undefined;
+          const userAgent = req.headers.get("user-agent") || undefined;
+          await sendCapiLead({
+            pixelId: fbPixel,
+            token: fbToken,
+            testCode: pd.facebook_test_event_code,
+            email, name, phone,
+            eventId,
+            campaignName: (formConfig?.settings as any)?.campaign_name || body.utm_campaign,
+            productName: (formConfig?.settings as any)?.product_name,
+            sourceUrl: body.page_url,
+            clientIp, userAgent,
+            fbc: body.fbc, fbp: body.fbp,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[capture-lead] CAPI Lead falhou:", e);
+    }
+
     // If redirect specified, do 302
     if (body.redirect_url) {
       return new Response(null, {
