@@ -730,13 +730,27 @@ serve(async (req) => {
         const msg = body?.data?.message;
         const pushName = body?.data?.pushName || "";
 
-        // Skip outgoing messages (fromMe) to avoid duplicates
-        if (key?.fromMe && eventType === "MESSAGES_UPSERT") {
+        // SEND_MESSAGE is always our own outbound — skip to avoid echo dup
+        if (eventType === "SEND_MESSAGE") {
+          console.log("[webhook] Skipping SEND_MESSAGE (own outbound echo)");
+          return new Response(JSON.stringify({ success: true, skipped: "send_message_echo" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Skip outgoing messages (fromMe) to avoid duplicates — check all common envelopes
+        const isFromMe =
+          key?.fromMe === true ||
+          body?.data?.fromMe === true ||
+          body?.data?.key?.fromMe === true ||
+          body?.fromMe === true;
+        if (isFromMe) {
           console.log("[webhook] Skipping fromMe message");
           return new Response(JSON.stringify({ success: true, skipped: "fromMe" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
 
         const phone = (key?.remoteJid || "").replace("@s.whatsapp.net", "").replace(/\D/g, "");
         const providerMsgId = key?.id || "";
