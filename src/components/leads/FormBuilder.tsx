@@ -470,7 +470,18 @@ async function imphqSubmit(e) {
           <h3 className="font-display text-lg font-bold">Formulários de Captura</h3>
           <p className="text-xs text-muted-foreground">Crie formulários dinâmicos e gere snippets para suas landing pages</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="h-3 w-3 absolute left-2 top-2.5 text-muted-foreground" />
+            <Input value={listSearch} onChange={e => setListSearch(e.target.value)} placeholder="Buscar campanha..." className="h-8 text-xs pl-7 w-[180px] bg-secondary" />
+          </div>
+          <Select value={listFilterType} onValueChange={setListFilterType}>
+            <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              {FORM_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={listFilterProject} onValueChange={setListFilterProject}>
             <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -478,6 +489,9 @@ async function imphqSubmit(e) {
               {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button size="sm" variant="outline" className="border-primary/40 text-primary hover:bg-primary/10" onClick={() => { setAiBriefing(""); setAiProject("none"); setAiProduct(""); setAiType("auto"); setShowAI(true); }}>
+            <Sparkles className="h-4 w-4 mr-1" /> Gerar com IA
+          </Button>
           <Button size="sm" onClick={() => { setEditForm(null); setShowTemplates(true); }}>
             <Plus className="h-4 w-4 mr-1" /> Novo Formulário
           </Button>
