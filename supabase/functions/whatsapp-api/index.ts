@@ -1133,6 +1133,11 @@ REGRAS:
                           });
 
                           await updateConversationAfterMessage(conv.id, aiReply, (conv.message_count || 0) + 1);
+                          // marca cooldown e libera trava
+                          await supabase.from("imphq_wa_conversations").update({
+                            ai_last_reply_at: new Date().toISOString(),
+                            ai_lock_until: null,
+                          }).eq("id", conv.id);
                           console.log(`[webhook] AI auto-reply sent to ${phone} (${aiReply.length} chars)`);
                         }
                       }
