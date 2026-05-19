@@ -791,6 +791,69 @@ async function imphqSubmit(e) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* AI Generate Dialog */}
+      <Dialog open={showAI} onOpenChange={setShowAI}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Gerar Formulário com IA</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>O que você precisa?</Label>
+              <Textarea
+                value={aiBriefing}
+                onChange={e => setAiBriefing(e.target.value)}
+                placeholder="Ex: pesquisa pré-aula do webinar de Cortes Perfeitos no dia 25, quero saber faturamento e maior dor"
+                className="bg-secondary min-h-[90px] leading-7"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Projeto</Label>
+                <Select value={aiProject} onValueChange={setAiProject}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem projeto</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Tipo (opcional)</Label>
+                <Select value={aiType} onValueChange={setAiType}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">IA detecta</SelectItem>
+                    {FORM_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {aiProject !== "none" && aiProductsList.length > 0 && (
+              <div>
+                <Label>Produto (opcional)</Label>
+                <Select value={aiProduct || "none"} onValueChange={v => setAiProduct(v === "none" ? "" : v)}>
+                  <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem produto específico</SelectItem>
+                    {aiProductsList.map(p => <SelectItem key={p} value={p}>📦 {p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground leading-6">
+              A IA consulta o avatar e produtos do projeto pra gerar campos qualificadores na medida certa.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowAI(false)} disabled={aiLoading}>Cancelar</Button>
+            <Button onClick={runAI} disabled={aiLoading || !aiBriefing.trim()}>
+              {aiLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Gerando...</> : <><Sparkles className="h-4 w-4 mr-1" /> Gerar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
