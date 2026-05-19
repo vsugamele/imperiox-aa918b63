@@ -251,7 +251,7 @@ export default function WhatsApp() {
                 providers={providers}
                 selectedId={selectedSession?.id || null}
                 loading={loading}
-                onSelect={(s) => { setSelectedSession(s); setChatTab("chat"); }}
+                onSelect={(s) => { setSelectedSession(s); setChatTab("chat"); markRead(s.id); }}
                 onNewSession={() => setShowNew(true)}
                 filterProject={filterProject}
                 onFilterProject={setFilterProject}
