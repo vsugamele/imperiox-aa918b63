@@ -922,7 +922,7 @@ serve(async (req) => {
             console.warn("[webhook] Command auto-reply error:", cmdErr.message);
           }
 
-          // ── AI Autoresponder ──
+          // ── AI Autoresponder (com trava anti-loop + debounce) ──
           try {
             if (!matched && phone && content && projectId && providerId) {
               const { data: aiConfig } = await supabase
@@ -931,6 +931,63 @@ serve(async (req) => {
                 .eq("project_id", projectId)
                 .eq("enabled", true)
                 .maybeSingle();
+
+              const cooldownSec = (aiConfig as any)?.cooldown_seconds ?? 15;
+              const debounceSec = (aiConfig as any)?.debounce_seconds ?? 6;
+
+              // Cooldown pós-resposta: se IA respondeu há <Ns, ignora
+              const { data: convState } = await supabase
+                .from("imphq_wa_conversations")
+                .select("ai_last_reply_at")
+                .eq("id", conv.id)
+                .maybeSingle();
+              if ((convState as any)?.ai_last_reply_at) {
+                const last = new Date((convState as any).ai_last_reply_at).getTime();
+                if (Date.now() - last < cooldownSec * 1000) {
+                  console.log(`[webhook] AI cooldown active (${cooldownSec}s), skip ${phone}`);
+                  return new Response(JSON.stringify({ success: true, skipped: "cooldown" }), {
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                  });
+                }
+              }
+
+              // Trava atômica (CAS): só 1 webhook por conversa entra ao mesmo tempo
+              if (aiConfig) {
+                const lockUntilIso = new Date(Date.now() + (debounceSec + 20) * 1000).toISOString();
+                const { data: lockRow } = await supabase
+                  .from("imphq_wa_conversations")
+                  .update({ ai_lock_until: lockUntilIso })
+                  .eq("id", conv.id)
+                  .or(`ai_lock_until.is.null,ai_lock_until.lt.${new Date().toISOString()}`)
+                  .select("id")
+                  .maybeSingle();
+                if (!lockRow) {
+                  console.log(`[webhook] AI lock held by other webhook, skip ${phone}`);
+                  return new Response(JSON.stringify({ success: true, skipped: "locked" }), {
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                  });
+                }
+
+                // Debounce: aguarda Ns e verifica se chegou msg mais nova → se sim, aborta
+                if (debounceSec > 0) {
+                  await new Promise(r => setTimeout(r, debounceSec * 1000));
+                  const { data: newer } = await supabase
+                    .from("imphq_wa_messages")
+                    .select("created_at")
+                    .eq("conversation_id", conv.id)
+                    .eq("direction", "incoming")
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (newer && messageRow?.created_at && new Date((newer as any).created_at).getTime() > new Date(messageRow.created_at).getTime()) {
+                    console.log(`[webhook] Newer incoming msg arrived during debounce, skip ${phone}`);
+                    await supabase.from("imphq_wa_conversations").update({ ai_lock_until: null }).eq("id", conv.id);
+                    return new Response(JSON.stringify({ success: true, skipped: "debounced" }), {
+                      headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    });
+                  }
+                }
+              }
 
               if (aiConfig) {
                 // Check business hours
