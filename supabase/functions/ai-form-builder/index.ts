@@ -9,7 +9,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { briefing, project_id, product_name, form_type, optimize_form_id } = await req.json();
+    const { briefing, project_id, product_name, form_type, optimize_form_id, variants } = await req.json();
+    const wantVariants = Number(variants) >= 2 ? 2 : 1;
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Modo OTIMIZAR: precisa de form_id, briefing fica opcional
