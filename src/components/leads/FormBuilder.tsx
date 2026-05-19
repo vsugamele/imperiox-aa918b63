@@ -668,8 +668,46 @@ async function imphqSubmit(e) {
                 </Select>
               </div>
               <div>
-                <Label>Nome da Campanha</Label>
-                <Input value={formCampaign} onChange={e => setFormCampaign(e.target.value)} placeholder="Ex: Lançamento Cortes — Abril 2026" className="bg-secondary" />
+                <Label>Campanha</Label>
+                <div className="flex gap-2">
+                  <Select value={formCampaignId} onValueChange={setFormCampaignId}>
+                    <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Sem campanha —</SelectItem>
+                      {campaigns
+                        .filter(c => formProject === "none" || !c.project_id || c.project_id === formProject)
+                        .map(c => <SelectItem key={c.id} value={c.id}>🎯 {c.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={creatingCampaign}
+                    onClick={async () => {
+                      const nome = window.prompt("Nome da nova campanha:");
+                      if (!nome?.trim()) return;
+                      setCreatingCampaign(true);
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (!user) { setCreatingCampaign(false); return; }
+                      const { data, error } = await supabase.from("imphq_campaigns").insert({
+                        user_id: user.id,
+                        project_id: formProject !== "none" ? formProject : null,
+                        nome: nome.trim(),
+                        produto: formProduct || null,
+                        form_type_default: formType,
+                        status: "ativa",
+                      }).select().single();
+                      setCreatingCampaign(false);
+                      if (error) { toast.error("Falha ao criar campanha"); return; }
+                      await loadCampaigns();
+                      setFormCampaignId(data.id);
+                      toast.success("Campanha criada");
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
