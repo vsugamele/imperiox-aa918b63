@@ -160,6 +160,14 @@ export default function ConversationList({
             const matchProject = filterProject === "all" || s.project_id === filterProject;
             return matchProject && (provId === "all" || s.provider_id === provId);
           }).length;
+          // Activity in last 24h per provider (for cross-instance "novo" hint)
+          const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+          const hasRecent = (provId: string) => sessions.some(s => {
+            if (s.provider_id !== provId) return false;
+            const t = s.last_message_at ? new Date(s.last_message_at).getTime() : 0;
+            return t >= dayAgo;
+          });
+
           return (
             <div className="flex gap-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin">
               <button
