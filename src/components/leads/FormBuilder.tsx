@@ -228,8 +228,45 @@ export function FormBuilder({ projects }: Props) {
     setFormProduct("");
     setFormTag("");
     setFormDescription("");
+    setFormType("captura");
+    setFormCampaign("");
     setShowTemplates(false);
     setShowNew(true);
+  };
+
+  const runAI = async () => {
+    if (!aiBriefing.trim()) { toast.error("Descreva o que precisa"); return; }
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+        body: {
+          briefing: aiBriefing,
+          project_id: aiProject !== "none" ? aiProject : null,
+          product_name: aiProduct || null,
+          form_type: aiType !== "auto" ? aiType : null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const f = data.form;
+      setFormName(f.nome || "");
+      setFormType(f.form_type || "captura");
+      setFormCampaign(f.campaign_name || "");
+      setFormStage(f.stage || "lead_capturado");
+      setFormDescription(f.description || "");
+      setFormTag(f.tag || "");
+      setFormFields(f.fields || []);
+      setFormProject(aiProject);
+      setFormProduct(aiProduct);
+      setShowAI(false);
+      setShowTemplates(false);
+      setShowNew(true);
+      toast.success("Formulário gerado pela IA! Revise e salve.");
+    } catch (err: any) {
+      toast.error(err.message || "Falha ao gerar com IA");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const saveForm = async () => {
@@ -237,7 +274,10 @@ export function FormBuilder({ projects }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const settings: Record<string, any> = {};
+    const settings: Record<string, any> = {
+      form_type: formType,
+    };
+    if (formCampaign.trim()) settings.campaign_name = formCampaign.trim();
     if (formProduct) settings.product_name = formProduct;
     if (formTag.trim()) settings.tag = formTag.trim();
     if (formDescription.trim()) settings.description = formDescription.trim();
