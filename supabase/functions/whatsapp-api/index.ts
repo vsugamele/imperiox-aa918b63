@@ -1477,7 +1477,6 @@ REGRAS:
                 } else {
                   convId = newConv.id;
                 }
-                convId = newConv.id;
                 convsCreated++;
               }
               convCache.set(phone, convId!);
