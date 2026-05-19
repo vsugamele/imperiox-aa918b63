@@ -45,6 +45,7 @@ import Studio from "./pages/Studio";
 import Swipe from "./pages/Swipe";
 import Imperius from "./pages/Imperius";
 import Campanhas from "./pages/Campanhas";
+import FormPublic from "./pages/FormPublic";
 import NotFound from "./pages/NotFound";
 
 // Semana 2 — defaults conservadores p/ reduzir egress e refetches desnecessários.
