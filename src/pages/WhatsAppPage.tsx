@@ -159,14 +159,14 @@ export default function WhatsApp() {
     if (!form.phone || !form.project_id) { toast.error("Telefone e projeto obrigatórios"); return; }
     const provider = getProvider(form.project_id);
     const id = crypto.randomUUID();
-    const { error } = await supabase.from("imphq_wa_conversations").insert({
+    const { error } = await supabase.from("imphq_wa_conversations").upsert({
       id, phone: form.phone.replace(/\D/g, ""),
       contact_name: form.contact_name || null,
       session: form.session || `session-${Date.now()}`,
       project_id: form.project_id, status: "active",
       provider_id: provider?.id || null,
       metadata: { default_message: form.default_message } as any,
-    });
+    }, { onConflict: "project_id,phone", ignoreDuplicates: false });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Sessão criada!"); setShowNew(false);
     setForm({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" }); load();

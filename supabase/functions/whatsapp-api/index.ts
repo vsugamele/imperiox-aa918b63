@@ -65,15 +65,14 @@ serve(async (req) => {
         .select("*")
         .eq("phone", cleanPhone)
         .eq("project_id", projectId)
-        .limit(1)
-        .single();
+        .maybeSingle();
 
       if (existing) return existing;
 
-      // Create new conversation
+      // Upsert (race-safe): if another concurrent request created it, return the existing row
       const { data: created, error } = await supabase
         .from("imphq_wa_conversations")
-        .insert({
+        .upsert({
           phone: cleanPhone,
           contact_name: contactName || null,
           session: `session-${Date.now()}`,
@@ -81,11 +80,19 @@ serve(async (req) => {
           status: "active",
           provider_id: providerId,
           message_count: 0,
-        })
+        }, { onConflict: "project_id,phone", ignoreDuplicates: false })
         .select()
         .single();
 
       if (error) {
+        // Fallback: another request won the race — fetch it
+        const { data: raced } = await supabase
+          .from("imphq_wa_conversations")
+          .select("*")
+          .eq("phone", cleanPhone)
+          .eq("project_id", projectId)
+          .maybeSingle();
+        if (raced) return raced;
         console.error("[findOrCreateConversation] Error creating:", error.message);
         throw new Error("Falha ao criar conversa: " + error.message);
       }
@@ -686,7 +693,7 @@ serve(async (req) => {
           // Insert in batches of 100
           for (let i = 0; i < toInsert.length; i += 100) {
             const batch = toInsert.slice(i, i + 100);
-            const { error } = await supabase.from("imphq_wa_conversations").insert(batch);
+            const { error } = await supabase.from("imphq_wa_conversations").upsert(batch, { onConflict: "project_id,phone", ignoreDuplicates: true });
             if (error) {
               console.warn("[sync_contacts] Batch insert error:", error.message);
               skipped += batch.length;
@@ -1446,7 +1453,7 @@ REGRAS:
               } else {
                 const { data: newConv, error: cErr } = await supabase
                   .from("imphq_wa_conversations")
-                  .insert({
+                  .upsert({
                     phone,
                     contact_name: m.pushName || null,
                     session: `evo-import-${Date.now()}`,
@@ -1454,11 +1461,22 @@ REGRAS:
                     provider_id: provider.id,
                     status: "active",
                     message_count: 0,
-                  })
+                  }, { onConflict: "project_id,phone", ignoreDuplicates: false })
                   .select("id")
                   .single();
-                if (cErr) { skipped++; continue; }
-                convId = newConv.id;
+                if (cErr || !newConv) {
+                  // Race: fetch existing
+                  const { data: raced } = await supabase
+                    .from("imphq_wa_conversations")
+                    .select("id")
+                    .eq("project_id", provider.project_id)
+                    .eq("phone", phone)
+                    .maybeSingle();
+                  if (raced) { convId = raced.id; }
+                  else { skipped++; continue; }
+                } else {
+                  convId = newConv.id;
+                }
                 convsCreated++;
               }
               convCache.set(phone, convId!);
