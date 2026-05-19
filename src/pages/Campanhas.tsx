@@ -38,6 +38,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Campanhas() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [projects, setProjects] = useState<Array<{ id: string; nome: string }>>([]);
+  const [sequences, setSequences] = useState<Array<{ id: string; nome: string; project_id: string | null }>>([]);
   const [leadCounts, setLeadCounts] = useState<Record<string, { d7: number; d30: number; total: number }>>({});
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
@@ -46,12 +47,14 @@ export default function Campanhas() {
   const [edit, setEdit] = useState<Partial<Campaign> | null>(null);
 
   const load = async () => {
-    const [{ data: cps }, { data: prjs }] = await Promise.all([
+    const [{ data: cps }, { data: prjs }, { data: seqs }] = await Promise.all([
       supabase.from("imphq_campaigns").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id,nome"),
-    ]);
+      supabase.from("imphq_nurture_sequences").select("id,nome,project_id").order("created_at", { ascending: false }),
+    ] as PromiseLike<any>[]);
     setCampaigns((cps || []) as any);
     setProjects((prjs || []) as any);
+    setSequences((seqs || []) as any);
 
     // Aggregate leads per campaign_id via leads.data.campaign_id
     const ids = (cps || []).map((c: any) => c.id);
@@ -255,6 +258,22 @@ export default function Campanhas() {
             <div>
               <Label>Produto (opcional)</Label>
               <Input value={edit?.produto || ""} onChange={e => setEdit({ ...edit!, produto: e.target.value })} className="bg-background" />
+            </div>
+            <div>
+              <Label>Sequência de nutrição padrão (auto-enroll de novos leads)</Label>
+              <Select
+                value={(edit?.data as any)?.default_sequence_id || "__none__"}
+                onValueChange={v => setEdit({ ...edit!, data: { ...(edit?.data || {}), default_sequence_id: v === "__none__" ? null : v } })}
+              >
+                <SelectTrigger className="bg-background"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhuma</SelectItem>
+                  {sequences
+                    .filter(s => !edit?.project_id || !s.project_id || s.project_id === edit.project_id)
+                    .map(s => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">Leads capturados em forms desta campanha entram automaticamente nesta sequência.</p>
             </div>
           </div>
           <DialogFooter>
