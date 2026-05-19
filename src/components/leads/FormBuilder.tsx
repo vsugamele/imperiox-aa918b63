@@ -280,6 +280,9 @@ export function FormBuilder({ projects }: Props) {
 
   const saveForm = async () => {
     if (!formName.trim()) { toast.error("Nome obrigatório"); return; }
+    if (formType === "captura" && formFields.length > 3) {
+      if (!window.confirm(`Formulários de captura convertem mais com até 3 campos. Você tem ${formFields.length}. Salvar mesmo assim?`)) return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
