@@ -22,8 +22,9 @@ import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
   Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
   RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon,
-  BookOpen, GripVertical
+  BookOpen, GripVertical, MessageSquare
 } from "lucide-react";
+import Chat from "./Chat";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -789,7 +790,17 @@ export default function Tarefas() {
             <BookOpen className="h-3.5 w-3.5" /> Processos
             <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{processes.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="chat" className="gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" /> Chat
+          </TabsTrigger>
         </TabsList>
+
+        {/* ====== CHAT TAB ====== */}
+        <TabsContent value="chat" className="mt-4">
+          <div className="h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-lg border border-border [&>div]:!h-full">
+            <Chat />
+          </div>
+        </TabsContent>
 
         {/* ====== ROUTINES TAB ====== */}
         <TabsContent value="routines" className="space-y-6 mt-4">
