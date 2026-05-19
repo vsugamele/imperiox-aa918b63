@@ -580,6 +580,9 @@ async function imphqSubmit(e) {
                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => saveAsTemplate(form)} title="Salvar como template reutilizável">
                     <Save className="h-3 w-3 mr-1" /> Template
                   </Button>
+                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => optimizeWithAI(form)} title="Pedir para IA otimizar com base nos dados reais">
+                    <Sparkles className="h-3 w-3 mr-1" /> Otimizar
+                  </Button>
                   <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive" onClick={() => deleteForm(form.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
