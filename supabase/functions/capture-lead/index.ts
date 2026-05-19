@@ -251,6 +251,32 @@ Deno.serve(async (req) => {
       utm_campaign: body.utm_campaign || null,
     });
 
+    // --- Auto-enroll em sequência de nutrição (default da campanha) ---
+    try {
+      const campaignId = (formConfig?.settings as any)?.campaign_id;
+      if (campaignId) {
+        const { data: camp } = await supabase.from("imphq_campaigns").select("data").eq("id", campaignId).maybeSingle();
+        const seqId = (camp?.data as any)?.default_sequence_id;
+        if (seqId) {
+          const { data: already } = await supabase
+            .from("imphq_lead_sequence_enrollments")
+            .select("id").eq("lead_id", leadId).eq("sequence_id", seqId).maybeSingle();
+          if (!already) {
+            await supabase.from("imphq_lead_sequence_enrollments").insert({
+              lead_id: leadId,
+              sequence_id: seqId,
+              status: "ativo",
+              data_inicio: new Date().toISOString(),
+              dia_atual: 0,
+              proximo_envio_em: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+            } as any);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[capture-lead] Auto-enroll nutrição falhou:", e);
+    }
+
     // --- CAPI Lead (server-side) com dedup via event_id ---
     try {
       if (projectId) {
