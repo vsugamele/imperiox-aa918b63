@@ -45,6 +45,7 @@ import Studio from "./pages/Studio";
 import Swipe from "./pages/Swipe";
 import Imperius from "./pages/Imperius";
 import Campanhas from "./pages/Campanhas";
+import FormPublic from "./pages/FormPublic";
 import NotFound from "./pages/NotFound";
 
 // Semana 2 — defaults conservadores p/ reduzir egress e refetches desnecessários.
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/expert/:token" element={<ExpertPortal />} />
+            <Route path="/f/:formId" element={<FormPublic />} />
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="dashboard" element={<Dashboard />} />

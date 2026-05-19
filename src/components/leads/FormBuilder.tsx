@@ -882,6 +882,28 @@ async function imphqSubmit(e) {
               </div>
             </div>
           )}
+          {showSnippet && (() => {
+            const publicUrl = `${window.location.origin}/f/${showSnippet.id}`;
+            const qr = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(publicUrl)}`;
+            return (
+              <div className="mt-4 pt-4 border-t border-border flex items-center gap-4">
+                <img src={qr} alt="QR Code" className="w-[120px] h-[120px] rounded bg-white p-1" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Página hospedada (sem precisar de LP)</p>
+                  <div className="flex gap-1">
+                    <Input value={publicUrl} readOnly className="bg-secondary text-xs" />
+                    <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(publicUrl); toast.success("Link copiado!"); }}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => window.open(publicUrl, "_blank")}>
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Compartilhe o link, QR ou use o snippet embed acima.</p>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
