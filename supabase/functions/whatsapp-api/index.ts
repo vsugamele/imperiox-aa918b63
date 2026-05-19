@@ -1153,7 +1153,9 @@ REGRAS:
             }
           } catch (aiErr: any) {
             console.warn("[webhook] AI autoresponder error:", aiErr.message);
+            try { await supabase.from("imphq_wa_conversations").update({ ai_lock_until: null }).eq("id", conv.id); } catch (_) {}
           }
+
         } else {
           console.log(`[webhook] Skipped: phone=${phone} content=${!!content} project=${projectId}`);
         }
