@@ -340,6 +340,39 @@ export function FormBuilder({ projects }: Props) {
     loadForms();
   };
 
+  const optimizeWithAI = async (form: CaptureForm) => {
+    const briefing = window.prompt("O que melhorar? (deixe vazio para otimização automática)") ?? "";
+    toast.loading("IA analisando respostas...", { id: "opt" });
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+        body: {
+          optimize_form_id: form.id,
+          briefing: briefing || undefined,
+          project_id: form.project_id,
+          form_type: (form.settings as any)?.form_type,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const f = data.form;
+      setEditForm(form);
+      setFormName(f.nome || form.nome);
+      setFormType(f.form_type || (form.settings as any)?.form_type || "captura");
+      setFormCampaign(f.campaign_name || (form.settings as any)?.campaign_name || "");
+      setFormCampaignId((form.settings as any)?.campaign_id || "none");
+      setFormStage(f.stage || form.step || "lead_capturado");
+      setFormDescription(f.description || "");
+      setFormTag(f.tag || "");
+      setFormFields(f.fields || []);
+      setFormProject(form.project_id || "none");
+      setFormProduct((form.settings as any)?.product_name || "");
+      setShowNew(true);
+      toast.success("Sugestão da IA aplicada. Revise e salve.", { id: "opt" });
+    } catch (err: any) {
+      toast.error(err.message || "Falha ao otimizar", { id: "opt" });
+    }
+  };
+
   const duplicateForm = async (form: CaptureForm) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
