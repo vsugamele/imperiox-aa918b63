@@ -330,6 +330,7 @@ export function FormBuilder({ projects }: Props) {
     setFormDescription((form.settings as any)?.description || "");
     setFormType((form.settings as any)?.form_type || "captura");
     setFormCampaign((form.settings as any)?.campaign_name || "");
+    setFormCampaignId((form.settings as any)?.campaign_id || "none");
     setShowNew(true);
   };
 
