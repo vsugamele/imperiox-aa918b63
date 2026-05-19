@@ -5,6 +5,51 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function sha256(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sendCapiLead(opts: {
+  pixelId: string; token: string; testCode?: string;
+  email: string; name?: string; phone?: string;
+  eventId: string; campaignName?: string; productName?: string;
+  sourceUrl?: string; clientIp?: string; userAgent?: string; fbc?: string; fbp?: string;
+}) {
+  const ud: any = {};
+  if (opts.email) ud.em = [await sha256(opts.email.toLowerCase())];
+  if (opts.name) ud.fn = [await sha256(opts.name.toLowerCase().split(" ")[0])];
+  if (opts.phone) ud.ph = [await sha256(opts.phone.replace(/\D/g, ""))];
+  if (opts.clientIp) ud.client_ip_address = opts.clientIp;
+  if (opts.userAgent) ud.client_user_agent = opts.userAgent;
+  if (opts.fbc) ud.fbc = opts.fbc;
+  if (opts.fbp) ud.fbp = opts.fbp;
+
+  const payload: any = {
+    data: [{
+      event_name: "Lead",
+      event_time: Math.floor(Date.now() / 1000),
+      event_id: opts.eventId,
+      action_source: "website",
+      event_source_url: opts.sourceUrl || undefined,
+      user_data: ud,
+      custom_data: {
+        campaign_name: opts.campaignName || undefined,
+        content_name: opts.productName || undefined,
+      },
+    }],
+  };
+  if (opts.testCode) payload.test_event_code = opts.testCode;
+
+  const r = await fetch(`https://graph.facebook.com/v18.0/${opts.pixelId}/events?access_token=${opts.token}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return await r.json().catch(() => ({}));
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
