@@ -73,6 +73,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/expert/:token" element={<ExpertPortal />} />
+            <Route path="/f/:formId" element={<FormPublic />} />
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="dashboard" element={<Dashboard />} />
