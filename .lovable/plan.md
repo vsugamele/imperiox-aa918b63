@@ -1,59 +1,66 @@
-## Melhorias no Sistema de Leads — Roteamento por Tag + Bulk
+## Diagnóstico
 
-### 1. Backfill com "sobrescrever projeto existente"
-**Arquivo:** `src/components/configuracoes/TagRoutingRulesTab.tsx`
-- Adicionar `Checkbox` "Sobrescrever projeto já atribuído"
-- Quando marcado, remover o filtro `.is("project_id", null)` da query de backfill
-- Texto de confirmação ajustado: "Isso vai reatribuir leads que já estão em outro projeto. Confirma?"
+**1. Chats não atualizam em tempo real**
+- `WhatsAppPage.tsx` (linhas 91-120) já assina `postgres_changes` em `imphq_wa_messages` e `imphq_wa_conversations`.
+- Mas as tabelas **não estão na publication `supabase_realtime`** (verificado via query — retornou vazio). Sem isso o Postgres não emite eventos.
 
-### 2. Preview de impacto antes do backfill
-**Mesmo arquivo.**
-- Novo botão "Pré-visualizar impacto" ao lado de "Aplicar regras"
-- Roda as mesmas queries em modo `count: 'exact', head: true` (sem trazer dados)
-- Exibe modal/alerta: "Regra `cortes → JP Freitas`: 230 leads. Regra `tatuagem → Tatuagem`: 410 leads. Total: 640."
-- Só depois o usuário clica em "Aplicar"
+**2. Auto-resposta sem contexto rico**
+- A IA usa `imphq_wa_ai_config.context_sources` em `whatsapp-api/index.ts` (linhas 1076-1136). Hoje injeta: briefing, produtos, avatar, branding, copy_arsenal.
+- **Faltam**: tom/voz do expert, FAQ (opção existe na UI mas não tem código que injete), instruções customizadas por projeto, oferta ativa/produto principal, links de pagamento.
+- UI `WhatsAppAIConfig.tsx` não tem campo para "instruções extras" nem para amarrar o expert.
 
-### 3. Atalho "Criar regra desta tag" na sidebar de Leads
-**Arquivos:** `src/components/leads/LeadsSidebar.tsx` (+ novo `QuickTagRuleDialog.tsx`)
-- Hover em cada tag mostra ícone ⚡
-- Click abre dialog leve: Select de projeto + prioridade → insere em `imphq_tag_project_rules`
-- Toast: "Regra criada. Aplicar nos leads existentes?" com botão que dispara o backfill só dessa regra
+---
 
-### 4. Bulk manual: mover N leads para projeto X
-**Arquivos:** `src/components/leads/LeadsTable.tsx`, `src/pages/Leads.tsx`
-- Coluna de checkbox por linha + checkbox no header (select-all da página)
-- Barra flutuante quando há seleção: "{N} leads selecionados" + Select de projeto + botão "Mover"
-- Update direto: `supabase.from("imphq_leads").update({ project_id }).in("id", selectedIds)`
-- Refresh da lista + invalidação do `projectCounts`
+## Plano
 
-### 5. Regras avançadas (combinação de critérios)
-**Migration + UI:**
+### Parte 1 — Realtime (corrige imediatamente)
 
-Migration em `imphq_tag_project_rules`:
-- Adicionar colunas opcionais: `tags_all text[]` (todas devem casar), `origem text`, `plataforma text`
-- Manter `tag` como atalho (= 1 elemento em `tags_all`) por retrocompatibilidade
+Migration que:
+- Adiciona `imphq_wa_messages`, `imphq_wa_conversations` (e `imphq_wa_triage` para o painel de IA) à publication `supabase_realtime`.
+- Define `REPLICA IDENTITY FULL` nas 3 tabelas para que UPDATE entregue o payload completo (necessário pro contador de não-lidas e status).
 
-Edge functions (`capture-lead`, `membros-webhook`):
-- Trocar o `.in("tag", allTags)` por uma resolução que respeite a regra mais específica:
-  1. Carrega todas as regras do user
-  2. Para cada lead, filtra regras onde `tags_all` ⊆ tags do lead E (`origem` nulo ou igual) E (`plataforma` nulo ou igual)
-  3. Pega a de menor `priority`
+Sem mudança no frontend — a subscription já está pronta.
 
-UI `TagRoutingRulesTab.tsx`:
-- Form passa a aceitar múltiplas tags (TagAutocomplete) + dois inputs opcionais (origem, plataforma)
-- Linha da regra mostra todos os critérios
+### Parte 2 — Contexto rico para auto-resposta
 
-### Detalhes técnicos
-- IDs: `imphq_leads.id` e `project_id` são TEXT (memória de arquitetura).
-- Para bulk update via cliente, RLS já permite o user dono dos leads atualizar. Verificar policy antes.
-- `projectCounts` no `Leads.tsx` precisa ser invalidado após bulk move e após backfill.
-- Preview de impacto NÃO deve trazer dados — só `count: 'exact', head: true` para não estourar egress.
-- Memória de Network Efficiency: limitar backfill em batches de 500 com `.in()` em vez de update único gigante.
+**2a. Nova migration** acrescenta colunas opcionais em `imphq_wa_ai_config`:
+- `custom_instructions text` — bloco livre de instruções/regras do expert.
+- `expert_persona text` — descrição curta do tom/personagem (ex: "Imperius — direto, sem clichê, autoridade calma").
+- `product_focus text` — produto principal a oferecer (nome + preço + link de pagamento).
+- `faq jsonb` — array `{pergunta, resposta}` para resposta determinística.
 
-### Fora de escopo
-- Mudar estrutura de `imphq_leads`, RLS, autenticação.
-- Regras baseadas em UTM ou em score (fica para depois se quiser).
-- Auto-rerodar regras periodicamente via cron.
+**2b. UI `WhatsAppAIConfig.tsx`** ganha:
+- Textarea "Persona do Expert" (auto-preenchida puxando `imphq_projects.data.expert` / `branding.voice` se vazio).
+- Textarea "Instruções customizadas" (regras imutáveis — ex: "nunca prometa entrega em menos de 7 dias").
+- Campo "Produto em foco" + link de checkout.
+- Editor simples de FAQ (lista de pares pergunta/resposta).
+- Botão "Sincronizar com projeto" que faz auto-fill da persona/produto a partir de `imphq_projects`.
 
-### Ordem de implementação sugerida
-1 → 2 → 3 → 4 (entregam valor imediato sem migration) e depois 5 (precisa de migration).
+**2c. `whatsapp-api/index.ts` (bloco AI autoresponder)**:
+- Lê os novos campos e injeta no `systemPrompt`:
+  - Persona do expert vira o cabeçalho do prompt (acima das `personalityPrompts`).
+  - `custom_instructions` entra em bloco "REGRAS DO EXPERT (obrigatórias)".
+  - `product_focus` entra em "OFERTA ATIVA" com link.
+  - `faq` vira lista "Q&A oficiais — use literalmente se a pergunta bater".
+- Implementa o caso `sources.includes("faq")` que hoje está faltando (usa `imphq_kb` filtrando por projeto se existir, fallback no `faq` jsonb).
+- Inclui `expert` do projeto (`imphq_projects.data.expert`) quando `sources` incluir "expert".
+
+**2d. Adiciona opção `expert` em `CONTEXT_OPTIONS`** no `WhatsAppAIConfig.tsx`.
+
+---
+
+## Detalhes técnicos
+
+- Sem quebra: todos os campos novos são nullable; comportamento atual preservado se vazios.
+- Tamanho do prompt: cada bloco truncado em 600 chars para não estourar tokens.
+- FAQ jsonb default `'[]'::jsonb`.
+- Realtime: apenas DDL, sem dado afetado.
+- Não mexer em RLS — `imphq_wa_ai_config` já tem políticas.
+
+## Fora de escopo
+- Mudar provider de WhatsApp, fluxo de OpenFlow, ou triagem `wa-ai-triage`.
+- RAG/embeddings (fica para próxima iteração se a FAQ jsonb não bastar).
+
+## Ordem sugerida
+1. Migration realtime (instantâneo, testa abrindo dois browsers).
+2. Migration colunas + UI + edge function (entregue em conjunto).
