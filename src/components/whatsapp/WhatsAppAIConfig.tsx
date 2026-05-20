@@ -52,9 +52,10 @@ const CONTEXT_OPTIONS = [
   { id: "briefing", label: "Briefing do Projeto" },
   { id: "avatar", label: "Avatar / Persona" },
   { id: "produtos", label: "Produtos & Preços" },
-  { id: "faq", label: "FAQ / KB" },
+  { id: "faq", label: "FAQ" },
   { id: "branding", label: "Tom de Marca" },
   { id: "copy_arsenal", label: "Arsenal de Copy" },
+  { id: "expert", label: "Expert do Projeto" },
 ];
 
 interface Props {
