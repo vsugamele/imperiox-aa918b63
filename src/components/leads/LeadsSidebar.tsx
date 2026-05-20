@@ -45,7 +45,8 @@ export default function LeadsSidebar({
   }, [projects, leads, allVendasRaw, projectCounts]);
 
 
-  const noLeadsInProject = leads.filter((l: any) => !l.project_id).length;
+  const noLeadsInProject = projectCounts?.noProject ?? leads.filter((l: any) => !l.project_id).length;
+  const totalAllLeads = projectCounts?.totalAll ?? leads.length;
 
   return (
     <div className="w-56 shrink-0 hidden lg:block">
