@@ -69,7 +69,7 @@ export default function LeadsSidebar({
           onClick={() => { onProjectFilter("all"); onProductFilter("all"); }}
         >
           <span>🌐 Todos os leads</span>
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1">{leads.length}</Badge>
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1">{totalAllLeads}</Badge>
         </button>
         {noLeadsInProject > 0 && (
           <button
