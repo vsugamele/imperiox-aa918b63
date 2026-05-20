@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Zap } from "lucide-react";
 
 interface Props {
   projects: any[];
@@ -15,13 +15,16 @@ interface Props {
   onToggleProject: (pid: string) => void;
   realtimeActive: boolean;
   projectCounts?: { totalAll: number; byProject: Record<string, number>; noProject: number };
+  topTags?: Array<{ tag: string; count: number }>;
+  onCreateRuleForTag?: (tag: string) => void;
 }
 
 export default function LeadsSidebar({
   projects, leads, allVendasRaw, projectFilter, productFilter,
   expandedProjects, onProjectFilter, onProductFilter, onToggleProject, realtimeActive,
-  projectCounts,
+  projectCounts, topTags, onCreateRuleForTag,
 }: Props) {
+
   const projectProductMap = useMemo(() => {
     const map = new Map<string, { products: Map<string, number>; totalLeads: number }>();
     const productLeadMap = new Map<string, Set<string>>();
@@ -137,7 +140,30 @@ export default function LeadsSidebar({
                   ))}
                 </div>
               )}
-            </div>
+        {topTags && topTags.length > 0 && (
+          <>
+            <p className="text-[9px] uppercase tracking-editorial text-muted-foreground/50 mt-4 mb-1 px-2">
+              Top tags · criar regra
+            </p>
+            {topTags.slice(0, 12).map(({ tag, count }) => (
+              <div key={tag} className="group flex items-center gap-1 px-2 py-1 hover:bg-secondary/40 rounded">
+                <span className="flex-1 text-xs text-muted-foreground truncate" title={tag}>🏷️ {tag}</span>
+                <span className="text-[9px] text-muted-foreground/70">{count}</span>
+                {onCreateRuleForTag && (
+                  <button
+                    onClick={() => onCreateRuleForTag(tag)}
+                    title="Criar regra de roteamento para esta tag"
+                    className="opacity-0 group-hover:opacity-100 text-primary hover:text-gold transition-opacity"
+                  >
+                    <Zap className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
           );
         })}
       </div>

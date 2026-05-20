@@ -147,15 +147,21 @@ Deno.serve(async (req) => {
     } else {
       // Resolver tag → projeto SEMPRE que houver tags (override mesmo se veio project_id)
       if (tags.length) {
-        const { data: rule } = await supabase
+        const { data: allRules } = await supabase
           .from("imphq_tag_project_rules")
-          .select("project_id, priority")
-          .in("tag", tags)
-          .order("priority", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (rule?.project_id) projectId = rule.project_id;
+          .select("project_id, priority, tag, tags_all, origem, plataforma")
+          .order("priority", { ascending: true });
+        const match = (allRules || []).find((r: any) => {
+          const needed: string[] = (r.tags_all && r.tags_all.length > 0) ? r.tags_all : (r.tag ? [r.tag] : []);
+          if (needed.length === 0) return false;
+          if (!needed.every((t: string) => tags.includes(t))) return false;
+          if (r.plataforma && r.plataforma !== source) return false;
+          if (r.origem && r.origem !== source) return false;
+          return true;
+        });
+        if (match?.project_id) projectId = match.project_id;
       }
+
       leadId = crypto.randomUUID();
       await supabase.from("imphq_leads").insert({
         id: leadId,

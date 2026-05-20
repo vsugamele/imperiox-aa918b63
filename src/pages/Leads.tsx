@@ -31,6 +31,8 @@ import { MembrosWebhookGuide } from "@/components/leads/MembrosWebhookGuide";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import LeadsTable, { getLeadStage, STAGE_LABELS, type Lead, type LeadVenda } from "@/components/leads/LeadsTable";
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
+import QuickTagRuleDialog from "@/components/leads/QuickTagRuleDialog";
+
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
@@ -149,6 +151,8 @@ export default function Leads() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [quickRuleTag, setQuickRuleTag] = useState<string | null>(null);
+
   const [mainTab, setMainTab] = useState("leads");
   const [automations, setAutomations] = useState<any[]>([]);
   const [leadAutomationLogs, setLeadAutomationLogs] = useState<any[]>([]);
@@ -358,6 +362,20 @@ export default function Leads() {
 
   const deleteSelected = async () => { const ids = Array.from(selectedIds); for (let i = 0; i < ids.length; i += 50) { const chunk = ids.slice(i, i + 50); await supabase.from("imphq_vendas").delete().in("lead_id", chunk); await supabase.from("imphq_leads").delete().in("id", chunk); } toast.success(`${ids.length} leads removidos`); setBulkDeleteConfirm(false); setSelectedIds(new Set()); load(); };
 
+  const moveSelectedToProject = async (projId: string | null) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { error } = await supabase.from("imphq_leads").update({ project_id: projId }).in("id", chunk);
+      if (error) { toast.error(error.message); return; }
+    }
+    toast.success(`${ids.length} leads movidos`);
+    setSelectedIds(new Set());
+    load();
+  };
+
+
   const createLead = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const id = crypto.randomUUID();
@@ -480,12 +498,20 @@ export default function Leads() {
   const funnelData = useMemo(() => { const stages = { lead_capturado: 0, carrinho_abandonado: 0, pix_gerado: 0, compra_aprovada: 0 }; periodLeads.forEach(l => { const stage = getLeadStage(l); if (stage in stages) (stages as any)[stage]++; }); return [ { stage: "Leads", value: stages.lead_capturado, fill: "hsl(var(--primary))" }, { stage: "Carrinho", value: stages.carrinho_abandonado, fill: "#f59e0b" }, { stage: "Pix", value: stages.pix_gerado, fill: "#ef4444" }, { stage: "Clientes", value: stages.compra_aprovada, fill: "#10b981" } ]; }, [periodLeads]);
   const leadsByMonth = useMemo(() => { const map = new Map<string, number>(); leads.forEach(l => { if (!l.criado_em) return; try { const d = parseISO(l.criado_em); if (!isValid(d)) return; const key = format(d, "MMM/yy", { locale: ptBR }); map.set(key, (map.get(key) || 0) + 1); } catch {} }); return Array.from(map.entries()).map(([month, count]) => ({ month, count })).reverse().slice(-12); }, [leads]);
   const pixHoje = useMemo(() => leads.filter(l => { const stage = getLeadStage(l); if (!["pix_gerado", "aguardando_pagamento"].includes(stage)) return false; const refDate = getLeadActivityDate(l); if (!refDate) return true; try { return isToday(parseISO(refDate)); } catch { return false; } }), [leads]);
+  const topTags = useMemo(() => {
+    const m = new Map<string, number>();
+    leads.forEach(l => { (l.tags || []).forEach((t: string) => { if (t) m.set(t, (m.get(t) || 0) + 1); }); });
+    return Array.from(m.entries()).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count);
+  }, [leads]);
+
 
   const chartConfig = { count: { label: "Leads", color: "hsl(var(--primary))" }, revenue: { label: "Receita", color: "#10b981" }, value: { label: "Qtd", color: "hsl(var(--primary))" }, leads: { label: "Leads", color: "hsl(var(--primary))" }, ads: { label: "Ads R$", color: "#ef4444" } };
 
   return (
     <div className="flex gap-6">
-      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} />
+      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} />
+      <QuickTagRuleDialog open={!!quickRuleTag} onOpenChange={(v) => !v && setQuickRuleTag(null)} tag={quickRuleTag || ""} projects={projects} />
+
 
       <div className="flex-1 space-y-4 min-w-0">
         <Tabs value={mainTab} onValueChange={setMainTab}>
@@ -539,7 +565,19 @@ export default function Leads() {
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
               {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>📋 {f.name}</SelectItem>)}</SelectContent></Select>)}
-              {someSelected && (<Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}><Trash2 className="h-3 w-3 mr-1" />{selectedIds.size} selecionados</Button>)}
+              {someSelected && (
+                <>
+                  <Select onValueChange={(v) => moveSelectedToProject(v === "__none__" ? null : v)}>
+                    <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder={`Mover ${selectedIds.size} para...`} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">📂 Sem projeto</SelectItem>
+                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}><Trash2 className="h-3 w-3 mr-1" />{selectedIds.size} selecionados</Button>
+                </>
+              )}
+
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
