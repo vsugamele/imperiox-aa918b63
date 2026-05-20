@@ -795,7 +795,10 @@ serve(async (req) => {
         }
 
 
-        const phone = (key?.remoteJid || "").replace("@s.whatsapp.net", "").replace(/\D/g, "");
+        const rawJid = key?.remoteJid || "";
+        const jidSuffix = (rawJid.split("@")[1] || "s.whatsapp.net").toLowerCase();
+        const phone = rawJid.split("@")[0].replace(/\D/g, "");
+
         const providerMsgId = key?.id || "";
 
         // Extract content from various message types
