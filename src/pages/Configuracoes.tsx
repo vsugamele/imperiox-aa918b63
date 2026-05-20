@@ -72,7 +72,9 @@ export default function Configuracoes() {
           <TabsContent value="webhooks"><WebhooksTab /></TabsContent>
           <TabsContent value="integracoes"><IntegrationStatusTab /></TabsContent>
           <TabsContent value="webhook-log"><WebhookLogTab /></TabsContent>
+          <TabsContent value="tag-routing"><TagRoutingRulesTab /></TabsContent>
         </div>
+
       </Tabs>
     </div>
   );
