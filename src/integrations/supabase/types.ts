@@ -19597,27 +19597,36 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          origem: string | null
+          plataforma: string | null
           priority: number
           project_id: string
           tag: string
+          tags_all: string[] | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          origem?: string | null
+          plataforma?: string | null
           priority?: number
           project_id: string
           tag: string
+          tags_all?: string[] | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          origem?: string | null
+          plataforma?: string | null
           priority?: number
           project_id?: string
           tag?: string
+          tags_all?: string[] | null
           updated_at?: string
           user_id?: string
         }
