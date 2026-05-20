@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Zap } from "lucide-react";
 
 interface Props {
   projects: any[];
@@ -15,13 +15,16 @@ interface Props {
   onToggleProject: (pid: string) => void;
   realtimeActive: boolean;
   projectCounts?: { totalAll: number; byProject: Record<string, number>; noProject: number };
+  topTags?: Array<{ tag: string; count: number }>;
+  onCreateRuleForTag?: (tag: string) => void;
 }
 
 export default function LeadsSidebar({
   projects, leads, allVendasRaw, projectFilter, productFilter,
   expandedProjects, onProjectFilter, onProductFilter, onToggleProject, realtimeActive,
-  projectCounts,
+  projectCounts, topTags, onCreateRuleForTag,
 }: Props) {
+
   const projectProductMap = useMemo(() => {
     const map = new Map<string, { products: Map<string, number>; totalLeads: number }>();
     const productLeadMap = new Map<string, Set<string>>();
