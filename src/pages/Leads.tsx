@@ -31,6 +31,8 @@ import { MembrosWebhookGuide } from "@/components/leads/MembrosWebhookGuide";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import LeadsTable, { getLeadStage, STAGE_LABELS, type Lead, type LeadVenda } from "@/components/leads/LeadsTable";
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
+import QuickTagRuleDialog from "@/components/leads/QuickTagRuleDialog";
+
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
