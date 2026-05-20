@@ -119,7 +119,14 @@ export default function WhatsApp() {
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
         const c: any = payload.new;
-        setSessions(prev => prev.map(s => s.id === c.id ? { ...s, ...c } : s));
+        setSessions(prev => {
+          const merged = prev.map(s => s.id === c.id ? { ...s, ...c } : s);
+          return merged.sort((a, b) => {
+            const ta = new Date(a.last_message_at || a.updated_at || a.created_at || 0).getTime();
+            const tb = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
+            return tb - ta;
+          });
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
