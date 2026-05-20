@@ -319,6 +319,84 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
           )}
         </div>
 
+        {/* Persona / Instruções / Oferta / FAQ */}
+        <div className="space-y-3 pt-3 border-t border-border/30">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> Contexto avançado do projeto
+            </Label>
+            <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={syncFromProject}>
+              <RefreshCw className="h-3 w-3" /> Sincronizar com projeto
+            </Button>
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1">Persona do Expert</Label>
+            <Textarea
+              value={config.expert_persona || ""}
+              onChange={e => setConfig(p => ({ ...p, expert_persona: e.target.value }))}
+              placeholder="Ex: Imperius — estrategista direto, autoridade calma, sem clichês de coach."
+              className="min-h-[60px] text-xs bg-secondary/30"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1">Instruções customizadas (regras obrigatórias)</Label>
+            <Textarea
+              value={config.custom_instructions || ""}
+              onChange={e => setConfig(p => ({ ...p, custom_instructions: e.target.value }))}
+              placeholder="Ex: Nunca prometa entrega em menos de 7 dias. Só ofereça desconto se o lead pedir 2x."
+              className="min-h-[60px] text-xs bg-secondary/30"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1">Produto / oferta em foco</Label>
+            <Input
+              value={config.product_focus || ""}
+              onChange={e => setConfig(p => ({ ...p, product_focus: e.target.value }))}
+              placeholder="Ex: Mentoria 6 Cifras · R$ 4.997 · checkout: https://..."
+              className="text-xs bg-secondary/30"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-xs text-muted-foreground">FAQ (respostas literais)</Label>
+              <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={addFaq}>
+                <Plus className="h-3 w-3" /> Adicionar
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {(config.faq || []).length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic">Sem FAQ. Adicione perguntas que a IA deve responder palavra-por-palavra.</p>
+              )}
+              {(config.faq || []).map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-start p-2 rounded bg-secondary/20 border border-border/20">
+                  <div className="flex-1 space-y-1">
+                    <Input
+                      value={item.pergunta}
+                      onChange={e => updateFaq(idx, "pergunta", e.target.value)}
+                      placeholder="Pergunta (ex: Tem garantia?)"
+                      className="text-[11px] h-7 bg-background/50"
+                    />
+                    <Textarea
+                      value={item.resposta}
+                      onChange={e => updateFaq(idx, "resposta", e.target.value)}
+                      placeholder="Resposta oficial..."
+                      className="min-h-[40px] text-[11px] bg-background/50"
+                    />
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeFaq(idx)}>
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+
         <Button onClick={handleSave} disabled={saving} className="w-full gap-2" size="sm">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           Salvar Configuração
