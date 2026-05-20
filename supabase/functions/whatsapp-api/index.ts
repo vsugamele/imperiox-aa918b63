@@ -58,21 +58,22 @@ serve(async (req) => {
     // ── Helper: find or create conversation ──
     async function findOrCreateConversation(phone: string, projectId: string, providerId: string | null, contactName?: string) {
       const cleanPhone = phone.replace(/\D/g, "");
-      
-      // Try to find existing conversation by phone + project
-      const { data: existing } = await supabase
+
+      // Buscar conversa existente por (phone, project_id, provider_id) — cada chip tem sua thread
+      const baseQuery = supabase
         .from("imphq_wa_conversations")
         .select("*")
         .eq("phone", cleanPhone)
-        .eq("project_id", projectId)
-        .maybeSingle();
+        .eq("project_id", projectId);
+      const { data: existing } = providerId
+        ? await baseQuery.eq("provider_id", providerId).maybeSingle()
+        : await baseQuery.is("provider_id", null).maybeSingle();
 
       if (existing) return existing;
 
-      // Upsert (race-safe): if another concurrent request created it, return the existing row
       const { data: created, error } = await supabase
         .from("imphq_wa_conversations")
-        .upsert({
+        .insert({
           phone: cleanPhone,
           contact_name: contactName || null,
           session: `session-${Date.now()}`,
@@ -80,18 +81,20 @@ serve(async (req) => {
           status: "active",
           provider_id: providerId,
           message_count: 0,
-        }, { onConflict: "project_id,phone", ignoreDuplicates: false })
+        })
         .select()
         .single();
 
       if (error) {
-        // Fallback: another request won the race — fetch it
-        const { data: raced } = await supabase
+        // Race condition: outra requisição criou no mesmo (project, phone, provider) — recupera
+        const retryQuery = supabase
           .from("imphq_wa_conversations")
           .select("*")
           .eq("phone", cleanPhone)
-          .eq("project_id", projectId)
-          .maybeSingle();
+          .eq("project_id", projectId);
+        const { data: raced } = providerId
+          ? await retryQuery.eq("provider_id", providerId).maybeSingle()
+          : await retryQuery.is("provider_id", null).maybeSingle();
         if (raced) return raced;
         console.error("[findOrCreateConversation] Error creating:", error.message);
         throw new Error("Falha ao criar conversa: " + error.message);
