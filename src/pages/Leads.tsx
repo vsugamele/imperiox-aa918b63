@@ -127,6 +127,7 @@ const PAGE_SIZE = 50;
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [projectCounts, setProjectCounts] = useState<{ totalAll: number; byProject: Record<string, number>; noProject: number }>({ totalAll: 0, byProject: {}, noProject: 0 });
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
