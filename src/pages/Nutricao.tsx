@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Mail, Plus, Play, Pause, Users, TrendingUp, UserPlus } from "lucide-react";
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
+import { EditableTagList } from "@/components/projeto/EditableTagList";
+
 
 interface Sequence {
   id: string;
