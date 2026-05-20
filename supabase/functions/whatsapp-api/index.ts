@@ -281,22 +281,47 @@ serve(async (req) => {
     if (action === "send_message") {
       const body = await req.json();
       const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover } = body;
-      const normalized = normalizePhone(rawPhone || "");
-      if (!normalized.phone) {
-        console.warn("[send_message] número inválido:", rawPhone, "motivo:", normalized.reason);
-        return new Response(JSON.stringify({
-          success: false,
-          error: `Número fora do padrão internacional (${normalized.reason}). Verifique DDI + DDD + número.`,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+
+      // Buscar sufixo JID da conversa (s.whatsapp.net | lid)
+      let jidSuffix = "s.whatsapp.net";
+      if (conversation_id) {
+        const { data: convRow } = await supabase
+          .from("imphq_wa_conversations")
+          .select("jid_suffix")
+          .eq("id", conversation_id)
+          .maybeSingle();
+        if (convRow?.jid_suffix) jidSuffix = convRow.jid_suffix;
       }
-      const phone = normalized.phone;
-      const detectedCC = normalized.cc;
+
+      let phone: string;
+      let detectedCC: string | null = null;
+
+      if (jidSuffix === "lid") {
+        // Contato com privacidade ativa — manda como JID completo, sem validar E.164
+        const digits = String(rawPhone || "").replace(/\D/g, "");
+        if (!digits) {
+          return new Response(JSON.stringify({ success: false, error: "ID do contato vazio." }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+        phone = `${digits}@lid`;
+        detectedCC = "lid";
+      } else {
+        const normalized = normalizePhone(rawPhone || "");
+        if (!normalized.phone) {
+          console.warn("[send_message] número inválido:", rawPhone, "motivo:", normalized.reason);
+          return new Response(JSON.stringify({
+            success: false,
+            error: `Número fora do padrão internacional (${normalized.reason}). Verifique DDI + DDD + número.`,
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+        phone = normalized.phone;
+        detectedCC = normalized.cc;
+      }
 
       let provider = await getProvider(provider_id);
       let usedFailover = false;
       let originalProviderName: string | null = null;
 
-      // Helper to actually send via given provider
       async function attemptSend(p: any) {
         if (media_url && p.provider === "evolution") {
           return await sendEvolutionMedia(p, phone, media_url, media_type || "image", content || undefined);
@@ -306,6 +331,7 @@ serve(async (req) => {
           return await sendTwilio(p, phone, content);
         }
       }
+
 
       // Send via provider (media or text)
       let result;
