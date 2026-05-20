@@ -322,12 +322,21 @@ export default function WhatsApp() {
                   {/* Chat content */}
                   <div className="flex-1 min-h-0">
                     {chatTab === "chat" && (
-                      <ChatView
-                        conversationId={selectedSession.id}
-                        phone={selectedSession.phone}
-                        projectId={selectedSession.project_id}
-                        providerId={selectedProvider?.id || null}
-                      />
+                      <div className="flex flex-col h-full">
+                        {filterProvider !== "all" && selectedSession.provider_id && selectedSession.provider_id !== filterProvider && (
+                          <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/30 text-[11px] text-amber-200">
+                            ⚠️ Esta conversa pertence ao chip <strong>{providers.find(p => p.id === selectedSession.provider_id)?.instance_name || "outro"}</strong>. A resposta sairá por esse chip, não pelo filtro atual.
+                          </div>
+                        )}
+                        <div className="flex-1 min-h-0">
+                          <ChatView
+                            conversationId={selectedSession.id}
+                            phone={selectedSession.phone}
+                            projectId={selectedSession.project_id}
+                            providerId={selectedProvider?.id || null}
+                          />
+                        </div>
+                      </div>
                     )}
                     {chatTab === "qrcode" && selectedProvider?.provider === "evolution" && (
                       <div className="p-4 overflow-auto h-full">
