@@ -132,6 +132,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const bottomRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const isComposingRef = useRef(false);
     const initialLoadDone = useRef(false);
     const newestTimestampRef = useRef<string | null>(null);
 
