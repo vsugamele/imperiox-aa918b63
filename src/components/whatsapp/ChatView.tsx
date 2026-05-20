@@ -277,18 +277,15 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       }
     };
 
-    // Image upload handler
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+    // Core upload+send used by both file picker and paste
+    const uploadAndSendFile = async (file: File, captionOverride?: string) => {
       if (!providerId) { toast.error("Nenhum provider configurado"); return; }
-
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) { toast.error("Arquivo muito grande (máx 10MB)"); return; }
 
       setUploading(true);
       try {
-        const ext = file.name.split(".").pop() || "jpg";
+        const ext = (file.name.split(".").pop() || (file.type.split("/")[1] || "bin")).toLowerCase();
         const path = `chat/${projectId}/${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage.from("whatsapp-media").upload(path, file, { contentType: file.type });
         if (upErr) throw upErr;
@@ -301,11 +298,12 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           : file.type.startsWith("audio/") ? "audio"
           : "document";
 
-        // Optimistic UI
+        const caption = captionOverride ?? (text || file.name);
+
         const optimisticMsg: Message = {
           id: `opt-${Date.now()}`,
           direction: "outgoing",
-          content: text || file.name,
+          content: caption,
           phone,
           created_at: new Date().toISOString(),
           status: "sending",
@@ -317,7 +315,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
 
         const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_message", {
           body: {
-            provider_id: providerId, phone, content: text || file.name,
+            provider_id: providerId, phone, content: caption,
             conversation_id: conversationId, project_id: projectId,
             media_url: mediaUrl, media_type: mediaType,
           },
@@ -327,16 +325,46 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           toast.error(data.error || "Erro ao enviar mídia");
           setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
         } else {
-          setText("");
+          if (captionOverride === undefined) setText("");
           setTimeout(() => pollNew(), 500);
         }
       } catch (err: any) {
         toast.error("Erro ao enviar mídia: " + err.message);
       } finally {
         setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      await uploadAndSendFile(file);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.kind === "file" && item.type.startsWith("image/")) {
+            const blob = item.getAsFile();
+            if (blob) {
+              e.preventDefault();
+              const ext = (blob.type.split("/")[1] || "png");
+              const named = blob.name && blob.name !== "image.png"
+                ? blob
+                : new File([blob], `paste-${Date.now()}.${ext}`, { type: blob.type });
+              toast.info("Enviando imagem colada…");
+              uploadAndSendFile(named, "");
+              return;
+            }
+          }
+        }
+      }
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    };
+
 
     const send = async () => {
       if (!text.trim()) return;
@@ -559,9 +587,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
               placeholder="Digite sua mensagem... (/ para comandos)"
               onFocus={() => { isComposingRef.current = true; }}
               onBlur={() => { isComposingRef.current = false; }}
-              onPaste={() => {
-                requestAnimationFrame(() => textareaRef.current?.focus());
-              }}
+              onPaste={handlePaste}
+
               onKeyDown={e => {
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
               }}
