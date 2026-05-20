@@ -55,7 +55,7 @@ export default function LeadsSidebar({
         {realtimeActive && <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="Realtime ativo" />}
       </div>
       <p className="text-[10px] uppercase tracking-editorial text-muted-foreground/70 mb-3">
-        {leads.length} no total
+        {totalAllLeads} no total
       </p>
       <div className="editorial-divider mb-3" />
       <div className="space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto pr-1">
