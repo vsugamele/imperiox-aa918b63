@@ -844,7 +844,7 @@ serve(async (req) => {
         const providerId = prov?.id || null;
 
         if (phone && content && projectId) {
-          const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined);
+          const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined, jidSuffix);
 
           // Try to download media and upload to Supabase Storage
           let mediaUrl: string | null = null;
