@@ -1093,6 +1093,17 @@ serve(async (req) => {
                       const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
                       if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
                     }
+                    if (sources.includes("expert")) {
+                      const ex = d.expert || d.especialista;
+                      if (ex) projectContext += `Expert: ${JSON.stringify(ex).slice(0, 400)}\n`;
+                    }
+                    if (sources.includes("faq") && Array.isArray((aiConfig as any).faq) && (aiConfig as any).faq.length) {
+                      const faqStr = (aiConfig as any).faq
+                        .slice(0, 20)
+                        .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+                        .join("\n");
+                      projectContext += `FAQ OFICIAL (use a resposta literalmente se a pergunta bater):\n${faqStr.slice(0, 1200)}\n`;
+                    }
                   }
 
                   // Get recent conversation history for context
@@ -1122,16 +1133,23 @@ serve(async (req) => {
                     urgente: "Tom de urgência e escassez.",
                   };
 
-                  const systemPrompt = `${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+                  const expertPersona = (aiConfig as any).expert_persona;
+                  const customInstr = (aiConfig as any).custom_instructions;
+                  const productFocus = (aiConfig as any).product_focus;
+
+                  const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
 ${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
 Você está respondendo via WhatsApp para a empresa "${project?.name || ""}".
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
+${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
+${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
 ${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}
-REGRAS:
+REGRAS GERAIS:
 - Responda em português brasileiro
 - Seja CONCISO (máx 2-3 parágrafos curtos)
 - Use WhatsApp formatting: *negrito*, _itálico_
 - NUNCA invente informações sobre produtos/preços que não estejam no contexto
+- Se houver FAQ que bata com a pergunta, use a resposta literal
 - Se não souber a resposta, diga que vai encaminhar para um atendente humano
 - Se o lead pedir para falar com humano, diga que está encaminhando`;
 

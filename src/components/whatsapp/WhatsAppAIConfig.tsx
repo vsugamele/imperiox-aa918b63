@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, Brain, Clock, Shield, Zap } from "lucide-react";
+import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw } from "lucide-react";
+
+interface FaqItem { pergunta: string; resposta: string; }
 
 interface AIConfig {
   id?: string;
@@ -25,6 +27,10 @@ interface AIConfig {
   business_hours_only: boolean;
   business_hours_start: string;
   business_hours_end: string;
+  expert_persona?: string;
+  custom_instructions?: string;
+  product_focus?: string;
+  faq?: FaqItem[];
 }
 
 const PERSONALITIES = [
@@ -46,9 +52,10 @@ const CONTEXT_OPTIONS = [
   { id: "briefing", label: "Briefing do Projeto" },
   { id: "avatar", label: "Avatar / Persona" },
   { id: "produtos", label: "Produtos & Preços" },
-  { id: "faq", label: "FAQ / KB" },
+  { id: "faq", label: "FAQ" },
   { id: "branding", label: "Tom de Marca" },
   { id: "copy_arsenal", label: "Arsenal de Copy" },
+  { id: "expert", label: "Expert do Projeto" },
 ];
 
 interface Props {
@@ -95,7 +102,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
   const handleSave = async () => {
     setSaving(true);
     const keywords = keywordsText.split(",").map(k => k.trim()).filter(Boolean);
-    const payload = { ...config, escalation_keywords: keywords, updated_at: new Date().toISOString() };
+    const payload: any = { ...config, escalation_keywords: keywords, updated_at: new Date().toISOString() };
 
     const { error } = config.id
       ? await supabase.from("imphq_wa_ai_config").update(payload).eq("id", config.id)
@@ -105,6 +112,46 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
     else { toast.success("Configuração do AI salva!"); loadConfig(); }
     setSaving(false);
   };
+
+  const syncFromProject = async () => {
+    const { data: proj } = await supabase
+      .from("imphq_projects")
+      .select("name, data, brand_kit, avatar")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (!proj) { toast.error("Projeto não encontrado"); return; }
+    const d: any = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
+    const bk: any = proj.brand_kit || {};
+    const expert = d.expert || d.especialista || {};
+    const persona = [
+      expert?.nome && `Expert: ${expert.nome}`,
+      expert?.bio && `Bio: ${expert.bio}`,
+      bk?.voice && `Voz da marca: ${bk.voice}`,
+      bk?.tom && `Tom: ${bk.tom}`,
+    ].filter(Boolean).join("\n");
+    const prod = d.produto_principal || d.produtos?.[0];
+    const focus = prod ? [
+      prod.nome && `Produto: ${prod.nome}`,
+      prod.preco && `Preço: ${prod.preco}`,
+      (prod.link_checkout || prod.link) && `Link: ${prod.link_checkout || prod.link}`,
+    ].filter(Boolean).join(" · ") : "";
+    setConfig(p => ({
+      ...p,
+      expert_persona: p.expert_persona || persona,
+      product_focus: p.product_focus || focus,
+    }));
+    toast.success("Sincronizado com dados do projeto");
+  };
+
+  const updateFaq = (idx: number, field: "pergunta" | "resposta", value: string) => {
+    setConfig(p => {
+      const faq = [...(p.faq || [])];
+      faq[idx] = { ...faq[idx], [field]: value };
+      return { ...p, faq };
+    });
+  };
+  const addFaq = () => setConfig(p => ({ ...p, faq: [...(p.faq || []), { pergunta: "", resposta: "" }] }));
+  const removeFaq = (idx: number) => setConfig(p => ({ ...p, faq: (p.faq || []).filter((_, i) => i !== idx) }));
 
   const toggleContext = (id: string) => {
     setConfig(prev => ({
@@ -271,6 +318,84 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
             </div>
           )}
         </div>
+
+        {/* Persona / Instruções / Oferta / FAQ */}
+        <div className="space-y-3 pt-3 border-t border-border/30">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> Contexto avançado do projeto
+            </Label>
+            <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={syncFromProject}>
+              <RefreshCw className="h-3 w-3" /> Sincronizar com projeto
+            </Button>
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1">Persona do Expert</Label>
+            <Textarea
+              value={config.expert_persona || ""}
+              onChange={e => setConfig(p => ({ ...p, expert_persona: e.target.value }))}
+              placeholder="Ex: Imperius — estrategista direto, autoridade calma, sem clichês de coach."
+              className="min-h-[60px] text-xs bg-secondary/30"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1">Instruções customizadas (regras obrigatórias)</Label>
+            <Textarea
+              value={config.custom_instructions || ""}
+              onChange={e => setConfig(p => ({ ...p, custom_instructions: e.target.value }))}
+              placeholder="Ex: Nunca prometa entrega em menos de 7 dias. Só ofereça desconto se o lead pedir 2x."
+              className="min-h-[60px] text-xs bg-secondary/30"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1">Produto / oferta em foco</Label>
+            <Input
+              value={config.product_focus || ""}
+              onChange={e => setConfig(p => ({ ...p, product_focus: e.target.value }))}
+              placeholder="Ex: Mentoria 6 Cifras · R$ 4.997 · checkout: https://..."
+              className="text-xs bg-secondary/30"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-xs text-muted-foreground">FAQ (respostas literais)</Label>
+              <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={addFaq}>
+                <Plus className="h-3 w-3" /> Adicionar
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {(config.faq || []).length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic">Sem FAQ. Adicione perguntas que a IA deve responder palavra-por-palavra.</p>
+              )}
+              {(config.faq || []).map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-start p-2 rounded bg-secondary/20 border border-border/20">
+                  <div className="flex-1 space-y-1">
+                    <Input
+                      value={item.pergunta}
+                      onChange={e => updateFaq(idx, "pergunta", e.target.value)}
+                      placeholder="Pergunta (ex: Tem garantia?)"
+                      className="text-[11px] h-7 bg-background/50"
+                    />
+                    <Textarea
+                      value={item.resposta}
+                      onChange={e => updateFaq(idx, "resposta", e.target.value)}
+                      placeholder="Resposta oficial..."
+                      className="min-h-[40px] text-[11px] bg-background/50"
+                    />
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeFaq(idx)}>
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
 
         <Button onClick={handleSave} disabled={saving} className="w-full gap-2" size="sm">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}

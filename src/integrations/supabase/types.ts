@@ -20136,11 +20136,15 @@ export type Database = {
           business_hours_start: string | null
           context_sources: string[] | null
           created_at: string | null
+          custom_instructions: string | null
           enabled: boolean | null
           escalation_keywords: string[] | null
+          expert_persona: string | null
+          faq: Json
           id: string
           max_tokens: number | null
           personality: string | null
+          product_focus: string | null
           project_id: string
           response_delay_seconds: number | null
           tone: string | null
@@ -20153,11 +20157,15 @@ export type Database = {
           business_hours_start?: string | null
           context_sources?: string[] | null
           created_at?: string | null
+          custom_instructions?: string | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
+          expert_persona?: string | null
+          faq?: Json
           id?: string
           max_tokens?: number | null
           personality?: string | null
+          product_focus?: string | null
           project_id: string
           response_delay_seconds?: number | null
           tone?: string | null
@@ -20170,11 +20178,15 @@ export type Database = {
           business_hours_start?: string | null
           context_sources?: string[] | null
           created_at?: string | null
+          custom_instructions?: string | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
+          expert_persona?: string | null
+          faq?: Json
           id?: string
           max_tokens?: number | null
           personality?: string | null
+          product_focus?: string | null
           project_id?: string
           response_delay_seconds?: number | null
           tone?: string | null
