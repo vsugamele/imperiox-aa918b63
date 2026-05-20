@@ -18248,6 +18248,8 @@ export type Database = {
           cadencia_custom_dias: number[] | null
           created_at: string
           duracao_dias: number
+          filter_tags: string[] | null
+          filter_tags_mode: string | null
           id: string
           modelo_ia: string
           nome: string
@@ -18267,6 +18269,8 @@ export type Database = {
           cadencia_custom_dias?: number[] | null
           created_at?: string
           duracao_dias?: number
+          filter_tags?: string[] | null
+          filter_tags_mode?: string | null
           id?: string
           modelo_ia?: string
           nome: string
@@ -18286,6 +18290,8 @@ export type Database = {
           cadencia_custom_dias?: number[] | null
           created_at?: string
           duracao_dias?: number
+          filter_tags?: string[] | null
+          filter_tags_mode?: string | null
           id?: string
           modelo_ia?: string
           nome?: string
@@ -19582,6 +19588,36 @@ export type Database = {
           status?: string
           tags?: string[] | null
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_tag_project_rules: {
+        Row: {
+          created_at: string
+          id: string
+          priority: number
+          project_id: string
+          tag: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          priority?: number
+          project_id: string
+          tag: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          priority?: number
+          project_id?: string
+          tag?: string
           updated_at?: string
           user_id?: string
         }
