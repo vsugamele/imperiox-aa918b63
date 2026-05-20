@@ -205,7 +205,7 @@ export default function Leads() {
       vendasQuery = vendasQuery.eq("project_id", projectFilter);
     }
 
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes, formsRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes, formsRes, allProjIdsRes] = await Promise.all([
       leadsQuery, supabase.from("imphq_projects").select("id, name, icon"),
       vendasQuery,
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
@@ -214,7 +214,18 @@ export default function Leads() {
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
       supabase.from("imphq_capture_forms").select("id, name").order("name"),
+      supabase.from("imphq_leads").select("project_id").limit(20000),
     ]);
+
+    // Contagem global por projeto (independente da paginação)
+    const allRows = (allProjIdsRes.data || []) as any[];
+    const byProject: Record<string, number> = {};
+    let noProject = 0;
+    allRows.forEach((r: any) => {
+      if (r.project_id) byProject[r.project_id] = (byProject[r.project_id] || 0) + 1;
+      else noProject += 1;
+    });
+    setProjectCounts({ totalAll: allRows.length, byProject, noProject });
 
     setTotalCount(leadsRes.count ?? 0);
     const allVendas = (vendasRes.data || []) as any[];
