@@ -56,8 +56,9 @@ serve(async (req) => {
     }
 
     // ── Helper: find or create conversation ──
-    async function findOrCreateConversation(phone: string, projectId: string, providerId: string | null, contactName?: string) {
+    async function findOrCreateConversation(phone: string, projectId: string, providerId: string | null, contactName?: string, jidSuffix?: string) {
       const cleanPhone = phone.replace(/\D/g, "");
+      const suffix = jidSuffix || "s.whatsapp.net";
 
       // Buscar conversa existente por (phone, project_id, provider_id) — cada chip tem sua thread
       const baseQuery = supabase
@@ -69,7 +70,14 @@ serve(async (req) => {
         ? await baseQuery.eq("provider_id", providerId).maybeSingle()
         : await baseQuery.is("provider_id", null).maybeSingle();
 
-      if (existing) return existing;
+      if (existing) {
+        // Atualiza sufixo se diferente (migração de @s.whatsapp.net → @lid ou vice-versa)
+        if (existing.jid_suffix !== suffix) {
+          await supabase.from("imphq_wa_conversations").update({ jid_suffix: suffix }).eq("id", existing.id);
+          existing.jid_suffix = suffix;
+        }
+        return existing;
+      }
 
       const { data: created, error } = await supabase
         .from("imphq_wa_conversations")
@@ -81,12 +89,12 @@ serve(async (req) => {
           status: "active",
           provider_id: providerId,
           message_count: 0,
+          jid_suffix: suffix,
         })
         .select()
         .single();
 
       if (error) {
-        // Race condition: outra requisição criou no mesmo (project, phone, provider) — recupera
         const retryQuery = supabase
           .from("imphq_wa_conversations")
           .select("*")
@@ -101,6 +109,7 @@ serve(async (req) => {
       }
       return created;
     }
+
 
     // ── Helper: update conversation metadata after message ──
     async function updateConversationAfterMessage(conversationId: string, content: string, currentCount: number) {
