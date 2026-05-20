@@ -151,6 +151,8 @@ export default function Leads() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [quickRuleTag, setQuickRuleTag] = useState<string | null>(null);
+
   const [mainTab, setMainTab] = useState("leads");
   const [automations, setAutomations] = useState<any[]>([]);
   const [leadAutomationLogs, setLeadAutomationLogs] = useState<any[]>([]);
