@@ -93,7 +93,13 @@ export default function WhatsApp() {
         const m: any = payload.new;
         setSessions(prev => {
           const idx = prev.findIndex(s => s.id === m.conversation_id);
-          if (idx === -1) return prev;
+          if (idx === -1) {
+            // Conversa ainda não está na lista → buscar e prepend
+            supabase.from("imphq_wa_conversations").select("*").eq("id", m.conversation_id).maybeSingle().then(({ data }) => {
+              if (data) setSessions(curr => curr.some(s => s.id === data.id) ? curr : [data as any, ...curr]);
+            });
+            return prev;
+          }
           const isInbound = m.direction === "in";
           const isOpen = selectedSession?.id === m.conversation_id;
           const updated = {
@@ -106,6 +112,14 @@ export default function WhatsApp() {
           const rest = prev.filter((_, i) => i !== idx);
           return [updated, ...rest];
         });
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
+        const c: any = payload.new;
+        setSessions(prev => prev.some(s => s.id === c.id) ? prev : [c, ...prev]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
+        const c: any = payload.new;
+        setSessions(prev => prev.map(s => s.id === c.id ? { ...s, ...c } : s));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -308,12 +322,21 @@ export default function WhatsApp() {
                   {/* Chat content */}
                   <div className="flex-1 min-h-0">
                     {chatTab === "chat" && (
-                      <ChatView
-                        conversationId={selectedSession.id}
-                        phone={selectedSession.phone}
-                        projectId={selectedSession.project_id}
-                        providerId={selectedProvider?.id || null}
-                      />
+                      <div className="flex flex-col h-full">
+                        {filterProvider !== "all" && selectedSession.provider_id && selectedSession.provider_id !== filterProvider && (
+                          <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/30 text-[11px] text-amber-200">
+                            ⚠️ Esta conversa pertence ao chip <strong>{providers.find(p => p.id === selectedSession.provider_id)?.instance_name || "outro"}</strong>. A resposta sairá por esse chip, não pelo filtro atual.
+                          </div>
+                        )}
+                        <div className="flex-1 min-h-0">
+                          <ChatView
+                            conversationId={selectedSession.id}
+                            phone={selectedSession.phone}
+                            projectId={selectedSession.project_id}
+                            providerId={selectedProvider?.id || null}
+                          />
+                        </div>
+                      </div>
                     )}
                     {chatTab === "qrcode" && selectedProvider?.provider === "evolution" && (
                       <div className="p-4 overflow-auto h-full">
