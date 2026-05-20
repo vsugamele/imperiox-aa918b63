@@ -35,7 +35,7 @@ export default function Nutricao() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [form, setForm] = useState({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria" });
+  const [form, setForm] = useState<any>({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria", filter_tags: [] as string[], filter_tags_mode: "any" });
 
   const load = async () => {
     setLoading(true);
