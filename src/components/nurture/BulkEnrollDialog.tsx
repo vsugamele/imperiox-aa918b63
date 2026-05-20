@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Users, Loader2 } from "lucide-react";
-import { EditableTagList } from "@/components/projeto/EditableTagList";
+import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
 
 interface Sequence { id: string; nome: string; produto: string | null; }
 
@@ -121,7 +121,7 @@ export function BulkEnrollDialog({ open, onOpenChange, sequences, onDone }: Prop
           </div>
           <div>
             <Label>Tags do formulário (opcional)</Label>
-            <EditableTagList tags={tags} onChange={setTags} placeholder="ex: vip-cortes" />
+            <TagAutocomplete tags={tags} onChange={setTags} placeholder="ex: vip-cortes" />
           </div>
           {tags.length > 1 && (
             <div>

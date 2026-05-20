@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Mail, Plus, Play, Pause, Users, TrendingUp, UserPlus } from "lucide-react";
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
-import { EditableTagList } from "@/components/projeto/EditableTagList";
+import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
 
 
 interface Sequence {
@@ -134,7 +134,7 @@ export default function Nutricao() {
                 </div>
                 <div>
                   <Label>Filtrar por tags do formulário (opcional)</Label>
-                  <EditableTagList tags={form.filter_tags || []} onChange={(tags) => setForm({ ...form, filter_tags: tags })} placeholder="ex: vip-cortes" />
+                  <TagAutocomplete tags={form.filter_tags || []} onChange={(tags) => setForm({ ...form, filter_tags: tags })} placeholder="ex: vip-cortes" />
                   <p className="text-[11px] text-muted-foreground mt-1">Só entram leads que tenham essas tags. Vazio = todos os leads.</p>
                 </div>
                 {form.filter_tags?.length > 1 && (
