@@ -93,7 +93,13 @@ export default function WhatsApp() {
         const m: any = payload.new;
         setSessions(prev => {
           const idx = prev.findIndex(s => s.id === m.conversation_id);
-          if (idx === -1) return prev;
+          if (idx === -1) {
+            // Conversa ainda não está na lista → buscar e prepend
+            supabase.from("imphq_wa_conversations").select("*").eq("id", m.conversation_id).maybeSingle().then(({ data }) => {
+              if (data) setSessions(curr => curr.some(s => s.id === data.id) ? curr : [data as any, ...curr]);
+            });
+            return prev;
+          }
           const isInbound = m.direction === "in";
           const isOpen = selectedSession?.id === m.conversation_id;
           const updated = {
@@ -106,6 +112,14 @@ export default function WhatsApp() {
           const rest = prev.filter((_, i) => i !== idx);
           return [updated, ...rest];
         });
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
+        const c: any = payload.new;
+        setSessions(prev => prev.some(s => s.id === c.id) ? prev : [c, ...prev]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
+        const c: any = payload.new;
+        setSessions(prev => prev.map(s => s.id === c.id ? { ...s, ...c } : s));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
