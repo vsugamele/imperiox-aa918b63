@@ -59,7 +59,7 @@ export default function Nutricao() {
     if (error) { toast.error(error.message); return; }
     toast.success("Sequência criada");
     setOpen(false);
-    setForm({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria" });
+    setForm({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria", filter_tags: [], filter_tags_mode: "any" });
     load();
   };
 
