@@ -141,15 +141,16 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (rule?.project_id) resolvedProjectId = rule.project_id;
       }
-
+      await supabase.from("imphq_leads").insert({
         id: leadId,
         nome: body.nome || email,
         email,
         phone: body.phone || null,
         plataforma: origem,
         status: config.status || "lead",
-        tags: [...(body.tags || []), "area-membros"],
-        project_id: body.project_id,
+        tags: allTags,
+        project_id: resolvedProjectId,
+
         data: {
           visitor_id: leadId,
           ultimo_evento: config.acao,
