@@ -942,14 +942,42 @@ serve(async (req) => {
                   .eq("id", providerId)
                   .single();
                 if (provCmd) {
+                  // Interpola variáveis: {Nome} {nome} {{nome}} {name} → contact_name
+                  const firstName = (conv.contact_name || pushName || "").trim().split(/\s+/)[0] || "amigo(a)";
+                  const replyText = String(matched.response_text || "")
+                    .replace(/\{\{\s*nome\s*\}\}/gi, firstName)
+                    .replace(/\{\s*nome\s*\}/gi, firstName)
+                    .replace(/\{\{\s*name\s*\}\}/gi, firstName)
+                    .replace(/\{\s*name\s*\}/gi, firstName);
+
                   const cmdApiBase = provCmd.api_url.replace(/\/+$/, "");
                   const cmdInst = encodeURIComponent(provCmd.instance_name);
                   const cmdJid = phone + "@s.whatsapp.net";
-                  await fetch(`${cmdApiBase}/message/sendText/${cmdInst}`, {
+                  const sendRes = await fetch(`${cmdApiBase}/message/sendText/${cmdInst}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", apikey: provCmd.api_key },
-                    body: JSON.stringify({ number: cmdJid, text: matched.response_text || "" }),
+                    body: JSON.stringify({ number: cmdJid, text: replyText }),
                   });
+                  let providerMsgId: string | null = null;
+                  try {
+                    const sendJson = await sendRes.json();
+                    providerMsgId = sendJson?.key?.id || null;
+                  } catch (_) {}
+
+                  // Grava como outgoing para aparecer no chat da ferramenta
+                  await supabase.from("imphq_wa_messages").insert({
+                    conversation_id: conv.id,
+                    direction: "outgoing",
+                    phone,
+                    content: replyText,
+                    message_type: "text",
+                    project_id: projectId,
+                    provider: provCmd ? "evolution" : providerType,
+                    provider_message_id: providerMsgId,
+                    status: "sent",
+                    metadata: { source: "command", trigger: matched.trigger_word },
+                  });
+                  await updateConversationAfterMessage(conv.id, replyText, (conv.message_count || 0) + 1);
                   console.log(`[webhook] Command auto-reply: "${matched.trigger_word}" → ${phone}`);
                 }
               }
