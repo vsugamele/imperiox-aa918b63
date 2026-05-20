@@ -19,7 +19,9 @@ interface WaSession {
   avatar_url?: string | null;
   unread_count?: number;
   last_message_direction?: string | null;
+  jid_suffix?: string | null;
 }
+
 
 interface Provider {
   id: string;
