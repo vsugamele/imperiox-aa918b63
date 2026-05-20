@@ -216,7 +216,9 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     }, [pollNew]);
 
     useEffect(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (isComposingRef.current) return;
+      const el = messagesContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
     }, [messages]);
 
     // Auto-resize textarea + slash command detection
