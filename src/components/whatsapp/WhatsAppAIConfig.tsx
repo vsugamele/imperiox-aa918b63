@@ -102,7 +102,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
   const handleSave = async () => {
     setSaving(true);
     const keywords = keywordsText.split(",").map(k => k.trim()).filter(Boolean);
-    const payload = { ...config, escalation_keywords: keywords, updated_at: new Date().toISOString() };
+    const payload: any = { ...config, escalation_keywords: keywords, updated_at: new Date().toISOString() };
 
     const { error } = config.id
       ? await supabase.from("imphq_wa_ai_config").update(payload).eq("id", config.id)
@@ -112,6 +112,46 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
     else { toast.success("Configuração do AI salva!"); loadConfig(); }
     setSaving(false);
   };
+
+  const syncFromProject = async () => {
+    const { data: proj } = await supabase
+      .from("imphq_projects")
+      .select("name, data, brand_kit, avatar")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (!proj) { toast.error("Projeto não encontrado"); return; }
+    const d: any = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
+    const bk: any = proj.brand_kit || {};
+    const expert = d.expert || d.especialista || {};
+    const persona = [
+      expert?.nome && `Expert: ${expert.nome}`,
+      expert?.bio && `Bio: ${expert.bio}`,
+      bk?.voice && `Voz da marca: ${bk.voice}`,
+      bk?.tom && `Tom: ${bk.tom}`,
+    ].filter(Boolean).join("\n");
+    const prod = d.produto_principal || d.produtos?.[0];
+    const focus = prod ? [
+      prod.nome && `Produto: ${prod.nome}`,
+      prod.preco && `Preço: ${prod.preco}`,
+      (prod.link_checkout || prod.link) && `Link: ${prod.link_checkout || prod.link}`,
+    ].filter(Boolean).join(" · ") : "";
+    setConfig(p => ({
+      ...p,
+      expert_persona: p.expert_persona || persona,
+      product_focus: p.product_focus || focus,
+    }));
+    toast.success("Sincronizado com dados do projeto");
+  };
+
+  const updateFaq = (idx: number, field: "pergunta" | "resposta", value: string) => {
+    setConfig(p => {
+      const faq = [...(p.faq || [])];
+      faq[idx] = { ...faq[idx], [field]: value };
+      return { ...p, faq };
+    });
+  };
+  const addFaq = () => setConfig(p => ({ ...p, faq: [...(p.faq || []), { pergunta: "", resposta: "" }] }));
+  const removeFaq = (idx: number) => setConfig(p => ({ ...p, faq: (p.faq || []).filter((_, i) => i !== idx) }));
 
   const toggleContext = (id: string) => {
     setConfig(prev => ({
