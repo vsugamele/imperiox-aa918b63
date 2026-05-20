@@ -11,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw } from "lucide-react";
 
+interface FaqItem { pergunta: string; resposta: string; }
+
 interface AIConfig {
   id?: string;
   project_id: string;
@@ -25,6 +27,10 @@ interface AIConfig {
   business_hours_only: boolean;
   business_hours_start: string;
   business_hours_end: string;
+  expert_persona?: string;
+  custom_instructions?: string;
+  product_focus?: string;
+  faq?: FaqItem[];
 }
 
 const PERSONALITIES = [
