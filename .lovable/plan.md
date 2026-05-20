@@ -1,45 +1,24 @@
-## Diagnóstico
+## Plano: uma conversa por chip
 
-Confirmei pelo banco que as respostas da IA **estão sim sendo salvas em `imphq_wa_messages`** com `direction: outgoing`, `status: sent`. Não é bug de persistência.
+### 1. Migração (schema + dados)
+- Backfill de segurança: para conversas existentes com `provider_id IS NULL`, deduzir a partir da última mensagem (`imphq_wa_messages.provider` + `instance_name`) ou marcar como pertencente ao provider ativo do projeto.
+- Remover unique key `(project_id, phone)`.
+- Criar unique key `(project_id, phone, provider_id)`.
+- Manter índice em `(project_id, phone)` apenas para queries (não único).
 
-O que está acontecendo:
+### 2. Edge function `whatsapp-api`
+- `findOrCreateConversation(phone, projectId, providerId, contactName)`: passar a buscar por `(phone, project_id, provider_id)` em vez de só `(phone, project_id)`; upsert com `onConflict: "project_id,phone,provider_id"`.
+- Todos os callers já passam `providerId`, nenhum precisa mudar.
+- Para chamadas sem provider conhecido (raras), manter fallback que cria conversa com `provider_id = null` e não conflita com as por chip.
 
-1. O lead que mandou "oi" (`5511976546714`, contato "Vini") está na conversa `92b89bfd…` que pertence à instância **jpfreitas** (projeto `jp_freitas`).
-2. Na tela que você tirou screenshot, o filtro de instância está em **Suporte Oficial (72)** — então a conversa do jpfreitas simplesmente não aparece na lista da esquerda.
-3. Resultado: as respostas existem, mas estão escondidas pelo filtro.
+### 3. UI
+- Sem mudança estrutural. O mesmo lead aparecerá uma vez por chip na lista — o filtro de chip já existente faz a separação visual.
+- A conversa atual `92b89bfd…` (que ficou no chip errado) continuará existindo no jpfreitas; a próxima mensagem do Suporte Oficial criará a thread correta naquele chip.
 
-Para confirmar agora: clique no filtro **jpfreitas (46)** (ou em **Todos (118)**) e abra a conversa do "Vini" / `5511976546714`. Você vai ver as respostas da IA lá.
+### 4. Verificação
+- Mandar "oi" do mesmo número para os dois chips: devem aparecer duas conversas distintas, cada uma com seu `provider_id`.
+- Conferir que a IA responde no chip correto (já usa `providerId` da conversa).
 
-## Problema secundário descoberto
-
-Para cada resposta `outgoing` da IA, existe uma cópia `incoming` com o mesmo conteúdo gravada ~200ms depois (ex.: 21:37:19.988 outgoing + 21:37:20.196 incoming, mesmo texto). Há um filtro `key.fromMe` no webhook (linha 734) mas algo está furando — provavelmente quando a Evolution reentrega o evento com `fromMe` em outro envelope, ou via outro caminho (`SEND_MESSAGE` / `messages.update`).
-
-Isso polui a timeline e pode estar realimentando a IA (ela "vê" sua própria mensagem como se fosse do lead → loop, exatamente o sintoma da imagem com IA pedindo desculpa por estar em loop).
-
-## Plano de correção
-
-### A. UI — não esconder conversas com atividade recente
-- Em `ConversationList`, quando uma conversa receber/enviar mensagem nas últimas 24h, mostrar um badge "novo" no chip da instância que está oculta, ou ao menos um aviso "X conversas em outras instâncias com atividade".
-- Persistir o último filtro escolhido (já existe localStorage em outros lugares) e mostrar contagem de não-lidas por filtro.
-
-### B. Backend — blindar contra eco / fromMe
-Em `supabase/functions/whatsapp-api/index.ts`:
-1. Expandir o filtro fromMe no início do `MESSAGES_UPSERT` para também olhar:
-   - `body?.data?.key?.fromMe`
-   - `body?.data?.fromMe`
-   - `body?.sender === provider.instance_name`
-   - participante igual ao número da instância
-2. Antes de inserir qualquer mensagem `incoming`, fazer dedupe via `provider_message_id` (já existe índice único — só checar o erro 23505 silenciosamente) **e** dedupe por janela curta: se já existe uma `outgoing` com o mesmo `content` nos últimos 10s na mesma `conversation_id`, descartar (é eco).
-3. No bloco da IA autorresponder, ignorar mensagens cuja origem seja eco (mesmo critério acima) antes de chamar o Gemini — corta o loop na raiz.
-
-### C. Verificação
-- Após deploy, mandar novamente "oi" do número de teste e conferir no banco:
-  - 1 linha `incoming` com "oi"
-  - 1 linha `outgoing` com a resposta da IA
-  - **zero** duplicatas `incoming` da resposta
-- E conferir que a conversa aparece na ferramenta sem precisar trocar filtro (badge cross-instância).
-
-## Fora de escopo
-- Mudar persona/tom da IA.
-- Reescrever o pipeline de webhook.
-- Tocar em `ChatView` polling (já funciona; a mensagem chega em até 8s).
+### Fora de escopo
+- Mesclar/migrar mensagens antigas que caíram no chip errado.
+- Mudar UI da lista de conversas.
