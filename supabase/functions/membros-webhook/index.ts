@@ -128,6 +128,19 @@ Deno.serve(async (req) => {
       await supabase.from("imphq_leads").update(updates).eq("id", leadId);
     } else {
       leadId = crypto.randomUUID();
+      // Resolver tag → projeto (override project_id se houver regra)
+      let resolvedProjectId = body.project_id;
+      const allTags = [...(body.tags || []), "area-membros"];
+      if (allTags.length) {
+        const { data: rule } = await supabase
+          .from("imphq_tag_project_rules")
+          .select("project_id, priority")
+          .in("tag", allTags)
+          .order("priority", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (rule?.project_id) resolvedProjectId = rule.project_id;
+      }
       await supabase.from("imphq_leads").insert({
         id: leadId,
         nome: body.nome || email,
@@ -135,8 +148,9 @@ Deno.serve(async (req) => {
         phone: body.phone || null,
         plataforma: origem,
         status: config.status || "lead",
-        tags: [...(body.tags || []), "area-membros"],
-        project_id: body.project_id,
+        tags: allTags,
+        project_id: resolvedProjectId,
+
         data: {
           visitor_id: leadId,
           ultimo_evento: config.acao,

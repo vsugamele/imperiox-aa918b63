@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Mail, Plus, Play, Pause, Users, TrendingUp, UserPlus } from "lucide-react";
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
+import { EditableTagList } from "@/components/projeto/EditableTagList";
+
 
 interface Sequence {
   id: string;
@@ -33,7 +35,7 @@ export default function Nutricao() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [form, setForm] = useState({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria" });
+  const [form, setForm] = useState<any>({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria", filter_tags: [] as string[], filter_tags_mode: "any" });
 
   const load = async () => {
     setLoading(true);
@@ -57,7 +59,7 @@ export default function Nutricao() {
     if (error) { toast.error(error.message); return; }
     toast.success("Sequência criada");
     setOpen(false);
-    setForm({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria" });
+    setForm({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria", filter_tags: [], filter_tags_mode: "any" });
     load();
   };
 
@@ -130,7 +132,25 @@ export default function Nutricao() {
                     </Select>
                   </div>
                 </div>
+                <div>
+                  <Label>Filtrar por tags do formulário (opcional)</Label>
+                  <EditableTagList tags={form.filter_tags || []} onChange={(tags) => setForm({ ...form, filter_tags: tags })} placeholder="ex: vip-cortes" />
+                  <p className="text-[11px] text-muted-foreground mt-1">Só entram leads que tenham essas tags. Vazio = todos os leads.</p>
+                </div>
+                {form.filter_tags?.length > 1 && (
+                  <div>
+                    <Label>Modo</Label>
+                    <Select value={form.filter_tags_mode} onValueChange={(v) => setForm({ ...form, filter_tags_mode: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Qualquer tag</SelectItem>
+                        <SelectItem value="all">Todas as tags</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <Button className="w-full" onClick={create}>Criar</Button>
+
               </div>
             </DialogContent>
           </Dialog>

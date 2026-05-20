@@ -145,6 +145,17 @@ Deno.serve(async (req) => {
       updates.data = { ...currentData, visitor_id: currentData.visitor_id || leadId, ...formMeta };
       await supabase.from("imphq_leads").update(updates).eq("id", leadId);
     } else {
+      // Resolver tag → projeto se nenhum projectId foi informado
+      if (!projectId && tags.length) {
+        const { data: rule } = await supabase
+          .from("imphq_tag_project_rules")
+          .select("project_id, priority")
+          .in("tag", tags)
+          .order("priority", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (rule?.project_id) projectId = rule.project_id;
+      }
       leadId = crypto.randomUUID();
       await supabase.from("imphq_leads").insert({
         id: leadId,
@@ -164,6 +175,7 @@ Deno.serve(async (req) => {
         },
       });
     }
+
 
     // --- Save extra responses if form_id exists ---
     if (body.form_id && formConfig) {
@@ -258,20 +270,37 @@ Deno.serve(async (req) => {
         const { data: camp } = await supabase.from("imphq_campaigns").select("data").eq("id", campaignId).maybeSingle();
         const seqId = (camp?.data as any)?.default_sequence_id;
         if (seqId) {
-          const { data: already } = await supabase
-            .from("imphq_lead_sequence_enrollments")
-            .select("id").eq("lead_id", leadId).eq("sequence_id", seqId).maybeSingle();
-          if (!already) {
-            await supabase.from("imphq_lead_sequence_enrollments").insert({
-              lead_id: leadId,
-              sequence_id: seqId,
-              status: "ativo",
-              data_inicio: new Date().toISOString(),
-              dia_atual: 0,
-              proximo_envio_em: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-            } as any);
+          // Checar filter_tags da sequência
+          const { data: seq } = await supabase
+            .from("imphq_nurture_sequences")
+            .select("filter_tags, filter_tags_mode")
+            .eq("id", seqId)
+            .maybeSingle();
+          const ft: string[] = ((seq as any)?.filter_tags || []) as string[];
+          const mode = ((seq as any)?.filter_tags_mode || "any") as string;
+          let allowed = true;
+          if (ft.length) {
+            allowed = mode === "all"
+              ? ft.every(t => tags.includes(t))
+              : ft.some(t => tags.includes(t));
+          }
+          if (allowed) {
+            const { data: already } = await supabase
+              .from("imphq_lead_sequence_enrollments")
+              .select("id").eq("lead_id", leadId).eq("sequence_id", seqId).maybeSingle();
+            if (!already) {
+              await supabase.from("imphq_lead_sequence_enrollments").insert({
+                lead_id: leadId,
+                sequence_id: seqId,
+                status: "ativo",
+                data_inicio: new Date().toISOString(),
+                dia_atual: 0,
+                proximo_envio_em: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+              } as any);
+            }
           }
         }
+
       }
     } catch (e) {
       console.warn("[capture-lead] Auto-enroll nutrição falhou:", e);

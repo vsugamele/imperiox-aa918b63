@@ -10,13 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText } from "lucide-react";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { IntegrationStatusTab } from "@/components/configuracoes/IntegrationStatusTab";
 import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
 import { NotificationPreferencesTab } from "@/components/configuracoes/NotificationPreferencesTab";
+import { TagRoutingRulesTab } from "@/components/configuracoes/TagRoutingRulesTab";
+
 
 export default function Configuracoes() {
   const { user, isAdmin } = useAuth();
@@ -55,7 +57,11 @@ export default function Configuracoes() {
           <TabsTrigger value="webhook-log" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <ScrollText className="h-3.5 w-3.5 mr-2" /> Log Webhooks
           </TabsTrigger>
+          <TabsTrigger value="tag-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Tag className="h-3.5 w-3.5 mr-2" /> Tag → Projeto
+          </TabsTrigger>
         </TabsList>
+
 
         <div className="flex-1 min-w-0">
           {isAdmin && <TabsContent value="usuarios"><UsuariosTab /></TabsContent>}
@@ -66,7 +72,9 @@ export default function Configuracoes() {
           <TabsContent value="webhooks"><WebhooksTab /></TabsContent>
           <TabsContent value="integracoes"><IntegrationStatusTab /></TabsContent>
           <TabsContent value="webhook-log"><WebhookLogTab /></TabsContent>
+          <TabsContent value="tag-routing"><TagRoutingRulesTab /></TabsContent>
         </div>
+
       </Tabs>
     </div>
   );
