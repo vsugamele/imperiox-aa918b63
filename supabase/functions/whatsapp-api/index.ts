@@ -56,8 +56,9 @@ serve(async (req) => {
     }
 
     // ── Helper: find or create conversation ──
-    async function findOrCreateConversation(phone: string, projectId: string, providerId: string | null, contactName?: string) {
+    async function findOrCreateConversation(phone: string, projectId: string, providerId: string | null, contactName?: string, jidSuffix?: string) {
       const cleanPhone = phone.replace(/\D/g, "");
+      const suffix = jidSuffix || "s.whatsapp.net";
 
       // Buscar conversa existente por (phone, project_id, provider_id) — cada chip tem sua thread
       const baseQuery = supabase
@@ -69,7 +70,14 @@ serve(async (req) => {
         ? await baseQuery.eq("provider_id", providerId).maybeSingle()
         : await baseQuery.is("provider_id", null).maybeSingle();
 
-      if (existing) return existing;
+      if (existing) {
+        // Atualiza sufixo se diferente (migração de @s.whatsapp.net → @lid ou vice-versa)
+        if (existing.jid_suffix !== suffix) {
+          await supabase.from("imphq_wa_conversations").update({ jid_suffix: suffix }).eq("id", existing.id);
+          existing.jid_suffix = suffix;
+        }
+        return existing;
+      }
 
       const { data: created, error } = await supabase
         .from("imphq_wa_conversations")
@@ -81,12 +89,12 @@ serve(async (req) => {
           status: "active",
           provider_id: providerId,
           message_count: 0,
+          jid_suffix: suffix,
         })
         .select()
         .single();
 
       if (error) {
-        // Race condition: outra requisição criou no mesmo (project, phone, provider) — recupera
         const retryQuery = supabase
           .from("imphq_wa_conversations")
           .select("*")
@@ -101,6 +109,7 @@ serve(async (req) => {
       }
       return created;
     }
+
 
     // ── Helper: update conversation metadata after message ──
     async function updateConversationAfterMessage(conversationId: string, content: string, currentCount: number) {
@@ -272,22 +281,47 @@ serve(async (req) => {
     if (action === "send_message") {
       const body = await req.json();
       const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover } = body;
-      const normalized = normalizePhone(rawPhone || "");
-      if (!normalized.phone) {
-        console.warn("[send_message] número inválido:", rawPhone, "motivo:", normalized.reason);
-        return new Response(JSON.stringify({
-          success: false,
-          error: `Número fora do padrão internacional (${normalized.reason}). Verifique DDI + DDD + número.`,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+
+      // Buscar sufixo JID da conversa (s.whatsapp.net | lid)
+      let jidSuffix = "s.whatsapp.net";
+      if (conversation_id) {
+        const { data: convRow } = await supabase
+          .from("imphq_wa_conversations")
+          .select("jid_suffix")
+          .eq("id", conversation_id)
+          .maybeSingle();
+        if (convRow?.jid_suffix) jidSuffix = convRow.jid_suffix;
       }
-      const phone = normalized.phone;
-      const detectedCC = normalized.cc;
+
+      let phone: string;
+      let detectedCC: string | null = null;
+
+      if (jidSuffix === "lid") {
+        // Contato com privacidade ativa — manda como JID completo, sem validar E.164
+        const digits = String(rawPhone || "").replace(/\D/g, "");
+        if (!digits) {
+          return new Response(JSON.stringify({ success: false, error: "ID do contato vazio." }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+        phone = `${digits}@lid`;
+        detectedCC = "lid";
+      } else {
+        const normalized = normalizePhone(rawPhone || "");
+        if (!normalized.phone) {
+          console.warn("[send_message] número inválido:", rawPhone, "motivo:", normalized.reason);
+          return new Response(JSON.stringify({
+            success: false,
+            error: `Número fora do padrão internacional (${normalized.reason}). Verifique DDI + DDD + número.`,
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+        }
+        phone = normalized.phone;
+        detectedCC = normalized.cc;
+      }
 
       let provider = await getProvider(provider_id);
       let usedFailover = false;
       let originalProviderName: string | null = null;
 
-      // Helper to actually send via given provider
       async function attemptSend(p: any) {
         if (media_url && p.provider === "evolution") {
           return await sendEvolutionMedia(p, phone, media_url, media_type || "image", content || undefined);
@@ -297,6 +331,7 @@ serve(async (req) => {
           return await sendTwilio(p, phone, content);
         }
       }
+
 
       // Send via provider (media or text)
       let result;
@@ -786,7 +821,10 @@ serve(async (req) => {
         }
 
 
-        const phone = (key?.remoteJid || "").replace("@s.whatsapp.net", "").replace(/\D/g, "");
+        const rawJid = key?.remoteJid || "";
+        const jidSuffix = (rawJid.split("@")[1] || "s.whatsapp.net").toLowerCase();
+        const phone = rawJid.split("@")[0].replace(/\D/g, "");
+
         const providerMsgId = key?.id || "";
 
         // Extract content from various message types
@@ -832,7 +870,7 @@ serve(async (req) => {
         const providerId = prov?.id || null;
 
         if (phone && content && projectId) {
-          const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined);
+          const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined, jidSuffix);
 
           // Try to download media and upload to Supabase Storage
           let mediaUrl: string | null = null;
