@@ -14,11 +14,13 @@ interface Props {
   onProductFilter: (prod: string) => void;
   onToggleProject: (pid: string) => void;
   realtimeActive: boolean;
+  projectCounts?: { totalAll: number; byProject: Record<string, number>; noProject: number };
 }
 
 export default function LeadsSidebar({
   projects, leads, allVendasRaw, projectFilter, productFilter,
   expandedProjects, onProjectFilter, onProductFilter, onToggleProject, realtimeActive,
+  projectCounts,
 }: Props) {
   const projectProductMap = useMemo(() => {
     const map = new Map<string, { products: Map<string, number>; totalLeads: number }>();
@@ -36,12 +38,15 @@ export default function LeadsSidebar({
         const count = [...leadIds].filter(id => projectLeadIdsSet.has(id)).length;
         if (count > 0) prodMap.set(prodName, count);
       });
-      if (projectLeads.length > 0) map.set(p.id, { products: prodMap, totalLeads: projectLeads.length });
+      const globalCount = projectCounts?.byProject?.[p.id] ?? projectLeads.length;
+      if (globalCount > 0) map.set(p.id, { products: prodMap, totalLeads: globalCount });
     });
     return map;
-  }, [projects, leads, allVendasRaw]);
+  }, [projects, leads, allVendasRaw, projectCounts]);
 
-  const noLeadsInProject = leads.filter((l: any) => !l.project_id).length;
+
+  const noLeadsInProject = projectCounts?.noProject ?? leads.filter((l: any) => !l.project_id).length;
+  const totalAllLeads = projectCounts?.totalAll ?? leads.length;
 
   return (
     <div className="w-56 shrink-0 hidden lg:block">
@@ -50,7 +55,7 @@ export default function LeadsSidebar({
         {realtimeActive && <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="Realtime ativo" />}
       </div>
       <p className="text-[10px] uppercase tracking-editorial text-muted-foreground/70 mb-3">
-        {leads.length} no total
+        {totalAllLeads} no total
       </p>
       <div className="editorial-divider mb-3" />
       <div className="space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto pr-1">
@@ -64,7 +69,7 @@ export default function LeadsSidebar({
           onClick={() => { onProjectFilter("all"); onProductFilter("all"); }}
         >
           <span>🌐 Todos os leads</span>
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1">{leads.length}</Badge>
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1">{totalAllLeads}</Badge>
         </button>
         {noLeadsInProject > 0 && (
           <button
