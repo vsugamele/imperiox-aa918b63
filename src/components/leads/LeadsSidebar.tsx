@@ -14,11 +14,13 @@ interface Props {
   onProductFilter: (prod: string) => void;
   onToggleProject: (pid: string) => void;
   realtimeActive: boolean;
+  projectCounts?: { totalAll: number; byProject: Record<string, number>; noProject: number };
 }
 
 export default function LeadsSidebar({
   projects, leads, allVendasRaw, projectFilter, productFilter,
   expandedProjects, onProjectFilter, onProductFilter, onToggleProject, realtimeActive,
+  projectCounts,
 }: Props) {
   const projectProductMap = useMemo(() => {
     const map = new Map<string, { products: Map<string, number>; totalLeads: number }>();
@@ -36,10 +38,12 @@ export default function LeadsSidebar({
         const count = [...leadIds].filter(id => projectLeadIdsSet.has(id)).length;
         if (count > 0) prodMap.set(prodName, count);
       });
-      if (projectLeads.length > 0) map.set(p.id, { products: prodMap, totalLeads: projectLeads.length });
+      const globalCount = projectCounts?.byProject?.[p.id] ?? projectLeads.length;
+      if (globalCount > 0) map.set(p.id, { products: prodMap, totalLeads: globalCount });
     });
     return map;
-  }, [projects, leads, allVendasRaw]);
+  }, [projects, leads, allVendasRaw, projectCounts]);
+
 
   const noLeadsInProject = leads.filter((l: any) => !l.project_id).length;
 
