@@ -557,6 +557,11 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
               value={text}
               onChange={handleTextChange}
               placeholder="Digite sua mensagem... (/ para comandos)"
+              onFocus={() => { isComposingRef.current = true; }}
+              onBlur={() => { isComposingRef.current = false; }}
+              onPaste={() => {
+                requestAnimationFrame(() => textareaRef.current?.focus());
+              }}
               onKeyDown={e => {
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
               }}
