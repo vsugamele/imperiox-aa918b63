@@ -132,7 +132,25 @@ export default function Nutricao() {
                     </Select>
                   </div>
                 </div>
+                <div>
+                  <Label>Filtrar por tags do formulário (opcional)</Label>
+                  <EditableTagList tags={form.filter_tags || []} onChange={(tags) => setForm({ ...form, filter_tags: tags })} placeholder="ex: vip-cortes" />
+                  <p className="text-[11px] text-muted-foreground mt-1">Só entram leads que tenham essas tags. Vazio = todos os leads.</p>
+                </div>
+                {form.filter_tags?.length > 1 && (
+                  <div>
+                    <Label>Modo</Label>
+                    <Select value={form.filter_tags_mode} onValueChange={(v) => setForm({ ...form, filter_tags_mode: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Qualquer tag</SelectItem>
+                        <SelectItem value="all">Todas as tags</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <Button className="w-full" onClick={create}>Criar</Button>
+
               </div>
             </DialogContent>
           </Dialog>
