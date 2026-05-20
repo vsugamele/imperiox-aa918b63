@@ -140,7 +140,30 @@ export default function LeadsSidebar({
                   ))}
                 </div>
               )}
-            </div>
+        {topTags && topTags.length > 0 && (
+          <>
+            <p className="text-[9px] uppercase tracking-editorial text-muted-foreground/50 mt-4 mb-1 px-2">
+              Top tags · criar regra
+            </p>
+            {topTags.slice(0, 12).map(({ tag, count }) => (
+              <div key={tag} className="group flex items-center gap-1 px-2 py-1 hover:bg-secondary/40 rounded">
+                <span className="flex-1 text-xs text-muted-foreground truncate" title={tag}>🏷️ {tag}</span>
+                <span className="text-[9px] text-muted-foreground/70">{count}</span>
+                {onCreateRuleForTag && (
+                  <button
+                    onClick={() => onCreateRuleForTag(tag)}
+                    title="Criar regra de roteamento para esta tag"
+                    className="opacity-0 group-hover:opacity-100 text-primary hover:text-gold transition-opacity"
+                  >
+                    <Zap className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
           );
         })}
       </div>
