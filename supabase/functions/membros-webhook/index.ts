@@ -127,14 +127,19 @@ Deno.serve(async (req) => {
 
       // Override project_id via regra Tag→Projeto (mesmo em lead existente)
       if (mergedTags.length) {
-        const { data: rule } = await supabase
+        const { data: allRules } = await supabase
           .from("imphq_tag_project_rules")
-          .select("project_id, priority")
-          .in("tag", mergedTags)
-          .order("priority", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (rule?.project_id) updates.project_id = rule.project_id;
+          .select("project_id, priority, tag, tags_all, origem, plataforma")
+          .order("priority", { ascending: true });
+        const match = (allRules || []).find((r: any) => {
+          const needed: string[] = (r.tags_all && r.tags_all.length > 0) ? r.tags_all : (r.tag ? [r.tag] : []);
+          if (needed.length === 0) return false;
+          if (!needed.every((t: string) => mergedTags.includes(t))) return false;
+          if (r.plataforma && r.plataforma !== origem) return false;
+          if (r.origem && r.origem !== origem) return false;
+          return true;
+        });
+        if (match?.project_id) updates.project_id = match.project_id;
       }
 
       await supabase.from("imphq_leads").update(updates).eq("id", leadId);
@@ -144,15 +149,21 @@ Deno.serve(async (req) => {
       let resolvedProjectId = body.project_id;
       const allTags = [...(body.tags || []), "area-membros"];
       if (allTags.length) {
-        const { data: rule } = await supabase
+        const { data: allRules } = await supabase
           .from("imphq_tag_project_rules")
-          .select("project_id, priority")
-          .in("tag", allTags)
-          .order("priority", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (rule?.project_id) resolvedProjectId = rule.project_id;
+          .select("project_id, priority, tag, tags_all, origem, plataforma")
+          .order("priority", { ascending: true });
+        const match = (allRules || []).find((r: any) => {
+          const needed: string[] = (r.tags_all && r.tags_all.length > 0) ? r.tags_all : (r.tag ? [r.tag] : []);
+          if (needed.length === 0) return false;
+          if (!needed.every((t: string) => allTags.includes(t))) return false;
+          if (r.plataforma && r.plataforma !== origem) return false;
+          if (r.origem && r.origem !== origem) return false;
+          return true;
+        });
+        if (match?.project_id) resolvedProjectId = match.project_id;
       }
+
       await supabase.from("imphq_leads").insert({
         id: leadId,
         nome: body.nome || email,
