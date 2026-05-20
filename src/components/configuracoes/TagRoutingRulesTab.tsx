@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Trash2, Tag, Loader2 } from "lucide-react";
+import { useLeadTags } from "@/hooks/useLeadTags";
 
 interface Rule {
   id: string;
@@ -22,6 +23,7 @@ export function TagRoutingRulesTab() {
   const [priority, setPriority] = useState(100);
   const [busy, setBusy] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const { tags: leadTags } = useLeadTags();
 
   const load = async () => {
     const [{ data: r }, { data: p }] = await Promise.all([
@@ -93,7 +95,10 @@ export function TagRoutingRulesTab() {
         <div className="grid grid-cols-12 gap-2 items-end">
           <div className="col-span-4">
             <label className="text-xs text-muted-foreground">Tag</label>
-            <Input value={tag} onChange={e => setTag(e.target.value)} placeholder="ex: cortes" className="bg-background" />
+            <Input value={tag} onChange={e => setTag(e.target.value)} placeholder="ex: cortes" className="bg-background" list="lead-tags-datalist" />
+            <datalist id="lead-tags-datalist">
+              {leadTags.map(t => <option key={t} value={t} />)}
+            </datalist>
           </div>
           <div className="col-span-5">
             <label className="text-xs text-muted-foreground">Projeto</label>
