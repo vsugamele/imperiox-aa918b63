@@ -1,23 +1,37 @@
-## Objetivo
-Permitir colar (Ctrl/Cmd+V) uma imagem da área de transferência direto no chat do WhatsApp, reaproveitando o pipeline atual de upload.
+## Problema
 
-## Mudanças
+A conversa `259441828044831` foi criada **antes** da feature de `@lid` (com `jid_suffix='s.whatsapp.net'`). Como o usuário não recebeu nenhuma mensagem nova desde a migração, o webhook nunca rodou para corrigir o sufixo — então o `send_message` continua tentando validar como E.164 e falha com "DDI desconhecido".
 
-**`src/components/whatsapp/ChatView.tsx`** (único arquivo)
+## Solução: fallback automático para `@lid`
 
-1. Extrair a lógica de upload de `handleFileUpload` para uma função reutilizável `uploadAndSendFile(file: File)` — mesmo fluxo de hoje (storage `whatsapp-media`, optimistic UI, `whatsapp-api?action=send_message`, `pollNew`).
-2. `handleFileUpload` passa a só chamar `uploadAndSendFile(file)`.
-3. Atualizar o `onPaste` da `<Textarea>`:
-   - Percorrer `e.clipboardData.items` procurando `kind === "file"` e `type.startsWith("image/")`.
-   - Se encontrar: `e.preventDefault()`, pegar `item.getAsFile()`, gerar nome `paste-{timestamp}.png` se vazio, mostrar `toast.info("Enviando imagem colada…")` e chamar `uploadAndSendFile(file)`.
-   - Se não houver imagem: manter o comportamento atual (apenas forçar foco via `requestAnimationFrame`).
-4. Validações já existentes (10MB, provider configurado) são reaproveitadas dentro de `uploadAndSendFile`.
+Em `supabase/functions/whatsapp-api/index.ts`, no bloco `send_message` (linhas 308–319):
 
-## Fora do escopo
-- Preview antes de enviar (envio é imediato, igual ao Paperclip).
-- Colar múltiplas imagens de uma vez (envia a primeira).
-- Backend, realtime, AI config — nada muda.
+Quando `jidSuffix === 's.whatsapp.net'` **e** `normalizePhone` falhar, em vez de retornar erro imediatamente, aplicar heurística de `@lid`:
 
-## Validação
-- Print do sistema → Ctrl+V no campo → imagem sobe e aparece no chat.
-- Colar texto continua funcionando normalmente e sem perder foco.
+- Se os dígitos têm comprimento ≥ 13 (IDs `@lid` típicos têm 15) e nenhum DDI conhecido bate, assumir que é `@lid`.
+- Setar `phone = <digits>@lid`, `detectedCC = 'lid'`.
+- Fazer **UPDATE** em `imphq_wa_conversations` setando `jid_suffix='lid'` para a `conversation_id`, para corrigir o registro retroativamente.
+- Prosseguir com o envio normal.
+
+Se a heurística não bater (ex: 9 dígitos sem DDI válido), aí sim retornar o erro original.
+
+## Backfill opcional (uma migração)
+
+Atualizar registros antigos que claramente são `@lid`:
+
+```sql
+UPDATE imphq_wa_conversations
+SET jid_suffix = 'lid'
+WHERE jid_suffix = 's.whatsapp.net'
+  AND length(phone) >= 13
+  AND phone !~ '^(55|1|7|33|34|44|49|351|352|353|354|...)';
+```
+
+Mas como a heurística no `send_message` já corrige sob demanda, a migração é opcional.
+
+## Escopo
+
+- 1 arquivo: `supabase/functions/whatsapp-api/index.ts` (~15 linhas no bloco `send_message`)
+- Sem mudanças em UI
+
+Confirma que sigo?

@@ -308,14 +308,29 @@ serve(async (req) => {
       } else {
         const normalized = normalizePhone(rawPhone || "");
         if (!normalized.phone) {
-          console.warn("[send_message] número inválido:", rawPhone, "motivo:", normalized.reason);
-          return new Response(JSON.stringify({
-            success: false,
-            error: `Número fora do padrão internacional (${normalized.reason}). Verifique DDI + DDD + número.`,
-          }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+          // Heurística @lid: IDs longos (≥13 dígitos) sem DDI válido → tratar como Linked ID
+          const digits = String(rawPhone || "").replace(/\D/g, "");
+          if (digits.length >= 13 && normalized.reason === "DDI desconhecido") {
+            console.log("[send_message] fallback @lid auto-detectado para:", digits);
+            phone = `${digits}@lid`;
+            detectedCC = "lid";
+            jidSuffix = "lid";
+            // Corrige registro retroativamente
+            if (conversation_id) {
+              await supabase.from("imphq_wa_conversations")
+                .update({ jid_suffix: "lid" }).eq("id", conversation_id);
+            }
+          } else {
+            console.warn("[send_message] número inválido:", rawPhone, "motivo:", normalized.reason);
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Número fora do padrão internacional (${normalized.reason}). Verifique DDI + DDD + número.`,
+            }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+          }
+        } else {
+          phone = normalized.phone;
+          detectedCC = normalized.cc;
         }
-        phone = normalized.phone;
-        detectedCC = normalized.cc;
       }
 
       let provider = await getProvider(provider_id);
