@@ -57,7 +57,11 @@ export default function Configuracoes() {
           <TabsTrigger value="webhook-log" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <ScrollText className="h-3.5 w-3.5 mr-2" /> Log Webhooks
           </TabsTrigger>
+          <TabsTrigger value="tag-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Tag className="h-3.5 w-3.5 mr-2" /> Tag → Projeto
+          </TabsTrigger>
         </TabsList>
+
 
         <div className="flex-1 min-w-0">
           {isAdmin && <TabsContent value="usuarios"><UsuariosTab /></TabsContent>}
