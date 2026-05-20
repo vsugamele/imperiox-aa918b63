@@ -145,6 +145,17 @@ Deno.serve(async (req) => {
       updates.data = { ...currentData, visitor_id: currentData.visitor_id || leadId, ...formMeta };
       await supabase.from("imphq_leads").update(updates).eq("id", leadId);
     } else {
+      // Resolver tag → projeto se nenhum projectId foi informado
+      if (!projectId && tags.length) {
+        const { data: rule } = await supabase
+          .from("imphq_tag_project_rules")
+          .select("project_id, priority")
+          .in("tag", tags)
+          .order("priority", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (rule?.project_id) projectId = rule.project_id;
+      }
       leadId = crypto.randomUUID();
       await supabase.from("imphq_leads").insert({
         id: leadId,
@@ -164,6 +175,7 @@ Deno.serve(async (req) => {
         },
       });
     }
+
 
     // --- Save extra responses if form_id exists ---
     if (body.form_id && formConfig) {
