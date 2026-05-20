@@ -360,7 +360,7 @@ serve(async (req) => {
       if (result?.ok === false && result?.error === "invalid_number") {
         return new Response(JSON.stringify({
           success: false,
-          error: "Número inválido ou não encontrado no WhatsApp.",
+          error: `Número (+${detectedCC}) não existe no WhatsApp ou é um ID de grupo.`,
           details: result.details,
         }), {
           status: 200,
