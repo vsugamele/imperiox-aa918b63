@@ -125,6 +125,18 @@ Deno.serve(async (req) => {
       if (body.phone) updates.phone = body.phone;
       if (config.status) updates.status = config.status;
 
+      // Override project_id via regra Tag→Projeto (mesmo em lead existente)
+      if (mergedTags.length) {
+        const { data: rule } = await supabase
+          .from("imphq_tag_project_rules")
+          .select("project_id, priority")
+          .in("tag", mergedTags)
+          .order("priority", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (rule?.project_id) updates.project_id = rule.project_id;
+      }
+
       await supabase.from("imphq_leads").update(updates).eq("id", leadId);
     } else {
       leadId = crypto.randomUUID();
