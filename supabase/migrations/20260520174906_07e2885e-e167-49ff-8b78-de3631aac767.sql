@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_wa_conversations ADD COLUMN IF NOT EXISTS jid_suffix text NOT NULL DEFAULT 's.whatsapp.net';

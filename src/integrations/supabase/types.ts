@@ -20502,6 +20502,7 @@ export type Database = {
           contact_name: string | null
           created_at: string
           id: string
+          jid_suffix: string
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
@@ -20525,6 +20526,7 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           id?: string
+          jid_suffix?: string
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
@@ -20548,6 +20550,7 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           id?: string
+          jid_suffix?: string
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
