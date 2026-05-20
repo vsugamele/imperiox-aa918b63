@@ -145,8 +145,8 @@ Deno.serve(async (req) => {
       updates.data = { ...currentData, visitor_id: currentData.visitor_id || leadId, ...formMeta };
       await supabase.from("imphq_leads").update(updates).eq("id", leadId);
     } else {
-      // Resolver tag → projeto se nenhum projectId foi informado
-      if (!projectId && tags.length) {
+      // Resolver tag → projeto SEMPRE que houver tags (override mesmo se veio project_id)
+      if (tags.length) {
         const { data: rule } = await supabase
           .from("imphq_tag_project_rules")
           .select("project_id, priority")
