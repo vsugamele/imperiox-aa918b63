@@ -358,6 +358,20 @@ export default function Leads() {
 
   const deleteSelected = async () => { const ids = Array.from(selectedIds); for (let i = 0; i < ids.length; i += 50) { const chunk = ids.slice(i, i + 50); await supabase.from("imphq_vendas").delete().in("lead_id", chunk); await supabase.from("imphq_leads").delete().in("id", chunk); } toast.success(`${ids.length} leads removidos`); setBulkDeleteConfirm(false); setSelectedIds(new Set()); load(); };
 
+  const moveSelectedToProject = async (projId: string | null) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { error } = await supabase.from("imphq_leads").update({ project_id: projId }).in("id", chunk);
+      if (error) { toast.error(error.message); return; }
+    }
+    toast.success(`${ids.length} leads movidos`);
+    setSelectedIds(new Set());
+    load();
+  };
+
+
   const createLead = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const id = crypto.randomUUID();
