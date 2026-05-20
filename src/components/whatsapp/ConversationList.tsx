@@ -286,6 +286,16 @@ export default function ConversationList({
                             {provLabel}
                           </Badge>
                         )}
+                        {s.jid_suffix === "lid" && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] h-4 px-1.5 shrink-0 font-medium bg-amber-500/15 border-amber-500/50 text-amber-500"
+                            title="Contato com privacidade ativa (Linked ID). Resposta funciona normalmente."
+                          >
+                            🔒 LID
+                          </Badge>
+                        )}
+
                       </div>
                       <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
                         {timeAgo(s.last_message_at || s.updated_at || s.created_at)}
