@@ -1039,6 +1039,139 @@ export type Database = {
           },
         ]
       }
+      appbrabas_formula_itens: {
+        Row: {
+          created_at: string
+          formula_id: string
+          gramas: number
+          id: string
+          ordem: number
+          percentual: number
+          pigmento_hex: string
+          pigmento_id: string | null
+          pigmento_nome: string
+        }
+        Insert: {
+          created_at?: string
+          formula_id: string
+          gramas?: number
+          id?: string
+          ordem?: number
+          percentual?: number
+          pigmento_hex: string
+          pigmento_id?: string | null
+          pigmento_nome: string
+        }
+        Update: {
+          created_at?: string
+          formula_id?: string
+          gramas?: number
+          id?: string
+          ordem?: number
+          percentual?: number
+          pigmento_hex?: string
+          pigmento_id?: string | null
+          pigmento_nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_formula_itens_formula_id_fkey"
+            columns: ["formula_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_formulas_cor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_formula_itens_pigmento_id_fkey"
+            columns: ["pigmento_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_pigmentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_formulas_cor: {
+        Row: {
+          atendimento_id: string | null
+          cliente_id: string | null
+          created_at: string
+          criado_por: string | null
+          id: string
+          nome: string
+          objetivo: string | null
+          observacoes: string | null
+          ox_gramas: number | null
+          ox_volume: number | null
+          resultado_hex: string | null
+          resultado_label: string | null
+          salao_id: string
+          tempo_pausa_min: number | null
+          total_gramas: number
+          unidade_preferida: string
+          updated_at: string
+        }
+        Insert: {
+          atendimento_id?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          nome: string
+          objetivo?: string | null
+          observacoes?: string | null
+          ox_gramas?: number | null
+          ox_volume?: number | null
+          resultado_hex?: string | null
+          resultado_label?: string | null
+          salao_id: string
+          tempo_pausa_min?: number | null
+          total_gramas?: number
+          unidade_preferida?: string
+          updated_at?: string
+        }
+        Update: {
+          atendimento_id?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          nome?: string
+          objetivo?: string | null
+          observacoes?: string | null
+          ox_gramas?: number | null
+          ox_volume?: number | null
+          resultado_hex?: string | null
+          resultado_label?: string | null
+          salao_id?: string
+          tempo_pausa_min?: number | null
+          total_gramas?: number
+          unidade_preferida?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_formulas_cor_atendimento_id_fkey"
+            columns: ["atendimento_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_atendimentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_formulas_cor_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_formulas_cor_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_notas_fiscais: {
         Row: {
           cliente_nome: string | null
@@ -1166,6 +1299,59 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_pigmentos: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          created_at: string
+          fundamento: number | null
+          hex: string
+          id: string
+          linha: string
+          nome: string
+          reflexo: string | null
+          salao_id: string
+          tom_primario_ryb: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria: string
+          created_at?: string
+          fundamento?: number | null
+          hex: string
+          id?: string
+          linha?: string
+          nome: string
+          reflexo?: string | null
+          salao_id: string
+          tom_primario_ryb?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          fundamento?: number | null
+          hex?: string
+          id?: string
+          linha?: string
+          nome?: string
+          reflexo?: string | null
+          salao_id?: string
+          tom_primario_ryb?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_pigmentos_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
             referencedColumns: ["id"]
           },
         ]
@@ -17501,6 +17687,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_integration_credentials: {
+        Row: {
+          created_at: string
+          credentials: Json
+          id: string
+          project_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credentials?: Json
+          id?: string
+          project_id: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credentials?: Json
+          id?: string
+          project_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       imphq_kanban: {
         Row: {
@@ -38161,6 +38374,10 @@ export type Database = {
       reset_daily_water_intake: { Args: never; Returns: undefined }
       reset_weekly_exercise_data: { Args: never; Returns: undefined }
       run_cleanup_job: { Args: never; Returns: undefined }
+      seed_pigmentos_padrao: {
+        Args: { p_salao_id: string }
+        Returns: undefined
+      }
       spend_points: {
         Args: { p_amount: number; p_type: string; p_user_id: string }
         Returns: boolean
