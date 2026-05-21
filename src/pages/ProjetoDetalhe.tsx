@@ -91,9 +91,19 @@ export default function ProjetoDetalhe() {
               </span>
             )}
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground/70 mb-1">
-                Projeto · {project.id}
-              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(project.id);
+                  toast.success(`Project ID copiado: ${project.id}`);
+                }}
+                title="Clique para copiar o Project ID (use em webhooks e integrações)"
+                className="group/pid mb-1 inline-flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-2 py-1 text-[10px] uppercase tracking-editorial text-muted-foreground/80 hover:text-primary hover:border-primary/40 transition"
+              >
+                <span>Project ID</span>
+                <code className="font-mono text-foreground/90 normal-case tracking-normal">{project.id}</code>
+                <Copy className="h-3 w-3 opacity-60 group-hover/pid:opacity-100" />
+              </button>
               {editingName ? (
                 <Input
                   value={project.name || ""}
