@@ -1,106 +1,79 @@
-## Objetivo
+# Plano — Painel de Lançamentos + Diagnóstico de E-mails
 
-Substituir o nó `n8n-nodes-instagram-token` por um módulo nativo da ImperioHQ, com token **por projeto** (igual FB/WhatsApp já fazem), suportando DMs, gestão de comentários e webhooks em tempo real. UI tanto em `ProjetoDetalhe → Integrações` quanto em página global `/instagram`.
+## Diagnóstico do que está quebrado hoje
 
----
+**Bug em `/campanhas`:** `src/pages/Campanhas.tsx` faz `select("id,nome")` em `imphq_projects`, mas a coluna real é `name` (sem "nome"). O Supabase devolve erro silencioso → lista de projetos, produtos e sequências vem vazia no modal e nos filtros. Por isso "não puxa projetos, tags, produtos".
 
-## 1. Banco de dados
+Além disso, hoje **existem 0 campanhas cadastradas** (646 leads, mas nenhum agrupado em campanha), então mesmo após o fix a tela continuaria vazia — precisa de uma forma rápida de criar/auto-popular lançamentos.
 
-**Tabelas novas (`imphq_`):**
-
-- `imphq_ig_accounts` — uma linha por projeto/conta conectada
-  - `id uuid pk`, `project_id text fk`, `ig_user_id text` (Business Account ID, auto-discovered), `username text`, `page_id text`, `display_name text`, `status text` (`active|expired|error`), `last_refresh_at timestamptz`, `expires_at timestamptz`, `created_at`, `updated_at`
-- `imphq_ig_conversations` — espelho do `imphq_wa_conversations`
-  - `id uuid pk`, `account_id uuid fk`, `ig_thread_id text`, `participant_id text`, `participant_username text`, `participant_avatar text`, `last_message text`, `last_message_at timestamptz`, `unread_count int`, `lead_id text fk null`
-- `imphq_ig_messages` — `id uuid`, `conversation_id uuid fk`, `direction text` (`in|out`), `type text` (`text|image|audio|video|template|reply`), `content text`, `media_url text`, `mid text` (ID do Meta), `status text`, `created_at`
-- `imphq_ig_comments` — `id uuid`, `account_id uuid fk`, `media_id text`, `comment_id text uniq`, `from_username text`, `text text`, `is_hidden bool`, `replied bool`, `created_at`
-- `imphq_ig_webhook_logs` — auditoria igual `imphq_webhook_logs`
-
-**Tokens:** vão para `imphq_integration_credentials` com `provider='instagram'` e `project_id` (já temos o padrão — token nunca em JSONB). OAuth state também vai aí.
-
-**RLS:** mesmo padrão de FB Ads — `auth.uid() is not null` para leitura; writes restritos a service role + edge functions.
+Sobre e-mails: o projeto `jp_freitas` (Jonathan) tem 440 leads. Existem as tabelas `imphq_nurture_sequences`, `imphq_nurture_emails`, `imphq_lead_sequence_enrollments`. Hoje **não há tela que mostre, por lançamento, quantos leads entraram em sequência e quantos e-mails foram enviados** — é isso que vamos construir.
 
 ---
 
-## 2. Edge Functions
+## O que vou entregar
 
-| Função | Propósito |
-|---|---|
-| `instagram-oauth-start` | Gera URL do Facebook Login (scopes: `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`, `pages_messaging`, `pages_show_list`) com `state=<project_id>` |
-| `instagram-oauth-callback` | Recebe `code`, troca por short-lived → long-lived (60d), descobre `ig_user_id` via `/me/accounts` + `instagram_business_account`, grava em `imphq_integration_credentials` e `imphq_ig_accounts` |
-| `instagram-token-refresh` (cron diário) | Renova tokens com <7d de validade via `/refresh_access_token`; marca `status='expired'` se falhar |
-| `instagram-api` | Proxy/roteador único (padrão do `whatsapp-api`). Actions: `send_text`, `send_media`, `send_quick_replies`, `private_reply`, `reply_comment`, `hide_comment`, `unhide_comment`, `delete_comment`, `list_conversations`, `list_messages`, `fetch_account` |
-| `instagram-webhook` | `verify_jwt=false`. GET handshake (`hub.challenge`), POST normaliza eventos (`messages`, `messaging_postbacks`, `comments`, `mentions`) e grava em `imphq_ig_messages`/`imphq_ig_comments` + dispara automações |
-| `instagram-manual-token` | Valida e salva token colado manualmente (caminho rápido) |
+### 1. Fix do `/campanhas` (rápido)
+- Trocar `select("id,nome")` por `select("id,name")` em `imphq_projects` e ajustar `projects` para `{id, name}`.
+- Adicionar campo **Tags** no editor de campanha (multi-select usando tags existentes do projeto).
+- Adicionar autocomplete de **Produto** baseado em `imphq_vendas.produto_nome` distinct por projeto.
 
-Padrão action routing (query OU body) + corsHeaders + Zod nos inputs, como nas demais.
+### 2. Nova página `/lancamentos` — Painel de Leads por Lançamento
+Visão executiva pra responder "quantos leads em cada lançamento":
 
----
+- **Cards de KPI por lançamento** (campanha OU projeto se sem campanha):
+  - Leads totais, leads 24h / 7d / 30d, ritmo (leads/dia), origem top (utm_source)
+  - Status de nutrição: **% enrolados em sequência**, **e-mails enviados**, **taxa de abertura** (se houver dados)
+- **Filtro** por projeto, status, período.
+- **Tabela detalhada** com drill: clique abre painel lateral com últimos 20 leads do lançamento + timeline da sequência.
+- **Botão "Criar lançamento a partir deste projeto"** que cria uma `imphq_campaign` pré-preenchida quando ainda não existe.
 
-## 3. Token: ambos caminhos
+### 3. Diagnóstico de e-mails do projeto Jonathan
+Card destacado no topo de `/lancamentos` quando o projeto selecionado for `jp_freitas`:
 
-- **Caminho rápido — token manual:** form em `ProjetoDetalhe → Integrações → Instagram`. Cola token long-lived + (opcional) Business Account ID. Salva via `instagram-manual-token`. Auto-refresh ainda funciona se o token foi gerado com `ig_refresh_token` permission.
-- **Caminho completo — OAuth:** botão "Conectar com Facebook". Abre popup → `instagram-oauth-start` → callback persiste tudo. Refresh automático via cron.
+- **"X de 440 leads estão recebendo e-mails"** (conta enrollments ativos).
+- Lista os leads **sem sequência** com botão **"Inscrever em massa"** (abre `BulkEnrollDialog` que já existe em `src/components/nurture/BulkEnrollDialog.tsx`).
+- Mostra qual sequência está configurada como **default da campanha** (campo `data.default_sequence_id` já suportado no editor).
+- Link direto para `/nutricao` para editar a sequência.
 
-Usuário escolhe no momento. Mesma tabela, mesmo fluxo a partir daí.
-
----
-
-## 4. Webhooks
-
-Configurar no Meta App: callback `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/instagram-webhook`, verify token guardado em secret `IG_WEBHOOK_VERIFY_TOKEN`. Subscribe fields: `messages`, `messaging_postbacks`, `comments`, `mentions`.
-
-Eventos disparam:
-- Inserção em `imphq_ig_messages` → Realtime atualiza UI
-- Lead matching por `participant_username` (cria `imphq_leads` se não existir, igual WhatsApp)
-- Hook futuro para automações (envio para `imphq_ai_actions` quando comentário tem palavra-chave)
+### 4. Configuração de e-mail por campanha
+Reaproveita o que já existe (campo `default_sequence_id` no editor de campanha) + adiciona:
+- Toggle **"Auto-enroll novos leads"** explícito.
+- Aviso visual quando a campanha tem leads mas nenhuma sequência default definida.
 
 ---
 
-## 5. UI
+## Detalhes técnicos
 
-### A) Aba em `ProjetoDetalhe → Integrações`
-Componente `InstagramTab.tsx`:
-- Status da conta (conectado/expirado), `@username`, dias até expirar, botão "Renovar agora"
-- Toggle entre "Colar token" e "Conectar via Facebook"
-- Lista compacta de últimas 5 DMs + 5 comentários
-- Link "Abrir Inbox completo →" para `/instagram?project=<id>`
+**Arquivos a alterar:**
+- `src/pages/Campanhas.tsx` — fix `nome`→`name`, adicionar tags/produto.
+- `src/pages/Lancamentos.tsx` (novo) — página painel.
+- `src/components/lancamentos/LancamentoCard.tsx` (novo) — card KPI.
+- `src/components/lancamentos/LeadsNurtureDiagnostic.tsx` (novo) — card de diagnóstico de e-mails.
+- `src/App.tsx` + `src/components/AppSidebar.tsx` — rota e link no menu.
 
-### B) Página global `/instagram` (estilo `/whatsapp`)
-- Sidebar esquerda: lista de contas conectadas (filtro por projeto)
-- Centro: lista de conversas (DMs) + tab "Comentários"
-- Direita: thread ativa com envio de texto/imagem/áudio/vídeo/quick replies
-- Tab "Comentários": tabela com responder / ocultar / deletar / private reply
-- Filtros persistentes em localStorage (mesmo padrão do v2 WhatsApp)
+**Sem mudanças de schema necessárias.** Tudo já existe:
+- Campanha ↔ leads: `imphq_leads.data->>'campaign_id'`
+- Campanha ↔ sequência: `imphq_campaigns.data->>'default_sequence_id'`
+- Enrollments: `imphq_lead_sequence_enrollments`
+- E-mails enviados: `imphq_nurture_emails` + logs existentes
 
-Rota adicionada em `App.tsx` + item no `AppSidebar.tsx` (ícone Instagram).
-
----
-
-## 6. Secrets necessários
-
-- `META_APP_ID` (público, mas guardado por consistência)
-- `META_APP_SECRET`
-- `IG_WEBHOOK_VERIFY_TOKEN` (gerado por nós; usuário cola no Meta App)
-
-A primeira vez pedirei via `add_secret`.
+**Fora de escopo (posso fazer depois se quiser):**
+- Criar novo provedor de envio de e-mail (você já usa o sistema de nutrição interno).
+- Mudar a engine de envio para Lovable Emails / Resend.
 
 ---
 
-## 7. Entregas em ordem
+```text
+/lancamentos
+┌─────────────────────────────────────────────────┐
+│ [Projeto: Jonathan ▾] [Período: 30d ▾]          │
+├─────────────────────────────────────────────────┤
+│ ⚠ Diagnóstico Jonathan                          │
+│ 312/440 leads recebendo e-mails  [Inscrever 128]│
+├─────────────────────────────────────────────────┤
+│ Lançamento A   210 leads  ▲ +18/d   85% nutrid. │
+│ Lançamento B   104 leads  ▲ +6/d    12% nutrid. │
+└─────────────────────────────────────────────────┘
+```
 
-1. Migração SQL (5 tabelas + RLS + índices)
-2. Edge Functions na ordem: `instagram-manual-token` → `instagram-api` (send_text + list) → `instagram-webhook` → `instagram-oauth-start/callback` → `instagram-token-refresh` (cron)
-3. UI: `InstagramTab.tsx` no ProjetoDetalhe (MVP)
-4. Página `/instagram` completa (inbox DMs + comentários)
-5. Memória do projeto: salvar arquitetura em `mem://features/instagram/architecture`
-
----
-
-## Fora de escopo (deixar pra depois)
-
-- Publicação de feed/reels/stories (você só marcou DMs + comentários + webhooks)
-- Templates botão/carrossel (raramente usado em IG, podemos adicionar se precisar)
-- Analytics de insights de mídia
-
-Confirma que sigo nessa ordem?
+Confirma que faz sentido e eu implemento.
