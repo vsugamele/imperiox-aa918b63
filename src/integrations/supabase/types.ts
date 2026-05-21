@@ -17251,6 +17251,254 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ig_accounts: {
+        Row: {
+          auth_method: string
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          expires_at: string | null
+          id: string
+          ig_user_id: string | null
+          last_refresh_at: string | null
+          metadata: Json | null
+          page_access_token_ref: string | null
+          page_id: string | null
+          project_id: string
+          status: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          auth_method?: string
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          expires_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          last_refresh_at?: string | null
+          metadata?: Json | null
+          page_access_token_ref?: string | null
+          page_id?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          auth_method?: string
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          expires_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          last_refresh_at?: string | null
+          metadata?: Json | null
+          page_access_token_ref?: string | null
+          page_id?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      imphq_ig_comments: {
+        Row: {
+          account_id: string
+          comment_id: string
+          created_at: string
+          from_user_id: string | null
+          from_username: string | null
+          id: string
+          is_hidden: boolean
+          media_id: string | null
+          parent_comment_id: string | null
+          replied: boolean
+          reply_text: string | null
+          text: string | null
+        }
+        Insert: {
+          account_id: string
+          comment_id: string
+          created_at?: string
+          from_user_id?: string | null
+          from_username?: string | null
+          id?: string
+          is_hidden?: boolean
+          media_id?: string | null
+          parent_comment_id?: string | null
+          replied?: boolean
+          reply_text?: string | null
+          text?: string | null
+        }
+        Update: {
+          account_id?: string
+          comment_id?: string
+          created_at?: string
+          from_user_id?: string | null
+          from_username?: string | null
+          id?: string
+          is_hidden?: boolean
+          media_id?: string | null
+          parent_comment_id?: string | null
+          replied?: boolean
+          reply_text?: string | null
+          text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_comments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_conversations: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          ig_thread_id: string | null
+          last_message: string | null
+          last_message_at: string | null
+          lead_id: string | null
+          participant_avatar: string | null
+          participant_id: string
+          participant_name: string | null
+          participant_username: string | null
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          ig_thread_id?: string | null
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_id?: string | null
+          participant_avatar?: string | null
+          participant_id: string
+          participant_name?: string | null
+          participant_username?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          ig_thread_id?: string | null
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_id?: string | null
+          participant_avatar?: string | null
+          participant_id?: string
+          participant_name?: string | null
+          participant_username?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_conversations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          media_url: string | null
+          metadata: Json | null
+          mid: string | null
+          status: string | null
+          type: string
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          direction: string
+          id?: string
+          media_url?: string | null
+          metadata?: Json | null
+          mid?: string | null
+          status?: string | null
+          type?: string
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          media_url?: string | null
+          metadata?: Json | null
+          mid?: string | null
+          status?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_webhook_logs: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          payload: Json | null
+          processed: boolean
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_webhook_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_kanban: {
         Row: {
           assignee: string | null
