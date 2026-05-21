@@ -2345,6 +2345,7 @@ export type Database = {
           error: string | null
           event: string
           from_email: string | null
+          html: string | null
           id: string
           job_id: string | null
           payload: Json
@@ -2360,6 +2361,7 @@ export type Database = {
           error?: string | null
           event: string
           from_email?: string | null
+          html?: string | null
           id?: string
           job_id?: string | null
           payload?: Json
@@ -2375,6 +2377,7 @@ export type Database = {
           error?: string | null
           event?: string
           from_email?: string | null
+          html?: string | null
           id?: string
           job_id?: string | null
           payload?: Json
@@ -37842,6 +37845,10 @@ export type Database = {
         Returns: boolean
       }
       areamembrojp_is_admin: { Args: { _uid: string }; Returns: boolean }
+      areamembrojp_program_metrics: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
       areamembrojp_promote_admin_by_email: {
         Args: { _email: string }
         Returns: string
