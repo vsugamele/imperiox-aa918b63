@@ -461,6 +461,10 @@ export type Database = {
           data: string
           fechamento: string | null
           id: string
+          observacoes: string | null
+          operador_id: string | null
+          operador_nome: string | null
+          salao_id: string | null
           saldo_final: number | null
           saldo_inicial: number | null
           status: string
@@ -472,6 +476,10 @@ export type Database = {
           data?: string
           fechamento?: string | null
           id?: string
+          observacoes?: string | null
+          operador_id?: string | null
+          operador_nome?: string | null
+          salao_id?: string | null
           saldo_final?: number | null
           saldo_inicial?: number | null
           status?: string
@@ -483,6 +491,10 @@ export type Database = {
           data?: string
           fechamento?: string | null
           id?: string
+          observacoes?: string | null
+          operador_id?: string | null
+          operador_nome?: string | null
+          salao_id?: string | null
           saldo_final?: number | null
           saldo_inicial?: number | null
           status?: string
@@ -1697,6 +1709,107 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      appbrabas_ticket_mensagens: {
+        Row: {
+          anexos: Json | null
+          autor_id: string
+          autor_nome: string | null
+          autor_tipo: string
+          created_at: string
+          id: string
+          mensagem: string
+          ticket_id: string
+        }
+        Insert: {
+          anexos?: Json | null
+          autor_id: string
+          autor_nome?: string | null
+          autor_tipo: string
+          created_at?: string
+          id?: string
+          mensagem: string
+          ticket_id: string
+        }
+        Update: {
+          anexos?: Json | null
+          autor_id?: string
+          autor_nome?: string | null
+          autor_tipo?: string
+          created_at?: string
+          id?: string
+          mensagem?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_ticket_mensagens_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_tickets: {
+        Row: {
+          anexos: Json | null
+          assunto: string
+          categoria: string
+          created_at: string
+          criado_por: string
+          criado_por_nome: string | null
+          descricao: string
+          id: string
+          nao_lidas_admin: number
+          nao_lidas_salao: number
+          prioridade: string
+          salao_id: string
+          status: string
+          ultima_resposta_em: string | null
+          ultima_resposta_por: string | null
+          updated_at: string
+          url_contexto: string | null
+        }
+        Insert: {
+          anexos?: Json | null
+          assunto: string
+          categoria?: string
+          created_at?: string
+          criado_por: string
+          criado_por_nome?: string | null
+          descricao: string
+          id?: string
+          nao_lidas_admin?: number
+          nao_lidas_salao?: number
+          prioridade?: string
+          salao_id: string
+          status?: string
+          ultima_resposta_em?: string | null
+          ultima_resposta_por?: string | null
+          updated_at?: string
+          url_contexto?: string | null
+        }
+        Update: {
+          anexos?: Json | null
+          assunto?: string
+          categoria?: string
+          created_at?: string
+          criado_por?: string
+          criado_por_nome?: string | null
+          descricao?: string
+          id?: string
+          nao_lidas_admin?: number
+          nao_lidas_salao?: number
+          prioridade?: string
+          salao_id?: string
+          status?: string
+          ultima_resposta_em?: string | null
+          ultima_resposta_por?: string | null
+          updated_at?: string
+          url_contexto?: string | null
+        }
+        Relationships: []
       }
       appbrabas_transacoes: {
         Row: {
