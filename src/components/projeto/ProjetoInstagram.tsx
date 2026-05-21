@@ -35,9 +35,10 @@ export function ProjetoInstagram({ projectId }: Props) {
 
   async function load() {
     setLoading(true);
+    const sb = supabase as any;
     const [accRes, credRes] = await Promise.all([
-      supabase.from("imphq_ig_accounts").select("*").eq("project_id", projectId).maybeSingle(),
-      supabase.from("imphq_integration_credentials").select("credentials").eq("project_id", projectId).eq("provider", "instagram").maybeSingle(),
+      sb.from("imphq_ig_accounts").select("*").eq("project_id", projectId).maybeSingle(),
+      sb.from("imphq_integration_credentials").select("credentials").eq("project_id", projectId).eq("provider", "instagram").maybeSingle(),
     ] as PromiseLike<any>[]);
     setAccount(accRes.data);
     const c = credRes.data?.credentials || {};
