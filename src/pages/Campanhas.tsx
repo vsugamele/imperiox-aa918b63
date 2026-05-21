@@ -261,7 +261,24 @@ export default function Campanhas() {
             </div>
             <div>
               <Label>Produto (opcional)</Label>
-              <Input value={edit?.produto || ""} onChange={e => setEdit({ ...edit!, produto: e.target.value })} className="bg-background" />
+              <Input
+                value={edit?.produto || ""}
+                onChange={e => setEdit({ ...edit!, produto: e.target.value })}
+                className="bg-background"
+                list="produto-options"
+                placeholder="Digite ou selecione…"
+              />
+              <datalist id="produto-options">
+                {produtoOptions.map(p => <option key={p} value={p} />)}
+              </datalist>
+            </div>
+            <div>
+              <Label>Tags (segmentação)</Label>
+              <TagAutocomplete
+                tags={((edit?.data as any)?.tags || []) as string[]}
+                onChange={(tags) => setEdit({ ...edit!, data: { ...(edit?.data || {}), tags } })}
+                placeholder="Adicionar tag..."
+              />
             </div>
             <div>
               <Label>Sequência de nutrição padrão (auto-enroll de novos leads)</Label>
