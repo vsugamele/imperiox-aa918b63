@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, Target, Trash2, Pencil } from "lucide-react";
+import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
 
 interface Campaign {
   id: string;
@@ -39,6 +40,7 @@ export default function Campanhas() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [projects, setProjects] = useState<Array<{ id: string; nome: string }>>([]);
   const [sequences, setSequences] = useState<Array<{ id: string; nome: string; project_id: string | null }>>([]);
+  const [produtoOptions, setProdutoOptions] = useState<string[]>([]);
   const [leadCounts, setLeadCounts] = useState<Record<string, { d7: number; d30: number; total: number }>>({});
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
@@ -47,13 +49,15 @@ export default function Campanhas() {
   const [edit, setEdit] = useState<Partial<Campaign> | null>(null);
 
   const load = async () => {
-    const [{ data: cps }, { data: prjs }, { data: seqs }] = await Promise.all([
+    const [{ data: cps }, { data: prjs }, { data: seqs }, { data: vendas }] = await Promise.all([
       supabase.from("imphq_campaigns").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_projects").select("id,nome"),
+      supabase.from("imphq_projects").select("id,name").order("name"),
       supabase.from("imphq_nurture_sequences").select("id,nome,project_id").order("created_at", { ascending: false }),
+      supabase.from("imphq_vendas").select("produto_nome").not("produto_nome", "is", null).limit(2000),
     ] as PromiseLike<any>[]);
     setCampaigns((cps || []) as any);
-    setProjects((prjs || []) as any);
+    setProjects(((prjs || []) as any[]).map((p: any) => ({ id: p.id, nome: p.name })));
+    setProdutoOptions(Array.from(new Set((vendas || []).map((v: any) => v.produto_nome).filter(Boolean))).sort() as string[]);
     setSequences((seqs || []) as any);
 
     // Aggregate leads per campaign_id via leads.data.campaign_id
