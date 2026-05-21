@@ -242,6 +242,7 @@ export default function ProjetoDetalhe() {
             <TabsTrigger value="expert_panel" className="editorial-tab">🧭 Painel</TabsTrigger>
             <TabsTrigger value="insights" className="editorial-tab">✨ Insights</TabsTrigger>
             <TabsTrigger value="analytics" className="editorial-tab">📈 Analytics</TabsTrigger>
+            <TabsTrigger value="instagram" className="editorial-tab">📸 Instagram</TabsTrigger>
           </TabsList>
         </div>
 
