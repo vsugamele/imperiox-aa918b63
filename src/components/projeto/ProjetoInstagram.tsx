@@ -86,7 +86,8 @@ export function ProjetoInstagram({ projectId }: Props) {
   }
 
   async function saveVerifyToken() {
-    const { data: cur } = await supabase
+    const sb = supabase as any;
+    const { data: cur } = await sb
       .from("imphq_integration_credentials")
       .select("id, credentials")
       .eq("project_id", projectId)
@@ -94,9 +95,9 @@ export function ProjetoInstagram({ projectId }: Props) {
       .maybeSingle();
     const credentials = { ...(cur?.credentials || {}), webhook_verify_token: verifyToken };
     if (cur) {
-      await supabase.from("imphq_integration_credentials").update({ credentials }).eq("id", cur.id);
+      await sb.from("imphq_integration_credentials").update({ credentials }).eq("id", cur.id);
     } else {
-      await supabase.from("imphq_integration_credentials").insert({ project_id: projectId, provider: "instagram", credentials });
+      await sb.from("imphq_integration_credentials").insert({ project_id: projectId, provider: "instagram", credentials });
     }
     toast.success("Verify token salvo");
   }
