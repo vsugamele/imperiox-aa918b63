@@ -20708,17 +20708,23 @@ export type Database = {
       }
       imphq_wa_ai_config: {
         Row: {
+          ai_model: string | null
+          ai_provider: string
+          ai_temperature: number
+          ai_top_p: number
           business_hours_end: string | null
           business_hours_only: boolean | null
           business_hours_start: string | null
           context_sources: string[] | null
           created_at: string | null
           custom_instructions: string | null
+          draft_mode: boolean
           enabled: boolean | null
           escalation_keywords: string[] | null
           expert_persona: string | null
           faq: Json
           id: string
+          learning_mode: boolean
           max_tokens: number | null
           personality: string | null
           product_focus: string | null
@@ -20729,17 +20735,23 @@ export type Database = {
           welcome_message: string | null
         }
         Insert: {
+          ai_model?: string | null
+          ai_provider?: string
+          ai_temperature?: number
+          ai_top_p?: number
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
           context_sources?: string[] | null
           created_at?: string | null
           custom_instructions?: string | null
+          draft_mode?: boolean
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
           id?: string
+          learning_mode?: boolean
           max_tokens?: number | null
           personality?: string | null
           product_focus?: string | null
@@ -20750,17 +20762,23 @@ export type Database = {
           welcome_message?: string | null
         }
         Update: {
+          ai_model?: string | null
+          ai_provider?: string
+          ai_temperature?: number
+          ai_top_p?: number
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
           context_sources?: string[] | null
           created_at?: string | null
           custom_instructions?: string | null
+          draft_mode?: boolean
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
           id?: string
+          learning_mode?: boolean
           max_tokens?: number | null
           personality?: string | null
           product_focus?: string | null
@@ -20769,6 +20787,54 @@ export type Database = {
           tone?: string | null
           updated_at?: string | null
           welcome_message?: string | null
+        }
+        Relationships: []
+      }
+      imphq_wa_ai_drafts: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          diff_ratio: number | null
+          final_text: string | null
+          id: string
+          incoming_message_id: string | null
+          incoming_text: string | null
+          model: string | null
+          project_id: string
+          provider: string | null
+          resolved_at: string | null
+          status: string
+          suggested_text: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          diff_ratio?: number | null
+          final_text?: string | null
+          id?: string
+          incoming_message_id?: string | null
+          incoming_text?: string | null
+          model?: string | null
+          project_id: string
+          provider?: string | null
+          resolved_at?: string | null
+          status?: string
+          suggested_text: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          diff_ratio?: number | null
+          final_text?: string | null
+          id?: string
+          incoming_message_id?: string | null
+          incoming_text?: string | null
+          model?: string | null
+          project_id?: string
+          provider?: string | null
+          resolved_at?: string | null
+          status?: string
+          suggested_text?: string
         }
         Relationships: []
       }
@@ -21398,6 +21464,51 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_knowledge: {
+        Row: {
+          aprovada: boolean
+          conversation_id: string | null
+          created_at: string
+          embedding: string | null
+          id: string
+          lead_id: string | null
+          pergunta: string
+          project_id: string
+          resposta: string
+          score_uso: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          aprovada?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          lead_id?: string | null
+          pergunta: string
+          project_id: string
+          resposta: string
+          score_uso?: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          aprovada?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          lead_id?: string | null
+          pergunta?: string
+          project_id?: string
+          resposta?: string
+          score_uso?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_wa_messages: {
         Row: {
           content: string
@@ -21407,12 +21518,14 @@ export type Database = {
           id: string
           media_url: string | null
           message_type: string | null
+          metadata: Json | null
           model: string | null
           phone: string | null
           project_id: string | null
           provider: string | null
           provider_message_id: string | null
           role: string | null
+          sent_by: string | null
           status: string | null
           tokens_used: number | null
         }
@@ -21424,12 +21537,14 @@ export type Database = {
           id?: string
           media_url?: string | null
           message_type?: string | null
+          metadata?: Json | null
           model?: string | null
           phone?: string | null
           project_id?: string | null
           provider?: string | null
           provider_message_id?: string | null
           role?: string | null
+          sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
         }
@@ -21441,12 +21556,14 @@ export type Database = {
           id?: string
           media_url?: string | null
           message_type?: string | null
+          metadata?: Json | null
           model?: string | null
           phone?: string | null
           project_id?: string | null
           provider?: string | null
           provider_message_id?: string | null
           role?: string | null
+          sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
         }
@@ -38442,6 +38559,20 @@ export type Database = {
           page_number: number
           similarity: number
           title: string
+        }[]
+      }
+      match_wa_knowledge: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          p_project_id: string
+          query_embedding: string
+        }
+        Returns: {
+          id: string
+          pergunta: string
+          resposta: string
+          similarity: number
         }[]
       }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
