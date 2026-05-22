@@ -441,6 +441,7 @@ serve(async (req) => {
         provider: provider.provider,
         provider_message_id: result?.key?.id || result?.sid || null,
         status: "sent",
+        sent_by,
       };
       if (media_url) {
         msgPayload.message_type = media_type || "image";
@@ -450,7 +451,7 @@ serve(async (req) => {
         msgPayload.metadata = { failover_from: originalProviderName, sent_via: provider.instance_name };
       }
 
-      const { error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload);
+      const { data: savedMsg, error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload).select("id").maybeSingle();
 
       if (msgError) {
         console.error("[send_message] DB save error:", msgError.message);
@@ -459,6 +460,13 @@ serve(async (req) => {
 
       // Update conversation metadata
       await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0);
+
+      // Fire-and-forget: aprendizado com respostas humanas
+      if (sent_by === "human" && content && content.length > 15) {
+        supabase.functions.invoke("wa-learn-from-human", {
+          body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: project_id || provider.project_id },
+        }).catch((e: any) => console.warn("[send_message] learn invoke skip:", e?.message));
+      }
 
       return new Response(JSON.stringify({
         success: true,
