@@ -553,6 +553,19 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
+          {draft && (
+            <div className="max-w-3xl mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+              <div className="flex items-start gap-2">
+                <span className="text-primary font-semibold shrink-0">💡 Sugestão IA{draft.model ? ` · ${draft.model}` : ""}</span>
+                <p className="flex-1 text-foreground/80 whitespace-pre-wrap leading-relaxed">{draft.suggested_text}</p>
+              </div>
+              <div className="flex gap-2 mt-2 justify-end">
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => resolveDraft("discarded")}>Descartar</Button>
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => { setText(draft.suggested_text); textareaRef.current?.focus(); resolveDraft("edited", draft.suggested_text); }}>Editar</Button>
+                <Button size="sm" className="h-7 px-2 text-xs" onClick={async () => { const t = draft.suggested_text; await resolveDraft("used", t); setText(t); setTimeout(() => send(), 50); }}>Usar e enviar</Button>
+              </div>
+            </div>
+          )}
           <div className="flex items-end gap-2 max-w-3xl mx-auto">
             {/* Emoji picker */}
             <Popover open={showEmoji} onOpenChange={setShowEmoji}>
