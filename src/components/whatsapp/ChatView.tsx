@@ -390,7 +390,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       setSending(true);
       try {
         const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_message", {
-          body: { provider_id: providerId, phone, content: msgText, conversation_id: conversationId, project_id: projectId },
+          body: { provider_id: providerId, phone, content: msgText, conversation_id: conversationId, project_id: projectId, sent_by: "human" },
         });
         if (error) throw error;
         if (data && data.success === false) {
