@@ -81,6 +81,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [keywordsText, setKeywordsText] = useState("");
+  const [refineOpen, setRefineOpen] = useState(false);
 
   useEffect(() => {
     loadConfig();
