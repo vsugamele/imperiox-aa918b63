@@ -317,7 +317,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           body: {
             provider_id: providerId, phone, content: caption,
             conversation_id: conversationId, project_id: projectId,
-            media_url: mediaUrl, media_type: mediaType,
+            media_url: mediaUrl, media_type: mediaType, sent_by: "human",
           },
         });
         if (error) throw error;
