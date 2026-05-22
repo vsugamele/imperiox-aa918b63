@@ -280,7 +280,8 @@ serve(async (req) => {
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover } = body;
+      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover, sent_by: rawSentBy } = body;
+      const sent_by = rawSentBy || "human";
 
       // Buscar sufixo JID da conversa (s.whatsapp.net | lid)
       let jidSuffix = "s.whatsapp.net";
