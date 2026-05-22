@@ -982,6 +982,7 @@ serve(async (req) => {
             provider: providerType,
             provider_message_id: providerMsgId,
             status: "received",
+            sent_by: "lead",
           });
 
 
