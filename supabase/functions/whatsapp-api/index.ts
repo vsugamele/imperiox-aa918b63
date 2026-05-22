@@ -280,7 +280,8 @@ serve(async (req) => {
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover } = body;
+      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover, sent_by: rawSentBy } = body;
+      const sent_by = rawSentBy || "human";
 
       // Buscar sufixo JID da conversa (s.whatsapp.net | lid)
       let jidSuffix = "s.whatsapp.net";
@@ -440,6 +441,7 @@ serve(async (req) => {
         provider: provider.provider,
         provider_message_id: result?.key?.id || result?.sid || null,
         status: "sent",
+        sent_by,
       };
       if (media_url) {
         msgPayload.message_type = media_type || "image";
@@ -449,7 +451,7 @@ serve(async (req) => {
         msgPayload.metadata = { failover_from: originalProviderName, sent_via: provider.instance_name };
       }
 
-      const { error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload);
+      const { data: savedMsg, error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload).select("id").maybeSingle();
 
       if (msgError) {
         console.error("[send_message] DB save error:", msgError.message);
@@ -458,6 +460,13 @@ serve(async (req) => {
 
       // Update conversation metadata
       await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0);
+
+      // Fire-and-forget: aprendizado com respostas humanas
+      if (sent_by === "human" && content && content.length > 15) {
+        supabase.functions.invoke("wa-learn-from-human", {
+          body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: project_id || provider.project_id },
+        }).catch((e: any) => console.warn("[send_message] learn invoke skip:", e?.message));
+      }
 
       return new Response(JSON.stringify({
         success: true,
@@ -973,6 +982,7 @@ serve(async (req) => {
             provider: providerType,
             provider_message_id: providerMsgId,
             status: "received",
+            sent_by: "lead",
           });
 
 
@@ -1059,6 +1069,7 @@ serve(async (req) => {
                     provider: provCmd ? "evolution" : providerType,
                     provider_message_id: providerMsgId,
                     status: "sent",
+                    sent_by: "command",
                     metadata: { source: "command", trigger: matched.trigger_word },
                   });
                   await updateConversationAfterMessage(conv.id, replyText, (conv.message_count || 0) + 1);
@@ -1237,39 +1248,144 @@ REGRAS GERAIS:
 - Se não souber a resposta, diga que vai encaminhar para um atendente humano
 - Se o lead pedir para falar com humano, diga que está encaminhando`;
 
-                  const messages = [
-                    { role: "system", content: systemPrompt },
-                  ];
+                  // ─── Few-shot: últimas respostas humanas reais do projeto ───
+                  let fewShotBlock = "";
+                  try {
+                    const { data: humanMsgs } = await supabase
+                      .from("imphq_wa_messages")
+                      .select("conversation_id, content, created_at")
+                      .eq("project_id", projectId)
+                      .eq("sent_by", "human")
+                      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+                      .order("created_at", { ascending: false })
+                      .limit(40);
+                    const pairs: { q: string; a: string }[] = [];
+                    const seen = new Set<string>();
+                    for (const hm of (humanMsgs || [])) {
+                      if (!hm.content || hm.content.length < 20) continue;
+                      const { data: prevIn } = await supabase
+                        .from("imphq_wa_messages")
+                        .select("content, created_at")
+                        .eq("conversation_id", hm.conversation_id)
+                        .eq("direction", "incoming")
+                        .lt("created_at", hm.created_at)
+                        .order("created_at", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                      if (!prevIn?.content) continue;
+                      const key = prevIn.content.slice(0, 40).toLowerCase();
+                      if (seen.has(key)) continue;
+                      seen.add(key);
+                      pairs.push({ q: prevIn.content.slice(0, 220), a: hm.content.slice(0, 280) });
+                      if (pairs.length >= 6) break;
+                    }
+                    if (pairs.length) {
+                      fewShotBlock = "\n\nEXEMPLOS DE COMO ESTE PROJETO RESPONDE (siga o estilo, tom e nível de detalhe):\n" +
+                        pairs.map((p, i) => `Exemplo ${i + 1}:\nLead: ${p.q}\nVocê: ${p.a}`).join("\n\n");
+                    }
+                  } catch (e: any) { console.warn("[webhook] few-shot skip:", e?.message); }
 
+                  // ─── RAG: busca semântica em imphq_wa_knowledge ───
+                  let ragBlock = "";
+                  try {
+                    const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
+                    if (LOVABLE_KEY && content.length > 8) {
+                      const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${LOVABLE_KEY}`, "Content-Type": "application/json" },
+                        body: JSON.stringify({ model: "google/gemini-embedding-001", input: content, dimensions: 768 }),
+                      });
+                      if (embRes.ok) {
+                        const { data: ed } = await embRes.json();
+                        const qEmb = ed?.[0]?.embedding;
+                        if (qEmb) {
+                          const { data: matches } = await supabase.rpc("match_wa_knowledge", {
+                            query_embedding: qEmb, p_project_id: projectId, match_count: 3, min_similarity: 0.72,
+                          });
+                          if (matches && matches.length) {
+                            ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME (use quando a pergunta atual for parecida):\n" +
+                              matches.map((m: any, i: number) => `Ref ${i + 1} (sim ${(m.similarity * 100).toFixed(0)}%):\nPergunta similar: ${m.pergunta}\nResposta usada: ${m.resposta}`).join("\n\n");
+                          }
+                        }
+                      }
+                    }
+                  } catch (e: any) { console.warn("[webhook] RAG skip:", e?.message); }
+
+                  const enrichedSystem = systemPrompt + fewShotBlock + ragBlock;
+
+                  const messages: any[] = [{ role: "system", content: enrichedSystem }];
                   if (chatHistory) {
                     messages.push({ role: "user", content: `Histórico recente:\n${chatHistory}\n\nNova mensagem do lead: ${content}` });
                   } else {
-                    messages.push({ role: "user", content: content });
+                    messages.push({ role: "user", content });
                   }
 
-                  // Call AI Gateway
+                  // ─── Call AI (provider switch: OpenRouter ou Lovable AI) ───
                   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-                  if (LOVABLE_API_KEY) {
-                    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+                  const provider = (aiConfig as any).ai_provider === "openrouter" ? "openrouter" : "lovable";
+                  const model = (aiConfig as any).ai_model || (provider === "openrouter" ? "openai/gpt-4o-mini" : "google/gemini-3-flash-preview");
+                  const temperature = Number((aiConfig as any).ai_temperature ?? 0.7);
+                  const top_p = Number((aiConfig as any).ai_top_p ?? 1);
+
+                  async function callLLM(prov: string, mdl: string) {
+                    if (prov === "openrouter") {
+                      if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
+                      return await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                          "Content-Type": "application/json",
+                          "HTTP-Referer": "https://imperiox.lovable.app",
+                          "X-Title": "Imperio HQ",
+                        },
+                        body: JSON.stringify({ model: mdl, messages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
+                      });
+                    }
+                    return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
                       method: "POST",
                       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        model: "google/gemini-3-flash-preview",
-                        messages,
-                        max_tokens: aiConfig.max_tokens || 300,
-                      }),
+                      body: JSON.stringify({ model: mdl, messages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
                     });
+                  }
 
-                    if (aiRes.ok) {
-                      const aiData = await aiRes.json();
-                      const aiReply = aiData.choices?.[0]?.message?.content || "";
+                  let aiRes: Response | null = null;
+                  try {
+                    aiRes = await callLLM(provider, model);
+                    if (!aiRes.ok && provider === "openrouter") {
+                      console.warn(`[webhook] OpenRouter ${aiRes.status}, fallback Lovable AI`);
+                      aiRes = await callLLM("lovable", "google/gemini-3-flash-preview");
+                    }
+                  } catch (e: any) {
+                    console.warn("[webhook] AI provider call failed, fallback:", e?.message);
+                    if (LOVABLE_API_KEY) aiRes = await callLLM("lovable", "google/gemini-3-flash-preview");
+                  }
 
-                      if (aiReply.trim()) {
-                        // Delay before sending
+                  if (aiRes && aiRes.ok) {
+                    const aiData = await aiRes.json();
+                    const aiReply = aiData.choices?.[0]?.message?.content || "";
+
+                    if (aiReply.trim()) {
+                      // ─── Modo Rascunho: grava sugestão e NÃO envia ───
+                      if ((aiConfig as any).draft_mode) {
+                        await supabase.from("imphq_wa_ai_drafts").insert({
+                          conversation_id: conv.id,
+                          project_id: projectId,
+                          incoming_text: content,
+                          suggested_text: aiReply,
+                          model,
+                          provider,
+                          status: "pending",
+                        });
+                        await supabase.from("imphq_wa_conversations").update({
+                          ai_last_reply_at: new Date().toISOString(),
+                          ai_lock_until: null,
+                        }).eq("id", conv.id);
+                        console.log(`[webhook] AI draft saved for ${phone}`);
+                      } else {
                         const delay = (aiConfig.response_delay_seconds || 3) * 1000;
                         if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 10000)));
 
-                        // Send via Evolution
                         const { data: provAI } = await supabase
                           .from("imphq_wa_providers")
                           .select("api_url, api_key, instance_name, provider")
@@ -1285,7 +1401,6 @@ REGRAS GERAIS:
                             body: JSON.stringify({ number: phone + "@s.whatsapp.net", text: aiReply }),
                           });
 
-                          // Save AI response to DB
                           await supabase.from("imphq_wa_messages").insert({
                             conversation_id: conv.id,
                             direction: "outgoing",
@@ -1295,21 +1410,22 @@ REGRAS GERAIS:
                             project_id: projectId,
                             provider: "evolution",
                             status: "sent",
+                            sent_by: "ai",
+                            metadata: { source: "ai", model, provider },
                           });
 
                           await updateConversationAfterMessage(conv.id, aiReply, (conv.message_count || 0) + 1);
-                          // marca cooldown e libera trava
                           await supabase.from("imphq_wa_conversations").update({
                             ai_last_reply_at: new Date().toISOString(),
                             ai_lock_until: null,
                           }).eq("id", conv.id);
-                          console.log(`[webhook] AI auto-reply sent to ${phone} (${aiReply.length} chars)`);
+                          console.log(`[webhook] AI auto-reply (${provider}/${model}) to ${phone} (${aiReply.length} chars)`);
                         }
                       }
-                    } else {
-                      const errText = await aiRes.text();
-                      console.warn(`[webhook] AI gateway error ${aiRes.status}:`, errText.slice(0, 200));
                     }
+                  } else if (aiRes) {
+                    const errText = await aiRes.text();
+                    console.warn(`[webhook] AI gateway error ${aiRes.status}:`, errText.slice(0, 200));
                   }
                 } else if (isEscalation) {
                   console.log(`[webhook] Escalation keyword detected from ${phone}, skipping AI`);

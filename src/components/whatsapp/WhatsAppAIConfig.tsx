@@ -185,6 +185,96 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
           <Switch checked={config.enabled} onCheckedChange={v => setConfig(p => ({ ...p, enabled: v }))} />
         </div>
 
+        {/* Modelo de IA (Provider + Model) */}
+        <div className="p-3 rounded-lg bg-secondary/30 border border-border/30 space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <p className="text-sm font-medium">Modelo de IA</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1">Provider</Label>
+              <Select value={(config as any).ai_provider || "lovable"} onValueChange={v => setConfig(p => ({ ...p, ai_provider: v } as any))}>
+                <SelectTrigger className="bg-background text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lovable">Lovable AI (Gemini, GPT-5)</SelectItem>
+                  <SelectItem value="openrouter">OpenRouter (Claude, Llama, DeepSeek…)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1">Modelo</Label>
+              <Select value={(config as any).ai_model || ""} onValueChange={v => setConfig(p => ({ ...p, ai_model: v } as any))}>
+                <SelectTrigger className="bg-background text-xs"><SelectValue placeholder="Padrão do provider" /></SelectTrigger>
+                <SelectContent>
+                  {((config as any).ai_provider === "openrouter" ? [
+                    "anthropic/claude-3.5-sonnet",
+                    "anthropic/claude-3.5-haiku",
+                    "openai/gpt-4o",
+                    "openai/gpt-4o-mini",
+                    "google/gemini-2.5-pro",
+                    "google/gemini-2.5-flash",
+                    "meta-llama/llama-3.3-70b-instruct",
+                    "deepseek/deepseek-chat",
+                    "mistralai/mistral-large",
+                  ] : [
+                    "google/gemini-3-flash-preview",
+                    "google/gemini-2.5-pro",
+                    "google/gemini-2.5-flash",
+                    "openai/gpt-5-mini",
+                    "openai/gpt-5",
+                  ]).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1">Temperatura ({Number((config as any).ai_temperature ?? 0.7).toFixed(1)})</Label>
+              <input type="range" min={0} max={1.5} step={0.1}
+                value={(config as any).ai_temperature ?? 0.7}
+                onChange={e => setConfig(p => ({ ...p, ai_temperature: parseFloat(e.target.value) } as any))}
+                className="w-full" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1">Top P ({Number((config as any).ai_top_p ?? 1).toFixed(1)})</Label>
+              <input type="range" min={0.1} max={1} step={0.1}
+                value={(config as any).ai_top_p ?? 1}
+                onChange={e => setConfig(p => ({ ...p, ai_top_p: parseFloat(e.target.value) } as any))}
+                className="w-full" />
+            </div>
+          </div>
+          {(config as any).ai_provider === "openrouter" && (
+            <p className="text-[10px] text-muted-foreground">
+              Custos por modelo: <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer" className="text-primary underline">openrouter.ai/models</a>. Em caso de erro, faz fallback automático para Lovable AI.
+            </p>
+          )}
+        </div>
+
+        {/* Aprendizado com respostas humanas */}
+        <div className="p-3 rounded-lg bg-secondary/30 border border-border/30 space-y-3">
+          <div className="flex items-center gap-2">
+            <Brain className="h-4 w-4 text-primary" />
+            <p className="text-sm font-medium">Aprendizado e Sugestões</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs">Aprender com respostas humanas</p>
+              <p className="text-[10px] text-muted-foreground">Indexa pares pergunta/resposta do time para enriquecer a IA</p>
+            </div>
+            <Switch checked={(config as any).learning_mode !== false}
+              onCheckedChange={v => setConfig(p => ({ ...p, learning_mode: v } as any))} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs">Modo Rascunho (IA sugere, humano envia)</p>
+              <p className="text-[10px] text-muted-foreground">A IA não envia sozinha — aparece banner no chat para você aprovar</p>
+            </div>
+            <Switch checked={(config as any).draft_mode === true}
+              onCheckedChange={v => setConfig(p => ({ ...p, draft_mode: v } as any))} />
+          </div>
+        </div>
+
         {/* Personality & Tone */}
         <div className="grid grid-cols-2 gap-3">
           <div>

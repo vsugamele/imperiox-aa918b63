@@ -136,6 +136,39 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const isComposingRef = useRef(false);
     const initialLoadDone = useRef(false);
     const newestTimestampRef = useRef<string | null>(null);
+    const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
+
+    // Poll AI drafts (modo rascunho)
+    useEffect(() => {
+      if (!conversationId) return;
+      let stop = false;
+      const fetchDraft = async () => {
+        const { data } = await supabase
+          .from("imphq_wa_ai_drafts")
+          .select("id, suggested_text, model")
+          .eq("conversation_id", conversationId)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1).maybeSingle();
+        if (!stop) setDraft((data as any) || null);
+      };
+      fetchDraft();
+      const t = setInterval(fetchDraft, 8000);
+      return () => { stop = true; clearInterval(t); };
+    }, [conversationId]);
+
+    const resolveDraft = async (status: "used" | "edited" | "discarded", finalText?: string) => {
+      if (!draft) return;
+      const updates: any = { status, resolved_at: new Date().toISOString() };
+      if (finalText) {
+        updates.final_text = finalText;
+        const a = draft.suggested_text || ""; const b = finalText || "";
+        const dist = Math.abs(a.length - b.length);
+        updates.diff_ratio = Math.min(1, dist / Math.max(a.length, 1));
+      }
+      await supabase.from("imphq_wa_ai_drafts").update(updates).eq("id", draft.id);
+      setDraft(null);
+    };
 
     useEffect(() => {
       supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
@@ -317,7 +350,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           body: {
             provider_id: providerId, phone, content: caption,
             conversation_id: conversationId, project_id: projectId,
-            media_url: mediaUrl, media_type: mediaType,
+            media_url: mediaUrl, media_type: mediaType, sent_by: "human",
           },
         });
         if (error) throw error;
@@ -390,7 +423,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       setSending(true);
       try {
         const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_message", {
-          body: { provider_id: providerId, phone, content: msgText, conversation_id: conversationId, project_id: projectId },
+          body: { provider_id: providerId, phone, content: msgText, conversation_id: conversationId, project_id: projectId, sent_by: "human" },
         });
         if (error) throw error;
         if (data && data.success === false) {
@@ -520,6 +553,19 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
+          {draft && (
+            <div className="max-w-3xl mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+              <div className="flex items-start gap-2">
+                <span className="text-primary font-semibold shrink-0">💡 Sugestão IA{draft.model ? ` · ${draft.model}` : ""}</span>
+                <p className="flex-1 text-foreground/80 whitespace-pre-wrap leading-relaxed">{draft.suggested_text}</p>
+              </div>
+              <div className="flex gap-2 mt-2 justify-end">
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => resolveDraft("discarded")}>Descartar</Button>
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => { setText(draft.suggested_text); textareaRef.current?.focus(); resolveDraft("edited", draft.suggested_text); }}>Editar</Button>
+                <Button size="sm" className="h-7 px-2 text-xs" onClick={async () => { const t = draft.suggested_text; await resolveDraft("used", t); setText(t); setTimeout(() => send(), 50); }}>Usar e enviar</Button>
+              </div>
+            </div>
+          )}
           <div className="flex items-end gap-2 max-w-3xl mx-auto">
             {/* Emoji picker */}
             <Popover open={showEmoji} onOpenChange={setShowEmoji}>
