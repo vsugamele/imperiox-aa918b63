@@ -62,7 +62,7 @@ async function embed(text: string): Promise<number[] | null> {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-embedding-001", input: text, dimensions: 1536 }),
+      body: JSON.stringify({ model: "google/gemini-embedding-001", input: text, dimensions: 768 }),
     });
     if (!r.ok) return null;
     const j = await r.json();
