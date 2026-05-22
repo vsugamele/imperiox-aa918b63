@@ -1069,6 +1069,7 @@ serve(async (req) => {
                     provider: provCmd ? "evolution" : providerType,
                     provider_message_id: providerMsgId,
                     status: "sent",
+                    sent_by: "command",
                     metadata: { source: "command", trigger: matched.trigger_word },
                   });
                   await updateConversationAfterMessage(conv.id, replyText, (conv.message_count || 0) + 1);
