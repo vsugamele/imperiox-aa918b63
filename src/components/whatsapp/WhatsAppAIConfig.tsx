@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw } from "lucide-react";
+import { RefineAIDialog } from "./RefineAIDialog";
 
 interface FaqItem { pergunta: string; resposta: string; }
 
@@ -80,6 +81,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [keywordsText, setKeywordsText] = useState("");
+  const [refineOpen, setRefineOpen] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -253,9 +255,14 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
 
         {/* Aprendizado com respostas humanas */}
         <div className="p-3 rounded-lg bg-secondary/30 border border-border/30 space-y-3">
-          <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-primary" />
-            <p className="text-sm font-medium">Aprendizado e Sugestões</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium">Aprendizado e Sugestões</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={() => setRefineOpen(true)} className="h-7 text-xs gap-1">
+              <Sparkles className="h-3 w-3" /> Refinar IA
+            </Button>
           </div>
           <div className="flex items-center justify-between">
             <div>
@@ -492,6 +499,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
           Salvar Configuração
         </Button>
       </CardContent>
+      <RefineAIDialog open={refineOpen} onOpenChange={setRefineOpen} projectId={projectId} />
     </Card>
   );
 }
