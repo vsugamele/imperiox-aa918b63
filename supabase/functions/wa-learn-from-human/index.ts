@@ -1,0 +1,138 @@
+// wa-learn-from-human — captura par (pergunta_lead → resposta_humana) e indexa em imphq_wa_knowledge
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  try {
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { conversation_id, message_id, project_id } = await req.json();
+    if (!conversation_id || !project_id) {
+      return new Response(JSON.stringify({ ok: false, error: "missing_params" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Aprendizado só roda se learning_mode = true na config
+    const { data: cfg } = await supabase
+      .from("imphq_wa_ai_config")
+      .select("learning_mode")
+      .eq("project_id", project_id)
+      .maybeSingle();
+    if (cfg && (cfg as any).learning_mode === false) {
+      return new Response(JSON.stringify({ ok: true, skipped: "learning_disabled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Carrega a resposta humana
+    let humanMsg: any = null;
+    if (message_id) {
+      const { data } = await supabase.from("imphq_wa_messages").select("*").eq("id", message_id).maybeSingle();
+      humanMsg = data;
+    } else {
+      const { data } = await supabase
+        .from("imphq_wa_messages")
+        .select("*")
+        .eq("conversation_id", conversation_id)
+        .eq("sent_by", "human")
+        .order("created_at", { ascending: false })
+        .limit(1).maybeSingle();
+      humanMsg = data;
+    }
+    if (!humanMsg || !humanMsg.content || humanMsg.content.length < 15) {
+      return new Response(JSON.stringify({ ok: true, skipped: "no_human_msg" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Busca pergunta antecedente do lead
+    const { data: prevIn } = await supabase
+      .from("imphq_wa_messages")
+      .select("content, created_at")
+      .eq("conversation_id", conversation_id)
+      .eq("direction", "incoming")
+      .lt("created_at", humanMsg.created_at)
+      .order("created_at", { ascending: false })
+      .limit(1).maybeSingle();
+    if (!prevIn?.content || prevIn.content.length < 4) {
+      return new Response(JSON.stringify({ ok: true, skipped: "no_prev_lead_msg" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const pergunta = String(prevIn.content).slice(0, 500);
+    const resposta = String(humanMsg.content).slice(0, 1000);
+
+    // Gera embedding (768 dims pra casar com a coluna)
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ ok: false, error: "no_lovable_key" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "google/gemini-embedding-001", input: pergunta, dimensions: 768 }),
+    });
+    if (!embRes.ok) {
+      const t = await embRes.text();
+      console.error("[wa-learn] embed error:", embRes.status, t.slice(0, 200));
+      return new Response(JSON.stringify({ ok: false, error: "embed_failed" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const embJson = await embRes.json();
+    const embedding = embJson?.data?.[0]?.embedding;
+    if (!embedding) {
+      return new Response(JSON.stringify({ ok: false, error: "no_embedding" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Dedup: se já existe par muito similar (>=0.92), incrementa score em vez de inserir
+    const { data: similars } = await supabase.rpc("match_wa_knowledge", {
+      query_embedding: embedding,
+      p_project_id: project_id,
+      match_count: 1,
+      min_similarity: 0.92,
+    });
+    if (similars && similars.length > 0) {
+      await supabase
+        .from("imphq_wa_knowledge")
+        .update({ score_uso: (similars[0].score_uso || 0) + 1, updated_at: new Date().toISOString() })
+        .eq("id", similars[0].id);
+      return new Response(JSON.stringify({ ok: true, deduped: similars[0].id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: inserted, error: insErr } = await supabase.from("imphq_wa_knowledge").insert({
+      project_id, pergunta, resposta, embedding,
+      source: "human_reply", conversation_id, aprovada: false,
+    }).select("id").maybeSingle();
+    if (insErr) {
+      console.error("[wa-learn] insert error:", insErr.message);
+      return new Response(JSON.stringify({ ok: false, error: insErr.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ ok: true, id: inserted?.id }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e: any) {
+    console.error("[wa-learn-from-human] fatal:", e);
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
