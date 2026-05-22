@@ -255,9 +255,14 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
 
         {/* Aprendizado com respostas humanas */}
         <div className="p-3 rounded-lg bg-secondary/30 border border-border/30 space-y-3">
-          <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-primary" />
-            <p className="text-sm font-medium">Aprendizado e Sugestões</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium">Aprendizado e Sugestões</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={() => setRefineOpen(true)} className="h-7 text-xs gap-1">
+              <Sparkles className="h-3 w-3" /> Refinar IA
+            </Button>
           </div>
           <div className="flex items-center justify-between">
             <div>
