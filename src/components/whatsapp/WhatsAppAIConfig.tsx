@@ -499,6 +499,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
           Salvar Configuração
         </Button>
       </CardContent>
+      <RefineAIDialog open={refineOpen} onOpenChange={setRefineOpen} projectId={projectId} />
     </Card>
   );
 }
