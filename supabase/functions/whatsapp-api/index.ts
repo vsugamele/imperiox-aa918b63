@@ -994,24 +994,27 @@ serve(async (req) => {
 
           await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
 
-          // ── Fire-and-forget triagem IA ──
-          try {
-            const { data: leadRow } = await supabase
-              .from("imphq_leads")
-              .select("id")
-              .eq("telefone", phone)
-              .eq("projeto_id", projectId)
-              .maybeSingle();
-            supabase.functions.invoke("wa-ai-triage", {
-              body: {
-                message: content,
-                conversation_id: conv.id,
-                lead_id: leadRow?.id || null,
-                projeto_id: projectId,
-              },
-            }).catch((e: any) => console.warn("[webhook] triagem invoke error:", e?.message));
-          } catch (tErr: any) {
-            console.warn("[webhook] triagem skip:", tErr?.message);
+          // ── Fire-and-forget triagem IA (pula grupos/broadcast) ──
+          const isGroup = jidSuffix === "g.us" || jidSuffix === "broadcast" || rawJid.includes("@g.us") || rawJid.includes("@broadcast");
+          if (!isGroup) {
+            try {
+              const { data: leadRow } = await supabase
+                .from("imphq_leads")
+                .select("id")
+                .eq("telefone", phone)
+                .eq("projeto_id", projectId)
+                .maybeSingle();
+              supabase.functions.invoke("wa-ai-triage", {
+                body: {
+                  message: content,
+                  conversation_id: conv.id,
+                  lead_id: leadRow?.id || null,
+                  projeto_id: projectId,
+                },
+              }).catch((e: any) => console.warn("[webhook] triagem invoke error:", e?.message));
+            } catch (tErr: any) {
+              console.warn("[webhook] triagem skip:", tErr?.message);
+            }
           }
 
           // ── Auto-reply by command ──
