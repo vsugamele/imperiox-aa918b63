@@ -188,6 +188,8 @@ export type Database = {
         Row: {
           cliente_id: string | null
           cliente_nome: string | null
+          confirmacao_enviada_em: string | null
+          confirmado_em: string | null
           created_at: string
           data: string
           horario: string
@@ -198,6 +200,7 @@ export type Database = {
           servico_id: string | null
           servico_nome: string | null
           status: string
+          token_confirmacao: string | null
           updated_at: string
           user_id: string
           valor: number | null
@@ -205,6 +208,8 @@ export type Database = {
         Insert: {
           cliente_id?: string | null
           cliente_nome?: string | null
+          confirmacao_enviada_em?: string | null
+          confirmado_em?: string | null
           created_at?: string
           data: string
           horario: string
@@ -215,6 +220,7 @@ export type Database = {
           servico_id?: string | null
           servico_nome?: string | null
           status?: string
+          token_confirmacao?: string | null
           updated_at?: string
           user_id: string
           valor?: number | null
@@ -222,6 +228,8 @@ export type Database = {
         Update: {
           cliente_id?: string | null
           cliente_nome?: string | null
+          confirmacao_enviada_em?: string | null
+          confirmado_em?: string | null
           created_at?: string
           data?: string
           horario?: string
@@ -232,6 +240,7 @@ export type Database = {
           servico_id?: string | null
           servico_nome?: string | null
           status?: string
+          token_confirmacao?: string | null
           updated_at?: string
           user_id?: string
           valor?: number | null
@@ -376,8 +385,33 @@ export type Database = {
           },
         ]
       }
+      appbrabas_atendimento_layout: {
+        Row: {
+          blocos: Json
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocos?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocos?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       appbrabas_atendimentos: {
         Row: {
+          campos_customizados: Json
           cliente_id: string | null
           created_at: string
           data: string
@@ -398,6 +432,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          campos_customizados?: Json
           cliente_id?: string | null
           created_at?: string
           data?: string
@@ -418,6 +453,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          campos_customizados?: Json
           cliente_id?: string | null
           created_at?: string
           data?: string
@@ -565,11 +601,59 @@ export type Database = {
           },
         ]
       }
+      appbrabas_cliente_fotos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data: string
+          id: string
+          legenda: string | null
+          storage_path: string | null
+          tipo: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data?: string
+          id?: string
+          legenda?: string | null
+          storage_path?: string | null
+          tipo?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data?: string
+          id?: string
+          legenda?: string | null
+          storage_path?: string | null
+          tipo?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_cliente_fotos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_clientes: {
         Row: {
           alergias: string | null
           aniversario: string | null
           celular: string | null
+          codigo: number | null
           cpf_cnpj: string | null
           created_at: string
           densidade: string | null
@@ -588,6 +672,7 @@ export type Database = {
           alergias?: string | null
           aniversario?: string | null
           celular?: string | null
+          codigo?: number | null
           cpf_cnpj?: string | null
           created_at?: string
           densidade?: string | null
@@ -606,6 +691,7 @@ export type Database = {
           alergias?: string | null
           aniversario?: string | null
           celular?: string | null
+          codigo?: number | null
           cpf_cnpj?: string | null
           created_at?: string
           densidade?: string | null
@@ -804,6 +890,96 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_crm_colunas: {
+        Row: {
+          cor: string
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+          template_msg: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+          template_msg?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          template_msg?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      appbrabas_crm_conversas: {
+        Row: {
+          cliente_id: string | null
+          coluna_id: string
+          created_at: string
+          id: string
+          nome_avulso: string | null
+          observacao: string | null
+          ordem: number
+          telefone_avulso: string | null
+          ultima_interacao_em: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          coluna_id: string
+          created_at?: string
+          id?: string
+          nome_avulso?: string | null
+          observacao?: string | null
+          ordem?: number
+          telefone_avulso?: string | null
+          ultima_interacao_em?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          coluna_id?: string
+          created_at?: string
+          id?: string
+          nome_avulso?: string | null
+          observacao?: string | null
+          ordem?: number
+          telefone_avulso?: string | null
+          ultima_interacao_em?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_crm_conversas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_crm_conversas_coluna_id_fkey"
+            columns: ["coluna_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_crm_colunas"
             referencedColumns: ["id"]
           },
         ]
@@ -38413,6 +38589,27 @@ export type Database = {
           data_type: string
         }[]
       }
+      get_crm_segmento_clientes: {
+        Args: { _servico_nome: string; _user_id: string }
+        Returns: {
+          celular: string
+          cliente_id: string
+          cliente_nome: string
+          dias_inativo: number
+          total_gasto: number
+          ultima_data: string
+          vezes: number
+        }[]
+      }
+      get_crm_segmentos: {
+        Args: { _user_id: string }
+        Returns: {
+          servico_nome: string
+          total_clientes: number
+          total_historico: number
+          ultima_data: string
+        }[]
+      }
       get_pending_points_from_deposits: {
         Args: { user_uuid: string }
         Returns: number
@@ -38618,6 +38815,10 @@ export type Database = {
       reset_daily_water_intake: { Args: never; Returns: undefined }
       reset_weekly_exercise_data: { Args: never; Returns: undefined }
       run_cleanup_job: { Args: never; Returns: undefined }
+      seed_crm_colunas_padrao: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
       seed_pigmentos_padrao: {
         Args: { p_salao_id: string }
         Returns: undefined
