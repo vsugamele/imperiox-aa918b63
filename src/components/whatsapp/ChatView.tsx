@@ -136,6 +136,39 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const isComposingRef = useRef(false);
     const initialLoadDone = useRef(false);
     const newestTimestampRef = useRef<string | null>(null);
+    const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
+
+    // Poll AI drafts (modo rascunho)
+    useEffect(() => {
+      if (!conversationId) return;
+      let stop = false;
+      const fetchDraft = async () => {
+        const { data } = await supabase
+          .from("imphq_wa_ai_drafts")
+          .select("id, suggested_text, model")
+          .eq("conversation_id", conversationId)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1).maybeSingle();
+        if (!stop) setDraft((data as any) || null);
+      };
+      fetchDraft();
+      const t = setInterval(fetchDraft, 8000);
+      return () => { stop = true; clearInterval(t); };
+    }, [conversationId]);
+
+    const resolveDraft = async (status: "used" | "edited" | "discarded", finalText?: string) => {
+      if (!draft) return;
+      const updates: any = { status, resolved_at: new Date().toISOString() };
+      if (finalText) {
+        updates.final_text = finalText;
+        const a = draft.suggested_text || ""; const b = finalText || "";
+        const dist = Math.abs(a.length - b.length);
+        updates.diff_ratio = Math.min(1, dist / Math.max(a.length, 1));
+      }
+      await supabase.from("imphq_wa_ai_drafts").update(updates).eq("id", draft.id);
+      setDraft(null);
+    };
 
     useEffect(() => {
       supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
