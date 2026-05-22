@@ -58,58 +58,122 @@ function StatusIcon({ status }: { status: string }) {
   }
 }
 
+// Extract filename from message content (e.g. "📎 file.pdf") or URL
+function extractFilename(content: string | undefined, url: string | undefined): string {
+  if (content) {
+    const cleaned = content.replace(/^[📎🎵🎬🖼️]\s*/u, "").trim();
+    if (cleaned && !/^(mídia|midia|imagem|áudio|audio|vídeo|video|arquivo|document)$/i.test(cleaned)) {
+      return cleaned;
+    }
+  }
+  if (url) {
+    try {
+      const u = new URL(url);
+      const last = u.pathname.split("/").pop();
+      if (last) return decodeURIComponent(last);
+    } catch {}
+  }
+  return "arquivo";
+}
+
+// Force-download a remote file as a blob (bypasses inline PDF rendering / cross-origin issues)
+async function forceDownload(url: string, filename: string) {
+  try {
+    const res = await fetch(url, { credentials: "omit" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch (err: any) {
+    toast.error("Falha ao baixar: " + err.message);
+    window.open(url, "_blank");
+  }
+}
+
+// Small overlay download button reused across media types
+function DownloadBtn({ url, filename, className }: { url: string; filename: string; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); forceDownload(url, filename); }}
+      title="Baixar"
+      className={
+        "inline-flex items-center justify-center rounded-full bg-background/80 hover:bg-background text-foreground p-1.5 shadow transition-colors " +
+        (className || "")
+      }
+    >
+      <Download className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 // Media renderers
 function MediaContent({ message }: { message: Message }) {
   const { message_type, media_url, content } = message;
 
   if (!media_url && message_type === "text") return null;
+  if (!media_url) return null;
 
-  if (message_type === "image" && media_url) {
+  const filename = extractFilename(content, media_url);
+
+  if (message_type === "image") {
     return (
-      <div className="mb-1">
+      <div className="mb-1 relative group">
         <img
           src={media_url}
-          alt="Imagem"
+          alt={filename}
           className="rounded-lg max-w-full max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => window.open(media_url, "_blank")}
           loading="lazy"
         />
+        <DownloadBtn url={media_url} filename={filename} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100" />
       </div>
     );
   }
 
-  if (message_type === "audio" && media_url) {
+  if (message_type === "audio") {
     return (
-      <div className="mb-1">
-        <audio controls className="max-w-full h-8" preload="none">
+      <div className="mb-1 flex items-center gap-2">
+        <audio controls className="max-w-full h-8 flex-1" preload="none">
           <source src={media_url} />
         </audio>
+        <DownloadBtn url={media_url} filename={filename} />
       </div>
     );
   }
 
-  if (message_type === "video" && media_url) {
+  if (message_type === "video") {
     return (
-      <div className="mb-1">
+      <div className="mb-1 relative group">
         <video controls className="rounded-lg max-w-full max-h-56" preload="none">
           <source src={media_url} />
         </video>
+        <DownloadBtn url={media_url} filename={filename} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100" />
       </div>
     );
   }
 
-  if (message_type === "document" && media_url) {
+  if (message_type === "document") {
     return (
-      <a
-        href={media_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 bg-background/30 rounded-lg px-3 py-2 mb-1 hover:bg-background/50 transition-colors"
-      >
+      <div className="flex items-center gap-2 bg-background/30 rounded-lg px-3 py-2 mb-1">
         <FileText className="h-5 w-5 shrink-0" />
-        <span className="text-xs truncate flex-1">{content}</span>
-        <Download className="h-3.5 w-3.5 shrink-0 opacity-60" />
-      </a>
+        <a
+          href={media_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs truncate flex-1 hover:underline"
+          title={filename}
+        >
+          {filename}
+        </a>
+        <DownloadBtn url={media_url} filename={filename} />
+      </div>
     );
   }
 
