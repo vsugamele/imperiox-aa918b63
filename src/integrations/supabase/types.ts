@@ -38894,6 +38894,13 @@ export type Database = {
           ultima_data: string
         }[]
       }
+      get_lead_tag_counts: {
+        Args: { p_limit?: number; p_project_id?: string }
+        Returns: {
+          count: number
+          tag: string
+        }[]
+      }
       get_pending_points_from_deposits: {
         Args: { user_uuid: string }
         Returns: number
