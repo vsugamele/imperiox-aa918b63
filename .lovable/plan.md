@@ -1,56 +1,69 @@
-## Importar sequência pronta para campanha de grupo
+## Diagrama de Sequências — 3 modos
 
-Hoje você tem 3 caminhos na campanha WhatsApp:
-1. Criar step a step manualmente no `CampaignStepEditor` (lento pra 30+ mensagens).
-2. Gerar via IA (`CampaignAIGenerateDialog` → `wa-campaign-ai-generate`), bom pra criar do zero, ruim quando você **já tem o copy pronto**.
-3. Não existe importar texto cru.
+Novo componente `CampaignSequenceDiagram.tsx` aberto via botão "Diagrama" no `CampaignStepEditor`, dentro de um `Dialog` largo (max-w-7xl, h-[85vh]). Reutiliza os `steps` já carregados — zero query nova.
 
-Pra esse seu caso (copy enorme, datado, blocos separados por `—----`), o melhor não é "melhorar a IA" — é criar um **Importador de Sequência**. A IA entra só como apoio pra fazer o parsing inteligente do texto datado.
+### Estrutura do Dialog
 
-### O que vou construir
+- Header: título + `ToggleGroup` com 3 modos (Timeline · Fluxo · Calendário) + botão "Exportar PNG" (html-to-image)
+- Body: `ScrollArea` com o modo selecionado
+- Footer: legenda das cores (🟢 ok · 🟡 conflito mesmo horário · 🔴 gap >48h)
 
-**1. Botão "📋 Importar texto" no CampaignStepEditor**
-- Ao lado do botão "Gerar com IA".
-- Abre `CampaignImportDialog`.
+### Modo 1 — Timeline horizontal (default)
 
-**2. CampaignImportDialog (novo)**
-- Textarea grande pra colar o copy inteiro.
-- Campo "Data base" (ex: sexta 22/05) — vira o `day_offset = 0`.
-- Botão "Analisar com IA" → chama nova edge function `wa-campaign-parse-text`.
-- Preview tabular: `#`, `dia (offset)`, `horário`, `prévia do texto`, com checkbox por item pra desmarcar o que não quer importar.
-- Botão "Importar N mensagens" → insere em lote em `imphq_wa_campaign_steps`.
+```text
+ Sex 22/05 │ Sáb 23/05 │ Dom 24/05 │ Seg 25/05 │ ...
+ ─────────┼──────────┼──────────┼──────────┼──
+ [09:00]  │ [09:00]  │          │ [08:00]  │
+ ▢ #1     │ ▢ #4     │          │ ▢ #12    │
+ check-in │ aula 1   │          │ bonus    │
+ [14:00]  │ [19:30]  │          │          │
+ ▢ #2 …   │ ▢ #5 …   │          │          │
+```
 
-**3. Edge function `wa-campaign-parse-text` (nova)**
-- Recebe `{ text, base_date, campaign_id }`.
-- Usa Lovable AI (`google/gemini-2.5-flash`) com **tool calling** (structured output) pra extrair:
-  ```
-  { steps: [{ day_label, time, content, day_offset, send_time }] }
-  ```
-- System prompt ensina a regra: separadores `—---`, cabeçalhos tipo "Sábado 23/05 - 9:00", calcular `day_offset` a partir da `base_date`, normalizar horários ("9:00" → "09:00", "20h" → "20:00"), preservar emojis/negrito/links, ignorar comentários tipo "Fazer uma Enquete" como nota não como mensagem (ou marcar `media_type: "poll"` se identificar enquete).
-- Retorna os steps prontos pra inserir (não insere — quem insere é o frontend depois do preview).
+- Eixo X = dias agrupados (header sticky com `dia + data`)
+- Cada coluna = `flex flex-col gap-2`, largura fixa 200px
+- Card: `#order` + hora em mono + 60 chars de prévia + ícone `media_type`
+- Linha vermelha tracejada vertical = "agora" se campanha ativa
 
-**4. Melhoria no Gerar com IA existente**
-- Aumentar `max count` de 14 → 60 (sua sequência tem ~35 mensagens).
-- Adicionar campo opcional "Referência de copy" (textarea) no `CampaignAIGenerateDialog` que entra no prompt como "siga este estilo/estrutura".
+### Modo 2 — Fluxo vertical (OpenFlow style)
 
-### Por que essa abordagem e não "melhorar o gerar com IA"
+```text
+   ┌─────────────┐
+   │ #1 · Sex 09h│
+   │ check-in    │
+   └──────┬──────┘
+          │ ↓ 5h depois
+   ┌──────┴──────┐
+   │ #2 · Sex 14h│
+   └──────┬──────┘
+          │ ↓ próx dia 09:00
+```
 
-- Seu texto **já está escrito e aprovado pelo cliente**. Gerar de novo perderia voz, CTAs específicos, links, datas.
-- Parsing é determinístico no objetivo (separar e datar) — IA só ajuda a interpretar a bagunça humana ("9:00", "9h", "20h00", "Sexta 22/05").
-- Você mantém controle: vê o preview antes de gravar.
+- Cards centralizados, conectados por linha SVG
+- Label entre cards calculado: `Xh depois` ou `próx dia HH:MM`
+- Click no card abre o editor inline
 
-### Fora de escopo (pode virar passo 2 se quiser)
+### Modo 3 — Calendário semanal
 
-- Anexar mídia (imagens/PDF) automaticamente — fica manual no editor depois do import.
-- Detectar "(enviar guia)" e criar step `media_type: document` em branco aguardando upload — posso fazer, só avisa.
-- Criar enquete automática quando o texto diz "Fazer uma Enquete" — posso marcar como `media_type: "poll"` mas a Evolution API exige config específica.
+- Grid 7 colunas × 24 linhas (ou 6h–23h = 18)
+- Cada step = dot colorido posicionado em `(day_offset % 7, send_time)`
+- Hover no dot mostra popover com prévia completa
+- Útil para ver densidade de horários e gaps
+
+### Detecções visuais
+
+Compartilhadas entre os modos, calculadas uma vez via `useMemo`:
+- 🟡 mesmo `day_offset` + `send_time` que outro step
+- 🔴 gap >48h entre steps consecutivos
+- 🟢 step com `media_type !== 'text'` (marco visual)
 
 ### Arquivos
 
-- `src/components/whatsapp/CampaignImportDialog.tsx` (novo)
-- `src/components/whatsapp/CampaignStepEditor.tsx` (adicionar botão)
-- `src/components/whatsapp/CampaignAIGenerateDialog.tsx` (count até 60 + campo referência)
-- `supabase/functions/wa-campaign-parse-text/index.ts` (nova)
-- `supabase/config.toml` (registrar função)
+- `src/components/whatsapp/CampaignSequenceDiagram.tsx` (novo) — todos os 3 modos num só arquivo
+- `src/components/whatsapp/CampaignStepEditor.tsx` (edit) — adicionar botão "Diagrama" (`Network` icon) e estado `showDiagram`
+- `package.json` — adicionar `html-to-image` (~15kb) para o export PNG
 
-Topa que eu siga assim?
+### Fora de escopo
+
+- Drag & drop para reordenar no diagrama (pode virar v2)
+- Edição inline dentro do diagrama (abre o editor existente)
