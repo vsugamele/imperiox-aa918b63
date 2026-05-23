@@ -2111,6 +2111,87 @@ export type Database = {
           },
         ]
       }
+      appbrabas_whatsapp_config: {
+        Row: {
+          access_token: string
+          ativo: boolean | null
+          created_at: string | null
+          enviar_aniversariantes_auto: boolean | null
+          id: string
+          phone_number_id: string
+          template_aniversario: string | null
+          updated_at: string | null
+          user_id: string
+          waba_id: string | null
+        }
+        Insert: {
+          access_token: string
+          ativo?: boolean | null
+          created_at?: string | null
+          enviar_aniversariantes_auto?: boolean | null
+          id?: string
+          phone_number_id: string
+          template_aniversario?: string | null
+          updated_at?: string | null
+          user_id: string
+          waba_id?: string | null
+        }
+        Update: {
+          access_token?: string
+          ativo?: boolean | null
+          created_at?: string | null
+          enviar_aniversariantes_auto?: boolean | null
+          id?: string
+          phone_number_id?: string
+          template_aniversario?: string | null
+          updated_at?: string | null
+          user_id?: string
+          waba_id?: string | null
+        }
+        Relationships: []
+      }
+      appbrabas_whatsapp_envios: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          erro: string | null
+          id: string
+          mensagem: string | null
+          resposta_api: Json | null
+          status: string
+          telefone: string
+          template: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          erro?: string | null
+          id?: string
+          mensagem?: string | null
+          resposta_api?: Json | null
+          status?: string
+          telefone: string
+          template?: string | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          erro?: string | null
+          id?: string
+          mensagem?: string | null
+          resposta_api?: Json | null
+          status?: string
+          telefone?: string
+          template?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       areamembrojp_authors: {
         Row: {
           avatar_url: string | null

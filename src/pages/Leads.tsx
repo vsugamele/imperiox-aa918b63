@@ -756,6 +756,7 @@ export default function Leads() {
                   <TabsTrigger value="dados" className="flex-1 text-xs">📝 Dados</TabsTrigger>
                   <TabsTrigger value="qualificacao" className="flex-1 text-xs">🎯 Qualificação</TabsTrigger>
                   <TabsTrigger value="jornada" className="flex-1 text-xs">🗺️ Jornada ({timeline.length})</TabsTrigger>
+                  <TabsTrigger value="predicoes" className="flex-1 text-xs">🔮 Predições</TabsTrigger>
                   <TabsTrigger value="automacoes" className="flex-1 text-xs">⚡ Automações</TabsTrigger>
                   <TabsTrigger value="nutricao" className="flex-1 text-xs">📧 Nutrição</TabsTrigger>
                 </TabsList>
@@ -787,6 +788,10 @@ export default function Leads() {
                       <div className="relative max-h-[400px] overflow-y-auto pr-2"><div className="absolute left-[15px] top-0 bottom-0 w-px bg-border" /><div className="space-y-3">{timeline.map((ev) => { const config = EVENT_CONFIG[ev.type] || { icon: <Zap className="h-3 w-3" />, color: "bg-muted-foreground", label: ev.type }; return (<div key={ev.id} className="flex gap-3 relative"><div className={`h-[30px] w-[30px] rounded-full ${config.color} flex items-center justify-center text-white shrink-0 z-10`}>{config.icon}</div><div className="flex-1 min-w-0 pb-1"><div className="flex items-center gap-2"><span className="text-xs font-medium">{config.label}</span><span className="text-[10px] text-muted-foreground">{(() => { try { const d = new Date(ev.timestamp); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div>{ev.subtitle && <p className="text-[11px] text-muted-foreground truncate">{ev.subtitle}</p>}{ev.details && Object.keys(ev.details).filter(k => ev.details![k]).length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(ev.details).filter(([, v]) => v).slice(0, 4).map(([k, v]) => <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 30)}</Badge>)}</div>)}</div></div>); })}</div></div>
                     </>
                   )}
+                </TabsContent>
+
+                <TabsContent value="predicoes" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {editLead?.id && <LeadPredictivePanel leadIds={[editLead.id]} projectFilter={editLead.project_id || "all"} />}
                 </TabsContent>
 
                 <TabsContent value="automacoes" className="space-y-4">
