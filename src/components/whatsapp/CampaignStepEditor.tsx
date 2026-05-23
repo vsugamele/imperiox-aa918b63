@@ -175,6 +175,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   const [showAI, setShowAI] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showDiagram, setShowDiagram] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
