@@ -265,6 +265,15 @@ export default function Leads() {
 
   useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter]);
 
+  // Persist filters
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify({
+        statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly,
+      } satisfies PersistedFilters));
+    } catch {}
+  }, [statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly]);
+
   useEffect(() => {
     const channel = supabase.channel("leads-realtime").on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_leads" }, (payload) => {
       const newLead = payload.new as Lead;
