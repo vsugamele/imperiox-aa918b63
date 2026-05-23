@@ -263,10 +263,10 @@ export default function Leads() {
   useEffect(() => {
     try {
       localStorage.setItem(FILTERS_KEY, JSON.stringify({
-        statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly,
+        statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly, tagFilter,
       } satisfies PersistedFilters));
     } catch {}
-  }, [statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly]);
+  }, [statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly, tagFilter]);
 
   useEffect(() => {
     const channel = supabase.channel("leads-realtime").on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_leads" }, (payload) => {
