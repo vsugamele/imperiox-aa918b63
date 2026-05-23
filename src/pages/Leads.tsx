@@ -125,6 +125,7 @@ const FILTERS_KEY = "imphq:leads:filters:v1";
 type PersistedFilters = {
   statusFilter: string; platformFilter: string; projectFilter: string;
   stageFilter: string; productFilter: string; formFilter: string; hotOnly: boolean;
+  tagFilter: string;
 };
 function loadPersistedFilters(): Partial<PersistedFilters> {
   try { const raw = localStorage.getItem(FILTERS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
