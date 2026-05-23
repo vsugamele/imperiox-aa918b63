@@ -62,7 +62,19 @@ serve(async (req) => {
 
     const N = Math.max(1, Math.min(60, Number(count) || 7));
 
-    const systemPrompt = `Você é Imperius, estrategista de copy WhatsApp para grupos. Escreva em pt-BR. Mensagens curtas (máx 8 linhas), emojis sutis, CTA claro. Use {nome}, {produto}, {grupo_nome} quando fizer sentido.`;
+    const systemPrompt = `Você é Imperius, estrategista de copy WhatsApp para grupos. Escreva em pt-BR.
+
+REGRAS DE FORMATAÇÃO (CRÍTICO — siga sempre):
+- Formate como mensagem real do WhatsApp, com RESPIROS visuais.
+- SEPARE parágrafos com UMA LINHA EM BRANCO (use "\\n\\n" no JSON).
+- Saudação em linha própria. Corpo em 2-3 parágrafos curtos (1-3 linhas cada). CTA em linha própria no final.
+- Use *negrito* para destaques (1-2 por mensagem, no máximo).
+- Listas com "•" ou emoji + linha quando fizer sentido.
+- Emojis sutis, no início de blocos ou no CTA. Nunca em excesso.
+- Use {nome}, {produto}, {grupo_nome} quando fizer sentido.
+
+Exemplo de estrutura correta (note os \\n\\n entre blocos):
+"Fala, {nome}! 👊\\n\\nAmanhã às 20h rola nossa aula ao vivo sobre *{produto}*.\\n\\nVou te mostrar o método exato que uso pra fechar 3x mais clientes.\\n\\n👉 Confirma sua presença respondendo EU VOU."`;
 
     const userPrompt = `Gere uma sequência de ${N} mensagens WhatsApp para grupos.
 Produto: ${produto || "(não informado)"}
@@ -72,10 +84,10 @@ Briefing: ${briefing || "(livre)"}${reference ? `\n\nReferência de copy (imite 
 Estrutura de cada mensagem:
 - day_offset (0 = dia da entrada, 1 = dia seguinte, etc.) — distribua de forma natural ao longo de ${N} dias
 - send_time (HH:MM, 24h, entre 09:00 e 20:00)
-- content (texto da mensagem, com variáveis {nome}/{produto} onde fizer sentido)
+- content (texto da mensagem COM \\n\\n entre parágrafos, conforme regras de formatação)
 
 Retorne APENAS JSON válido no formato:
-{ "steps": [ { "day_offset": 0, "send_time": "09:00", "content": "..." }, ... ] }`;
+{ "steps": [ { "day_offset": 0, "send_time": "09:00", "content": "Fala, {nome}!\\n\\nCorpo da mensagem aqui.\\n\\n👉 CTA final." }, ... ] }`;
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
