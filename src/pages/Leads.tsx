@@ -32,6 +32,8 @@ import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import LeadsTable, { getLeadStage, STAGE_LABELS, type Lead, type LeadVenda } from "@/components/leads/LeadsTable";
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
 import QuickTagRuleDialog from "@/components/leads/QuickTagRuleDialog";
+import { useLeadTags } from "@/hooks/useLeadTags";
+
 
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
@@ -469,11 +471,8 @@ export default function Leads() {
   const funnelData = useMemo(() => { const stages = { lead_capturado: 0, carrinho_abandonado: 0, pix_gerado: 0, compra_aprovada: 0 }; periodLeads.forEach(l => { const stage = getLeadStage(l); if (stage in stages) (stages as any)[stage]++; }); return [ { stage: "Leads", value: stages.lead_capturado, fill: "hsl(var(--primary))" }, { stage: "Carrinho", value: stages.carrinho_abandonado, fill: "#f59e0b" }, { stage: "Pix", value: stages.pix_gerado, fill: "#ef4444" }, { stage: "Clientes", value: stages.compra_aprovada, fill: "#10b981" } ]; }, [periodLeads]);
   const leadsByMonth = useMemo(() => { const map = new Map<string, number>(); leads.forEach(l => { if (!l.criado_em) return; try { const d = parseISO(l.criado_em); if (!isValid(d)) return; const key = format(d, "MMM/yy", { locale: ptBR }); map.set(key, (map.get(key) || 0) + 1); } catch {} }); return Array.from(map.entries()).map(([month, count]) => ({ month, count })).reverse().slice(-12); }, [leads]);
   const pixHoje = useMemo(() => leads.filter(l => { const stage = getLeadStage(l); if (!["pix_gerado", "aguardando_pagamento"].includes(stage)) return false; const refDate = getLeadActivityDate(l); if (!refDate) return true; try { return isToday(parseISO(refDate)); } catch { return false; } }), [leads]);
-  const topTags = useMemo(() => {
-    const m = new Map<string, number>();
-    leads.forEach(l => { (l.tags || []).forEach((t: string) => { if (t) m.set(t, (m.get(t) || 0) + 1); }); });
-    return Array.from(m.entries()).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count);
-  }, [leads]);
+  const { counts: topTags } = useLeadTags(projectFilter === "all" || projectFilter === "none" ? null : projectFilter);
+
 
 
   const chartConfig = { count: { label: "Leads", color: "hsl(var(--primary))" }, revenue: { label: "Receita", color: "#10b981" }, value: { label: "Qtd", color: "hsl(var(--primary))" }, leads: { label: "Leads", color: "hsl(var(--primary))" }, ads: { label: "Ads R$", color: "#ef4444" } };
