@@ -287,6 +287,7 @@ export default function Leads() {
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
     const matchForm = formFilter === "all" || (l.data as any)?.form_id === formFilter || (l.data as any)?.interacoes?.some((i: any) => i.form_id === formFilter);
+    const matchTag = tagFilter === "all" || (Array.isArray(l.tags) && l.tags.includes(tagFilter));
     let matchHot = true;
     if (hotOnly) {
       const stg = getLeadStage(l);
@@ -299,7 +300,7 @@ export default function Leads() {
         }
       }
     }
-    return matchStage && matchProduct && matchForm && matchHot;
+    return matchStage && matchProduct && matchForm && matchHot && matchTag;
   });
 
 
