@@ -624,6 +624,7 @@ export default function Leads() {
             </div>
           </TabsContent>
           <TabsContent value="predicoes" className="space-y-4"><LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} /></TabsContent>
+          <TabsContent value="custo" className="space-y-4"><LeadCostPanel periodLeads={periodLeads} periodAds={periodAds} periodRange={periodRange} /></TabsContent>
 
           {/* TAB: LEADS QUENTES */}
           <TabsContent value="quentes" className="space-y-4">
