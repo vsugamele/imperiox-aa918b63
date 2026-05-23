@@ -17,6 +17,8 @@ interface Props {
   projectCounts?: { totalAll: number; byProject: Record<string, number>; noProject: number };
   topTags?: Array<{ tag: string; count: number }>;
   onCreateRuleForTag?: (tag: string) => void;
+  tagFilter?: string;
+  onTagFilter?: (tag: string) => void;
 }
 
 export default function LeadsSidebar({
