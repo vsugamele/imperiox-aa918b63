@@ -652,17 +652,24 @@ export type Database = {
         Row: {
           alergias: string | null
           aniversario: string | null
+          bairro: string | null
           celular: string | null
+          cep: string | null
+          cidade: string | null
           codigo: number | null
+          como_conheceu: string | null
           cpf_cnpj: string | null
           created_at: string
           densidade: string | null
           elasticidade: string | null
           email: string | null
+          endereco: string | null
           id: string
           nome: string
           observacoes_capilares: string | null
           porosidade: string | null
+          preferencias_capilares: Json | null
+          tags: string[] | null
           tipo_curvatura: string | null
           tratamentos_anteriores: string | null
           updated_at: string
@@ -671,17 +678,24 @@ export type Database = {
         Insert: {
           alergias?: string | null
           aniversario?: string | null
+          bairro?: string | null
           celular?: string | null
+          cep?: string | null
+          cidade?: string | null
           codigo?: number | null
+          como_conheceu?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           densidade?: string | null
           elasticidade?: string | null
           email?: string | null
+          endereco?: string | null
           id?: string
           nome: string
           observacoes_capilares?: string | null
           porosidade?: string | null
+          preferencias_capilares?: Json | null
+          tags?: string[] | null
           tipo_curvatura?: string | null
           tratamentos_anteriores?: string | null
           updated_at?: string
@@ -690,17 +704,24 @@ export type Database = {
         Update: {
           alergias?: string | null
           aniversario?: string | null
+          bairro?: string | null
           celular?: string | null
+          cep?: string | null
+          cidade?: string | null
           codigo?: number | null
+          como_conheceu?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           densidade?: string | null
           elasticidade?: string | null
           email?: string | null
+          endereco?: string | null
           id?: string
           nome?: string
           observacoes_capilares?: string | null
           porosidade?: string | null
+          preferencias_capilares?: Json | null
+          tags?: string[] | null
           tipo_curvatura?: string | null
           tratamentos_anteriores?: string | null
           updated_at?: string
@@ -1553,6 +1574,7 @@ export type Database = {
           estoque_maximo: number
           estoque_minimo: number
           id: string
+          marca: string | null
           nome: string
           preco_custo: number
           preco_venda: number
@@ -1569,6 +1591,7 @@ export type Database = {
           estoque_maximo?: number
           estoque_minimo?: number
           id?: string
+          marca?: string | null
           nome: string
           preco_custo?: number
           preco_venda?: number
@@ -1585,6 +1608,7 @@ export type Database = {
           estoque_maximo?: number
           estoque_minimo?: number
           id?: string
+          marca?: string | null
           nome?: string
           preco_custo?: number
           preco_venda?: number
