@@ -368,12 +368,26 @@ export default function Leads() {
 
   useEffect(() => { if (editLead) loadTimeline(editLead); }, [editLead?.id]);
 
+  const HOT_STAGES = new Set(["pix_gerado", "aguardando_pagamento", "carrinho_abandonado"]);
   const filtered = leads.filter((l) => {
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
     const matchForm = formFilter === "all" || (l.data as any)?.form_id === formFilter || (l.data as any)?.interacoes?.some((i: any) => i.form_id === formFilter);
-    return matchStage && matchProduct && matchForm;
+    let matchHot = true;
+    if (hotOnly) {
+      const stg = getLeadStage(l);
+      if (!HOT_STAGES.has(stg)) matchHot = false;
+      else {
+        const ref = getLeadActivityDate(l);
+        if (!ref) matchHot = false;
+        else {
+          try { matchHot = differenceInHours(new Date(), parseISO(ref)) <= 2; } catch { matchHot = false; }
+        }
+      }
+    }
+    return matchStage && matchProduct && matchForm && matchHot;
   });
+
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const allFilteredSelected = filtered.length > 0 && filtered.every(l => selectedIds.has(l.id));
