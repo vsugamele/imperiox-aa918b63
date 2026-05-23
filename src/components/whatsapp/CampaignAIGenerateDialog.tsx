@@ -55,7 +55,7 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Quantidade de mensagens</Label>
-              <Input type="number" min={1} max={14} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 7)} className="h-9 text-sm" />
+              <Input type="number" min={1} max={60} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 7)} className="h-9 text-sm" />
             </div>
             <div>
               <Label className="text-xs">Tom</Label>
@@ -81,6 +81,19 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
             />
             <p className="text-[10px] text-muted-foreground mt-1 leading-5">
               A IA já considera o produto ({produto || "—"}) e o branding do projeto.
+            </p>
+          </div>
+          <div>
+            <Label className="text-xs">Referência de copy (opcional)</Label>
+            <Textarea
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="Cole 1-2 mensagens de exemplo que tenham o estilo, voz e estrutura que você quer replicar..."
+              rows={4}
+              className="text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1 leading-5">
+              A IA vai imitar o tom, ritmo e formato das mensagens de referência (sem copiar literalmente).
             </p>
           </div>
         </div>
