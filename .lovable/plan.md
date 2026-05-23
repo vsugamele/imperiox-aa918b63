@@ -1,69 +1,42 @@
-## Diagrama de Sequências — 3 modos
+## Problema
 
-Novo componente `CampaignSequenceDiagram.tsx` aberto via botão "Diagrama" no `CampaignStepEditor`, dentro de um `Dialog` largo (max-w-7xl, h-[85vh]). Reutiliza os `steps` já carregados — zero query nova.
+Quando a sequência é gerada (via IA) ou importada (via texto colado), os parágrafos chegam grudados — sem espaçamento entre saudação, corpo e CTA. A causa está em três pontos:
 
-### Estrutura do Dialog
+1. **`wa-campaign-ai-generate`** — o prompt pede "máx 8 linhas" mas não instrui o modelo a usar `\n\n` entre parágrafos. O Gemini devolve tudo num bloco só.
+2. **`wa-campaign-parse-text`** — o parser pede pra "preservar quebras de linha", mas não enfatiza **linhas em branco entre parágrafos** (e o `.trim()` final remove blocos vazios nas pontas). Ao reextrair, o modelo normaliza tudo pra `\n` simples.
+3. **Textarea do editor** — o campo de conteúdo no `CampaignStepEditor` usa altura padrão e não tem fonte monoespaçada nem indicação visual de quebras, o que faz parecer "grudado" mesmo quando há `\n`.
 
-- Header: título + `ToggleGroup` com 3 modos (Timeline · Fluxo · Calendário) + botão "Exportar PNG" (html-to-image)
-- Body: `ScrollArea` com o modo selecionado
-- Footer: legenda das cores (🟢 ok · 🟡 conflito mesmo horário · 🔴 gap >48h)
+A preview do WhatsApp e o diagrama já usam `whitespace-pre-wrap`, então o renderer está OK — o problema é o conteúdo salvo não ter espaçamento.
 
-### Modo 1 — Timeline horizontal (default)
+## Mudanças
 
-```text
- Sex 22/05 │ Sáb 23/05 │ Dom 24/05 │ Seg 25/05 │ ...
- ─────────┼──────────┼──────────┼──────────┼──
- [09:00]  │ [09:00]  │          │ [08:00]  │
- ▢ #1     │ ▢ #4     │          │ ▢ #12    │
- check-in │ aula 1   │          │ bonus    │
- [14:00]  │ [19:30]  │          │          │
- ▢ #2 …   │ ▢ #5 …   │          │          │
-```
+### 1. `supabase/functions/wa-campaign-ai-generate/index.ts`
+Reforçar no `systemPrompt` e no `userPrompt`:
+- "Formate como mensagem WhatsApp real: **uma linha em branco entre parágrafos** (use `\n\n`)."
+- "Saudação isolada, corpo em 2-3 parágrafos curtos, CTA em linha própria."
+- "Negrito com `*texto*`, listas com `•` ou emoji + linha."
+- Adicionar exemplo curto inline mostrando estrutura com `\n\n`.
 
-- Eixo X = dias agrupados (header sticky com `dia + data`)
-- Cada coluna = `flex flex-col gap-2`, largura fixa 200px
-- Card: `#order` + hora em mono + 60 chars de prévia + ícone `media_type`
-- Linha vermelha tracejada vertical = "agora" se campanha ativa
+### 2. `supabase/functions/wa-campaign-parse-text/index.ts`
+- Trocar instrução 6 para: "content = texto **exato** da mensagem, **preservando linhas em branco entre parágrafos** (use `\n\n`). Não colapse múltiplos `\n` em um só."
+- Trocar `String(s.content || "").trim()` por preservação interna: remover só espaços/quebras nas pontas via `.replace(/^[\s\n]+|[\s\n]+$/g, "")` (mantém os `\n\n` internos).
+- Adicionar exemplo no prompt mostrando input com linhas em branco → output com `\n\n`.
 
-### Modo 2 — Fluxo vertical (OpenFlow style)
+### 3. `src/components/whatsapp/CampaignStepEditor.tsx`
+Localizar o `Textarea` do campo `content` (~linha 420+) e:
+- Aumentar `rows` para 8 (atual provavelmente 3-4).
+- Adicionar `className="font-mono text-xs leading-6 whitespace-pre-wrap"` para mostrar quebras claramente.
+- Adicionar contador discreto abaixo: "X linhas · Y caracteres".
 
-```text
-   ┌─────────────┐
-   │ #1 · Sex 09h│
-   │ check-in    │
-   └──────┬──────┘
-          │ ↓ 5h depois
-   ┌──────┴──────┐
-   │ #2 · Sex 14h│
-   └──────┬──────┘
-          │ ↓ próx dia 09:00
-```
+### 4. `src/components/whatsapp/CampaignImportDialog.tsx`
+Confirmar que `s.content.slice(0, 4000)` não está sendo passado por nenhum `.trim()` adicional antes do insert (linha 76). Se houver, remover.
 
-- Cards centralizados, conectados por linha SVG
-- Label entre cards calculado: `Xh depois` ou `próx dia HH:MM`
-- Click no card abre o editor inline
+## Fora de escopo
 
-### Modo 3 — Calendário semanal
+- Não mexer no envio (Evolution API já preserva `\n`).
+- Não mudar o preview/diagrama (já usam `whitespace-pre-wrap`).
+- Não criar migração — apenas edge functions + componente.
 
-- Grid 7 colunas × 24 linhas (ou 6h–23h = 18)
-- Cada step = dot colorido posicionado em `(day_offset % 7, send_time)`
-- Hover no dot mostra popover com prévia completa
-- Útil para ver densidade de horários e gaps
+## Resultado esperado
 
-### Detecções visuais
-
-Compartilhadas entre os modos, calculadas uma vez via `useMemo`:
-- 🟡 mesmo `day_offset` + `send_time` que outro step
-- 🔴 gap >48h entre steps consecutivos
-- 🟢 step com `media_type !== 'text'` (marco visual)
-
-### Arquivos
-
-- `src/components/whatsapp/CampaignSequenceDiagram.tsx` (novo) — todos os 3 modos num só arquivo
-- `src/components/whatsapp/CampaignStepEditor.tsx` (edit) — adicionar botão "Diagrama" (`Network` icon) e estado `showDiagram`
-- `package.json` — adicionar `html-to-image` (~15kb) para o export PNG
-
-### Fora de escopo
-
-- Drag & drop para reordenar no diagrama (pode virar v2)
-- Edição inline dentro do diagrama (abre o editor existente)
+Mensagens geradas pela IA e importadas do texto colado mantêm a formatação visual de uma mensagem WhatsApp real, com parágrafos separados por linha em branco, tanto no editor quanto na preview e no envio.

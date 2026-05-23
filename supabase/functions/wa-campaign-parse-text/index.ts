@@ -34,7 +34,8 @@ Sua tarefa:
 3. Normalizar send_time para "HH:MM" (24h). "9:00" -> "09:00", "20h" -> "20:00", "9h00" -> "09:00".
 4. Quando houver apenas dia da semana sem data (ex "SEGUNDA — 08H"), continue contando a partir do último dia conhecido.
 5. Quando o cabeçalho diz "30 MINUTOS DEPOIS" ou "1 HORA DEPOIS", manter o mesmo day_offset e somar tempo ao último send_time.
-6. content = TEXTO DA MENSAGEM (preserve emojis, asteriscos *negrito*, quebras de linha, links).
+6. content = TEXTO EXATO DA MENSAGEM, **PRESERVANDO LINHAS EM BRANCO ENTRE PARÁGRAFOS** (use "\\n\\n" no JSON). NÃO colapse múltiplas quebras de linha em uma só. NÃO remova espaçamento interno. Preserve emojis, *negrito*, listas e links.
+   Exemplo: se o input tem "Fala, tatuador! 👊\\n\\n\\n\\nBem-vindo ao grupo." você deve retornar "Fala, tatuador! 👊\\n\\nBem-vindo ao grupo." (normaliza 3+ \\n para \\n\\n, mas SEMPRE mantém ao menos \\n\\n entre parágrafos).
 7. NÃO inclua o cabeçalho de data no content.
 8. Se um bloco for instrução metadados (ex "Fazer uma Enquete", "(enviar guia)"), pule (não vire mensagem).
 9. Retorne TODOS os blocos, mesmo que sejam 30+.`;
@@ -107,7 +108,12 @@ Sua tarefa:
         send_time: typeof s.send_time === "string" && /^\d{1,2}:\d{2}/.test(s.send_time)
           ? s.send_time.padStart(5, "0").slice(0, 5)
           : "09:00",
-        content: String(s.content || "").trim(),
+        // Preserve internal blank lines; only strip whitespace/newlines at the edges.
+        // Also collapse 3+ consecutive newlines down to exactly \n\n (paragraph break).
+        content: String(s.content || "")
+          .replace(/\r\n/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .replace(/^[\s\n]+|[\s\n]+$/g, ""),
       }))
       .filter((s) => s.content.length > 0);
 
