@@ -22,13 +22,14 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
   const [count, setCount] = useState(7);
   const [tom, setTom] = useState("vendas");
   const [briefing, setBriefing] = useState("");
+  const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
 
   const generate = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("wa-campaign-ai-generate", {
-        body: { campaign_id: campaignId, project_id: projectId, produto, count, tom, briefing },
+        body: { campaign_id: campaignId, project_id: projectId, produto, count, tom, briefing, reference },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
