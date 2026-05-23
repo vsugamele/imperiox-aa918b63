@@ -22,6 +22,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import CampaignAIGenerateDialog from "./CampaignAIGenerateDialog";
+import CampaignImportDialog from "./CampaignImportDialog";
 import CampaignShareDialog from "./CampaignShareDialog";
 
 interface Step {
