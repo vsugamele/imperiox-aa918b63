@@ -143,8 +143,6 @@ export default function Leads() {
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", phone: "", plataforma: "", status: "lead", tags: [] as string[] });
   const [realtimeActive, setRealtimeActive] = useState(false);
-  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [timelineLoading, setTimelineLoading] = useState(false);
   const [stageFilter, setStageFilter] = useState(persisted.stageFilter ?? "all");
   const [hotOnly, setHotOnly] = useState<boolean>(persisted.hotOnly ?? false);
   const [showImport, setShowImport] = useState(false);
