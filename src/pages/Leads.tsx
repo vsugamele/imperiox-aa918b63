@@ -39,6 +39,7 @@ import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
 import LeadUtmsPanel from "@/components/leads/LeadUtmsPanel";
 import AttributionSummary from "@/components/leads/AttributionSummary";
 import HotLeadsInbox from "@/components/leads/HotLeadsInbox";
+import { useLeadTimeline, type TimelineEvent } from "@/hooks/useLeadTimeline";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
