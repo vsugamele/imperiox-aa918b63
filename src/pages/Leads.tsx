@@ -160,7 +160,7 @@ export default function Leads() {
 
   const [mainTab, setMainTab] = useState("leads");
   const [automations, setAutomations] = useState<any[]>([]);
-  const [formResponses, setFormResponses] = useState<{form_id: string; form_name?: string; question: string; answer: string; created_at: string}[]>([]);
+  
   const [allVendasRaw, setAllVendasRaw] = useState<any[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [adsSpend, setAdsSpend] = useState<any[]>([]);
