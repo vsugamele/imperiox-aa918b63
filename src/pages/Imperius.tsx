@@ -107,6 +107,40 @@ export default function Imperius() {
         </Card>
       </div>
 
+      <Card className="p-4 bg-secondary/40 border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-xl text-foreground">Atividade IA · últimos 7d</h2>
+          <div className="flex gap-2 text-[11px] text-muted-foreground">
+            <span>24h: <strong className="text-foreground">{aiActivity.last24}</strong></span>
+            <span>•</span>
+            <span>Auto: <strong className="text-primary">{aiActivity.autoPct}%</strong></span>
+            <span>•</span>
+            <span>Falhas: <strong className={aiActivity.failPct > 15 ? "text-red-400" : "text-foreground"}>{aiActivity.failPct}%</strong></span>
+            <span>•</span>
+            <span>Impacto: <strong className="text-emerald-400">R$ {aiActivity.impact.toFixed(0)}</strong></span>
+          </div>
+        </div>
+        {aiActivity.topKinds.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">Sem atividade nos últimos 7 dias.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {aiActivity.topKinds.map(([kind, count]) => {
+              const pct = Math.round((count / aiActivity.total7d) * 100);
+              return (
+                <div key={kind} className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground w-32 truncate">{kind}</span>
+                  <div className="flex-1 h-1.5 bg-background/60 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground w-16 text-right">{count} · {pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+
       <Card className="bg-secondary/40 border-border">
         <div className="p-4 border-b border-border">
           <h2 className="font-serif text-2xl text-foreground">Feed de decisões</h2>
