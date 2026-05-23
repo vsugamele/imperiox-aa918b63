@@ -108,7 +108,12 @@ Sua tarefa:
         send_time: typeof s.send_time === "string" && /^\d{1,2}:\d{2}/.test(s.send_time)
           ? s.send_time.padStart(5, "0").slice(0, 5)
           : "09:00",
-        content: String(s.content || "").trim(),
+        // Preserve internal blank lines; only strip whitespace/newlines at the edges.
+        // Also collapse 3+ consecutive newlines down to exactly \n\n (paragraph break).
+        content: String(s.content || "")
+          .replace(/\r\n/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .replace(/^[\s\n]+|[\s\n]+$/g, ""),
       }))
       .filter((s) => s.content.length > 0);
 
