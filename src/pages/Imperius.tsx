@@ -47,6 +47,28 @@ export default function Imperius() {
     auto: actions.filter((a) => a.auto_executed).length,
   };
 
+  // Atividade IA (últimos 7d) — visibilidade de consumo/uso
+  const aiActivity = (() => {
+    const now = Date.now();
+    const sevenD = now - 7 * 24 * 60 * 60 * 1000;
+    const oneD = now - 24 * 60 * 60 * 1000;
+    const recent = actions.filter((a) => new Date(a.created_at).getTime() >= sevenD);
+    const last24 = actions.filter((a) => new Date(a.created_at).getTime() >= oneD).length;
+    const byKind = new Map<string, number>();
+    let impact = 0;
+    recent.forEach((a) => {
+      const k = a.kind || "outro";
+      byKind.set(k, (byKind.get(k) || 0) + 1);
+      const i = parseFloat(a.impact_brl);
+      if (!isNaN(i)) impact += i;
+    });
+    const autoPct = recent.length > 0 ? Math.round((recent.filter((a) => a.auto_executed).length / recent.length) * 100) : 0;
+    const failPct = recent.length > 0 ? Math.round((recent.filter((a) => a.status === "failed").length / recent.length) * 100) : 0;
+    const topKinds = Array.from(byKind.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return { total7d: recent.length, last24, autoPct, failPct, impact, topKinds };
+  })();
+
+
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
