@@ -43,6 +43,28 @@ function getLeadReferenceDate(lead: Lead): string | null {
   return data.ultimo_evento_em || lastInteraction || lead.updated_at || lead.criado_em || null;
 }
 
+function getScoreBreakdown(lead: Lead): { items: { label: string; pts: number }[]; total: number } {
+  const items: { label: string; pts: number }[] = [];
+  const vendas = lead._vendas || [];
+  if (lead.email) items.push({ label: "Email cadastrado", pts: 10 });
+  if (lead.phone) items.push({ label: "Telefone cadastrado", pts: 5 });
+  if (vendas.length > 0) items.push({ label: "Cliente (1+ compra)", pts: 30 });
+  if (vendas.length > 1) items.push({ label: "Recorrência (2+ compras)", pts: 20 });
+  const utms = (lead.data as any)?.utms;
+  if (utms && Object.values(utms).some(Boolean)) items.push({ label: "UTM rastreado", pts: 5 });
+  const total = Math.min(items.reduce((s, i) => s + i.pts, 0), 100);
+  return { items, total };
+}
+
+function scoreColor(score: number): string {
+  if (score >= 70) return "bg-emerald-500";
+  if (score >= 40) return "bg-amber-400";
+  if (score >= 15) return "bg-orange-400";
+  return "bg-muted-foreground/40";
+}
+
+
+
 interface Props {
   leads: Lead[];
   projects: any[];
