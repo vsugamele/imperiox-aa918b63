@@ -790,6 +790,10 @@ export default function Leads() {
                   )}
                 </TabsContent>
 
+                <TabsContent value="predicoes" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {editLead?.id && <LeadPredictivePanel leadIds={[editLead.id]} projectFilter={editLead.project_id || "all"} />}
+                </TabsContent>
+
                 <TabsContent value="automacoes" className="space-y-4">
                   {(() => {
                     const matching = automations.filter(a => {
