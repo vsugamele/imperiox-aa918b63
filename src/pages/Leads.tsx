@@ -40,6 +40,7 @@ import LeadUtmsPanel from "@/components/leads/LeadUtmsPanel";
 import AttributionSummary from "@/components/leads/AttributionSummary";
 import HotLeadsInbox from "@/components/leads/HotLeadsInbox";
 import { useLeadTimeline } from "@/hooks/useLeadTimeline";
+import LeadCostPanel from "@/components/leads/LeadCostPanel";
 
 const STATUS_COLORS: Record<string, string> = {
   lead: "bg-primary/20 text-primary",
