@@ -24,7 +24,7 @@ interface Props {
 export default function LeadsSidebar({
   projects, leads, allVendasRaw, projectFilter, productFilter,
   expandedProjects, onProjectFilter, onProductFilter, onToggleProject, realtimeActive,
-  projectCounts, topTags, onCreateRuleForTag,
+  projectCounts, topTags, onCreateRuleForTag, tagFilter = "all", onTagFilter,
 }: Props) {
 
   const projectProductMap = useMemo(() => {
