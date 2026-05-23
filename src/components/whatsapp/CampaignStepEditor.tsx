@@ -451,11 +451,15 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
                         </div>
                       </div>
                       <Textarea
-                        className="text-xs min-h-[60px]"
+                        className="text-xs min-h-[160px] font-mono leading-6 whitespace-pre-wrap"
+                        rows={8}
                         value={step.content || ""}
                         onChange={e => updateStep(step.id, "content", e.target.value)}
-                        placeholder="Texto da mensagem... use {nome}, {produto}, {grupo_nome}, {campanha}"
+                        placeholder={"Texto da mensagem...\n\nUse linhas em branco entre parágrafos para criar espaçamento (como no WhatsApp real).\n\nVariáveis: {nome}, {produto}, {grupo_nome}"}
                       />
+                      <p className="text-[9px] text-muted-foreground mt-1 font-mono">
+                        {(step.content || "").split("\n").length} linhas · {(step.content || "").length} caracteres
+                      </p>
                     </div>
 
                     {/* A/B Variant B */}
