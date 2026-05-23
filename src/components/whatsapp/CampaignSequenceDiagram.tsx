@@ -1,0 +1,325 @@
+import { useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Image as ImageIcon, Mic, Video, FileText, Type, Download, GitBranch, CalendarDays, LayoutGrid } from "lucide-react";
+import { addDays, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toPng } from "html-to-image";
+import { toast } from "sonner";
+
+interface Step {
+  id: string;
+  step_order: number;
+  content: string | null;
+  media_type: string;
+  send_time: string;
+  days_offset: number;
+  send_date: string | null;
+  is_active: boolean;
+}
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  steps: Step[];
+  baseDate?: Date;
+}
+
+const ICONS: Record<string, any> = { text: Type, image: ImageIcon, audio: Mic, video: Video, document: FileText };
+
+function timeToMinutes(t: string) {
+  const [h, m] = (t || "09:00").split(":").map(Number);
+  return h * 60 + m;
+}
+
+function preview(s: string | null, n = 60) {
+  const txt = (s || "").replace(/\s+/g, " ").trim();
+  return txt.length > n ? txt.slice(0, n) + "…" : txt || "(sem texto)";
+}
+
+export default function CampaignSequenceDiagram({ open, onClose, steps, baseDate }: Props) {
+  const [mode, setMode] = useState<"timeline" | "flow" | "calendar">("timeline");
+  const exportRef = useRef<HTMLDivElement>(null);
+  const base = baseDate || new Date();
+
+  // Sort + compute signals
+  const sorted = useMemo(() => {
+    return [...steps].sort((a, b) => {
+      if (a.days_offset !== b.days_offset) return a.days_offset - b.days_offset;
+      return timeToMinutes(a.send_time) - timeToMinutes(b.send_time);
+    });
+  }, [steps]);
+
+  const signals = useMemo(() => {
+    const map = new Map<string, "ok" | "conflict" | "gap" | "media">();
+    // conflicts: same offset+time
+    const byKey = new Map<string, string[]>();
+    sorted.forEach(s => {
+      const k = `${s.days_offset}-${s.send_time?.slice(0, 5)}`;
+      const arr = byKey.get(k) || [];
+      arr.push(s.id);
+      byKey.set(k, arr);
+    });
+    sorted.forEach(s => map.set(s.id, s.media_type !== "text" ? "media" : "ok"));
+    byKey.forEach(ids => { if (ids.length > 1) ids.forEach(id => map.set(id, "conflict")); });
+    // gap >48h between consecutive
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1];
+      const cur = sorted[i];
+      const diffH = (cur.days_offset - prev.days_offset) * 24 + (timeToMinutes(cur.send_time) - timeToMinutes(prev.send_time)) / 60;
+      if (diffH > 48) map.set(cur.id, "gap");
+    }
+    return map;
+  }, [sorted]);
+
+  const grouped = useMemo(() => {
+    const m = new Map<number, Step[]>();
+    sorted.forEach(s => {
+      const arr = m.get(s.days_offset) || [];
+      arr.push(s);
+      m.set(s.days_offset, arr);
+    });
+    return Array.from(m.entries()).sort(([a], [b]) => a - b);
+  }, [sorted]);
+
+  const handleExport = async () => {
+    if (!exportRef.current) return;
+    try {
+      const dataUrl = await toPng(exportRef.current, { backgroundColor: "#080607", pixelRatio: 2 });
+      const link = document.createElement("a");
+      link.download = `sequencia-${mode}-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success("PNG exportado!");
+    } catch (e: any) {
+      toast.error("Falha ao exportar: " + e.message);
+    }
+  };
+
+  const signalColor = (sig: string | undefined) => {
+    if (sig === "conflict") return "border-yellow-500/60 bg-yellow-500/5";
+    if (sig === "gap") return "border-red-500/60 bg-red-500/5";
+    if (sig === "media") return "border-emerald-500/40 bg-emerald-500/5";
+    return "border-border";
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="bg-secondary/40 max-w-7xl h-[85vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/40">
+          <div className="flex items-center justify-between gap-4">
+            <DialogTitle className="font-serif text-xl">Diagrama da Sequência · {sorted.length} mensagens</DialogTitle>
+            <div className="flex items-center gap-2">
+              <ToggleGroup type="single" value={mode} onValueChange={(v) => v && setMode(v as any)} className="bg-background/40 rounded-md p-0.5">
+                <ToggleGroupItem value="timeline" className="h-8 px-3 text-xs gap-1.5 data-[state=on]:bg-gold/20 data-[state=on]:text-gold">
+                  <CalendarDays className="h-3.5 w-3.5" /> Timeline
+                </ToggleGroupItem>
+                <ToggleGroupItem value="flow" className="h-8 px-3 text-xs gap-1.5 data-[state=on]:bg-gold/20 data-[state=on]:text-gold">
+                  <GitBranch className="h-3.5 w-3.5" /> Fluxo
+                </ToggleGroupItem>
+                <ToggleGroupItem value="calendar" className="h-8 px-3 text-xs gap-1.5 data-[state=on]:bg-gold/20 data-[state=on]:text-gold">
+                  <LayoutGrid className="h-3.5 w-3.5" /> Calendário
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExport}>
+                <Download className="h-3.5 w-3.5 mr-1" /> PNG
+              </Button>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1">
+          <div ref={exportRef} className="p-6">
+            {mode === "timeline" && <TimelineView grouped={grouped} base={base} signals={signals} signalColor={signalColor} />}
+            {mode === "flow" && <FlowView sorted={sorted} base={base} signals={signals} signalColor={signalColor} />}
+            {mode === "calendar" && <CalendarView sorted={sorted} base={base} signals={signals} />}
+          </div>
+        </ScrollArea>
+
+        <div className="px-6 py-2 border-t border-border/40 flex items-center gap-4 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500/60" /> Mídia / marco</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-500/60" /> Mesmo horário (conflito)</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500/60" /> Gap &gt;48h</span>
+          <span className="ml-auto">Data base: {format(base, "dd/MM/yyyy (EEE)", { locale: ptBR })}</span>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─────────── TIMELINE ───────────
+function TimelineView({ grouped, base, signals, signalColor }: any) {
+  return (
+    <div className="flex gap-3 min-w-max">
+      {grouped.map(([offset, daySteps]: any) => {
+        const date = addDays(base, offset);
+        return (
+          <div key={offset} className="w-[220px] shrink-0">
+            <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b-2 border-gold/30 pb-2 mb-3">
+              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground">D+{offset}</p>
+              <p className="font-serif text-base text-gold">{format(date, "EEE dd/MM", { locale: ptBR })}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {daySteps.map((s: Step) => {
+                const Icon = ICONS[s.media_type] || Type;
+                const sig = signals.get(s.id);
+                return (
+                  <div key={s.id} className={`rounded-lg border p-2.5 ${signalColor(sig)} ${!s.is_active ? "opacity-40" : ""}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-[11px] text-gold">{s.send_time?.slice(0, 5)}</span>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">#{s.step_order + 1}</Badge>
+                        <Icon className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-foreground/80">{preview(s.content, 80)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────── FLOW ───────────
+function FlowView({ sorted, base, signals, signalColor }: any) {
+  return (
+    <div className="flex flex-col items-center gap-0 max-w-2xl mx-auto">
+      {sorted.map((s: Step, i: number) => {
+        const Icon = ICONS[s.media_type] || Type;
+        const sig = signals.get(s.id);
+        const date = addDays(base, s.days_offset);
+        const prev = i > 0 ? sorted[i - 1] : null;
+        let connectorLabel = "";
+        if (prev) {
+          const diffMin = (s.days_offset - prev.days_offset) * 1440 + (timeToMinutes(s.send_time) - timeToMinutes(prev.send_time));
+          if (s.days_offset === prev.days_offset) {
+            const h = Math.round(diffMin / 60);
+            connectorLabel = h >= 1 ? `${h}h depois` : `${diffMin}min depois`;
+          } else {
+            const days = s.days_offset - prev.days_offset;
+            connectorLabel = `${days === 1 ? "próx dia" : `+${days} dias`} às ${s.send_time?.slice(0, 5)}`;
+          }
+        }
+        return (
+          <div key={s.id} className="w-full flex flex-col items-center">
+            {prev && (
+              <div className="flex flex-col items-center py-1">
+                <div className="w-px h-4 bg-border" />
+                <Badge variant="outline" className="text-[9px] h-5 px-2 bg-background">{connectorLabel}</Badge>
+                <div className="w-px h-4 bg-border" />
+                <div className="w-2 h-2 rotate-45 border-r border-b border-border -mt-1" />
+              </div>
+            )}
+            <div className={`w-full max-w-md rounded-lg border p-3 ${signalColor(sig)} ${!s.is_active ? "opacity-40" : ""}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">#{s.step_order + 1}</Badge>
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="font-mono text-[11px] text-gold">{format(date, "EEE dd/MM", { locale: ptBR })} · {s.send_time?.slice(0, 5)}</span>
+                </div>
+              </div>
+              <p className="text-xs leading-relaxed text-foreground/80">{preview(s.content, 140)}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────── CALENDAR ───────────
+function CalendarView({ sorted, base, signals }: any) {
+  const HOURS_START = 6;
+  const HOURS_END = 23;
+  const totalHours = HOURS_END - HOURS_START + 1;
+  const ROW_H = 40;
+
+  // Group by week
+  const maxOffset = sorted.length ? Math.max(...sorted.map((s: Step) => s.days_offset)) : 0;
+  const numWeeks = Math.ceil((maxOffset + 1) / 7);
+  const dayNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+  const sigColor = (sig: string | undefined) => {
+    if (sig === "conflict") return "bg-yellow-500";
+    if (sig === "gap") return "bg-red-500";
+    if (sig === "media") return "bg-emerald-500";
+    return "bg-gold";
+  };
+
+  return (
+    <div className="space-y-6">
+      {Array.from({ length: numWeeks }, (_, w) => (
+        <div key={w}>
+          <p className="text-[10px] uppercase tracking-editorial text-muted-foreground mb-2">Semana {w + 1}</p>
+          <div className="grid grid-cols-[60px_repeat(7,1fr)] border border-border rounded-lg overflow-hidden">
+            <div className="bg-secondary/40 border-b border-border" />
+            {dayNames.map((d, i) => {
+              const offset = w * 7 + i;
+              const date = addDays(base, offset);
+              return (
+                <div key={i} className="bg-secondary/40 border-b border-l border-border p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground">{d}</p>
+                  <p className="text-xs font-mono text-gold">{format(date, "dd/MM")}</p>
+                </div>
+              );
+            })}
+            {Array.from({ length: totalHours }, (_, hIdx) => {
+              const hour = HOURS_START + hIdx;
+              return (
+                <div key={hour} className="contents">
+                  <div className="border-b border-border/40 p-1 text-[10px] text-muted-foreground font-mono text-right pr-2" style={{ height: ROW_H }}>
+                    {String(hour).padStart(2, "0")}:00
+                  </div>
+                  {Array.from({ length: 7 }, (_, dIdx) => {
+                    const offset = w * 7 + dIdx;
+                    const cellSteps = sorted.filter((s: Step) => {
+                      const sh = timeToMinutes(s.send_time) / 60;
+                      return s.days_offset === offset && Math.floor(sh) === hour;
+                    });
+                    return (
+                      <div key={dIdx} className="border-l border-b border-border/40 relative" style={{ height: ROW_H }}>
+                        {cellSteps.map((s: Step) => {
+                          const min = timeToMinutes(s.send_time) % 60;
+                          const top = (min / 60) * ROW_H;
+                          const sig = signals.get(s.id);
+                          return (
+                            <Popover key={s.id}>
+                              <PopoverTrigger asChild>
+                                <button
+                                  className={`absolute left-1 right-1 h-2 rounded-full ${sigColor(sig)} hover:h-3 transition-all`}
+                                  style={{ top: top + 4 }}
+                                  title={`#${s.step_order + 1} · ${s.send_time?.slice(0, 5)}`}
+                                />
+                              </PopoverTrigger>
+                              <PopoverContent className="w-72 bg-secondary/95 backdrop-blur" side="top">
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-[10px]">#{s.step_order + 1}</Badge>
+                                    <span className="font-mono text-[11px] text-gold">{s.send_time?.slice(0, 5)}</span>
+                                  </div>
+                                  <p className="text-xs leading-6 text-foreground/80">{preview(s.content, 200)}</p>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

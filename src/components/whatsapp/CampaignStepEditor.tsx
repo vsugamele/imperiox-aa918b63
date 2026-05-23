@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Plus, Trash2, Image as ImageIcon, Mic, Video, FileText, Type, CalendarIcon,
-  ArrowUp, ArrowDown, Send, Eye, Variable, Sparkles, Share2,
+  ArrowUp, ArrowDown, Send, Eye, Variable, Sparkles, Share2, Network,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
@@ -24,6 +24,7 @@ import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import CampaignAIGenerateDialog from "./CampaignAIGenerateDialog";
 import CampaignImportDialog from "./CampaignImportDialog";
 import CampaignShareDialog from "./CampaignShareDialog";
+import CampaignSequenceDiagram from "./CampaignSequenceDiagram";
 
 interface Step {
   id: string;
@@ -174,6 +175,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   const [showAI, setShowAI] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showDiagram, setShowDiagram] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -301,6 +303,9 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowImport(true)}>
             <FileText className="h-3 w-3 mr-1" /> Importar texto
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowDiagram(true)} disabled={steps.length === 0}>
+            <Network className="h-3 w-3 mr-1" /> Diagrama
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowShare(true)} disabled={steps.length === 0}>
             <Share2 className="h-3 w-3 mr-1" /> Compartilhar
@@ -572,6 +577,12 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
         campaignId={campaignId}
         campaignName={produto || "Sequência"}
         produto={produto}
+      />
+
+      <CampaignSequenceDiagram
+        open={showDiagram}
+        onClose={() => setShowDiagram(false)}
+        steps={steps as any}
       />
     </>
   );
