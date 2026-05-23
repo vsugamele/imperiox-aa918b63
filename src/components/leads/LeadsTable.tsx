@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertCircle } from "lucide-react";
 import LeadActionsMenu from "./LeadActionsMenu";
 import { parseISO, isValid, format } from "date-fns";
+
 
 interface LeadVenda {
   id: string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: any; created_at?: string;
