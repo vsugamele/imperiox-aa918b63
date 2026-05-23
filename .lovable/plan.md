@@ -1,43 +1,28 @@
-## Custo de Captura em /leads
+# Filtro por Tag em /leads
 
-Cruzar leads capturados × gasto em ads para revelar CPL real por período, plataforma e campanha.
+Hoje as tags aparecem só na sidebar como "Top tags · criar regra" (atalho pra criar regra de roteamento). Não dá pra filtrar leads por tag. Vou adicionar.
 
-### 1. Hook `useLeadCostMetrics.ts`
-- Input: período (start/end) + `project_id`.
-- Queries paralelas:
-  - `imphq_leads` no período → total + agrupado por `utm_source` e `utm_campaign`.
-  - `imphq_ads_insights` (ou tabela equivalente já usada em `/financas/ads`) no mesmo período → soma `spend` total, por `platform` e por `campaign_name`.
-- Retorna:
-  - `totalLeads`, `totalSpend`, `cpl` (spend ÷ leads)
-  - `byPlatform`: [{ source, leads, spend, cpl }]
-  - `byCampaign`: top 10 por gasto
-  - `sparkline`: série diária (leads, spend, cpl) últimos 30d
-  - Delta vs período anterior
+## O que muda
 
-### 2. KPI mini no header de `/leads`
-- Usar slot `kpi` do `PageHeader` já existente.
-- Mostrar: `CPL R$ X,XX` + hint `Y leads · R$ Z gasto`.
-- Tooltip explicando fórmula.
+1. **Sidebar (`LeadsSidebar.tsx`)** — Bloco "Top tags" vira clicável:
+   - Clique na tag → ativa filtro `tagFilter`
+   - Mantém o atalho ⚡ (criar regra) visível no hover
+   - Tag selecionada fica destacada (mesmo padrão dos projetos)
 
-### 3. Nova tab "💰 Custo" na navegação de `/leads`
-Hoje as tabs são Leads / Analytics / Predições — adicionar Custo entre Analytics e Predições.
+2. **`Leads.tsx`** — Novo estado `tagFilter` (persistido junto com os outros):
+   - Aplicado no `filteredLeads` (match se `lead.tags` inclui a tag)
+   - Chip removível no header quando ativo: `🏷️ tag-x ×`
+   - Contagem no header já reflete (usa `filtered.length`)
 
-Conteúdo:
-- **Linha de KPIs** (`KpiHeroCard`): Leads · Gasto · CPL · Δ vs período ant.
-- **Tabela por plataforma**: Meta / Google / TikTok / Orgânico (via `utm_source`) — leads, gasto, CPL, % do total.
-- **Tabela top 10 campanhas** por gasto, com CPL e nº de leads, ordenável.
-- **Sparkline 30d** (Recharts) com linhas de leads e CPL.
-- Empty state quando não houver dados de ads conectados, com CTA para `/financas` → Ads.
+3. **Barra de filtros** — Novo `Select` "Tag" ao lado de Estágio/Produto/Formulário, populado com `topTags` (todas, não só 12). Sincroniza com a sidebar.
 
-### 4. Reutilização
-- `KpiHeroCard`, `PageHeader`, padrão de tabela e Recharts já usados em `/gerenciador`.
-- Mesma lógica de período do filtro global de `/leads`.
+## Resultado
 
-### Detalhes técnicos
-- Fonte de gasto: confirmar tabela usada por `FinancasAds.tsx` (provável `imphq_ads_insights` / `imphq_ads_daily`). Hook deve respeitar `project_id` quando filtrado.
-- Leads sem UTM caem em "Orgânico/Direto" (não inflar CPL de plataformas pagas).
-- CPL exibido só quando `leads > 0 && spend > 0`; senão "—".
-- Sem mudanças de schema; sem novas edge functions.
+- Clica numa tag → vê quantos leads têm aquela tag (contador) e quem são (tabela filtrada)
+- Export CSV respeita o filtro (já usa `filtered`)
+- Combina com os outros filtros (período, projeto, estágio, etc.)
 
-### Fora de escopo
-- Atribuição multi-touch, LTV por canal, mudanças em `/financas` ou `/gerenciador`.
+## Arquivos
+
+- `src/pages/Leads.tsx` — estado + filtro + Select + chip
+- `src/components/leads/LeadsSidebar.tsx` — tag clicável + destaque do selecionado + prop `tagFilter`/`onTagFilter`
