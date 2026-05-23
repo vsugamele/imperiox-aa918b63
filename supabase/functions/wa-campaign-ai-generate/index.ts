@@ -60,14 +60,14 @@ serve(async (req) => {
     }
 
 
-    const N = Math.max(1, Math.min(14, Number(count) || 7));
+    const N = Math.max(1, Math.min(60, Number(count) || 7));
 
     const systemPrompt = `Você é Imperius, estrategista de copy WhatsApp para grupos. Escreva em pt-BR. Mensagens curtas (máx 8 linhas), emojis sutis, CTA claro. Use {nome}, {produto}, {grupo_nome} quando fizer sentido.`;
 
     const userPrompt = `Gere uma sequência de ${N} mensagens WhatsApp para grupos.
 Produto: ${produto || "(não informado)"}
 Tom: ${tom}
-Briefing: ${briefing || "(livre)"}${projectCtx}${refsCtx}
+Briefing: ${briefing || "(livre)"}${reference ? `\n\nReferência de copy (imite tom/estrutura, NÃO copie literal):\n${String(reference).slice(0, 4000)}` : ""}${projectCtx}${refsCtx}
 
 Estrutura de cada mensagem:
 - day_offset (0 = dia da entrada, 1 = dia seguinte, etc.) — distribua de forma natural ao longo de ${N} dias
