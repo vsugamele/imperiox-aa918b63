@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Plus, Trash2, Image as ImageIcon, Mic, Video, FileText, Type, CalendarIcon,
-  ArrowUp, ArrowDown, Send, Eye, Variable, Sparkles, Share2,
+  ArrowUp, ArrowDown, Send, Eye, Variable, Sparkles, Share2, Network,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
@@ -24,6 +24,7 @@ import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import CampaignAIGenerateDialog from "./CampaignAIGenerateDialog";
 import CampaignImportDialog from "./CampaignImportDialog";
 import CampaignShareDialog from "./CampaignShareDialog";
+import CampaignSequenceDiagram from "./CampaignSequenceDiagram";
 
 interface Step {
   id: string;
