@@ -142,6 +142,10 @@ export default function LeadsSidebar({
                   ))}
                 </div>
               )}
+            </div>
+          );
+        })}
+
         {topTags && topTags.length > 0 && (
           <>
             <p className="text-[9px] uppercase tracking-editorial text-muted-foreground/50 mt-4 mb-1 px-2 flex items-center justify-between">
@@ -179,10 +183,6 @@ export default function LeadsSidebar({
             })}
           </>
         )}
-      </div>
-
-          );
-        })}
       </div>
     </div>
   );
