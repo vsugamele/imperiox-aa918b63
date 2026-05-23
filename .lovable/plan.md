@@ -1,56 +1,43 @@
-## Plano de Refinamento — /leads + Visão Geral
+## Custo de Captura em /leads
 
-### A) Página /leads (alvo principal)
+Cruzar leads capturados × gasto em ads para revelar CPL real por período, plataforma e campanha.
 
-**1. Performance e arquitetura**
-- `Leads.tsx` tem 771 linhas com muita lógica inline (timeline, funil, conversão, charts). Quebrar em:
-  - `useLeadsData.ts` (fetch + filtros + período)
-  - `LeadsFunnelPanel.tsx` (gráficos)
-  - `LeadTimeline.tsx` (já existe parcialmente em Nurture, reutilizar)
-- Memoizar derivações pesadas (funil, buckets de conversão) com `useMemo` real por período.
-- Paginação real na tabela (hoje carrega tudo, esbarra no limite 1000 do Supabase).
+### 1. Hook `useLeadCostMetrics.ts`
+- Input: período (start/end) + `project_id`.
+- Queries paralelas:
+  - `imphq_leads` no período → total + agrupado por `utm_source` e `utm_campaign`.
+  - `imphq_ads_insights` (ou tabela equivalente já usada em `/financas/ads`) no mesmo período → soma `spend` total, por `platform` e por `campaign_name`.
+- Retorna:
+  - `totalLeads`, `totalSpend`, `cpl` (spend ÷ leads)
+  - `byPlatform`: [{ source, leads, spend, cpl }]
+  - `byCampaign`: top 10 por gasto
+  - `sparkline`: série diária (leads, spend, cpl) últimos 30d
+  - Delta vs período anterior
 
-**2. UX da tabela**
-- Filtros persistentes em `localStorage` (mesmo padrão do WhatsApp v2).
-- Coluna de **score** com cor semafórica + tooltip explicando os pontos (já existe `trg_recalc_lead_score`, falta surfacing).
-- Bulk actions: tag em massa, mover de estágio, disparo WhatsApp em massa (hoje só individual).
-- Quick filter "Hot Leads agora" (Pix/Boleto últimas 2h) acima da tabela.
+### 2. KPI mini no header de `/leads`
+- Usar slot `kpi` do `PageHeader` já existente.
+- Mostrar: `CPL R$ X,XX` + hint `Y leads · R$ Z gasto`.
+- Tooltip explicando fórmula.
 
-**3. Drill do lead**
-- Timeline mescla eventos mas falta agrupar por dia e destacar última interação humana vs IA.
-- Painel UTM (`LeadUtmsPanel`) e Predictive (`LeadPredictivePanel`) hoje aparecem soltos — unificar em tabs dentro do drill.
-- Botão "Refinar IA com este lead" (alimentar `imphq_wa_knowledge` a partir de conversas reais).
+### 3. Nova tab "💰 Custo" na navegação de `/leads`
+Hoje as tabs são Leads / Analytics / Predições — adicionar Custo entre Analytics e Predições.
 
-**4. Inteligência**
-- Sugestão automática de próximo passo por lead (já temos `imphq_lead_predictions`, falta CTA visível na linha da tabela).
-- Detecção de leads "esfriando" (sem evento há X dias com score alto) — badge laranja.
+Conteúdo:
+- **Linha de KPIs** (`KpiHeroCard`): Leads · Gasto · CPL · Δ vs período ant.
+- **Tabela por plataforma**: Meta / Google / TikTok / Orgânico (via `utm_source`) — leads, gasto, CPL, % do total.
+- **Tabela top 10 campanhas** por gasto, com CPL e nº de leads, ordenável.
+- **Sparkline 30d** (Recharts) com linhas de leads e CPL.
+- Empty state quando não houver dados de ads conectados, com CTA para `/financas` → Ads.
 
----
+### 4. Reutilização
+- `KpiHeroCard`, `PageHeader`, padrão de tabela e Recharts já usados em `/gerenciador`.
+- Mesma lógica de período do filtro global de `/leads`.
 
-### B) Visão geral do sistema (top refinamentos)
+### Detalhes técnicos
+- Fonte de gasto: confirmar tabela usada por `FinancasAds.tsx` (provável `imphq_ads_insights` / `imphq_ads_daily`). Hook deve respeitar `project_id` quando filtrado.
+- Leads sem UTM caem em "Orgânico/Direto" (não inflar CPL de plataformas pagas).
+- CPL exibido só quando `leads > 0 && spend > 0`; senão "—".
+- Sem mudanças de schema; sem novas edge functions.
 
-**Prioridade alta**
-1. **Triagem WhatsApp:** confirmar deploy do skip de grupos e adicionar log de mensagens ignoradas (auditoria).
-2. **Refine IA:** após salvar lição, mostrar preview de como a IA responderia agora (loop de validação).
-3. **Custos/tokens IA:** painel em `/imperius` ou Config mostrando consumo por edge function (Gemini/OpenRouter) — hoje é cego.
-4. **Egress Supabase:** auditar Realtime redundante (memória já alerta) — algumas páginas ainda assinam canais não usados.
-
-**Prioridade média**
-5. **Dashboard:** Hot Lead Alerts e Predictive coexistem mas não cruzam — unir num único "Painel de Oportunidades".
-6. **Imperius autônomo:** ActionInbox hoje mostra fila; falta métrica de taxa de aprovação/rejeição para calibrar low-risk.
-7. **Onboarding de projeto:** sincronização briefing → IA (`syncFromProject` em `WhatsAppAIConfig`) deveria rodar automaticamente quando avatar/branding mudam.
-
-**Prioridade baixa (polish)**
-8. Padronizar empty states (muitas tabelas mostram só "Sem dados").
-9. SectionInfo (ℹ️) faltando em várias seções novas de /leads.
-10. Acessibilidade: foco visível em tabelas e drills (teclado).
-
----
-
-### Sugestão de execução
-Escolha **2-3 itens** desta lista para eu implementar nesta rodada. Recomendo começar por:
-- **A.2** (filtros persistentes + bulk actions + Hot Leads quick filter)
-- **A.3** (unificar drill em tabs + score com tooltip)
-- **B.3** (painel de consumo de IA)
-
-Quer que eu siga por aí ou prefere outra combinação?
+### Fora de escopo
+- Atribuição multi-touch, LTV por canal, mudanças em `/financas` ou `/gerenciador`.
