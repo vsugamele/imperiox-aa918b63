@@ -578,6 +578,12 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
         campaignName={produto || "Sequência"}
         produto={produto}
       />
+
+      <CampaignSequenceDiagram
+        open={showDiagram}
+        onClose={() => setShowDiagram(false)}
+        steps={steps as any}
+      />
     </>
   );
 }
