@@ -3175,6 +3175,47 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_external_product_map: {
+        Row: {
+          created_at: string
+          external_product_name: string
+          grants_all_premium: boolean
+          id: string
+          notes: string | null
+          program_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_name: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_product_name?: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_external_product_map_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_hair_types: {
         Row: {
           code: string
@@ -3202,6 +3243,66 @@ export type Database = {
           short_label?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_import_audit_log: {
+        Row: {
+          batch_id: string
+          errors: Json | null
+          errors_count: number | null
+          finished_at: string | null
+          granted_entitlements: number | null
+          id: string
+          inserted_enrollments: number | null
+          inserted_profiles: number | null
+          skipped_rows: number | null
+          source: string
+          source_file: string | null
+          started_at: string
+          status: string
+          total_rows: number | null
+          triggered_by: string | null
+          updated_enrollments: number | null
+          updated_profiles: number | null
+        }
+        Insert: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Update: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source?: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
         }
         Relationships: []
       }
@@ -3267,6 +3368,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      areamembrojp_legacy_enrollments: {
+        Row: {
+          claimed_at: string | null
+          claimed_user_id: string | null
+          cpf: string | null
+          created_at: string
+          expires_at: string | null
+          external_product_id: string | null
+          external_product_name: string
+          first_purchase_at: string | null
+          full_name: string | null
+          grants_all_premium: boolean
+          id: string
+          is_expired: boolean
+          last_purchase_at: string | null
+          phone: string | null
+          program_id: string | null
+          raw_payload: Json | null
+          source: string
+          updated_at: string
+          user_email: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source: string
+          updated_at?: string
+          user_email: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name?: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_legacy_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_lesson_notes: {
         Row: {
@@ -38616,6 +38791,10 @@ export type Database = {
         }[]
       }
       check_table_exists: { Args: { tablename: string }; Returns: boolean }
+      claim_legacy_enrollments_by_email: {
+        Args: { _email: string; _user_id: string }
+        Returns: number
+      }
       claim_prize: {
         Args: { admin_uuid: string; prize_uuid: string }
         Returns: boolean
