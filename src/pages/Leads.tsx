@@ -51,14 +51,8 @@ const STATUSES = ["lead", "cliente", "vip", "inativo"];
 const PLATFORMS = ["Meta", "Google", "TikTok", "Hotmart", "Kiwify", "Ticto", "Orgânico", "Indicação"];
 const STAGES = Object.keys(STAGE_LABELS);
 
-interface TimelineEvent {
-  id: string;
-  type: string;
-  timestamp: string;
-  title: string;
-  subtitle?: string;
-  details?: Record<string, any>;
-}
+
+
 
 function getLeadActivityDate(lead: Lead): string | null {
   const data = (lead.data as any) || {};
