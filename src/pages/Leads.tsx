@@ -493,9 +493,17 @@ export default function Leads() {
               <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
               <TabsTrigger value="formularios" className="text-xs">📝 Formulários & Insights</TabsTrigger>
               <TabsTrigger value="predicoes" className="text-xs">🧠 Predições</TabsTrigger>
+              <TabsTrigger value="custo" className="text-xs">💰 Custo</TabsTrigger>
               {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
+              {periodKPIs.totalAds > 0 && periodKPIs.newLeads > 0 && (
+                <div className="hidden md:flex items-center gap-2 text-[11px] px-2.5 py-1 rounded-md bg-secondary/60 border border-border" title="CPL = gasto em ads ÷ leads no período">
+                  <span className="text-muted-foreground">CPL</span>
+                  <span className="font-bold text-primary tabular-nums">R$ {(periodKPIs.totalAds / periodKPIs.newLeads).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-muted-foreground">· {periodKPIs.newLeads} leads · R$ {Math.round(periodKPIs.totalAds).toLocaleString("pt-BR")}</span>
+                </div>
+              )}
               <Button size="sm" variant="outline" onClick={() => {
                 const headers = ["Nome","Email","Telefone","Status","Estágio","Plataforma","Projeto","Produto","Score","Receita","Criado em"];
                 const rows = filtered.map(l => { const vendas = l._vendas || []; const produto = vendas.map(v => v.produto_nome).filter(Boolean).join(", ") || (l.data as any)?.ultimo_produto || ""; return [l.nome || "", l.email || "", l.phone || "", l.status || "", getLeadStage(l), l.plataforma || "", projects.find(p => p.id === l.project_id)?.name || "", produto, String(l._score || 0), String(l.total_gasto || 0), getLeadActivityDate(l)?.split("T")[0] || ""]; });
