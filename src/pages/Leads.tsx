@@ -397,6 +397,27 @@ export default function Leads() {
 
   const deleteSelected = async () => { const ids = Array.from(selectedIds); for (let i = 0; i < ids.length; i += 50) { const chunk = ids.slice(i, i + 50); await supabase.from("imphq_vendas").delete().in("lead_id", chunk); await supabase.from("imphq_leads").delete().in("id", chunk); } toast.success(`${ids.length} leads removidos`); setBulkDeleteConfirm(false); setSelectedIds(new Set()); load(); };
 
+  const addTagToSelected = async (tag: string) => {
+    const clean = tag.trim();
+    if (!clean) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const targets = leads.filter(l => selectedIds.has(l.id));
+    let updated = 0;
+    for (const l of targets) {
+      const current = Array.isArray(l.tags) ? l.tags : [];
+      if (current.includes(clean)) continue;
+      const next = [...current, clean];
+      const { error } = await supabase.from("imphq_leads").update({ tags: next }).eq("id", l.id);
+      if (!error) updated++;
+    }
+    toast.success(`Tag "${clean}" aplicada em ${updated} lead(s)`);
+    setBulkTagInput("");
+    setSelectedIds(new Set());
+    load();
+  };
+
+
   const moveSelectedToProject = async (projId: string | null) => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
