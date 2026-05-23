@@ -304,6 +304,9 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
           <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowImport(true)}>
             <FileText className="h-3 w-3 mr-1" /> Importar texto
           </Button>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowDiagram(true)} disabled={steps.length === 0}>
+            <Network className="h-3 w-3 mr-1" /> Diagrama
+          </Button>
           <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowShare(true)} disabled={steps.length === 0}>
             <Share2 className="h-3 w-3 mr-1" /> Compartilhar
           </Button>
