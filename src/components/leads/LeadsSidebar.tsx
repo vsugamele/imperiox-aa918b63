@@ -17,12 +17,14 @@ interface Props {
   projectCounts?: { totalAll: number; byProject: Record<string, number>; noProject: number };
   topTags?: Array<{ tag: string; count: number }>;
   onCreateRuleForTag?: (tag: string) => void;
+  tagFilter?: string;
+  onTagFilter?: (tag: string) => void;
 }
 
 export default function LeadsSidebar({
   projects, leads, allVendasRaw, projectFilter, productFilter,
   expandedProjects, onProjectFilter, onProductFilter, onToggleProject, realtimeActive,
-  projectCounts, topTags, onCreateRuleForTag,
+  projectCounts, topTags, onCreateRuleForTag, tagFilter = "all", onTagFilter,
 }: Props) {
 
   const projectProductMap = useMemo(() => {
@@ -140,32 +142,47 @@ export default function LeadsSidebar({
                   ))}
                 </div>
               )}
-        {topTags && topTags.length > 0 && (
-          <>
-            <p className="text-[9px] uppercase tracking-editorial text-muted-foreground/50 mt-4 mb-1 px-2">
-              Top tags · criar regra
-            </p>
-            {topTags.slice(0, 12).map(({ tag, count }) => (
-              <div key={tag} className="group flex items-center gap-1 px-2 py-1 hover:bg-secondary/40 rounded">
-                <span className="flex-1 text-xs text-muted-foreground truncate" title={tag}>🏷️ {tag}</span>
-                <span className="text-[9px] text-muted-foreground/70">{count}</span>
-                {onCreateRuleForTag && (
-                  <button
-                    onClick={() => onCreateRuleForTag(tag)}
-                    title="Criar regra de roteamento para esta tag"
-                    className="opacity-0 group-hover:opacity-100 text-primary hover:text-gold transition-opacity"
-                  >
-                    <Zap className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-
+            </div>
           );
         })}
+
+        {topTags && topTags.length > 0 && (
+          <>
+            <p className="text-[9px] uppercase tracking-editorial text-muted-foreground/50 mt-4 mb-1 px-2 flex items-center justify-between">
+              <span>Top tags</span>
+              {tagFilter !== "all" && onTagFilter && (
+                <button onClick={() => onTagFilter("all")} className="text-gold hover:text-gold-light normal-case tracking-normal" title="Limpar filtro">limpar</button>
+              )}
+            </p>
+            {topTags.slice(0, 20).map(({ tag, count }) => {
+              const selected = tagFilter === tag;
+              return (
+                <div key={tag} className={cn(
+                  "group flex items-center gap-1 px-2 py-1 rounded border-l-2",
+                  selected ? "bg-gold/10 border-gold" : "hover:bg-secondary/40 border-transparent",
+                )}>
+                  <button
+                    onClick={() => onTagFilter?.(selected ? "all" : tag)}
+                    className={cn("flex-1 text-left text-xs truncate", selected ? "text-gold" : "text-muted-foreground hover:text-foreground")}
+                    title={`Filtrar leads com tag "${tag}"`}
+                  >
+                    🏷️ {tag}
+                  </button>
+                  <span className="text-[9px] text-muted-foreground/70">{count}</span>
+                  {onCreateRuleForTag && (
+                    <button
+                      onClick={() => onCreateRuleForTag(tag)}
+                      title="Criar regra de roteamento para esta tag"
+                      className="opacity-0 group-hover:opacity-100 text-primary hover:text-gold transition-opacity"
+                    >
+                      <Zap className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
   );

@@ -125,6 +125,7 @@ const FILTERS_KEY = "imphq:leads:filters:v1";
 type PersistedFilters = {
   statusFilter: string; platformFilter: string; projectFilter: string;
   stageFilter: string; productFilter: string; formFilter: string; hotOnly: boolean;
+  tagFilter: string;
 };
 function loadPersistedFilters(): Partial<PersistedFilters> {
   try { const raw = localStorage.getItem(FILTERS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
@@ -146,6 +147,7 @@ export default function Leads() {
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [stageFilter, setStageFilter] = useState(persisted.stageFilter ?? "all");
   const [hotOnly, setHotOnly] = useState<boolean>(persisted.hotOnly ?? false);
+  const [tagFilter, setTagFilter] = useState<string>(persisted.tagFilter ?? "all");
   const [showImport, setShowImport] = useState(false);
   const [productFilter, setProductFilter] = useState(persisted.productFilter ?? "all");
   const [products, setProducts] = useState<string[]>([]);
@@ -261,10 +263,10 @@ export default function Leads() {
   useEffect(() => {
     try {
       localStorage.setItem(FILTERS_KEY, JSON.stringify({
-        statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly,
+        statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly, tagFilter,
       } satisfies PersistedFilters));
     } catch {}
-  }, [statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly]);
+  }, [statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly, tagFilter]);
 
   useEffect(() => {
     const channel = supabase.channel("leads-realtime").on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_leads" }, (payload) => {
@@ -285,6 +287,7 @@ export default function Leads() {
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
     const matchForm = formFilter === "all" || (l.data as any)?.form_id === formFilter || (l.data as any)?.interacoes?.some((i: any) => i.form_id === formFilter);
+    const matchTag = tagFilter === "all" || (Array.isArray(l.tags) && l.tags.includes(tagFilter));
     let matchHot = true;
     if (hotOnly) {
       const stg = getLeadStage(l);
@@ -297,7 +300,7 @@ export default function Leads() {
         }
       }
     }
-    return matchStage && matchProduct && matchForm && matchHot;
+    return matchStage && matchProduct && matchForm && matchHot && matchTag;
   });
 
 
@@ -477,7 +480,7 @@ export default function Leads() {
 
   return (
     <div className="flex gap-6">
-      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} />
+      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
       <QuickTagRuleDialog open={!!quickRuleTag} onOpenChange={(v) => !v && setQuickRuleTag(null)} tag={quickRuleTag || ""} projects={projects} />
 
 
@@ -541,6 +544,8 @@ export default function Leads() {
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
               {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>📋 {f.name}</SelectItem>)}</SelectContent></Select>)}
+              {topTags.length > 0 && (<Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Tag" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Tag (todas)</SelectItem>{topTags.map(({ tag, count }) => <SelectItem key={tag} value={tag}>🏷️ {tag} <span className="text-muted-foreground ml-1">({count})</span></SelectItem>)}</SelectContent></Select>)}
+              {tagFilter !== "all" && (<button onClick={() => setTagFilter("all")} className="h-9 px-2.5 rounded-md bg-gold/10 border border-gold/40 text-gold text-xs flex items-center gap-1.5 hover:bg-gold/20" title="Limpar filtro de tag">🏷️ {tagFilter} <span className="text-base leading-none">×</span></button>)}
               <Button
                 size="sm"
                 variant={hotOnly ? "default" : "outline"}
