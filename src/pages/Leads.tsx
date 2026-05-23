@@ -480,7 +480,7 @@ export default function Leads() {
 
   return (
     <div className="flex gap-6">
-      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} />
+      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
       <QuickTagRuleDialog open={!!quickRuleTag} onOpenChange={(v) => !v && setQuickRuleTag(null)} tag={quickRuleTag || ""} projects={projects} />
 
 
