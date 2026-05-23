@@ -9,14 +9,14 @@ const TTL = 60_000;
 export function useLeadTags(projectId?: string | null) {
   const key = projectId || "__all__";
   const cached = cache.get(key);
-  const [tags, setTags] = useState<LeadTagCount[]>(cached?.data || []);
+  const [counts, setCounts] = useState<LeadTagCount[]>(cached?.data || []);
   const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     const now = Date.now();
     const c = cache.get(key);
     if (c && now - c.at < TTL) {
-      setTags(c.data);
+      setCounts(c.data);
       setLoading(false);
       return;
     }
@@ -38,12 +38,13 @@ export function useLeadTags(projectId?: string | null) {
       }));
       cache.set(key, { data: arr, at: Date.now() });
       if (alive) {
-        setTags(arr);
+        setCounts(arr);
         setLoading(false);
       }
     })();
     return () => { alive = false; };
   }, [key, projectId]);
 
-  return { tags, loading };
+  return { tags: counts.map(c => c.tag), counts, loading };
 }
+
