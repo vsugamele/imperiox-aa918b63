@@ -22,6 +22,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import CampaignAIGenerateDialog from "./CampaignAIGenerateDialog";
+import CampaignImportDialog from "./CampaignImportDialog";
 import CampaignShareDialog from "./CampaignShareDialog";
 
 interface Step {
@@ -171,6 +172,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   const [testGroupJid, setTestGroupJid] = useState("");
   const [testing, setTesting] = useState(false);
   const [showAI, setShowAI] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
   const load = useCallback(async () => {
@@ -296,6 +298,9 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
         <div className="flex items-center gap-1.5">
           <Button size="sm" variant="outline" className="h-7 text-[11px] border-gold/40 text-gold hover:bg-gold/10" onClick={() => setShowAI(true)}>
             <Sparkles className="h-3 w-3 mr-1" /> Gerar com IA
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowImport(true)}>
+            <FileText className="h-3 w-3 mr-1" /> Importar texto
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setShowShare(true)} disabled={steps.length === 0}>
             <Share2 className="h-3 w-3 mr-1" /> Compartilhar
@@ -551,6 +556,13 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
         campaignId={campaignId}
         projectId={projectId}
         produto={produto}
+        onDone={load}
+      />
+
+      <CampaignImportDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        campaignId={campaignId}
         onDone={load}
       />
 
