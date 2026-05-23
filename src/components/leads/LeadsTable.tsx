@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertCircle } from "lucide-react";
 import LeadActionsMenu from "./LeadActionsMenu";
 import { parseISO, isValid, format } from "date-fns";
+
 
 interface LeadVenda {
   id: string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: any; created_at?: string;
@@ -40,6 +42,28 @@ function getLeadReferenceDate(lead: Lead): string | null {
   const lastInteraction = interacoes.length > 0 ? interacoes[interacoes.length - 1]?.data : null;
   return data.ultimo_evento_em || lastInteraction || lead.updated_at || lead.criado_em || null;
 }
+
+function getScoreBreakdown(lead: Lead): { items: { label: string; pts: number }[]; total: number } {
+  const items: { label: string; pts: number }[] = [];
+  const vendas = lead._vendas || [];
+  if (lead.email) items.push({ label: "Email cadastrado", pts: 10 });
+  if (lead.phone) items.push({ label: "Telefone cadastrado", pts: 5 });
+  if (vendas.length > 0) items.push({ label: "Cliente (1+ compra)", pts: 30 });
+  if (vendas.length > 1) items.push({ label: "Recorrência (2+ compras)", pts: 20 });
+  const utms = (lead.data as any)?.utms;
+  if (utms && Object.values(utms).some(Boolean)) items.push({ label: "UTM rastreado", pts: 5 });
+  const total = Math.min(items.reduce((s, i) => s + i.pts, 0), 100);
+  return { items, total };
+}
+
+function scoreColor(score: number): string {
+  if (score >= 70) return "bg-emerald-500";
+  if (score >= 40) return "bg-amber-400";
+  if (score >= 15) return "bg-orange-400";
+  return "bg-muted-foreground/40";
+}
+
+
 
 interface Props {
   leads: Lead[];
@@ -129,7 +153,41 @@ export default function LeadsTable({
                   <TableCell>{vendas.length === 0 ? (ultimoProduto ? <span className="text-xs text-muted-foreground truncate max-w-[140px] block" title={ultimoProduto}>{ultimoProduto}</span> : <span className="text-xs text-muted-foreground">—</span>) : <div className="flex flex-col gap-0.5 max-w-[140px]">{vendas.slice(0, 3).map((v: any, i: number) => { const badge = tipoMap[v.tipo_venda]; return <div key={i} className="flex items-center gap-1"><span className="text-xs text-primary truncate" title={v.produto_nome}>{v.produto_nome || "—"}</span>{badge && <Badge variant="outline" className={cn("text-[8px] px-1 py-0 h-3.5 leading-none border", tipoCls[v.tipo_venda])}>{badge}</Badge>}</div>; })}{vendas.length > 3 && <span className="text-[10px] text-muted-foreground">+{vendas.length - 3} mais</span>}</div>}</TableCell>
                   <TableCell>{pgto ? <span className="text-[10px] text-muted-foreground">{pgto}</span> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell><div className="flex items-center gap-1"><Badge className={cn("text-[10px]", cfg.color, isPending && "animate-pulse ring-1 ring-amber-500/40")}>{cfg.label}</Badge>{isPending && <AlertCircle className="h-3 w-3 text-amber-400" />}</div></TableCell>
-                  <TableCell><div className="flex items-center gap-1.5"><div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${l._score || 0}%` }} /></div><span className="text-[10px] font-mono text-muted-foreground">{l._score || 0}</span></div></TableCell>
+                  <TableCell onClick={e => e.stopPropagation()}>{(() => {
+                    const bd = getScoreBreakdown(l);
+                    const score = l._score ?? bd.total;
+                    return (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1.5 cursor-help">
+                              <div className="w-12 h-1.5 bg-secondary rounded-full overflow-hidden">
+                                <div className={cn("h-full rounded-full", scoreColor(score))} style={{ width: `${score}%` }} />
+                              </div>
+                              <span className="text-[10px] font-mono text-muted-foreground">{score}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="bg-secondary/95 border-border max-w-[240px]">
+                            <p className="text-[11px] font-bold mb-1.5">Score: {score}/100</p>
+                            {bd.items.length === 0 ? (
+                              <p className="text-[10px] text-muted-foreground">Sem pontos atribuídos.</p>
+                            ) : (
+                              <div className="space-y-0.5">
+                                {bd.items.map((it, i) => (
+                                  <div key={i} className="flex items-center justify-between gap-3 text-[10px]">
+                                    <span className="text-muted-foreground">{it.label}</span>
+                                    <span className="font-mono text-primary">+{it.pts}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-[9px] text-muted-foreground mt-1.5 italic">Score recalculado pelo trigger ao mudar lead/venda.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })()}</TableCell>
+
                   <TableCell className="font-mono text-sm text-primary">{receitaExibir > 0 ? `R$ ${receitaExibir.toFixed(0)}` : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{(() => { const refDate = getLeadReferenceDate(l); if (!refDate) return "—"; try { const d = parseISO(refDate); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })()}</TableCell>
                   <TableCell>

@@ -125,33 +125,45 @@ function getConversionBucket(hours: number): string {
 }
 
 const PAGE_SIZE = 50;
+const FILTERS_KEY = "imphq:leads:filters:v1";
+type PersistedFilters = {
+  statusFilter: string; platformFilter: string; projectFilter: string;
+  stageFilter: string; productFilter: string; formFilter: string; hotOnly: boolean;
+};
+function loadPersistedFilters(): Partial<PersistedFilters> {
+  try { const raw = localStorage.getItem(FILTERS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+}
 
 export default function Leads() {
+  const persisted = loadPersistedFilters();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [projectCounts, setProjectCounts] = useState<{ totalAll: number; byProject: Record<string, number>; noProject: number }>({ totalAll: 0, byProject: {}, noProject: 0 });
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [platformFilter, setPlatformFilter] = useState("all");
-  const [projectFilter, setProjectFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(persisted.statusFilter ?? "all");
+  const [platformFilter, setPlatformFilter] = useState(persisted.platformFilter ?? "all");
+  const [projectFilter, setProjectFilter] = useState(persisted.projectFilter ?? "all");
   const [showNew, setShowNew] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", phone: "", plataforma: "", status: "lead", tags: [] as string[] });
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
-  const [stageFilter, setStageFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState(persisted.stageFilter ?? "all");
+  const [hotOnly, setHotOnly] = useState<boolean>(persisted.hotOnly ?? false);
   const [showImport, setShowImport] = useState(false);
-  const [productFilter, setProductFilter] = useState("all");
+  const [productFilter, setProductFilter] = useState(persisted.productFilter ?? "all");
   const [products, setProducts] = useState<string[]>([]);
   const [productLeadIds, setProductLeadIds] = useState<Set<string> | null>(null);
-  const [formFilter, setFormFilter] = useState("all");
+  const [formFilter, setFormFilter] = useState(persisted.formFilter ?? "all");
   const [captureForms, setCaptureForms] = useState<{id: string; name: string}[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
   const [quickRuleTag, setQuickRuleTag] = useState<string | null>(null);
+
 
   const [mainTab, setMainTab] = useState("leads");
   const [automations, setAutomations] = useState<any[]>([]);
@@ -253,6 +265,15 @@ export default function Leads() {
 
   useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter]);
 
+  // Persist filters
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify({
+        statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly,
+      } satisfies PersistedFilters));
+    } catch {}
+  }, [statusFilter, platformFilter, projectFilter, stageFilter, productFilter, formFilter, hotOnly]);
+
   useEffect(() => {
     const channel = supabase.channel("leads-realtime").on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_leads" }, (payload) => {
       const newLead = payload.new as Lead;
@@ -347,12 +368,26 @@ export default function Leads() {
 
   useEffect(() => { if (editLead) loadTimeline(editLead); }, [editLead?.id]);
 
+  const HOT_STAGES = new Set(["pix_gerado", "aguardando_pagamento", "carrinho_abandonado"]);
   const filtered = leads.filter((l) => {
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
     const matchForm = formFilter === "all" || (l.data as any)?.form_id === formFilter || (l.data as any)?.interacoes?.some((i: any) => i.form_id === formFilter);
-    return matchStage && matchProduct && matchForm;
+    let matchHot = true;
+    if (hotOnly) {
+      const stg = getLeadStage(l);
+      if (!HOT_STAGES.has(stg)) matchHot = false;
+      else {
+        const ref = getLeadActivityDate(l);
+        if (!ref) matchHot = false;
+        else {
+          try { matchHot = differenceInHours(new Date(), parseISO(ref)) <= 2; } catch { matchHot = false; }
+        }
+      }
+    }
+    return matchStage && matchProduct && matchForm && matchHot;
   });
+
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const allFilteredSelected = filtered.length > 0 && filtered.every(l => selectedIds.has(l.id));
@@ -361,6 +396,27 @@ export default function Leads() {
   const toggleSelect = (id: string) => { setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); };
 
   const deleteSelected = async () => { const ids = Array.from(selectedIds); for (let i = 0; i < ids.length; i += 50) { const chunk = ids.slice(i, i + 50); await supabase.from("imphq_vendas").delete().in("lead_id", chunk); await supabase.from("imphq_leads").delete().in("id", chunk); } toast.success(`${ids.length} leads removidos`); setBulkDeleteConfirm(false); setSelectedIds(new Set()); load(); };
+
+  const addTagToSelected = async (tag: string) => {
+    const clean = tag.trim();
+    if (!clean) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const targets = leads.filter(l => selectedIds.has(l.id));
+    let updated = 0;
+    for (const l of targets) {
+      const current = Array.isArray(l.tags) ? l.tags : [];
+      if (current.includes(clean)) continue;
+      const next = [...current, clean];
+      const { error } = await supabase.from("imphq_leads").update({ tags: next }).eq("id", l.id);
+      if (!error) updated++;
+    }
+    toast.success(`Tag "${clean}" aplicada em ${updated} lead(s)`);
+    setBulkTagInput("");
+    setSelectedIds(new Set());
+    load();
+  };
+
 
   const moveSelectedToProject = async (projId: string | null) => {
     const ids = Array.from(selectedIds);
@@ -565,6 +621,15 @@ export default function Leads() {
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
               {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>📋 {f.name}</SelectItem>)}</SelectContent></Select>)}
+              <Button
+                size="sm"
+                variant={hotOnly ? "default" : "outline"}
+                onClick={() => setHotOnly(v => !v)}
+                className={cn("h-9 gap-1", hotOnly && "bg-orange-500 hover:bg-orange-600 text-white")}
+                title="Apenas leads com Pix/Carrinho/Boleto nas últimas 2h"
+              >
+                🔥 Hot {hotOnly ? "ON" : ""}
+              </Button>
               {someSelected && (
                 <>
                   <Select onValueChange={(v) => moveSelectedToProject(v === "__none__" ? null : v)}>
@@ -574,9 +639,22 @@ export default function Leads() {
                       {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={bulkTagInput}
+                      onChange={e => setBulkTagInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && bulkTagInput.trim()) addTagToSelected(bulkTagInput); }}
+                      placeholder="🏷️ Tag em massa"
+                      className="h-9 w-[150px] text-xs bg-secondary"
+                    />
+                    <Button size="sm" variant="outline" disabled={!bulkTagInput.trim()} onClick={() => addTagToSelected(bulkTagInput)}>
+                      Aplicar
+                    </Button>
+                  </div>
                   <Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}><Trash2 className="h-3 w-3 mr-1" />{selectedIds.size} selecionados</Button>
                 </>
               )}
+
 
             </div>
 

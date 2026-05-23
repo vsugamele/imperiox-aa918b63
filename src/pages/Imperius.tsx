@@ -47,6 +47,28 @@ export default function Imperius() {
     auto: actions.filter((a) => a.auto_executed).length,
   };
 
+  // Atividade IA (últimos 7d) — visibilidade de consumo/uso
+  const aiActivity = (() => {
+    const now = Date.now();
+    const sevenD = now - 7 * 24 * 60 * 60 * 1000;
+    const oneD = now - 24 * 60 * 60 * 1000;
+    const recent = actions.filter((a) => new Date(a.created_at).getTime() >= sevenD);
+    const last24 = actions.filter((a) => new Date(a.created_at).getTime() >= oneD).length;
+    const byKind = new Map<string, number>();
+    let impact = 0;
+    recent.forEach((a) => {
+      const k = a.kind || "outro";
+      byKind.set(k, (byKind.get(k) || 0) + 1);
+      const i = parseFloat(a.impact_brl);
+      if (!isNaN(i)) impact += i;
+    });
+    const autoPct = recent.length > 0 ? Math.round((recent.filter((a) => a.auto_executed).length / recent.length) * 100) : 0;
+    const failPct = recent.length > 0 ? Math.round((recent.filter((a) => a.status === "failed").length / recent.length) * 100) : 0;
+    const topKinds = Array.from(byKind.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return { total7d: recent.length, last24, autoPct, failPct, impact, topKinds };
+  })();
+
+
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
@@ -84,6 +106,40 @@ export default function Imperius() {
           <p className="text-3xl font-serif text-red-400 mt-1">{stats.failed}</p>
         </Card>
       </div>
+
+      <Card className="p-4 bg-secondary/40 border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-xl text-foreground">Atividade IA · últimos 7d</h2>
+          <div className="flex gap-2 text-[11px] text-muted-foreground">
+            <span>24h: <strong className="text-foreground">{aiActivity.last24}</strong></span>
+            <span>•</span>
+            <span>Auto: <strong className="text-primary">{aiActivity.autoPct}%</strong></span>
+            <span>•</span>
+            <span>Falhas: <strong className={aiActivity.failPct > 15 ? "text-red-400" : "text-foreground"}>{aiActivity.failPct}%</strong></span>
+            <span>•</span>
+            <span>Impacto: <strong className="text-emerald-400">R$ {aiActivity.impact.toFixed(0)}</strong></span>
+          </div>
+        </div>
+        {aiActivity.topKinds.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">Sem atividade nos últimos 7 dias.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {aiActivity.topKinds.map(([kind, count]) => {
+              const pct = Math.round((count / aiActivity.total7d) * 100);
+              return (
+                <div key={kind} className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground w-32 truncate">{kind}</span>
+                  <div className="flex-1 h-1.5 bg-background/60 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground w-16 text-right">{count} · {pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
 
       <Card className="bg-secondary/40 border-border">
         <div className="p-4 border-b border-border">
