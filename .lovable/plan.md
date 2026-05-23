@@ -1,42 +1,45 @@
 ## Problema
 
-Quando a sequência é gerada (via IA) ou importada (via texto colado), os parágrafos chegam grudados — sem espaçamento entre saudação, corpo e CTA. A causa está em três pontos:
+Hoje o `topTags` em `src/pages/Leads.tsx` (linha 472) conta só os leads da **página atual** (`leads` paginado). Por isso o número aparece bem menor que o real. O hook `useLeadTags` existe mas também é limitado (puxa 5000 linhas e conta no cliente) e nem é usado na sidebar.
 
-1. **`wa-campaign-ai-generate`** — o prompt pede "máx 8 linhas" mas não instrui o modelo a usar `\n\n` entre parágrafos. O Gemini devolve tudo num bloco só.
-2. **`wa-campaign-parse-text`** — o parser pede pra "preservar quebras de linha", mas não enfatiza **linhas em branco entre parágrafos** (e o `.trim()` final remove blocos vazios nas pontas). Ao reextrair, o modelo normaliza tudo pra `\n` simples.
-3. **Textarea do editor** — o campo de conteúdo no `CampaignStepEditor` usa altura padrão e não tem fonte monoespaçada nem indicação visual de quebras, o que faz parecer "grudado" mesmo quando há `\n`.
+## Solução: agregar no banco
 
-A preview do WhatsApp e o diagrama já usam `whitespace-pre-wrap`, então o renderer está OK — o problema é o conteúdo salvo não ter espaçamento.
+Criar uma **RPC** `get_lead_tag_counts` que faz `unnest(tags)` + `GROUP BY` direto no Postgres. Retorna `{ tag, count }` já ordenado. Custo de rede mínimo (uma linha por tag, não por lead) e zero limite de 1000.
 
-## Mudanças
+### Migração
 
-### 1. `supabase/functions/wa-campaign-ai-generate/index.ts`
-Reforçar no `systemPrompt` e no `userPrompt`:
-- "Formate como mensagem WhatsApp real: **uma linha em branco entre parágrafos** (use `\n\n`)."
-- "Saudação isolada, corpo em 2-3 parágrafos curtos, CTA em linha própria."
-- "Negrito com `*texto*`, listas com `•` ou emoji + linha."
-- Adicionar exemplo curto inline mostrando estrutura com `\n\n`.
+```sql
+create or replace function public.get_lead_tag_counts(
+  p_project_id text default null,
+  p_limit int default 50
+)
+returns table(tag text, count bigint)
+language sql stable security definer set search_path = public as $$
+  select t.tag, count(*)::bigint
+  from public.imphq_leads l, unnest(l.tags) as t(tag)
+  where l.tags is not null
+    and (p_project_id is null or l.project_id = p_project_id)
+    and t.tag is not null and length(trim(t.tag)) > 0
+  group by t.tag
+  order by count(*) desc
+  limit p_limit;
+$$;
+```
 
-### 2. `supabase/functions/wa-campaign-parse-text/index.ts`
-- Trocar instrução 6 para: "content = texto **exato** da mensagem, **preservando linhas em branco entre parágrafos** (use `\n\n`). Não colapse múltiplos `\n` em um só."
-- Trocar `String(s.content || "").trim()` por preservação interna: remover só espaços/quebras nas pontas via `.replace(/^[\s\n]+|[\s\n]+$/g, "")` (mantém os `\n\n` internos).
-- Adicionar exemplo no prompt mostrando input com linhas em branco → output com `\n\n`.
+(RLS continua valendo via `security definer` + filtro por projeto; se preferir respeitar RLS do usuário, troco por `security invoker`.)
 
-### 3. `src/components/whatsapp/CampaignStepEditor.tsx`
-Localizar o `Textarea` do campo `content` (~linha 420+) e:
-- Aumentar `rows` para 8 (atual provavelmente 3-4).
-- Adicionar `className="font-mono text-xs leading-6 whitespace-pre-wrap"` para mostrar quebras claramente.
-- Adicionar contador discreto abaixo: "X linhas · Y caracteres".
+### Frontend
 
-### 4. `src/components/whatsapp/CampaignImportDialog.tsx`
-Confirmar que `s.content.slice(0, 4000)` não está sendo passado por nenhum `.trim()` adicional antes do insert (linha 76). Se houver, remover.
+1. Reescrever `src/hooks/useLeadTags.ts` para chamar `supabase.rpc('get_lead_tag_counts', { p_project_id, p_limit: 50 })`, com cache em memória por `projectFilter` e TTL de 60s.
+2. Em `src/pages/Leads.tsx`:
+   - Remover o `topTags` baseado em `leads` (linhas 472–476).
+   - Usar `const { tags: topTags } = useLeadTags(projectFilter === 'all' ? null : projectFilter)`.
+   - Passar o mesmo array (já com `{ tag, count }`) para `LeadsSidebar` e para o `<Select>` de filtro.
+3. Invalidar o cache do hook quando o usuário criar/editar tags (já há realtime de leads — opcional disparar refetch on insert).
 
-## Fora de escopo
+## Fora do escopo
+- Paginação dos leads em si (continua igual, é só a contagem que muda).
+- Outros contadores da sidebar (`projectCounts` já é feito server-side).
 
-- Não mexer no envio (Evolution API já preserva `\n`).
-- Não mudar o preview/diagrama (já usam `whitespace-pre-wrap`).
-- Não criar migração — apenas edge functions + componente.
-
-## Resultado esperado
-
-Mensagens geradas pela IA e importadas do texto colado mantêm a formatação visual de uma mensagem WhatsApp real, com parágrafos separados por linha em branco, tanto no editor quanto na preview e no envio.
+## Resultado
+Contagem real de tags em toda a base, com 1 round-trip leve, sem carregar 5k+ leads no cliente.
