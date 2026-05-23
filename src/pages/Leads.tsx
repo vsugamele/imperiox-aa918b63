@@ -147,6 +147,7 @@ export default function Leads() {
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [stageFilter, setStageFilter] = useState(persisted.stageFilter ?? "all");
   const [hotOnly, setHotOnly] = useState<boolean>(persisted.hotOnly ?? false);
+  const [tagFilter, setTagFilter] = useState<string>(persisted.tagFilter ?? "all");
   const [showImport, setShowImport] = useState(false);
   const [productFilter, setProductFilter] = useState(persisted.productFilter ?? "all");
   const [products, setProducts] = useState<string[]>([]);
