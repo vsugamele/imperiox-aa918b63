@@ -621,6 +621,15 @@ export default function Leads() {
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
               {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>📋 {f.name}</SelectItem>)}</SelectContent></Select>)}
+              <Button
+                size="sm"
+                variant={hotOnly ? "default" : "outline"}
+                onClick={() => setHotOnly(v => !v)}
+                className={cn("h-9 gap-1", hotOnly && "bg-orange-500 hover:bg-orange-600 text-white")}
+                title="Apenas leads com Pix/Carrinho/Boleto nas últimas 2h"
+              >
+                🔥 Hot {hotOnly ? "ON" : ""}
+              </Button>
               {someSelected && (
                 <>
                   <Select onValueChange={(v) => moveSelectedToProject(v === "__none__" ? null : v)}>
@@ -630,9 +639,22 @@ export default function Leads() {
                       {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={bulkTagInput}
+                      onChange={e => setBulkTagInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && bulkTagInput.trim()) addTagToSelected(bulkTagInput); }}
+                      placeholder="🏷️ Tag em massa"
+                      className="h-9 w-[150px] text-xs bg-secondary"
+                    />
+                    <Button size="sm" variant="outline" disabled={!bulkTagInput.trim()} onClick={() => addTagToSelected(bulkTagInput)}>
+                      Aplicar
+                    </Button>
+                  </div>
                   <Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}><Trash2 className="h-3 w-3 mr-1" />{selectedIds.size} selecionados</Button>
                 </>
               )}
+
 
             </div>
 
