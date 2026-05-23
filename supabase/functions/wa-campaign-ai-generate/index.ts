@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { campaign_id, project_id, produto, count = 7, tom = "vendas", briefing = "" } = await req.json();
+    const { campaign_id, project_id, produto, count = 7, tom = "vendas", briefing = "", reference = "" } = await req.json();
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: "campaign_id required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
