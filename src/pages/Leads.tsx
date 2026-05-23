@@ -125,33 +125,45 @@ function getConversionBucket(hours: number): string {
 }
 
 const PAGE_SIZE = 50;
+const FILTERS_KEY = "imphq:leads:filters:v1";
+type PersistedFilters = {
+  statusFilter: string; platformFilter: string; projectFilter: string;
+  stageFilter: string; productFilter: string; formFilter: string; hotOnly: boolean;
+};
+function loadPersistedFilters(): Partial<PersistedFilters> {
+  try { const raw = localStorage.getItem(FILTERS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+}
 
 export default function Leads() {
+  const persisted = loadPersistedFilters();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [projectCounts, setProjectCounts] = useState<{ totalAll: number; byProject: Record<string, number>; noProject: number }>({ totalAll: 0, byProject: {}, noProject: 0 });
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [platformFilter, setPlatformFilter] = useState("all");
-  const [projectFilter, setProjectFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(persisted.statusFilter ?? "all");
+  const [platformFilter, setPlatformFilter] = useState(persisted.platformFilter ?? "all");
+  const [projectFilter, setProjectFilter] = useState(persisted.projectFilter ?? "all");
   const [showNew, setShowNew] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", phone: "", plataforma: "", status: "lead", tags: [] as string[] });
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
-  const [stageFilter, setStageFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState(persisted.stageFilter ?? "all");
+  const [hotOnly, setHotOnly] = useState<boolean>(persisted.hotOnly ?? false);
   const [showImport, setShowImport] = useState(false);
-  const [productFilter, setProductFilter] = useState("all");
+  const [productFilter, setProductFilter] = useState(persisted.productFilter ?? "all");
   const [products, setProducts] = useState<string[]>([]);
   const [productLeadIds, setProductLeadIds] = useState<Set<string> | null>(null);
-  const [formFilter, setFormFilter] = useState("all");
+  const [formFilter, setFormFilter] = useState(persisted.formFilter ?? "all");
   const [captureForms, setCaptureForms] = useState<{id: string; name: string}[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
   const [quickRuleTag, setQuickRuleTag] = useState<string | null>(null);
+
 
   const [mainTab, setMainTab] = useState("leads");
   const [automations, setAutomations] = useState<any[]>([]);
