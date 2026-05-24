@@ -58,6 +58,10 @@ export default function Studio() {
           <StudioGenerator />
         </TabsContent>
 
+        <TabsContent value="video" className="mt-6">
+          <VideoPromptGenerator />
+        </TabsContent>
+
         <TabsContent value="hyper" className="mt-6">
           <HyperPromptGenerator
             externalFields={loadedFields}
