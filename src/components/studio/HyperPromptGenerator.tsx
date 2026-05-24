@@ -150,6 +150,7 @@ export function HyperPromptGenerator({
   }, [fields]);
 
   const prompt = useMemo(() => buildHyperPrompt(fields), [fields]);
+  const promptJson = useMemo(() => JSON.stringify(buildHyperPromptJson(fields), null, 2), [fields]);
 
   const set = (k: FieldKey) => (v: string) =>
     setFields((p) => ({ ...p, [k]: v } as HyperFields));
