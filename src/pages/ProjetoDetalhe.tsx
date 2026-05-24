@@ -233,8 +233,8 @@ export default function ProjetoDetalhe() {
 
       {/* ───────── Editorial Tabs ───────── */}
       <Tabs defaultValue="comando">
-        <div className="overflow-x-auto -mx-1 px-1">
-          <TabsList className="editorial-tabs flex-nowrap min-w-max">
+        <div className="-mx-1 px-1">
+          <TabsList className="editorial-tabs flex-wrap h-auto">
             <TabsTrigger value="comando" className="editorial-tab">🎯 Comando</TabsTrigger>
             <TabsTrigger value="identidade" className="editorial-tab">🎨 Identidade</TabsTrigger>
             <TabsTrigger value="expert" className="editorial-tab">👤 Expert</TabsTrigger>
