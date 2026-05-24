@@ -29,7 +29,7 @@ interface Props {
 }
 
 
-export default function DashboardStats({ period, projectFilter, productFilter, compare = false }: Props) {
+export default function DashboardStats({ period, projectFilter, productFilter, compare = false, variant = "grid" }: Props) {
   const navigate = useNavigate();
   const [revenueMode] = useRevenueMode();
   const [stats, setStats] = useState<Stats>({ projects: 0, tasks: 0, leads: 0, adsCost: 0, opCost: 0, revenue: 0, salesCount: 0, pixPendingCount: 0, pixPendingValue: 0 });
