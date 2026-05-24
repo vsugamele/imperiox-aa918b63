@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault } from "lucide-react";
+import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault, Film } from "lucide-react";
 import { StudioPrompts } from "@/components/studio/StudioPrompts";
 import { StudioGenerator } from "@/components/studio/StudioGenerator";
 import { StudioWorkflow } from "@/components/studio/StudioWorkflow";
 import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
 import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
+import { VideoPromptGenerator } from "@/components/studio/VideoPromptGenerator";
 import type { HyperFields } from "@/lib/hyperPromptBuilder";
 
 export default function Studio() {
