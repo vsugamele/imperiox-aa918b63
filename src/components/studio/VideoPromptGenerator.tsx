@@ -140,12 +140,15 @@ export function VideoPromptGenerator() {
     if (saving) return;
     setSaving(true);
     try {
+      const { data: u } = await supabase.auth.getUser();
+      const nome = `Vídeo · ${f.plataforma} · ${new Date().toLocaleString("pt-BR")}`;
       const { error } = await supabase.from("imphq_prompts_salvos").insert({
-        tipo: "video",
+        user_id: u.user?.id,
+        nome,
         plataforma: f.plataforma,
         prompt_text: promptText,
-        prompt_json: buildVideoPromptJson(f),
-        campos: f as any,
+        campos: { __type: "video", fields: f, json: buildVideoPromptJson(f) } as any,
+        tags: ["video"],
       } as any);
       if (error) throw error;
       toast.success("Salvo no Cofre");
