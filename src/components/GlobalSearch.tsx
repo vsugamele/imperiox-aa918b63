@@ -87,21 +87,22 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary/50 hover:bg-secondary text-muted-foreground text-sm transition-colors"
+        className="header-search-pill w-full max-w-md flex items-center gap-2 px-3.5 py-1.5 text-muted-foreground/70 hover:text-foreground text-sm"
       >
-        <Search className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Buscar...</span>
-        <kbd className="hidden md:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
+        <Search className="h-3.5 w-3.5 text-gold/60" />
+        <span className="hidden sm:inline italic font-serif text-[13px]">Buscar no Império…</span>
+        <kbd className="ml-auto hidden md:inline-flex h-5 items-center gap-1 rounded border border-border/60 bg-background/60 px-1.5 text-[10px] font-mono text-muted-foreground/70">
           ⌘K
         </kbd>
       </button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Buscar projetos, tarefas, leads, docs..."
+          placeholder="Buscar projetos, tarefas, leads, docs…"
           value={query}
           onValueChange={setQuery}
         />
+
         <CommandList>
           <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
           {Object.entries(grouped).map(([type, items], gi) => {
