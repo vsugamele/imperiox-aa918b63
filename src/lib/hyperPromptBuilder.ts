@@ -7,6 +7,7 @@ export interface HyperFields {
   fenotipo: string;
   tomPele: string;
   expressao: string;
+  emocao: string;
   cabeloEstilo: string;
   cabeloCor: string;
   roupa: string;
@@ -24,12 +25,13 @@ export interface HyperFields {
   shutter: string;
   filme: string;
   estiloFinal: string;
-  // novos
+  moodboard: string;
   composicao: string;
   posProcesso: string;
   negativo: string;
   aspectRatio: string;
   plataforma: HyperPlataforma;
+  seed: string;
 }
 
 const j = (parts: (string | undefined | null)[]) =>
@@ -41,11 +43,12 @@ function plataformaSuffix(f: HyperFields): string {
       const parts: string[] = [];
       if (f.aspectRatio) parts.push(`--ar ${f.aspectRatio}`);
       parts.push("--style raw", "--v 7", "--s 250");
+      if (f.seed && /^\d+$/.test(f.seed)) parts.push(`--seed ${f.seed}`);
       if (f.negativo) parts.push(`--no ${f.negativo}`);
       return parts.join(" ");
     }
     case "flux":
-      return f.aspectRatio ? `aspect ratio ${f.aspectRatio}` : "";
+      return [f.aspectRatio ? `aspect ratio ${f.aspectRatio}` : "", f.seed ? `seed ${f.seed}` : ""].filter(Boolean).join(", ");
     case "sora":
       return f.aspectRatio ? `[${f.aspectRatio}]` : "";
     case "dalle":
@@ -68,7 +71,7 @@ export function buildHyperPrompt(f: HyperFields): string {
   ].filter(Boolean).join(" ");
   if (personagem) lines.push(`RAW photo, a ${personagem},`);
 
-  const l2 = j([skinPrefix ? `${skinPrefix} skin` : "", f.expressao]);
+  const l2 = j([skinPrefix ? `${skinPrefix} skin` : "", f.expressao, f.emocao]);
   if (l2) lines.push(`${l2},`);
 
   const cabelo = [f.cabeloCor, f.cabeloEstilo].filter(Boolean).join(" ");
@@ -104,6 +107,8 @@ export function buildHyperPrompt(f: HyperFields): string {
   ]);
   if (l10) lines.push(`${l10},`);
 
+  if (f.moodboard) lines.push(`in the style of ${f.moodboard},`);
+
   const final = j([
     "hyper-realistic",
     f.estiloFinal,
@@ -126,6 +131,7 @@ export const emptyHyperFields: HyperFields = {
   fenotipo: "",
   tomPele: "porcelain",
   expressao: "calm knowing gaze",
+  emocao: "",
   cabeloEstilo: "long wavy",
   cabeloCor: "dark brown",
   roupa: "deep V-cut black silk corset top with delicate lace trim",
@@ -143,9 +149,12 @@ export const emptyHyperFields: HyperFields = {
   shutter: "125",
   filme: "Kodak Portra 400",
   estiloFinal: "dark cinematic, fine-art photography quality",
+  moodboard: "",
   composicao: "",
   posProcesso: "",
   negativo: "",
   aspectRatio: "2:3",
   plataforma: "midjourney",
+  seed: "",
 };
+

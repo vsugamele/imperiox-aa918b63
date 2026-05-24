@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, target = "midjourney", briefing = "" } = await req.json();
+    const { prompt, target = "midjourney", briefing = "", mode = "compact" } = await req.json();
     if (!prompt || typeof prompt !== "string") {
       return new Response(JSON.stringify({ error: "prompt obrigatório" }), {
         status: 400,
@@ -28,7 +28,13 @@ Deno.serve(async (req) => {
       sora: "Otimize para vídeo Sora: descreva cena, movimento de câmera, duração implícita e mood.",
     };
 
-    const sys = `Você é diretor de arte e prompt engineer especialista em geração de imagens fotorrealistas. Refine o prompt mantendo TODOS os detalhes técnicos (lente, ISO, shutter, filme, iluminação), corrigindo redundâncias e elevando a precisão visual. ${targetInstructions[target] || targetInstructions.midjourney} Responda APENAS com o prompt refinado, sem comentários, sem aspas, sem cabeçalhos.`;
+    const modeInstructions: Record<string, string> = {
+      compact: "Mantenha o formato compacto, termos visuais densos separados por vírgula.",
+      editorial: "REESCREVA em UM ÚNICO parágrafo cinematográfico denso e sensorial (estilo Vogue/Lindbergh), mantendo TODOS os tokens técnicos (câmera, lente, f-stop, ISO, filme, iluminação, --ar, --no, --seed). Use linguagem evocativa, ritmo poético, mas sem perder precisão técnica. ~80-140 palavras.",
+      json: "Retorne APENAS um objeto JSON válido com chaves: subject, action, environment, lighting, camera, style, params. Sem markdown.",
+    };
+
+    const sys = `Você é diretor de arte e prompt engineer especialista em geração de imagens fotorrealistas. Refine o prompt mantendo TODOS os detalhes técnicos (lente, ISO, shutter, filme, iluminação), corrigindo redundâncias e elevando a precisão visual. ${targetInstructions[target] || targetInstructions.midjourney} ${modeInstructions[mode] || modeInstructions.compact} Responda APENAS com o prompt refinado, sem comentários, sem aspas, sem cabeçalhos.`;
 
     const user = `PROMPT ORIGINAL:\n${prompt}\n${briefing ? `\nBRIEFING DO PROJETO (use como contexto, não copie):\n${briefing}` : ""}`;
 
