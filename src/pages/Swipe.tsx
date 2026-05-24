@@ -1,25 +1,33 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Sparkles, Search, Trash2, Star, FlaskConical, Wand2 } from "lucide-react";
+import { Plus, Upload, FlaskConical, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { SwipeImportDialog } from "@/components/swipe/SwipeImportDialog";
 import { SwipeDetail } from "@/components/swipe/SwipeDetail";
 import { SwipeMotorDialog } from "@/components/swipe/SwipeMotorDialog";
+import { SwipeIndexSidebar } from "@/components/swipe/SwipeIndexSidebar";
+import { SwipeRoteiroCard } from "@/components/swipe/SwipeRoteiroCard";
+
+function getLabel(s: any, idx: number): string {
+  const m = String(s.title || "").match(/ROTEIRO\s+([A-Z0-9]+)/i);
+  if (m) return m[1].toUpperCase();
+  if (idx < 26) return String.fromCharCode(65 + idx);
+  return String(idx + 1);
+}
 
 export default function Swipe() {
   const [swipes, setSwipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterNicho, setFilterNicho] = useState<string>("");
-  const [filterPlataforma, setFilterPlataforma] = useState<string>("");
+  const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<any | null>(null);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [motorOpen, setMotorOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const fetchSwipes = async () => {
     setLoading(true);
@@ -36,21 +44,34 @@ export default function Swipe() {
     fetchSwipes();
   }, []);
 
-  const nichos = useMemo(() => Array.from(new Set(swipes.map((s) => s.nicho).filter(Boolean))), [swipes]);
-  const plataformas = useMemo(() => Array.from(new Set(swipes.map((s) => s.plataforma).filter(Boolean))), [swipes]);
+  // Chips derivados de mecanismo + tags
+  const chips = useMemo(() => {
+    const set = new Set<string>();
+    swipes.forEach((s) => {
+      if (s.mecanismo) set.add(s.mecanismo);
+      (s.tags || []).forEach((t: string) => set.add(t));
+      if (s.nicho) set.add(s.nicho);
+    });
+    return Array.from(set).slice(0, 16);
+  }, [swipes]);
 
   const filtered = useMemo(() => {
+    if (activeChips.size === 0) return swipes;
     return swipes.filter((s) => {
-      if (filterNicho && s.nicho !== filterNicho) return false;
-      if (filterPlataforma && s.plataforma !== filterPlataforma) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const hay = `${s.title} ${s.criador} ${s.mecanismo} ${(s.tags || []).join(" ")} ${JSON.stringify(s.blocks || {})}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
+      const hay = new Set<string>();
+      if (s.mecanismo) hay.add(s.mecanismo);
+      if (s.nicho) hay.add(s.nicho);
+      (s.tags || []).forEach((t: string) => hay.add(t));
+      for (const c of activeChips) if (hay.has(c)) return true;
+      return false;
     });
-  }, [swipes, search, filterNicho, filterPlataforma]);
+  }, [swipes, activeChips]);
+
+  const toggleChip = (c: string) => {
+    const ns = new Set(activeChips);
+    ns.has(c) ? ns.delete(c) : ns.add(c);
+    setActiveChips(ns);
+  };
 
   const toggleBulk = (id: string) => {
     const ns = new Set(bulkSelected);
@@ -64,80 +85,116 @@ export default function Swipe() {
     if (error) return toast.error(error.message);
     toast.success("Apagada");
     setSwipes(swipes.filter((s) => s.id !== id));
-    if (selected?.id === id) setSelected(null);
+  };
+
+  // Scroll-spy + clique na sidebar
+  useEffect(() => {
+    if (!filtered.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]) {
+          const id = visible[0].target.id.replace("swipe-", "");
+          setActiveId(id);
+        }
+      },
+      { rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.25, 0.5, 1] },
+    );
+    cardRefs.current.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, [filtered]);
+
+  const scrollTo = (id: string) => {
+    const el = cardRefs.current.get(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveId(id);
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-primary">📚 Swipe File</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Biblioteca de copys campeãs · engenharia reversa · motor de geração
-          </p>
+    <div className="space-y-5 animate-fade-in">
+      {/* HEADER EDITORIAL */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[hsl(var(--gold))]/85">
+            · Biblioteca · Swipe File
+          </span>
+          <div className="flex-1 h-px bg-gradient-to-r from-[hsl(var(--gold))]/40 via-[hsl(var(--gold))]/15 to-transparent" />
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <Upload className="h-4 w-4 mr-1" /> Importar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelected({ __new: true, title: "Nova copy", blocks: {}, tags: [], gatilhos: [] });
-            }}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Novo manual
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setMotorOpen(true)}
-            disabled={bulkSelected.size === 0}
-            className="gap-1"
-          >
-            <Wand2 className="h-4 w-4" /> Motor ({bulkSelected.size})
-          </Button>
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-display italic text-3xl text-foreground leading-none">
+              Swipe <span className="text-[hsl(var(--gold))]">File</span>
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1.5 italic">
+              Biblioteca de copys campeãs · engenharia reversa · motor de geração
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4 mr-1" /> Importar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelected({ __new: true, title: "Nova copy", blocks: {}, tags: [], gatilhos: [] })}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Novo manual
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setMotorOpen(true)}
+              disabled={bulkSelected.size === 0}
+              className="gap-1"
+            >
+              <Wand2 className="h-4 w-4" /> Motor ({bulkSelected.size})
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-2 flex-wrap items-center">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar título, criador, mecanismo, tag…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 bg-secondary"
-          />
+      {/* CHIPS */}
+      {chips.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <button
+            onClick={() => setActiveChips(new Set())}
+            className={cn(
+              "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1 rounded-full border transition",
+              activeChips.size === 0
+                ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/50 text-[hsl(var(--gold))]"
+                : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Todos ({swipes.length})
+          </button>
+          {chips.map((c) => {
+            const on = activeChips.has(c);
+            return (
+              <button
+                key={c}
+                onClick={() => toggleChip(c)}
+                className={cn(
+                  "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1 rounded-full border transition",
+                  on
+                    ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/50 text-[hsl(var(--gold))]"
+                    : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {c}
+              </button>
+            );
+          })}
+          <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">
+            {filtered.length} de {swipes.length}
+          </span>
         </div>
-        <select
-          value={filterNicho}
-          onChange={(e) => setFilterNicho(e.target.value)}
-          className="bg-secondary border border-border rounded-md text-sm px-2 py-1.5"
-        >
-          <option value="">Todos os nichos</option>
-          {nichos.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
-        <select
-          value={filterPlataforma}
-          onChange={(e) => setFilterPlataforma(e.target.value)}
-          className="bg-secondary border border-border rounded-md text-sm px-2 py-1.5"
-        >
-          <option value="">Todas plataformas</option>
-          {plataformas.map((p) => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-        <span className="text-xs text-muted-foreground ml-auto">
-          {filtered.length} de {swipes.length}
-        </span>
-      </div>
+      )}
 
+      {/* LAYOUT 2-COL */}
       {loading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : filtered.length === 0 ? (
+      ) : swipes.length === 0 ? (
         <Card className="p-12 text-center bg-secondary/30 border-dashed">
           <FlaskConical className="h-10 w-10 mx-auto text-primary/60 mb-3" />
           <p className="text-sm text-muted-foreground mb-3">
@@ -148,74 +205,33 @@ export default function Swipe() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filtered.map((s) => (
-            <Card
-              key={s.id}
-              className={`p-3 bg-secondary/40 border-border cursor-pointer hover:border-primary/40 transition-colors ${
-                bulkSelected.has(s.id) ? "border-primary ring-1 ring-primary/40" : ""
-              }`}
-              onClick={() => setSelected(s)}
-            >
-              <div className="flex items-start gap-2 mb-2">
-                <input
-                  type="checkbox"
-                  checked={bulkSelected.has(s.id)}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    toggleBulk(s.id);
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="lg:col-span-3">
+            <SwipeIndexSidebar items={filtered} activeId={activeId} onSelect={scrollTo} />
+          </div>
+          <div className="lg:col-span-9 space-y-4">
+            {filtered.length === 0 ? (
+              <Card className="p-8 text-center bg-secondary/20 border-dashed border-border/40">
+                <p className="text-sm text-muted-foreground italic">Nenhum roteiro com esses filtros.</p>
+              </Card>
+            ) : (
+              filtered.map((s, i) => (
+                <SwipeRoteiroCard
+                  key={s.id}
+                  ref={(el) => {
+                    if (el) cardRefs.current.set(s.id, el);
+                    else cardRefs.current.delete(s.id);
                   }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-1 accent-primary"
+                  swipe={s}
+                  label={getLabel(s, i)}
+                  selected={bulkSelected.has(s.id)}
+                  onToggleSelect={() => toggleBulk(s.id)}
+                  onEdit={() => setSelected(s)}
+                  onDelete={() => deleteSwipe(s.id)}
                 />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium leading-snug line-clamp-2">{s.title}</h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {s.criador && <span>{s.criador} · </span>}
-                    {s.plataforma || "—"} · {s.formato || "—"}
-                  </p>
-                </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 shrink-0 text-destructive/70"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteSwipe(s.id);
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-              {s.blocks?.gancho && (
-                <p className="text-xs text-foreground/80 line-clamp-3 italic leading-snug">
-                  "{s.blocks.gancho}"
-                </p>
-              )}
-              <div className="flex flex-wrap gap-1 mt-2">
-                {s.mecanismo && (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                    {s.mecanismo}
-                  </Badge>
-                )}
-                {s.nicho && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-                    {s.nicho}
-                  </Badge>
-                )}
-                {(s.tags || []).slice(0, 3).map((t: string) => (
-                  <Badge key={t} variant="outline" className="text-[9px] px-1.5 py-0">
-                    {t}
-                  </Badge>
-                ))}
-                {s.reverse_engineering && Object.keys(s.reverse_engineering).length > 0 && (
-                  <Badge className="text-[9px] px-1.5 py-0 bg-primary/20 text-primary border-primary/40">
-                    🔬 RE
-                  </Badge>
-                )}
-              </div>
-            </Card>
-          ))}
+              ))
+            )}
+          </div>
         </div>
       )}
 
