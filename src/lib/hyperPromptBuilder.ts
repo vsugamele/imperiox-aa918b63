@@ -124,6 +124,61 @@ export function buildHyperPrompt(f: HyperFields): string {
   return lines.join("\n");
 }
 
+export function buildHyperPromptJson(f: HyperFields): Record<string, any> {
+  const clean = (o: Record<string, any>) =>
+    Object.fromEntries(Object.entries(o).filter(([_, v]) => v && String(v).trim()));
+
+  return clean({
+    subject: clean({
+      age: f.idade,
+      gender: f.genero,
+      type: f.tipoPersonagem,
+      phenotype: f.fenotipo,
+      skin_tone: f.tomPele,
+      expression: f.expressao,
+      emotion: f.emocao,
+      hair: [f.cabeloCor, f.cabeloEstilo].filter(Boolean).join(" "),
+    }),
+    wardrobe: clean({
+      outfit: f.roupa,
+      accessories: f.acessorios,
+    }),
+    action: clean({
+      pose: f.pose,
+      prop: f.prop,
+    }),
+    environment: clean({
+      setting: f.cenario,
+      time_of_day: f.horario,
+    }),
+    lighting: clean({
+      direction: f.luzDirecao,
+      color_grade: f.colorGrade,
+      composition: f.composicao,
+    }),
+    camera: clean({
+      body: f.camera,
+      lens: f.lente,
+      aperture: f.abertura ? `f/${f.abertura}` : "",
+      iso: f.iso,
+      shutter: f.shutter ? `1/${f.shutter}s` : "",
+    }),
+    style: clean({
+      film: f.filme,
+      post_process: f.posProcesso,
+      moodboard: f.moodboard,
+      final: f.estiloFinal,
+    }),
+    output: clean({
+      platform: f.plataforma,
+      aspect_ratio: f.aspectRatio,
+      seed: f.seed,
+      negative: f.negativo,
+    }),
+    quality: ["hyper-realistic", "8K", "no studio lighting", "no filters"],
+  });
+}
+
 export const emptyHyperFields: HyperFields = {
   idade: "35",
   genero: "woman",
