@@ -71,7 +71,7 @@ export function buildHyperPrompt(f: HyperFields): string {
   ].filter(Boolean).join(" ");
   if (personagem) lines.push(`RAW photo, a ${personagem},`);
 
-  const l2 = j([skinPrefix ? `${skinPrefix} skin` : "", f.expressao]);
+  const l2 = j([skinPrefix ? `${skinPrefix} skin` : "", f.expressao, f.emocao]);
   if (l2) lines.push(`${l2},`);
 
   const cabelo = [f.cabeloCor, f.cabeloEstilo].filter(Boolean).join(" ");
@@ -107,6 +107,8 @@ export function buildHyperPrompt(f: HyperFields): string {
   ]);
   if (l10) lines.push(`${l10},`);
 
+  if (f.moodboard) lines.push(`in the style of ${f.moodboard},`);
+
   const final = j([
     "hyper-realistic",
     f.estiloFinal,
@@ -129,6 +131,7 @@ export const emptyHyperFields: HyperFields = {
   fenotipo: "",
   tomPele: "porcelain",
   expressao: "calm knowing gaze",
+  emocao: "",
   cabeloEstilo: "long wavy",
   cabeloCor: "dark brown",
   roupa: "deep V-cut black silk corset top with delicate lace trim",
@@ -146,9 +149,12 @@ export const emptyHyperFields: HyperFields = {
   shutter: "125",
   filme: "Kodak Portra 400",
   estiloFinal: "dark cinematic, fine-art photography quality",
+  moodboard: "",
   composicao: "",
   posProcesso: "",
   negativo: "",
   aspectRatio: "2:3",
   plataforma: "midjourney",
+  seed: "",
 };
+
