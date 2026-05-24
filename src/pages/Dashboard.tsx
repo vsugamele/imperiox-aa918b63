@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -17,20 +17,29 @@ import DashboardCards from "@/components/dashboard/DashboardCards";
 import DashboardAlerts from "@/components/dashboard/DashboardAlerts";
 import GrowthDashboard from "@/components/dashboard/GrowthDashboard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
-import ConversionFunnel from "@/components/dashboard/ConversionFunnel";
 import AcquisitionFunnel from "@/components/dashboard/AcquisitionFunnel";
 import HotLeadAlerts from "@/components/dashboard/HotLeadAlerts";
 import PredictiveDashboard from "@/components/dashboard/PredictiveDashboard";
 import LiveFunnelPanel from "@/components/dashboard/LiveFunnelPanel";
-import DailyBriefing from "@/components/dashboard/DailyBriefing";
 import RecoveryGlobalCard from "@/components/dashboard/RecoveryGlobalCard";
 import AIRevenueRecoveredCard from "@/components/dashboard/AIRevenueRecoveredCard";
 import FacebookHealthAlert from "@/components/dashboard/FacebookHealthAlert";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
-import { PageHeader } from "@/components/shared/PageHeader";
 import TodayCard from "@/components/dashboard/TodayCard";
-import NextActionCard from "@/components/dashboard/NextActionCard";
+import { DashboardHero } from "@/components/dashboard/DashboardHero";
+import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
 
+function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-end justify-between gap-3 mb-3">
+      <div>
+        <div className="kicker mb-1">{kicker}</div>
+        <h2 className="section-title">{title}</h2>
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -57,39 +66,26 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  const projectLabel = useMemo(() => {
+    if (dashProject === "all") return "all";
+    const p = allProjects.find((p) => p.id === dashProject);
+    return p ? `${p.icon || "📁"} ${p.name}` : dashProject;
+  }, [dashProject, allProjects]);
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Dashboard"
-        subtitle="Visão geral do seu império digital"
-        primaryAction={
-          <div className="flex items-center gap-2">
-            <SectionInfo {...sectionHelpTexts.dashboard} />
-            <Link
-              to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all hover:scale-[1.02]",
-                recoveryRisk > 0
-                  ? "border-amber-500/50 bg-amber-500/10 text-amber-400 animate-pulse"
-                  : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <LifeBuoy className="h-4 w-4" />
-              <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} em risco` : ""}</span>
-            </Link>
-          </div>
-        }
+    <div className="space-y-10 animate-fade-in max-w-[1600px] mx-auto">
+      {/* HERO EDITORIAL */}
+      <DashboardHero
+        projectFilter={dashProject}
+        projectLabel={projectLabel}
+        productLabel={dashProduct}
       />
 
-      <NextActionCard projectId={dashProject} />
-      <TodayCard projectId={dashProject} />
-
-
-      {/* Period + Project + Product Filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+      {/* FILTROS — barra discreta */}
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
         <Select value={dashPeriod} onValueChange={setDashPeriod}>
-          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/60"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">Hoje</SelectItem>
             <SelectItem value="yesterday">Ontem</SelectItem>
@@ -100,7 +96,7 @@ export default function Dashboard() {
           </SelectContent>
         </Select>
         <Select value={dashProject} onValueChange={setDashProject}>
-          <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+          <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Projeto" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os Projetos</SelectItem>
             {allProjects.map((p: any) => (
@@ -108,9 +104,9 @@ export default function Dashboard() {
             ))}
           </SelectContent>
         </Select>
-        <Package className="h-4 w-4 text-muted-foreground ml-1" />
+        <Package className="h-3.5 w-3.5 text-muted-foreground ml-1" />
         <Select value={dashProduct} onValueChange={setDashProduct}>
-          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
+          <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Produto" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os Produtos</SelectItem>
             {allProducts.map((p) => (
@@ -118,38 +114,103 @@ export default function Dashboard() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-2 ml-auto px-3 py-1 rounded-md border border-border bg-secondary/30">
-          <GitCompareArrows className="h-3.5 w-3.5 text-muted-foreground" />
-          <Label htmlFor="compare-toggle" className="text-xs cursor-pointer select-none">Comparar período anterior</Label>
+        <div className="flex items-center gap-2 ml-auto px-3 py-1 rounded-md border border-border/60 bg-secondary/20">
+          <GitCompareArrows className="h-3 w-3 text-muted-foreground" />
+          <Label htmlFor="compare-toggle" className="text-[11px] cursor-pointer select-none">Comparar período</Label>
           <Switch id="compare-toggle" checked={compareMode} onCheckedChange={setCompareMode} />
         </div>
         <RevenueModeToggle />
+        <SectionInfo {...sectionHelpTexts.dashboard} />
+        <Link
+          to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-all",
+            recoveryRisk > 0
+              ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
+              : "border-border/60 bg-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <LifeBuoy className="h-3 w-3" />
+          <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : ""}</span>
+        </Link>
       </div>
 
+      {/* COCKPIT KPI STRIP */}
+      <section>
+        <DashboardStats
+          period={dashPeriod}
+          projectFilter={dashProject}
+          productFilter={dashProduct}
+          compare={compareMode}
+          variant="strip"
+        />
+      </section>
+
+      {/* IMPERIUS STRIP */}
+      <section>
+        <ImperiusStrip projectId={dashProject} />
+      </section>
+
       <FacebookHealthAlert />
-      <DailyBriefing projectFilter={dashProject} />
-      <LiveFunnelPanel projectFilter={dashProject} />
-      <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      <HotLeadAlerts projectFilter={dashProject} />
-      <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      <DashboardStats period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} compare={compareMode} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
+
+      {/* HOJE + LIVE */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TodayCard projectId={dashProject} />
+        <LiveFunnelPanel projectFilter={dashProject} />
+      </section>
+
+      {/* PREDITIVO + HOT LEADS + ALERTS */}
+      <section className="space-y-4">
+        <SectionHead kicker="Sinais" title="Hoje em risco" />
+        <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+        <HotLeadAlerts projectFilter={dashProject} />
+        <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+      </section>
+
+      {/* RECEITA + FUNIL / RECUPERAÇÃO */}
+      <section>
+        <SectionHead kicker="Receita & Aquisição" title="Como o dinheiro entra" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8">
+            <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
+          </div>
+          <div className="lg:col-span-4 space-y-6">
+            <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+            <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
+          </div>
         </div>
-        <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+      </section>
+
+      {/* ADS + AI RECUPERADO */}
+      <section>
+        <SectionHead kicker="Mídia paga" title="Onde o capital queima" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8">
+            <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+          </div>
+          <div className="lg:col-span-4">
+            <AIRevenueRecoveredCard projectFilter={dashProject} />
+          </div>
         </div>
-        <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
-      </div>
-      <AIRevenueRecoveredCard projectFilter={dashProject} />
-      <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
-      <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
-      <GrowthDashboard projectFilter={dashProject} />
+      </section>
+
+      {/* CHARTS + CARDS */}
+      <section>
+        <SectionHead kicker="Detalhes" title="O retrato completo" />
+        <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+        <div className="mt-6">
+          <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
+        </div>
+      </section>
+
+      {/* ATIVIDADE + CRESCIMENTO */}
+      <section>
+        <SectionHead kicker="Pulso" title="Atividade e crescimento" />
+        <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
+        <div className="mt-6">
+          <GrowthDashboard projectFilter={dashProject} />
+        </div>
+      </section>
     </div>
   );
 }
