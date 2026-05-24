@@ -1,115 +1,81 @@
-# Plano — Gerador de Avatar (Studio + Projeto)
+## 🎬 Video Prompt Generator — Studio › aba "Vídeo"
 
-Duas fases. Fase 1 entrega o impacto maior (Studio, onde você está agora). Fase 2 trata o avatar psicológico.
+Reaproveita a arquitetura do `HyperPromptGenerator` (imagem) mas com lógica própria de **camadas cinematográficas** e **templates por plataforma**.
 
----
+### 1. Arquivos novos
 
-## FASE 1 — Studio › HyperPromptGenerator (persona/foto)
-
-### A. Reestrutura de layout (UX — acabar com o scroll)
-
-Trocar a pilha vertical de 8 `<Section>` por um **layout 12-col com 3 zonas**:
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  HEADER EDITORIAL (kicker · título serif · presets em chips) │
-├────────────────────────────┬─────────────────────────────────┤
-│  PAINEL ESQUERDO (8 col)   │  PREVIEW STICKY (4 col)         │
-│  ┌──────────────────────┐  │  ┌───────────────────────────┐  │
-│  │ Tabs internas:       │  │  │ Imagem (ou skeleton)      │  │
-│  │ • Persona            │  │  │                           │  │
-│  │ • Estilo             │  │  │  [Regenerar] [Variação]   │  │
-│  │ • Câmera             │  │  ├───────────────────────────┤  │
-│  │ • Acabamento         │  │  │ Prompt final (collapsed)  │  │
-│  │ • Output             │  │  │ + chars + plataforma      │  │
-│  └──────────────────────┘  │  │ [Copiar] [Refinar IA]     │  │
-│  Form denso, 3-col grid    │  └───────────────────────────┘  │
-└────────────────────────────┴─────────────────────────────────┘
-│  ACTION BAR STICKY no rodapé (Gerar · Surpreender · Salvar)  │
+```
+src/components/studio/VideoPromptGenerator.tsx     ← UI principal (mesmo layout 12-col do Hyper)
+src/components/studio/videoPromptOptions.ts        ← selects com micro-descrições
+src/lib/videoPromptBuilder.ts                      ← buildVideoPrompt + buildVideoPromptJson
 ```
 
-- **Tabs** colapsam 8 seções → 5 grupos; só uma aberta por vez.
-- **Preview sticky** (`position: sticky; top: 80px`) com a imagem + prompt ao lado, eliminando ida-e-volta.
-- **Action bar sticky** no rodapé com as 3 ações principais; restantes em menu `…`.
+E uma nova aba `<TabsTrigger value="video">` em `src/pages/Studio.tsx` (ícone `Film`).
 
-### B. Linguagem editorial Híbrido
+### 2. Estrutura de campos (6 camadas)
 
-- Header com `brand-kicker` "STUDIO · PERSONA" + título Cormorant itálico "Gerador de Avatar".
-- Section titles viram `nav-kicker` em gold/55 com hairline gold abaixo.
-- Botão primário "Gerar" com 2px gold bar + glow (mesma do `nav-item-active`).
-- Cards: `bg-secondary/20`, hairline `border-border/40`, sem bordas pesadas.
-- Tipografia: labels em DM Sans 10px tracking 0.18em; valores em DM Sans 13px.
+| Camada | Campos |
+|---|---|
+| 1. Ação física | `movimentoPrincipal` (ex.: "shuffles slowly and lays the deck on the table") |
+| 2. Emoção corporificada | `movimentoCorpo`, `expressaoFacial`, `olharDirecao` |
+| 3. Câmera | `movimentoCamera`, `velocidadeCamera`, `lente` (opcional) |
+| 4. Áudio/atmosfera | `somAmbiente`, `musicaFundo`, `atmosferaMood` |
+| 5. Voz/diálogo | `dialogo` (textarea), `tomVoz`, `idioma` |
+| 6. Técnico | `duracao`, `estiloVisual`, `continuidade`, `aspectRatio`, `plataforma` |
 
-### C. Qualidade do prompt final
+Cada `option` é uma **frase pronta em inglês** (cinematográfica), com `label` em PT-BR. Ex.:
+```ts
+{ label: "Lentíssimo, quase imperceptível", value: "at an almost imperceptible pace" }
+```
 
-- **Reordenar tokens** no `hyperPromptBuilder` para o padrão que os modelos mais respeitam: `[medium] → [subject] → [action] → [environment] → [lighting] → [camera/lens] → [style/film] → [quality/negatives] → [params]`.
-- **Pesos opcionais** em Midjourney (`::1.5`) para tokens críticos selecionados (toggle "ênfase" por campo).
-- **Refinador IA agressivo**: novo modo "Refinar (estilo editorial)" que reescreve em 1 parágrafo cinematográfico denso, mantendo todos os tokens técnicos. Edge function `prompt-refiner` ganha parâmetro `mode: "compact"|"editorial"|"json"`.
-- **Validador**: badge vermelho se faltar subject/medium; verde se prompt "completo".
+### 3. Templates por plataforma (`videoPromptBuilder.ts`)
 
-### D. Iteração rápida no preview
+Objeto `PLATFORM_TEMPLATES` com 4 dialetos:
 
-- **4 variações em grid 2×2** ao invés de 1 imagem (chama `hyper-prompt-preview` em paralelo com seeds distintas).
-- **Lock seed**: pin numa variação e regerar só ela com tweaks.
-- **History strip**: thumbnails das últimas 6 gerações da sessão (em memória), clique reaplica fields+seed.
-- **Compare A/B**: 2 prompts lado a lado (atual vs refinado).
+- **veo3** — parágrafo cinematográfico descritivo em inglês
+- **sora** — narrativo conciso, foco em ação+ambiente
+- **runway** — comandos diretos, separados por vírgula
+- **heygen** — prescritivo sobre avatar+gesto+fala
 
-### E. Controles que faltam
+Cada template define a **ordem** e os **conectores** ("with a", "as the camera", "while"). Função única:
+```ts
+buildVideoPrompt(fields, platform): string
+buildVideoPromptJson(fields): Record<string, any>   // sempre o mesmo schema
+```
 
-Novos campos em `HyperFields` + `hyperPromptOptions.ts`:
-- `emocao` (joy, longing, melancholy, defiance…)
-- `moodboard` (free text, vira "in the style of …")
-- `referenciaImagem` (upload → base64 → enviado ao preview como image-to-image)
-- `seed` (number, opcional, lockable)
-- `tokensEnfase` (array de FieldKey com peso ::1.3)
-- Hint "tokens proibidos" pré-preenchidos por plataforma (MJ não aceita `nsfw`, etc).
+Esqueleto Veo3 (referência do usuário):
+```
+A cinematic video clip. {acao}. The character {corpo}, with a {expressao} expression,
+{olhar}. The camera {camMov} {camVel}. Background ambient sound: {som}. Music: {musica}.
+Overall mood: {mood}. [Character says in a {tom} voice in {idioma}: "{dialogo}".]
+Duration: {dur}s. Visual style: {estilo}. Editing: {continuidade}.
+```
 
-### Arquivos Fase 1
+### 4. UI (mesmo padrão editorial do Hyper)
 
-- `src/components/studio/HyperPromptGenerator.tsx` — reescrita do layout (tabs + sticky preview + action bar).
-- `src/components/studio/hyperPanels/` (novo): `PersonaPanel.tsx`, `EstiloPanel.tsx`, `CameraPanel.tsx`, `AcabamentoPanel.tsx`, `OutputPanel.tsx` — extrair os blocos.
-- `src/components/studio/PreviewSticky.tsx` (novo) — preview grid 2×2 + history strip.
-- `src/lib/hyperPromptBuilder.ts` — nova ordem de tokens, suporte a `tokensEnfase`/`seed`, modo compact.
-- `src/components/studio/hyperPromptOptions.ts` — novos campos (emocao, moodboard).
-- `src/index.css` — só reaproveita utilities editoriais já existentes; sem novos tokens.
-- `supabase/functions/hyper-prompt-preview/index.ts` — aceitar `count` (1..4), `seed`, `init_image`.
-- `supabase/functions/prompt-refiner/index.ts` — parâmetro `mode`.
+Layout 12-col:
+- **Esquerda (7 col)**: `Tabs` com 6 abas — Ação, Personagem, Câmera, Áudio, Voz, Técnico — uma camada por aba (elimina scroll).
+- **Direita sticky (5 col)**:
+  - Card **Plataforma** (select Veo3/Sora/Runway/HeyGen) — muda o output em tempo real
+  - Card **Prompt — Texto** (parágrafo cinematográfico)
+  - Card **Prompt — JSON** (schema estruturado, com botão copiar)
+  - Card **Refinador IA** (botão chama `prompt-refiner` edge function existente em modo `editorial`)
+- **Action bar inferior**: "Copiar texto", "Copiar JSON", "Salvar no Cofre", "Surpreender" (preenche random a partir dos presets)
 
----
+### 5. Integrações reaproveitadas
 
-## FASE 2 — Projeto › ProjetoAvatar (psicológico)
+- **Cofre**: salva em `imphq_prompts_salvos` com `tipo: 'video'` (já existe a tabela; só passar o tipo).
+- **Refinador**: usa `supabase/functions/prompt-refiner` adicionando `mode: 'video_editorial'` (1 linha no switch).
+- **Preview**: NÃO gera vídeo (custo alto). Apenas copy + salvar.
 
-Mesma linguagem editorial + 3 melhorias cirúrgicas:
+### 6. Fora de escopo
 
-1. **Header editorial** com kicker "PROJETO · AVATAR" + Cormorant itálico, e a **Saúde do Avatar** vira hero card (score grande + breakdown por aba).
-2. **Tabs** com hairline gold ativa; remover emojis pesados, manter glifos sutis.
-3. **Painel "Próxima ação"** no topo: lê `health` por aba e sugere "Rode pipeline de Dores" / "Adicione 3 desejos" — clicável.
+- Geração de vídeo via API (Veo/Sora ainda não acessíveis via Lovable AI Gateway).
+- Migração de schema (usa `imphq_prompts_salvos` com campo `tipo`).
+- Integração com avatar psicológico do projeto (Fase 2).
 
-Sem mudança de schema. Edição apenas em `ProjetoAvatar.tsx` e nas Tabs filhas (`PerfilTab`, `DesejosTab`, etc.) — só wrapper visual, **lógica intocada**.
+### Resultado
 
-### Arquivos Fase 2
+Studio passa a ter 8 abas: Gerar · Hyper (imagem) · **Vídeo (novo)** · Cofre · Workflow · Prompts · Avatar Plan · Playbook. Usuário escolhe plataforma, preenche 6 abas curtas, copia prompt cinematográfico pronto para colar em Veo3/Sora/Runway/HeyGen.
 
-- `src/components/projeto/ProjetoAvatar.tsx` — header + hero card de saúde + sugestão.
-- `src/components/projeto/avatar/_shell.tsx` (novo) — wrapper editorial reutilizado por todas as Tabs.
-
----
-
-## Fora de escopo
-
-- Lógica do `prompt-refiner`/`hyper-prompt-preview` além dos parâmetros novos.
-- Migração de schema Supabase.
-- Mudar `imphq_prompts_salvos` ou cofre.
-- Mexer no `StudioGenerator`/`StudioWorkflow`/`StudioPrompts` (só o HyperPromptGenerator).
-- Lógica do pipeline de avatar (`AvatarPipelineRunner`).
-
----
-
-## Ordem de execução
-
-1. Fase 1A+B (layout + editorial) — entrega visível imediata.
-2. Fase 1C (builder + refinador) — qualidade do output.
-3. Fase 1D (preview 2×2 + history) — iteração.
-4. Fase 1E (campos novos) — depois que a base estiver firme.
-5. Fase 2 — quando aprovar Fase 1.
-
-Posso executar Fase 1 inteira de uma vez, ou quebrar por bloco. Me diga.
+**Aprova pra eu implementar?**
