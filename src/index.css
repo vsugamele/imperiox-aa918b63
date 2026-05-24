@@ -165,4 +165,42 @@
     border-color: hsl(var(--gold) / 0.35) !important;
     box-shadow: 0 12px 32px -18px hsl(var(--gold) / 0.45);
   }
+  /* Editorial section helpers */
+  .kicker {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: hsl(var(--gold) / 0.85);
+  }
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.65rem;
+    line-height: 1.1;
+    color: hsl(var(--foreground));
+  }
+  .hairline {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--border)) 20%, hsl(var(--border)) 80%, transparent);
+  }
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0;
+    border-top: 1px solid hsl(var(--border));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .kpi-strip > * + * {
+    border-left: 1px solid hsl(var(--border) / 0.6);
+  }
+  @media (max-width: 768px) {
+    .kpi-strip {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .kpi-strip > *:nth-child(4) { border-left: none; }
+  }
 }
+
