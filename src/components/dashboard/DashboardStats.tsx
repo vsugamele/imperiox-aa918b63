@@ -134,6 +134,45 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
     { label: "Projetos", nav: "/projetos", value: stats.projects, prev: prevStats.projects, icon: FolderKanban, gradient: "from-secondary/30 to-secondary/10", iconBg: "bg-secondary text-foreground", textColor: "text-foreground", inverse: false, formatted: String(stats.projects) },
   ] as any[];
 
+  // Cockpit strip — 6 KPIs principais em linha
+  if (variant === "strip") {
+    const stripCards = statCards.slice(0, 6);
+    return (
+      <>
+        <div className="kpi-strip">
+          {stripCards.map((s, i) => {
+            const clickable = !!(s.drill || s.nav);
+            return (
+              <button
+                key={s.label}
+                onClick={clickable ? () => { s.drill ? openDrill(s.drill) : navigate(s.nav); } : undefined}
+                className={`text-left px-4 py-4 transition-colors animate-fade-in ${clickable ? "cursor-pointer hover:bg-secondary/30" : "cursor-default"}`}
+                style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
+              >
+                <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80">{s.label}</p>
+                <p className={`font-serif text-3xl mt-1 leading-none ${s.textColor}`}>{s.formatted}</p>
+                {s.sub && <p className="text-[10px] text-muted-foreground truncate mt-1.5">{s.sub}</p>}
+                {compare && (
+                  <div className="flex items-center gap-1 mt-1.5">
+                    <DeltaBadge delta={calcDelta(s.value, s.prev)} inverse={s.inverse} />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <DashboardDrillSheet
+          open={drillOpen}
+          onOpenChange={setDrillOpen}
+          metric={drillMetric}
+          period={period}
+          projectFilter={projectFilter}
+          productFilter={productFilter}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -177,3 +216,4 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
     </>
   );
 }
+
