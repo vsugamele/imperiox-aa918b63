@@ -2321,6 +2321,42 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_brand_personas: {
+        Row: {
+          created_at: string
+          default_model: string
+          default_provider: string
+          id: string
+          is_default: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          persona_prompt?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_cancellation_notices: {
         Row: {
           created_at: string
@@ -4758,6 +4794,7 @@ export type Database = {
           avatar: string | null
           model: string
           name: string
+          persona_id: string | null
           program_id: string
           provider: string
           suggestions: Json
@@ -4768,6 +4805,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name: string
+          persona_id?: string | null
           program_id: string
           provider?: string
           suggestions?: Json
@@ -4778,6 +4816,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name?: string
+          persona_id?: string | null
           program_id?: string
           provider?: string
           suggestions?: Json
@@ -4785,6 +4824,13 @@ export type Database = {
           welcome?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "areamembrojp_program_ai_config_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_brand_personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "areamembrojp_program_ai_config_program_id_fkey"
             columns: ["program_id"]
