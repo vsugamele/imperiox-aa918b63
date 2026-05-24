@@ -27,9 +27,12 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-6xl grid-cols-7">
+        <TabsList className="grid w-full max-w-6xl grid-cols-8">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
+          </TabsTrigger>
+          <TabsTrigger value="video" className="gap-2">
+            <Film className="h-4 w-4" /> Vídeo
           </TabsTrigger>
           <TabsTrigger value="hyper" className="gap-2">
             <Zap className="h-4 w-4" /> Hyper
