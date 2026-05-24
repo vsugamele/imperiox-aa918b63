@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { buildHyperPrompt, emptyHyperFields, type HyperFields, type HyperPlataforma } from "@/lib/hyperPromptBuilder";
+import { buildHyperPrompt, buildHyperPromptJson, emptyHyperFields, type HyperFields, type HyperPlataforma } from "@/lib/hyperPromptBuilder";
 import * as opts from "./hyperPromptOptions";
 import { HYPER_PRESETS } from "@/data/studio/hyperPresets";
 import { supabase } from "@/integrations/supabase/client";
