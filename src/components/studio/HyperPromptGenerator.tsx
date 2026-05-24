@@ -546,56 +546,76 @@ export function HyperPromptGenerator({
               )}
             </Card>
 
-            {/* PROMPT BLOCK */}
-            <Card className="bg-secondary/15 border-border/50 p-4 space-y-2">
+            {/* PROMPT — TEXTO */}
+            <Card className="bg-background/60 border-border/50 p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--gold))]/70">· Prompt final</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setShowRaw((s) => !s)} className="text-[10px] text-muted-foreground hover:text-foreground uppercase tracking-wider px-2">
-                    {showRaw ? "ocultar" : "ver"}
-                  </button>
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy()}>
-                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </div>
-              {showRaw && (
-                <pre className="font-mono text-[11px] leading-6 text-foreground/85 whitespace-pre-wrap break-words max-h-64 overflow-y-auto bg-background/40 rounded p-2 border border-border/30">
-                  {prompt}
-                </pre>
-              )}
-
-              {/* Refinador */}
-              <div className="pt-2 border-t border-border/30 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Select value={refineMode} onValueChange={(v) => setRefineMode(v as any)}>
-                    <SelectTrigger className="h-7 text-[11px] bg-secondary/40 border-border/60 flex-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="compact">Refinar — compacto</SelectItem>
-                      <SelectItem value="editorial">Refinar — editorial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-[hsl(var(--gold))]/40" onClick={refinar} disabled={refining}>
-                    {refining ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    <span className="ml-1">IA</span>
-                  </Button>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-emerald-400/90">Prompt — Texto</span>
                 </div>
-                {refined && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] uppercase tracking-[0.28em] text-[hsl(var(--gold))]/85">Refinado</span>
-                      <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => copy(refined)}>
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <pre className="font-mono text-[11px] leading-6 text-foreground/90 whitespace-pre-wrap break-words max-h-48 overflow-y-auto bg-background/40 rounded p-2 border border-[hsl(var(--gold))]/30">
-                      {refined}
-                    </pre>
-                  </div>
-                )}
+                <Button size="sm" variant="outline" className="h-7 px-3 text-[10px] uppercase tracking-[0.22em] border-border/60" onClick={() => copy(prompt)}>
+                  {copied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                  Copiar
+                </Button>
               </div>
+              <pre className="font-mono text-[11px] leading-6 text-foreground/85 whitespace-pre-wrap break-words max-h-56 overflow-y-auto bg-background/60 rounded p-3 border border-border/30 italic">
+                {prompt || "Preencha alguns campos para montar seu prompt ultrarrealista."}
+              </pre>
+            </Card>
+
+            {/* PROMPT — JSON */}
+            <Card className="bg-background/60 border-border/50 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[hsl(var(--gold))]" />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--gold))]/90">Prompt — JSON</span>
+                </div>
+                <Button size="sm" variant="outline" className="h-7 px-3 text-[10px] uppercase tracking-[0.22em] border-border/60" onClick={() => copy(promptJson)}>
+                  <Copy className="h-3 w-3 mr-1" />
+                  Copiar JSON
+                </Button>
+              </div>
+              <pre className="font-mono text-[11px] leading-6 text-foreground/85 whitespace-pre-wrap break-words max-h-56 overflow-y-auto bg-background/60 rounded p-3 border border-border/30">
+                {promptJson}
+              </pre>
+              <p className="text-[10px] text-muted-foreground italic leading-5">
+                Versão estruturada — útil para APIs, automações e integrações.
+              </p>
+            </Card>
+
+            {/* Refinador IA */}
+            <Card className="bg-secondary/15 border-border/50 p-4 space-y-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--gold))]/70">· Refinador IA</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={refineMode} onValueChange={(v) => setRefineMode(v as any)}>
+                  <SelectTrigger className="h-8 text-[11px] bg-secondary/40 border-border/60 flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="compact">Compacto</SelectItem>
+                    <SelectItem value="editorial">Editorial</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" className="h-8 px-3 text-[11px] border-[hsl(var(--gold))]/40" onClick={refinar} disabled={refining}>
+                  {refining ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  <span className="ml-1">Refinar</span>
+                </Button>
+              </div>
+              {refined && (
+                <div className="space-y-1 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] uppercase tracking-[0.28em] text-[hsl(var(--gold))]/85">Refinado</span>
+                    <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => copy(refined)}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <pre className="font-mono text-[11px] leading-6 text-foreground/90 whitespace-pre-wrap break-words max-h-44 overflow-y-auto bg-background/40 rounded p-2 border border-[hsl(var(--gold))]/30">
+                    {refined}
+                  </pre>
+                </div>
+              )}
             </Card>
           </div>
         </div>
