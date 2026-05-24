@@ -7,6 +7,7 @@ export interface HyperFields {
   fenotipo: string;
   tomPele: string;
   expressao: string;
+  emocao: string;
   cabeloEstilo: string;
   cabeloCor: string;
   roupa: string;
@@ -24,12 +25,13 @@ export interface HyperFields {
   shutter: string;
   filme: string;
   estiloFinal: string;
-  // novos
+  moodboard: string;
   composicao: string;
   posProcesso: string;
   negativo: string;
   aspectRatio: string;
   plataforma: HyperPlataforma;
+  seed: string;
 }
 
 const j = (parts: (string | undefined | null)[]) =>
@@ -41,11 +43,12 @@ function plataformaSuffix(f: HyperFields): string {
       const parts: string[] = [];
       if (f.aspectRatio) parts.push(`--ar ${f.aspectRatio}`);
       parts.push("--style raw", "--v 7", "--s 250");
+      if (f.seed && /^\d+$/.test(f.seed)) parts.push(`--seed ${f.seed}`);
       if (f.negativo) parts.push(`--no ${f.negativo}`);
       return parts.join(" ");
     }
     case "flux":
-      return f.aspectRatio ? `aspect ratio ${f.aspectRatio}` : "";
+      return [f.aspectRatio ? `aspect ratio ${f.aspectRatio}` : "", f.seed ? `seed ${f.seed}` : ""].filter(Boolean).join(", ");
     case "sora":
       return f.aspectRatio ? `[${f.aspectRatio}]` : "";
     case "dalle":
