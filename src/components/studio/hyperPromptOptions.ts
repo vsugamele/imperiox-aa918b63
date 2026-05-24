@@ -360,3 +360,34 @@ export const estiloFinal: Opt[] = [
   { label: "Travel magazine glamour", value: "travel magazine glamour, wanderlust editorial" },
   FREE,
 ];
+
+export const emocao: Opt[] = [
+  { label: "— sem especificar —", value: "" },
+  { label: "Confiança serena", value: "quiet confidence" },
+  { label: "Desejo / longing", value: "subtle longing" },
+  { label: "Melancolia", value: "melancholic mood" },
+  { label: "Êxtase", value: "ecstatic energy" },
+  { label: "Mistério", value: "mysterious aura" },
+  { label: "Vulnerabilidade", value: "vulnerable openness" },
+  { label: "Poder / dominância", value: "commanding presence" },
+  { label: "Nostalgia", value: "nostalgic warmth" },
+  { label: "Tensão erótica", value: "erotic tension" },
+  { label: "Intensidade controlada", value: "controlled intensity" },
+  FREE,
+];
+
+export const moodboard: Opt[] = [
+  { label: "— sem especificar —", value: "" },
+  { label: "Peter Lindbergh", value: "Peter Lindbergh" },
+  { label: "Helmut Newton", value: "Helmut Newton" },
+  { label: "Annie Leibovitz", value: "Annie Leibovitz" },
+  { label: "Steven Meisel", value: "Steven Meisel" },
+  { label: "Mario Testino", value: "Mario Testino" },
+  { label: "Paolo Roversi", value: "Paolo Roversi" },
+  { label: "Wong Kar-wai films", value: "Wong Kar-wai cinematography" },
+  { label: "Roger Deakins", value: "Roger Deakins cinematography" },
+  { label: "Vogue Italia editorial", value: "Vogue Italia editorial" },
+  { label: "Caravaggio chiaroscuro", value: "Caravaggio chiaroscuro" },
+  FREE,
+];
+
