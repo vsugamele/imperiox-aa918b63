@@ -25,7 +25,9 @@ interface Props {
   projectFilter: string;
   productFilter?: string;
   compare?: boolean;
+  variant?: "grid" | "strip";
 }
+
 
 export default function DashboardStats({ period, projectFilter, productFilter, compare = false }: Props) {
   const navigate = useNavigate();
