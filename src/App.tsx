@@ -79,6 +79,7 @@ const App = () => (
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/expert/:token" element={<ExpertPortal />} />
             <Route path="/f/:formId" element={<FormPublic />} />
+            <Route path="/w/:sessionId" element={<WebinarPublic />} />
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="dashboard" element={<Dashboard />} />
