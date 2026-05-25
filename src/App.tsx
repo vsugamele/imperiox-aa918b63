@@ -47,6 +47,9 @@ import Imperius from "./pages/Imperius";
 import Campanhas from "./pages/Campanhas";
 import Lancamentos from "./pages/Lancamentos";
 import Assistente from "./pages/Assistente";
+import Webinar from "./pages/Webinar";
+import WebinarSessao from "./pages/WebinarSessao";
+import WebinarPublic from "./pages/WebinarPublic";
 import FormPublic from "./pages/FormPublic";
 import NotFound from "./pages/NotFound";
 
@@ -76,6 +79,7 @@ const App = () => (
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/expert/:token" element={<ExpertPortal />} />
             <Route path="/f/:formId" element={<FormPublic />} />
+            <Route path="/w/:sessionId" element={<WebinarPublic />} />
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="dashboard" element={<Dashboard />} />
@@ -115,6 +119,8 @@ const App = () => (
               <Route path="swipe" element={<Swipe />} />
               <Route path="imperius" element={<Imperius />} />
               <Route path="assistente" element={<Assistente />} />
+              <Route path="webinar" element={<Webinar />} />
+              <Route path="webinar/:sessionId" element={<WebinarSessao />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
