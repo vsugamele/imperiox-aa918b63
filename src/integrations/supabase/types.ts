@@ -22475,6 +22475,212 @@ export type Database = {
           },
         ]
       }
+      imphq_webinar_clicks: {
+        Row: {
+          clicked_at: string
+          id: string
+          ip: string | null
+          recovered_at: string | null
+          registration_id: string
+          sale_id: string | null
+          session_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          clicked_at?: string
+          id?: string
+          ip?: string | null
+          recovered_at?: string | null
+          registration_id: string
+          sale_id?: string | null
+          session_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          clicked_at?: string
+          id?: string
+          ip?: string | null
+          recovered_at?: string | null
+          registration_id?: string
+          sale_id?: string | null
+          session_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_webinar_clicks_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_webinar_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_webinar_clicks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_webinar_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_webinar_registrations: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          lead_id: string | null
+          lead_token: string
+          nome: string | null
+          phone: string | null
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_token?: string
+          nome?: string | null
+          phone?: string | null
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_token?: string
+          nome?: string | null
+          phone?: string | null
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_webinar_registrations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_webinar_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_webinar_sessions: {
+        Row: {
+          checkout_url: string
+          created_at: string
+          id: string
+          nome: string
+          pitch_label: string | null
+          project_id: string
+          recovery_template: Json | null
+          reminder_template: Json | null
+          scheduled_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          checkout_url?: string
+          created_at?: string
+          id?: string
+          nome: string
+          pitch_label?: string | null
+          project_id: string
+          recovery_template?: Json | null
+          reminder_template?: Json | null
+          scheduled_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checkout_url?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          pitch_label?: string | null
+          project_id?: string
+          recovery_template?: Json | null
+          reminder_template?: Json | null
+          scheduled_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_webinar_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_webinar_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_webinar_wa_queue: {
+        Row: {
+          click_id: string
+          created_at: string
+          error: string | null
+          id: string
+          message: string
+          phone: string
+          project_id: string
+          send_at: string
+          sent_at: string | null
+          session_id: string
+          status: string
+        }
+        Insert: {
+          click_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          message: string
+          phone: string
+          project_id: string
+          send_at: string
+          sent_at?: string | null
+          session_id: string
+          status?: string
+        }
+        Update: {
+          click_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          message?: string
+          phone?: string
+          project_id?: string
+          send_at?: string
+          sent_at?: string | null
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_webinar_wa_queue_click_id_fkey"
+            columns: ["click_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_webinar_clicks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_webinar_wa_queue_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_webinar_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrated_analysis: {
         Row: {
           correlation_data: Json | null
