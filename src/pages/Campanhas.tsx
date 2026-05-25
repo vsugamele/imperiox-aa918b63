@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, Target, Trash2, Pencil } from "lucide-react";
 import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
+import { GuideDrawer } from "@/components/assistente/GuideDrawer";
 
 interface Campaign {
   id: string;
@@ -134,9 +135,12 @@ export default function Campanhas() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Veja leads, status e desempenho por campanha.</p>
         </div>
-        <Button onClick={() => setEdit({ status: "ativa", funil: "aquisicao" })}>
-          <Plus className="h-4 w-4 mr-1" /> Nova campanha
-        </Button>
+        <div className="flex items-center gap-2">
+          <GuideDrawer area="campanhas" projectId={filterProject !== "all" ? filterProject : undefined} />
+          <Button onClick={() => setEdit({ status: "ativa", funil: "aquisicao" })}>
+            <Plus className="h-4 w-4 mr-1" /> Nova campanha
+          </Button>
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-2 items-center">
