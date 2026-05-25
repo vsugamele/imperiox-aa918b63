@@ -30,6 +30,7 @@ const venderItems = [
   { title: "Metas", url: "/metas", icon: Target },
   { title: "Cohort & LTV", url: "/cohort", icon: Layers },
   { title: "Nutrição", url: "/nutricao", icon: Mail },
+  { title: "Webinar", url: "/webinar", icon: Radio },
   { title: "Tracker UTM", url: "/tracker", icon: Link2 },
 ];
 
