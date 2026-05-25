@@ -46,6 +46,7 @@ import Swipe from "./pages/Swipe";
 import Imperius from "./pages/Imperius";
 import Campanhas from "./pages/Campanhas";
 import Lancamentos from "./pages/Lancamentos";
+import Assistente from "./pages/Assistente";
 import FormPublic from "./pages/FormPublic";
 import NotFound from "./pages/NotFound";
 
@@ -113,6 +114,7 @@ const App = () => (
               <Route path="studio" element={<Studio />} />
               <Route path="swipe" element={<Swipe />} />
               <Route path="imperius" element={<Imperius />} />
+              <Route path="assistente" element={<Assistente />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
