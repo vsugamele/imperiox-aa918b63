@@ -119,6 +119,8 @@ const App = () => (
               <Route path="swipe" element={<Swipe />} />
               <Route path="imperius" element={<Imperius />} />
               <Route path="assistente" element={<Assistente />} />
+              <Route path="webinar" element={<Webinar />} />
+              <Route path="webinar/:sessionId" element={<WebinarSessao />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
