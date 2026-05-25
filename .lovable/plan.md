@@ -1,106 +1,76 @@
 
-# Assistente Builder (Campanhas · Lançamento · Nutrição)
+## Objetivo
 
-Sistema unificado de **guia + diagnóstico + IA construtora** para acelerar a montagem dessas 3 áreas. Combina drawer contextual, wizard de 1 clique e página central.
+Identificar quem clicou no botão de compra durante seu webinar externo (Zoom/YouTube/etc) **mas não comprou**, e disparar recuperação no WhatsApp automaticamente.
 
----
-
-## 1. Camada central — `/assistente`
-
-Nova página com 3 abas (Campanhas WhatsApp, Lançamentos, Nutrição). Cada aba mostra:
-
-- **Health score** por projeto Vendendo (0-100) com semáforo.
-- **Checklist estrutural** (boas práticas fixas — ver §4).
-- **Diagnóstico por métricas reais** (gargalos detectados em vendas/leads/aberturas).
-- **Próxima ação recomendada** com botão "Construir com IA".
-
-Layout: lista de projetos à esquerda, painel de diagnóstico à direita.
-
----
-
-## 2. Drawer contextual "Guia + IA"
-
-Botão flutuante (ícone Sparkles + Compass) presente em:
-- `/whatsapp` (Campanhas)
-- `/lancamentos`
-- `/nutricao`
-- `ProjetoDetalhe` aba Comando
-
-Abre `Sheet` lateral com 3 seções colapsáveis:
-1. **O que falta** — checklist do framework da área atual.
-2. **O que melhorar** — top 3 gargalos por métrica.
-3. **Acelerar com IA** — botões de ação que disparam o wizard.
-
-Reaproveita `sectionHelpTexts.ts` para textos longos.
-
----
-
-## 3. Wizard "Construir com IA"
-
-Modal único parametrizado por tipo (`campanha | lancamento | nutricao`):
+## Como funciona
 
 ```text
-Passo 1: Briefing curto (objetivo, tom, prazo)
-Passo 2: IA gera PLANO (estrutura + cronograma + copy resumo)
-Passo 3: Preview editável (usuário ajusta)
-Passo 4: Apply → cria registros no banco (sequência+passos, campanha+mensagens, lançamento+fases)
+[Webinar externo] → Link de pitch personalizado por lead
+        │
+        ▼
+[Edge: webinar-pitch-click]  ← marca lead, dispara webhook + WA
+        │
+        ├─→ Redireciona para checkout (transparente)
+        ├─→ Registra clique em imphq_webinar_clicks
+        ├─→ Agenda recuperação WA em 15min / 1h / 24h
+        └─→ Cancela recuperação se venda chegar (cruza com imphq_vendas por email/phone)
 ```
 
-Reaproveita `wa-campaign-ai-generate` (já existe) e cria 2 irmãos: `nurture-ai-generate` e `lancamento-ai-generate`.
+## Entregas
 
----
+### 1. Nova página `/webinar` (módulo dentro do projeto)
+- Criar/editar "Sessões de webinar" (nome, data, link real do checkout)
+- Gerar **link mágico de pitch** por lead: `https://app/wp/{session}/{lead_token}` 
+- Tela de Sessão com KPIs: presentes, cliques no pitch, comprou, **não-comprou (recuperáveis)**
+- Lista de "Cliques sem venda" com botão "Disparar WA agora"
 
-## 4. Frameworks de checklist (boas práticas)
+### 2. Captura do clique (Edge Function `webinar-pitch-click`)
+- Recebe `session_id` + `lead_token`
+- Insere em `imphq_webinar_clicks` (lead_id, session_id, clicked_at, ua, ip)
+- Dispara webhook configurado (Make/n8n) com `{ event: 'pitch_clicked', lead }`
+- Enfileira 3 mensagens WA na campanha de recuperação (T+15min, T+1h, T+24h)
+- Redireciona 302 para o checkout real
 
-**Campanhas WhatsApp** (8 itens):
-- Welcome message · Aquecimento (3+ msgs) · CTA checkout · Recovery PIX/boleto · Upsell pós-compra · Anti-spam (delays) · Provider configurado · Variações A/B
+### 3. Sequência de recuperação WA (reusa infra existente)
+- Template editável por sessão (3 passos default já populados)
+- Usa `imphq_wa_campaigns` + scheduler `wa-campaign-scheduler` já em produção
+- Cancela automaticamente quando webhook de venda chegar (cruzamento por email/telefone na window de 48h)
 
-**Lançamento** (10 itens):
-- Avatar definido · Mecanismo único · Página de captura · Sequência aquecimento · CPL/Webinar · Carta de vendas · Sequência carrinho · Recovery · Pós-venda · Métricas de meta
+### 4. Pré-webinar (lembretes de show-up)
+- Na sessão, configurar lembretes T-24h, T-1h, T-5min
+- Mesmo motor de campanhas WA, audiência = leads inscritos na sessão
 
-**Nutrição** (7 itens):
-- Sequência ativa · Cadência definida · Mínimo 12 e-mails · Tags de filtro · Templates por estágio · Tracking de conversão · Reativação 90d
+### 5. Inscrição / identificação do lead
+- Form público `/w/{session}` (reusa FormBuilder) → gera lead + `lead_token`
+- Email de confirmação com o link mágico de pitch já personalizado
+- Botão "Importar inscritos" (CSV) para quem já tem lista em outra plataforma
 
----
+## Banco (migração)
 
-## 5. Diagnóstico por métricas
+- `imphq_webinar_sessions` (id uuid, project_id text, nome, scheduled_at, checkout_url, pitch_template jsonb, recovery_template jsonb, reminder_template jsonb)
+- `imphq_webinar_registrations` (id, session_id, lead_id, lead_token unique, status [registered|attended|clicked|bought|recovered])
+- `imphq_webinar_clicks` (id, registration_id, clicked_at, recovered_at, sale_id nullable)
+- RLS: dono do projeto vê/edita; Edge service-role escreve.
 
-Edge function `assistente-diagnose` lê:
-- `imphq_vendas` (últimos 30d) · `imphq_leads` · `imphq_wa_campaigns` · `imphq_nurture_sequences` · `imphq_lancamentos`
+## Arquivos a criar/editar
 
-Retorna por área: gargalos priorizados por ROI estimado + score 0-100.
+**Novos**
+- `src/pages/Webinar.tsx` (listagem + criar sessão)
+- `src/pages/WebinarSessao.tsx` (detalhes + KPIs + cliques sem venda)
+- `src/components/webinar/SessionConfigDialog.tsx` (lembretes/recuperação/checkout)
+- `src/components/webinar/PitchClickTable.tsx`
+- `supabase/functions/webinar-pitch-click/index.ts`
+- `supabase/functions/webinar-reconcile-sales/index.ts` (cron 5min — marca recovered + cancela sequência)
+- Migração SQL das 3 tabelas
 
-Cacheado em `imphq_assistente_diagnostics` (TTL 6h).
+**Editados**
+- `src/App.tsx` (+ rotas `/webinar`, `/webinar/:id`)
+- `src/components/AppSidebar.tsx` (+ item "Webinar" com ícone `Radio`)
+- `src/pages/ProjetoDetalhe.tsx` (atalho "Webinar" no menu)
 
----
+## Fora de escopo
+- Sala de transmissão própria, replay hospedado, OBS/streaming, chat ao vivo. Tudo continua na plataforma externa — só capturamos o **clique no pitch** e operamos o follow-up.
 
-## Detalhes técnicos
-
-### Arquivos novos
-- `src/pages/Assistente.tsx` — página central com 3 abas
-- `src/components/assistente/GuideDrawer.tsx` — Sheet contextual reutilizável
-- `src/components/assistente/BuilderWizard.tsx` — modal de 4 passos
-- `src/components/assistente/HealthCard.tsx` · `ChecklistPanel.tsx` · `DiagnosticPanel.tsx`
-- `src/lib/assistenteFrameworks.ts` — checklists hardcoded por área
-- `src/lib/assistenteDiagnose.ts` — helpers de score client-side
-- `supabase/functions/assistente-diagnose/index.ts`
-- `supabase/functions/nurture-ai-generate/index.ts`
-- `supabase/functions/lancamento-ai-generate/index.ts`
-
-### Arquivos editados
-- `src/App.tsx` — rota `/assistente`
-- `src/components/AppSidebar.tsx` — item "Assistente" (ícone Compass)
-- `src/pages/WhatsAppPage.tsx`, `Lancamentos.tsx`, `Nutricao.tsx` — botão de abrir GuideDrawer
-
-### Tabela nova (migration)
-- `imphq_assistente_diagnostics` (project_id, area, score, checklist jsonb, gargalos jsonb, calculated_at) — TTL 6h, RLS por usuário do projeto.
-
-### IA
-- Lovable AI Gateway · modelo `google/gemini-3-flash-preview`
-- Tool calling para output estruturado (plano + passos)
-- Reaproveita branding/avatar/vendas como contexto (padrão do projeto)
-
-### Fora de escopo
-- Execução automática (Imperius já cobre)
-- Editor visual de fluxo
-- Importação de templates externos
+## Próximo passo
+Se aprovar, eu implemento a migração + página + edge function + sequência WA de uma vez.
