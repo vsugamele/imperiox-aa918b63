@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Mail, Plus, Play, Pause, Users, TrendingUp, UserPlus } from "lucide-react";
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
 import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
+import { GuideDrawer } from "@/components/assistente/GuideDrawer";
 
 
 interface Sequence {
@@ -85,6 +86,7 @@ export default function Nutricao() {
           <p className="text-muted-foreground mt-1">Sequências de e-mail por produto. Lead → Comprador em até 1 ano.</p>
         </div>
         <div className="flex gap-2">
+          <GuideDrawer area="nutricao" />
           <Button variant="outline" onClick={() => setBulkOpen(true)}><UserPlus className="h-4 w-4 mr-2" /> Inscrição em massa</Button>
           <Button variant="outline" onClick={runScheduler}>Rodar agora</Button>
           <Dialog open={open} onOpenChange={setOpen}>

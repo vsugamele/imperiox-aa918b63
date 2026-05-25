@@ -16214,6 +16214,42 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_assistente_diagnostics: {
+        Row: {
+          area: string
+          calculated_at: string
+          checklist: Json
+          created_at: string
+          gargalos: Json
+          id: string
+          next_action: string | null
+          project_id: string
+          score: number
+        }
+        Insert: {
+          area: string
+          calculated_at?: string
+          checklist?: Json
+          created_at?: string
+          gargalos?: Json
+          id?: string
+          next_action?: string | null
+          project_id: string
+          score?: number
+        }
+        Update: {
+          area?: string
+          calculated_at?: string
+          checklist?: Json
+          created_at?: string
+          gargalos?: Json
+          id?: string
+          next_action?: string | null
+          project_id?: string
+          score?: number
+        }
+        Relationships: []
+      }
       imphq_automacao_logs: {
         Row: {
           acoes_executadas: Json | null

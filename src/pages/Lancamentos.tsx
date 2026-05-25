@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Rocket, Mail, AlertTriangle, Users, TrendingUp, ExternalLink } from "lucide-react";
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
+import { GuideDrawer } from "@/components/assistente/GuideDrawer";
 import { toast } from "sonner";
 
 interface Project { id: string; nome: string; }
@@ -142,6 +143,7 @@ export default function Lancamentos() {
           <p className="text-sm text-muted-foreground mt-1">Leads capturados, ritmo e saúde de nutrição por lançamento.</p>
         </div>
         <div className="flex items-center gap-2">
+          <GuideDrawer area="lancamento" projectId={projectId !== "__all__" ? projectId : undefined} />
           <Select value={projectId} onValueChange={setProjectId}>
             <SelectTrigger className="w-[220px] bg-secondary"><SelectValue /></SelectTrigger>
             <SelectContent>
