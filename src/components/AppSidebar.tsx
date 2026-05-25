@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot, Compass
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot, Compass, Radio
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
