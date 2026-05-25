@@ -15449,6 +15449,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ic_mpe_bins: {
+        Row: {
+          card_program_id: string | null
+          country_alpha: string | null
+          country_num: string | null
+          created_at: string | null
+          id: string
+          issuer_ica: string | null
+          product_end: string
+          product_start: string
+          range_end: string
+          range_start: string
+          region: string | null
+        }
+        Insert: {
+          card_program_id?: string | null
+          country_alpha?: string | null
+          country_num?: string | null
+          created_at?: string | null
+          id?: string
+          issuer_ica?: string | null
+          product_end: string
+          product_start: string
+          range_end: string
+          range_start: string
+          region?: string | null
+        }
+        Update: {
+          card_program_id?: string | null
+          country_alpha?: string | null
+          country_num?: string | null
+          created_at?: string | null
+          id?: string
+          issuer_ica?: string | null
+          product_end?: string
+          product_start?: string
+          range_end?: string
+          range_start?: string
+          region?: string | null
+        }
+        Relationships: []
+      }
       ic_visa_rules: {
         Row: {
           accounting_sign: string
@@ -36740,6 +36782,38 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_banned_leads: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_email: string | null
+          session_id: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_email?: string | null
+          session_id: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_email?: string | null
+          session_id?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_banned_leads_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
             referencedColumns: ["id"]
           },
         ]
