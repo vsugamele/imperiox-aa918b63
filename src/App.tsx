@@ -47,6 +47,9 @@ import Imperius from "./pages/Imperius";
 import Campanhas from "./pages/Campanhas";
 import Lancamentos from "./pages/Lancamentos";
 import Assistente from "./pages/Assistente";
+import Webinar from "./pages/Webinar";
+import WebinarSessao from "./pages/WebinarSessao";
+import WebinarPublic from "./pages/WebinarPublic";
 import FormPublic from "./pages/FormPublic";
 import NotFound from "./pages/NotFound";
 
