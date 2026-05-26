@@ -110,15 +110,21 @@ export default function ConversationList({
     const matchSearch = !search ||
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
-    const matchUnread = !onlyUnread || (s.unread_count || 0) > 0;
+    const matchUnread = !onlyUnread || isUnreadSession(s);
     return matchProject && matchProvider && matchSearch && matchUnread;
   }).sort((a, b) => {
+    const ua = isUnreadSession(a) ? 1 : 0;
+    const ub = isUnreadSession(b) ? 1 : 0;
+    if (ua !== ub) return ub - ua;
     const ta = new Date(a.last_message_at || a.updated_at || a.created_at || 0).getTime();
     const tb = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
     return tb - ta;
   });
 
-  const totalUnread = sessions.reduce((acc, s) => acc + (s.unread_count || 0), 0);
+  const totalUnread = sessions.reduce(
+    (acc, s) => acc + (isUnreadSession(s) ? Math.max(s.unread_count || 0, 1) : 0),
+    0,
+  );
 
   return (
     <div className="flex flex-col h-full border-r border-border bg-card">
