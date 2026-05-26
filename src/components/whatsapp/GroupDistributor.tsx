@@ -633,13 +633,31 @@ export default function GroupDistributor() {
                             toast.success("Convite salvo");
                           }}
                         />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={() => removeGroupFromDistributor(s.group_jid)}
+                          title="Remover grupo do distribuidor"
+                        ><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
                   );
                 })}
                 {clickStats.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum clique registrado ainda.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum grupo configurado. Adicione abaixo.</p>
                 )}
+                <div className="flex gap-1.5 pt-2 border-t border-border/40">
+                  <Input
+                    placeholder="JID do grupo (ex: 12036...@g.us)"
+                    value={newGroupJid}
+                    onChange={(e) => setNewGroupJid(e.target.value)}
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Button size="sm" className="h-8" onClick={addGroupToDistributor}>
+                    <Plus className="h-3 w-3 mr-1" />Grupo
+                  </Button>
+                </div>
               </div>
             </ScrollArea>
           </div>
