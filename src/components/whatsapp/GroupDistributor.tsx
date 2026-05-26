@@ -144,7 +144,22 @@ export default function GroupDistributor() {
       .select("*")
       .eq("distributor_id", distId)
       .order("week_index", { ascending: true });
-    setWeeks(((data as any[]) || []) as WeekRow[]);
+    const rows = ((data as any[]) || []) as WeekRow[];
+    setWeeks(rows);
+    // Carrega contagem de cliques por (week_index, group_jid)
+    const counts: Record<string, number> = {};
+    await Promise.all(
+      rows.map(async (w) => {
+        const { count } = await supabase
+          .from("imphq_wa_distributor_clicks")
+          .select("id", { count: "exact", head: true })
+          .eq("distributor_id", distId)
+          .eq("group_jid", w.group_jid)
+          .gte("created_at", w.start_at);
+        counts[`${w.week_index}|${w.group_jid}`] = count || 0;
+      })
+    );
+    setWeekClicks(counts);
   }, []);
 
   useEffect(() => {
