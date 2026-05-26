@@ -1062,7 +1062,7 @@ serve(async (req) => {
             console.log(`[webhook] Saved ${messageType} from ${phone} (conv=${conv.id}) media=${!!mediaUrl}`);
           }
 
-          await updateConversationAfterMessage(conv.id, content, conv.message_count || 0);
+          await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, true);
 
           // ── Fire-and-forget triagem IA (pula grupos/broadcast) ──
           const isGroup = jidSuffix === "g.us" || jidSuffix === "broadcast" || rawJid.includes("@g.us") || rawJid.includes("@broadcast");
