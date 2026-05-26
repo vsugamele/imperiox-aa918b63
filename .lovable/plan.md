@@ -1,27 +1,49 @@
 ## Problema
 
-No modal de Estatísticas do distribuidor, hoje você precisa **colar o JID na mão** (`12036...@g.us`). Mas a edge function `whatsapp-api` já tem a action `fetch_groups` que lista todos os grupos de uma instância Evolution — é o que o `CampaignManager` já usa pra selecionar grupos. Basta plugar isso aqui.
+Hoje cada semana da rotação mostra só `S1 + JID truncado + data`. Você não consegue ver:
+- **Nome do grupo** (subject)
+- **Link de convite completo** (só vê truncado)
+- **Quantos cliques já caíram naquela semana**
+- **Data/hora exata de início e fim** (quando vai rodar pra próxima)
+- **Quantas vagas restam no grupo daquela semana**
 
 ## O que vai mudar
 
-**`src/components/whatsapp/GroupDistributor.tsx`** — no modal `showStats`:
+**`src/components/whatsapp/GroupDistributor.tsx`** — cada linha da lista de semanas vira **expansível** (chevron à esquerda). Fechada continua igual; aberta mostra um painel com os detalhes.
 
-1. **Seletor de chip (provider)**: dropdown carregado de `imphq_wa_providers` (Evolution, ativos). Persiste a última escolha em `localStorage` (`wa.distributor.lastProviderId`).
+### Painel expandido por semana
 
-2. **Combobox de grupos**: ao escolher o provider, invoca `whatsapp-api` com `{ action: "fetch_groups", provider_id }` e popula uma lista pesquisável (Command + Popover) com `subject` + JID em mono pequeno. Selecionar = preenche `newGroupJid` e abre direto o botão "+ Grupo" (ou adiciona na hora).
+```
+┌─ S2  [Grupo: "VIP Webinar Turma 5"]              ✓ ativa ─┐
+│  JID:        120363426598002237@g.us          [copiar]    │
+│  Convite:    https://chat.whatsapp.com/Abc123 [copiar][↗] │
+│  Início:     27/05/2026 09:00                             │
+│  Próx. troca: 03/06/2026 09:00 (em 6d 3h)                 │
+│  Cliques:    142 / 1000   ████░░░░░░  (858 vagas)         │
+│  Status:     ativa desde 20/05/2026                       │
+└───────────────────────────────────────────────────────────┘
+```
 
-3. **Botão "↻"** ao lado pra refazer o fetch sem trocar de provider.
+### Como cada dado é obtido
 
-4. **Fallback**: o input de JID continua existindo, escondido atrás de um link "colar JID manualmente" — pra casos em que o grupo não aparece (ex.: a sessão ainda não sincronizou).
+1. **Subject do grupo** — reaproveita o cache `availableGroups` (já buscado via `fetch_groups`). Se não estiver no cache, mostra "—" e oferece "↻ buscar nome".
+2. **Cliques da semana** — `select count(*) head:true` em `imphq_wa_distributor_clicks` filtrando por `distributor_id` + `group_jid` da semana. Carrega junto com `loadWeeks`.
+3. **Vagas** — `max_per_group - cliques`.
+4. **Próxima troca** — calculada a partir de `last_rotation_at` + `rotation_cron` (já existe lógica equivalente em `wa-distributor-rotate/index.ts`; replico no client de forma simples: próximo match do cron a partir de agora).
+5. **Botões copiar** + **abrir convite no WhatsApp** (`window.open`).
 
-5. **Reuso na seção de Rotação semanal**: o mesmo seletor pode preencher `newWeek.group_jid` quando o usuário vai adicionar a próxima semana. Mesmo provider, mesma lista cacheada em estado local.
+### Pequenos extras
+
+- Mini-barra de progresso (cliques / max) usando `bg-gold` quando >80%.
+- Badge "🗄 arquivada" mantém comportamento; expandida mostra `archived_at`.
+- Linha fica clicável inteira pra expandir (chevron + click no row).
 
 ## Arquivos tocados
 
-- `src/components/whatsapp/GroupDistributor.tsx` (UI + fetch)
+- `src/components/whatsapp/GroupDistributor.tsx` (UI + 1 query agregada de cliques por semana)
 
-Sem mudanças de backend nem de banco — a action `fetch_groups` e a tabela `imphq_wa_providers` já existem.
+Sem mudanças de schema ou backend.
 
-## Resultado esperado
+## Resultado
 
-Abrir o modal, escolher o chip uma vez, e adicionar grupos clicando neles em vez de colar JID. Funciona tanto pra "Adicionar grupo" quanto pra "Nova semana" da rotação.
+Você abre o modal, clica numa semana, e vê tudo: nome do grupo, link inteiro, quantos já entraram, quanto falta pra encher, e quando vai virar a próxima. Sem precisar abrir o WhatsApp pra conferir.

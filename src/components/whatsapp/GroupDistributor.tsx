@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users } from "lucide-react";
+import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface Distributor {
@@ -65,6 +65,8 @@ export default function GroupDistributor() {
   const [clickStats, setClickStats] = useState<{ group_jid: string; count: number }[]>([]);
   const [cardStats, setCardStats] = useState<Record<string, { group_jid: string; count: number }[]>>({});
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
+  const [weekClicks, setWeekClicks] = useState<Record<string, number>>({}); // key: `${week_index}|${group_jid}` -> count
+  const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
   const [newWeek, setNewWeek] = useState({ group_jid: "", invite_url: "", start_at: "" });
   const [newGroupJid, setNewGroupJid] = useState("");
 
@@ -142,7 +144,22 @@ export default function GroupDistributor() {
       .select("*")
       .eq("distributor_id", distId)
       .order("week_index", { ascending: true });
-    setWeeks(((data as any[]) || []) as WeekRow[]);
+    const rows = ((data as any[]) || []) as WeekRow[];
+    setWeeks(rows);
+    // Carrega contagem de cliques por (week_index, group_jid)
+    const counts: Record<string, number> = {};
+    await Promise.all(
+      rows.map(async (w) => {
+        const { count } = await supabase
+          .from("imphq_wa_distributor_clicks")
+          .select("id", { count: "exact", head: true })
+          .eq("distributor_id", distId)
+          .eq("group_jid", w.group_jid)
+          .gte("created_at", w.start_at);
+        counts[`${w.week_index}|${w.group_jid}`] = count || 0;
+      })
+    );
+    setWeekClicks(counts);
   }, []);
 
   useEffect(() => {
@@ -582,27 +599,100 @@ export default function GroupDistributor() {
                       : "✦ Cada lead fica fixo no grupo da semana em que clicou pela primeira vez (cohort). Ideal para sequência de aquecimento."}
                   </div>
                   <div className="space-y-1.5">
-                    {weeks.map((w) => {
+                    {weeks.map((w, idx) => {
                       const isActive = w.week_index === (showStats.current_week || 1) && !w.archived_at;
+                      const isOpen = !!expandedWeeks[w.id];
+                      const subject = availableGroups.find(g => g.id === w.group_jid)?.subject;
+                      const clicks = weekClicks[`${w.week_index}|${w.group_jid}`] ?? 0;
+                      const max = showStats.max_per_group || 250;
+                      const pct = Math.min(100, Math.round((clicks / max) * 100));
+                      const vagas = Math.max(0, max - clicks);
+                      const nextWeek = weeks[idx + 1];
+                      const endAt = w.archived_at || nextWeek?.start_at || null;
                       return (
-                        <div key={w.id} className={`flex items-center gap-2 text-xs p-2 rounded border ${isActive ? "border-gold/60 bg-gold/5" : w.archived_at ? "border-border/30 bg-muted/20 opacity-60" : "border-border/40"}`}>
-                          <Badge variant={isActive ? "default" : "outline"} className="text-[10px] shrink-0">S{w.week_index}</Badge>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-mono truncate">{w.group_jid}</div>
-                            {w.invite_url && <div className="font-mono truncate text-[10px] text-emerald-400">{w.invite_url}</div>}
+                        <div key={w.id} className={`text-xs rounded border ${isActive ? "border-gold/60 bg-gold/5" : w.archived_at ? "border-border/30 bg-muted/20 opacity-70" : "border-border/40"}`}>
+                          <div
+                            className="flex items-center gap-2 p-2 cursor-pointer hover:bg-muted/20"
+                            onClick={() => setExpandedWeeks(p => ({ ...p, [w.id]: !p[w.id] }))}
+                          >
+                            {isOpen ? <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                            <Badge variant={isActive ? "default" : "outline"} className="text-[10px] shrink-0">S{w.week_index}</Badge>
+                            <div className="flex-1 min-w-0">
+                              <div className="truncate font-medium">{subject || <span className="font-mono text-muted-foreground">{w.group_jid}</span>}</div>
+                              {subject && <div className="font-mono truncate text-[10px] text-muted-foreground">{w.group_jid}</div>}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                              {clicks}/{max}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground shrink-0">
+                              {w.archived_at ? "🗄 arquivada" : isActive ? "✓ ativa" : new Date(w.start_at).toLocaleDateString("pt-BR")}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", w.id);
+                                await loadWeeks(showStats.id);
+                              }}
+                            ><Trash2 className="h-3 w-3" /></Button>
                           </div>
-                          <div className="text-[10px] text-muted-foreground shrink-0">
-                            {w.archived_at ? "🗄 arquivada" : isActive ? "✓ ativa" : new Date(w.start_at).toLocaleDateString("pt-BR")}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0"
-                            onClick={async () => {
-                              await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", w.id);
-                              await loadWeeks(showStats.id);
-                            }}
-                          ><Trash2 className="h-3 w-3" /></Button>
+                          {isOpen && (
+                            <div className="border-t border-border/40 p-3 space-y-2 bg-background/40">
+                              <div className="grid grid-cols-[80px_1fr_auto] items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">JID</span>
+                                <span className="font-mono text-[11px] truncate">{w.group_jid}</span>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => { navigator.clipboard.writeText(w.group_jid); toast.success("JID copiado"); }}>
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              {w.invite_url && (
+                                <div className="grid grid-cols-[80px_1fr_auto_auto] items-center gap-2">
+                                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Convite</span>
+                                  <span className="font-mono text-[11px] truncate text-emerald-400">{w.invite_url}</span>
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => { navigator.clipboard.writeText(w.invite_url!); toast.success("Link copiado"); }}>
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => window.open(w.invite_url!, "_blank")}>
+                                    <ExternalLink className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+                              <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Início</span>
+                                <span className="text-[11px]">{new Date(w.start_at).toLocaleString("pt-BR")}</span>
+                              </div>
+                              {endAt && (
+                                <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{w.archived_at ? "Arquivada" : "Próx. troca"}</span>
+                                  <span className="text-[11px]">{new Date(endAt).toLocaleString("pt-BR")}</span>
+                                </div>
+                              )}
+                              <div className="space-y-1 pt-1">
+                                <div className="flex items-center justify-between text-[10px]">
+                                  <span className="text-muted-foreground">Cliques nesta semana</span>
+                                  <span className="tabular-nums">
+                                    <span className="font-medium">{clicks}</span>
+                                    <span className="text-muted-foreground"> / {max}</span>
+                                    <span className="text-muted-foreground"> · {vagas} vagas</span>
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full rounded bg-muted/40 overflow-hidden">
+                                  <div
+                                    className={`h-full transition-all ${pct >= 80 ? "bg-gold" : pct >= 50 ? "bg-emerald-500" : "bg-primary/60"}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                              {!subject && selectedProviderId && (
+                                <button
+                                  className="text-[10px] text-primary hover:underline"
+                                  onClick={() => fetchGroups(selectedProviderId)}
+                                >↻ buscar nome do grupo</button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
