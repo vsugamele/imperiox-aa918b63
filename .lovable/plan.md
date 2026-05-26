@@ -1,76 +1,45 @@
 
-## Objetivo
+## Melhorias no WhatsApp (`/whatsapp`)
 
-Identificar quem clicou no botão de compra durante seu webinar externo (Zoom/YouTube/etc) **mas não comprou**, e disparar recuperação no WhatsApp automaticamente.
+### 1. Marcador de mensagens não lidas
+A tabela `imphq_wa_conversations` já tem `unread_count` e `last_read_at` — só precisa exibir e zerar.
 
-## Como funciona
+- `ConversationList.tsx`: mostrar badge dourado com `unread_count` à direita do contato quando `> 0`; deixar nome em negrito e mover a conversa para o topo.
+- `ChatView.tsx`: ao abrir uma conversa, chamar update `unread_count = 0, last_read_at = now()` (RPC ou update direto).
+- Webhook `whatsapp-api` (mensagens recebidas): garantir incremento de `unread_count` em mensagens inbound (verificar — pode já existir).
+
+### 2. Editar mensagem enviada
+WhatsApp Evolution API suporta edição via endpoint `/chat/updateMessage/{instance}` com `{ number, key, text }` em até ~15min.
+
+- Botão "Editar" no hover do balão (só para `direction = 'outbound'` e `created_at` < 15min).
+- Dialog inline com textarea pré-preenchido.
+- Nova Edge Function `whatsapp-edit-message` (ou ação no proxy `whatsapp-api` existente) que chama Evolution e atualiza `content` + `metadata.edited_at` na linha de `imphq_wa_messages`.
+- Render do balão: se `metadata.edited_at` existir, mostrar "(editada)" em itálico abaixo.
+
+### 3. Sistema de tags por contato
+Nova tabela `imphq_wa_contact_tags`:
 
 ```text
-[Webinar externo] → Link de pitch personalizado por lead
-        │
-        ▼
-[Edge: webinar-pitch-click]  ← marca lead, dispara webhook + WA
-        │
-        ├─→ Redireciona para checkout (transparente)
-        ├─→ Registra clique em imphq_webinar_clicks
-        ├─→ Agenda recuperação WA em 15min / 1h / 24h
-        └─→ Cancela recuperação se venda chegar (cruza com imphq_vendas por email/phone)
+id uuid pk
+project_id text
+phone text
+tag text
+color text
+created_by uuid
+created_at timestamptz
+unique(project_id, phone, tag)
 ```
 
-## Entregas
+Com GRANTs + RLS por `project_id` do dono.
 
-### 1. Nova página `/webinar` (módulo dentro do projeto)
-- Criar/editar "Sessões de webinar" (nome, data, link real do checkout)
-- Gerar **link mágico de pitch** por lead: `https://app/wp/{session}/{lead_token}` 
-- Tela de Sessão com KPIs: presentes, cliques no pitch, comprou, **não-comprou (recuperáveis)**
-- Lista de "Cliques sem venda" com botão "Disparar WA agora"
+- Painel direito do `ChatView`: seção "Tags" com chips coloridos + input "Adicionar tag" (autocomplete das tags já usadas no projeto).
+- Na `ConversationList`, mostrar as tags como mini-chips abaixo do nome.
+- Filtro no topo da lista por tag (multi-select).
 
-### 2. Captura do clique (Edge Function `webinar-pitch-click`)
-- Recebe `session_id` + `lead_token`
-- Insere em `imphq_webinar_clicks` (lead_id, session_id, clicked_at, ua, ip)
-- Dispara webhook configurado (Make/n8n) com `{ event: 'pitch_clicked', lead }`
-- Enfileira 3 mensagens WA na campanha de recuperação (T+15min, T+1h, T+24h)
-- Redireciona 302 para o checkout real
+### Arquivos afetados
+- `src/components/whatsapp/ConversationList.tsx` (badge, negrito, chips, filtro)
+- `src/components/whatsapp/ChatView.tsx` (zerar unread, botão editar, painel tags)
+- `supabase/functions/whatsapp-edit-message/index.ts` (novo) ou ação em `whatsapp-api`
+- Migration: tabela `imphq_wa_contact_tags` + GRANTs + RLS
 
-### 3. Sequência de recuperação WA (reusa infra existente)
-- Template editável por sessão (3 passos default já populados)
-- Usa `imphq_wa_campaigns` + scheduler `wa-campaign-scheduler` já em produção
-- Cancela automaticamente quando webhook de venda chegar (cruzamento por email/telefone na window de 48h)
-
-### 4. Pré-webinar (lembretes de show-up)
-- Na sessão, configurar lembretes T-24h, T-1h, T-5min
-- Mesmo motor de campanhas WA, audiência = leads inscritos na sessão
-
-### 5. Inscrição / identificação do lead
-- Form público `/w/{session}` (reusa FormBuilder) → gera lead + `lead_token`
-- Email de confirmação com o link mágico de pitch já personalizado
-- Botão "Importar inscritos" (CSV) para quem já tem lista em outra plataforma
-
-## Banco (migração)
-
-- `imphq_webinar_sessions` (id uuid, project_id text, nome, scheduled_at, checkout_url, pitch_template jsonb, recovery_template jsonb, reminder_template jsonb)
-- `imphq_webinar_registrations` (id, session_id, lead_id, lead_token unique, status [registered|attended|clicked|bought|recovered])
-- `imphq_webinar_clicks` (id, registration_id, clicked_at, recovered_at, sale_id nullable)
-- RLS: dono do projeto vê/edita; Edge service-role escreve.
-
-## Arquivos a criar/editar
-
-**Novos**
-- `src/pages/Webinar.tsx` (listagem + criar sessão)
-- `src/pages/WebinarSessao.tsx` (detalhes + KPIs + cliques sem venda)
-- `src/components/webinar/SessionConfigDialog.tsx` (lembretes/recuperação/checkout)
-- `src/components/webinar/PitchClickTable.tsx`
-- `supabase/functions/webinar-pitch-click/index.ts`
-- `supabase/functions/webinar-reconcile-sales/index.ts` (cron 5min — marca recovered + cancela sequência)
-- Migração SQL das 3 tabelas
-
-**Editados**
-- `src/App.tsx` (+ rotas `/webinar`, `/webinar/:id`)
-- `src/components/AppSidebar.tsx` (+ item "Webinar" com ícone `Radio`)
-- `src/pages/ProjetoDetalhe.tsx` (atalho "Webinar" no menu)
-
-## Fora de escopo
-- Sala de transmissão própria, replay hospedado, OBS/streaming, chat ao vivo. Tudo continua na plataforma externa — só capturamos o **clique no pitch** e operamos o follow-up.
-
-## Próximo passo
-Se aprovar, eu implemento a migração + página + edge function + sequência WA de uma vez.
+Confirma que posso seguir com esse plano?
