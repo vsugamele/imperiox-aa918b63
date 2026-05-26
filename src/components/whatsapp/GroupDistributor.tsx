@@ -65,6 +65,8 @@ export default function GroupDistributor() {
   const [clickStats, setClickStats] = useState<{ group_jid: string; count: number }[]>([]);
   const [cardStats, setCardStats] = useState<Record<string, { group_jid: string; count: number }[]>>({});
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
+  const [weekClicks, setWeekClicks] = useState<Record<string, number>>({}); // key: `${week_index}|${group_jid}` -> count
+  const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
   const [newWeek, setNewWeek] = useState({ group_jid: "", invite_url: "", start_at: "" });
   const [newGroupJid, setNewGroupJid] = useState("");
 
