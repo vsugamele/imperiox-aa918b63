@@ -16,10 +16,21 @@ interface WaSession {
   last_message?: string | null;
   updated_at?: string;
   last_message_at?: string | null;
+  last_read_at?: string | null;
   avatar_url?: string | null;
   unread_count?: number;
   last_message_direction?: string | null;
   jid_suffix?: string | null;
+}
+
+function isUnreadSession(s: WaSession): boolean {
+  if ((s.unread_count || 0) > 0) return true;
+  const dir = s.last_message_direction;
+  if (dir !== "in" && dir !== "incoming") return false;
+  const lastMsg = s.last_message_at ? new Date(s.last_message_at).getTime() : 0;
+  if (!lastMsg) return false;
+  const lastRead = s.last_read_at ? new Date(s.last_read_at).getTime() : 0;
+  return lastRead < lastMsg;
 }
 
 
