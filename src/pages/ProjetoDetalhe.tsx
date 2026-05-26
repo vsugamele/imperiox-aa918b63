@@ -37,6 +37,56 @@ import { toast } from "sonner";
 
 const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
 
+type TabDef = { value: string; label: string; emoji: string };
+const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = [
+  {
+    id: "comando", label: "Comando", emoji: "🎯",
+    tabs: [
+      { value: "comando", label: "Comando", emoji: "🎯" },
+      { value: "identidade", label: "Identidade", emoji: "🎨" },
+      { value: "expert_panel", label: "Painel", emoji: "🧭" },
+    ],
+  },
+  {
+    id: "inteligencia", label: "Inteligência", emoji: "🧠",
+    tabs: [
+      { value: "avatar", label: "Avatar", emoji: "🎭" },
+      { value: "expert", label: "Expert", emoji: "👤" },
+      { value: "pesquisa", label: "Pesquisa", emoji: "🔍" },
+      { value: "concorrentes", label: "Concorrentes", emoji: "🏆" },
+      { value: "insights", label: "Insights", emoji: "✨" },
+    ],
+  },
+  {
+    id: "performance", label: "Performance", emoji: "📊",
+    tabs: [
+      { value: "kpis", label: "KPIs", emoji: "📊" },
+      { value: "financas", label: "Finanças", emoji: "💰" },
+      { value: "analytics", label: "Analytics", emoji: "📈" },
+      { value: "instagram", label: "Instagram", emoji: "📸" },
+    ],
+  },
+  {
+    id: "producao", label: "Produção", emoji: "✍️",
+    tabs: [
+      { value: "central", label: "Conteúdo", emoji: "✍️" },
+      { value: "emails", label: "Emails", emoji: "✉️" },
+      { value: "midia", label: "Mídia", emoji: "🖼️" },
+      { value: "calendario", label: "Calendário", emoji: "📅" },
+      { value: "flowcharts", label: "Fluxogramas", emoji: "🗺️" },
+    ],
+  },
+  {
+    id: "infra", label: "Infra", emoji: "⚙️",
+    tabs: [
+      { value: "docs", label: "Docs", emoji: "📄" },
+    ],
+  },
+];
+
+const findPillarOf = (tabValue: string) =>
+  PILLARS.find(p => p.tabs.some(t => t.value === tabValue))?.id || "comando";
+
 export default function ProjetoDetalhe() {
   const { id } = useParams();
   const [project, setProject] = useState<any>(null);
