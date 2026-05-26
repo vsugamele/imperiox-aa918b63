@@ -21736,6 +21736,36 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_contact_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          phone: string
+          project_id: string
+          tag: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          phone: string
+          project_id: string
+          tag: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          phone?: string
+          project_id?: string
+          tag?: string
+        }
+        Relationships: []
+      }
       imphq_wa_conversations: {
         Row: {
           ai_last_reply_at: string | null
@@ -39415,6 +39445,10 @@ export type Database = {
         Returns: undefined
       }
       mark_message_read: { Args: { message_uuid: string }; Returns: undefined }
+      mark_wa_conversation_read: {
+        Args: { _conversation_id: string }
+        Returns: undefined
+      }
       match_documents: {
         Args: {
           match_count: number
