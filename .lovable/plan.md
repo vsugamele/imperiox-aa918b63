@@ -1,50 +1,46 @@
-# Reduzir sobrecarga cognitiva em /projetos/:id
+# Header com KPIs ao vivo + atalho rápido para Comando
 
 ## Diagnóstico
 
-A página tem **19 abas** numa única tira horizontal: Comando, Identidade, Expert, Avatar, KPIs, Pesquisa, Mídia, Docs, Concorrentes, Calendário, Finanças, Emails, Conteúdo, Fluxogramas, Painel, Insights, Analytics, Instagram. Mesmo com `flex-wrap`, vira uma parede de chips dourados sem hierarquia — o usuário precisa ler cada label toda vez para achar onde algo está. É a fonte principal da sensação de "tanto dado".
+A página de projeto tem hoje:
+- Header bonito (ícone, nome, categoria, pipeline) mas **sem dado de negócio** — você sabe qual projeto está vendo, não sabe se ele está vendendo.
+- Aba "Comando" (`ProjetoComando.tsx`) já tem todas as queries certas: receita do dia/mês, leads hoje, vendas aprovadas, hot leads. **Mas só aparece quando você clica na aba**, então em qualquer outra seção (Finanças, Avatar, etc.) você fica cego pro pulso do projeto.
 
-## Solução (escopo: só UX da navegação do projeto, sem mexer no conteúdo das abas)
+## Solução
 
-### 1. Agrupar as 19 abas em 5 pilares semânticos
+### 1. KPI Strip no header (sempre visível)
 
-Substituir a tira única por uma **navegação em 2 níveis**: pilares no topo + sub-abas só do pilar ativo.
+Faixa fina logo abaixo do nome do projeto, presente em **todas as abas**. 5 métricas ao vivo:
 
 ```
-[ 🎯 Comando ] [ 🧠 Inteligência ] [ 📊 Performance ] [ ✍️ Produção ] [ ⚙️ Infra ]
-                       ↓ (ao clicar em Inteligência)
-   Avatar · Expert · Pesquisa · Concorrentes · Insights
+💰 R$ 12.4k hoje  ·  📈 R$ 87.5k mês  ·  🎯 ROAS 3.2x  ·  🔥 4 hot leads  ·  📥 23 leads hoje
 ```
 
-Mapeamento:
-- **🎯 Comando** — Comando, Identidade, Painel
-- **🧠 Inteligência** — Avatar, Expert, Pesquisa, Concorrentes, Insights
-- **📊 Performance** — KPIs, Finanças, Analytics, Instagram
-- **✍️ Produção** — Conteúdo, Emails, Mídia, Calendário, Fluxogramas
-- **⚙️ Infra** — Docs, Analytics-Integrações (extrair futuramente)
+- Tipografia DM Sans pequena, valores em gold, labels em muted.
+- Indicador de delta vs ontem (▲ +18% em verde, ▼ -12% em vermelho).
+- Cada item é clicável e pula direto pra aba correspondente (Finanças, CRM/leads, etc.) via `goToTab()` que já existe.
+- Atualiza a cada 60s (1 query agregada por projeto, escopo igual ao que ProjetoComando já faz).
 
-No carregamento, abre direto no pilar Comando + sub-aba Comando (comportamento atual preservado).
+### 2. Novo hook `useProjectPulse(projectId)`
 
-### 2. Command Palette (Ctrl/Cmd+K)
+Encapsula as queries em uma única função, retorna `{ revenueToday, revenueMonth, roas, hotLeads, leadsToday, deltaRevenue, loading }`. Reutilizado pelo Strip e pela aba Comando (evita duplicar query).
 
-Atalho global dentro do projeto que abre um input com todas as 19 seções listadas e busca fuzzy. Clicar pula direto pra aba certa. Resolve o "sei o que quero mas não acho onde clicar".
+### 3. Skeleton sutil enquanto carrega
 
-### 3. Persistência da última aba
-
-Salvar `ultimo_pilar` + `ultima_subaba` no `localStorage` por projeto. Quando o usuário volta, cai onde estava. Acaba o "tenho que reachar tudo de novo".
-
-### 4. Indicador visual sutil de novidade
-
-Quando uma seção recebe dado novo desde a última visita (ex: nova venda em Finanças, novo insight Imperius), pontinho dourado no pilar. Decide o que olhar primeiro sem precisar varrer tudo.
+Strip mostra dashes `—` em vez de saltar de 0 pro valor real.
 
 ## Arquivos afetados
 
-- `src/pages/ProjetoDetalhe.tsx` — reestruturar `<Tabs>` em 2 níveis, adicionar state de pilar
-- `src/components/ProjectCommandPalette.tsx` *(novo)* — dialog com `cmdk`, lista as 19 seções
-- `src/hooks/useProjectTabState.ts` *(novo)* — persistência localStorage + indicadores de novidade
+- `src/components/projeto/ProjectKPIStrip.tsx` *(novo)* — componente visual da faixa.
+- `src/hooks/useProjectPulse.ts` *(novo)* — query agregada + refetch 60s.
+- `src/pages/ProjetoDetalhe.tsx` — inserir `<ProjectKPIStrip>` logo após o divisor do header e antes dos pilares; passar `onNavigate={goToTab}`.
 
-Nenhuma mudança em conteúdo das abas, queries Supabase, ou edge functions. Puro frontend de navegação.
+Nada de migração, nada de edge function. Reaproveita 100% das tabelas que `ProjetoComando` já lê.
 
 ## Resultado esperado
 
-Tela inicial mostra 5 pilares claros em vez de 19 chips. O usuário escolhe a área mental ("quero ver performance"), e só então vê as opções daquele contexto. Ctrl+K para acesso direto quando ele sabe exatamente onde quer ir.
+Em qualquer aba do projeto você vê na hora: quanto vendeu hoje, quanto vendeu no mês, se tem lead quente esperando resposta, e se o tráfego está convertendo. O "tanto dado" vira "o pulso está aqui, sempre, em uma linha".
+
+## Próximos passos (não entram agora)
+
+A opção "Dashboard de projeto resumido" que você marcou na verdade é justamente o que a aba **Comando** já faz. Sugestão: depois deste KPI Strip rodando, fazer uma passada na aba Comando para enxugar (remover cards redundantes, destacar os 3 mais críticos no topo). Faço como segundo turno.
