@@ -55,6 +55,43 @@ export default function GroupDistributor() {
   const [cardStats, setCardStats] = useState<Record<string, { group_jid: string; count: number }[]>>({});
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [newWeek, setNewWeek] = useState({ group_jid: "", invite_url: "", start_at: "" });
+  const [newGroupJid, setNewGroupJid] = useState("");
+
+  const addGroupToDistributor = async () => {
+    if (!showStats) return;
+    const jid = newGroupJid.trim();
+    if (!jid) { toast.error("Informe o JID do grupo"); return; }
+    const current = showStats.redirect_order || [];
+    if (current.includes(jid)) { toast.error("Grupo já está na lista"); return; }
+    const next = [...current, jid];
+    const { error } = await supabase
+      .from("imphq_wa_group_distributors")
+      .update({ redirect_order: next as any })
+      .eq("id", showStats.id);
+    if (error) { toast.error(error.message); return; }
+    setShowStats(prev => prev ? { ...prev, redirect_order: next } : prev);
+    setClickStats(prev => [...prev, { group_jid: jid, count: 0 }]);
+    setNewGroupJid("");
+    toast.success("Grupo adicionado");
+  };
+
+  const removeGroupFromDistributor = async (jid: string) => {
+    if (!showStats) return;
+    if (!confirm(`Remover o grupo ${jid} deste distribuidor?`)) return;
+    const next = (showStats.redirect_order || []).filter(g => g !== jid);
+    const newWeights = { ...(showStats.weights || {}) };
+    delete newWeights[jid];
+    const newInvites = { ...(showStats.group_invites || {}) };
+    delete newInvites[jid];
+    const { error } = await supabase
+      .from("imphq_wa_group_distributors")
+      .update({ redirect_order: next as any, weights: newWeights as any, group_invites: newInvites as any })
+      .eq("id", showStats.id);
+    if (error) { toast.error(error.message); return; }
+    setShowStats(prev => prev ? { ...prev, redirect_order: next, weights: newWeights, group_invites: newInvites } : prev);
+    setClickStats(prev => prev.filter(s => s.group_jid !== jid));
+    toast.success("Grupo removido");
+  };
 
   const loadWeeks = useCallback(async (distId: string) => {
     const { data } = await supabase
@@ -596,13 +633,31 @@ export default function GroupDistributor() {
                             toast.success("Convite salvo");
                           }}
                         />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={() => removeGroupFromDistributor(s.group_jid)}
+                          title="Remover grupo do distribuidor"
+                        ><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
                   );
                 })}
                 {clickStats.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum clique registrado ainda.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum grupo configurado. Adicione abaixo.</p>
                 )}
+                <div className="flex gap-1.5 pt-2 border-t border-border/40">
+                  <Input
+                    placeholder="JID do grupo (ex: 12036...@g.us)"
+                    value={newGroupJid}
+                    onChange={(e) => setNewGroupJid(e.target.value)}
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Button size="sm" className="h-8" onClick={addGroupToDistributor}>
+                    <Plus className="h-3 w-3 mr-1" />Grupo
+                  </Button>
+                </div>
               </div>
             </ScrollArea>
           </div>
