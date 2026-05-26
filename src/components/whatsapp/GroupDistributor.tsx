@@ -225,6 +225,33 @@ export default function GroupDistributor() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Carrega chips Evolution ativos
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("imphq_wa_providers")
+        .select("id, instance_name, display_name, provider, project_id, is_active")
+        .eq("is_active", true)
+        .eq("provider", "evolution")
+        .order("created_at");
+      const list = (data as any[]) || [];
+      setProviders(list);
+      if (!selectedProviderId && list.length > 0) {
+        setSelectedProviderId(list[0].id);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Quando abre o modal, busca grupos se já existe um chip selecionado
+  useEffect(() => {
+    if (showStats && selectedProviderId && availableGroups.length === 0 && !loadingGroups) {
+      fetchGroups(selectedProviderId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showStats?.id]);
+
+
   const generateSlug = () => {
     const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     let slug = "";
