@@ -480,6 +480,66 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: edit_message ── (Evolution API only, ~15min window)
+    if (action === "edit_message") {
+      const body = await req.json();
+      const { message_id, new_text } = body;
+      if (!message_id || !new_text) {
+        return new Response(JSON.stringify({ success: false, error: "message_id e new_text obrigatórios" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+      const { data: msg } = await supabase
+        .from("imphq_wa_messages")
+        .select("id, provider_message_id, phone, conversation_id, content, metadata, created_at")
+        .eq("id", message_id).maybeSingle();
+      if (!msg) {
+        return new Response(JSON.stringify({ success: false, error: "Mensagem não encontrada" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+      if (!msg.provider_message_id) {
+        return new Response(JSON.stringify({ success: false, error: "Mensagem sem ID do provider (não pode ser editada)" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+      const ageMin = (Date.now() - new Date(msg.created_at).getTime()) / 60000;
+      if (ageMin > 15) {
+        return new Response(JSON.stringify({ success: false, error: "Janela de edição expirou (15min)" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+      const { data: conv } = await supabase
+        .from("imphq_wa_conversations").select("provider_id, jid_suffix").eq("id", msg.conversation_id).maybeSingle();
+      const provider = await getProvider(conv?.provider_id);
+      if (!provider || provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ success: false, error: "Edição só funciona com Evolution API" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+      const inst = encodeURIComponent(provider.instance_name);
+      const suffix = conv?.jid_suffix || "s.whatsapp.net";
+      const digits = String(msg.phone || "").replace(/\D/g, "");
+      const remoteJid = `${digits}@${suffix}`;
+      const apiUrl = `${provider.api_url}/chat/updateMessage/${inst}`;
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: provider.api_key },
+        body: JSON.stringify({
+          number: digits,
+          key: { remoteJid, fromMe: true, id: msg.provider_message_id },
+          text: new_text,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return new Response(JSON.stringify({ success: false, error: `Evolution edit error [${res.status}]: ${JSON.stringify(data).slice(0, 300)}` }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+      const prevMeta = (msg.metadata as any) || {};
+      await supabase.from("imphq_wa_messages").update({
+        content: new_text,
+        metadata: { ...prevMeta, edited_at: new Date().toISOString(), original_content: prevMeta.original_content || msg.content },
+      }).eq("id", message_id);
+      return new Response(JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ── ACTION: send_bulk ──
     if (action === "send_bulk") {
       const body = await req.json();
