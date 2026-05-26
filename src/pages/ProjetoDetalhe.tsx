@@ -95,6 +95,39 @@ export default function ProjetoDetalhe() {
   const [editingCategory, setEditingCategory] = useState(false);
   const save = useAutoSave(id);
 
+  const storageKey = id ? `projeto:${id}:tab` : null;
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (!storageKey) return "comando";
+    return localStorage.getItem(storageKey) || "comando";
+  });
+  const [activePillar, setActivePillar] = useState<string>(() => findPillarOf(
+    storageKey ? (localStorage.getItem(storageKey) || "comando") : "comando"
+  ));
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  const allTabs = useMemo(() => PILLARS.flatMap(p => p.tabs.map(t => ({ ...t, pillar: p.label }))), []);
+
+  useEffect(() => {
+    if (storageKey) localStorage.setItem(storageKey, activeTab);
+  }, [activeTab, storageKey]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(v => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const goToTab = useCallback((value: string) => {
+    setActiveTab(value);
+    setActivePillar(findPillarOf(value));
+    setPaletteOpen(false);
+  }, []);
+
   const refreshProject = useCallback(async () => {
     const { data } = await supabase.from("imphq_projects").select("*").eq("id", id).single();
     if (data) setProject(data);
