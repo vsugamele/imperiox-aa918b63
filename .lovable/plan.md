@@ -1,46 +1,58 @@
-# Header com KPIs ao vivo + atalho rápido para Comando
+## Problema
 
-## Diagnóstico
+Na sidebar de Conversas, todas as linhas parecem iguais — é impossível bater o olho e saber quais ainda não foram lidas. O visual de "não lida" (negrito + barra verde à esquerda + badge verde com contador) **já existe no código**, mas nunca aparece, porque `unread_count` quase nunca é incrementado:
 
-A página de projeto tem hoje:
-- Header bonito (ícone, nome, categoria, pipeline) mas **sem dado de negócio** — você sabe qual projeto está vendo, não sabe se ele está vendendo.
-- Aba "Comando" (`ProjetoComando.tsx`) já tem todas as queries certas: receita do dia/mês, leads hoje, vendas aprovadas, hot leads. **Mas só aparece quando você clica na aba**, então em qualquer outra seção (Finanças, Avatar, etc.) você fica cego pro pulso do projeto.
+1. **Webhook não conta**: quando chega mensagem do lead, o servidor grava `last_message_at` mas **não incrementa `unread_count`**. Então conversas antigas/históricas ficam todas em 0.
+2. **Realtime só funciona com a aba aberta**: o incremento client-side roda em `WhatsAppPage.tsx`, mas compara `m.direction === "in"` enquanto o banco grava `"incoming"` — ou seja, **nem com a aba aberta o contador sobe**.
+3. **Sem fallback visual**: se `unread_count = 0`, não há nada secundário (ex.: comparar `last_read_at` vs `last_message_at`) pra marcar como não lida.
 
-## Solução
+Resultado: o usuário vê 148 conversas e não sabe qual chegou agora.
 
-### 1. KPI Strip no header (sempre visível)
+## O que vai mudar
 
-Faixa fina logo abaixo do nome do projeto, presente em **todas as abas**. 5 métricas ao vivo:
-
+### 1. Servidor — webhook incrementa unread_count (fonte da verdade)
+`supabase/functions/whatsapp-api/index.ts` → `updateConversationAfterMessage()` ganha um parâmetro `incrementUnread: boolean`. Nas 3 chamadas de mensagem **entrante** (linhas 462, 588, 1055) passa `true`; nas chamadas de resposta do bot (1138, 1480) passa `false`. Quando `true`, o update vira:
+```ts
+unread_count: (currentUnread || 0) + 1,
+last_message_direction: 'incoming',
 ```
-💰 R$ 12.4k hoje  ·  📈 R$ 87.5k mês  ·  🎯 ROAS 3.2x  ·  🔥 4 hot leads  ·  📥 23 leads hoje
+Busca o `unread_count` atual junto com `message_count` antes de atualizar.
+
+### 2. Cliente — corrigir bug do realtime
+`src/pages/WhatsAppPage.tsx` linha 103: aceitar tanto `"in"` quanto `"incoming"`:
+```ts
+const isInbound = m.direction === "in" || m.direction === "incoming";
 ```
 
-- Tipografia DM Sans pequena, valores em gold, labels em muted.
-- Indicador de delta vs ontem (▲ +18% em verde, ▼ -12% em vermelho).
-- Cada item é clicável e pula direto pra aba correspondente (Finanças, CRM/leads, etc.) via `goToTab()` que já existe.
-- Atualiza a cada 60s (1 query agregada por projeto, escopo igual ao que ProjetoComando já faz).
+### 3. Cliente — fallback derivado pra mensagens antigas
+`src/components/whatsapp/ConversationList.tsx`: tratar como não lida sempre que:
+- `unread_count > 0`, **ou**
+- `last_message_direction` é `"incoming"`/`"in"` **e** (`last_read_at` é nulo **ou** `last_read_at < last_message_at`).
 
-### 2. Novo hook `useProjectPulse(projectId)`
+Isso resolve o backlog (mensagens que chegaram antes do fix do servidor já aparecem como não lidas).
 
-Encapsula as queries em uma única função, retorna `{ revenueToday, revenueMonth, roas, hotLeads, leadsToday, deltaRevenue, loading }`. Reutilizado pelo Strip e pela aba Comando (evita duplicar query).
+### 4. Cliente — destaque visual mais forte
+Hoje o "não lida" é sutil demais (borda verde de 2px + fundo 4% de opacidade). Subir o sinal:
+- Fundo da linha não lida: `bg-emerald-500/10` (era `0.04`)
+- Borda esquerda: `border-l-4` (era `border-l-2`) e cor `border-l-emerald-400`
+- **Bolinha verde** ao lado do avatar quando não lido (ponto de 8px, animado com pulse leve), além do badge numérico
+- Nome em `font-bold text-emerald-50` quando não lido (hoje só `font-bold`)
+- Preview da última mensagem em `text-foreground` (em vez de `text-muted-foreground`) quando não lida
 
-### 3. Skeleton sutil enquanto carrega
+### 5. Cliente — ordenação prioriza não lidas
+Em `ConversationList.tsx`, no `sort` adicionar critério primário: não lidas vêm antes; dentro de cada grupo continua ordenando por data desc. Assim o que precisa de atenção fica sempre no topo da lista visível.
 
-Strip mostra dashes `—` em vez de saltar de 0 pro valor real.
+### 6. Cliente — badge "X novas" no header já existe, mas refletindo o fallback
+`totalUnread` passa a contar pelo mesmo critério derivado do item 3 (não só `unread_count`).
 
-## Arquivos afetados
+## Arquivos tocados
 
-- `src/components/projeto/ProjectKPIStrip.tsx` *(novo)* — componente visual da faixa.
-- `src/hooks/useProjectPulse.ts` *(novo)* — query agregada + refetch 60s.
-- `src/pages/ProjetoDetalhe.tsx` — inserir `<ProjectKPIStrip>` logo após o divisor do header e antes dos pilares; passar `onNavigate={goToTab}`.
+- `supabase/functions/whatsapp-api/index.ts` (helper + 3 call sites de inbound)
+- `src/pages/WhatsAppPage.tsx` (fix do filtro `in`/`incoming`)
+- `src/components/whatsapp/ConversationList.tsx` (fallback derivado, visual mais forte, sort por não lida, totalUnread)
 
-Nada de migração, nada de edge function. Reaproveita 100% das tabelas que `ProjetoComando` já lê.
+Sem migração de banco — `unread_count` e `last_read_at` já existem na tabela.
 
 ## Resultado esperado
 
-Em qualquer aba do projeto você vê na hora: quanto vendeu hoje, quanto vendeu no mês, se tem lead quente esperando resposta, e se o tráfego está convertendo. O "tanto dado" vira "o pulso está aqui, sempre, em uma linha".
-
-## Próximos passos (não entram agora)
-
-A opção "Dashboard de projeto resumido" que você marcou na verdade é justamente o que a aba **Comando** já faz. Sugestão: depois deste KPI Strip rodando, fazer uma passada na aba Comando para enxugar (remover cards redundantes, destacar os 3 mais críticos no topo). Faço como segundo turno.
+Bater o olho na sidebar e ver imediatamente: barra verde grossa + fundo esverdeado + bolinha pulsando + nome em branco forte + número de mensagens novas, e essas conversas ficam no topo. Mensagens novas que cheguem com a aba fechada também contam (servidor). Backlog histórico aparece como não lido enquanto o `last_read_at` não for atualizado.

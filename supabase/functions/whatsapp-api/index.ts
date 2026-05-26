@@ -112,15 +112,25 @@ serve(async (req) => {
 
 
     // ── Helper: update conversation metadata after message ──
-    async function updateConversationAfterMessage(conversationId: string, content: string, currentCount: number) {
+    async function updateConversationAfterMessage(conversationId: string, content: string, currentCount: number, incrementUnread: boolean = false) {
+      const patch: Record<string, any> = {
+        last_message: content.substring(0, 200),
+        last_message_at: new Date().toISOString(),
+        message_count: (currentCount || 0) + 1,
+        updated_at: new Date().toISOString(),
+        last_message_direction: incrementUnread ? "incoming" : "outgoing",
+      };
+      if (incrementUnread) {
+        const { data: cur } = await supabase
+          .from("imphq_wa_conversations")
+          .select("unread_count")
+          .eq("id", conversationId)
+          .maybeSingle();
+        patch.unread_count = ((cur?.unread_count as number) || 0) + 1;
+      }
       const { error } = await supabase
         .from("imphq_wa_conversations")
-        .update({
-          last_message: content.substring(0, 200),
-          last_message_at: new Date().toISOString(),
-          message_count: (currentCount || 0) + 1,
-          updated_at: new Date().toISOString(),
-        })
+        .update(patch)
         .eq("id", conversationId);
       if (error) console.warn("[updateConversation] Error:", error.message);
     }
