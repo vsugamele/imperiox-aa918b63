@@ -55,6 +55,43 @@ export default function GroupDistributor() {
   const [cardStats, setCardStats] = useState<Record<string, { group_jid: string; count: number }[]>>({});
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [newWeek, setNewWeek] = useState({ group_jid: "", invite_url: "", start_at: "" });
+  const [newGroupJid, setNewGroupJid] = useState("");
+
+  const addGroupToDistributor = async () => {
+    if (!showStats) return;
+    const jid = newGroupJid.trim();
+    if (!jid) { toast.error("Informe o JID do grupo"); return; }
+    const current = showStats.redirect_order || [];
+    if (current.includes(jid)) { toast.error("Grupo já está na lista"); return; }
+    const next = [...current, jid];
+    const { error } = await supabase
+      .from("imphq_wa_group_distributors")
+      .update({ redirect_order: next as any })
+      .eq("id", showStats.id);
+    if (error) { toast.error(error.message); return; }
+    setShowStats(prev => prev ? { ...prev, redirect_order: next } : prev);
+    setClickStats(prev => [...prev, { group_jid: jid, count: 0 }]);
+    setNewGroupJid("");
+    toast.success("Grupo adicionado");
+  };
+
+  const removeGroupFromDistributor = async (jid: string) => {
+    if (!showStats) return;
+    if (!confirm(`Remover o grupo ${jid} deste distribuidor?`)) return;
+    const next = (showStats.redirect_order || []).filter(g => g !== jid);
+    const newWeights = { ...(showStats.weights || {}) };
+    delete newWeights[jid];
+    const newInvites = { ...(showStats.group_invites || {}) };
+    delete newInvites[jid];
+    const { error } = await supabase
+      .from("imphq_wa_group_distributors")
+      .update({ redirect_order: next as any, weights: newWeights as any, group_invites: newInvites as any })
+      .eq("id", showStats.id);
+    if (error) { toast.error(error.message); return; }
+    setShowStats(prev => prev ? { ...prev, redirect_order: next, weights: newWeights, group_invites: newInvites } : prev);
+    setClickStats(prev => prev.filter(s => s.group_jid !== jid));
+    toast.success("Grupo removido");
+  };
 
   const loadWeeks = useCallback(async (distId: string) => {
     const { data } = await supabase
