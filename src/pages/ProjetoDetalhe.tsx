@@ -22,6 +22,7 @@ import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
+import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
@@ -315,6 +316,9 @@ export default function ProjetoDetalhe() {
 
         <div className="editorial-divider mt-6" />
       </header>
+
+      {/* ───────── Live KPI Strip ───────── */}
+      <ProjectKPIStrip projectId={id!} onNavigate={goToTab} />
 
       {/* ───────── Pillar Navigation (2-tier) ───────── */}
       <Tabs value={activeTab} onValueChange={goToTab}>
