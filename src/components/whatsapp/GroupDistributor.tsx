@@ -717,16 +717,143 @@ export default function GroupDistributor() {
                 {clickStats.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">Nenhum grupo configurado. Adicione abaixo.</p>
                 )}
-                <div className="flex gap-1.5 pt-2 border-t border-border/40">
-                  <Input
-                    placeholder="JID do grupo (ex: 12036...@g.us)"
-                    value={newGroupJid}
-                    onChange={(e) => setNewGroupJid(e.target.value)}
-                    className="h-8 text-xs font-mono"
-                  />
-                  <Button size="sm" className="h-8" onClick={addGroupToDistributor}>
-                    <Plus className="h-3 w-3 mr-1" />Grupo
-                  </Button>
+                {/* Picker de grupos do chip */}
+                <div className="pt-3 border-t border-border/40 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <Users className="h-3 w-3" /> Adicionar grupo do chip
+                    </Label>
+                    <button
+                      type="button"
+                      className="text-[10px] text-muted-foreground hover:text-gold underline-offset-2 hover:underline"
+                      onClick={() => setShowManualJid(v => !v)}
+                    >
+                      {showManualJid ? "← voltar à lista" : "colar JID manualmente"}
+                    </button>
+                  </div>
+
+                  {showManualJid ? (
+                    <div className="flex gap-1.5">
+                      <Input
+                        placeholder="JID do grupo (ex: 12036...@g.us)"
+                        value={newGroupJid}
+                        onChange={(e) => setNewGroupJid(e.target.value)}
+                        className="h-8 text-xs font-mono"
+                      />
+                      <Button size="sm" className="h-8" onClick={addGroupToDistributor}>
+                        <Plus className="h-3 w-3 mr-1" />Grupo
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-1.5">
+                        <Select
+                          value={selectedProviderId || undefined}
+                          onValueChange={(v) => { setSelectedProviderId(v); setAvailableGroups([]); fetchGroups(v); }}
+                        >
+                          <SelectTrigger className="h-8 text-xs flex-1">
+                            <SelectValue placeholder="Selecione o chip" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {providers.map(p => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.display_name || p.instance_name || p.id}
+                              </SelectItem>
+                            ))}
+                            {providers.length === 0 && (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum chip Evolution ativo</div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 shrink-0"
+                          disabled={!selectedProviderId || loadingGroups}
+                          onClick={() => fetchGroups(selectedProviderId)}
+                          title="Recarregar grupos"
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${loadingGroups ? "animate-spin" : ""}`} />
+                        </Button>
+                      </div>
+
+                      {selectedProviderId && (
+                        <>
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder={`Buscar entre ${availableGroups.length} grupos...`}
+                              value={groupSearch}
+                              onChange={(e) => setGroupSearch(e.target.value)}
+                              className="h-8 pl-7 text-xs"
+                            />
+                          </div>
+                          <div className="max-h-56 overflow-y-auto rounded-md border border-border/40 bg-background/40 divide-y divide-border/30">
+                            {loadingGroups ? (
+                              <p className="text-xs text-muted-foreground text-center py-4">Carregando grupos…</p>
+                            ) : availableGroups.length === 0 ? (
+                              <p className="text-xs text-muted-foreground text-center py-4">Nenhum grupo encontrado neste chip.</p>
+                            ) : (
+                              availableGroups
+                                .filter(g => {
+                                  const q = groupSearch.trim().toLowerCase();
+                                  if (!q) return true;
+                                  return (g.subject || "").toLowerCase().includes(q) || g.id.toLowerCase().includes(q);
+                                })
+                                .slice(0, 200)
+                                .map(g => {
+                                  const already = (showStats?.redirect_order || []).includes(g.id);
+                                  return (
+                                    <div key={g.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/30">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs truncate">{g.subject || "(sem nome)"}</div>
+                                        <div className="text-[10px] font-mono text-muted-foreground truncate">{g.id}</div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 px-2 text-[10px] shrink-0"
+                                        disabled={already}
+                                        onClick={async () => {
+                                          setNewGroupJid(g.id);
+                                          // adiciona direto
+                                          if (already) return;
+                                          const current = showStats!.redirect_order || [];
+                                          const next = [...current, g.id];
+                                          const { error } = await supabase
+                                            .from("imphq_wa_group_distributors")
+                                            .update({ redirect_order: next as any })
+                                            .eq("id", showStats!.id);
+                                          if (error) { toast.error(error.message); return; }
+                                          setShowStats(prev => prev ? { ...prev, redirect_order: next } : prev);
+                                          setClickStats(prev => [...prev, { group_jid: g.id, count: 0 }]);
+                                          toast.success(`+ ${g.subject || g.id.slice(0, 8)}`);
+                                        }}
+                                        title={already ? "Já está no distribuidor" : "Adicionar ao distribuidor"}
+                                      >
+                                        {already ? "✓ no distrib." : <><Plus className="h-3 w-3 mr-0.5" />Distrib.</>}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 px-2 text-[10px] shrink-0 text-gold hover:text-gold"
+                                        onClick={() => {
+                                          setNewWeek(p => ({ ...p, group_jid: g.id }));
+                                          toast.info("JID copiado para 'Nova semana'");
+                                        }}
+                                        title="Usar como JID da próxima semana de rotação"
+                                      >
+                                        → Semana
+                                      </Button>
+                                    </div>
+                                  );
+                                })
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </ScrollArea>
