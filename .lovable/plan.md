@@ -1,58 +1,27 @@
 ## Problema
 
-Na sidebar de Conversas, todas as linhas parecem iguais — é impossível bater o olho e saber quais ainda não foram lidas. O visual de "não lida" (negrito + barra verde à esquerda + badge verde com contador) **já existe no código**, mas nunca aparece, porque `unread_count` quase nunca é incrementado:
-
-1. **Webhook não conta**: quando chega mensagem do lead, o servidor grava `last_message_at` mas **não incrementa `unread_count`**. Então conversas antigas/históricas ficam todas em 0.
-2. **Realtime só funciona com a aba aberta**: o incremento client-side roda em `WhatsAppPage.tsx`, mas compara `m.direction === "in"` enquanto o banco grava `"incoming"` — ou seja, **nem com a aba aberta o contador sobe**.
-3. **Sem fallback visual**: se `unread_count = 0`, não há nada secundário (ex.: comparar `last_read_at` vs `last_message_at`) pra marcar como não lida.
-
-Resultado: o usuário vê 148 conversas e não sabe qual chegou agora.
+No modal de Estatísticas do distribuidor, hoje você precisa **colar o JID na mão** (`12036...@g.us`). Mas a edge function `whatsapp-api` já tem a action `fetch_groups` que lista todos os grupos de uma instância Evolution — é o que o `CampaignManager` já usa pra selecionar grupos. Basta plugar isso aqui.
 
 ## O que vai mudar
 
-### 1. Servidor — webhook incrementa unread_count (fonte da verdade)
-`supabase/functions/whatsapp-api/index.ts` → `updateConversationAfterMessage()` ganha um parâmetro `incrementUnread: boolean`. Nas 3 chamadas de mensagem **entrante** (linhas 462, 588, 1055) passa `true`; nas chamadas de resposta do bot (1138, 1480) passa `false`. Quando `true`, o update vira:
-```ts
-unread_count: (currentUnread || 0) + 1,
-last_message_direction: 'incoming',
-```
-Busca o `unread_count` atual junto com `message_count` antes de atualizar.
+**`src/components/whatsapp/GroupDistributor.tsx`** — no modal `showStats`:
 
-### 2. Cliente — corrigir bug do realtime
-`src/pages/WhatsAppPage.tsx` linha 103: aceitar tanto `"in"` quanto `"incoming"`:
-```ts
-const isInbound = m.direction === "in" || m.direction === "incoming";
-```
+1. **Seletor de chip (provider)**: dropdown carregado de `imphq_wa_providers` (Evolution, ativos). Persiste a última escolha em `localStorage` (`wa.distributor.lastProviderId`).
 
-### 3. Cliente — fallback derivado pra mensagens antigas
-`src/components/whatsapp/ConversationList.tsx`: tratar como não lida sempre que:
-- `unread_count > 0`, **ou**
-- `last_message_direction` é `"incoming"`/`"in"` **e** (`last_read_at` é nulo **ou** `last_read_at < last_message_at`).
+2. **Combobox de grupos**: ao escolher o provider, invoca `whatsapp-api` com `{ action: "fetch_groups", provider_id }` e popula uma lista pesquisável (Command + Popover) com `subject` + JID em mono pequeno. Selecionar = preenche `newGroupJid` e abre direto o botão "+ Grupo" (ou adiciona na hora).
 
-Isso resolve o backlog (mensagens que chegaram antes do fix do servidor já aparecem como não lidas).
+3. **Botão "↻"** ao lado pra refazer o fetch sem trocar de provider.
 
-### 4. Cliente — destaque visual mais forte
-Hoje o "não lida" é sutil demais (borda verde de 2px + fundo 4% de opacidade). Subir o sinal:
-- Fundo da linha não lida: `bg-emerald-500/10` (era `0.04`)
-- Borda esquerda: `border-l-4` (era `border-l-2`) e cor `border-l-emerald-400`
-- **Bolinha verde** ao lado do avatar quando não lido (ponto de 8px, animado com pulse leve), além do badge numérico
-- Nome em `font-bold text-emerald-50` quando não lido (hoje só `font-bold`)
-- Preview da última mensagem em `text-foreground` (em vez de `text-muted-foreground`) quando não lida
+4. **Fallback**: o input de JID continua existindo, escondido atrás de um link "colar JID manualmente" — pra casos em que o grupo não aparece (ex.: a sessão ainda não sincronizou).
 
-### 5. Cliente — ordenação prioriza não lidas
-Em `ConversationList.tsx`, no `sort` adicionar critério primário: não lidas vêm antes; dentro de cada grupo continua ordenando por data desc. Assim o que precisa de atenção fica sempre no topo da lista visível.
-
-### 6. Cliente — badge "X novas" no header já existe, mas refletindo o fallback
-`totalUnread` passa a contar pelo mesmo critério derivado do item 3 (não só `unread_count`).
+5. **Reuso na seção de Rotação semanal**: o mesmo seletor pode preencher `newWeek.group_jid` quando o usuário vai adicionar a próxima semana. Mesmo provider, mesma lista cacheada em estado local.
 
 ## Arquivos tocados
 
-- `supabase/functions/whatsapp-api/index.ts` (helper + 3 call sites de inbound)
-- `src/pages/WhatsAppPage.tsx` (fix do filtro `in`/`incoming`)
-- `src/components/whatsapp/ConversationList.tsx` (fallback derivado, visual mais forte, sort por não lida, totalUnread)
+- `src/components/whatsapp/GroupDistributor.tsx` (UI + fetch)
 
-Sem migração de banco — `unread_count` e `last_read_at` já existem na tabela.
+Sem mudanças de backend nem de banco — a action `fetch_groups` e a tabela `imphq_wa_providers` já existem.
 
 ## Resultado esperado
 
-Bater o olho na sidebar e ver imediatamente: barra verde grossa + fundo esverdeado + bolinha pulsando + nome em branco forte + número de mensagens novas, e essas conversas ficam no topo. Mensagens novas que cheguem com a aba fechada também contam (servidor). Backlog histórico aparece como não lido enquanto o `last_read_at` não for atualizado.
+Abrir o modal, escolher o chip uma vez, e adicionar grupos clicando neles em vez de colar JID. Funciona tanto pra "Adicionar grupo" quanto pra "Nova semana" da rotação.
