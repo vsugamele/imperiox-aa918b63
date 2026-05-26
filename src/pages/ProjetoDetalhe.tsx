@@ -316,6 +316,9 @@ export default function ProjetoDetalhe() {
         <div className="editorial-divider mt-6" />
       </header>
 
+      {/* ───────── Live KPI Strip ───────── */}
+      <ProjectKPIStrip projectId={id!} onNavigate={goToTab} />
+
       {/* ───────── Pillar Navigation (2-tier) ───────── */}
       <Tabs value={activeTab} onValueChange={goToTab}>
         <div className="space-y-3">
