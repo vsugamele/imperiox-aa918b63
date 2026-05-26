@@ -309,7 +309,41 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       initialLoadDone.current = false;
       newestTimestampRef.current = null;
       loadInitial();
+      // Mark conversation as read
+      supabase.rpc("mark_wa_conversation_read", { _conversation_id: conversationId }).then(() => {}, () => {});
     }, [conversationId, loadInitial]);
+
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editText, setEditText] = useState("");
+    const [editSaving, setEditSaving] = useState(false);
+
+    const startEdit = (m: Message) => {
+      setEditingId(m.id);
+      setEditText(m.content || "");
+    };
+
+    const saveEdit = async () => {
+      if (!editingId || !editText.trim()) return;
+      setEditSaving(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-api?action=edit_message", {
+          body: { message_id: editingId, new_text: editText.trim() },
+        });
+        if (error) throw error;
+        if (data?.success === false) { toast.error(data.error || "Falha ao editar"); return; }
+        toast.success("Mensagem editada");
+        setMessages(prev => prev.map(m => m.id === editingId
+          ? { ...m, content: editText.trim(), metadata: { ...(m.metadata || {}), edited_at: new Date().toISOString() } }
+          : m));
+        setEditingId(null);
+        setEditText("");
+      } catch (err: any) {
+        toast.error("Erro ao editar: " + err.message);
+      } finally {
+        setEditSaving(false);
+      }
+    };
+
 
     useEffect(() => {
       const interval = setInterval(pollNew, 8000);
