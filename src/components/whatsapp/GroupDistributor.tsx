@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users } from "lucide-react";
+import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface Distributor {
