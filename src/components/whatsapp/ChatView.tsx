@@ -2,11 +2,13 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+import ContactTagsPanel from "./ContactTagsPanel";
 
 const PAGE_SIZE = 50;
+const EDIT_WINDOW_MIN = 15;
 
 interface Message {
   id: string;
@@ -17,6 +19,8 @@ interface Message {
   status: string;
   message_type?: string;
   media_url?: string;
+  metadata?: any;
+  provider_message_id?: string | null;
   _optimistic?: boolean;
 }
 
@@ -305,7 +309,41 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       initialLoadDone.current = false;
       newestTimestampRef.current = null;
       loadInitial();
+      // Mark conversation as read
+      supabase.rpc("mark_wa_conversation_read", { _conversation_id: conversationId }).then(() => {}, () => {});
     }, [conversationId, loadInitial]);
+
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editText, setEditText] = useState("");
+    const [editSaving, setEditSaving] = useState(false);
+
+    const startEdit = (m: Message) => {
+      setEditingId(m.id);
+      setEditText(m.content || "");
+    };
+
+    const saveEdit = async () => {
+      if (!editingId || !editText.trim()) return;
+      setEditSaving(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-api?action=edit_message", {
+          body: { message_id: editingId, new_text: editText.trim() },
+        });
+        if (error) throw error;
+        if (data?.success === false) { toast.error(data.error || "Falha ao editar"); return; }
+        toast.success("Mensagem editada");
+        setMessages(prev => prev.map(m => m.id === editingId
+          ? { ...m, content: editText.trim(), metadata: { ...(m.metadata || {}), edited_at: new Date().toISOString() } }
+          : m));
+        setEditingId(null);
+        setEditText("");
+      } catch (err: any) {
+        toast.error("Erro ao editar: " + err.message);
+      } finally {
+        setEditSaving(false);
+      }
+    };
+
 
     useEffect(() => {
       const interval = setInterval(pollNew, 8000);
@@ -526,6 +564,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
 
     return (
       <div ref={ref} className="flex flex-col h-full">
+        <ContactTagsPanel projectId={projectId} phone={phone} />
         {/* Chat area with WhatsApp-like pattern background */}
         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -544,6 +583,11 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
               const showDate = dateLabel !== lastDateLabel;
               lastDateLabel = dateLabel;
               const isOutgoing = m.direction === "outgoing";
+              const ageMin = (Date.now() - new Date(m.created_at).getTime()) / 60000;
+              const canEdit = isOutgoing && !m._optimistic && (!m.message_type || m.message_type === "text")
+                && !!m.provider_message_id && ageMin < EDIT_WINDOW_MIN;
+              const isEditing = editingId === m.id;
+              const editedAt = (m.metadata as any)?.edited_at;
 
               return (
                 <React.Fragment key={m.id}>
@@ -563,12 +607,34 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                       ${m._optimistic ? "opacity-60" : ""}
                     `}>
                       <MediaContent message={m} />
-                      {!(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
-                        <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                      {isEditing ? (
+                        <div className="space-y-1.5 min-w-[220px]">
+                          <Textarea
+                            value={editText}
+                            onChange={e => setEditText(e.target.value)}
+                            className="min-h-[60px] text-sm bg-background text-foreground"
+                            autoFocus
+                          />
+                          <div className="flex gap-1 justify-end">
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setEditingId(null); setEditText(""); }}>
+                              <X className="h-3 w-3 mr-0.5" /> Cancelar
+                            </Button>
+                            <Button size="sm" className="h-6 px-2 text-[11px]" onClick={saveEdit} disabled={editSaving || !editText.trim()}>
+                              {editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        !(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
+                          <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                        )
                       )}
                       <div className={`flex items-center gap-1 justify-end mt-0.5 -mb-0.5
                         ${isOutgoing ? "text-white/60" : "text-muted-foreground"}
                       `}>
+                        {editedAt && !isEditing && (
+                          <span className="text-[9px] italic opacity-80">editada</span>
+                        )}
                         <span className="text-[10px]">
                           {m._optimistic
                             ? "Enviando..."
@@ -577,6 +643,15 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                         </span>
                         {isOutgoing && <StatusIcon status={m._optimistic ? "sending" : m.status} />}
                       </div>
+                      {canEdit && !isEditing && (
+                        <button
+                          onClick={() => startEdit(m)}
+                          className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full p-1 shadow hover:bg-muted"
+                          title="Editar mensagem"
+                        >
+                          <Pencil className="h-3 w-3 text-foreground" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </React.Fragment>
