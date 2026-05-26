@@ -16,10 +16,21 @@ interface WaSession {
   last_message?: string | null;
   updated_at?: string;
   last_message_at?: string | null;
+  last_read_at?: string | null;
   avatar_url?: string | null;
   unread_count?: number;
   last_message_direction?: string | null;
   jid_suffix?: string | null;
+}
+
+function isUnreadSession(s: WaSession): boolean {
+  if ((s.unread_count || 0) > 0) return true;
+  const dir = s.last_message_direction;
+  if (dir !== "in" && dir !== "incoming") return false;
+  const lastMsg = s.last_message_at ? new Date(s.last_message_at).getTime() : 0;
+  if (!lastMsg) return false;
+  const lastRead = s.last_read_at ? new Date(s.last_read_at).getTime() : 0;
+  return lastRead < lastMsg;
 }
 
 
@@ -99,15 +110,21 @@ export default function ConversationList({
     const matchSearch = !search ||
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
-    const matchUnread = !onlyUnread || (s.unread_count || 0) > 0;
+    const matchUnread = !onlyUnread || isUnreadSession(s);
     return matchProject && matchProvider && matchSearch && matchUnread;
   }).sort((a, b) => {
+    const ua = isUnreadSession(a) ? 1 : 0;
+    const ub = isUnreadSession(b) ? 1 : 0;
+    if (ua !== ub) return ub - ua;
     const ta = new Date(a.last_message_at || a.updated_at || a.created_at || 0).getTime();
     const tb = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
     return tb - ta;
   });
 
-  const totalUnread = sessions.reduce((acc, s) => acc + (s.unread_count || 0), 0);
+  const totalUnread = sessions.reduce(
+    (acc, s) => acc + (isUnreadSession(s) ? Math.max(s.unread_count || 0, 1) : 0),
+    0,
+  );
 
   return (
     <div className="flex flex-col h-full border-r border-border bg-card">
@@ -243,23 +260,31 @@ export default function ConversationList({
               const provLabel = providerLabel(prov);
               const color = providerColor(s.provider_id);
               const unread = s.unread_count || 0;
-              const hasUnread = unread > 0;
+              const hasUnread = isUnreadSession(s);
+              const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
               return (
                 <button
                   key={s.id}
                   onClick={() => onSelect(s)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-2 ${
-                    isSelected ? "bg-accent border-l-primary" : hasUnread ? "border-l-emerald-500 bg-emerald-500/[0.04]" : "border-l-transparent"
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-[3px] ${
+                    isSelected
+                      ? "bg-accent border-l-primary"
+                      : hasUnread
+                        ? "border-l-emerald-400 bg-emerald-500/10"
+                        : "border-l-transparent"
                   }`}
                   title={provLabel ? `Instância: ${provLabel}` : undefined}
                 >
                   <div className="relative shrink-0">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className={`h-10 w-10 ${hasUnread && !isSelected ? "ring-2 ring-emerald-400/70" : ""}`}>
                       {s.avatar_url && <AvatarImage src={s.avatar_url} alt={s.contact_name || s.phone} />}
                       <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
                         {getInitials(s.contact_name, s.phone)}
                       </AvatarFallback>
                     </Avatar>
+                    {hasUnread && !isSelected && (
+                      <span className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-card animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+                    )}
                     {provLabel && (
                       <span
                         className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card"
@@ -270,7 +295,7 @@ export default function ConversationList({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-foreground" : "font-medium"}`}>
+                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-foreground"}`}>
                           {s.contact_name || s.phone}
                         </span>
                         {provLabel && (
@@ -297,7 +322,7 @@ export default function ConversationList({
                         )}
 
                       </div>
-                      <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                      <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
                         {timeAgo(s.last_message_at || s.updated_at || s.created_at)}
                       </span>
                     </div>
@@ -305,15 +330,15 @@ export default function ConversationList({
                       <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
                     )}
                     <div className="flex items-center justify-between mt-0.5 gap-2">
-                      <p className={`text-xs truncate pr-2 flex items-center gap-1 ${hasUnread ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                      <p className={`text-xs truncate pr-2 flex items-center gap-1 ${hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
                         {s.last_message_direction === "out" && !hasUnread && (
                           <span className="text-[10px] text-muted-foreground/70 shrink-0">↩</span>
                         )}
                         <span className="truncate">{s.last_message || (s.contact_name ? "" : s.phone)}</span>
                       </p>
                       {hasUnread ? (
-                        <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center shrink-0 leading-none">
-                          {unread > 99 ? "99+" : unread}
+                        <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full min-w-[20px] h-[20px] px-1.5 flex items-center justify-center shrink-0 leading-none shadow-[0_0_8px_rgba(16,185,129,0.5)]">
+                          {displayCount > 99 ? "99+" : displayCount}
                         </span>
                       ) : s.message_count > 0 ? (
                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 shrink-0">
