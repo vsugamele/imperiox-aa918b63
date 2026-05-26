@@ -497,6 +497,22 @@ export default function ProjetoDetalhe() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+        <CommandInput placeholder="Buscar seção do projeto..." />
+        <CommandList>
+          <CommandEmpty>Nenhuma seção encontrada.</CommandEmpty>
+          {PILLARS.map((p) => (
+            <CommandGroup key={p.id} heading={`${p.emoji}  ${p.label}`}>
+              {p.tabs.map((t) => (
+                <CommandItem key={t.value} value={`${p.label} ${t.label}`} onSelect={() => goToTab(t.value)}>
+                  <span className="mr-2">{t.emoji}</span>{t.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ))}
+        </CommandList>
+      </CommandDialog>
     </div>
   );
 }
