@@ -4161,6 +4161,7 @@ export type Database = {
       }
       areamembrojp_plan_external_products: {
         Row: {
+          access_duration_days: number | null
           created_at: string
           delivery_name: string | null
           external_product_id: string
@@ -4176,6 +4177,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_duration_days?: number | null
           created_at?: string
           delivery_name?: string | null
           external_product_id: string
@@ -4191,6 +4193,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_duration_days?: number | null
           created_at?: string
           delivery_name?: string | null
           external_product_id?: string
@@ -5666,6 +5669,8 @@ export type Database = {
           landing_signup_label: string
           landing_subtitle: string
           landing_title: string
+          logo_fit: string | null
+          logo_height_px: number | null
           logo_url: string | null
           meditations_label: string
           meditations_label_singular: string
@@ -5764,6 +5769,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -5862,6 +5869,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -6069,6 +6078,7 @@ export type Database = {
           name: string
           priority: number
           sales_url: string | null
+          source_lesson_id: string | null
           source_program_id: string | null
           subheadline: string | null
           target_program_id: string
@@ -6085,6 +6095,7 @@ export type Database = {
           name: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id: string
@@ -6101,6 +6112,7 @@ export type Database = {
           name?: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id?: string
@@ -6108,6 +6120,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_source_lesson_id_fkey"
+            columns: ["source_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "areamembrojp_upsell_offers_source_program_id_fkey"
             columns: ["source_program_id"]
