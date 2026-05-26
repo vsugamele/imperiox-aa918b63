@@ -100,7 +100,7 @@ export default function WhatsApp() {
             });
             return prev;
           }
-          const isInbound = m.direction === "in";
+          const isInbound = m.direction === "in" || m.direction === "incoming";
           const isOpen = selectedSession?.id === m.conversation_id;
           const updated = {
             ...prev[idx],
