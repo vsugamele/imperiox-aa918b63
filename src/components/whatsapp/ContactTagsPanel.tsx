@@ -42,7 +42,7 @@ export default function ContactTagsPanel({ projectId, phone }: Props) {
       .eq("project_id", projectId)
       .limit(50);
     const uniq = Array.from(new Set(((data as any) || []).map((d: any) => d.tag)));
-    setSuggestions(uniq);
+    setSuggestions(uniq as string[]);
   };
 
   useEffect(() => {
