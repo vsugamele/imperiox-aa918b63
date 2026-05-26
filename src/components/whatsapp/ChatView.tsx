@@ -19,6 +19,8 @@ interface Message {
   status: string;
   message_type?: string;
   media_url?: string;
+  metadata?: any;
+  provider_message_id?: string | null;
   _optimistic?: boolean;
 }
 
