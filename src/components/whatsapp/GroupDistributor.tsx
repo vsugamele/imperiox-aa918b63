@@ -44,6 +44,17 @@ interface WaCampaign {
   groups: string[];
 }
 
+interface Provider {
+  id: string;
+  instance_name?: string;
+  display_name?: string | null;
+  provider: string;
+  project_id: string;
+  is_active?: boolean;
+}
+
+interface GroupRow { id: string; subject: string }
+
 export default function GroupDistributor() {
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [campaigns, setCampaigns] = useState<WaCampaign[]>([]);
@@ -56,6 +67,38 @@ export default function GroupDistributor() {
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [newWeek, setNewWeek] = useState({ group_jid: "", invite_url: "", start_at: "" });
   const [newGroupJid, setNewGroupJid] = useState("");
+
+  // ── Grupos do chip (Evolution) ──
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>(
+    () => localStorage.getItem("wa.distributor.lastProviderId") || "",
+  );
+  const [availableGroups, setAvailableGroups] = useState<GroupRow[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupSearch, setGroupSearch] = useState("");
+  const [showManualJid, setShowManualJid] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("wa.distributor.lastProviderId", selectedProviderId || "");
+  }, [selectedProviderId]);
+
+  const fetchGroups = useCallback(async (providerId: string) => {
+    if (!providerId) return;
+    setLoadingGroups(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-api", {
+        body: { action: "fetch_groups", provider_id: providerId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAvailableGroups((data?.groups || []) as GroupRow[]);
+    } catch (e: any) {
+      toast.error("Erro ao buscar grupos: " + e.message);
+      setAvailableGroups([]);
+    }
+    setLoadingGroups(false);
+  }, []);
+
 
   const addGroupToDistributor = async () => {
     if (!showStats) return;
