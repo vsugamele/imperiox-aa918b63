@@ -583,6 +583,11 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
               const showDate = dateLabel !== lastDateLabel;
               lastDateLabel = dateLabel;
               const isOutgoing = m.direction === "outgoing";
+              const ageMin = (Date.now() - new Date(m.created_at).getTime()) / 60000;
+              const canEdit = isOutgoing && !m._optimistic && (!m.message_type || m.message_type === "text")
+                && !!m.provider_message_id && ageMin < EDIT_WINDOW_MIN;
+              const isEditing = editingId === m.id;
+              const editedAt = (m.metadata as any)?.edited_at;
 
               return (
                 <React.Fragment key={m.id}>
@@ -602,12 +607,34 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                       ${m._optimistic ? "opacity-60" : ""}
                     `}>
                       <MediaContent message={m} />
-                      {!(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
-                        <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                      {isEditing ? (
+                        <div className="space-y-1.5 min-w-[220px]">
+                          <Textarea
+                            value={editText}
+                            onChange={e => setEditText(e.target.value)}
+                            className="min-h-[60px] text-sm bg-background text-foreground"
+                            autoFocus
+                          />
+                          <div className="flex gap-1 justify-end">
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setEditingId(null); setEditText(""); }}>
+                              <X className="h-3 w-3 mr-0.5" /> Cancelar
+                            </Button>
+                            <Button size="sm" className="h-6 px-2 text-[11px]" onClick={saveEdit} disabled={editSaving || !editText.trim()}>
+                              {editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        !(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
+                          <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                        )
                       )}
                       <div className={`flex items-center gap-1 justify-end mt-0.5 -mb-0.5
                         ${isOutgoing ? "text-white/60" : "text-muted-foreground"}
                       `}>
+                        {editedAt && !isEditing && (
+                          <span className="text-[9px] italic opacity-80">editada</span>
+                        )}
                         <span className="text-[10px]">
                           {m._optimistic
                             ? "Enviando..."
@@ -616,6 +643,15 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                         </span>
                         {isOutgoing && <StatusIcon status={m._optimistic ? "sending" : m.status} />}
                       </div>
+                      {canEdit && !isEditing && (
+                        <button
+                          onClick={() => startEdit(m)}
+                          className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full p-1 shadow hover:bg-muted"
+                          title="Editar mensagem"
+                        >
+                          <Pencil className="h-3 w-3 text-foreground" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </React.Fragment>
