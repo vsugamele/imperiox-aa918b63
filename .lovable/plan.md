@@ -1,20 +1,50 @@
-# Permitir múltiplos links no modal de Estatísticas do Distribuidor
+# Reduzir sobrecarga cognitiva em /projetos/:id
 
 ## Diagnóstico
 
-No print, só aparece **1 linha** (`120363426598002237@g.us`) com campos Peso + Link, mesmo o distribuidor podendo ter vários grupos. Causa: em `GroupDistributor.tsx` → `loadClickStats()` só monta linhas a partir de `imphq_wa_distributor_clicks`. Grupos do `redirect_order` que ainda não receberam clique ficam invisíveis e ficam sem como configurar peso/link.
+A página tem **19 abas** numa única tira horizontal: Comando, Identidade, Expert, Avatar, KPIs, Pesquisa, Mídia, Docs, Concorrentes, Calendário, Finanças, Emails, Conteúdo, Fluxogramas, Painel, Insights, Analytics, Instagram. Mesmo com `flex-wrap`, vira uma parede de chips dourados sem hierarquia — o usuário precisa ler cada label toda vez para achar onde algo está. É a fonte principal da sensação de "tanto dado".
 
-## Mudança (apenas frontend, escopo do modal)
+## Solução (escopo: só UX da navegação do projeto, sem mexer no conteúdo das abas)
 
-Arquivo: `src/components/whatsapp/GroupDistributor.tsx`
+### 1. Agrupar as 19 abas em 5 pilares semânticos
 
-1. Em `loadClickStats(distributorId)`: depois de montar `countMap` a partir dos cliques, fazer merge com `showStats.redirect_order` (lista oficial de grupos do distribuidor), inserindo `count: 0` para os ausentes. Ordenar pela ordem de `redirect_order`.
-2. Quando o modal abre sem cliques ainda, popular `clickStats` com todos os grupos zerados em vez de mostrar "Nenhum clique registrado ainda" — substituir esse vazio por uma mensagem mais leve só quando `redirect_order` também estiver vazio.
-3. Adicionar mini ação "➕ Adicionar grupo extra" abaixo da lista (input JID + botão) que faz append em `redirect_order` e salva via `update({ redirect_order: [...] })`. Útil para incluir um grupo de overflow que não vinha da campanha original.
-4. Botão 🗑 ao lado de cada linha para remover o grupo de `redirect_order` (com confirm) — espelha o comportamento das semanas.
+Substituir a tira única por uma **navegação em 2 níveis**: pilares no topo + sub-abas só do pilar ativo.
 
-Nenhuma mudança em Edge Function, schema, ou na rotação semanal (essa parte já suporta N semanas via "+ Semana").
+```
+[ 🎯 Comando ] [ 🧠 Inteligência ] [ 📊 Performance ] [ ✍️ Produção ] [ ⚙️ Infra ]
+                       ↓ (ao clicar em Inteligência)
+   Avatar · Expert · Pesquisa · Concorrentes · Insights
+```
+
+Mapeamento:
+- **🎯 Comando** — Comando, Identidade, Painel
+- **🧠 Inteligência** — Avatar, Expert, Pesquisa, Concorrentes, Insights
+- **📊 Performance** — KPIs, Finanças, Analytics, Instagram
+- **✍️ Produção** — Conteúdo, Emails, Mídia, Calendário, Fluxogramas
+- **⚙️ Infra** — Docs, Analytics-Integrações (extrair futuramente)
+
+No carregamento, abre direto no pilar Comando + sub-aba Comando (comportamento atual preservado).
+
+### 2. Command Palette (Ctrl/Cmd+K)
+
+Atalho global dentro do projeto que abre um input com todas as 19 seções listadas e busca fuzzy. Clicar pula direto pra aba certa. Resolve o "sei o que quero mas não acho onde clicar".
+
+### 3. Persistência da última aba
+
+Salvar `ultimo_pilar` + `ultima_subaba` no `localStorage` por projeto. Quando o usuário volta, cai onde estava. Acaba o "tenho que reachar tudo de novo".
+
+### 4. Indicador visual sutil de novidade
+
+Quando uma seção recebe dado novo desde a última visita (ex: nova venda em Finanças, novo insight Imperius), pontinho dourado no pilar. Decide o que olhar primeiro sem precisar varrer tudo.
+
+## Arquivos afetados
+
+- `src/pages/ProjetoDetalhe.tsx` — reestruturar `<Tabs>` em 2 níveis, adicionar state de pilar
+- `src/components/ProjectCommandPalette.tsx` *(novo)* — dialog com `cmdk`, lista as 19 seções
+- `src/hooks/useProjectTabState.ts` *(novo)* — persistência localStorage + indicadores de novidade
+
+Nenhuma mudança em conteúdo das abas, queries Supabase, ou edge functions. Puro frontend de navegação.
 
 ## Resultado esperado
 
-O modal de Estatísticas passa a listar todos os grupos do distribuidor, cada um com Peso + Link de convite editáveis, mesmo sem cliques. Usuário também consegue adicionar/remover grupos diretamente ali, sem precisar editar a campanha de origem.
+Tela inicial mostra 5 pilares claros em vez de 19 chips. O usuário escolhe a área mental ("quero ver performance"), e só então vê as opções daquele contexto. Ctrl+K para acesso direto quando ele sabe exatamente onde quer ir.

@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -35,6 +37,56 @@ import { toast } from "sonner";
 
 const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
 
+type TabDef = { value: string; label: string; emoji: string };
+const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = [
+  {
+    id: "comando", label: "Comando", emoji: "🎯",
+    tabs: [
+      { value: "comando", label: "Comando", emoji: "🎯" },
+      { value: "identidade", label: "Identidade", emoji: "🎨" },
+      { value: "expert_panel", label: "Painel", emoji: "🧭" },
+    ],
+  },
+  {
+    id: "inteligencia", label: "Inteligência", emoji: "🧠",
+    tabs: [
+      { value: "avatar", label: "Avatar", emoji: "🎭" },
+      { value: "expert", label: "Expert", emoji: "👤" },
+      { value: "pesquisa", label: "Pesquisa", emoji: "🔍" },
+      { value: "concorrentes", label: "Concorrentes", emoji: "🏆" },
+      { value: "insights", label: "Insights", emoji: "✨" },
+    ],
+  },
+  {
+    id: "performance", label: "Performance", emoji: "📊",
+    tabs: [
+      { value: "kpis", label: "KPIs", emoji: "📊" },
+      { value: "financas", label: "Finanças", emoji: "💰" },
+      { value: "analytics", label: "Analytics", emoji: "📈" },
+      { value: "instagram", label: "Instagram", emoji: "📸" },
+    ],
+  },
+  {
+    id: "producao", label: "Produção", emoji: "✍️",
+    tabs: [
+      { value: "central", label: "Conteúdo", emoji: "✍️" },
+      { value: "emails", label: "Emails", emoji: "✉️" },
+      { value: "midia", label: "Mídia", emoji: "🖼️" },
+      { value: "calendario", label: "Calendário", emoji: "📅" },
+      { value: "flowcharts", label: "Fluxogramas", emoji: "🗺️" },
+    ],
+  },
+  {
+    id: "infra", label: "Infra", emoji: "⚙️",
+    tabs: [
+      { value: "docs", label: "Docs", emoji: "📄" },
+    ],
+  },
+];
+
+const findPillarOf = (tabValue: string) =>
+  PILLARS.find(p => p.tabs.some(t => t.value === tabValue))?.id || "comando";
+
 export default function ProjetoDetalhe() {
   const { id } = useParams();
   const [project, setProject] = useState<any>(null);
@@ -42,6 +94,39 @@ export default function ProjetoDetalhe() {
   const [editingIcon, setEditingIcon] = useState(false);
   const [editingCategory, setEditingCategory] = useState(false);
   const save = useAutoSave(id);
+
+  const storageKey = id ? `projeto:${id}:tab` : null;
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (!storageKey) return "comando";
+    return localStorage.getItem(storageKey) || "comando";
+  });
+  const [activePillar, setActivePillar] = useState<string>(() => findPillarOf(
+    storageKey ? (localStorage.getItem(storageKey) || "comando") : "comando"
+  ));
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  const allTabs = useMemo(() => PILLARS.flatMap(p => p.tabs.map(t => ({ ...t, pillar: p.label }))), []);
+
+  useEffect(() => {
+    if (storageKey) localStorage.setItem(storageKey, activeTab);
+  }, [activeTab, storageKey]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(v => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const goToTab = useCallback((value: string) => {
+    setActiveTab(value);
+    setActivePillar(findPillarOf(value));
+    setPaletteOpen(false);
+  }, []);
 
   const refreshProject = useCallback(async () => {
     const { data } = await supabase.from("imphq_projects").select("*").eq("id", id).single();
@@ -231,29 +316,64 @@ export default function ProjetoDetalhe() {
         <div className="editorial-divider mt-6" />
       </header>
 
-      {/* ───────── Editorial Tabs ───────── */}
-      <Tabs defaultValue="comando">
-        <div className="-mx-1 px-1">
-          <TabsList className="editorial-tabs flex-wrap h-auto">
-            <TabsTrigger value="comando" className="editorial-tab">🎯 Comando</TabsTrigger>
-            <TabsTrigger value="identidade" className="editorial-tab">🎨 Identidade</TabsTrigger>
-            <TabsTrigger value="expert" className="editorial-tab">👤 Expert</TabsTrigger>
-            <TabsTrigger value="avatar" className="editorial-tab">🎭 Avatar</TabsTrigger>
-            <TabsTrigger value="kpis" className="editorial-tab">📊 KPIs</TabsTrigger>
-            <TabsTrigger value="pesquisa" className="editorial-tab">🔍 Pesquisa</TabsTrigger>
-            <TabsTrigger value="midia" className="editorial-tab">🖼️ Mídia</TabsTrigger>
-            <TabsTrigger value="docs" className="editorial-tab">📄 Docs</TabsTrigger>
-            <TabsTrigger value="concorrentes" className="editorial-tab">🏆 Concorrentes</TabsTrigger>
-            <TabsTrigger value="calendario" className="editorial-tab">📅 Calendário</TabsTrigger>
-            <TabsTrigger value="financas" className="editorial-tab">💰 Finanças</TabsTrigger>
-            <TabsTrigger value="emails" className="editorial-tab">✉️ Emails</TabsTrigger>
-            <TabsTrigger value="central" className="editorial-tab">✍️ Conteúdo</TabsTrigger>
-            <TabsTrigger value="flowcharts" className="editorial-tab">🗺️ Fluxogramas</TabsTrigger>
-            <TabsTrigger value="expert_panel" className="editorial-tab">🧭 Painel</TabsTrigger>
-            <TabsTrigger value="insights" className="editorial-tab">✨ Insights</TabsTrigger>
-            <TabsTrigger value="analytics" className="editorial-tab">📈 Analytics</TabsTrigger>
-            <TabsTrigger value="instagram" className="editorial-tab">📸 Instagram</TabsTrigger>
-          </TabsList>
+      {/* ───────── Pillar Navigation (2-tier) ───────── */}
+      <Tabs value={activeTab} onValueChange={goToTab}>
+        <div className="space-y-3">
+          {/* Pillars */}
+          <div className="flex flex-wrap items-center gap-2">
+            {PILLARS.map((p) => {
+              const isActive = activePillar === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setActivePillar(p.id);
+                    const firstTab = p.tabs[0]?.value;
+                    if (firstTab && !p.tabs.some(t => t.value === activeTab)) goToTab(firstTab);
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-sans tracking-wide transition-all border ${
+                    isActive
+                      ? "bg-primary/15 border-primary/50 text-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]"
+                      : "bg-secondary/40 border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+                  }`}
+                >
+                  <span className="mr-1.5">{p.emoji}</span>{p.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="ml-auto flex items-center gap-2 px-3 py-2 rounded-md text-xs font-sans text-muted-foreground bg-secondary/30 border border-border/40 hover:text-foreground hover:border-border transition-colors"
+              title="Buscar seção (Ctrl+K)"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span>Buscar</span>
+              <kbd className="hidden md:inline text-[10px] bg-background/60 border border-border/40 rounded px-1.5 py-0.5">⌘K</kbd>
+            </button>
+          </div>
+
+          {/* Sub-tabs of active pillar */}
+          <div className="flex flex-wrap gap-1 border-b border-border/40 pb-1">
+            {PILLARS.find(p => p.id === activePillar)?.tabs.map((t) => {
+              const isActive = activeTab === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => goToTab(t.value)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-sans transition-colors ${
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                  }`}
+                >
+                  <span className="mr-1">{t.emoji}</span>{t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <TabsContent value="comando" className="mt-4">
@@ -377,6 +497,22 @@ export default function ProjetoDetalhe() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+        <CommandInput placeholder="Buscar seção do projeto..." />
+        <CommandList>
+          <CommandEmpty>Nenhuma seção encontrada.</CommandEmpty>
+          {PILLARS.map((p) => (
+            <CommandGroup key={p.id} heading={`${p.emoji}  ${p.label}`}>
+              {p.tabs.map((t) => (
+                <CommandItem key={t.value} value={`${p.label} ${t.label}`} onSelect={() => goToTab(t.value)}>
+                  <span className="mr-2">{t.emoji}</span>{t.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ))}
+        </CommandList>
+      </CommandDialog>
     </div>
   );
 }
