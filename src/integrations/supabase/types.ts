@@ -18654,9 +18654,12 @@ export type Database = {
       }
       imphq_kb: {
         Row: {
+          body: string | null
           content: string | null
           created_at: string | null
+          description: string | null
           doc_ids: string[] | null
+          icon: string | null
           id: string
           is_custom: boolean | null
           order_idx: number | null
@@ -18666,9 +18669,12 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          body?: string | null
           content?: string | null
           created_at?: string | null
+          description?: string | null
           doc_ids?: string[] | null
+          icon?: string | null
           id: string
           is_custom?: boolean | null
           order_idx?: number | null
@@ -18678,9 +18684,12 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          body?: string | null
           content?: string | null
           created_at?: string | null
+          description?: string | null
           doc_ids?: string[] | null
+          icon?: string | null
           id?: string
           is_custom?: boolean | null
           order_idx?: number | null
