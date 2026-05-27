@@ -6,11 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { buildDistributorUrl } from "@/lib/whatsappUrls";
+
+type PendingConfirm =
+  | { kind: "delete_dist"; id: string; slug: string }
+  | { kind: "remove_group"; jid: string }
+  | { kind: "delete_week"; weekId: string; weekIndex: number }
+  | { kind: "advance_now"; toIndex: number }
+  | null;
 
 const GROUPS_CACHE_TTL_MS = 5 * 60 * 1000;
 
