@@ -4877,6 +4877,7 @@ export type Database = {
           language: string
           learnings: Json
           long_description: string | null
+          paywall_config: Json | null
           position: number
           price_brl: number | null
           reactivation_url: string | null
@@ -4921,6 +4922,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -4965,6 +4967,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -23983,7 +23986,9 @@ export type Database = {
       }
       jonathan_lessons: {
         Row: {
+          ai_generated_at: string | null
           attachments: Json
+          chapters: Json | null
           created_at: string
           description: string | null
           description_html: string | null
@@ -23992,6 +23997,7 @@ export type Database = {
           is_preview: boolean
           module_id: string
           position: number
+          summary: string | null
           thumbnail_url: string | null
           title: string
           transcript: string | null
@@ -24000,7 +24006,9 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          ai_generated_at?: string | null
           attachments?: Json
+          chapters?: Json | null
           created_at?: string
           description?: string | null
           description_html?: string | null
@@ -24009,6 +24017,7 @@ export type Database = {
           is_preview?: boolean
           module_id: string
           position?: number
+          summary?: string | null
           thumbnail_url?: string | null
           title: string
           transcript?: string | null
@@ -24017,7 +24026,9 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          ai_generated_at?: string | null
           attachments?: Json
+          chapters?: Json | null
           created_at?: string
           description?: string | null
           description_html?: string | null
@@ -24026,6 +24037,7 @@ export type Database = {
           is_preview?: boolean
           module_id?: string
           position?: number
+          summary?: string | null
           thumbnail_url?: string | null
           title?: string
           transcript?: string | null
