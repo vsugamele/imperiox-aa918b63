@@ -121,10 +121,22 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
     return sample?.label || key;
   };
 
-  const waLink = (phone: string) => {
+  const waLink = (phone: string, text?: string) => {
     const d = phone.replace(/\D/g, "");
-    return `https://wa.me/${d.startsWith("55") ? d : "55" + d}`;
+    const num = d.startsWith("55") ? d : "55" + d;
+    return text ? `https://wa.me/${num}?text=${encodeURIComponent(text)}` : `https://wa.me/${num}`;
   };
+
+  const suggestMessage = (lead: Lead, reasons: { key: string; label: string }[]): string => {
+    const nome = (lead.nome || "").split(" ")[0] || "tudo bem";
+    const top = reasons[0]?.key || "";
+    if (top.includes("pix")) return `Oi ${nome}! Vi que você gerou o Pix há pouco. Posso te ajudar a finalizar agora? Qualquer dúvida me chama 😊`;
+    if (top.includes("boleto")) return `Oi ${nome}! Notei que você gerou um boleto. Se preferir, consigo te enviar o Pix (cai na hora). Topa?`;
+    if (top.includes("carrinho") || top.includes("abandon")) return `Oi ${nome}! Vi que você quase fechou agora. Tem alguma dúvida que eu posso esclarecer pra te ajudar a decidir?`;
+    if (top.includes("score") || top.includes("prediction")) return `Oi ${nome}! Tudo bem? Posso te mostrar algo rápido que pode te interessar?`;
+    return `Oi ${nome}! Tudo bem? Estou aqui se precisar de qualquer coisa 😊`;
+  };
+
 
   const copyValue = (v: string, label: string) => {
     navigator.clipboard.writeText(v);
@@ -270,12 +282,13 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
                   {/* Ações */}
                   <div className="flex flex-col gap-1 shrink-0">
                     {lead.phone && (
-                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10">
-                        <a href={waLink(lead.phone)} target="_blank" rel="noreferrer">
-                          <MessageCircle className="h-3 w-3 mr-1" /> WhatsApp
+                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10" title="Abrir WhatsApp com mensagem pronta">
+                        <a href={waLink(lead.phone, suggestMessage(lead, reasons))} target="_blank" rel="noreferrer" onClick={() => markContacted(lead.id)}>
+                          <MessageCircle className="h-3 w-3 mr-1" /> Mensagem pronta
                         </a>
                       </Button>
                     )}
+
                     <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => onOpenLead(lead.id)}>
                       <Eye className="h-3 w-3 mr-1" /> Abrir
                     </Button>
