@@ -347,8 +347,7 @@ export default function GroupDistributor() {
   };
 
   const copyLink = (slug: string) => {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const url = `https://${projectId}.supabase.co/functions/v1/wa-group-distributor?slug=${slug}`;
+    const url = buildDistributorUrl(slug);
     navigator.clipboard.writeText(url);
     toast.success("Link copiado!");
   };
