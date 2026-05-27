@@ -763,8 +763,8 @@ export default function GroupDistributor() {
                     <Input type="datetime-local" value={newWeek.start_at} onChange={(e) => setNewWeek(p => ({ ...p, start_at: e.target.value }))} className="h-8 text-xs" />
                     <Button size="sm" className="h-8" onClick={addWeek}><Plus className="h-3 w-3 mr-1" />Semana</Button>
                   </div>
-                  <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={advanceNow}>
-                    ⏭ Avançar agora (manual)
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs" disabled={!!busy.advance} onClick={advanceNow}>
+                    {busy.advance ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null} ⏭ Avançar agora (manual)
                   </Button>
                 </>
               )}
