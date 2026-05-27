@@ -83,6 +83,10 @@ export default function Dashboard() {
         productLabel={dashProduct}
       />
 
+      {/* RESUMO EXECUTIVO — visão consolidada */}
+      <ExecutiveSummary projectFilter={dashProject} />
+
+
       {/* FILTROS — barra discreta */}
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
