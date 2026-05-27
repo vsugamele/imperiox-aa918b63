@@ -239,22 +239,30 @@ export default function GroupDistributor() {
     setCampaigns((campRes.data as any[]) || []);
     setLoading(false);
 
-    // Fetch click counts per distributor for sparklines (parallel)
+    // 1 query agregada: pega todos os cliques de todos os distribuidores
+    // e agrupa local por distributor_id + group_jid (substitui N×M counts).
     if (dists.length > 0) {
       const stats: Record<string, { group_jid: string; count: number }[]> = {};
-      await Promise.all(dists.map(async (d) => {
-        const groups: string[] = d.redirect_order || [];
-        if (groups.length === 0) { stats[d.id] = []; return; }
-        const counts = await Promise.all(groups.map(async (jid) => {
-          const { count } = await supabase
-            .from("imphq_wa_distributor_clicks")
-            .select("id", { count: "exact", head: true })
-            .eq("distributor_id", d.id)
-            .eq("group_jid", jid);
-          return { group_jid: jid, count: count || 0 };
+      const initOrder: Record<string, string[]> = {};
+      for (const d of dists) {
+        initOrder[d.id] = d.redirect_order || [];
+        stats[d.id] = (d.redirect_order || []).map((jid: string) => ({ group_jid: jid, count: 0 }));
+      }
+      const { data: allClicks } = await supabase
+        .from("imphq_wa_distributor_clicks")
+        .select("distributor_id, group_jid")
+        .in("distributor_id", dists.map(d => d.id));
+      const tally = new Map<string, number>();
+      for (const c of allClicks || []) {
+        const key = `${c.distributor_id}|${c.group_jid}`;
+        tally.set(key, (tally.get(key) || 0) + 1);
+      }
+      for (const d of dists) {
+        stats[d.id] = (initOrder[d.id] || []).map(jid => ({
+          group_jid: jid,
+          count: tally.get(`${d.id}|${jid}`) || 0,
         }));
-        stats[d.id] = counts;
-      }));
+      }
       setCardStats(stats);
     }
   }, []);
