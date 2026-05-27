@@ -373,10 +373,16 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
           <h2 className="text-lg font-semibold text-foreground">Inteligência Preditiva</h2>
           <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">BETA</Badge>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} className="text-xs gap-1">
-          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          {expanded ? "Menos" : "Detalhes"}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => load(true)} disabled={loading} className="text-xs gap-1" title="Recalcular (ignora cache)">
+            <Activity className={`h-3 w-3 ${loading ? "animate-pulse" : ""}`} />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} className="text-xs gap-1">
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {expanded ? "Menos" : "Detalhes"}
+          </Button>
+        </div>
+
       </div>
 
       {/* Top cards — clicáveis: abrem detalhes (toggle expanded) */}
