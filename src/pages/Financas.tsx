@@ -267,14 +267,30 @@ export default function Financas() {
   };
   const removeCusto = async (id: string) => { await supabase.from("imphq_custos").delete().eq("id", id); toast.success("Removido"); load(); };
 
+  // Comparativo período anterior
+  const fPrevVendas = (fp === "all" ? prevVendas : prevVendas.filter(v => v.project_id === fp))
+    .filter(v => filterProduct === "all" || v.produto_nome === filterProduct);
+  const fPrevAds = fp === "all" ? prevAds : prevAds.filter(a => a.project_id === fp);
+  const prevReceita = fPrevVendas.reduce((a, v) => a + getRevenue(v, revenueMode), 0);
+  const prevAdsTotal = fPrevAds.reduce((a, b) => a + b.valor, 0);
+  const prevAdsProportional = filterProduct !== "all" && prevReceita > 0
+    ? prevAdsTotal * (prevReceita / (prevVendas.filter(v => fp === "all" || v.project_id === fp).reduce((a, v) => a + getRevenue(v, revenueMode), 0) || 1))
+    : prevAdsTotal;
+  const prevLucro = prevReceita - (custosGlobaisBRL + custosProjetoBRL + prevAdsProportional);
+  const prevRoi = (custosGlobaisBRL + custosProjetoBRL + prevAdsProportional) > 0 ? (prevLucro / (custosGlobaisBRL + custosProjetoBRL + prevAdsProportional)) * 100 : 0;
+  const prevRoas = prevAdsProportional > 0 ? prevReceita / prevAdsProportional : 0;
+
+  const pctDelta = (cur: number, prev: number) => prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100;
+
   const kpis = [
-    { label: revenueMode === "liquido" ? "Receita Líquida (Sua parte)" : "Receita Total (Bruta)", value: `R$ ${totalReceita.toFixed(2)}`, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
-    { label: "🏢 Custo Empresa", value: `R$ ${custosGlobaisBRL.toFixed(2)}`, icon: TrendingDown, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400" },
-    { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsProportional).toFixed(2)}`, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
-    { label: revenueMode === "liquido" ? "Lucro Real (Sua parte)" : "Lucro Bruto", value: `R$ ${lucro.toFixed(2)}`, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
-    { label: "ROI", value: `${roi.toFixed(1)}%`, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
-    ...(adsProportional > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
+    { label: revenueMode === "liquido" ? "Receita Líquida (Sua parte)" : "Receita Total (Bruta)", value: `R$ ${totalReceita.toFixed(2)}`, delta: pctDelta(totalReceita, prevReceita), goodUp: true, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
+    { label: "🏢 Custo Empresa", value: `R$ ${custosGlobaisBRL.toFixed(2)}`, delta: null, goodUp: false, icon: TrendingDown, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400" },
+    { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsProportional).toFixed(2)}`, delta: pctDelta(adsProportional, prevAdsProportional), goodUp: false, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
+    { label: revenueMode === "liquido" ? "Lucro Real (Sua parte)" : "Lucro Bruto", value: `R$ ${lucro.toFixed(2)}`, delta: pctDelta(lucro, prevLucro), goodUp: true, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
+    { label: "ROI", value: `${roi.toFixed(1)}%`, delta: pctDelta(roi, prevRoi), goodUp: true, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
+    ...(adsProportional > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", delta: pctDelta(roas, prevRoas), goodUp: true, icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
   ];
+
 
   return (
     <div className="space-y-6">
