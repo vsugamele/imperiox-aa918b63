@@ -352,6 +352,20 @@ export default function Leads() {
     load();
   };
 
+  const changeStatusForSelected = async (newStatus: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { error } = await supabase.from("imphq_leads").update({ status: newStatus }).in("id", chunk);
+      if (error) { toast.error(error.message); return; }
+    }
+    toast.success(`${ids.length} lead(s) → ${newStatus}`);
+    setSelectedIds(new Set());
+    load();
+  };
+
+
 
   const createLead = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
@@ -579,7 +593,14 @@ export default function Leads() {
                       Aplicar
                     </Button>
                   </div>
+                  <Select onValueChange={changeStatusForSelected}>
+                    <SelectTrigger className="w-[170px] h-9"><SelectValue placeholder={`Status p/ ${selectedIds.size}...`} /></SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}><Trash2 className="h-3 w-3 mr-1" />{selectedIds.size} selecionados</Button>
+
                 </>
               )}
 
