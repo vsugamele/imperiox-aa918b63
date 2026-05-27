@@ -16,16 +16,26 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
     async function load() {
       const alertList: string[] = [];
       const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+      const hasProject = projectFilter && projectFilter !== "all";
 
-      const [pixTodayRes, costsRes, revsRes, vendasRes, adsRes] = await Promise.all([
-        supabase.from("imphq_leads").select("id", { count: "exact", head: true }).not("data->ultimo_evento", "is", null).neq("status", "cliente").gte("updated_at", todayStr),
-        supabase.from("imphq_project_costs").select("valor, moeda, created_at"),
-        supabase.from("imphq_project_revenue").select("valor, created_at"),
-        supabase.from("imphq_vendas").select("valor, status, created_at").eq("status", "aprovado"),
-        supabase.from("imphq_ads_spend").select("valor, data, leads"),
-      ]);
+      let pixQ = supabase.from("imphq_leads").select("id", { count: "exact", head: true }).not("data->ultimo_evento", "is", null).neq("status", "cliente").gte("updated_at", todayStr);
+      if (hasProject) pixQ = pixQ.eq("project_id", projectFilter);
 
-      if ((pixTodayRes.count || 0) > 0) alertList.push(`💳 ${pixTodayRes.count} lead(s) geraram pix hoje e não compraram`);
+      let costsQ = supabase.from("imphq_project_costs").select("valor, moeda, created_at, project_id");
+      if (hasProject) costsQ = costsQ.eq("project_id", projectFilter);
+
+      let revsQ = supabase.from("imphq_project_revenue").select("valor, created_at, project_id");
+      if (hasProject) revsQ = revsQ.eq("project_id", projectFilter);
+
+      let vendasQ = supabase.from("imphq_vendas").select("valor, status, created_at, project_id").eq("status", "aprovado");
+      if (hasProject) vendasQ = vendasQ.eq("project_id", projectFilter);
+
+      let adsQ = supabase.from("imphq_ads_spend").select("valor, data_ref, leads, project_id");
+      if (hasProject) adsQ = adsQ.eq("project_id", projectFilter);
+
+      const [pixTodayRes, costsRes, revsRes, vendasRes, adsRes] = await Promise.all([pixQ, costsQ, revsQ, vendasQ, adsQ]);
+
+      if ((pixTodayRes.count || 0) > 0) alertList.push(`💳 ${pixTodayRes.count} lead(s) geraram pix hoje e não compraram${hasProject ? " (no projeto)" : ""}`);
 
       // Revenue vs Cost by month
       const monthMap: Record<string, { receita: number; custo: number; ads: number }> = {};
@@ -38,7 +48,7 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
       (revsRes.data || []).forEach((r: any) => { const m = r.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(r.valor) || 0; });
       (vendasRes.data || []).forEach((v: any) => { const m = v.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(v.valor) || 0; });
       (costsRes.data || []).forEach((c: any) => { const m = c.created_at?.slice(0, 7); const val = parseFloat(c.valor) || 0; if (m && monthMap[m]) monthMap[m].custo += c.moeda === "USD" ? val * 5.2 : val; });
-      (adsRes.data || []).forEach((a: any) => { const m = a.data?.slice(0, 7); if (m && monthMap[m]) monthMap[m].ads += parseFloat(a.valor) || 0; });
+      (adsRes.data || []).forEach((a: any) => { const m = a.data_ref?.slice(0, 7); if (m && monthMap[m]) monthMap[m].ads += parseFloat(a.valor) || 0; });
 
       const monthKeys = Object.keys(monthMap);
       if (monthKeys.length >= 2) {
@@ -63,6 +73,7 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
     }
     load();
   }, [period, projectFilter]);
+
 
   if (alerts.length === 0) return null;
 
