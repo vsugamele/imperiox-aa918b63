@@ -996,6 +996,15 @@ export default function GroupDistributor() {
                                       >
                                         → Semana
                                       </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0 shrink-0"
+                                        onClick={() => { navigator.clipboard.writeText(g.id); toast.success("JID copiado"); }}
+                                        title="Copiar JID"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </Button>
                                     </div>
                                   );
                                 })
