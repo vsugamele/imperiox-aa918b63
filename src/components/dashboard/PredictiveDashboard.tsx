@@ -188,6 +188,17 @@ function generateRecommendations(
   return recs.slice(0, 5);
 }
 
+// Module-level cache: TTL 5 minutes per (period, project, product)
+type CachedPredictive = {
+  ts: number;
+  forecast: Forecast;
+  anomalies: Anomaly[];
+  funnelHealth: FunnelHealth;
+  recommendations: AIRecommendation[];
+};
+const PREDICTIVE_CACHE = new Map<string, CachedPredictive>();
+const PREDICTIVE_TTL_MS = 5 * 60 * 1000;
+
 export default function PredictiveDashboard({ period, projectFilter, productFilter }: Props) {
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
@@ -198,7 +209,19 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
+    const cacheKey = `${period}|${projectFilter || "all"}|${productFilter || "all"}`;
+    if (!force) {
+      const cached = PREDICTIVE_CACHE.get(cacheKey);
+      if (cached && Date.now() - cached.ts < PREDICTIVE_TTL_MS) {
+        setForecast(cached.forecast);
+        setAnomalies(cached.anomalies);
+        setFunnelHealth(cached.funnelHealth);
+        setRecommendations(cached.recommendations);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     try {
       // Use period for filtering vendas/leads, but always use 90d window for regression
@@ -282,6 +305,8 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
       const roas = totalAdsSpend > 0 ? (vendasRes.data || []).filter((v: any) => v.status === "aprovado").reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0) / totalAdsSpend : 0;
       const recs = generateRecommendations(fc, anom, health, { avgCPL, roas, totalLeads, totalVendas });
       setRecommendations(recs);
+
+      PREDICTIVE_CACHE.set(cacheKey, { ts: Date.now(), forecast: fc, anomalies: anom, funnelHealth: health, recommendations: recs });
     } catch (e) {
       console.error("PredictiveDashboard error:", e);
     } finally {
@@ -290,6 +315,7 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
   }, [period, projectFilter, productFilter]);
 
   useEffect(() => { load(); }, [load]);
+
 
   const generateAIInsight = async () => {
     setAiLoading(true);
@@ -347,10 +373,16 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
           <h2 className="text-lg font-semibold text-foreground">Inteligência Preditiva</h2>
           <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">BETA</Badge>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} className="text-xs gap-1">
-          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          {expanded ? "Menos" : "Detalhes"}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => load(true)} disabled={loading} className="text-xs gap-1" title="Recalcular (ignora cache)">
+            <Activity className={`h-3 w-3 ${loading ? "animate-pulse" : ""}`} />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} className="text-xs gap-1">
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {expanded ? "Menos" : "Detalhes"}
+          </Button>
+        </div>
+
       </div>
 
       {/* Top cards — clicáveis: abrem detalhes (toggle expanded) */}
