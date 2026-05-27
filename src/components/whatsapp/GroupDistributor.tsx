@@ -141,9 +141,13 @@ export default function GroupDistributor() {
     toast.success("Grupo adicionado");
   };
 
-  const removeGroupFromDistributor = async (jid: string) => {
+  const removeGroupFromDistributor = (jid: string) => {
+    setConfirmAction({ kind: "remove_group", jid });
+  };
+
+  const doRemoveGroup = async (jid: string) => {
     if (!showStats) return;
-    if (!confirm(`Remover o grupo ${jid} deste distribuidor?`)) return;
+    setBusyKey(`group:${jid}`, true);
     const next = (showStats.redirect_order || []).filter(g => g !== jid);
     const newWeights = { ...(showStats.weights || {}) };
     delete newWeights[jid];
@@ -153,6 +157,7 @@ export default function GroupDistributor() {
       .from("imphq_wa_group_distributors")
       .update({ redirect_order: next as any, weights: newWeights as any, group_invites: newInvites as any })
       .eq("id", showStats.id);
+    setBusyKey(`group:${jid}`, false);
     if (error) { toast.error(error.message); return; }
     setShowStats(prev => prev ? { ...prev, redirect_order: next, weights: newWeights, group_invites: newInvites } : prev);
     setClickStats(prev => prev.filter(s => s.group_jid !== jid));
