@@ -358,17 +358,31 @@ export default function Financas() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {kpis.map((k, i) => (
-          <Card key={k.label} className={`bg-gradient-to-br ${k.gradient} border-border animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className={`p-2.5 rounded-xl ${k.iconBg}`}><k.icon className="h-4 w-4" /></div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{k.label}</p>
-                <p className={`text-xl font-mono font-bold ${k.textColor}`}>{k.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {kpis.map((k, i) => {
+          const d = (k as any).delta as number | null;
+          const goodUp = (k as any).goodUp as boolean;
+          const isGood = d != null && ((d >= 0 && goodUp) || (d < 0 && !goodUp));
+          return (
+            <Card key={k.label} className={`bg-gradient-to-br ${k.gradient} border-border animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className={`p-2.5 rounded-xl ${k.iconBg}`}><k.icon className="h-4 w-4" /></div>
+                <div className="min-w-0">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{k.label}</p>
+                  <p className={`text-xl font-mono font-bold ${k.textColor}`}>{k.value}</p>
+                  {compareMode && d != null && (
+                    <p className={`text-[10px] font-mono mt-0.5 ${isGood ? "text-emerald-400" : "text-red-400"}`}>
+                      {d >= 0 ? "▲" : "▼"} {Math.abs(d).toFixed(1)}% vs anterior
+                    </p>
+                  )}
+                  {compareMode && d == null && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">sem histórico</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+
       </div>
       <p className="text-[11px] text-muted-foreground -mt-2 px-1">
         📊 KPIs respeitam o filtro de período acima · {fVendas.length} vendas no período
