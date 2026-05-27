@@ -888,7 +888,7 @@ export default function GroupDistributor() {
                           variant="outline"
                           className="h-8 w-8 shrink-0"
                           disabled={!selectedProviderId || loadingGroups}
-                          onClick={() => fetchGroups(selectedProviderId)}
+                          onClick={() => fetchGroups(selectedProviderId, true)}
                           title="Recarregar grupos"
                         >
                           <RefreshCw className={`h-3.5 w-3.5 ${loadingGroups ? "animate-spin" : ""}`} />
