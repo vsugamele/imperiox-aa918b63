@@ -867,7 +867,7 @@ export default function GroupDistributor() {
                       <div className="flex gap-1.5">
                         <Select
                           value={selectedProviderId || undefined}
-                          onValueChange={(v) => { setSelectedProviderId(v); setAvailableGroups([]); fetchGroups(v); }}
+                          onValueChange={(v) => { setSelectedProviderId(v); localStorage.setItem("wa.distributor.lastProviderId", v); fetchGroups(v); }}
                         >
                           <SelectTrigger className="h-8 text-xs flex-1">
                             <SelectValue placeholder="Selecione o chip" />
