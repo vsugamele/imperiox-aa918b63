@@ -47,6 +47,10 @@ export default function Financas() {
   const [showCustoDialog, setShowCustoDialog] = useState(false);
   const [editingCusto, setEditingCusto] = useState<Custo | null>(null);
   const [custoForm, setCustoForm] = useState({ nome: "", tipo: "SaaS", valor: "", moeda: "BRL" });
+  const [compareMode, setCompareMode] = useState(false);
+  const [prevVendas, setPrevVendas] = useState<Venda[]>([]);
+  const [prevAds, setPrevAds] = useState<AdsSpend[]>([]);
+
 
   const load = async () => {
     // Janela de busca: usa o filtro de datas; se vazio, últimos 90 dias
