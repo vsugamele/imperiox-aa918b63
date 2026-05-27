@@ -217,7 +217,7 @@ export default function Leads() {
       vendasQuery = vendasQuery.eq("project_id", projectFilter);
     }
 
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes, formsRes, allProjIdsRes] = await Promise.all([
+    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes, formsRes, countsRes] = await Promise.all([
       leadsQuery, supabase.from("imphq_projects").select("id, name, icon"),
       vendasQuery,
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
@@ -226,18 +226,22 @@ export default function Leads() {
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
       supabase.from("imphq_capture_forms").select("id, name").order("name"),
-      supabase.from("imphq_leads").select("project_id").limit(20000),
+      supabase.rpc("count_leads_by_project" as any),
     ]);
 
-    // Contagem global por projeto (independente da paginação)
-    const allRows = (allProjIdsRes.data || []) as any[];
+    // Contagem global por projeto via RPC agregada (evita trazer 20k IDs)
+    const countRows = ((countsRes as any)?.data || []) as Array<{ project_id: string; total: number | string }>;
     const byProject: Record<string, number> = {};
     let noProject = 0;
-    allRows.forEach((r: any) => {
-      if (r.project_id) byProject[r.project_id] = (byProject[r.project_id] || 0) + 1;
-      else noProject += 1;
+    let totalAll = 0;
+    countRows.forEach((r) => {
+      const n = Number(r.total) || 0;
+      totalAll += n;
+      if (r.project_id === "__none__") noProject = n;
+      else byProject[r.project_id] = n;
     });
-    setProjectCounts({ totalAll: allRows.length, byProject, noProject });
+    setProjectCounts({ totalAll, byProject, noProject });
+
 
     setTotalCount(leadsRes.count ?? 0);
     const allVendas = (vendasRes.data || []) as any[];
