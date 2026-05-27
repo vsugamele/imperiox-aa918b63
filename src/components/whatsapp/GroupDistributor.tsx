@@ -426,7 +426,7 @@ export default function GroupDistributor() {
             const stats = cardStats[d.id] || [];
             const maxCount = Math.max(1, ...stats.map(s => s.count));
             const fullestPct = stats.length ? Math.round((maxCount / (d.max_per_group || 250)) * 100) : 0;
-            const fullUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/wa-group-distributor?slug=${d.slug}`;
+            const fullUrl = buildDistributorUrl(d.slug);
             const progressColor = fullestPct >= 90 ? "bg-destructive" : fullestPct >= 70 ? "bg-amber-500" : "bg-gold";
             return (
             <Card key={d.id} className="group relative overflow-hidden hover:border-gold/40 hover:shadow-lg hover:shadow-gold/5 transition-all duration-200">
