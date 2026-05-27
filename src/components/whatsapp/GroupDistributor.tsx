@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { buildDistributorUrl } from "@/lib/whatsappUrls";
+
+const GROUPS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface Distributor {
   id: string;
