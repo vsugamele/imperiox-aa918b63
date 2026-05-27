@@ -6,11 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { buildDistributorUrl } from "@/lib/whatsappUrls";
+
+type PendingConfirm =
+  | { kind: "delete_dist"; id: string; slug: string }
+  | { kind: "remove_group"; jid: string }
+  | { kind: "delete_week"; weekId: string; weekIndex: number }
+  | { kind: "advance_now"; toIndex: number }
+  | null;
 
 const GROUPS_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -83,6 +94,9 @@ export default function GroupDistributor() {
   const [groupSearch, setGroupSearch] = useState("");
   const [showManualJid, setShowManualJid] = useState(false);
   const groupsCacheRef = useRef<Map<string, { ts: number; rows: GroupRow[] }>>(new Map());
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [confirmAction, setConfirmAction] = useState<PendingConfirm>(null);
+  const setBusyKey = (k: string, v: boolean) => setBusy(p => ({ ...p, [k]: v }));
 
   const fetchGroups = useCallback(async (providerId: string, force = false) => {
     if (!providerId) return;
@@ -127,9 +141,13 @@ export default function GroupDistributor() {
     toast.success("Grupo adicionado");
   };
 
-  const removeGroupFromDistributor = async (jid: string) => {
+  const removeGroupFromDistributor = (jid: string) => {
+    setConfirmAction({ kind: "remove_group", jid });
+  };
+
+  const doRemoveGroup = async (jid: string) => {
     if (!showStats) return;
-    if (!confirm(`Remover o grupo ${jid} deste distribuidor?`)) return;
+    setBusyKey(`group:${jid}`, true);
     const next = (showStats.redirect_order || []).filter(g => g !== jid);
     const newWeights = { ...(showStats.weights || {}) };
     delete newWeights[jid];
@@ -139,6 +157,7 @@ export default function GroupDistributor() {
       .from("imphq_wa_group_distributors")
       .update({ redirect_order: next as any, weights: newWeights as any, group_invites: newInvites as any })
       .eq("id", showStats.id);
+    setBusyKey(`group:${jid}`, false);
     if (error) { toast.error(error.message); return; }
     setShowStats(prev => prev ? { ...prev, redirect_order: next, weights: newWeights, group_invites: newInvites } : prev);
     setClickStats(prev => prev.filter(s => s.group_jid !== jid));
@@ -214,19 +233,25 @@ export default function GroupDistributor() {
     toast.success(`Semana ${nextIdx} adicionada`);
   };
 
-  const advanceNow = async () => {
+  const advanceNow = () => {
     if (!showStats) return;
     const next = weeks.find(w => w.week_index > (showStats.current_week || 1) && !w.archived_at);
     if (!next) { toast.error("Sem próxima semana cadastrada"); return; }
-    if (!confirm(`Avançar para a Semana ${next.week_index} agora? A semana atual será arquivada.`)) return;
+    setConfirmAction({ kind: "advance_now", toIndex: next.week_index });
+  };
+
+  const doAdvance = async (toIndex: number) => {
+    if (!showStats) return;
+    setBusyKey("advance", true);
     await supabase
       .from("imphq_wa_distributor_weeks" as any)
       .update({ archived_at: new Date().toISOString() })
       .eq("distributor_id", showStats.id)
       .eq("week_index", showStats.current_week || 1);
-    await updateRotation({ current_week: next.week_index, last_rotation_at: new Date().toISOString() });
+    await updateRotation({ current_week: toIndex, last_rotation_at: new Date().toISOString() });
     await loadWeeks(showStats.id);
-    toast.success(`Avançou para semana ${next.week_index}`);
+    setBusyKey("advance", false);
+    toast.success(`Avançou para semana ${toIndex}`);
   };
 
   const load = useCallback(async () => {
@@ -332,16 +357,24 @@ export default function GroupDistributor() {
   };
 
   const toggleActive = async (dist: Distributor) => {
+    setBusyKey(`active:${dist.id}`, true);
     await supabase
       .from("imphq_wa_group_distributors")
       .update({ is_active: !dist.is_active } as any)
       .eq("id", dist.id);
     toast.success(dist.is_active ? "Desativado" : "Ativado");
-    load();
+    await load();
+    setBusyKey(`active:${dist.id}`, false);
   };
 
-  const deleteDist = async (id: string) => {
+  const deleteDist = (dist: Distributor) => {
+    setConfirmAction({ kind: "delete_dist", id: dist.id, slug: dist.slug });
+  };
+
+  const doDeleteDist = async (id: string) => {
+    setBusyKey(`del:${id}`, true);
     await supabase.from("imphq_wa_group_distributors").delete().eq("id", id);
+    setBusyKey(`del:${id}`, false);
     toast.success("Excluído");
     load();
   };
@@ -517,11 +550,11 @@ export default function GroupDistributor() {
                     <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-gold/10 hover:text-gold" onClick={() => openStats(d)} title="Estatísticas">
                       <BarChart3 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => toggleActive(d)} title={d.is_active ? "Desativar" : "Ativar"}>
-                      {d.is_active ? <PowerOff className="h-3.5 w-3.5 text-amber-400" /> : <Power className="h-3.5 w-3.5 text-emerald-400" />}
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!!busy[`active:${d.id}`]} onClick={() => toggleActive(d)} title={d.is_active ? "Desativar" : "Ativar"}>
+                      {busy[`active:${d.id}`] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : d.is_active ? <PowerOff className="h-3.5 w-3.5 text-amber-400" /> : <Power className="h-3.5 w-3.5 text-emerald-400" />}
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => deleteDist(d.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" disabled={!!busy[`del:${d.id}`]} onClick={() => deleteDist(d)}>
+                      {busy[`del:${d.id}`] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                     </Button>
                   </div>
                 </div>
@@ -659,10 +692,9 @@ export default function GroupDistributor() {
                               size="sm"
                               variant="ghost"
                               className="h-6 w-6 p-0"
-                              onClick={async (e) => {
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", w.id);
-                                await loadWeeks(showStats.id);
+                                setConfirmAction({ kind: "delete_week", weekId: w.id, weekIndex: w.week_index });
                               }}
                             ><Trash2 className="h-3 w-3" /></Button>
                           </div>
@@ -731,8 +763,8 @@ export default function GroupDistributor() {
                     <Input type="datetime-local" value={newWeek.start_at} onChange={(e) => setNewWeek(p => ({ ...p, start_at: e.target.value }))} className="h-8 text-xs" />
                     <Button size="sm" className="h-8" onClick={addWeek}><Plus className="h-3 w-3 mr-1" />Semana</Button>
                   </div>
-                  <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={advanceNow}>
-                    ⏭ Avançar agora (manual)
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs" disabled={!!busy.advance} onClick={advanceNow}>
+                    {busy.advance ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null} ⏭ Avançar agora (manual)
                   </Button>
                 </>
               )}
@@ -825,9 +857,10 @@ export default function GroupDistributor() {
                           size="sm"
                           variant="ghost"
                           className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          disabled={!!busy[`group:${s.group_jid}`]}
                           onClick={() => removeGroupFromDistributor(s.group_jid)}
                           title="Remover grupo do distribuidor"
-                        ><Trash2 className="h-3.5 w-3.5" /></Button>
+                        >{busy[`group:${s.group_jid}`] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}</Button>
                       </div>
                     </div>
                   );
@@ -963,6 +996,15 @@ export default function GroupDistributor() {
                                       >
                                         → Semana
                                       </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0 shrink-0"
+                                        onClick={() => { navigator.clipboard.writeText(g.id); toast.success("JID copiado"); }}
+                                        title="Copiar JID"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </Button>
                                     </div>
                                   );
                                 })
@@ -978,6 +1020,44 @@ export default function GroupDistributor() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmAction} onOpenChange={(o) => !o && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.kind === "delete_dist" && "Excluir distribuidor?"}
+              {confirmAction?.kind === "remove_group" && "Remover grupo?"}
+              {confirmAction?.kind === "delete_week" && "Excluir semana?"}
+              {confirmAction?.kind === "advance_now" && "Avançar rotação?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="leading-7">
+              {confirmAction?.kind === "delete_dist" && <>O link <span className="font-mono text-foreground">{confirmAction.slug}</span> e todas as estatísticas serão removidos. Esta ação não pode ser desfeita.</>}
+              {confirmAction?.kind === "remove_group" && <>Remover <span className="font-mono text-foreground">{confirmAction.jid}</span> deste distribuidor. Os cliques históricos continuam no banco.</>}
+              {confirmAction?.kind === "delete_week" && <>A semana S{confirmAction.weekIndex} será excluída do calendário de rotação.</>}
+              {confirmAction?.kind === "advance_now" && <>A semana atual será arquivada e o ponteiro avança para a Semana {confirmAction.toIndex}.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmAction?.kind === "advance_now" ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+              onClick={async () => {
+                const a = confirmAction;
+                setConfirmAction(null);
+                if (!a) return;
+                if (a.kind === "delete_dist") await doDeleteDist(a.id);
+                else if (a.kind === "remove_group") await doRemoveGroup(a.jid);
+                else if (a.kind === "advance_now") await doAdvance(a.toIndex);
+                else if (a.kind === "delete_week" && showStats) {
+                  await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", a.weekId);
+                  await loadWeeks(showStats.id);
+                  toast.success("Semana excluída");
+                }
+              }}
+            >Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
