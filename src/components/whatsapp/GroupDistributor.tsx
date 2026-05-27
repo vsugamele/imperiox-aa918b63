@@ -1020,6 +1020,44 @@ export default function GroupDistributor() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmAction} onOpenChange={(o) => !o && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.kind === "delete_dist" && "Excluir distribuidor?"}
+              {confirmAction?.kind === "remove_group" && "Remover grupo?"}
+              {confirmAction?.kind === "delete_week" && "Excluir semana?"}
+              {confirmAction?.kind === "advance_now" && "Avançar rotação?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="leading-7">
+              {confirmAction?.kind === "delete_dist" && <>O link <span className="font-mono text-foreground">{confirmAction.slug}</span> e todas as estatísticas serão removidos. Esta ação não pode ser desfeita.</>}
+              {confirmAction?.kind === "remove_group" && <>Remover <span className="font-mono text-foreground">{confirmAction.jid}</span> deste distribuidor. Os cliques históricos continuam no banco.</>}
+              {confirmAction?.kind === "delete_week" && <>A semana S{confirmAction.weekIndex} será excluída do calendário de rotação.</>}
+              {confirmAction?.kind === "advance_now" && <>A semana atual será arquivada e o ponteiro avança para a Semana {confirmAction.toIndex}.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmAction?.kind === "advance_now" ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+              onClick={async () => {
+                const a = confirmAction;
+                setConfirmAction(null);
+                if (!a) return;
+                if (a.kind === "delete_dist") await doDeleteDist(a.id);
+                else if (a.kind === "remove_group") await doRemoveGroup(a.jid);
+                else if (a.kind === "advance_now") await doAdvance(a.toIndex);
+                else if (a.kind === "delete_week" && showStats) {
+                  await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", a.weekId);
+                  await loadWeeks(showStats.id);
+                  toast.success("Semana excluída");
+                }
+              }}
+            >Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
