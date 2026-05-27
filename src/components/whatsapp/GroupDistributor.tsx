@@ -857,9 +857,10 @@ export default function GroupDistributor() {
                           size="sm"
                           variant="ghost"
                           className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          disabled={!!busy[`group:${s.group_jid}`]}
                           onClick={() => removeGroupFromDistributor(s.group_jid)}
                           title="Remover grupo do distribuidor"
-                        ><Trash2 className="h-3.5 w-3.5" /></Button>
+                        >{busy[`group:${s.group_jid}`] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}</Button>
                       </div>
                     </div>
                   );
