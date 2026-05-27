@@ -94,6 +94,9 @@ export default function GroupDistributor() {
   const [groupSearch, setGroupSearch] = useState("");
   const [showManualJid, setShowManualJid] = useState(false);
   const groupsCacheRef = useRef<Map<string, { ts: number; rows: GroupRow[] }>>(new Map());
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [confirmAction, setConfirmAction] = useState<PendingConfirm>(null);
+  const setBusyKey = (k: string, v: boolean) => setBusy(p => ({ ...p, [k]: v }));
 
   const fetchGroups = useCallback(async (providerId: string, force = false) => {
     if (!providerId) return;
