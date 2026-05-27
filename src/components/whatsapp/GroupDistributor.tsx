@@ -218,6 +218,7 @@ export default function GroupDistributor() {
     if (!showStats) return;
     const next = weeks.find(w => w.week_index > (showStats.current_week || 1) && !w.archived_at);
     if (!next) { toast.error("Sem próxima semana cadastrada"); return; }
+    if (!confirm(`Avançar para a Semana ${next.week_index} agora? A semana atual será arquivada.`)) return;
     await supabase
       .from("imphq_wa_distributor_weeks" as any)
       .update({ archived_at: new Date().toISOString() })
