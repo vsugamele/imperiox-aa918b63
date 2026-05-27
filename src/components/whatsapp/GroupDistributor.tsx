@@ -357,16 +357,24 @@ export default function GroupDistributor() {
   };
 
   const toggleActive = async (dist: Distributor) => {
+    setBusyKey(`active:${dist.id}`, true);
     await supabase
       .from("imphq_wa_group_distributors")
       .update({ is_active: !dist.is_active } as any)
       .eq("id", dist.id);
     toast.success(dist.is_active ? "Desativado" : "Ativado");
-    load();
+    await load();
+    setBusyKey(`active:${dist.id}`, false);
   };
 
-  const deleteDist = async (id: string) => {
+  const deleteDist = (dist: Distributor) => {
+    setConfirmAction({ kind: "delete_dist", id: dist.id, slug: dist.slug });
+  };
+
+  const doDeleteDist = async (id: string) => {
+    setBusyKey(`del:${id}`, true);
     await supabase.from("imphq_wa_group_distributors").delete().eq("id", id);
+    setBusyKey(`del:${id}`, false);
     toast.success("Excluído");
     load();
   };
