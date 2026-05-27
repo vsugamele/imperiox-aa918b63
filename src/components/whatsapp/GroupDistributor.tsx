@@ -82,13 +82,15 @@ export default function GroupDistributor() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupSearch, setGroupSearch] = useState("");
   const [showManualJid, setShowManualJid] = useState(false);
+  const groupsCacheRef = useRef<Map<string, { ts: number; rows: GroupRow[] }>>(new Map());
 
-  useEffect(() => {
-    localStorage.setItem("wa.distributor.lastProviderId", selectedProviderId || "");
-  }, [selectedProviderId]);
-
-  const fetchGroups = useCallback(async (providerId: string) => {
+  const fetchGroups = useCallback(async (providerId: string, force = false) => {
     if (!providerId) return;
+    const cached = groupsCacheRef.current.get(providerId);
+    if (!force && cached && Date.now() - cached.ts < GROUPS_CACHE_TTL_MS) {
+      setAvailableGroups(cached.rows);
+      return;
+    }
     setLoadingGroups(true);
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-api", {
@@ -96,7 +98,9 @@ export default function GroupDistributor() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setAvailableGroups((data?.groups || []) as GroupRow[]);
+      const rows = (data?.groups || []) as GroupRow[];
+      groupsCacheRef.current.set(providerId, { ts: Date.now(), rows });
+      setAvailableGroups(rows);
     } catch (e: any) {
       toast.error("Erro ao buscar grupos: " + e.message);
       setAvailableGroups([]);
