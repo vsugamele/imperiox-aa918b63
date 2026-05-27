@@ -298,6 +298,9 @@ export default function Financas() {
         <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">💰 Finanças <SectionInfo {...sectionHelpTexts.financas} /></h1>
         <div className="flex items-center gap-2">
           <RevenueModeToggle />
+          <Button size="sm" variant={compareMode ? "default" : "outline"} onClick={() => setCompareMode(!compareMode)} title="Comparar com período anterior de mesma duração">
+            {compareMode ? "✓ Comparando" : "⇄ Comparar período"}
+          </Button>
           <Button size="sm" variant="outline" onClick={() => {
             const headers = ["Tipo","Projeto","Descrição","Valor","Data"];
             const rows = [
@@ -314,6 +317,7 @@ export default function Financas() {
             toast.success("Relatório financeiro exportado");
           }}>📥 Export CSV</Button>
         </div>
+
       </div>
 
       {/* Filters */}
