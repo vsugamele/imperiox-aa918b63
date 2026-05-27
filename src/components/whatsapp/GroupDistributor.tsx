@@ -692,10 +692,9 @@ export default function GroupDistributor() {
                               size="sm"
                               variant="ghost"
                               className="h-6 w-6 p-0"
-                              onClick={async (e) => {
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", w.id);
-                                await loadWeeks(showStats.id);
+                                setConfirmAction({ kind: "delete_week", weekId: w.id, weekIndex: w.week_index });
                               }}
                             ><Trash2 className="h-3 w-3" /></Button>
                           </div>
