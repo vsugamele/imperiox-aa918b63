@@ -28,6 +28,8 @@ import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import TodayCard from "@/components/dashboard/TodayCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
+import ExecutiveSummary from "@/components/dashboard/ExecutiveSummary";
+
 
 function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
   return (
