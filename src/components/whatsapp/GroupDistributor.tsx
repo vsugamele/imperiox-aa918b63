@@ -153,19 +153,31 @@ export default function GroupDistributor() {
       .order("week_index", { ascending: true });
     const rows = ((data as any[]) || []) as WeekRow[];
     setWeeks(rows);
-    // Carrega contagem de cliques por (week_index, group_jid)
+
+    // 1 query agregada: pega todos os cliques desse distribuidor e agrupa local
+    // por (week_index, group_jid) usando o start_at de cada semana como janela.
     const counts: Record<string, number> = {};
-    await Promise.all(
-      rows.map(async (w) => {
-        const { count } = await supabase
-          .from("imphq_wa_distributor_clicks")
-          .select("id", { count: "exact", head: true })
-          .eq("distributor_id", distId)
-          .eq("group_jid", w.group_jid)
-          .gte("created_at", w.start_at);
-        counts[`${w.week_index}|${w.group_jid}`] = count || 0;
-      })
-    );
+    if (rows.length > 0) {
+      const minStart = rows.reduce(
+        (m, w) => (w.start_at < m ? w.start_at : m),
+        rows[0].start_at,
+      );
+      const { data: clicks } = await supabase
+        .from("imphq_wa_distributor_clicks")
+        .select("group_jid, created_at")
+        .eq("distributor_id", distId)
+        .gte("created_at", minStart);
+      const byJid = new Map<string, string[]>();
+      for (const c of clicks || []) {
+        const arr = byJid.get(c.group_jid) || [];
+        arr.push(c.created_at);
+        byJid.set(c.group_jid, arr);
+      }
+      for (const w of rows) {
+        const arr = byJid.get(w.group_jid) || [];
+        counts[`${w.week_index}|${w.group_jid}`] = arr.filter(t => t >= w.start_at).length;
+      }
+    }
     setWeekClicks(counts);
   }, []);
 
