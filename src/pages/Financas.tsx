@@ -59,9 +59,18 @@ export default function Financas() {
     const fromTs = `${fromDate}T00:00:00`;
     const toTs = `${toDate}T23:59:59.999`;
 
+    // Período anterior (mesma duração)
+    const fromMs = new Date(fromDate).getTime();
+    const toMs = new Date(toDate).getTime();
+    const periodMs = Math.max(86400000, toMs - fromMs + 86400000);
+    const prevToDate = new Date(fromMs - 86400000).toISOString().slice(0, 10);
+    const prevFromDate = new Date(fromMs - periodMs).toISOString().slice(0, 10);
+    const prevFromTs = `${prevFromDate}T00:00:00`;
+    const prevToTs = `${prevToDate}T23:59:59.999`;
+
     const { fetchAll } = await import("@/lib/supabasePaginate");
 
-    const [r1, r2, r3, vendasAll, adsAll, r6, vendasCountRes] = await Promise.all([
+    const [r1, r2, r3, vendasAll, adsAll, r6, vendasCountRes, prevVendasAll, prevAdsAll] = await Promise.all([
       supabase.from("imphq_custos").select("*").order("nome"),
       supabase.from("imphq_project_costs").select("*"),
       supabase.from("imphq_project_revenue").select("*").gte("data_ref", fromDate).lte("data_ref", toDate),
@@ -87,6 +96,25 @@ export default function Financas() {
       supabase.from("imphq_projects").select("id, name, icon" as any).or("is_archived.eq.false,is_archived.is.null").order("name"),
       supabase.from("imphq_vendas").select("id", { count: "exact", head: true })
         .eq("status", "aprovado").gte("data_venda", fromTs).lte("data_venda", toTs),
+      compareMode ? fetchAll<any>((from, to) =>
+        supabase.from("imphq_vendas")
+          .select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda")
+          .eq("status", "aprovado")
+          .gte("data_venda", prevFromTs)
+          .lte("data_venda", prevToTs)
+          .order("data_venda", { ascending: false })
+          .range(from, to),
+        1000, 20000,
+      ) : Promise.resolve([]),
+      compareMode ? fetchAll<any>((from, to) =>
+        supabase.from("imphq_ads_spend")
+          .select("valor, data_ref, project_id, plataforma, campanha, leads, impressoes, cliques, compras")
+          .gte("data_ref", prevFromDate)
+          .lte("data_ref", prevToDate)
+          .order("data_ref", { ascending: false })
+          .range(from, to),
+        1000, 20000,
+      ) : Promise.resolve([]),
     ]) as any;
 
     setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
@@ -107,11 +135,14 @@ export default function Financas() {
       ctr: parseFloat(a.ctr) || 0,
       frequencia: parseFloat(a.frequencia) || 0,
     })));
+    setPrevVendas((prevVendasAll || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
+    setPrevAds((prevAdsAll || []).map((a: any) => ({ ...a, valor: parseFloat(a.valor) || 0, leads: a.leads || 0, cliques: a.cliques || 0 })));
     setProjects((r6.data || []) as unknown as Project[]);
     setVendasTotalCount(vendasCountRes?.count || 0);
   };
 
-  useEffect(() => { load(); }, [filterDateFrom, filterDateTo]);
+  useEffect(() => { load(); }, [filterDateFrom, filterDateTo, compareMode]);
+
 
   // Date filter helper
   const inDateRange = (dateStr: string | null | undefined) => {
