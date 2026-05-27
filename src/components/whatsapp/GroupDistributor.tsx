@@ -233,19 +233,25 @@ export default function GroupDistributor() {
     toast.success(`Semana ${nextIdx} adicionada`);
   };
 
-  const advanceNow = async () => {
+  const advanceNow = () => {
     if (!showStats) return;
     const next = weeks.find(w => w.week_index > (showStats.current_week || 1) && !w.archived_at);
     if (!next) { toast.error("Sem próxima semana cadastrada"); return; }
-    if (!confirm(`Avançar para a Semana ${next.week_index} agora? A semana atual será arquivada.`)) return;
+    setConfirmAction({ kind: "advance_now", toIndex: next.week_index });
+  };
+
+  const doAdvance = async (toIndex: number) => {
+    if (!showStats) return;
+    setBusyKey("advance", true);
     await supabase
       .from("imphq_wa_distributor_weeks" as any)
       .update({ archived_at: new Date().toISOString() })
       .eq("distributor_id", showStats.id)
       .eq("week_index", showStats.current_week || 1);
-    await updateRotation({ current_week: next.week_index, last_rotation_at: new Date().toISOString() });
+    await updateRotation({ current_week: toIndex, last_rotation_at: new Date().toISOString() });
     await loadWeeks(showStats.id);
-    toast.success(`Avançou para semana ${next.week_index}`);
+    setBusyKey("advance", false);
+    toast.success(`Avançou para semana ${toIndex}`);
   };
 
   const load = useCallback(async () => {
