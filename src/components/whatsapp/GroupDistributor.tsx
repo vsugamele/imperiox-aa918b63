@@ -550,11 +550,11 @@ export default function GroupDistributor() {
                     <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-gold/10 hover:text-gold" onClick={() => openStats(d)} title="Estatísticas">
                       <BarChart3 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => toggleActive(d)} title={d.is_active ? "Desativar" : "Ativar"}>
-                      {d.is_active ? <PowerOff className="h-3.5 w-3.5 text-amber-400" /> : <Power className="h-3.5 w-3.5 text-emerald-400" />}
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!!busy[`active:${d.id}`]} onClick={() => toggleActive(d)} title={d.is_active ? "Desativar" : "Ativar"}>
+                      {busy[`active:${d.id}`] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : d.is_active ? <PowerOff className="h-3.5 w-3.5 text-amber-400" /> : <Power className="h-3.5 w-3.5 text-emerald-400" />}
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => deleteDist(d.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" disabled={!!busy[`del:${d.id}`]} onClick={() => deleteDist(d)}>
+                      {busy[`del:${d.id}`] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                     </Button>
                   </div>
                 </div>
