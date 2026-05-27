@@ -28,6 +28,8 @@ import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import TodayCard from "@/components/dashboard/TodayCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
+import ExecutiveSummary from "@/components/dashboard/ExecutiveSummary";
+
 
 function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
   return (
@@ -80,6 +82,10 @@ export default function Dashboard() {
         projectLabel={projectLabel}
         productLabel={dashProduct}
       />
+
+      {/* RESUMO EXECUTIVO — visão consolidada */}
+      <ExecutiveSummary projectFilter={dashProject} />
+
 
       {/* FILTROS — barra discreta */}
       <div className="flex items-center gap-2 flex-wrap text-xs">

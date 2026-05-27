@@ -39213,6 +39213,13 @@ export type Database = {
       clean_old_receipts: { Args: never; Returns: undefined }
       cleanup_expired_backups: { Args: never; Returns: undefined }
       cleanup_old_files: { Args: never; Returns: undefined }
+      count_leads_by_project: {
+        Args: never
+        Returns: {
+          project_id: string
+          total: number
+        }[]
+      }
       create_initial_cycle: { Args: { p_patient_id: string }; Returns: string }
       dblink: { Args: { "": string }; Returns: Record<string, unknown>[] }
       dblink_cancel_query: { Args: { "": string }; Returns: string }

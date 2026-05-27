@@ -47,6 +47,10 @@ export default function Financas() {
   const [showCustoDialog, setShowCustoDialog] = useState(false);
   const [editingCusto, setEditingCusto] = useState<Custo | null>(null);
   const [custoForm, setCustoForm] = useState({ nome: "", tipo: "SaaS", valor: "", moeda: "BRL" });
+  const [compareMode, setCompareMode] = useState(false);
+  const [prevVendas, setPrevVendas] = useState<Venda[]>([]);
+  const [prevAds, setPrevAds] = useState<AdsSpend[]>([]);
+
 
   const load = async () => {
     // Janela de busca: usa o filtro de datas; se vazio, últimos 90 dias
@@ -55,9 +59,18 @@ export default function Financas() {
     const fromTs = `${fromDate}T00:00:00`;
     const toTs = `${toDate}T23:59:59.999`;
 
+    // Período anterior (mesma duração)
+    const fromMs = new Date(fromDate).getTime();
+    const toMs = new Date(toDate).getTime();
+    const periodMs = Math.max(86400000, toMs - fromMs + 86400000);
+    const prevToDate = new Date(fromMs - 86400000).toISOString().slice(0, 10);
+    const prevFromDate = new Date(fromMs - periodMs).toISOString().slice(0, 10);
+    const prevFromTs = `${prevFromDate}T00:00:00`;
+    const prevToTs = `${prevToDate}T23:59:59.999`;
+
     const { fetchAll } = await import("@/lib/supabasePaginate");
 
-    const [r1, r2, r3, vendasAll, adsAll, r6, vendasCountRes] = await Promise.all([
+    const [r1, r2, r3, vendasAll, adsAll, r6, vendasCountRes, prevVendasAll, prevAdsAll] = await Promise.all([
       supabase.from("imphq_custos").select("*").order("nome"),
       supabase.from("imphq_project_costs").select("*"),
       supabase.from("imphq_project_revenue").select("*").gte("data_ref", fromDate).lte("data_ref", toDate),
@@ -83,6 +96,25 @@ export default function Financas() {
       supabase.from("imphq_projects").select("id, name, icon" as any).or("is_archived.eq.false,is_archived.is.null").order("name"),
       supabase.from("imphq_vendas").select("id", { count: "exact", head: true })
         .eq("status", "aprovado").gte("data_venda", fromTs).lte("data_venda", toTs),
+      compareMode ? fetchAll<any>((from, to) =>
+        supabase.from("imphq_vendas")
+          .select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda")
+          .eq("status", "aprovado")
+          .gte("data_venda", prevFromTs)
+          .lte("data_venda", prevToTs)
+          .order("data_venda", { ascending: false })
+          .range(from, to),
+        1000, 20000,
+      ) : Promise.resolve([]),
+      compareMode ? fetchAll<any>((from, to) =>
+        supabase.from("imphq_ads_spend")
+          .select("valor, data_ref, project_id, plataforma, campanha, leads, impressoes, cliques, compras")
+          .gte("data_ref", prevFromDate)
+          .lte("data_ref", prevToDate)
+          .order("data_ref", { ascending: false })
+          .range(from, to),
+        1000, 20000,
+      ) : Promise.resolve([]),
     ]) as any;
 
     setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
@@ -103,11 +135,14 @@ export default function Financas() {
       ctr: parseFloat(a.ctr) || 0,
       frequencia: parseFloat(a.frequencia) || 0,
     })));
+    setPrevVendas((prevVendasAll || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
+    setPrevAds((prevAdsAll || []).map((a: any) => ({ ...a, valor: parseFloat(a.valor) || 0, leads: a.leads || 0, cliques: a.cliques || 0 })));
     setProjects((r6.data || []) as unknown as Project[]);
     setVendasTotalCount(vendasCountRes?.count || 0);
   };
 
-  useEffect(() => { load(); }, [filterDateFrom, filterDateTo]);
+  useEffect(() => { load(); }, [filterDateFrom, filterDateTo, compareMode]);
+
 
   // Date filter helper
   const inDateRange = (dateStr: string | null | undefined) => {
@@ -232,14 +267,30 @@ export default function Financas() {
   };
   const removeCusto = async (id: string) => { await supabase.from("imphq_custos").delete().eq("id", id); toast.success("Removido"); load(); };
 
+  // Comparativo período anterior
+  const fPrevVendas = (fp === "all" ? prevVendas : prevVendas.filter(v => v.project_id === fp))
+    .filter(v => filterProduct === "all" || v.produto_nome === filterProduct);
+  const fPrevAds = fp === "all" ? prevAds : prevAds.filter(a => a.project_id === fp);
+  const prevReceita = fPrevVendas.reduce((a, v) => a + getRevenue(v, revenueMode), 0);
+  const prevAdsTotal = fPrevAds.reduce((a, b) => a + b.valor, 0);
+  const prevAdsProportional = filterProduct !== "all" && prevReceita > 0
+    ? prevAdsTotal * (prevReceita / (prevVendas.filter(v => fp === "all" || v.project_id === fp).reduce((a, v) => a + getRevenue(v, revenueMode), 0) || 1))
+    : prevAdsTotal;
+  const prevLucro = prevReceita - (custosGlobaisBRL + custosProjetoBRL + prevAdsProportional);
+  const prevRoi = (custosGlobaisBRL + custosProjetoBRL + prevAdsProportional) > 0 ? (prevLucro / (custosGlobaisBRL + custosProjetoBRL + prevAdsProportional)) * 100 : 0;
+  const prevRoas = prevAdsProportional > 0 ? prevReceita / prevAdsProportional : 0;
+
+  const pctDelta = (cur: number, prev: number) => prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100;
+
   const kpis = [
-    { label: revenueMode === "liquido" ? "Receita Líquida (Sua parte)" : "Receita Total (Bruta)", value: `R$ ${totalReceita.toFixed(2)}`, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
-    { label: "🏢 Custo Empresa", value: `R$ ${custosGlobaisBRL.toFixed(2)}`, icon: TrendingDown, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400" },
-    { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsProportional).toFixed(2)}`, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
-    { label: revenueMode === "liquido" ? "Lucro Real (Sua parte)" : "Lucro Bruto", value: `R$ ${lucro.toFixed(2)}`, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
-    { label: "ROI", value: `${roi.toFixed(1)}%`, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
-    ...(adsProportional > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
+    { label: revenueMode === "liquido" ? "Receita Líquida (Sua parte)" : "Receita Total (Bruta)", value: `R$ ${totalReceita.toFixed(2)}`, delta: pctDelta(totalReceita, prevReceita), goodUp: true, icon: TrendingUp, gradient: "from-emerald-500/15 to-emerald-500/5", iconBg: "bg-emerald-500/15 text-emerald-400", textColor: "text-emerald-400" },
+    { label: "🏢 Custo Empresa", value: `R$ ${custosGlobaisBRL.toFixed(2)}`, delta: null, goodUp: false, icon: TrendingDown, gradient: "from-red-500/15 to-red-500/5", iconBg: "bg-red-500/15 text-red-400", textColor: "text-red-400" },
+    { label: "📁 Custo Projetos", value: `R$ ${(custosProjetoBRL + adsProportional).toFixed(2)}`, delta: pctDelta(adsProportional, prevAdsProportional), goodUp: false, icon: TrendingDown, gradient: "from-orange-500/15 to-orange-500/5", iconBg: "bg-orange-500/15 text-orange-400", textColor: "text-orange-400" },
+    { label: revenueMode === "liquido" ? "Lucro Real (Sua parte)" : "Lucro Bruto", value: `R$ ${lucro.toFixed(2)}`, delta: pctDelta(lucro, prevLucro), goodUp: true, icon: DollarSign, gradient: lucro >= 0 ? "from-emerald-500/15 to-emerald-500/5" : "from-red-500/15 to-red-500/5", iconBg: lucro >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400", textColor: lucro >= 0 ? "text-emerald-400" : "text-red-400" },
+    { label: "ROI", value: `${roi.toFixed(1)}%`, delta: pctDelta(roi, prevRoi), goodUp: true, icon: Percent, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400" },
+    ...(adsProportional > 0 ? [{ label: "ROAS", value: roas.toFixed(2) + "x", delta: pctDelta(roas, prevRoas), goodUp: true, icon: Target, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400" }] : []),
   ];
+
 
   return (
     <div className="space-y-6">
@@ -247,6 +298,9 @@ export default function Financas() {
         <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">💰 Finanças <SectionInfo {...sectionHelpTexts.financas} /></h1>
         <div className="flex items-center gap-2">
           <RevenueModeToggle />
+          <Button size="sm" variant={compareMode ? "default" : "outline"} onClick={() => setCompareMode(!compareMode)} title="Comparar com período anterior de mesma duração">
+            {compareMode ? "✓ Comparando" : "⇄ Comparar período"}
+          </Button>
           <Button size="sm" variant="outline" onClick={() => {
             const headers = ["Tipo","Projeto","Descrição","Valor","Data"];
             const rows = [
@@ -263,6 +317,7 @@ export default function Financas() {
             toast.success("Relatório financeiro exportado");
           }}>📥 Export CSV</Button>
         </div>
+
       </div>
 
       {/* Filters */}
@@ -303,17 +358,31 @@ export default function Financas() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {kpis.map((k, i) => (
-          <Card key={k.label} className={`bg-gradient-to-br ${k.gradient} border-border animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className={`p-2.5 rounded-xl ${k.iconBg}`}><k.icon className="h-4 w-4" /></div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{k.label}</p>
-                <p className={`text-xl font-mono font-bold ${k.textColor}`}>{k.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {kpis.map((k, i) => {
+          const d = (k as any).delta as number | null;
+          const goodUp = (k as any).goodUp as boolean;
+          const isGood = d != null && ((d >= 0 && goodUp) || (d < 0 && !goodUp));
+          return (
+            <Card key={k.label} className={`bg-gradient-to-br ${k.gradient} border-border animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className={`p-2.5 rounded-xl ${k.iconBg}`}><k.icon className="h-4 w-4" /></div>
+                <div className="min-w-0">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{k.label}</p>
+                  <p className={`text-xl font-mono font-bold ${k.textColor}`}>{k.value}</p>
+                  {compareMode && d != null && (
+                    <p className={`text-[10px] font-mono mt-0.5 ${isGood ? "text-emerald-400" : "text-red-400"}`}>
+                      {d >= 0 ? "▲" : "▼"} {Math.abs(d).toFixed(1)}% vs anterior
+                    </p>
+                  )}
+                  {compareMode && d == null && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">sem histórico</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+
       </div>
       <p className="text-[11px] text-muted-foreground -mt-2 px-1">
         📊 KPIs respeitam o filtro de período acima · {fVendas.length} vendas no período
