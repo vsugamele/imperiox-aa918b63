@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Link2, Copy, BarChart3, Power, PowerOff, RefreshCw, Search, Users, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { buildDistributorUrl } from "@/lib/whatsappUrls";
+
+const GROUPS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface Distributor {
   id: string;
@@ -79,13 +82,15 @@ export default function GroupDistributor() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupSearch, setGroupSearch] = useState("");
   const [showManualJid, setShowManualJid] = useState(false);
+  const groupsCacheRef = useRef<Map<string, { ts: number; rows: GroupRow[] }>>(new Map());
 
-  useEffect(() => {
-    localStorage.setItem("wa.distributor.lastProviderId", selectedProviderId || "");
-  }, [selectedProviderId]);
-
-  const fetchGroups = useCallback(async (providerId: string) => {
+  const fetchGroups = useCallback(async (providerId: string, force = false) => {
     if (!providerId) return;
+    const cached = groupsCacheRef.current.get(providerId);
+    if (!force && cached && Date.now() - cached.ts < GROUPS_CACHE_TTL_MS) {
+      setAvailableGroups(cached.rows);
+      return;
+    }
     setLoadingGroups(true);
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-api", {
@@ -93,7 +98,9 @@ export default function GroupDistributor() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setAvailableGroups((data?.groups || []) as GroupRow[]);
+      const rows = (data?.groups || []) as GroupRow[];
+      groupsCacheRef.current.set(providerId, { ts: Date.now(), rows });
+      setAvailableGroups(rows);
     } catch (e: any) {
       toast.error("Erro ao buscar grupos: " + e.message);
       setAvailableGroups([]);
@@ -146,19 +153,31 @@ export default function GroupDistributor() {
       .order("week_index", { ascending: true });
     const rows = ((data as any[]) || []) as WeekRow[];
     setWeeks(rows);
-    // Carrega contagem de cliques por (week_index, group_jid)
+
+    // 1 query agregada: pega todos os cliques desse distribuidor e agrupa local
+    // por (week_index, group_jid) usando o start_at de cada semana como janela.
     const counts: Record<string, number> = {};
-    await Promise.all(
-      rows.map(async (w) => {
-        const { count } = await supabase
-          .from("imphq_wa_distributor_clicks")
-          .select("id", { count: "exact", head: true })
-          .eq("distributor_id", distId)
-          .eq("group_jid", w.group_jid)
-          .gte("created_at", w.start_at);
-        counts[`${w.week_index}|${w.group_jid}`] = count || 0;
-      })
-    );
+    if (rows.length > 0) {
+      const minStart = rows.reduce(
+        (m, w) => (w.start_at < m ? w.start_at : m),
+        rows[0].start_at,
+      );
+      const { data: clicks } = await supabase
+        .from("imphq_wa_distributor_clicks")
+        .select("group_jid, created_at")
+        .eq("distributor_id", distId)
+        .gte("created_at", minStart);
+      const byJid = new Map<string, string[]>();
+      for (const c of clicks || []) {
+        const arr = byJid.get(c.group_jid) || [];
+        arr.push(c.created_at);
+        byJid.set(c.group_jid, arr);
+      }
+      for (const w of rows) {
+        const arr = byJid.get(w.group_jid) || [];
+        counts[`${w.week_index}|${w.group_jid}`] = arr.filter(t => t >= w.start_at).length;
+      }
+    }
     setWeekClicks(counts);
   }, []);
 
@@ -199,6 +218,7 @@ export default function GroupDistributor() {
     if (!showStats) return;
     const next = weeks.find(w => w.week_index > (showStats.current_week || 1) && !w.archived_at);
     if (!next) { toast.error("Sem próxima semana cadastrada"); return; }
+    if (!confirm(`Avançar para a Semana ${next.week_index} agora? A semana atual será arquivada.`)) return;
     await supabase
       .from("imphq_wa_distributor_weeks" as any)
       .update({ archived_at: new Date().toISOString() })
@@ -220,22 +240,30 @@ export default function GroupDistributor() {
     setCampaigns((campRes.data as any[]) || []);
     setLoading(false);
 
-    // Fetch click counts per distributor for sparklines (parallel)
+    // 1 query agregada: pega todos os cliques de todos os distribuidores
+    // e agrupa local por distributor_id + group_jid (substitui N×M counts).
     if (dists.length > 0) {
       const stats: Record<string, { group_jid: string; count: number }[]> = {};
-      await Promise.all(dists.map(async (d) => {
-        const groups: string[] = d.redirect_order || [];
-        if (groups.length === 0) { stats[d.id] = []; return; }
-        const counts = await Promise.all(groups.map(async (jid) => {
-          const { count } = await supabase
-            .from("imphq_wa_distributor_clicks")
-            .select("id", { count: "exact", head: true })
-            .eq("distributor_id", d.id)
-            .eq("group_jid", jid);
-          return { group_jid: jid, count: count || 0 };
+      const initOrder: Record<string, string[]> = {};
+      for (const d of dists) {
+        initOrder[d.id] = d.redirect_order || [];
+        stats[d.id] = (d.redirect_order || []).map((jid: string) => ({ group_jid: jid, count: 0 }));
+      }
+      const { data: allClicks } = await supabase
+        .from("imphq_wa_distributor_clicks")
+        .select("distributor_id, group_jid")
+        .in("distributor_id", dists.map(d => d.id));
+      const tally = new Map<string, number>();
+      for (const c of allClicks || []) {
+        const key = `${c.distributor_id}|${c.group_jid}`;
+        tally.set(key, (tally.get(key) || 0) + 1);
+      }
+      for (const d of dists) {
+        stats[d.id] = (initOrder[d.id] || []).map(jid => ({
+          group_jid: jid,
+          count: tally.get(`${d.id}|${jid}`) || 0,
         }));
-        stats[d.id] = counts;
-      }));
+      }
       setCardStats(stats);
     }
   }, []);
@@ -255,6 +283,7 @@ export default function GroupDistributor() {
       setProviders(list);
       if (!selectedProviderId && list.length > 0) {
         setSelectedProviderId(list[0].id);
+        localStorage.setItem("wa.distributor.lastProviderId", list[0].id);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -318,8 +347,7 @@ export default function GroupDistributor() {
   };
 
   const copyLink = (slug: string) => {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const url = `https://${projectId}.supabase.co/functions/v1/wa-group-distributor?slug=${slug}`;
+    const url = buildDistributorUrl(slug);
     navigator.clipboard.writeText(url);
     toast.success("Link copiado!");
   };
@@ -398,7 +426,7 @@ export default function GroupDistributor() {
             const stats = cardStats[d.id] || [];
             const maxCount = Math.max(1, ...stats.map(s => s.count));
             const fullestPct = stats.length ? Math.round((maxCount / (d.max_per_group || 250)) * 100) : 0;
-            const fullUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/wa-group-distributor?slug=${d.slug}`;
+            const fullUrl = buildDistributorUrl(d.slug);
             const progressColor = fullestPct >= 90 ? "bg-destructive" : fullestPct >= 70 ? "bg-amber-500" : "bg-gold";
             return (
             <Card key={d.id} className="group relative overflow-hidden hover:border-gold/40 hover:shadow-lg hover:shadow-gold/5 transition-all duration-200">
@@ -839,7 +867,7 @@ export default function GroupDistributor() {
                       <div className="flex gap-1.5">
                         <Select
                           value={selectedProviderId || undefined}
-                          onValueChange={(v) => { setSelectedProviderId(v); setAvailableGroups([]); fetchGroups(v); }}
+                          onValueChange={(v) => { setSelectedProviderId(v); localStorage.setItem("wa.distributor.lastProviderId", v); fetchGroups(v); }}
                         >
                           <SelectTrigger className="h-8 text-xs flex-1">
                             <SelectValue placeholder="Selecione o chip" />
@@ -860,7 +888,7 @@ export default function GroupDistributor() {
                           variant="outline"
                           className="h-8 w-8 shrink-0"
                           disabled={!selectedProviderId || loadingGroups}
-                          onClick={() => fetchGroups(selectedProviderId)}
+                          onClick={() => fetchGroups(selectedProviderId, true)}
                           title="Recarregar grupos"
                         >
                           <RefreshCw className={`h-3.5 w-3.5 ${loadingGroups ? "animate-spin" : ""}`} />
