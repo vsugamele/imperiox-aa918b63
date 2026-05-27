@@ -4721,6 +4721,7 @@ export type Database = {
           blocked_at: string | null
           blocked_reason: string | null
           created_at: string
+          email: string | null
           id: string
           is_blocked: boolean
           last_seen_at: string | null
@@ -4734,6 +4735,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id: string
           is_blocked?: boolean
           last_seen_at?: string | null
@@ -4747,6 +4749,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_blocked?: boolean
           last_seen_at?: string | null
