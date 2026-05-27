@@ -283,6 +283,7 @@ export default function GroupDistributor() {
       setProviders(list);
       if (!selectedProviderId && list.length > 0) {
         setSelectedProviderId(list[0].id);
+        localStorage.setItem("wa.distributor.lastProviderId", list[0].id);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
