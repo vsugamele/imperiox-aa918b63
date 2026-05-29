@@ -44,12 +44,37 @@ export function CampanhasManager({ projects, onChange }: Props) {
   const [loadingSug, setLoadingSug] = useState(false);
   const [linkingLeads, setLinkingLeads] = useState(false);
 
+  const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [customProductModeNew, setCustomProductModeNew] = useState(false);
+  const [customProductModeEdit, setCustomProductModeEdit] = useState(false);
+  const [customUtmModeNew, setCustomUtmModeNew] = useState(false);
+  const [customUtmModeEdit, setCustomUtmModeEdit] = useState(false);
+
+  useEffect(() => {
+    supabase.from("imphq_projects").select("data").then(({ data }) => {
+      const prodsSet = new Set<string>();
+      (data || []).forEach((p: any) => {
+        const prods = (p.data?.produtos || []) as any[];
+        prods.forEach(prod => {
+          if (prod.nome) prodsSet.add(prod.nome);
+        });
+      });
+      setAllProducts(Array.from(prodsSet).sort());
+    });
+  }, []);
+
   const loadSuggestions = async () => {
     setLoadingSug(true);
     const { data, error } = await supabase.rpc("get_unmatched_utm_campaigns" as any, { p_days: 30, p_project_id: null });
     if (error) console.error(error);
-    setSuggestions(((data || []) as any[]).filter(s => !s.already_linked));
+    const list = ((data || []) as any[]).filter(s => !s.already_linked);
+    setSuggestions(list);
     setLoadingSug(false);
+
+    if (editing && editing.utm_campaign) {
+      const isUtmInList = list.some(s => s.utm_campaign === editing.utm_campaign);
+      setCustomUtmModeEdit(!isUtmInList);
+    }
   };
 
   const applySuggestion = (s: any) => {
@@ -112,8 +137,17 @@ export function CampanhasManager({ projects, onChange }: Props) {
   };
 
   useEffect(() => {
-    if (editing) loadEditForms(editing.id);
-    else setEditForms([]);
+    if (editing) {
+      loadEditForms(editing.id);
+      loadSuggestions();
+      const hasProd = !!editing.produto;
+      const isProdInList = allProducts.includes(editing.produto || "");
+      setCustomProductModeEdit(hasProd && !isProdInList);
+    } else {
+      setEditForms([]);
+      setCustomProductModeEdit(false);
+      setCustomUtmModeEdit(false);
+    }
   }, [editing?.id]);
 
   const create = async () => {
@@ -267,18 +301,43 @@ export function CampanhasManager({ projects, onChange }: Props) {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div><Label>Produto (opcional)</Label><Input value={newForm.produto || ""} onChange={e => setNewForm({ ...newForm, produto: e.target.value })} /></div>
+              <div>
+                <Label>Produto (opcional)</Label>
+                {customProductModeNew ? (
+                  <div className="flex gap-1 items-center">
+                    <Input value={newForm.produto || ""} onChange={e => setNewForm({ ...newForm, produto: e.target.value })} placeholder="Digite..." className="h-9 text-xs" />
+                    <Button type="button" variant="outline" size="sm" className="h-9 px-1.5 text-[10px]" onClick={() => { setCustomProductModeNew(false); setNewForm({ ...newForm, produto: "" }); }}>Lista</Button>
+                  </div>
+                ) : (
+                  <Select value={newForm.produto || "none"} onValueChange={v => { if (v === "custom") { setCustomProductModeNew(true); setNewForm({ ...newForm, produto: "" }); } else { setNewForm({ ...newForm, produto: v === "none" ? "" : v }); } }}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {allProducts.map(p => <SelectItem key={p} value={p}>📦 {p}</SelectItem>)}
+                      <SelectItem value="custom" className="text-primary font-medium text-xs">➕ Digitar personalizado...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
               <div>
                 <Label>UTM campaign</Label>
-                <Input
-                  value={newForm.utm_campaign || ""}
-                  onChange={e => setNewForm({ ...newForm, utm_campaign: e.target.value })}
-                  placeholder="webinar-maio-x"
-                  list="utm-suggestions"
-                />
-                <datalist id="utm-suggestions">
-                  {suggestions.map((s, i) => <option key={i} value={s.utm_campaign} />)}
-                </datalist>
+                {customUtmModeNew ? (
+                  <div className="flex gap-1 items-center">
+                    <Input value={newForm.utm_campaign || ""} onChange={e => setNewForm({ ...newForm, utm_campaign: e.target.value })} placeholder="webinar-maio" className="h-9 text-xs" />
+                    <Button type="button" variant="outline" size="sm" className="h-9 px-1.5 text-[10px]" onClick={() => { setCustomUtmModeNew(false); setNewForm({ ...newForm, utm_campaign: "" }); }}>Lista</Button>
+                  </div>
+                ) : (
+                  <Select value={newForm.utm_campaign || "none"} onValueChange={v => { if (v === "custom") { setCustomUtmModeNew(true); setNewForm({ ...newForm, utm_campaign: "" }); } else { setNewForm({ ...newForm, utm_campaign: v === "none" ? "" : v }); } }}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma UTM</SelectItem>
+                      {suggestions.map((s, i) => (
+                        <SelectItem key={i} value={s.utm_campaign}>📣 {s.utm_campaign}</SelectItem>
+                      ))}
+                      <SelectItem value="custom" className="text-primary font-medium text-xs">➕ Digitar personalizado...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -312,8 +371,44 @@ export function CampanhasManager({ projects, onChange }: Props) {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div><Label>Produto</Label><Input value={editing.produto || ""} onChange={e => setEditing({ ...editing, produto: e.target.value })} /></div>
-                <div><Label>UTM campaign</Label><Input value={editing.utm_campaign || ""} onChange={e => setEditing({ ...editing, utm_campaign: e.target.value })} /></div>
+                <div>
+                  <Label>Produto (opcional)</Label>
+                  {customProductModeEdit ? (
+                    <div className="flex gap-1 items-center">
+                      <Input value={editing.produto || ""} onChange={e => setEditing({ ...editing, produto: e.target.value })} placeholder="Digite..." className="h-9 text-xs" />
+                      <Button type="button" variant="outline" size="sm" className="h-9 px-1.5 text-[10px]" onClick={() => { setCustomProductModeEdit(false); setEditing({ ...editing, produto: "" }); }}>Lista</Button>
+                    </div>
+                  ) : (
+                    <Select value={editing.produto || "none"} onValueChange={v => { if (v === "custom") { setCustomProductModeEdit(true); setEditing({ ...editing, produto: "" }); } else { setEditing({ ...editing, produto: v === "none" ? "" : v }); } }}>
+                      <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {allProducts.map(p => <SelectItem key={p} value={p}>📦 {p}</SelectItem>)}
+                        <SelectItem value="custom" className="text-primary font-medium text-xs">➕ Digitar personalizado...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div>
+                  <Label>UTM campaign</Label>
+                  {customUtmModeEdit ? (
+                    <div className="flex gap-1 items-center">
+                      <Input value={editing.utm_campaign || ""} onChange={e => setEditing({ ...editing, utm_campaign: e.target.value })} placeholder="webinar-maio" className="h-9 text-xs" />
+                      <Button type="button" variant="outline" size="sm" className="h-9 px-1.5 text-[10px]" onClick={() => { setCustomUtmModeEdit(false); setEditing({ ...editing, utm_campaign: "" }); }}>Lista</Button>
+                    </div>
+                  ) : (
+                    <Select value={editing.utm_campaign || "none"} onValueChange={v => { if (v === "custom") { setCustomUtmModeEdit(true); setEditing({ ...editing, utm_campaign: "" }); } else { setEditing({ ...editing, utm_campaign: v === "none" ? "" : v }); } }}>
+                      <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma UTM</SelectItem>
+                        {suggestions.map((s, i) => (
+                          <SelectItem key={i} value={s.utm_campaign}>📣 {s.utm_campaign}</SelectItem>
+                        ))}
+                        <SelectItem value="custom" className="text-primary font-medium text-xs">➕ Digitar personalizado...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
               {editing.utm_campaign && (
                 <Button variant="outline" size="sm" onClick={linkExistingLeads} disabled={linkingLeads} className="w-full">
