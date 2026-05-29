@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -6,52 +7,54 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { Loader2 } from "lucide-react";
 
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Projetos from "./pages/Projetos";
-import ProjetoDetalhe from "./pages/ProjetoDetalhe";
-import KanbanPage from "./pages/KanbanPage";
-import Tarefas from "./pages/Tarefas";
-import Chat from "./pages/Chat";
-import Leads from "./pages/Leads";
-import Financas from "./pages/Financas";
-import MarketIntel from "./pages/MarketIntel";
-import Mentes from "./pages/Mentes";
-import Funis from "./pages/Funis";
-import OpenFlow from "./pages/OpenFlow";
-import Docs from "./pages/Docs";
-import WhatsAppPage from "./pages/WhatsAppPage";
-import Tracker from "./pages/Tracker";
-import Referencias from "./pages/Referencias";
-import Skills from "./pages/Skills";
-import Equipe from "./pages/Equipe";
-import Empresa from "./pages/Empresa";
-import Configuracoes from "./pages/Configuracoes";
-import Cofre from "./pages/Cofre";
-import Guia from "./pages/Guia";
-import ConteudoIA from "./pages/ConteudoIA";
-import Nutricao from "./pages/Nutricao";
-import Privacy from "./pages/Privacy";
-import ExpertPortal from "./pages/ExpertPortal";
-import Criativos from "./pages/Criativos";
-import CriativoNovo from "./pages/CriativoNovo";
-import CriativoDetalhe from "./pages/CriativoDetalhe";
-import Metas from "./pages/Metas";
-import Recuperacao from "./pages/Recuperacao";
-import Cohort from "./pages/Cohort";
-import Gerenciador from "./pages/Gerenciador";
-import Studio from "./pages/Studio";
-import Swipe from "./pages/Swipe";
-import Imperius from "./pages/Imperius";
-import Campanhas from "./pages/Campanhas";
-import Lancamentos from "./pages/Lancamentos";
-import Assistente from "./pages/Assistente";
-import Webinar from "./pages/Webinar";
-import WebinarSessao from "./pages/WebinarSessao";
-import WebinarPublic from "./pages/WebinarPublic";
-import FormPublic from "./pages/FormPublic";
-import NotFound from "./pages/NotFound";
+// Lazy-loaded pages for bundle size optimization and faster page load speeds
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Projetos = lazy(() => import("./pages/Projetos"));
+const ProjetoDetalhe = lazy(() => import("./pages/ProjetoDetalhe"));
+const KanbanPage = lazy(() => import("./pages/KanbanPage"));
+const Tarefas = lazy(() => import("./pages/Tarefas"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Leads = lazy(() => import("./pages/Leads"));
+const Financas = lazy(() => import("./pages/Financas"));
+const MarketIntel = lazy(() => import("./pages/MarketIntel"));
+const Mentes = lazy(() => import("./pages/Mentes"));
+const Funis = lazy(() => import("./pages/Funis"));
+const OpenFlow = lazy(() => import("./pages/OpenFlow"));
+const Docs = lazy(() => import("./pages/Docs"));
+const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
+const Tracker = lazy(() => import("./pages/Tracker"));
+const Referencias = lazy(() => import("./pages/Referencias"));
+const Skills = lazy(() => import("./pages/Skills"));
+const Equipe = lazy(() => import("./pages/Equipe"));
+const Empresa = lazy(() => import("./pages/Empresa"));
+const Configuracoes = lazy(() => import("./pages/Configuracoes"));
+const Cofre = lazy(() => import("./pages/Cofre"));
+const Guia = lazy(() => import("./pages/Guia"));
+const ConteudoIA = lazy(() => import("./pages/ConteudoIA"));
+const Nutricao = lazy(() => import("./pages/Nutricao"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const ExpertPortal = lazy(() => import("./pages/ExpertPortal"));
+const Criativos = lazy(() => import("./pages/Criativos"));
+const CriativoNovo = lazy(() => import("./pages/CriativoNovo"));
+const CriativoDetalhe = lazy(() => import("./pages/CriativoDetalhe"));
+const Metas = lazy(() => import("./pages/Metas"));
+const Recuperacao = lazy(() => import("./pages/Recuperacao"));
+const Cohort = lazy(() => import("./pages/Cohort"));
+const Gerenciador = lazy(() => import("./pages/Gerenciador"));
+const Studio = lazy(() => import("./pages/Studio"));
+const Swipe = lazy(() => import("./pages/Swipe"));
+const Imperius = lazy(() => import("./pages/Imperius"));
+const Campanhas = lazy(() => import("./pages/Campanhas"));
+const Lancamentos = lazy(() => import("./pages/Lancamentos"));
+const Assistente = lazy(() => import("./pages/Assistente"));
+const Webinar = lazy(() => import("./pages/Webinar"));
+const WebinarSessao = lazy(() => import("./pages/WebinarSessao"));
+const WebinarPublic = lazy(() => import("./pages/WebinarPublic"));
+const FormPublic = lazy(() => import("./pages/FormPublic"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Semana 2 — defaults conservadores p/ reduzir egress e refetches desnecessários.
 // staleTime 60s evita refetch instantâneo ao trocar de aba/rota. gcTime 5min mantém cache.
@@ -67,6 +70,15 @@ const queryClient = new QueryClient({
   },
 });
 
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh] w-full bg-background/50 backdrop-blur-sm">
+    <div className="flex flex-col items-center gap-2.5">
+      <Loader2 className="h-8 w-8 text-primary animate-spin" />
+      <span className="text-xs text-muted-foreground font-medium animate-pulse">Carregando painel...</span>
+    </div>
+  </div>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -74,56 +86,58 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/expert/:token" element={<ExpertPortal />} />
-            <Route path="/f/:formId" element={<FormPublic />} />
-            <Route path="/w/:sessionId" element={<WebinarPublic />} />
-            <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route index element={<Dashboard />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="projetos" element={<Projetos />} />
-              <Route path="projetos/:id" element={<ProjetoDetalhe />} />
-              <Route path="kanban" element={<KanbanPage />} />
-              <Route path="tarefas" element={<Tarefas />} />
-              <Route path="chat" element={<Chat />} />
-              <Route path="leads" element={<Leads />} />
-              <Route path="campanhas" element={<Campanhas />} />
-              <Route path="lancamentos" element={<Lancamentos />} />
-              <Route path="financas" element={<Financas />} />
-              <Route path="market-intel" element={<MarketIntel />} />
-              <Route path="mentes" element={<Mentes />} />
-              <Route path="funis" element={<Funis />} />
-              <Route path="openflow" element={<OpenFlow />} />
-              <Route path="docs" element={<Docs />} />
-              <Route path="whatsapp" element={<WhatsAppPage />} />
-              <Route path="tracker" element={<Tracker />} />
-              <Route path="referencias" element={<Referencias />} />
-              <Route path="skills" element={<Skills />} />
-              <Route path="equipe" element={<Equipe />} />
-              <Route path="empresa" element={<Empresa />} />
-              <Route path="configuracoes" element={<Configuracoes />} />
-              <Route path="cofre" element={<Cofre />} />
-              <Route path="conteudo-ia" element={<ConteudoIA />} />
-              <Route path="nutricao" element={<Nutricao />} />
-              <Route path="guia" element={<Guia />} />
-              <Route path="criativos" element={<Criativos />} />
-              <Route path="criativos/novo" element={<CriativoNovo />} />
-              <Route path="criativos/:batchId" element={<CriativoDetalhe />} />
-              <Route path="metas" element={<Metas />} />
-              <Route path="recuperacao" element={<Recuperacao />} />
-              <Route path="cohort" element={<Cohort />} />
-              <Route path="gerenciador" element={<Gerenciador />} />
-              <Route path="studio" element={<Studio />} />
-              <Route path="swipe" element={<Swipe />} />
-              <Route path="imperius" element={<Imperius />} />
-              <Route path="assistente" element={<Assistente />} />
-              <Route path="webinar" element={<Webinar />} />
-              <Route path="webinar/:sessionId" element={<WebinarSessao />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/expert/:token" element={<ExpertPortal />} />
+              <Route path="/f/:formId" element={<FormPublic />} />
+              <Route path="/w/:sessionId" element={<WebinarPublic />} />
+              <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route index element={<Dashboard />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="projetos" element={<Projetos />} />
+                <Route path="projetos/:id" element={<ProjetoDetalhe />} />
+                <Route path="kanban" element={<KanbanPage />} />
+                <Route path="tarefas" element={<Tarefas />} />
+                <Route path="chat" element={<Chat />} />
+                <Route path="leads" element={<Leads />} />
+                <Route path="campanhas" element={<Campanhas />} />
+                <Route path="lancamentos" element={<Lancamentos />} />
+                <Route path="financas" element={<Financas />} />
+                <Route path="market-intel" element={<MarketIntel />} />
+                <Route path="mentes" element={<Mentes />} />
+                <Route path="funis" element={<Funis />} />
+                <Route path="openflow" element={<OpenFlow />} />
+                <Route path="docs" element={<Docs />} />
+                <Route path="whatsapp" element={<WhatsAppPage />} />
+                <Route path="tracker" element={<Tracker />} />
+                <Route path="referencias" element={<Referencias />} />
+                <Route path="skills" element={<Skills />} />
+                <Route path="equipe" element={<Equipe />} />
+                <Route path="empresa" element={<Empresa />} />
+                <Route path="configuracoes" element={<Configuracoes />} />
+                <Route path="cofre" element={<Cofre />} />
+                <Route path="conteudo-ia" element={<ConteudoIA />} />
+                <Route path="nutricao" element={<Nutricao />} />
+                <Route path="guia" element={<Guia />} />
+                <Route path="criativos" element={<Criativos />} />
+                <Route path="criativos/novo" element={<CriativoNovo />} />
+                <Route path="criativos/:batchId" element={<CriativoDetalhe />} />
+                <Route path="metas" element={<Metas />} />
+                <Route path="recuperacao" element={<Recuperacao />} />
+                <Route path="cohort" element={<Cohort />} />
+                <Route path="gerenciador" element={<Gerenciador />} />
+                <Route path="studio" element={<Studio />} />
+                <Route path="swipe" element={<Swipe />} />
+                <Route path="imperius" element={<Imperius />} />
+                <Route path="assistente" element={<Assistente />} />
+                <Route path="webinar" element={<Webinar />} />
+                <Route path="webinar/:sessionId" element={<WebinarSessao />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
