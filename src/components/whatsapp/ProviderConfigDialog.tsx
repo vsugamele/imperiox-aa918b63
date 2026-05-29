@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,13 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   projects: any[];
   existingProviders?: any[];
+  editingProvider?: any;
   onCreated: () => void;
 }
 
 type Provider = "evolution" | "twilio" | "meta_cloud";
 
-export default function ProviderConfigDialog({ open, onOpenChange, projects, existingProviders = [], onCreated }: Props) {
+export default function ProviderConfigDialog({ open, onOpenChange, projects, existingProviders = [], editingProvider, onCreated }: Props) {
   const [form, setForm] = useState({
     project_id: "",
     provider: "evolution" as Provider,
@@ -38,6 +39,38 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
   const [showToken, setShowToken] = useState(false);
   const [guide, setGuide] = useState<"none" | "meta" | "evolution">("none");
 
+  useEffect(() => {
+    if (open && editingProvider) {
+      setForm({
+        project_id: editingProvider.project_id || "",
+        provider: (editingProvider.provider || "evolution") as Provider,
+        instance_name: editingProvider.instance_name || "",
+        display_name: editingProvider.display_name || "",
+        api_url: editingProvider.api_url || "",
+        api_key: editingProvider.api_key || "",
+        twilio_from: editingProvider.twilio_from || "",
+        phone_number_id: editingProvider.phone_number_id || "",
+        waba_id: editingProvider.waba_id || "",
+        access_token: editingProvider.access_token || "",
+        webhook_verify_token: editingProvider.webhook_verify_token || "",
+      });
+    } else if (open && !editingProvider) {
+      setForm({
+        project_id: "",
+        provider: "evolution" as Provider,
+        instance_name: "",
+        display_name: "",
+        api_url: "",
+        api_key: "",
+        twilio_from: "",
+        phone_number_id: "",
+        waba_id: "",
+        access_token: "",
+        webhook_verify_token: "",
+      });
+    }
+  }, [open, editingProvider]);
+
   const existingForProject = form.project_id ? existingProviders.filter(p => p.project_id === form.project_id) : [];
 
   const save = async () => {
@@ -49,7 +82,8 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
       toast.error("Phone Number ID, Access Token e Verify Token são obrigatórios");
       return;
     }
-    const { error } = await supabase.from("imphq_wa_providers").insert({
+
+    const payload = {
       project_id: form.project_id,
       provider: form.provider,
       instance_name: form.instance_name || null,
@@ -61,11 +95,24 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
       waba_id: form.waba_id || null,
       access_token: form.access_token || null,
       webhook_verify_token: form.webhook_verify_token || null,
-    } as any);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Provider configurado!");
+    };
+
+    if (editingProvider) {
+      const { error } = await supabase
+        .from("imphq_wa_providers")
+        .update(payload as any)
+        .eq("id", editingProvider.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Provider atualizado com sucesso!");
+    } else {
+      const { error } = await supabase
+        .from("imphq_wa_providers")
+        .insert(payload as any);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Provider configurado!");
+    }
+
     onOpenChange(false);
-    setForm({ project_id: "", provider: "evolution", instance_name: "", display_name: "", api_url: "", api_key: "", twilio_from: "", phone_number_id: "", waba_id: "", access_token: "", webhook_verify_token: "" });
     onCreated();
   };
 
@@ -73,7 +120,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md bg-secondary/40 max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-serif text-primary">Configurar Provider WhatsApp</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-serif text-primary">{editingProvider ? "Editar Provider WhatsApp" : "Configurar Provider WhatsApp"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Projeto</Label>

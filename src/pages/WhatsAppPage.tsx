@@ -63,6 +63,7 @@ export default function WhatsApp() {
   const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<any>(null);
   const [showBulk, setShowBulk] = useState(false);
   const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai" | "triagem" | "objecoes">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
@@ -256,7 +257,7 @@ export default function WhatsApp() {
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-card">
         <h1 className="font-display text-xl font-bold text-primary flex items-center gap-2">💬 WhatsApp <SectionInfo {...sectionHelpTexts.whatsapp} /></h1>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowProviderConfig(true)} className="h-8 text-xs">
+          <Button size="sm" variant="outline" onClick={() => { setEditingProvider(null); setShowProviderConfig(true); }} className="h-8 text-xs">
             <Settings2 className="h-3.5 w-3.5 mr-1" /> Provider
           </Button>
           <Button size="sm" variant="outline" onClick={() => setShowBulk(true)} className="h-8 text-xs">
@@ -268,10 +269,10 @@ export default function WhatsApp() {
       {/* Provider status strip */}
       {providers.map(p => {
         if (p.provider === "evolution") {
-          return <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} />;
+          return <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} onEdit={(prov) => { setEditingProvider(prov); setShowProviderConfig(true); }} />;
         }
         if (p.provider === "meta_cloud") {
-          return <MetaCloudStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} />;
+          return <MetaCloudStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} onEdit={(prov) => { setEditingProvider(prov); setShowProviderConfig(true); }} />;
         }
         return null;
       })}
@@ -516,7 +517,17 @@ export default function WhatsApp() {
         </DialogContent>
       </Dialog>
 
-      <ProviderConfigDialog open={showProviderConfig} onOpenChange={setShowProviderConfig} projects={projects} existingProviders={providers} onCreated={load} />
+      <ProviderConfigDialog
+        open={showProviderConfig}
+        onOpenChange={(open) => {
+          setShowProviderConfig(open);
+          if (!open) setEditingProvider(null);
+        }}
+        projects={projects}
+        existingProviders={providers}
+        editingProvider={editingProvider}
+        onCreated={() => { load(); setEditingProvider(null); }}
+      />
       <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} templates={templates} />
     </div>
   );
@@ -662,7 +673,7 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 }
 
 // ── Evolution Status Card ──
-function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void }) {
+function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: any) => void }) {
   const [status, setStatus] = useState<string>("loading");
   const [number, setNumber] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -826,6 +837,10 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced }: { pr
                 <Copy className={`h-3 w-3 mr-2 ${copied ? "text-emerald-400" : ""}`} /> Copiar webhook URL
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs" onClick={() => onEdit(provider)}>
+                <Settings2 className="h-3 w-3 mr-2" /> Editar configurações
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem className="text-xs text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-3 w-3 mr-2" /> Excluir provider
               </DropdownMenuItem>
@@ -902,7 +917,7 @@ function AlertControls({ provider, onChanged }: { provider: any; onChanged: () =
 }
 
 // ── Meta Cloud Status Card (Oficial API) ──
-function MetaCloudStatusCard({ provider, projectName, projects, onSynced }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void }) {
+function MetaCloudStatusCard({ provider, projectName, projects, onSynced, onEdit }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: any) => void }) {
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -992,6 +1007,10 @@ function MetaCloudStatusCard({ provider, projectName, projects, onSynced }: { pr
                   {p.name} {p.id === provider.project_id && "✓"}
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs" onClick={() => onEdit(provider)}>
+                <Settings2 className="h-3 w-3 mr-2" /> Editar configurações
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-xs text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-3 w-3 mr-2" /> Excluir provider
