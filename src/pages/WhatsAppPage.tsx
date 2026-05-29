@@ -194,16 +194,47 @@ export default function WhatsApp() {
   const createSession = async () => {
     if (!form.phone || !form.project_id) { toast.error("Telefone e projeto obrigatórios"); return; }
     const provider = getProvider(form.project_id);
-    const id = crypto.randomUUID();
-    const { error } = await supabase.from("imphq_wa_conversations").upsert({
-      id, phone: form.phone.replace(/\D/g, ""),
-      contact_name: form.contact_name || null,
-      session: form.session || `session-${Date.now()}`,
-      project_id: form.project_id, status: "active",
-      provider_id: provider?.id || null,
-      metadata: { default_message: form.default_message } as any,
-    }, { onConflict: "project_id,phone", ignoreDuplicates: false });
-    if (error) { toast.error("Erro: " + error.message); return; }
+    const cleanedPhone = form.phone.replace(/\D/g, "");
+
+    // 1. Verificar se a conversa já existe para este projeto e telefone
+    const { data: existing } = await supabase
+      .from("imphq_wa_conversations")
+      .select("id")
+      .eq("project_id", form.project_id)
+      .eq("phone", cleanedPhone)
+      .maybeSingle();
+
+    let err: any = null;
+    if (existing) {
+      // 2. Se já existe, atualiza os dados
+      const { error } = await supabase
+        .from("imphq_wa_conversations")
+        .update({
+          contact_name: form.contact_name || null,
+          session: form.session || `session-${Date.now()}`,
+          status: "active",
+          provider_id: provider?.id || null,
+          metadata: { default_message: form.default_message } as any,
+        } as any)
+        .eq("id", existing.id);
+      err = error;
+    } else {
+      // 3. Se não existe, cria um novo
+      const id = crypto.randomUUID();
+      const { error } = await supabase
+        .from("imphq_wa_conversations")
+        .insert({
+          id, phone: cleanedPhone,
+          contact_name: form.contact_name || null,
+          session: form.session || `session-${Date.now()}`,
+          project_id: form.project_id, status: "active",
+          provider_id: provider?.id || null,
+          metadata: { default_message: form.default_message } as any,
+        } as any);
+      err = error;
+    }
+
+    if (err) { toast.error("Erro: " + err.message); return; }
     toast.success("Sessão criada!"); setShowNew(false);
     setForm({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" }); load();
   };
@@ -464,7 +495,10 @@ export default function WhatsApp() {
       {/* New Session Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Nova Sessão WhatsApp</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Nova Sessão WhatsApp</DialogTitle>
+            <DialogDescription className="hidden">Criação de uma nova sessão de WhatsApp no ImperioHQ.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-3">
             <div><Label>Telefone (com DDI)</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="5511999999999" /></div>
             <div><Label>Nome do contato</Label><Input value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} placeholder="Opcional" /></div>

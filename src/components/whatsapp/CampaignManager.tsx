@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -489,7 +489,10 @@ export default function CampaignManager({ projects, providers }: Props) {
       {/* Create Campaign Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Campanha</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Nova Campanha</DialogTitle>
+            <DialogDescription className="hidden">Criação de uma nova campanha de disparo para grupos de WhatsApp.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-3 pr-1">
             <div><Label>Nome da campanha</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Lançamento Curso X" /></div>
             <div><Label>Produto</Label><Input value={form.produto} onChange={e => setForm({ ...form, produto: e.target.value })} placeholder="Ex: Mentoria Premium, Curso Y..." /></div>
@@ -632,7 +635,10 @@ export default function CampaignManager({ projects, providers }: Props) {
       {/* Group Selector Dialog */}
       <Dialog open={!!showGroups} onOpenChange={() => { setShowGroups(null); setGroupSearch(""); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Selecionar Grupos — {showGroups?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Selecionar Grupos — {showGroups?.name}</DialogTitle>
+            <DialogDescription className="hidden">Seleção de grupos de WhatsApp ativos para envio da campanha.</DialogDescription>
+          </DialogHeader>
           {loadingGroups ? (
             <p className="text-sm text-muted-foreground py-4">Buscando grupos via Evolution API...</p>
           ) : availableGroups.length === 0 ? (
@@ -702,7 +708,10 @@ export default function CampaignManager({ projects, providers }: Props) {
       {/* Steps Editor Dialog */}
       <Dialog open={!!showSteps} onOpenChange={() => setShowSteps(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh]">
-          <DialogHeader><DialogTitle>Sequência — {showSteps?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Sequência — {showSteps?.name}</DialogTitle>
+            <DialogDescription className="hidden">Editor de passos e mensagens para a sequência da campanha.</DialogDescription>
+          </DialogHeader>
           {showSteps && <CampaignStepEditor campaignId={showSteps.id} projectId={showSteps.project_id || ""} produto={showSteps.produto || ""} />}
         </DialogContent>
       </Dialog>
@@ -710,7 +719,10 @@ export default function CampaignManager({ projects, providers }: Props) {
       {/* Logs Dialog */}
       <Dialog open={!!showLogs} onOpenChange={() => setShowLogs(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh]">
-          <DialogHeader><DialogTitle>Logs — {showLogs?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Logs — {showLogs?.name}</DialogTitle>
+            <DialogDescription className="hidden">Visualização do histórico de disparos e eventos da campanha.</DialogDescription>
+          </DialogHeader>
           {showLogs && <CampaignLogViewer campaignId={showLogs.id} />}
         </DialogContent>
       </Dialog>
@@ -718,7 +730,10 @@ export default function CampaignManager({ projects, providers }: Props) {
       {/* Automation Dialog */}
       <Dialog open={!!showAutomation} onOpenChange={() => setShowAutomation(null)}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Automações — {showAutomation?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Automações — {showAutomation?.name}</DialogTitle>
+            <DialogDescription className="hidden">Configuração de respostas automáticas de entrada e saída nos grupos.</DialogDescription>
+          </DialogHeader>
           {showAutomation && (
             <CampaignAutomationPanel
               campaignId={showAutomation.id}

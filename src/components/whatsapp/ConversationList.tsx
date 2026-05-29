@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Search, Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
@@ -279,7 +280,20 @@ export default function ConversationList({
                 >
                   <div className="relative shrink-0">
                     <Avatar className={`h-10 w-10 ${hasUnread && !isSelected ? "ring-2 ring-emerald-400/70" : ""}`}>
-                      {s.avatar_url && <AvatarImage src={s.avatar_url} alt={s.contact_name || s.phone} />}
+                      {s.avatar_url && (
+                        <AvatarImage 
+                          src={s.avatar_url} 
+                          alt={s.contact_name || s.phone} 
+                          onError={async () => {
+                            // Se der 403 (URL expirada do CDN do WhatsApp), limpa no banco.
+                            // O hook no WhatsAppPage detecta e puxa um link assinado novo e funcional!
+                            await supabase
+                              .from("imphq_wa_conversations")
+                              .update({ avatar_url: null } as any)
+                              .eq("id", s.id);
+                          }}
+                        />
+                      )}
                       <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
                         {getInitials(s.contact_name, s.phone)}
                       </AvatarFallback>
