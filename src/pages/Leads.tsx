@@ -208,6 +208,7 @@ export default function Leads() {
     if (platformFilter !== "all") leadsQuery = leadsQuery.eq("plataforma", platformFilter);
     if (projectFilter !== "all" && projectFilter !== "none") leadsQuery = leadsQuery.eq("project_id", projectFilter);
     else if (projectFilter === "none") leadsQuery = leadsQuery.is("project_id", null);
+    if (tagFilter !== "all") leadsQuery = leadsQuery.contains("tags", [tagFilter]);
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     leadsQuery = leadsQuery.order("updated_at", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
@@ -263,7 +264,7 @@ export default function Leads() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter]);
+  useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter, tagFilter]);
 
   // Persist filters
   useEffect(() => {
@@ -330,7 +331,24 @@ export default function Leads() {
       if (current.includes(clean)) continue;
       const next = [...current, clean];
       const { error } = await supabase.from("imphq_leads").update({ tags: next }).eq("id", l.id);
-      if (!error) updated++;
+      if (!error) {
+        updated++;
+        supabase.functions.invoke("openflow-executor", {
+          body: {
+            trigger_tipo: "tag_adicionada",
+            project_id: l.project_id || "manual",
+            lead_data: {
+              lead_id: l.id,
+              nome: l.nome || "",
+              email: l.email || "",
+              phone: l.phone || "",
+              telefone: l.phone || "",
+              tags: next,
+            },
+          },
+        }).then(res => console.log("Flow trigger tag_adicionada bulk result", res.data))
+          .catch(err => console.warn("Flow trigger tag_adicionada bulk err", err));
+      }
     }
     toast.success(`Tag "${clean}" aplicada em ${updated} lead(s)`);
     setBulkTagInput("");
@@ -379,7 +397,31 @@ export default function Leads() {
     if (!editLead) return;
     const { error } = await supabase.from("imphq_leads").update({ nome: editLead.nome, email: editLead.email, phone: editLead.phone, plataforma: editLead.plataforma, status: editLead.status, tags: editLead.tags, data: editLead.data || {} }).eq("id", editLead.id);
     if (error) { toast.error("Erro: " + error.message); return; }
-    toast.success("Lead atualizado!"); setEditLead(null); load();
+    toast.success("Lead atualizado!");
+
+    // Check if new tags were added to trigger automations
+    const originalLead = leads.find(l => l.id === editLead.id);
+    const prevTags = originalLead && Array.isArray(originalLead.tags) ? originalLead.tags : [];
+    const newTags = (editLead.tags || []).filter((t: string) => !prevTags.includes(t));
+    if (newTags.length > 0) {
+      supabase.functions.invoke("openflow-executor", {
+        body: {
+          trigger_tipo: "tag_adicionada",
+          project_id: editLead.project_id || "manual",
+          lead_data: {
+            lead_id: editLead.id,
+            nome: editLead.nome || "",
+            email: editLead.email || "",
+            phone: editLead.phone || "",
+            telefone: editLead.phone || "",
+            tags: editLead.tags,
+          },
+        },
+      }).then(res => console.log("Flow trigger tag_adicionada edit result", res.data))
+        .catch(err => console.warn("Flow trigger tag_adicionada edit err", err));
+    }
+
+    setEditLead(null); load();
   };
 
   const deleteLead = async (id: string) => { await supabase.from("imphq_vendas").delete().eq("lead_id", id); await supabase.from("imphq_leads").delete().eq("id", id); toast.success("Lead e vendas associadas removidos"); setEditLead(null); setDeleteConfirm(null); load(); };

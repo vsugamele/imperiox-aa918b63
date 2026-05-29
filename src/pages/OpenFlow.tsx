@@ -25,6 +25,7 @@ const TRIGGERS: { value: string; label: string; icon: string; color: string; gro
   // Lead
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
   { value: "inicio_checkout", label: "Início de Checkout", icon: "🛍️", color: "border-l-purple-500", group: "Lead" },
+  { value: "tag_adicionada", label: "Tag Adicionada", icon: "🏷️", color: "border-l-indigo-500", group: "Lead" },
   // Pagamento - pendente
   { value: "carrinho_abandonado", label: "Carrinho Abandonado", icon: "🛒", color: "border-l-amber-500", group: "Pagamento" },
   { value: "aguardando_pagamento", label: "Aguardando Pagamento / Pix", icon: "💰", color: "border-l-yellow-500", group: "Pagamento" },
@@ -60,6 +61,7 @@ interface Automacao {
   provider_id?: string;
   quiet_start?: number | null; quiet_end?: number | null; dedupe_hours?: number | null;
   campanha_id?: string | null;
+  tag_filtro?: string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ export default function OpenFlow() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
-  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "" });
+  const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "", tag_filtro: "" });
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
   const [webhookProject, setWebhookProject] = useState("none");
@@ -94,8 +96,15 @@ export default function OpenFlow() {
   const [testForm, setTestForm] = useState({ nome: "João Teste", email: "joao@teste.com", telefone: "(11) 99999-9999", produto: "Produto Teste", provider_id: "" });
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [filterProject, setFilterProject] = useState<string>("__all__");
   const [filterCampanha, setFilterCampanha] = useState<string>("__all__");
   const [leadCounts, setLeadCounts] = useState<{ byCamp: Map<string, number>; byProject: Map<string, number>; global: number }>({ byCamp: new Map(), byProject: new Map(), global: 0 });
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [customTagMode, setCustomTagMode] = useState(false);
+  const [customProductMode, setCustomProductMode] = useState(false);
+  const [customTagModeNew, setCustomTagModeNew] = useState(false);
+  const [customProductModeNew, setCustomProductModeNew] = useState(false);
 
   // ── Data loading ─────────────────────────────────────────────
   const load = async () => {
@@ -116,6 +125,25 @@ export default function OpenFlow() {
       twilio_from: null, project_id: s.tenant_id || null,
     }));
     setProviders([...(provRes.data || []), ...hubProviders]);
+
+    // Fetch distinct tags and all products
+    try {
+      const [fullProjsRes, tagCountsRes] = await Promise.all([
+        supabase.from("imphq_projects").select("data"),
+        supabase.rpc("get_lead_tag_counts", { p_project_id: null, p_limit: 200 })
+      ]);
+      const prodsSet = new Set<string>();
+      (fullProjsRes.data || []).forEach((p: any) => {
+        const prods = (p.data?.produtos || []) as any[];
+        prods.forEach(prod => {
+          if (prod.nome) prodsSet.add(prod.nome);
+        });
+      });
+      setAllProducts(Array.from(prodsSet).sort());
+      setAllTags((tagCountsRes.data || []).map((t: any) => t.tag).filter(Boolean));
+    } catch (e) {
+      console.warn("Erro ao buscar tags/produtos extras", e);
+    }
 
     // Lead counts (últimos 30 dias) para badges nos cards
     const since = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -189,10 +217,12 @@ export default function OpenFlow() {
       project_id: form.project_id || null, acoes: (preset?.acoes || []) as any, ativo: true,
       produto: (form as any).produto || null,
       campanha_id: form.campanha_id || null,
+      tag_filtro: form.tag_filtro || null,
     } as any).select("*").single();
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Automação criada!"); setShowNew(false);
-    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "" }); load();
+    setForm({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "", tag_filtro: "" });
+    setCustomTagModeNew(false); setCustomProductModeNew(false); load();
     if (data && preset?.acoes?.length) setEditing(data as any);
   };
 
@@ -217,9 +247,11 @@ export default function OpenFlow() {
       quiet_end: editing.quiet_end ?? null,
       dedupe_hours: editing.dedupe_hours ?? 0,
       campanha_id: editing.campanha_id || null,
+      tag_filtro: editing.tag_filtro || null,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
-    toast.success("Salvo!"); setEditing(null); load();
+    toast.success("Salvo!"); setEditing(null);
+    setCustomTagMode(false); setCustomProductMode(false); load();
   };
 
   const toggleAtivo = async (id: string, ativo: boolean) => {
@@ -359,22 +391,42 @@ export default function OpenFlow() {
             </CardContent>
           </Card>
 
-          {/* Filtro por campanha */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Filtrar por campanha:</span>
-            <Select value={filterCampanha} onValueChange={setFilterCampanha}>
-              <SelectTrigger className="h-7 w-[220px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todas</SelectItem>
-                <SelectItem value="__none__">Sem campanha</SelectItem>
-                {campanhas.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          {/* Filtros */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Filtrar por projeto:</span>
+              <Select value={filterProject} onValueChange={v => { setFilterProject(v); setFilterCampanha("__all__"); }}>
+                <SelectTrigger className="h-7 w-[200px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos os projetos</SelectItem>
+                  <SelectItem value="__none__">Sem projeto</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Filtrar por campanha:</span>
+              <Select value={filterCampanha} onValueChange={setFilterCampanha}>
+                <SelectTrigger className="h-7 w-[200px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas as campanhas</SelectItem>
+                  <SelectItem value="__none__">Sem campanha</SelectItem>
+                  {campanhas
+                    .filter(c => filterProject === "__all__" || c.project_id === filterProject)
+                    .map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Automações agrupadas por campanha */}
           {(() => {
             const filtered = automacoes.filter(a => {
+              if (filterProject !== "__all__") {
+                if (filterProject === "__none__" && a.project_id) return false;
+                if (filterProject !== "__none__" && a.project_id !== filterProject) return false;
+              }
               if (filterCampanha === "__all__") return true;
               if (filterCampanha === "__none__") return !a.campanha_id;
               return a.campanha_id === filterCampanha;
@@ -414,7 +466,8 @@ export default function OpenFlow() {
                       <Badge variant="outline" className="text-[10px]">{tm.label}</Badge>
                       {a.project_id && <Badge className="text-[9px] bg-primary/10 text-primary border-0">{projectName(a.project_id)}</Badge>}
                       {camp && <Badge className="text-[9px] bg-violet-500/10 text-violet-400 border-0">📣 {camp.nome}</Badge>}
-                      {(a as any).produto && <Badge variant="outline" className="text-[9px]">🏷️ {(a as any).produto}</Badge>}
+                      {a.tag_filtro && <Badge className="text-[9px] bg-indigo-500/10 text-indigo-400 border-0">🏷️ {a.tag_filtro}</Badge>}
+                      {(a as any).produto && <Badge variant="outline" className="text-[9px]">📦 {(a as any).produto}</Badge>}
                       {(() => {
                         const n = a.campanha_id
                           ? (leadCounts.byCamp.get(a.campanha_id) || 0)
@@ -558,18 +611,79 @@ export default function OpenFlow() {
                 </SelectContent>
               </Select>
             </div>
-            {form.project_id && projectProducts.length > 0 && (
-              <div>
-                <Label>Produto</Label>
-                <Select value={form.produto || "none"} onValueChange={v => setForm({ ...form, produto: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+            {/* Produto Selector (Novo com dropdown e fallback digitação) */}
+            <div>
+              <Label>Produto (Opcional)</Label>
+              {customProductModeNew ? (
+                <div className="flex gap-2 items-center">
+                  <Input
+                    value={form.produto || ""}
+                    onChange={e => setForm({ ...form, produto: e.target.value })}
+                    placeholder="Digite o nome do produto..."
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setCustomProductModeNew(false); setForm({ ...form, produto: "" }); }}>
+                    Voltar para lista
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={form.produto || "none"}
+                  onValueChange={v => {
+                    if (v === "custom") {
+                      setCustomProductModeNew(true);
+                      setForm({ ...form, produto: "" });
+                    } else {
+                      setForm({ ...form, produto: v === "none" ? "" : v });
+                    }
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Todos os produtos" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Todos</SelectItem>
-                    {projectProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    <SelectItem value="none">Todos os produtos</SelectItem>
+                    {(form.project_id && projectProducts.length > 0 ? projectProducts : allProducts).map(p => (
+                      <SelectItem key={p} value={p}>📦 {p}</SelectItem>
+                    ))}
+                    <SelectItem value="custom" className="text-primary font-medium">➕ Digitar produto personalizado...</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Tag Filter Selector (Novo com dropdown e fallback digitação) */}
+            <div>
+              <Label>Filtrar por Tag do Lead (Opcional)</Label>
+              {customTagModeNew ? (
+                <div className="flex gap-2 items-center">
+                  <Input
+                    value={form.tag_filtro || ""}
+                    onChange={e => setForm({ ...form, tag_filtro: e.target.value })}
+                    placeholder="Digite a tag personalizada..."
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setCustomTagModeNew(false); setForm({ ...form, tag_filtro: "" }); }}>
+                    Voltar para lista
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={form.tag_filtro || "none"}
+                  onValueChange={v => {
+                    if (v === "custom") {
+                      setCustomTagModeNew(true);
+                      setForm({ ...form, tag_filtro: "" });
+                    } else {
+                      setForm({ ...form, tag_filtro: v === "none" ? "" : v });
+                    }
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Todas as tags (Sem filtro)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma tag (Qualquer lead)</SelectItem>
+                    {allTags.map(t => <SelectItem key={t} value={t}>🏷️ {t}</SelectItem>)}
+                    <SelectItem value="custom" className="text-primary font-medium">➕ Digitar tag personalizada...</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
             {form.project_id && (
               <div>
                 <Label>Campanha (opcional)</Label>
@@ -617,36 +731,96 @@ export default function OpenFlow() {
           <DialogHeader><DialogTitle>Editar Automação</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div><Label>Nome</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} /></div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div><Label>Nome</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} className="h-8 text-xs" /></div>
                 <div>
                   <Label>Projeto</Label>
                   <Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v, produto: undefined })}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Todos</SelectItem>
                       {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                {editing.project_id && editProjectProducts.length > 0 && (
-                  <div>
-                    <Label>Produto</Label>
-                    <Select value={editing.produto || "none"} onValueChange={v => setEditing({ ...editing, produto: v === "none" ? undefined : v })}>
-                      <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Todos</SelectItem>
-                        {editProjectProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div>
                   <Label>Trigger</Label>
                   <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label>Produto</Label>
+                  {customProductMode ? (
+                    <div className="flex gap-1.5 items-center">
+                      <Input
+                        value={editing.produto || ""}
+                        onChange={e => setEditing({ ...editing, produto: e.target.value })}
+                        className="h-8 text-xs"
+                        placeholder="Produto..."
+                      />
+                      <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0 text-[10px]" onClick={() => { setCustomProductMode(false); setEditing({ ...editing, produto: undefined }); }}>
+                        Lista
+                      </Button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={editing.produto || "none"}
+                      onValueChange={v => {
+                        if (v === "custom") {
+                          setCustomProductMode(true);
+                          setEditing({ ...editing, produto: "" });
+                        } else {
+                          setEditing({ ...editing, produto: v === "none" ? undefined : v });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Todos</SelectItem>
+                        {(editProjectProducts.length > 0 ? editProjectProducts : allProducts).map(p => (
+                          <SelectItem key={p} value={p}>📦 {p}</SelectItem>
+                        ))}
+                        <SelectItem value="custom" className="text-primary font-medium text-xs">➕ Digitar personalizado...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div>
+                  <Label>Filtrar por Tag</Label>
+                  {customTagMode ? (
+                    <div className="flex gap-1.5 items-center">
+                      <Input
+                        value={editing.tag_filtro || ""}
+                        onChange={e => setEditing({ ...editing, tag_filtro: e.target.value })}
+                        className="h-8 text-xs"
+                        placeholder="Tag..."
+                      />
+                      <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0 text-[10px]" onClick={() => { setCustomTagMode(false); setEditing({ ...editing, tag_filtro: undefined }); }}>
+                        Lista
+                      </Button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={editing.tag_filtro || "none"}
+                      onValueChange={v => {
+                        if (v === "custom") {
+                          setCustomTagMode(true);
+                          setEditing({ ...editing, tag_filtro: "" });
+                        } else {
+                          setEditing({ ...editing, tag_filtro: v === "none" ? undefined : v });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sem tag" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma tag (Qualquer lead)</SelectItem>
+                        {allTags.map(t => <SelectItem key={t} value={t}>🏷️ {t}</SelectItem>)}
+                        <SelectItem value="custom" className="text-primary font-medium text-xs">➕ Digitar personalizado...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
               {editing.project_id && (
@@ -678,7 +852,7 @@ export default function OpenFlow() {
                     <SelectItem value="auto">🔄 Auto (primeiro ativo)</SelectItem>
                     {providers.map((p: any) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from || p.id.slice(0, 12)}
+                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.display_name || p.instance_name || p.twilio_from || p.id.slice(0, 12)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -743,7 +917,7 @@ export default function OpenFlow() {
                   <SelectContent>
                     {providers.map((p: any) => (
                       <SelectItem key={p.id} value={p.id} className="text-xs">
-                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from || p.id}
+                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.display_name || p.instance_name || p.twilio_from || p.id.slice(0, 12)}
                       </SelectItem>
                     ))}
                   </SelectContent>

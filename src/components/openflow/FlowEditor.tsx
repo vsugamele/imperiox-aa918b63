@@ -49,6 +49,7 @@ const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string 
   assinatura_cancelada: { label: "Assinatura Cancelada", icon: "💔", group: "Retenção" },
   assinatura_renovada: { label: "Assinatura Renovada", icon: "🔄", group: "Retenção" },
   trial_iniciado: { label: "Trial Iniciado", icon: "🆓", group: "Retenção" },
+  tag_adicionada: { label: "Tag Adicionada", icon: "🏷️", group: "Lead" },
 };
 
 const DYNAMIC_VARS = [
@@ -305,7 +306,7 @@ export function FlowEditor({ triggerTipo, acoes, onChange, onGenerateAI, isGener
                         <SelectContent>
                           {providers.map(p => (
                             <SelectItem key={p.id} value={p.id}>
-                              {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from}
+                              {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.display_name || p.instance_name || p.twilio_from || p.id.slice(0, 12)}
                             </SelectItem>
                           ))}
                         </SelectContent>

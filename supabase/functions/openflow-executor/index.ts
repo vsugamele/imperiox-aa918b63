@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
       orderbump_aprovado: ["orderbump_aprovado"],
       primeiro_acesso: ["primeiro_acesso"],
       trial_iniciado: ["trial_iniciado"],
+      tag_adicionada: ["tag_adicionada"],
     };
     const triggerVariants = triggerAliases[trigger_tipo] || [trigger_tipo];
 
@@ -81,7 +82,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Filter by project, product and campanha
+    // Fetch lead details if lead_id is present to get accurate, latest tags
+    let leadTags: string[] = [];
+    if (lead_data?.lead_id) {
+      const { data: dbLead } = await supabase
+        .from("imphq_leads")
+        .select("tags, campanha_id")
+        .eq("id", lead_data.lead_id)
+        .maybeSingle();
+      if (dbLead) {
+        leadTags = dbLead.tags || [];
+        if (!lead_data.campanha_id && dbLead.campanha_id) {
+          lead_data.campanha_id = dbLead.campanha_id;
+        }
+      }
+    } else if (lead_data?.tags) {
+      leadTags = Array.isArray(lead_data.tags) ? lead_data.tags : [lead_data.tags];
+    }
+
+    // Filter by project, product, campanha and tag_filtro
     const leadCampanha = lead_data?.campanha_id;
     const matched = (automacoes || []).filter((a: any) => {
       if (a.project_id && a.project_id !== project_id) return false;
@@ -91,6 +110,11 @@ Deno.serve(async (req) => {
       // Se a automação tem campanha definida, só dispara para leads da mesma campanha
       if (a.campanha_id) {
         if (!leadCampanha || a.campanha_id !== leadCampanha) return false;
+      }
+      // Se a automação tem tag_filtro definida, só dispara se o lead tiver essa tag
+      if (a.tag_filtro) {
+        const hasTag = leadTags.some((t: string) => t.toLowerCase() === a.tag_filtro.toLowerCase());
+        if (!hasTag) return false;
       }
       return true;
     });
