@@ -22277,6 +22277,7 @@ export type Database = {
       }
       imphq_wa_providers: {
         Row: {
+          access_token: string | null
           api_key: string | null
           api_url: string | null
           created_at: string | null
@@ -22287,11 +22288,15 @@ export type Database = {
           instance_name: string | null
           is_active: boolean | null
           last_seen_at: string | null
+          phone_number_id: string | null
           project_id: string
           provider: string
           twilio_from: string | null
+          waba_id: string | null
+          webhook_verify_token: string | null
         }
         Insert: {
+          access_token?: string | null
           api_key?: string | null
           api_url?: string | null
           created_at?: string | null
@@ -22302,11 +22307,15 @@ export type Database = {
           instance_name?: string | null
           is_active?: boolean | null
           last_seen_at?: string | null
+          phone_number_id?: string | null
           project_id: string
           provider: string
           twilio_from?: string | null
+          waba_id?: string | null
+          webhook_verify_token?: string | null
         }
         Update: {
+          access_token?: string | null
           api_key?: string | null
           api_url?: string | null
           created_at?: string | null
@@ -22317,9 +22326,12 @@ export type Database = {
           instance_name?: string | null
           is_active?: boolean | null
           last_seen_at?: string | null
+          phone_number_id?: string | null
           project_id?: string
           provider?: string
           twilio_from?: string | null
+          waba_id?: string | null
+          webhook_verify_token?: string | null
         }
         Relationships: []
       }
