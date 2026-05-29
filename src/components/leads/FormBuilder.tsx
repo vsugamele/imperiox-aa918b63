@@ -157,6 +157,11 @@ export function FormBuilder({ projects }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProductsList, setAiProductsList] = useState<string[]>([]);
 
+  // Local AI Fields Generator states
+  const [aiFieldsPrompt, setAiFieldsPrompt] = useState("");
+  const [loadingFieldsAI, setLoadingFieldsAI] = useState(false);
+  const [showAiFieldsAssistant, setShowAiFieldsAssistant] = useState(false);
+
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
     setForms((data || []) as any[]);
@@ -305,6 +310,116 @@ export function FormBuilder({ projects }: Props) {
       toast.error(err.message || "Falha ao gerar com IA");
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleGenerateFieldsWithAI = async () => {
+    if (!aiFieldsPrompt.trim()) {
+      toast.error("Por favor, descreva as perguntas ou campos que precisa.");
+      return;
+    }
+    setLoadingFieldsAI(true);
+    try {
+      const savedKeys = localStorage.getItem("imphq_api_keys");
+      const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
+      const orKey = apiKeys.openrouter;
+
+      let generatedFields: FormField[] = [];
+
+      if (orKey) {
+        // Direct OpenRouter invocation using the Gemini-2.5-flash model
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${orKey}`,
+            "HTTP-Referer": window.location.origin,
+            "X-Title": "ImperioHQ Form Field Assistant",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: `Você é um assistente de formulários de captura e pesquisa.
+Analise a solicitação do usuário e retorne uma lista de campos estruturada em formato JSON válido.
+Você DEVE responder APENAS com o array JSON de campos, sem blocos de código markdown ou texto explicativo.
+
+A estrutura de cada campo no array deve ser:
+{
+  "key": "snake_case_name",
+  "label": "Nome do Campo Visível",
+  "type": "text" | "email" | "tel" | "select" | "textarea" | "number" | "radio" | "checkbox",
+  "required": boolean,
+  "options": ["Opção 1", "Opção 2"] // Apenas se o type for select, radio ou checkbox
+  "placeholder": "Exemplo de resposta"
+}
+
+Regras:
+1. Se o tipo for "radio", configure 2 opções padrão (ex: ["Sim", "Não"]).
+2. Se for "checkbox" ou "select", forneça opções realistas com base no contexto.
+3. Se o usuário digitar uma pergunta, transforme o label na pergunta exata (ou versão curta e polida) e defina o tipo mais apropriado.
+4. Mantenha os nomes de chaves ("key") limpos, sem caracteres especiais, usando snake_case.
+5. Retorne APENAS o JSON literal [ {...}, {...} ].`
+              },
+              {
+                role: "user",
+                content: `Gere os campos para este formulário: "${aiFieldsPrompt}"`
+              }
+            ]
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Erro OpenRouter: ${response.status} - ${errText}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content?.trim();
+        if (!content) throw new Error("A IA não retornou nenhum conteúdo.");
+
+        const jsonString = content.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+        generatedFields = JSON.parse(jsonString);
+      } else {
+        // Fallback to supabase edge function
+        toast.info("Chave OpenRouter não configurada. Usando gateway padrão...");
+        const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+          body: {
+            briefing: `Gere apenas os campos para o formulário com base em: ${aiFieldsPrompt}`,
+            project_id: formProject !== "none" ? formProject : null,
+            product_name: formProduct || null,
+            form_type: formType || null,
+          },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        generatedFields = data.form?.fields || [];
+      }
+
+      if (Array.isArray(generatedFields) && generatedFields.length > 0) {
+        const sanitizedFields = generatedFields.map((f, i) => ({
+          ...f,
+          key: f.key || `campo_${Date.now()}_${i}`,
+          label: f.label || `Campo ${i + 1}`,
+          type: f.type || "text",
+          required: !!f.required,
+        }));
+
+        setFormFields(sanitizedFields);
+        setAiFieldsPrompt("");
+        setShowAiFieldsAssistant(false);
+        toast.success(`Campos gerados com sucesso! (${sanitizedFields.length} campos inseridos)`);
+      } else {
+        toast.error("Nenhum campo válido pôde ser gerado.");
+      }
+    } catch (err: any) {
+      console.error("AI Fields Error:", err);
+      toast.error(`Falha ao gerar campos: ${err.message || "Erro desconhecido"}`);
+    } finally {
+      setLoadingFieldsAI(false);
     }
   };
 
@@ -832,6 +947,61 @@ async function imphqSubmit(e) {
                 )}
               </div>
             )}
+
+            {/* AI Field Assistant */}
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowAiFieldsAssistant(!showAiFieldsAssistant)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Assistente de Campos IA
+                </button>
+                <span className="text-[10px] text-muted-foreground">Preencher todos os campos instantaneamente</span>
+              </div>
+              
+              {showAiFieldsAssistant && (
+                <div className="space-y-2 pt-1 border-t border-primary/10">
+                  <Textarea
+                    value={aiFieldsPrompt}
+                    onChange={e => setAiFieldsPrompt(e.target.value)}
+                    placeholder="Quais campos você quer? Ex: 'Pergunte nome, email, instagram, qual o nicho e faturamento mensal de 3 faixas'"
+                    className="bg-background text-xs min-h-[60px] resize-none leading-5"
+                  />
+                  <div className="flex justify-end gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[10px]"
+                      onClick={() => setShowAiFieldsAssistant(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-[10px] gap-1"
+                      onClick={handleGenerateFieldsWithAI}
+                      disabled={loadingFieldsAI || !aiFieldsPrompt.trim()}
+                    >
+                      {loadingFieldsAI ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3 w-3" />
+                          Gerar Campos
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label>Campos do Formulário</Label>
