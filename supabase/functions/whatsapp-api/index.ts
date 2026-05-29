@@ -1430,6 +1430,11 @@ ${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInst
 ${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}
 REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 - Responda em português brasileiro com fluidez e empatia natural, evite ser robótico, excessivamente polido ou formal (a menos que a instrução do tom seja formal).
+- ALINHAMENTO DE TOM EMOCIONAL (DYN TOM): Analise o sentimento, formato e estilo da última mensagem do lead e adeque a postura da resposta:
+  * Se o lead responde de forma muito curta, fria, seca ou objetiva (ex: "quanto custa?", "ok", "quero saber o preço") ➔ Responda de forma extremamente enxuta, objetiva e direta, eliminando floreios ou excesso de emojis/polidez.
+  * Se o lead demonstra ceticismo, objeção ou preocupação (ex: "tá caro", "não confio", "funciona mesmo?") ➔ Adote um tom empático e compreensivo, validando a dúvida dele antes de apresentar a solução ou quebrar a objeção.
+  * Se o lead fala de forma descontraída, calorosa ou usa emojis/gírias ➔ Responda com entusiasmo, mantendo-se amigável e simpático, utilizando emojis com moderação.
+  * Se o lead demonstra pressa ou ansiedade ➔ Responda rápido, de forma muito clara, direta e objetiva.
 - Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos). Mensagens longas são ignoradas no WhatsApp.
 - Não envie listas de tópicos longas ou blocos densos de texto. Fale como uma pessoa real conversando.
 - NUNCA repita apresentações ou diga "Olá, eu sou o assistente..." se o histórico já mostra que a conversa já começou.
@@ -2064,6 +2069,213 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         JSON.stringify({ success: true, imported, skipped, conversations_created: convsCreated, pages: page }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // ── ACTION: simulate_ai_reply ──
+    if (action === "simulate_ai_reply") {
+      const body = await req.json();
+      const { project_id, message: leadMessage, history = [] } = body;
+      
+      if (!project_id || !leadMessage) {
+        return new Response(JSON.stringify({ success: false, error: "project_id e message são obrigatórios" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400
+        });
+      }
+
+      // 1. Fetch AI Config
+      const { data: aiConfig } = await supabase
+        .from("imphq_wa_ai_config")
+        .select("*")
+        .eq("project_id", project_id)
+        .maybeSingle();
+
+      // 2. Fetch Project Info for context
+      const { data: project } = await supabase
+        .from("imphq_projects")
+        .select("name, data, avatar, brand_kit")
+        .eq("id", project_id)
+        .maybeSingle();
+
+      // 3. Build project context (same as webhook flow)
+      let projectContext = "";
+      if (project && aiConfig) {
+        const sources = aiConfig.context_sources || [];
+        const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
+        if (sources.includes("briefing") && d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 600)}\n`;
+        if (sources.includes("produtos") && d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+        if (sources.includes("avatar") && project.avatar) projectContext += `Avatar: ${JSON.stringify(project.avatar).slice(0, 400)}\n`;
+        if (sources.includes("branding") && project.brand_kit) projectContext += `Branding: ${JSON.stringify(project.brand_kit).slice(0, 400)}\n`;
+        if (sources.includes("copy_arsenal")) {
+          const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
+          if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
+        }
+        if (sources.includes("expert")) {
+          const ex = d.expert || d.especialista;
+          if (ex) projectContext += `Expert: ${JSON.stringify(ex).slice(0, 400)}\n`;
+        }
+        if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
+          const faqStr = aiConfig.faq
+            .slice(0, 20)
+            .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+            .join("\n");
+          projectContext += `FAQ OFICIAL (use a resposta literalmente se a pergunta bater):\n${faqStr.slice(0, 1200)}\n`;
+        }
+      }
+
+      // 4. Fetch objections library to simulate objections matching
+      const { data: objections } = await supabase
+        .from("imphq_wa_objections")
+        .select("id, objecao, resposta_padrao")
+        .eq("projeto_id", project_id);
+
+      // 5. Query LLM to simulate response + output thoughts & matched metrics
+      const personalityPrompts: Record<string, string> = {
+        assistente: "Você é um assistente virtual cordial e prestativo.",
+        vendedor: "Você é um closer de vendas persuasivo mas não agressivo. Foque em entender a dor e apresentar a solução.",
+        suporte: "Você é um agente de suporte técnico eficiente e empático.",
+        consultor: "Você é um consultor especialista. Fale com autoridade e dê recomendações valiosas.",
+      };
+
+      const toneInstructions: Record<string, string> = {
+        profissional: "Tom profissional e direto.",
+        casual: "Tom casual e descontraído, use emojis moderadamente.",
+        amigavel: "Tom amigável e acolhedor, use emojis.",
+        formal: "Tom formal e respeitoso.",
+        urgente: "Tom de urgência e escassez.",
+      };
+
+      const expertPersona = aiConfig?.expert_persona;
+      const customInstr = aiConfig?.custom_instructions;
+      const productFocus = aiConfig?.product_focus;
+
+      const systemPrompt = `Você é o simulador oficial de testes de IA do ImperioHQ.
+Seu objetivo é analisar a mensagem atual do lead e simular com precisão a resposta da IA como se ela estivesse respondendo no WhatsApp.
+Além disso, você deve simular a análise interna de sentimentos e o mapeamento de objeções do cérebro da IA.
+
+INFORMAÇÕES DE CONFIGURAÇÃO DA IA:
+- Personalidade: ${personalityPrompts[aiConfig?.personality || "assistente"]}
+- Tom de Voz Base: ${toneInstructions[aiConfig?.tone || "profissional"]}
+- Persona do Expert: ${expertPersona || "—"}
+- Regras e Barreiras Customizadas: ${customInstr || "—"}
+- Produto em Foco: ${productFocus || "—"}
+
+CONTEXTO DO PROJETO:
+${projectContext || "Nenhum contexto configurado."}
+
+BIBLIOTECA DE OBJEÇÕES CADASTRADAS NO PROJETO (se a mensagem do lead corresponder a alguma dessas objeções, você DEVE simular que ativou a resposta cadastrada correspondente):
+${objections && objections.length > 0 
+  ? objections.map(o => `ID: ${o.id} | Objeção: "${o.objecao}" | Resposta Padrão Recomendada: "${o.resposta_padrao}"`).join("\n")
+  : "Nenhuma objeção cadastrada no projeto."}
+
+Você deve responder rigorosamente no formato JSON abaixo, contendo os seguintes campos:
+{
+  "detectedSentiment": "nome de 1 palavra para o sentimento/postura detectada (ex: Cético, Ansioso, Impaciente, Amigável, Curioso)",
+  "detectedToneExplanation": "uma explicação curta (máximo 12 palavras) de como você alinhou o tom dinâmico do Closer a esse sentimento (ex: 'Lead objetivo, resposta formatada sem rodeios e ultra-direta.')",
+  "matchedObjectionId": "o ID exato da objeção cadastrada na biblioteca que você mapeou (se houver correspondência, senão null)",
+  "matchedObjectionCategory": "o título/resumo da objeção mapeada (se houver, senão null)",
+  "matchedObjectionReason": "uma breve justificativa do porquê essa objeção bateu (se houver, senão null)",
+  "replyText": "o texto exato e formatado da resposta final simulada da IA que seria enviada ao WhatsApp"
+}
+
+REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO DO "replyText"):
+- Responda em português brasileiro de forma fluida, natural, evitando ser robótico.
+- ALINHAMENTO DE TOM EMOCIONAL (DYN TOM): Analise o estilo da última mensagem (seco ➔ responda seco; amigável ➔ responda caloroso e com emojis).
+- Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos). Mensagens longas são ignoradas.
+- NUNCA repita apresentações do tipo "Olá, eu sou o assistente..." se o histórico mostra que o papo já está em andamento.
+- Use formatação de WhatsApp (*negrito*, _itálico_).`;
+
+      const messages = [
+        { role: "system", content: systemPrompt },
+      ];
+
+      // Format history
+      history.forEach((h: any) => {
+        messages.push({
+          role: h.direction === "incoming" ? "user" : "assistant",
+          content: h.content || "",
+        });
+      });
+
+      // Add current test message
+      messages.push({ role: "user", content: leadMessage });
+
+      // Call LLM (using Lovable AI gateway or OpenRouter based on config)
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+      const provider = aiConfig?.ai_provider === "openrouter" ? "openrouter" : "lovable";
+      const model = aiConfig?.ai_model || (provider === "openrouter" ? "openai/gpt-4o-mini" : "google/gemini-3-flash-preview");
+      const temperature = 0.4; // Slightly lower temperature for deterministic simulation outputs
+
+      async function callSimulationLLM() {
+        if (provider === "openrouter" && OPENROUTER_API_KEY) {
+          return await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://imperiox.lovable.app",
+              "X-Title": "Imperio HQ",
+            },
+            body: JSON.stringify({
+              model,
+              messages,
+              response_format: { type: "json_object" },
+              temperature,
+              max_tokens: 600,
+            }),
+          });
+        }
+        return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash", // Use flash since it supports JSON response format natively and is super fast
+            messages,
+            response_format: { type: "json_object" },
+            temperature,
+            max_tokens: 600,
+          }),
+        });
+      }
+
+      let resSimulation = await callSimulationLLM();
+      if (!resSimulation.ok) {
+        // Fallback to standard lovable flash
+        resSimulation = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages,
+            response_format: { type: "json_object" },
+            temperature,
+            max_tokens: 600,
+          }),
+        });
+      }
+
+      if (!resSimulation.ok) {
+        const errText = await resSimulation.text();
+        return new Response(JSON.stringify({ success: false, error: `Erro na simulação da IA: ${errText}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 // Return 200 with success: false to handle gracefully on client toast
+        });
+      }
+
+      try {
+        const data = await resSimulation.json();
+        const completionText = data.choices?.[0]?.message?.content || "{}";
+        const parsedSimulation = JSON.parse(completionText.trim());
+
+        return new Response(JSON.stringify({ success: true, ...parsedSimulation }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (parseErr: any) {
+        return new Response(JSON.stringify({ success: false, error: `Falha ao interpretar JSON da IA: ${parseErr.message}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return new Response(JSON.stringify({ error: "Action not found: " + action }), {

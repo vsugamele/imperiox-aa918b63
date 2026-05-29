@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle } from "lucide-react";
+import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy } from "lucide-react";
 import { RefineAIDialog } from "./RefineAIDialog";
 
 interface FaqItem { pergunta: string; resposta: string; }
@@ -83,6 +83,50 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
   const [loading, setLoading] = useState(true);
   const [keywordsText, setKeywordsText] = useState("");
   const [refineOpen, setRefineOpen] = useState(false);
+  const [simulating, setSimulating] = useState(false);
+  const [testMessage, setTestMessage] = useState("");
+  const [simulationResult, setSimulationResult] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleSimulate = async () => {
+    if (!testMessage.trim()) {
+      toast.error("Digite uma mensagem para simular");
+      return;
+    }
+    setSimulating(true);
+    setSimulationResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-api", {
+        body: {
+          action: "simulate_ai_reply",
+          project_id: projectId,
+          message: testMessage,
+          history: [],
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setSimulationResult(data);
+        toast.success("Simulação concluída com sucesso!");
+      } else {
+        toast.error(data?.error || "Falha na simulação");
+      }
+    } catch (err: any) {
+      toast.error("Erro ao simular: " + err.message);
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Resposta copiada!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     loadConfig();
@@ -213,6 +257,9 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
               </TabsTrigger>
               <TabsTrigger value="training" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
                 <GraduationCap className="h-3.5 w-3.5" /> Cérebro & FAQ
+              </TabsTrigger>
+              <TabsTrigger value="playground" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> Playground de Teste
               </TabsTrigger>
             </TabsList>
           </div>
@@ -631,6 +678,192 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
                       </Button>
                     </div>
                   ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ── TAB 5: PLAYGROUND DE TESTE ── */}
+            <TabsContent value="playground" className="mt-0 space-y-6 animate-fade-in">
+              <div className="bg-primary/5 rounded-lg border border-primary/10 p-4 flex gap-3 items-start">
+                <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5 animate-pulse" />
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-foreground">Playground de Testes de IA</h4>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Escreva cenários reais ou objeções de clientes para testar como o cérebro da IA responderá. Veja em tempo real a postura emocional mapeada, objeções identificadas e a resposta do closer!
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left: Input Scenario */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-muted-foreground">Mensagem Simulada do Lead</Label>
+                    <Textarea
+                      value={testMessage}
+                      onChange={(e) => setTestMessage(e.target.value)}
+                      placeholder="Ex: 'Seu produto tá muito caro, no concorrente eu vi por metade do preço...'"
+                      className="min-h-[140px] text-xs bg-secondary/20 border-border/30 resize-none leading-relaxed p-3.5 focus:border-primary/50"
+                    />
+                  </div>
+
+                  {/* Suggestion Chips */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] text-muted-foreground font-semibold">Mensagens de Teste Rápidas:</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: "💰 Tá muito caro", text: "Achei o seu produto muito caro, no concorrente está mais barato, não tem desconto?" },
+                        { label: "⏱️ Não tenho tempo", text: "Gostei muito da proposta, mas estou sem tempo agora para focar nisso." },
+                        { label: "🤝 Quero comprar!", text: "Perfeito! Gostei muito das condições, como eu faço para realizar o pagamento?" },
+                        { label: "🤔 Como funciona?", text: "Pode me explicar detalhadamente como funciona o suporte e qual a garantia?" },
+                        { label: "⚡ Preciso urgente", text: "Eu preciso resolver isso hoje mesmo, vocês conseguem me entregar a ferramenta rápido?" },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => {
+                            setTestMessage(item.text);
+                            toast.info(`Preenchido: "${item.label}"`);
+                          }}
+                          className="text-[10px] bg-secondary/30 hover:bg-secondary/60 border border-border/40 hover:border-border/60 text-muted-foreground hover:text-foreground px-2 py-1.5 rounded transition-all font-medium"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleSimulate}
+                    disabled={simulating}
+                    className="w-full h-10 shadow gap-2 text-xs font-semibold bg-primary hover:bg-primary/95 text-primary-foreground"
+                  >
+                    {simulating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Simulando pensamentos da IA...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Simular Resposta de IA
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Right: Simulation results */}
+                <div className="lg:col-span-7 space-y-4">
+                  {simulating ? (
+                    <div className="p-8 border border-dashed border-border/40 rounded-lg bg-secondary/5 flex flex-col items-center justify-center text-center space-y-4 min-h-[350px]">
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                        <Brain className="h-5 w-5 text-primary absolute left-3.5 top-3.5 animate-pulse" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-foreground">Cérebro da IA Calculando...</p>
+                        <p className="text-[10px] text-muted-foreground max-w-xs leading-normal">
+                          Analisando sentimentos, extraindo tom emocional, verificando a biblioteca de objeções e refinando cópia.
+                        </p>
+                      </div>
+                    </div>
+                  ) : simulationResult ? (
+                    <div className="space-y-4 animate-fade-in">
+                      {/* Sentiment & Tone Info Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Detected Sentiment */}
+                        <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/15 space-y-1.5">
+                          <Label className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 uppercase tracking-wider">
+                            🧠 Sentimento do Lead
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`text-xs font-semibold px-2 py-0.5 ${
+                              ["cético", "impaciente", "defensivo", "indeciso"].includes(String(simulationResult.detectedSentiment).toLowerCase())
+                                ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                                : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                            }`}>
+                              {["cético", "negociando", "caro"].some(s => String(simulationResult.detectedSentiment).toLowerCase().includes(s)) ? "🤨" : "🤝"}{" "}
+                              {simulationResult.detectedSentiment}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Tone Alignment Explanation */}
+                        <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/15 space-y-1.5">
+                          <Label className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 uppercase tracking-wider">
+                            🎭 Postura do Tom (DYN TOM)
+                          </Label>
+                          <p className="text-xs font-medium text-foreground leading-snug">
+                            {simulationResult.detectedToneExplanation || "Postura padrão adaptada ao sentimento."}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Objection Matched */}
+                      <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/15 space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 uppercase tracking-wider">
+                          📚 Biblioteca de Objeções
+                        </Label>
+                        {simulationResult.matchedObjectionId ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px]">
+                                Objeção Identificada: {simulationResult.matchedObjectionCategory || "Geral"}
+                              </Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-normal">
+                              <strong>Motivo:</strong> {simulationResult.matchedObjectionReason || "Mensagem bate com termos da objeção."}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-muted-foreground py-0.5">
+                            <span className="text-xs">✔️ Nenhuma objeção explícita ativada (IA usará o contexto geral).</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Mockup WhatsApp Balloon */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-muted-foreground">Resposta Oficial Simulada (WhatsApp)</Label>
+                        <div className="p-4 rounded-xl bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat min-h-[140px] flex items-end justify-start border border-border/30">
+                          <div className="bg-[#1f2c34] text-[#e9edef] rounded-lg p-3 text-xs max-w-[85%] shadow-md leading-relaxed relative border border-[#233138]">
+                            <div className="whitespace-pre-wrap">{simulationResult.replyText}</div>
+                            <div className="text-[9px] text-muted-foreground text-right mt-1.5 font-sans leading-none flex items-center justify-end gap-1 select-none">
+                              <span>19:45</span>
+                              <span className="text-[#53bdeb] text-[12px]">✓✓</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Utility buttons */}
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 border-border/40"
+                          onClick={() => copyToClipboard(simulationResult.replyText)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copiar Resposta
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 border border-dashed border-border/40 rounded-lg bg-secondary/5 flex flex-col items-center justify-center text-center space-y-4 min-h-[350px]">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <Sparkles className="h-6 w-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-foreground">Aguardando Mensagem para Simulação</h4>
+                        <p className="text-[10px] text-muted-foreground max-w-xs leading-normal">
+                          Selecione um dos cenários rápidos à esquerda ou digite uma objeção real para rodar o Closer de IA e validar a cópia final.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>
