@@ -159,6 +159,255 @@ function WhatsAppPreview({ step, sampleVars }: { step: Step; sampleVars: Record<
   );
 }
 
+interface CampaignStepCardProps {
+  step: Step;
+  idx: number;
+  stepsCount: number;
+  projectId: string;
+  produto: string;
+  onMove: (idx: number, dir: -1 | 1) => Promise<void>;
+  onPreview: (step: Step) => void;
+  onTest: (step: Step) => void;
+  onDuplicate: (step: Step) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onUpdate: (id: string, field: string, value: any) => Promise<void>;
+  onMediaUpload: (stepId: string, file: File) => Promise<void>;
+  steps: Step[];
+}
+
+function CampaignStepCard({
+  step,
+  idx,
+  stepsCount,
+  projectId,
+  produto,
+  onMove,
+  onPreview,
+  onTest,
+  onDuplicate,
+  onDelete,
+  onUpdate,
+  onMediaUpload,
+  steps,
+}: CampaignStepCardProps) {
+  const [content, setContent] = useState(step.content || "");
+  const [contentB, setContentB] = useState(step.content_b || "");
+
+  useEffect(() => {
+    setContent(step.content || "");
+  }, [step.content]);
+
+  useEffect(() => {
+    setContentB(step.content_b || "");
+  }, [step.content_b]);
+
+  const insertVariable = (varKey: string) => {
+    const newText = (content || "") + ` {${varKey}}`;
+    setContent(newText.trim());
+    onUpdate(step.id, "content", newText.trim());
+  };
+
+  const Icon = MEDIA_ICONS[step.media_type] || Type;
+
+  return (
+    <Card className={`border ${step.is_active ? "border-border" : "border-muted opacity-60"}`}>
+      <CardContent className="p-3 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <div className="flex flex-col">
+              <Button
+                size="icon" variant="ghost" className="h-4 w-4"
+                onClick={() => onMove(idx, -1)} disabled={idx === 0}
+              >
+                <ArrowUp className="h-3 w-3" />
+              </Button>
+              <Button
+                size="icon" variant="ghost" className="h-4 w-4"
+                onClick={() => onMove(idx, 1)} disabled={idx === stepsCount - 1}
+              >
+                <ArrowDown className="h-3 w-3" />
+              </Button>
+            </div>
+            <Badge variant="outline" className="text-[10px]">#{step.step_order + 1}</Badge>
+            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button size="icon" variant="ghost" className="h-6 w-6" title="Preview" onClick={() => onPreview(step)}>
+              <Eye className="h-3 w-3" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-6 w-6" title="Testar agora" onClick={() => onTest(step)}>
+              <Send className="h-3 w-3" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-6 w-6" title="Duplicar step" onClick={() => onDuplicate(step)}>
+              <Plus className="h-3 w-3" />
+            </Button>
+            <div className="flex items-center gap-1 ml-1">
+              <Label className="text-[10px]">Ativo</Label>
+              <Switch checked={step.is_active} onCheckedChange={v => onUpdate(step.id, "is_active", v)} />
+            </div>
+            <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => onDelete(step.id)}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          <div>
+            <Label className="text-[10px]">Tipo</Label>
+            <Select value={step.media_type} onValueChange={v => onUpdate(step.id, "media_type", v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">📝 Texto</SelectItem>
+                <SelectItem value="image">🖼️ Imagem</SelectItem>
+                <SelectItem value="audio">🎵 Áudio</SelectItem>
+                <SelectItem value="video">🎬 Vídeo</SelectItem>
+                <SelectItem value="document">📄 Documento</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-[10px]">Horário</Label>
+            <TimePickerInput
+              value={step.send_time?.slice(0, 5) || "09:00"}
+              onChange={v => onUpdate(step.id, "send_time", v)}
+            />
+          </div>
+          <div>
+            <Label className="text-[10px]">Data específica</Label>
+            <DatePickerInput
+              value={step.send_date || null}
+              onChange={v => onUpdate(step.id, "send_date", v)}
+            />
+          </div>
+          <div>
+            <Label className="text-[10px]">{step.send_date ? "Offset (ignorado)" : "Dia (offset)"}</Label>
+            <Input type="number" className={`h-8 text-xs ${step.send_date ? "opacity-50" : ""}`} value={step.days_offset} onChange={e => onUpdate(step.id, "days_offset", parseInt(e.target.value) || 0)} min={0} disabled={!!step.send_date} />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <Label className="text-[10px]">Mensagem</Label>
+            <div className="flex items-center gap-1">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]">
+                    <Variable className="h-3 w-3 mr-0.5" /> Variáveis
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-56 p-2">
+                  <p className="text-[10px] text-muted-foreground mb-2">Clique para inserir:</p>
+                  <div className="space-y-1">
+                    {VARIABLES.map(v => (
+                      <button
+                        key={v.key}
+                        onClick={() => insertVariable(v.key)}
+                        className="w-full text-left px-2 py-1 rounded hover:bg-secondary/40 text-xs"
+                      >
+                        <code className="text-primary">{`{${v.key}}`}</code>
+                        <span className="block text-[10px] text-muted-foreground">{v.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {projectId && (
+                <AIGenerateButton
+                  projectId={projectId}
+                  action="generate_campaign_message"
+                  label="Gerar"
+                  size="sm"
+                  variant="ghost"
+                  className="h-5 px-1.5 text-[10px]"
+                  showMenteSelector
+                  extraBody={{
+                    campaign_id: step.campaign_id,
+                    produto,
+                    step_order: step.step_order,
+                    total_steps: stepsCount,
+                    media_type: step.media_type,
+                  }}
+                  onResult={(data: any) => {
+                    const text = data?.text || data?.content || "";
+                    if (text) {
+                      onUpdate(step.id, "content", text);
+                      setContent(text);
+                    }
+                  }}
+                />
+              )}
+            </div>
+          </div>
+          <Textarea
+            className="text-xs min-h-[160px] font-mono leading-6 whitespace-pre-wrap"
+            rows={8}
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            onBlur={() => {
+              if (content !== step.content) {
+                onUpdate(step.id, "content", content);
+              }
+            }}
+            placeholder={"Texto da mensagem...\n\nUse linhas em branco entre parágrafos para criar espaçamento (como no WhatsApp real).\n\nVariáveis: {nome}, {produto}, {grupo_nome}"}
+          />
+          <p className="text-[9px] text-muted-foreground mt-1 font-mono">
+            {(content || "").split("\n").length} linhas · {(content || "").length} caracteres
+          </p>
+        </div>
+
+        {/* A/B Variant B */}
+        <details className="rounded border border-dashed border-border/60 px-2 py-1.5">
+          <summary className="text-[10px] text-muted-foreground cursor-pointer flex items-center justify-between">
+            <span>🧪 Variante B (teste A/B) {contentB ? "— ativa" : "— opcional"}</span>
+          </summary>
+          <Textarea
+            className="text-xs min-h-[50px] mt-1.5"
+            value={contentB}
+            onChange={e => setContentB(e.target.value)}
+            onBlur={() => {
+              if (contentB !== step.content_b) {
+                onUpdate(step.id, "content_b", contentB || null);
+              }
+            }}
+            placeholder="Texto alternativo. Se preenchido, 50% dos grupos recebem esta versão."
+          />
+        </details>
+
+        {step.media_type !== "text" && (
+          <div>
+            <Label className="text-[10px]">Mídia</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                className="h-8 text-xs flex-1"
+                value={step.media_url || ""}
+                onChange={e => onUpdate(step.id, "media_url", e.target.value)}
+                placeholder="URL da mídia ou faça upload →"
+              />
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  className="hidden"
+                  accept={step.media_type === "image" ? "image/*" : step.media_type === "audio" ? "audio/*" : step.media_type === "video" ? "video/*" : "*"}
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) onMediaUpload(step.id, f);
+                  }}
+                />
+                <Button size="sm" variant="outline" className="h-8 text-xs" asChild>
+                  <span>Upload</span>
+                </Button>
+              </label>
+            </div>
+            {step.media_url && step.media_type === "image" && (
+              <img src={step.media_url} alt="" className="mt-2 rounded max-h-24 object-cover" />
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface CampaignStepEditorProps {
   campaignId: string;
   projectId?: string;
@@ -173,6 +422,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   const [testGroupJid, setTestGroupJid] = useState("");
   const [testing, setTesting] = useState(false);
   const [showAI, setShowAI] = useState(false);
+
   const [showImport, setShowImport] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
@@ -263,11 +513,6 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     toast.success("Mídia enviada!");
   };
 
-  const insertVariable = (stepId: string, currentContent: string, varKey: string) => {
-    const newText = (currentContent || "") + ` {${varKey}}`;
-    updateStep(stepId, "content", newText.trim());
-  };
-
   const runTestSend = async () => {
     if (!testStep || !testGroupJid.trim()) {
       toast.error("Informe o JID do grupo (ex: 1203...@g.us)");
@@ -322,193 +567,24 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
               </Button>
             </div>
           ) : (
-            steps.map((step, idx) => {
-              const Icon = MEDIA_ICONS[step.media_type] || Type;
-              return (
-                <Card key={step.id} className={`border ${step.is_active ? "border-border" : "border-muted opacity-60"}`}>
-                  <CardContent className="p-3 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex flex-col">
-                          <Button
-                            size="icon" variant="ghost" className="h-4 w-4"
-                            onClick={() => moveStep(idx, -1)} disabled={idx === 0}
-                          >
-                            <ArrowUp className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="icon" variant="ghost" className="h-4 w-4"
-                            onClick={() => moveStep(idx, 1)} disabled={idx === steps.length - 1}
-                          >
-                            <ArrowDown className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <Badge variant="outline" className="text-[10px]">#{step.step_order + 1}</Badge>
-                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button size="icon" variant="ghost" className="h-6 w-6" title="Preview" onClick={() => setPreviewStep(step)}>
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" title="Testar agora" onClick={() => { setTestStep(step); setTestGroupJid(""); }}>
-                          <Send className="h-3 w-3" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" title="Duplicar step" onClick={() => duplicateStep(step)}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                        <div className="flex items-center gap-1 ml-1">
-                          <Label className="text-[10px]">Ativo</Label>
-                          <Switch checked={step.is_active} onCheckedChange={v => updateStep(step.id, "is_active", v)} />
-                        </div>
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => deleteStep(step.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-2">
-                      <div>
-                        <Label className="text-[10px]">Tipo</Label>
-                        <Select value={step.media_type} onValueChange={v => updateStep(step.id, "media_type", v)}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text">📝 Texto</SelectItem>
-                            <SelectItem value="image">🖼️ Imagem</SelectItem>
-                            <SelectItem value="audio">🎵 Áudio</SelectItem>
-                            <SelectItem value="video">🎬 Vídeo</SelectItem>
-                            <SelectItem value="document">📄 Documento</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-[10px]">Horário</Label>
-                        <TimePickerInput
-                          value={step.send_time?.slice(0, 5) || "09:00"}
-                          onChange={v => updateStep(step.id, "send_time", v)}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px]">Data específica</Label>
-                        <DatePickerInput
-                          value={step.send_date || null}
-                          onChange={v => updateStep(step.id, "send_date", v)}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px]">{step.send_date ? "Offset (ignorado)" : "Dia (offset)"}</Label>
-                        <Input type="number" className={`h-8 text-xs ${step.send_date ? "opacity-50" : ""}`} value={step.days_offset} onChange={e => updateStep(step.id, "days_offset", parseInt(e.target.value) || 0)} min={0} disabled={!!step.send_date} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <Label className="text-[10px]">Mensagem</Label>
-                        <div className="flex items-center gap-1">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]">
-                                <Variable className="h-3 w-3 mr-0.5" /> Variáveis
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="end" className="w-56 p-2">
-                              <p className="text-[10px] text-muted-foreground mb-2">Clique para inserir:</p>
-                              <div className="space-y-1">
-                                {VARIABLES.map(v => (
-                                  <button
-                                    key={v.key}
-                                    onClick={() => insertVariable(step.id, step.content || "", v.key)}
-                                    className="w-full text-left px-2 py-1 rounded hover:bg-secondary/40 text-xs"
-                                  >
-                                    <code className="text-primary">{`{${v.key}}`}</code>
-                                    <span className="block text-[10px] text-muted-foreground">{v.desc}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                          {projectId && (
-                            <AIGenerateButton
-                              projectId={projectId}
-                              action="generate_campaign_message"
-                              label="Gerar"
-                              size="sm"
-                              variant="ghost"
-                              className="h-5 px-1.5 text-[10px]"
-                              showMenteSelector
-                              extraBody={{
-                                campaign_id: campaignId,
-                                produto,
-                                step_order: step.step_order,
-                                total_steps: steps.length,
-                                media_type: step.media_type,
-                              }}
-                              onResult={(data: any) => {
-                                const text = data?.text || data?.content || "";
-                                if (text) updateStep(step.id, "content", text);
-                              }}
-                            />
-                          )}
-                        </div>
-                      </div>
-                      <Textarea
-                        className="text-xs min-h-[160px] font-mono leading-6 whitespace-pre-wrap"
-                        rows={8}
-                        value={step.content || ""}
-                        onChange={e => updateStep(step.id, "content", e.target.value)}
-                        placeholder={"Texto da mensagem...\n\nUse linhas em branco entre parágrafos para criar espaçamento (como no WhatsApp real).\n\nVariáveis: {nome}, {produto}, {grupo_nome}"}
-                      />
-                      <p className="text-[9px] text-muted-foreground mt-1 font-mono">
-                        {(step.content || "").split("\n").length} linhas · {(step.content || "").length} caracteres
-                      </p>
-                    </div>
-
-                    {/* A/B Variant B */}
-                    <details className="rounded border border-dashed border-border/60 px-2 py-1.5">
-                      <summary className="text-[10px] text-muted-foreground cursor-pointer flex items-center justify-between">
-                        <span>🧪 Variante B (teste A/B) {step.content_b ? "— ativa" : "— opcional"}</span>
-                      </summary>
-                      <Textarea
-                        className="text-xs min-h-[50px] mt-1.5"
-                        value={step.content_b || ""}
-                        onChange={e => updateStep(step.id, "content_b", e.target.value || null)}
-                        placeholder="Texto alternativo. Se preenchido, 50% dos grupos recebem esta versão."
-                      />
-                    </details>
-
-                    {step.media_type !== "text" && (
-                      <div>
-                        <Label className="text-[10px]">Mídia</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            className="h-8 text-xs flex-1"
-                            value={step.media_url || ""}
-                            onChange={e => updateStep(step.id, "media_url", e.target.value)}
-                            placeholder="URL da mídia ou faça upload →"
-                          />
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept={step.media_type === "image" ? "image/*" : step.media_type === "audio" ? "audio/*" : step.media_type === "video" ? "video/*" : "*"}
-                              onChange={e => {
-                                const f = e.target.files?.[0];
-                                if (f) handleMediaUpload(step.id, f);
-                              }}
-                            />
-                            <Button size="sm" variant="outline" className="h-8 text-xs" asChild>
-                              <span>Upload</span>
-                            </Button>
-                          </label>
-                        </div>
-                        {step.media_url && step.media_type === "image" && (
-                          <img src={step.media_url} alt="" className="mt-2 rounded max-h-24 object-cover" />
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })
+            steps.map((step, idx) => (
+              <CampaignStepCard
+                key={step.id}
+                step={step}
+                idx={idx}
+                stepsCount={steps.length}
+                projectId={projectId}
+                produto={produto}
+                onMove={moveStep}
+                onPreview={setPreviewStep}
+                onTest={(s) => { setTestStep(s); setTestGroupJid(""); }}
+                onDuplicate={duplicateStep}
+                onDelete={deleteStep}
+                onUpdate={updateStep}
+                onMediaUpload={handleMediaUpload}
+                steps={steps}
+              />
+            ))
           )}
 
           <Button variant="outline" className="w-full" onClick={addStep}>

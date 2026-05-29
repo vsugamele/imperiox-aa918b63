@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search, Cog, Copy, Clock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search, Cog, Copy, Clock, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import CampaignStepEditor from "./CampaignStepEditor";
 import CampaignLogViewer from "./CampaignLogViewer";
@@ -70,6 +72,18 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupSearch, setGroupSearch] = useState("");
 
+  // AI generation states during campaign creation
+  const [generateWithAI, setGenerateWithAI] = useState(false);
+  const [aiCount, setAiCount] = useState(7);
+  const [aiTom, setAiTom] = useState("vendas");
+  const [includeAvatar, setIncludeAvatar] = useState(true);
+  const [includeExpert, setIncludeExpert] = useState(true);
+  const [includeProduct, setIncludeProduct] = useState(true);
+  const [mainTheme, setMainTheme] = useState("");
+  const [offerDetail, setOfferDetail] = useState("");
+  const [briefing, setBriefing] = useState("");
+  const [showAdvancedBriefing, setShowAdvancedBriefing] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
@@ -119,7 +133,7 @@ export default function CampaignManager({ projects, providers }: Props) {
     load();
   }, [load]);
 
-  const resetForm = () =>
+  const resetForm = () => {
     setForm({
       name: "",
       project_id: "",
@@ -130,30 +144,91 @@ export default function CampaignManager({ projects, providers }: Props) {
       send_window_start: "08:00",
       send_window_end: "22:00",
     });
+    setGenerateWithAI(false);
+    setAiCount(7);
+    setAiTom("vendas");
+    setIncludeAvatar(true);
+    setIncludeExpert(true);
+    setIncludeProduct(true);
+    setMainTheme("");
+    setOfferDetail("");
+    setBriefing("");
+    setShowAdvancedBriefing(false);
+  };
 
   const createCampaign = async () => {
     if (!form.name) {
       toast.error("Nome obrigatório");
       return;
     }
-    const { error } = await supabase.from("imphq_wa_campaigns").insert({
-      name: form.name,
-      project_id: form.project_id || null,
-      provider_id: form.provider_id || null,
-      produto: form.produto || null,
-      start_date: form.start_date || null,
-      exit_message: form.exit_message || null,
-      send_window_start: form.send_window_start || "08:00",
-      send_window_end: form.send_window_end || "22:00",
-      status: "draft",
-      groups: [] as any,
-    } as any);
+    const { data: newCamp, error } = await supabase
+      .from("imphq_wa_campaigns")
+      .insert({
+        name: form.name,
+        project_id: form.project_id || null,
+        provider_id: form.provider_id || null,
+        produto: form.produto || null,
+        start_date: form.start_date || null,
+        exit_message: form.exit_message || null,
+        send_window_start: form.send_window_start || "08:00",
+        send_window_end: form.send_window_end || "22:00",
+        status: "draft",
+        groups: [] as any,
+      } as any)
+      .select()
+      .single();
+
     if (error) {
       toast.error(error.message);
       return;
     }
+
     toast.success("Campanha criada!");
     setShowCreate(false);
+
+    if (generateWithAI && newCamp) {
+      const structuredBriefing = [
+        `[ESPECIFICAÇÕES DA SEQUÊNCIA]`,
+        `- Tom de voz desejado: ${aiTom}`,
+        `- Foco do Produto: ${form.produto || "Geral do Projeto"}`,
+        ``,
+        `[DADOS DO PROJETO INTEGRADOS]`,
+        includeAvatar ? `- IMPORTANTE: Extraia e utilize ativamente as Dores, Desejos, Problemas e Perfil Psicológico do Avatar cadastrados no projeto para gerar conexão.` : "- Não carregar contexto de avatar.",
+        includeExpert ? `- IMPORTANTE: Incorpore a Persona, Bio, Tom de voz e pilares do Expert do projeto para manter a autoridade.` : "- Não carregar contexto de expert.",
+        includeProduct ? `- IMPORTANTE: Utilize a Promessa, Mecanismo Único e links de checkout dos Produtos cadastrados no projeto para acelerar as vendas.` : "- Não carregar contexto de produtos.",
+        ``,
+        `[PERGUNTAS DE ALINHAMENTO / ALVO]`,
+        mainTheme.trim() ? `- Gancho/Tema Central da Sequência: ${mainTheme.trim()}` : "",
+        offerDetail.trim() ? `- Detalhes da Oferta/Bônus/Escassez: ${offerDetail.trim()}` : "",
+        briefing.trim() ? `- Briefing Adicional do Usuário: ${briefing.trim()}` : "",
+      ].filter(Boolean).join("\n");
+
+      toast.promise(
+        supabase.functions.invoke("wa-campaign-ai-generate", {
+          body: {
+            campaign_id: newCamp.id,
+            project_id: form.project_id,
+            produto: form.produto,
+            count: aiCount,
+            tom: aiTom,
+            briefing: structuredBriefing,
+          },
+        }),
+        {
+          loading: "Gerando sequência de mensagens com IA em background...",
+          success: (res) => {
+            if (res.data?.error) {
+              throw new Error(res.data.error);
+            }
+            const countInserted = res.data?.inserted || 0;
+            load();
+            return `✨ Sequência gerada com sucesso! ${countInserted} mensagens adicionadas à campanha.`;
+          },
+          error: (err) => `Erro ao gerar sequência com IA: ${err.message || "tente novamente"}`,
+        }
+      );
+    }
+
     resetForm();
     load();
   };
@@ -413,9 +488,9 @@ export default function CampaignManager({ projects, providers }: Props) {
 
       {/* Create Campaign Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Campanha</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-3 pr-1">
             <div><Label>Nome da campanha</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Lançamento Curso X" /></div>
             <div><Label>Produto</Label><Input value={form.produto} onChange={e => setForm({ ...form, produto: e.target.value })} placeholder="Ex: Mentoria Premium, Curso Y..." /></div>
             <div>
@@ -461,6 +536,93 @@ export default function CampaignManager({ projects, providers }: Props) {
                 rows={2}
                 className="text-xs"
               />
+            </div>
+
+            {/* AI Generation options during Campaign Creation */}
+            <div className="pt-3 border-t border-border/40 mt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-gold animate-pulse" /> Gerar Sequência com IA
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">Cria a campanha e gera todas as mensagens na hora</p>
+                </div>
+                <Switch checked={generateWithAI} onCheckedChange={setGenerateWithAI} />
+              </div>
+
+              {generateWithAI && (
+                <div className="space-y-3 p-3.5 rounded-lg border border-primary/10 bg-primary/5 animate-slide-in">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Qtd. de mensagens</Label>
+                      <Input type="number" min={1} max={30} value={aiCount} onChange={e => setAiCount(parseInt(e.target.value) || 7)} className="h-8 text-xs bg-background" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Tom de Voz</Label>
+                      <Select value={aiTom} onValueChange={setAiTom}>
+                        <SelectTrigger className="h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="vendas" className="text-xs">🔥 Venda direta</SelectItem>
+                          <SelectItem value="conteudo" className="text-xs">📚 Conteúdo de valor</SelectItem>
+                          <SelectItem value="aquecimento" className="text-xs">☀️ Aquecimento de Leads</SelectItem>
+                          <SelectItem value="lancamento" className="text-xs">🚀 Lançamento oficial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {form.project_id && (
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-[10px] font-bold text-muted-foreground block">Puxar do projeto:</Label>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground hover:text-foreground">
+                          <Checkbox checked={includeAvatar} onCheckedChange={v => setIncludeAvatar(!!v)} />
+                          <span>Avatar</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground hover:text-foreground">
+                          <Checkbox checked={includeExpert} onCheckedChange={v => setIncludeExpert(!!v)} />
+                          <span>Expert</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground hover:text-foreground">
+                          <Checkbox checked={includeProduct} onCheckedChange={v => setIncludeProduct(!!v)} />
+                          <span>Produto</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAdvancedBriefing(!showAdvancedBriefing)}
+                      className="w-full text-[11px] h-7.5 border-dashed flex items-center justify-center gap-1"
+                    >
+                      <span>Mais perguntas de alinhamento</span>
+                      {showAdvancedBriefing ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
+
+                    {showAdvancedBriefing && (
+                      <div className="space-y-2.5 pt-1.5 border-t border-border/20">
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">🎯 Gancho ou tema central da sequência</Label>
+                          <Input value={mainTheme} onChange={e => setMainTheme(e.target.value)} placeholder="Ex: Aula prática e depois oferta secreta..." className="h-8 text-xs bg-background" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">💰 Oferta final, bônus ou prazo de escassez</Label>
+                          <Input value={offerDetail} onChange={e => setOfferDetail(e.target.value)} placeholder="Ex: R$ 497 com bônus de mentoria até sexta..." className="h-8 text-xs bg-background" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Instruções extras de copy (opcional)</Label>
+                    <Textarea value={briefing} onChange={e => setBriefing(e.target.value)} placeholder="Ex: use metáforas de jornada, CTA no dia 4..." rows={2} className="text-xs bg-background resize-none" />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter><Button onClick={createCampaign}>Criar</Button></DialogFooter>

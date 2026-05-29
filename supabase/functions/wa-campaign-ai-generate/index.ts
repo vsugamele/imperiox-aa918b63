@@ -60,6 +60,24 @@ serve(async (req) => {
     }
 
 
+    // Fetch existing steps to provide context and prevent narrative overlap
+    const { data: existingSteps } = await supabase
+      .from("imphq_wa_campaign_steps")
+      .select("step_order, content, media_type, days_offset, send_time")
+      .eq("campaign_id", campaign_id)
+      .order("step_order", { ascending: true });
+
+    let existingStepsCtx = "";
+    let lastDaysOffset = 0;
+    if (existingSteps && existingSteps.length > 0) {
+      existingStepsCtx = "\n\n## MENSAGENS JÁ EXISTENTES NA SEQUÊNCIA (Obrigatório respeitar):\n" +
+        "Esta campanha já possui as seguintes mensagens. As novas mensagens que você vai gerar devem ser uma CONTINUAÇÃO lógica desta sequência, sem repetir ganchos, saudações iniciais ou explicações já contidas nelas. Comece o fluxo narrativo a partir de onde a última parou:\n" +
+        existingSteps.map((s: any) => `Passo #${s.step_order + 1} (Dia ${s.days_offset} às ${s.send_time || "09:00"}): "${s.content || "(vazia)"}"`).join("\n\n");
+      
+      const maxOffset = Math.max(...existingSteps.map((s: any) => Number(s.days_offset) || 0));
+      lastDaysOffset = maxOffset + 1; // start new steps after the last one
+    }
+
     const N = Math.max(1, Math.min(60, Number(count) || 7));
 
     const systemPrompt = `Você é Imperius, estrategista de copy WhatsApp para grupos. Escreva em pt-BR.
@@ -79,10 +97,10 @@ Exemplo de estrutura correta (note os \\n\\n entre blocos):
     const userPrompt = `Gere uma sequência de ${N} mensagens WhatsApp para grupos.
 Produto: ${produto || "(não informado)"}
 Tom: ${tom}
-Briefing: ${briefing || "(livre)"}${reference ? `\n\nReferência de copy (imite tom/estrutura, NÃO copie literal):\n${String(reference).slice(0, 4000)}` : ""}${projectCtx}${refsCtx}
+Briefing: ${briefing || "(livre)"}${existingStepsCtx}${reference ? `\n\nReferência de copy (imite tom/estrutura, NÃO copie literal):\n${String(reference).slice(0, 4000)}` : ""}${projectCtx}${refsCtx}
 
 Estrutura de cada mensagem:
-- day_offset (0 = dia da entrada, 1 = dia seguinte, etc.) — distribua de forma natural ao longo de ${N} dias
+- day_offset (0 = dia da entrada, 1 = dia seguinte, etc.) — distribua de forma natural ao longo de ${N} dias (será somado ao offset de mensagens anteriores automaticamente)
 - send_time (HH:MM, 24h, entre 09:00 e 20:00)
 - content (texto da mensagem COM \\n\\n entre parágrafos, conforme regras de formatação)
 
@@ -139,7 +157,7 @@ Retorne APENAS JSON válido no formato:
       content: String(s.content || "").slice(0, 4000),
       media_type: "text",
       send_time: typeof s.send_time === "string" && /^\d{2}:\d{2}/.test(s.send_time) ? s.send_time.slice(0, 5) : "09:00",
-      days_offset: Number.isInteger(s.day_offset) ? s.day_offset : 0,
+      days_offset: Number.isInteger(s.day_offset) ? s.day_offset + lastDaysOffset : lastDaysOffset,
       is_active: true,
     }));
 

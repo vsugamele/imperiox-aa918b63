@@ -1252,38 +1252,63 @@ async function handleCampaignMessage(body: any, projectContext: string, sb: any,
   const { campaign_id, produto, step_order, total_steps, media_type } = body;
 
   let campaignName = "";
+  let otherStepsContext = "";
   if (campaign_id) {
-    const { data: camp } = await sb.from("imphq_wa_campaigns").select("name, produto").eq("id", campaign_id).single();
+    const [campRes, otherStepsRes] = await Promise.all([
+      sb.from("imphq_wa_campaigns").select("name, produto").eq("id", campaign_id).maybeSingle(),
+      sb.from("imphq_wa_campaign_steps").select("step_order, content, media_type").eq("campaign_id", campaign_id).order("step_order", { ascending: true })
+    ]);
+    const camp = campRes.data;
     if (camp) {
       campaignName = camp.name || "";
       if (!produto && camp.produto) body.produto_fallback = camp.produto;
+    }
+    const otherSteps = otherStepsRes.data;
+    if (otherSteps && otherSteps.length > 0) {
+      otherStepsContext = "\n## Mensagens existentes nesta sequência (leia atentamente para garantir coesão e evitar repetição):\n";
+      otherSteps.forEach((s: any) => {
+        const isCurrent = s.step_order === step_order;
+        otherStepsContext += `### Passo #${s.step_order + 1} (${s.media_type}) ${isCurrent ? "[ESTA ETAPA - GERANDO AGORA]" : ""}\n`;
+        if (isCurrent) {
+          otherStepsContext += `(Você deve gerar o texto para esta etapa agora, garantindo perfeita continuidade com as anteriores e posteriores)\n\n`;
+        } else {
+          otherStepsContext += `Texto: "${s.content || "(vazia)"}"\n\n`;
+        }
+      });
     }
   }
 
   const produtoFinal = produto || body.produto_fallback || "";
   const mediaLabel = media_type === "text" ? "mensagem de texto" : media_type === "image" ? "mensagem com imagem (gere o texto/caption)" : media_type === "audio" ? "roteiro de áudio" : media_type === "video" ? "roteiro de vídeo" : "mensagem";
 
-  const systemPrompt = `${mentePrefix}Você é um copywriter brasileiro especialista em WhatsApp Marketing.
-Seu objetivo: criar UMA ${mediaLabel} persuasiva para WhatsApp.
+  const systemPrompt = `${mentePrefix}Você é um copywriter de elite especialista em WhatsApp Marketing.
+Seu objetivo é criar a mensagem do Passo ${(step_order || 0) + 1} da sequência.
 
-## Contexto da Campanha
-- Nome: ${campaignName}
+## IMPORTANTE: COESÃO E SEQUÊNCIA NARRATIVA
+Para esta mensagem fazer sentido, ela deve ser uma CONTINUAÇÃO direta e complementar das mensagens anteriores da sequência, e antecipar as mensagens seguintes (se houver).
+NUNCA repita apresentações, saudações de boas-vindas, ganchos ou explicações se elas já foram feitas nas mensagens anteriores!
+
+Abaixo está a lista completa de todas as mensagens cadastradas nesta campanha. O seu passo está claramente marcado como [ESTA ETAPA - GERANDO AGORA].
+Use este contexto para fazer uma transição suave e focar em novos pontos de copy, prova social ou quebra de objeções específicos para o momento da sequência.
+
+${otherStepsContext}
+
+## Informações do Produto & Projeto
+- Campanha: ${campaignName}
 - Produto: ${produtoFinal || "não especificado"}
-- Etapa ${(step_order || 0) + 1} de ${total_steps || "?"} na sequência
-- Tipo de mídia: ${media_type}
+- Tipo de mídia a gerar: ${media_type}
 
 ${projectContext}
 
-REGRAS:
-- Linguagem conversacional, direta, em português BR
-- Use emojis com moderação
-- Inclua variáveis como {{nome}}, {{link}}, {{produto}}, {{valor}} quando apropriado
-- Para etapa 1: abertura/boas-vindas com gancho
-- Para etapas intermediárias: valor, prova social, storytelling
-- Para última etapa: CTA forte, urgência, escassez
-- Máximo 300 palavras
-- NÃO use markdown. Texto puro formatado para WhatsApp (negrito com *asteriscos*, itálico com _underscores_)
-- Retorne APENAS o texto da mensagem, sem explicações`;
+REGRAS DE CONTEÚDO E ESCRITA:
+- Idioma: Português brasileiro conversacional, direto, sem jargões corporativos exagerados.
+- Use emojis com inteligência e moderação (apenas no início de ganchos ou CTAs).
+- Inclua variáveis como {{nome}}, {{link}}, {{produto}}, {{valor}} onde se encaixar perfeitamente.
+- Se for a primeira etapa (Passo 1), faça um gancho forte ou saudação inicial.
+- Se for uma etapa intermediária, traga valor, prova social, storytelling ou quebre objeções.
+- Se for a última etapa da sequência, faça um fechamento com oferta direta, CTA explícito e senso de urgência/escassez.
+- Formate o texto para WhatsApp: use *negrito* para destacar palavras-chave, _itálico_ para termos específicos ou ênfase. Não use títulos em markdown (#).
+- Retorne APENAS o texto final da mensagem, sem introduções, notas ou explicações extras.`;
 
   const userPrompt = `Gere a mensagem para a etapa ${(step_order || 0) + 1} de ${total_steps || "?"} da campanha "${campaignName}" sobre o produto "${produtoFinal}". Tipo: ${mediaLabel}.`;
 
