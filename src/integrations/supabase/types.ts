@@ -39170,6 +39170,7 @@ export type Database = {
       }
       amjp_is_admin: { Args: { _uid: string }; Returns: boolean }
       amjp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
+      amjp_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       archive_old_deposits: { Args: never; Returns: undefined }
       areamembrojp_has_role: {
         Args: {
