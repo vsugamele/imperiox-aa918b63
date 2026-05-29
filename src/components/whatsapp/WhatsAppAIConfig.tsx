@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle } from "lucide-react";
 import { RefineAIDialog } from "./RefineAIDialog";
 
 interface FaqItem { pergunta: string; resposta: string; }
@@ -35,10 +36,10 @@ interface AIConfig {
 }
 
 const PERSONALITIES = [
-  { id: "assistente", label: "Assistente Geral", desc: "Atendimento cordial e informativo" },
-  { id: "vendedor", label: "Closer de Vendas", desc: "Foco em conversão e fechamento" },
-  { id: "suporte", label: "Suporte Técnico", desc: "Resolução de dúvidas e problemas" },
-  { id: "consultor", label: "Consultor Expert", desc: "Autoridade e recomendações" },
+  { id: "assistente", label: "Assistente Geral", desc: "Cordial, acolhedor e informativo." },
+  { id: "vendedor", label: "Closer de Vendas", desc: "Focado em conversão, conduzir para oferta e quebrar objeções." },
+  { id: "suporte", label: "Suporte Técnico", desc: "Focado em resolução ágil de dúvidas e problemas." },
+  { id: "consultor", label: "Consultor Expert", desc: "Autoridade técnica, oferece conselhos e recomendações." },
 ];
 
 const TONES = [
@@ -50,13 +51,13 @@ const TONES = [
 ];
 
 const CONTEXT_OPTIONS = [
-  { id: "briefing", label: "Briefing do Projeto" },
-  { id: "avatar", label: "Avatar / Persona" },
-  { id: "produtos", label: "Produtos & Preços" },
-  { id: "faq", label: "FAQ" },
-  { id: "branding", label: "Tom de Marca" },
-  { id: "copy_arsenal", label: "Arsenal de Copy" },
-  { id: "expert", label: "Expert do Projeto" },
+  { id: "briefing", label: "Briefing do Projeto", desc: "Contexto geral e metas do projeto" },
+  { id: "avatar", label: "Avatar / Persona", desc: "Público-alvo, dores e desejos" },
+  { id: "produtos", label: "Produtos & Preços", desc: "Valores, links e detalhes técnicos" },
+  { id: "faq", label: "Perguntas Frequentes (FAQ)", desc: "Respostas literais cadastradas" },
+  { id: "branding", label: "Tom de Marca", desc: "Diretrizes de comunicação" },
+  { id: "copy_arsenal", label: "Arsenal de Copy", desc: "Gatilhos mentais e criativos" },
+  { id: "expert", label: "Expert do Projeto", desc: "História e autoridade do especialista" },
 ];
 
 interface Props {
@@ -110,8 +111,12 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
       ? await supabase.from("imphq_wa_ai_config").update(payload).eq("id", config.id)
       : await supabase.from("imphq_wa_ai_config").insert(payload);
 
-    if (error) toast.error("Erro ao salvar: " + error.message);
-    else { toast.success("Configuração do AI salva!"); loadConfig(); }
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+    } else {
+      toast.success("Configurações da IA salvas com sucesso!");
+      loadConfig();
+    }
     setSaving(false);
   };
 
@@ -142,7 +147,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
       expert_persona: p.expert_persona || persona,
       product_focus: p.product_focus || focus,
     }));
-    toast.success("Sincronizado com dados do projeto");
+    toast.success("Sincronizado com os dados centrais do projeto!");
   };
 
   const updateFaq = (idx: number, field: "pergunta" | "resposta", value: string) => {
@@ -164,341 +169,483 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
     }));
   };
 
-  if (loading) return <div className="text-sm text-muted-foreground p-4">Carregando configuração IA...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center p-8 gap-2 text-sm text-muted-foreground bg-card rounded-lg border border-border/40">
+      <Loader2 className="h-4 w-4 animate-spin text-primary" /> Carregando configurações da IA...
+    </div>
+  );
 
   return (
-    <Card className="border-border/50 bg-card/80">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Bot className="h-5 w-5 text-primary" />
-          WhatsApp Autônomo (IA)
-          <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px]">
-            {config.enabled ? "ATIVO" : "DESATIVADO"}
-          </Badge>
-        </CardTitle>
+    <Card className="border-border/50 bg-card/60 backdrop-blur-md shadow-lg overflow-hidden">
+      <CardHeader className="border-b border-border/30 bg-secondary/15 pb-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-lg font-serif">
+              <Bot className="h-5.5 w-5.5 text-primary" />
+              WhatsApp Autônomo (Copiloto & Autoresponder)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Configure como o cérebro artificial responderá aos seus leads no WhatsApp.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 bg-secondary/50 border border-border/40 px-3 py-1.5 rounded-full">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground mr-1">Status:</span>
+            <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px] font-semibold px-2 py-0.5">
+              {config.enabled ? "ATIVO (Auto)" : "INATIVO (Manual)"}
+            </Badge>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Main toggle */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/30">
-          <div>
-            <p className="text-sm font-medium">Ativar Autoresponder IA</p>
-            <p className="text-[11px] text-muted-foreground">A IA responde automaticamente mensagens recebidas usando contexto do projeto</p>
-          </div>
-          <Switch checked={config.enabled} onCheckedChange={v => setConfig(p => ({ ...p, enabled: v }))} />
-        </div>
 
-        {/* Modelo de IA (Provider + Model) */}
-        <div className="p-3 rounded-lg bg-secondary/30 border border-border/30 space-y-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <p className="text-sm font-medium">Modelo de IA</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1">Provider</Label>
-              <Select value={(config as any).ai_provider || "lovable"} onValueChange={v => setConfig(p => ({ ...p, ai_provider: v } as any))}>
-                <SelectTrigger className="bg-background text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lovable">Lovable AI (Gemini, GPT-5)</SelectItem>
-                  <SelectItem value="openrouter">OpenRouter (Claude, Llama, DeepSeek…)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1">Modelo</Label>
-              <Select value={(config as any).ai_model || ""} onValueChange={v => setConfig(p => ({ ...p, ai_model: v } as any))}>
-                <SelectTrigger className="bg-background text-xs"><SelectValue placeholder="Padrão do provider" /></SelectTrigger>
-                <SelectContent>
-                  {((config as any).ai_provider === "openrouter" ? [
-                    "anthropic/claude-3.5-sonnet",
-                    "anthropic/claude-3.5-haiku",
-                    "openai/gpt-4o",
-                    "openai/gpt-4o-mini",
-                    "google/gemini-2.5-pro",
-                    "google/gemini-2.5-flash",
-                    "meta-llama/llama-3.3-70b-instruct",
-                    "deepseek/deepseek-chat",
-                    "mistralai/mistral-large",
-                  ] : [
-                    "google/gemini-3-flash-preview",
-                    "google/gemini-2.5-pro",
-                    "google/gemini-2.5-flash",
-                    "openai/gpt-5-mini",
-                    "openai/gpt-5",
-                  ]).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1">Temperatura ({Number((config as any).ai_temperature ?? 0.7).toFixed(1)})</Label>
-              <input type="range" min={0} max={1.5} step={0.1}
-                value={(config as any).ai_temperature ?? 0.7}
-                onChange={e => setConfig(p => ({ ...p, ai_temperature: parseFloat(e.target.value) } as any))}
-                className="w-full" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1">Top P ({Number((config as any).ai_top_p ?? 1).toFixed(1)})</Label>
-              <input type="range" min={0.1} max={1} step={0.1}
-                value={(config as any).ai_top_p ?? 1}
-                onChange={e => setConfig(p => ({ ...p, ai_top_p: parseFloat(e.target.value) } as any))}
-                className="w-full" />
-            </div>
-          </div>
-          {(config as any).ai_provider === "openrouter" && (
-            <p className="text-[10px] text-muted-foreground">
-              Custos por modelo: <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer" className="text-primary underline">openrouter.ai/models</a>. Em caso de erro, faz fallback automático para Lovable AI.
-            </p>
-          )}
-        </div>
-
-        {/* Aprendizado com respostas humanas */}
-        <div className="p-3 rounded-lg bg-secondary/30 border border-border/30 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-primary" />
-              <p className="text-sm font-medium">Aprendizado e Sugestões</p>
-            </div>
-            <Button type="button" size="sm" variant="outline" onClick={() => setRefineOpen(true)} className="h-7 text-xs gap-1">
-              <Sparkles className="h-3 w-3" /> Refinar IA
-            </Button>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs">Aprender com respostas humanas</p>
-              <p className="text-[10px] text-muted-foreground">Indexa pares pergunta/resposta do time para enriquecer a IA</p>
-            </div>
-            <Switch checked={(config as any).learning_mode !== false}
-              onCheckedChange={v => setConfig(p => ({ ...p, learning_mode: v } as any))} />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs">Modo Rascunho (IA sugere, humano envia)</p>
-              <p className="text-[10px] text-muted-foreground">A IA não envia sozinha — aparece banner no chat para você aprovar</p>
-            </div>
-            <Switch checked={(config as any).draft_mode === true}
-              onCheckedChange={v => setConfig(p => ({ ...p, draft_mode: v } as any))} />
-          </div>
-        </div>
-
-        {/* Personality & Tone */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-              <Brain className="h-3 w-3" /> Personalidade
-            </Label>
-            <Select value={config.personality} onValueChange={v => setConfig(p => ({ ...p, personality: v }))}>
-              <SelectTrigger className="bg-secondary/50 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PERSONALITIES.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <span className="font-medium">{p.label}</span>
-                    <span className="text-muted-foreground ml-1 text-[10px]">— {p.desc}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1">Tom de Voz</Label>
-            <Select value={config.tone} onValueChange={v => setConfig(p => ({ ...p, tone: v }))}>
-              <SelectTrigger className="bg-secondary/50 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TONES.map(t => (
-                  <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Context sources */}
-        <div>
-          <Label className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-            <Zap className="h-3 w-3" /> Fontes de Contexto
-          </Label>
-          <div className="flex flex-wrap gap-1.5">
-            {CONTEXT_OPTIONS.map(opt => (
-              <button
-                key={opt.id}
-                onClick={() => toggleContext(opt.id)}
-                className={`text-[10px] px-2 py-1 rounded-full border transition-all ${
-                  config.context_sources.includes(opt.id)
-                    ? "bg-primary/20 border-primary/40 text-primary"
-                    : "bg-secondary/30 border-border/30 text-muted-foreground"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Welcome message */}
-        <div>
-          <Label className="text-xs text-muted-foreground mb-1">Mensagem de Boas-Vindas (opcional)</Label>
-          <Textarea
-            value={config.welcome_message}
-            onChange={e => setConfig(p => ({ ...p, welcome_message: e.target.value }))}
-            placeholder="Olá! 👋 Sou o assistente virtual. Como posso ajudar?"
-            className="min-h-[50px] text-xs bg-secondary/30"
-          />
-        </div>
-
-        {/* Escalation keywords */}
-        <div>
-          <Label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-            <Shield className="h-3 w-3" /> Palavras de Escalação (separe por vírgula)
-          </Label>
-          <Input
-            value={keywordsText}
-            onChange={e => setKeywordsText(e.target.value)}
-            placeholder="humano, atendente, pessoa, falar com alguém"
-            className="text-xs bg-secondary/30"
-          />
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Quando o lead usar essas palavras, a IA para e marca para atendimento humano.
-          </p>
-        </div>
-
-        {/* Business hours & delay */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Delay da Resposta (seg)
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={30}
-              value={config.response_delay_seconds}
-              onChange={e => setConfig(p => ({ ...p, response_delay_seconds: parseInt(e.target.value) || 3 }))}
-              className="text-xs bg-secondary/30"
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1">Max Tokens</Label>
-            <Input
-              type="number"
-              min={50}
-              max={1000}
-              value={config.max_tokens}
-              onChange={e => setConfig(p => ({ ...p, max_tokens: parseInt(e.target.value) || 300 }))}
-              className="text-xs bg-secondary/30"
-            />
-          </div>
-        </div>
-
-        {/* Business hours */}
-        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/20 border border-border/20">
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={config.business_hours_only}
-              onCheckedChange={v => setConfig(p => ({ ...p, business_hours_only: v }))}
-            />
-            <span className="text-xs">Apenas horário comercial</span>
-          </div>
-          {config.business_hours_only && (
-            <div className="flex items-center gap-1 text-xs">
-              <Input
-                value={config.business_hours_start}
-                onChange={e => setConfig(p => ({ ...p, business_hours_start: e.target.value }))}
-                className="w-16 h-7 text-[10px] bg-secondary/30"
-              />
-              <span className="text-muted-foreground">até</span>
-              <Input
-                value={config.business_hours_end}
-                onChange={e => setConfig(p => ({ ...p, business_hours_end: e.target.value }))}
-                className="w-16 h-7 text-[10px] bg-secondary/30"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Persona / Instruções / Oferta / FAQ */}
-        <div className="space-y-3 pt-3 border-t border-border/30">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> Contexto avançado do projeto
-            </Label>
-            <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={syncFromProject}>
-              <RefreshCw className="h-3 w-3" /> Sincronizar com projeto
-            </Button>
+      <CardContent className="p-0">
+        <Tabs defaultValue="behavior" className="w-full">
+          {/* Custom elegant Sidebar-like Tab triggers inside the card */}
+          <div className="border-b border-border/30 bg-secondary/10 px-4 py-2">
+            <TabsList className="bg-background/50 p-1 border border-border/30 w-full flex flex-wrap h-auto gap-1">
+              <TabsTrigger value="behavior" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
+                <Sliders className="h-3.5 w-3.5" /> Comportamento
+              </TabsTrigger>
+              <TabsTrigger value="model" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
+                <Server className="h-3.5 w-3.5" /> Conexão & Custo
+              </TabsTrigger>
+              <TabsTrigger value="rules" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
+                <Shield className="h-3.5 w-3.5" /> Regras & Escalação
+              </TabsTrigger>
+              <TabsTrigger value="training" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
+                <GraduationCap className="h-3.5 w-3.5" /> Cérebro & FAQ
+              </TabsTrigger>
+            </TabsList>
           </div>
 
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1">Persona do Expert</Label>
-            <Textarea
-              value={config.expert_persona || ""}
-              onChange={e => setConfig(p => ({ ...p, expert_persona: e.target.value }))}
-              placeholder="Ex: Imperius — estrategista direto, autoridade calma, sem clichês de coach."
-              className="min-h-[60px] text-xs bg-secondary/30"
-            />
-          </div>
-
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1">Instruções customizadas (regras obrigatórias)</Label>
-            <Textarea
-              value={config.custom_instructions || ""}
-              onChange={e => setConfig(p => ({ ...p, custom_instructions: e.target.value }))}
-              placeholder="Ex: Nunca prometa entrega em menos de 7 dias. Só ofereça desconto se o lead pedir 2x."
-              className="min-h-[60px] text-xs bg-secondary/30"
-            />
-          </div>
-
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1">Produto / oferta em foco</Label>
-            <Input
-              value={config.product_focus || ""}
-              onChange={e => setConfig(p => ({ ...p, product_focus: e.target.value }))}
-              placeholder="Ex: Mentoria 6 Cifras · R$ 4.997 · checkout: https://..."
-              className="text-xs bg-secondary/30"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label className="text-xs text-muted-foreground">FAQ (respostas literais)</Label>
-              <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={addFaq}>
-                <Plus className="h-3 w-3" /> Adicionar
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {(config.faq || []).length === 0 && (
-                <p className="text-[10px] text-muted-foreground italic">Sem FAQ. Adicione perguntas que a IA deve responder palavra-por-palavra.</p>
-              )}
-              {(config.faq || []).map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-start p-2 rounded bg-secondary/20 border border-border/20">
-                  <div className="flex-1 space-y-1">
-                    <Input
-                      value={item.pergunta}
-                      onChange={e => updateFaq(idx, "pergunta", e.target.value)}
-                      placeholder="Pergunta (ex: Tem garantia?)"
-                      className="text-[11px] h-7 bg-background/50"
-                    />
-                    <Textarea
-                      value={item.resposta}
-                      onChange={e => updateFaq(idx, "resposta", e.target.value)}
-                      placeholder="Resposta oficial..."
-                      className="min-h-[40px] text-[11px] bg-background/50"
-                    />
+          <div className="p-5 space-y-6">
+            {/* ── TAB 1: COMPOSTAMENTO ── */}
+            <TabsContent value="behavior" className="mt-0 space-y-4 animate-fade-in">
+              {/* Toggles Strip */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className={`p-4 rounded-lg border transition-all ${config.enabled ? "bg-primary/5 border-primary/20" : "bg-secondary/20 border-border/40"}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                        <Zap className={`h-4 w-4 ${config.enabled ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+                        Autoresponder Ativo
+                      </p>
+                      <p className="text-[11px] text-muted-foreground leading-normal">
+                        Quando ativo, a IA enviará mensagens autônomas para leads recebidos. Quando inativo, ela apenas gerará rascunhos.
+                      </p>
+                    </div>
+                    <Switch checked={config.enabled} onCheckedChange={v => setConfig(p => ({ ...p, enabled: v }))} className="mt-1" />
                   </div>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeFaq(idx)}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
+                </div>
+
+                <div className={`p-4 rounded-lg border transition-all ${(config as any).draft_mode === true ? "bg-amber-500/5 border-amber-500/20" : "bg-secondary/20 border-border/40"}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                        <MessageSquare className="h-4 w-4 text-amber-500" />
+                        Modo Rascunho (Copiloto)
+                      </p>
+                      <p className="text-[11px] text-muted-foreground leading-normal">
+                        A IA elabora a resposta perfeita no chat, mas **não envia**. Você revisa, edita e aprova com 1 clique antes do disparo.
+                      </p>
+                    </div>
+                    <Switch checked={(config as any).draft_mode === true} onCheckedChange={v => setConfig(p => ({ ...p, draft_mode: v } as any))} className="mt-1" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Personality & Tone Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                    <Brain className="h-3.5 w-3.5 text-primary" /> Personalidade Base
+                  </Label>
+                  <Select value={config.personality} onValueChange={v => setConfig(p => ({ ...p, personality: v }))}>
+                    <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PERSONALITIES.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">
+                          <span className="font-semibold text-foreground">{p.label}</span>
+                          <span className="block text-[10px] text-muted-foreground mt-0.5">{p.desc}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                    <Sliders className="h-3.5 w-3.5 text-primary" /> Tom de Voz / Linguagem
+                  </Label>
+                  <Select value={config.tone} onValueChange={v => setConfig(p => ({ ...p, tone: v }))}>
+                    <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {TONES.map(t => (
+                        <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Delay & Welcome Message */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5 sm:col-span-1">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-primary" /> Tempo de Simulação (Delay)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={30}
+                      value={config.response_delay_seconds}
+                      onChange={e => setConfig(p => ({ ...p, response_delay_seconds: parseInt(e.target.value) || 3 }))}
+                      className="text-xs bg-secondary/40 border-border/30 h-9.5 pr-10"
+                    />
+                    <span className="absolute right-3 top-3 text-[10px] text-muted-foreground">seg</span>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground leading-normal">
+                    Simula digitação humana antes de enviar a resposta.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Mensagem de Boas-Vindas Inicial (opcional)</Label>
+                  <Textarea
+                    value={config.welcome_message}
+                    onChange={e => setConfig(p => ({ ...p, welcome_message: e.target.value }))}
+                    placeholder="Ex: Olá! Vi seu interesse e já vou te passar as informações. Me diz, você já conhece o projeto?"
+                    className="min-h-[50px] text-xs bg-secondary/40 border-border/30 resize-none leading-relaxed"
+                  />
+                  <p className="text-[9px] text-muted-foreground leading-normal">
+                    Se preenchido, dispara esse texto no primeiro contato antes de acionar a inteligência artificial.
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ── TAB 2: MODEL & COST ── */}
+            <TabsContent value="model" className="mt-0 space-y-4 animate-fade-in">
+              <div className="bg-primary/5 rounded-lg border border-primary/10 p-4 flex gap-3 items-start">
+                <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold text-foreground">Conecte seus modelos favoritos</h4>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Você pode usar nossa infraestrutura integrada (Lovable AI) sem custos adicionais, ou plugar sua chave do **OpenRouter** para usar modelos avançados como **Claude 3.5 Sonnet**, **DeepSeek V3** e **GPT-4o** pagando apenas os centavos de centavos que você consome.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">Provedor de IA (Gateway)</Label>
+                  <Select value={(config as any).ai_provider || "lovable"} onValueChange={v => setConfig(p => ({ ...p, ai_provider: v } as any))}>
+                    <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lovable" className="text-xs">Lovable AI (Gemini, GPT-5 Integrado)</SelectItem>
+                      <SelectItem value="openrouter" className="text-xs">OpenRouter (Modelos Customizados)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">Modelo de Linguagem (LLM)</Label>
+                  <Select value={(config as any).ai_model || ""} onValueChange={v => setConfig(p => ({ ...p, ai_model: v } as any))}>
+                    <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5"><SelectValue placeholder="Padrão do sistema (Flash)" /></SelectTrigger>
+                    <SelectContent>
+                      {((config as any).ai_provider === "openrouter" ? [
+                        "anthropic/claude-3.5-sonnet",
+                        "anthropic/claude-3.5-haiku",
+                        "openai/gpt-4o",
+                        "openai/gpt-4o-mini",
+                        "google/gemini-2.5-pro",
+                        "google/gemini-2.5-flash",
+                        "meta-llama/llama-3.3-70b-instruct",
+                        "deepseek/deepseek-chat",
+                        "mistralai/mistral-large",
+                      ] : [
+                        "google/gemini-3-flash-preview",
+                        "google/gemini-2.5-pro",
+                        "google/gemini-2.5-flash",
+                        "openai/gpt-5-mini",
+                        "openai/gpt-5",
+                      ]).map(m => <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Advanced Parameters */}
+              <div className="bg-secondary/15 rounded-lg border border-border/30 p-4 space-y-4">
+                <div className="flex items-center gap-2 border-b border-border/20 pb-2">
+                  <Sliders className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-bold text-foreground">Hiperparâmetros do Modelo</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <Label className="font-semibold text-muted-foreground">Criatividade (Temp: {Number((config as any).ai_temperature ?? 0.7).toFixed(1)})</Label>
+                    </div>
+                    <input type="range" min={0} max={1.5} step={0.1}
+                      value={(config as any).ai_temperature ?? 0.7}
+                      onChange={e => setConfig(p => ({ ...p, ai_temperature: parseFloat(e.target.value) } as any))}
+                      className="w-full h-1.5 bg-secondary accent-primary rounded-lg cursor-pointer" />
+                    <p className="text-[9px] text-muted-foreground leading-normal">
+                      Valores menores = mais estável e direto. Valores maiores = mais criativo e variado.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <Label className="font-semibold text-muted-foreground">Filtro Top P ({Number((config as any).ai_top_p ?? 1).toFixed(1)})</Label>
+                    </div>
+                    <input type="range" min={0.1} max={1} step={0.1}
+                      value={(config as any).ai_top_p ?? 1}
+                      onChange={e => setConfig(p => ({ ...p, ai_top_p: parseFloat(e.target.value) } as any))}
+                      className="w-full h-1.5 bg-secondary accent-primary rounded-lg cursor-pointer" />
+                    <p className="text-[9px] text-muted-foreground leading-normal">
+                      Limita o vocabulário avaliado pela IA para reduzir gírias ou repetições.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Limite de Resposta (Tokens)</Label>
+                    <Input
+                      type="number"
+                      min={50}
+                      max={1500}
+                      value={config.max_tokens}
+                      onChange={e => setConfig(p => ({ ...p, max_tokens: parseInt(e.target.value) || 300 }))}
+                      className="text-xs bg-secondary/40 border-border/30 h-8"
+                    />
+                    <p className="text-[9px] text-muted-foreground leading-normal">
+                      Evita respostas extremamente longas. 300 tokens equivalem a ~200 palavras.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Autolearning mode */}
+              <div className="p-4 rounded-lg border border-border/30 bg-secondary/10 flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Brain className="h-4 w-4 text-primary animate-pulse" />
+                    <p className="text-xs font-bold text-foreground">Aprendizado de Máquina (Auto-Learning)</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Indexa automaticamente respostas que sua equipe dá no chat humano. O cérebro da IA fica mais inteligente a cada conversa real!
+                  </p>
+                </div>
+                <Switch checked={(config as any).learning_mode !== false}
+                  onCheckedChange={v => setConfig(p => ({ ...p, learning_mode: v } as any))} />
+              </div>
+            </TabsContent>
+
+            {/* ── TAB 3: RULES & ESCALATION ── */}
+            <TabsContent value="rules" className="mt-0 space-y-5 animate-fade-in">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                  <Shield className="h-4 w-4 text-primary" /> Palavras de Parada & Escalação Humana
+                </Label>
+                <div className="p-3 bg-secondary/20 rounded border border-border/40 space-y-2.5">
+                  <Input
+                    value={keywordsText}
+                    onChange={e => setKeywordsText(e.target.value)}
+                    placeholder="ex: humano, falar com atendente, suporte, pessoa, help"
+                    className="text-xs bg-background border-border/30 h-10"
+                  />
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    💡 **Como funciona:** Separe por vírgulas. Sempre que o lead digitar qualquer uma destas palavras (ou sinônimos diretos), a IA **desativa a si mesma automaticamente** na conversa, marca a conversa como pendente de suporte e emite alerta visual. Isso evita conversas repetitivas e loops irritantes para o cliente.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-secondary/15 rounded-lg border border-border/30 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-primary" /> Limitar ao Horário de Atendimento
+                    </span>
+                    <p className="text-[10px] text-muted-foreground max-w-md leading-normal">
+                      Evita respostas automáticas nos finais de semana ou fora do horário comercial, permitindo humanizar o atendimento.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={config.business_hours_only}
+                    onCheckedChange={v => setConfig(p => ({ ...p, business_hours_only: v }))}
+                  />
+                </div>
+
+                {config.business_hours_only && (
+                  <div className="flex items-center gap-2 bg-background/50 p-3 rounded border border-border/30 w-fit animate-slide-in">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Início do Turno</Label>
+                      <Input
+                        value={config.business_hours_start}
+                        onChange={e => setConfig(p => ({ ...p, business_hours_start: e.target.value }))}
+                        className="w-24 h-8 text-xs font-mono text-center bg-secondary/20 border-border/30"
+                      />
+                    </div>
+                    <span className="text-muted-foreground font-light text-sm mt-4">até</span>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Término do Turno</Label>
+                      <Input
+                        value={config.business_hours_end}
+                        onChange={e => setConfig(p => ({ ...p, business_hours_end: e.target.value }))}
+                        className="w-24 h-8 text-xs font-mono text-center bg-secondary/20 border-border/30"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* ── TAB 4: TRAINING & FAQ ── */}
+            <TabsContent value="training" className="mt-0 space-y-5 animate-fade-in">
+              <div className="flex items-center justify-between gap-3 border-b border-border/20 pb-3 flex-wrap">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Brain className="h-4 w-4 text-primary" /> Alavancagem de Contexto
+                  </h4>
+                  <p className="text-[10px] text-muted-foreground">
+                    Marque quais pilares informativos do projeto esta IA deve levar em consideração ao formular respostas.
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1.5" onClick={syncFromProject}>
+                    <RefreshCw className="h-3.5 w-3.5" /> Puxar dados do projeto
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-primary/20 text-primary hover:bg-primary/5" onClick={() => setRefineOpen(true)}>
+                    <Sparkles className="h-3.5 w-3.5" /> Refinar cérebro
                   </Button>
                 </div>
-              ))}
-            </div>
+              </div>
+
+              {/* Context checklist bubbles */}
+              <div className="space-y-2">
+                <Label className="text-[11px] text-muted-foreground font-semibold">Bancos de Conhecimento Ativados</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {CONTEXT_OPTIONS.map(opt => {
+                    const active = config.context_sources.includes(opt.id);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => toggleContext(opt.id)}
+                        className={`text-left p-2.5 rounded-lg border transition-all flex items-start gap-2.5 ${
+                          active
+                            ? "bg-primary/5 border-primary/30 text-primary"
+                            : "bg-secondary/15 border-border/20 hover:border-border/40 text-muted-foreground"
+                        }`}
+                      >
+                        <div className={`mt-0.5 rounded-full p-0.5 ${active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                          <CheckCircle className="h-3 w-3" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold truncate text-foreground">{opt.label}</p>
+                          <p className="text-[9px] leading-tight text-muted-foreground mt-0.5">{opt.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Advanced Persona Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                    👑 Persona do Expert
+                  </Label>
+                  <Textarea
+                    value={config.expert_persona || ""}
+                    onChange={e => setConfig(p => ({ ...p, expert_persona: e.target.value }))}
+                    placeholder="Descreva a postura, autoridade e biografia que a IA assumirá ao falar no singular."
+                    className="min-h-[100px] text-xs bg-secondary/40 border-border/30 resize-none leading-relaxed"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                    🚫 Instruções e Barreiras Mandatórias
+                  </Label>
+                  <Textarea
+                    value={config.custom_instructions || ""}
+                    onChange={e => setConfig(p => ({ ...p, custom_instructions: e.target.value }))}
+                    placeholder="Regras inquebráveis: Ex: 'Nunca prometa desconto', 'Se perguntarem do prazo, diga 7 dias', 'Evite responder sobre outros nichos'."
+                    className="min-h-[100px] text-xs bg-secondary/40 border-border/30 resize-none leading-relaxed"
+                  />
+                </div>
+              </div>
+
+              {/* Product and Focus details */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">Produto / Oferta Principal em Foco</Label>
+                <Input
+                  value={config.product_focus || ""}
+                  onChange={e => setConfig(p => ({ ...p, product_focus: e.target.value }))}
+                  placeholder="Nome do produto, preço e link do checkout para a IA fechar a venda de forma rápida."
+                  className="text-xs bg-secondary/40 border-border/30 h-9.5"
+                />
+              </div>
+
+              {/* FAQ Section */}
+              <div className="space-y-3 pt-3 border-t border-border/20">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground">FAQ - Respostas Literais para Dúvidas Comuns</Label>
+                    <p className="text-[10px] text-muted-foreground">A IA utiliza esse FAQ como fonte prioritária de verdade para dúvidas repetitivas.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] gap-1 border-primary/20 text-primary hover:bg-primary/5" onClick={addFaq}>
+                    <Plus className="h-3 w-3" /> Adicionar Pergunta
+                  </Button>
+                </div>
+
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {(config.faq || []).length === 0 && (
+                    <div className="text-center py-6 border border-dashed border-border/40 rounded-lg bg-secondary/5">
+                      <p className="text-xs text-muted-foreground italic">Nenhuma pergunta cadastrada no FAQ ainda.</p>
+                    </div>
+                  )}
+                  {(config.faq || []).map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-start p-3.5 rounded-lg bg-secondary/25 border border-border/30 shadow-sm animate-fade-in">
+                      <div className="flex-1 space-y-2">
+                        <div className="grid grid-cols-1 gap-2">
+                          <Input
+                            value={item.pergunta}
+                            onChange={e => updateFaq(idx, "pergunta", e.target.value)}
+                            placeholder={`Pergunta #${idx + 1} (ex: Tem garantia?)`}
+                            className="text-xs h-9 bg-background border-border/30 font-medium"
+                          />
+                          <Textarea
+                            value={item.resposta}
+                            onChange={e => updateFaq(idx, "resposta", e.target.value)}
+                            placeholder="Resposta exata e literal (ex: Sim! Oferecemos 7 dias de garantia incondicional...)"
+                            className="min-h-[55px] text-xs bg-background border-border/30 resize-none leading-relaxed"
+                          />
+                        </div>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 mt-0.5" onClick={() => removeFaq(idx)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
           </div>
+        </Tabs>
+
+        {/* Global Save Button at bottom of card */}
+        <div className="border-t border-border/30 bg-secondary/10 px-5 py-4 flex justify-end">
+          <Button onClick={handleSave} disabled={saving} className="gap-2 px-6 h-10 shadow" size="sm">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Salvar Todas as Configurações
+          </Button>
         </div>
-
-
-        <Button onClick={handleSave} disabled={saving} className="w-full gap-2" size="sm">
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          Salvar Configuração
-        </Button>
       </CardContent>
+
       <RefineAIDialog open={refineOpen} onOpenChange={setRefineOpen} projectId={projectId} />
     </Card>
   );

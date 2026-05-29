@@ -220,9 +220,15 @@ export default function WhatsApp() {
       </div>
 
       {/* Provider status strip */}
-      {providers.filter(p => p.provider === "evolution").map(p => (
-        <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} />
-      ))}
+      {providers.map(p => {
+        if (p.provider === "evolution") {
+          return <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} />;
+        }
+        if (p.provider === "meta_cloud") {
+          return <MetaCloudStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} />;
+        }
+        return null;
+      })}
       {providers.length === 0 && (
         <div className="px-4 py-2 bg-muted/30 border-b border-border text-center shrink-0">
           <p className="text-xs text-muted-foreground inline">Nenhum provider configurado.</p>
@@ -831,5 +837,123 @@ function AlertControls({ provider, onChanged }: { provider: any; onChanged: () =
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// ── Meta Cloud Status Card (Oficial API) ──
+function MetaCloudStatusCard({ provider, projectName, projects, onSynced }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void }) {
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const webhookUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-api?action=webhook&provider=meta_cloud&provider_id=${provider.id}`;
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopiedWebhook(true);
+    toast.success("Webhook URL copiado!");
+    setTimeout(() => setCopiedWebhook(false), 2000);
+  };
+
+  const copyToken = () => {
+    navigator.clipboard.writeText(provider.webhook_verify_token || "");
+    setCopiedToken(true);
+    toast.success("Verify Token copiado!");
+    setTimeout(() => setCopiedToken(false), 2000);
+  };
+
+  const deleteProvider = async () => {
+    try {
+      const { error } = await supabase.from("imphq_wa_providers").delete().eq("id", provider.id);
+      if (error) throw error;
+      toast.success("Provider Oficial Meta removido");
+      onSynced();
+    } catch (err: any) {
+      toast.error("Erro ao remover: " + err.message);
+    }
+    setConfirmDelete(false);
+  };
+
+  const changeProject = async (newProjectId: string) => {
+    const { error } = await supabase.from("imphq_wa_providers").update({ project_id: newProjectId }).eq("id", provider.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Projeto atualizado");
+    onSynced();
+  };
+
+  return (
+    <div className="px-4 py-2 border-b border-border bg-card shrink-0">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <Wifi className="h-4 w-4 text-emerald-400" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-xs text-foreground truncate">{provider.display_name || "API Oficial Meta"}</span>
+              <Badge variant="outline" className="text-[9px] gap-1 bg-violet-500/10 text-violet-400 border-violet-500/30 font-semibold">
+                👑 API Oficial
+              </Badge>
+              <Badge variant="outline" className="text-[9px] gap-1 bg-primary/10 text-primary border-primary/30">
+                <FolderOpen className="h-2.5 w-2.5" /> {projectName}
+              </Badge>
+              <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                Ativo
+              </Badge>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              WABA ID: {provider.waba_id || "—"} · Phone ID: {provider.phone_number_id || "—"}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-1.5 items-center">
+          <Button size="sm" variant="outline" onClick={copyWebhook} className="h-7 text-[10px] gap-1">
+            <Copy className="h-3 w-3" />
+            {copiedWebhook ? "Copiado!" : "Copiar Webhook"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={copyToken} className="h-7 text-[10px] gap-1">
+            <Copy className="h-3 w-3" />
+            {copiedToken ? "Copiado!" : "Verify Token"}
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Mais ações">
+                <MoreVertical className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs">Trocar projeto</DropdownMenuLabel>
+              {projects.map(p => (
+                <DropdownMenuItem key={p.id} className="text-xs" onClick={() => changeProject(p.id)} disabled={p.id === provider.project_id}>
+                  <FolderOpen className="h-3 w-3 mr-2" />
+                  {p.name} {p.id === provider.project_id && "✓"}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-3 w-3 mr-2" /> Excluir provider
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /> Excluir provider oficial?</AlertDialogTitle>
+            <AlertDialogDescription className="leading-7">
+              Isso vai remover a configuração da API Oficial Meta (<strong>{provider.display_name || "API Oficial"}</strong>) do projeto <strong>{projectName}</strong>. As conversas continuam salvas, mas o envio e recebimento oficial serão suspensos até que você configure o provider novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteProvider} className="bg-destructive hover:bg-destructive/90">Excluir definitivamente</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
