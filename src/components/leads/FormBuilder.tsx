@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet, Save, CopyPlus, Sparkles, Loader2, Search } from "lucide-react";
+import { Plus, Trash2, Copy, Eye, GripVertical, Code, FileText, ClipboardList, Megaphone, ShoppingBag, Magnet, Save, CopyPlus, Sparkles, Loader2, Search, Brain, TrendingUp } from "lucide-react";
 
 const FORM_TYPES = [
   { value: "captura", label: "Captura", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
@@ -125,6 +125,45 @@ const FORM_TEMPLATES: FormTemplate[] = [
   },
 ];
 
+function parseMarkdown(text: string): React.ReactNode[] {
+  return text.split("\n").map((line, idx) => {
+    if (line.startsWith("### ")) {
+      return <h4 key={idx} className="text-xs font-bold text-primary mt-3 mb-1.5 flex items-center gap-1.5">{line.substring(4)}</h4>;
+    }
+    if (line.startsWith("## ")) {
+      return <h3 key={idx} className="text-sm font-bold text-foreground mt-4 mb-2 border-b border-border/40 pb-0.5">{line.substring(3)}</h3>;
+    }
+    if (line.startsWith("1. ") || line.startsWith("2. ") || line.startsWith("3. ") || line.startsWith("4. ")) {
+      const parts = line.split("**");
+      if (parts.length >= 3) {
+        return (
+          <div key={idx} className="text-xs text-foreground font-semibold mt-2.5 mb-1 flex items-center gap-1.5">
+            <span className="bg-primary/20 text-primary px-1 rounded text-[9px]">{line.substring(0, 3)}</span>
+            <span>{parts[1]}</span>
+            <span className="font-normal text-muted-foreground">{parts.slice(2).join("")}</span>
+          </div>
+        );
+      }
+      return <h3 key={idx} className="text-xs font-bold text-foreground mt-3 mb-1.5">{line.substring(3)}</h3>;
+    }
+    if (line.startsWith("* ") || line.startsWith("- ")) {
+      const content = line.substring(2);
+      const boldParts = content.split("**");
+      if (boldParts.length >= 3) {
+        return (
+          <li key={idx} className="text-[11px] text-muted-foreground list-disc ml-3.5 my-1 leading-5">
+            <strong className="text-foreground">{boldParts[1]}</strong>
+            {boldParts.slice(2).join("")}
+          </li>
+        );
+      }
+      return <li key={idx} className="text-[11px] text-muted-foreground list-disc ml-3.5 my-0.5 leading-5">{content}</li>;
+    }
+    if (line.trim() === "") return <div key={idx} className="h-1.5" />;
+    return <p key={idx} className="text-[11px] text-muted-foreground leading-5 my-1">{line}</p>;
+  });
+}
+
 export function FormBuilder({ projects }: Props) {
   const [forms, setForms] = useState<CaptureForm[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -161,6 +200,17 @@ export function FormBuilder({ projects }: Props) {
   const [aiFieldsPrompt, setAiFieldsPrompt] = useState("");
   const [loadingFieldsAI, setLoadingFieldsAI] = useState(false);
   const [showAiFieldsAssistant, setShowAiFieldsAssistant] = useState(false);
+
+  // Form Analysis state
+  const [analysisForm, setAnalysisForm] = useState<CaptureForm | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisData, setAnalysisData] = useState<{
+    totalSubmissions: number;
+    completionRate: number;
+    emptyFieldsStats: Record<string, { label: string; emptyPercentage: number; count: number; emptyCount: number }>;
+    aiInsights: string | null;
+  } | null>(null);
+  const [aiGeneratingInsights, setAiGeneratingInsights] = useState(false);
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
@@ -420,6 +470,156 @@ Regras:
       toast.error(`Falha ao gerar campos: ${err.message || "Erro desconhecido"}`);
     } finally {
       setLoadingFieldsAI(false);
+    }
+  };
+
+  const loadFormAnalysisData = async (form: CaptureForm) => {
+    setAnalysisForm(form);
+    setAnalysisLoading(true);
+    setAnalysisData(null);
+    try {
+      const { data: resps, error: respErr } = await supabase
+        .from("imphq_lead_responses")
+        .select("*")
+        .eq("form_id", form.id);
+
+      if (respErr) throw respErr;
+
+      const uniqueSubmissions = new Set((resps || []).map(r => r.lead_id).filter(Boolean));
+      const totalSubmissions = uniqueSubmissions.size;
+
+      const stats: Record<string, { label: string; count: number; emptyCount: number; emptyPercentage: number }> = {};
+      
+      form.fields.forEach(f => {
+        stats[f.key] = { label: f.label, count: 0, emptyCount: 0, emptyPercentage: 0 };
+      });
+
+      (resps || []).forEach(r => {
+        const key = r.field_key;
+        if (!key || !stats[key]) return;
+        stats[key].count++;
+        if (!r.answer || r.answer.trim() === "") {
+          stats[key].emptyCount++;
+        }
+      });
+
+      Object.keys(stats).forEach(k => {
+        const total = stats[k].count;
+        if (total > 0) {
+          stats[k].emptyPercentage = Math.round((stats[k].emptyCount / total) * 100);
+        } else {
+          stats[k].emptyPercentage = 100;
+        }
+      });
+
+      let totalEmptyPct = 0;
+      const keys = Object.keys(stats);
+      keys.forEach(k => {
+        totalEmptyPct += stats[k].emptyPercentage;
+      });
+      const completionRate = keys.length > 0 ? Math.round(100 - (totalEmptyPct / keys.length)) : 100;
+
+      setAnalysisData({
+        totalSubmissions,
+        completionRate,
+        emptyFieldsStats: stats as any,
+        aiInsights: null
+      });
+
+    } catch (err: any) {
+      console.error("Error loading form analysis:", err);
+      toast.error("Erro ao carregar métricas do formulário.");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  const generateFormAIInsights = async () => {
+    if (!analysisForm || !analysisData) return;
+    setAiGeneratingInsights(true);
+    try {
+      const savedKeys = localStorage.getItem("imphq_api_keys");
+      const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
+      const orKey = apiKeys.openrouter;
+
+      const statsString = JSON.stringify(analysisData.emptyFieldsStats);
+      const prompt = `Formulário: "${analysisForm.nome}"
+Tipo: "${(analysisForm.settings as any)?.form_type || "captura"}"
+Descrição: "${(analysisForm.settings as any)?.description || "Sem descrição"}"
+Total de Submissões: ${analysisData.totalSubmissions}
+Taxa de Preenchimento Geral: ${analysisData.completionRate}%
+
+Métricas de Campos (percentual de respostas que ficaram vazias/nulas):
+${statsString}
+
+Campos definidos no formulário:
+${JSON.stringify(analysisForm.fields)}
+
+Analise estes dados de performance do formulário e as perguntas que ele faz. Forneça uma análise estratégica expert estruturada em markdown pt-BR com os seguintes tópicos exatamente:
+1. 🌟 **Pontos Fortes (Por que este formulário funciona)**
+2. ⚠️ **Pontos Fracos & Atrito (Onde os leads estão desistindo ou pulando)**
+3. 💡 **Insights Estratégicos (Como a célula de vendas ou o marketing podem usar os dados)**
+4. 📈 **Recomendações Práticas (O que alterar para aumentar a conversão)**
+
+Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta e acionável.`;
+
+      let insights = "";
+
+      if (orKey) {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${orKey}`,
+            "HTTP-Referer": window.location.origin,
+            "X-Title": "ImperioHQ Form Analyst",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: "Você é Imperius, estrategista sênior de aquisição de leads e conversão de formulários."
+              },
+              {
+                role: "user",
+                content: prompt
+              }
+            ]
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Erro OpenRouter: ${response.status} - ${errText}`);
+        }
+
+        const data = await response.json();
+        insights = data.choices?.[0]?.message?.content || "";
+      } else {
+        toast.info("Chave OpenRouter não configurada. Usando gateway padrão...");
+        const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+          body: {
+            briefing: `Forneça uma análise de insights, pontos fortes e fracos em formato markdown para este formulário: ${prompt}`,
+            project_id: analysisForm.project_id,
+            form_type: (analysisForm.settings as any)?.form_type,
+          },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        insights = data.form?.description || "Análise gerada pelo gateway padrão.";
+      }
+
+      setAnalysisData(prev => prev ? { ...prev, aiInsights: insights } : null);
+      toast.success("Insights gerados com sucesso!");
+
+    } catch (err: any) {
+      console.error("AI Insights Error:", err);
+      toast.error(`Falha ao gerar insights: ${err.message || "Erro desconhecido"}`);
+    } finally {
+      setAiGeneratingInsights(false);
     }
   };
 
@@ -763,6 +963,9 @@ async function imphqSubmit(e) {
                   </Button>
                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => optimizeWithAI(form)} title="Pedir para IA otimizar com base nos dados reais">
                     <Sparkles className="h-3 w-3 mr-1" /> Otimizar
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs h-7 border-primary/20 text-primary hover:bg-primary/5" onClick={() => loadFormAnalysisData(form)} title="Ver métricas de conversão e pedir análise de insights com IA">
+                    <Brain className="h-3 w-3 mr-1" /> Analisar
                   </Button>
                   <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive" onClick={() => deleteForm(form.id)}>
                     <Trash2 className="h-3 w-3" />
@@ -1169,6 +1372,129 @@ async function imphqSubmit(e) {
             <Button onClick={() => runAI(1)} disabled={aiLoading || !aiBriefing.trim()}>
               {aiLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Gerando...</> : <><Sparkles className="h-4 w-4 mr-1" /> Gerar</>}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Form Analysis Dialog */}
+      <Dialog open={!!analysisForm} onOpenChange={(open) => { if (!open) { setAnalysisForm(null); setAnalysisData(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" /> 
+              Métricas & Análise — {analysisForm?.nome}
+            </DialogTitle>
+          </DialogHeader>
+
+          {analysisLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
+              <p className="text-xs text-muted-foreground">Carregando dados de submissão do formulário...</p>
+            </div>
+          ) : analysisData && (
+            <div className="space-y-6">
+              {/* Metrics cards grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="bg-secondary/30 border-border p-4 flex flex-col items-center justify-center text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total de Submissões</span>
+                  <span className="text-2xl font-bold mt-1 text-foreground">{analysisData.totalSubmissions}</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">Leads únicos capturados</span>
+                </Card>
+                <Card className="bg-secondary/30 border-border p-4 flex flex-col items-center justify-center text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Taxa de Completude</span>
+                  <span className={`text-2xl font-bold mt-1 ${analysisData.completionRate >= 80 ? "text-emerald-400" : analysisData.completionRate >= 50 ? "text-amber-400" : "text-destructive"}`}>
+                    {analysisData.completionRate}%
+                  </span>
+                  <div className="w-full bg-secondary/80 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${analysisData.completionRate >= 80 ? "bg-emerald-500" : analysisData.completionRate >= 50 ? "bg-amber-500" : "bg-destructive"}`}
+                      style={{ width: `${analysisData.completionRate}%` }}
+                    />
+                  </div>
+                </Card>
+              </div>
+
+              {/* Fields Evasão list */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-foreground">Comportamento por Pergunta (Evasão)</h4>
+                  <span className="text-[10px] text-muted-foreground">Frequência com que o campo fica em branco</span>
+                </div>
+                <div className="space-y-1.5">
+                  {Object.entries(analysisData.emptyFieldsStats).map(([key, stat]) => {
+                    const evasao = stat.emptyPercentage;
+                    const colorClass = evasao > 40 ? "text-destructive" : evasao > 15 ? "text-amber-400" : "text-emerald-400";
+                    const progressBg = evasao > 40 ? "bg-destructive" : evasao > 15 ? "bg-amber-500" : "bg-emerald-500";
+                    return (
+                      <div key={key} className="flex flex-col gap-1 p-2 bg-secondary/30 border border-border/40 rounded-md">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold truncate max-w-[70%]">{stat.label || key}</span>
+                          <div className="flex items-center gap-1.5 text-[10px]">
+                            <span className="text-muted-foreground">Evasão:</span>
+                            <span className={`font-bold ${colorClass}`}>{evasao}%</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-secondary h-1 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${progressBg}`} style={{ width: `${evasao}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* AI strategic critique section */}
+              <div className="border-t border-border/60 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-primary" /> Análise Estratégica da IA
+                  </h4>
+                  {!analysisData.aiInsights && (
+                    <Button 
+                      size="sm" 
+                      onClick={generateFormAIInsights} 
+                      disabled={aiGeneratingInsights}
+                      className="h-7 text-xs"
+                    >
+                      {aiGeneratingInsights ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          Analisando...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="h-3 w-3 mr-1" />
+                          Gerar Análise
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {aiGeneratingInsights && (
+                  <div className="p-6 bg-primary/5 border border-primary/20 border-dashed rounded-lg flex flex-col items-center justify-center text-center gap-2">
+                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                    <p className="text-xs font-medium text-foreground">Imperius está calculando taxas de evasão e atrito...</p>
+                    <p className="text-[10px] text-muted-foreground">Consultando perfis de avatar para analisar pontos fortes e fracos.</p>
+                  </div>
+                )}
+
+                {analysisData.aiInsights ? (
+                  <div className="bg-primary/5 border border-primary/25 rounded-lg p-4 space-y-1 font-sans text-xs leading-relaxed max-h-[300px] overflow-y-auto">
+                    {parseMarkdown(analysisData.aiInsights)}
+                  </div>
+                ) : !aiGeneratingInsights && (
+                  <div className="bg-secondary/20 border border-dashed border-border p-4 rounded-lg text-center space-y-2">
+                    <Brain className="h-8 w-8 text-muted-foreground/60 mx-auto" />
+                    <p className="text-xs text-muted-foreground">Deixe o Imperius identificar pontos fortes, fracos, atritos ocultos e dar insights de melhorias.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setAnalysisForm(null); setAnalysisData(null); }}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
