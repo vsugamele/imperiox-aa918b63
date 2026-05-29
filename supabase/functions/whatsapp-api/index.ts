@@ -904,6 +904,91 @@ serve(async (req) => {
     }
 
     // ── ACTION: webhook (receive messages, status updates, connection events) ──
+    // ── Meta Cloud Webhook (GET verification + POST events) ──
+    const isMetaCloud = url.searchParams.get("provider") === "meta_cloud";
+    if (isMetaCloud && req.method === "GET") {
+      const mode = url.searchParams.get("hub.mode");
+      const token = url.searchParams.get("hub.verify_token");
+      const challenge = url.searchParams.get("hub.challenge");
+      if (mode === "subscribe" && token) {
+        // Match against any provider with this verify_token
+        const { data: matchProv } = await supabase
+          .from("imphq_wa_providers")
+          .select("id")
+          .eq("provider", "meta_cloud")
+          .eq("webhook_verify_token", token)
+          .limit(1)
+          .maybeSingle();
+        if (matchProv) {
+          console.log("[meta_cloud] webhook verified");
+          return new Response(challenge || "ok", { status: 200, headers: corsHeaders });
+        }
+        console.warn("[meta_cloud] verify_token inválido");
+        return new Response("forbidden", { status: 403, headers: corsHeaders });
+      }
+    }
+
+    if (isMetaCloud && req.method === "POST") {
+      try {
+        const body = await req.json();
+        const entries = body?.entry || [];
+        for (const entry of entries) {
+          for (const change of (entry.changes || [])) {
+            const value = change.value || {};
+            const phoneNumberId = value?.metadata?.phone_number_id;
+            if (!phoneNumberId) continue;
+
+            const { data: prov } = await supabase
+              .from("imphq_wa_providers")
+              .select("id, project_id")
+              .eq("provider", "meta_cloud")
+              .eq("phone_number_id", phoneNumberId)
+              .maybeSingle();
+            if (!prov) { console.warn("[meta_cloud] provider não encontrado para", phoneNumberId); continue; }
+
+            const projectId = prov.project_id;
+            const providerId = prov.id;
+            const contacts = value?.contacts || [];
+            const pushName = contacts[0]?.profile?.name || "";
+
+            for (const m of (value.messages || [])) {
+              const phone = (m.from || "").replace(/\D/g, "");
+              if (!phone) continue;
+              let content = "";
+              let messageType = "text";
+              if (m.type === "text") content = m.text?.body || "";
+              else if (m.type === "image") { content = m.image?.caption ? `📷 ${m.image.caption}` : "📷 Imagem"; messageType = "image"; }
+              else if (m.type === "audio") { content = "🎤 Áudio"; messageType = "audio"; }
+              else if (m.type === "video") { content = m.video?.caption ? `🎬 ${m.video.caption}` : "🎬 Vídeo"; messageType = "video"; }
+              else if (m.type === "document") { content = `📎 ${m.document?.filename || "Documento"}`; messageType = "document"; }
+              else if (m.type === "sticker") { content = "🏷️ Sticker"; messageType = "sticker"; }
+              else if (m.type === "location") { content = "📍 Localização"; messageType = "location"; }
+              else if (m.type === "button") content = m.button?.text || "";
+              else if (m.type === "interactive") content = m.interactive?.button_reply?.title || m.interactive?.list_reply?.title || "";
+              else content = `[${m.type}]`;
+
+              const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined, "s.whatsapp.net");
+              const { error: insErr } = await supabase.from("imphq_wa_messages").insert({
+                conversation_id: conv.id,
+                direction: "incoming",
+                phone,
+                content,
+                message_type: messageType,
+                provider_message_id: m.id || null,
+                project_id: projectId,
+                provider: "meta_cloud",
+              } as any);
+              if (insErr) console.warn("[meta_cloud] insert msg error:", insErr.message);
+            }
+          }
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (e: any) {
+        console.error("[meta_cloud] webhook error:", e.message);
+        return new Response(JSON.stringify({ success: false, error: e.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     if (action === "webhook") {
       const body = await req.json();
       // Normalize providerType — extract just "evolution" or "twilio" (strip path segments like "evolution/messages-upsert")
