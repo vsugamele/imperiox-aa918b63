@@ -1421,21 +1421,22 @@ serve(async (req) => {
                   const customInstr = (aiConfig as any).custom_instructions;
                   const productFocus = (aiConfig as any).product_focus;
 
-                  const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+                  const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
 ${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
 Você está respondendo via WhatsApp para a empresa "${project?.name || ""}".
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
 ${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
 ${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
 ${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}
-REGRAS GERAIS:
-- Responda em português brasileiro
-- Seja CONCISO (máx 2-3 parágrafos curtos)
-- Use WhatsApp formatting: *negrito*, _itálico_
-- NUNCA invente informações sobre produtos/preços que não estejam no contexto
-- Se houver FAQ que bata com a pergunta, use a resposta literal
-- Se não souber a resposta, diga que vai encaminhar para um atendente humano
-- Se o lead pedir para falar com humano, diga que está encaminhando`;
+REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
+- Responda em português brasileiro com fluidez e empatia natural, evite ser robótico, excessivamente polido ou formal (a menos que a instrução do tom seja formal).
+- Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos). Mensagens longas são ignoradas no WhatsApp.
+- Não envie listas de tópicos longas ou blocos densos de texto. Fale como uma pessoa real conversando.
+- NUNCA repita apresentações ou diga "Olá, eu sou o assistente..." se o histórico já mostra que a conversa já começou.
+- Use WhatsApp formatting de forma leve: *negrito*, _itálico_.
+- NUNCA invente informações sobre produtos, links de checkout ou preços que não estejam explicitamente detalhados no contexto.
+- Se não souber a resposta exata para a pergunta, diga amigavelmente que vai verificar com a equipe e em seguida transfira para um humano.
+- Se o lead pedir explicitamente para falar com um humano, diga que está chamando um atendente e pare imediatamente.`;
 
                   // ─── Few-shot: últimas respostas humanas reais do projeto ───
                   let fewShotBlock = "";
@@ -1503,11 +1504,20 @@ REGRAS GERAIS:
                   const enrichedSystem = systemPrompt + fewShotBlock + ragBlock;
 
                   const messages: any[] = [{ role: "system", content: enrichedSystem }];
-                  if (chatHistory) {
-                    messages.push({ role: "user", content: `Histórico recente:\n${chatHistory}\n\nNova mensagem do lead: ${content}` });
-                  } else {
-                    messages.push({ role: "user", content });
+                  
+                  // Structuring the chat history using proper multi-turn conversation roles for maximum LLM precision
+                  if (recentMsgs && recentMsgs.length > 0) {
+                    const reversed = [...recentMsgs].reverse();
+                    reversed.forEach((m: any) => {
+                      messages.push({
+                        role: m.direction === "incoming" ? "user" : "assistant",
+                        content: m.content || "",
+                      });
+                    });
                   }
+                  
+                  // Append the current active incoming message
+                  messages.push({ role: "user", content });
 
                   // ─── Call AI (provider switch: OpenRouter ou Lovable AI) ───
                   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
