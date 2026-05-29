@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
@@ -205,6 +205,160 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const initialLoadDone = useRef(false);
     const newestTimestampRef = useRef<string | null>(null);
     const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
+    const [loadingCopilot, setLoadingCopilot] = useState(false);
+
+    const generateCopilotSuggestion = async () => {
+      if (messages.length === 0) {
+        toast.error("Nenhuma mensagem na conversa para analisar.");
+        return;
+      }
+      setLoadingCopilot(true);
+      try {
+        const savedKeys = localStorage.getItem("imphq_api_keys");
+        const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
+        const orKey = apiKeys.openrouter;
+
+        const [configRes, projectRes] = await Promise.all([
+          supabase
+            .from("imphq_wa_ai_config")
+            .select("*")
+            .eq("project_id", projectId)
+            .eq("is_active", true)
+            .maybeSingle(),
+          supabase
+            .from("imphq_projects")
+            .select("name, data")
+            .eq("id", projectId)
+            .maybeSingle()
+        ]);
+
+        const aiConfig = configRes.data;
+        const project = projectRes.data;
+
+        let projectContext = "";
+        let expertPersona = "";
+        let customInstr = "";
+        let productFocus = "";
+        let personality = "assistente";
+        let tone = "profissional";
+
+        if (aiConfig) {
+          expertPersona = aiConfig.expert_persona || "";
+          customInstr = aiConfig.custom_instructions || "";
+          productFocus = aiConfig.product_focus || "";
+          personality = aiConfig.personality || "assistente";
+          tone = aiConfig.tone || "profissional";
+        }
+
+        if (project) {
+          const d: any = project.data || {};
+          projectContext = `PROJETO: ${project.name}\n`;
+          if (d.avatar) projectContext += `AVATAR (resumo): ${JSON.stringify(d.avatar).slice(0, 1000)}\n`;
+          if (d.produtos) projectContext += `PRODUTOS: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+        }
+
+        const personalityPrompts: Record<string, string> = {
+          assistente: "Você é um assistente virtual cordial e prestativo.",
+          vendedor: "Você é um closer de vendas persuasivo mas não agressivo. Foque em entender a dor e apresentar a solução.",
+          suporte: "Você é um agente de suporte técnico eficiente e empático.",
+          consultor: "Você é um consultor especialista. Fale com autoridade e dê recomendações valiosas.",
+        };
+
+        const toneInstructions: Record<string, string> = {
+          profissional: "Tom profissional e direto.",
+          casual: "Tom casual e descontraído, use emojis moderadamente.",
+          amigavel: "Tom amigável e acolhedor, use emojis.",
+          formal: "Tom formal e respeitoso.",
+          urgente: "Tom de urgência e escassez.",
+        };
+
+        const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona}\n\n` : ""}${personalityPrompts[personality] || personalityPrompts.assistente}
+${toneInstructions[tone] || toneInstructions.profissional}
+Você está respondendo via WhatsApp para a empresa "${project?.name || ""}".
+${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
+${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus}\n` : ""}
+${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr}\n` : ""}
+
+REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
+- Responda em português brasileiro com fluidez e empatia natural, evite ser robótico, excessivamente polido ou formal (a menos que a instrução do tom seja formal).
+- Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos). Mensagens longas são ignoradas no WhatsApp.
+- Não envie listas de tópicos longas ou blocos densos de texto. Fale como uma pessoa real conversando.
+- NUNCA repita apresentações ou diga "Olá, eu sou o assistente..." se a conversa já começou.
+- Use WhatsApp formatting de forma leve: *negrito*, _itálico_.
+- NUNCA invente informações sobre produtos, links de checkout ou preços que não estejam explicitamente detalhados no contexto.
+- Se não souber a resposta exata para a pergunta, diga amigavelmente que vai verificar com a equipe e em seguida transfira para um humano.
+- Se o lead pedir explicitamente para falar com um humano, diga que está chamando um atendente e pare imediatamente.`;
+
+        const recentHistory = messages.slice(-10);
+        const chatMessages: any[] = [{ role: "system", content: systemPrompt }];
+
+        recentHistory.forEach((m) => {
+          chatMessages.push({
+            role: m.direction === "incoming" ? "user" : "assistant",
+            content: m.content || ""
+          });
+        });
+
+        let aiReply = "";
+
+        if (orKey) {
+          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${orKey}`,
+              "HTTP-Referer": window.location.origin,
+              "X-Title": "ImperioHQ Chat Copilot",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: chatMessages,
+              temperature: 0.6,
+            })
+          });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Erro OpenRouter: ${response.status} - ${errText}`);
+          }
+
+          const data = await response.json();
+          aiReply = data.choices?.[0]?.message?.content || "";
+        } else {
+          toast.info("Chave OpenRouter não configurada. Usando gateway padrão...");
+          const incomingMsgs = messages.filter(m => m.direction === "incoming");
+          const lastIncomingText = incomingMsgs.length > 0 ? incomingMsgs[incomingMsgs.length - 1].content : "";
+
+          const { data, error } = await supabase.functions.invoke("wa-ai-refine", {
+            body: {
+              prompt: lastIncomingText,
+              project_id: projectId,
+              history: messages.slice(-8).map(m => `${m.direction === "incoming" ? "Lead" : "Você"}: ${m.content}`).join("\n"),
+            }
+          });
+
+          if (error) throw error;
+          aiReply = data?.suggested_text || data?.reply || "";
+        }
+
+        if (aiReply.trim()) {
+          setDraft({
+            id: `copilot-${Date.now()}`,
+            suggested_text: aiReply.trim(),
+            model: orKey ? "Gemini-2.5" : "Imperius standard"
+          });
+          toast.success("Sugestão da IA gerada!");
+        } else {
+          toast.error("Não foi possível obter uma sugestão válida.");
+        }
+
+      } catch (err: any) {
+        console.error("Copilot Error:", err);
+        toast.error(`Falha no Copilot: ${err.message || "Erro desconhecido"}`);
+      } finally {
+        setLoadingCopilot(false);
+      }
+    };
 
     // Poll AI drafts (modo rascunho)
     useEffect(() => {
@@ -763,6 +917,23 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
                 </PopoverContent>
               </Popover>
             )}
+
+            {/* AI Copilot Suggestion */}
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="shrink-0 h-9 w-9 rounded-full text-primary hover:text-primary/80 hover:bg-primary/5"
+              title="Pedir sugestão da IA (Copilot)"
+              onClick={generateCopilotSuggestion}
+              disabled={loadingCopilot || messages.length === 0}
+            >
+              {loadingCopilot ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : (
+                <Brain className="h-4 w-4 text-primary" />
+              )}
+            </Button>
 
             {/* Message input */}
             <Textarea
