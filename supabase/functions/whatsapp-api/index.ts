@@ -256,6 +256,35 @@ serve(async (req) => {
       return data;
     }
 
+    // ── Helper: send via Meta Cloud API (WhatsApp oficial nativo) ──
+    async function sendMetaCloud(provider: any, phone: string, text: string) {
+      const phoneNumberId = provider.phone_number_id;
+      const accessToken = provider.access_token;
+      if (!phoneNumberId) throw new Error("phone_number_id não configurado no provider Meta Cloud");
+      if (!accessToken) throw new Error("access_token não configurado no provider Meta Cloud");
+
+      const apiUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: phone.replace(/\D/g, ""),
+          type: "text",
+          text: { body: text, preview_url: true },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(`Meta Cloud error [${res.status}]: ${JSON.stringify(data)}`);
+      // Normaliza retorno para parecer com o do Evolution (chave key.id)
+      const msgId = data?.messages?.[0]?.id;
+      return { ...data, key: { id: msgId } };
+    }
+
     // ── Helper: normalize phone (BR-friendly, mas preserva DDIs internacionais) ──
     // Retorna { phone, cc } onde cc é o DDI detectado; phone=null se inválido.
     const KNOWN_CCS = new Set([
