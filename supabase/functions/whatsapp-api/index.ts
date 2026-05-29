@@ -382,6 +382,8 @@ serve(async (req) => {
           return await sendEvolutionMedia(p, phone, media_url, media_type || "image", content || undefined);
         } else if (p.provider === "evolution") {
           return await sendEvolution(p, phone, content);
+        } else if (p.provider === "meta_cloud") {
+          return await sendMetaCloud(p, phone, content);
         } else {
           return await sendTwilio(p, phone, content);
         }
