@@ -32,9 +32,11 @@ export default function CampaignImportDialog({ open, onClose, campaignId, onDone
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [steps, setSteps] = useState<ParsedStep[]>([]);
+  const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
 
   const reset = () => {
     setText(""); setSteps([]); setBaseDate(new Date().toISOString().slice(0, 10));
+    setExpandedSteps({});
   };
 
   const parse = async () => {
@@ -94,6 +96,7 @@ export default function CampaignImportDialog({ open, onClose, campaignId, onDone
 
   const toggle = (i: number) => setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, _keep: !s._keep } : s));
   const toggleAll = (v: boolean) => setSteps(prev => prev.map(s => ({ ...s, _keep: v })));
+  const toggleExpand = (i: number) => setExpandedSteps(prev => ({ ...prev, [i]: !prev[i] }));
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
@@ -149,7 +152,18 @@ export default function CampaignImportDialog({ open, onClose, campaignId, onDone
                         <Badge className="text-[10px] bg-gold/20 text-gold border-gold/30">D+{s.day_offset} · {s.send_time}</Badge>
                         {s.day_label && <span className="text-[10px] text-muted-foreground truncate">{s.day_label}</span>}
                       </div>
-                      <p className="text-xs whitespace-pre-wrap leading-6 line-clamp-4">{s.content}</p>
+                      <p className={`text-xs whitespace-pre-wrap leading-6 ${expandedSteps[i] ? "" : "line-clamp-4"}`}>
+                        {s.content}
+                      </p>
+                      {s.content.length > 180 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(i)}
+                          className="text-[10px] text-primary hover:underline mt-1.5 block font-medium"
+                        >
+                          {expandedSteps[i] ? "Recolher mensagem" : "Ver mensagem completa..."}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
