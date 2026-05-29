@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Search, Plus } from "lucide-react";
+import { MessageSquare, Search, Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface WaSession {
@@ -55,6 +55,7 @@ interface Props {
   onFilterProject: (v: string) => void;
   filterProvider?: string;
   onFilterProvider?: (v: string) => void;
+  onMarkUnread?: (id: string) => void;
 }
 
 function timeAgo(dateStr: string | undefined) {
@@ -96,6 +97,7 @@ function providerLabel(prov: Provider | undefined): string | null {
 export default function ConversationList({
   sessions, projects, providers, selectedId, loading, onSelect, onNewSession,
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
+  onMarkUnread,
 }: Props) {
   const [search, setSearch] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
@@ -266,7 +268,7 @@ export default function ConversationList({
                 <button
                   key={s.id}
                   onClick={() => onSelect(s)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-[3px] ${
+                  className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-[3px] ${
                     isSelected
                       ? "bg-accent border-l-primary"
                       : hasUnread
@@ -340,11 +342,25 @@ export default function ConversationList({
                         <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full min-w-[20px] h-[20px] px-1.5 flex items-center justify-center shrink-0 leading-none shadow-[0_0_8px_rgba(16,185,129,0.5)]">
                           {displayCount > 99 ? "99+" : displayCount}
                         </span>
-                      ) : s.message_count > 0 ? (
-                        <Badge variant="secondary" className="text-[9px] h-4 px-1.5 shrink-0">
-                          {s.message_count}
-                        </Badge>
-                      ) : null}
+                      ) : (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {s.message_count > 0 && (
+                            <Badge variant="secondary" className="text-[9px] h-4 px-1.5 group-hover:hidden">
+                              {s.message_count}
+                            </Badge>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onMarkUnread?.(s.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-emerald-400 hover:bg-secondary transition-all"
+                            title="Marcar como não lida"
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">
                       {projectName(s.project_id)}

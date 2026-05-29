@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -139,6 +139,21 @@ export default function WhatsApp() {
       .update({ unread_count: 0, last_read_at: new Date().toISOString() } as any)
       .eq("id", id);
   }, []);
+
+  // Marca como não lida novamente
+  const markUnread = useCallback(async (id: string) => {
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 1 } : s));
+    const session = sessions.find(s => s.id === id);
+    const lastMsgTime = session?.last_message_at ? new Date(session.last_message_at).getTime() : Date.now();
+    const olderReadTime = new Date(lastMsgTime - 10000).toISOString();
+
+    await supabase.from("imphq_wa_conversations")
+      .update({ unread_count: 1, last_read_at: olderReadTime } as any)
+      .eq("id", id);
+
+    setSelectedSession(null);
+    toast.success("Conversa marcada como não lida");
+  }, [sessions]);
 
   // Auto-sync avatars for visible conversations missing avatar_url (batch, by provider)
   useEffect(() => {
@@ -284,6 +299,7 @@ export default function WhatsApp() {
                 onFilterProject={setFilterProject}
                 filterProvider={filterProvider}
                 onFilterProvider={setFilterProvider}
+                onMarkUnread={markUnread}
               />
             </ResizablePanel>
 
@@ -313,7 +329,18 @@ export default function WhatsApp() {
                         )}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[10px] text-muted-foreground hover:text-emerald-400 hover:bg-secondary/40 gap-1"
+                        onClick={() => markUnread(selectedSession.id)}
+                        title="Marcar como não lida"
+                      >
+                        <MailOpen className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Não lida</span>
+                      </Button>
+
                       {selectedProvider && (
                         <Badge variant="outline" className="text-[9px] flex items-center gap-1.5" title={selectedProvider.instance_name || ""}>
                           <span className="inline-block w-2 h-2 rounded-full" style={{ background: `hsl(${[...selectedProvider.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % 360}, 65%, 55%)` }} />
