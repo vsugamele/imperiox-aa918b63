@@ -756,81 +756,145 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
                 {/* Right: Simulation results */}
                 <div className="lg:col-span-7 space-y-4">
                   {simulating ? (
-                    <div className="p-8 border border-dashed border-border/40 rounded-lg bg-secondary/5 flex flex-col items-center justify-center text-center space-y-4 min-h-[350px]">
-                      <div className="relative">
-                        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                        <Brain className="h-5 w-5 text-primary absolute left-3.5 top-3.5 animate-pulse" />
+                    <div className="p-6 rounded-xl border border-primary/20 bg-slate-950/80 backdrop-blur-md space-y-6 shadow-inner min-h-[380px] flex flex-col justify-center select-none">
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                          <Brain className="h-6 w-6 text-primary absolute left-4 top-4 animate-pulse" />
+                        </div>
+                        <div className="text-center">
+                          <h4 className="text-sm font-bold text-foreground">Cérebro da IA Ativo</h4>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Calculando rota ideal de conversão...</p>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold text-foreground">Cérebro da IA Calculando...</p>
-                        <p className="text-[10px] text-muted-foreground max-w-xs leading-normal">
-                          Analisando sentimentos, extraindo tom emocional, verificando a biblioteca de objeções e refinando cópia.
-                        </p>
+
+                      {/* Animated Terminal Thought Cascader */}
+                      <div className="border border-border/40 bg-slate-900/60 p-4 rounded-xl space-y-3.5 font-mono text-[10px]">
+                        <div className="flex items-center justify-between text-muted-foreground/80">
+                          <span>PROCESSADOR IMPERIUS v4.2</span>
+                          <span className="animate-pulse">● CALIBRANDO</span>
+                        </div>
+                        <div className="space-y-2 border-t border-border/20 pt-2">
+                          <div className="flex items-center gap-2 text-primary">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
+                            <span>[01/04] Analisando sentimento do lead... 🔍</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground/50">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
+                            <span>[02/04] Mapeando biblioteca de objeções... ⚠️</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground/50">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
+                            <span>[03/04] Ajustando tom de voz dinâmico... 🕯️</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground/50">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
+                            <span>[04/04] Redigindo resposta final... 🧠</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ) : simulationResult ? (
-                    <div className="space-y-4 animate-fade-in">
-                      {/* Sentiment & Tone Info Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Detected Sentiment */}
-                        <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/15 space-y-1.5">
-                          <Label className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 uppercase tracking-wider">
-                            🧠 Sentimento do Lead
-                          </Label>
-                          <div className="flex items-center gap-2">
-                            <Badge className={`text-xs font-semibold px-2 py-0.5 ${
-                              ["cético", "impaciente", "defensivo", "indeciso"].includes(String(simulationResult.detectedSentiment).toLowerCase())
-                                ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                                : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                            }`}>
-                              {["cético", "negociando", "caro"].some(s => String(simulationResult.detectedSentiment).toLowerCase().includes(s)) ? "🤨" : "🤝"}{" "}
-                              {simulationResult.detectedSentiment}
-                            </Badge>
+                    <div className="space-y-4 animate-fade-in select-text">
+                      
+                      {/* FUTURISTIC TRANSPARENT GLASSMORPHIC AI THOUGHT TIMELINE VISOR */}
+                      <div className="p-4 rounded-xl border border-primary/20 bg-gradient-to-b from-primary/5 to-transparent backdrop-blur-md shadow-lg space-y-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-3 select-none">
+                          <Badge variant="outline" className="text-[8px] bg-primary/10 text-primary border-primary/30 font-bold tracking-wider uppercase">
+                            Pensamento Interno da IA
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 select-none">
+                          <div className="w-8 h-8 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center">
+                            <Brain className="h-4.5 w-4.5 text-primary" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-foreground">Diagnóstico do Cérebro Imperius</h4>
+                            <p className="text-[9px] text-muted-foreground">Detalhamento dos passos de raciocínio da IA</p>
                           </div>
                         </div>
 
-                        {/* Tone Alignment Explanation */}
-                        <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/15 space-y-1.5">
-                          <Label className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 uppercase tracking-wider">
-                            🎭 Postura do Tom (DYN TOM)
-                          </Label>
-                          <p className="text-xs font-medium text-foreground leading-snug">
-                            {simulationResult.detectedToneExplanation || "Postura padrão adaptada ao sentimento."}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Objection Matched */}
-                      <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/15 space-y-1.5">
-                        <Label className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 uppercase tracking-wider">
-                          📚 Biblioteca de Objeções
-                        </Label>
-                        {simulationResult.matchedObjectionId ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px]">
-                                Objeção Identificada: {simulationResult.matchedObjectionCategory || "Geral"}
-                              </Badge>
+                        {/* Interactive Timeline Cascade */}
+                        <div className="relative border-l border-border/60 ml-4.5 pl-5.5 space-y-4 pt-1 pb-1">
+                          
+                          {/* Step 1: Sentiment */}
+                          <div className="relative">
+                            <span className="absolute -left-8.5 top-0.5 w-6 h-6 rounded-full bg-slate-900 border border-amber-500/50 flex items-center justify-center text-xs select-none">
+                              🔍
+                            </span>
+                            <div className="space-y-1">
+                              <h5 className="text-[10px] font-bold text-amber-400 uppercase tracking-wide leading-none select-none">Analisando Sentimento</h5>
+                              <p className="text-[11px] font-semibold text-foreground">
+                                Postura identificada: <span className="text-amber-300 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded ml-1">{simulationResult.detectedSentiment || "Cético"}</span>
+                              </p>
                             </div>
-                            <p className="text-[11px] text-muted-foreground leading-normal">
-                              <strong>Motivo:</strong> {simulationResult.matchedObjectionReason || "Mensagem bate com termos da objeção."}
-                            </p>
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-muted-foreground py-0.5">
-                            <span className="text-xs">✔️ Nenhuma objeção explícita ativada (IA usará o contexto geral).</span>
+
+                          {/* Step 2: Objection library */}
+                          <div className="relative">
+                            <span className="absolute -left-8.5 top-0.5 w-6 h-6 rounded-full bg-slate-900 border border-violet-500/50 flex items-center justify-center text-xs select-none">
+                              ⚠️
+                            </span>
+                            <div className="space-y-1">
+                              <h5 className="text-[10px] font-bold text-violet-400 uppercase tracking-wide leading-none select-none">Biblioteca de Objeções</h5>
+                              {simulationResult.matchedObjectionId ? (
+                                <div className="space-y-1">
+                                  <p className="text-[11px] font-semibold text-foreground">
+                                    Regra de Objeção Ativada: <span className="text-violet-300 font-bold bg-violet-500/10 px-1.5 py-0.5 rounded ml-1">{simulationResult.matchedObjectionCategory || "Valor / Preço"}</span>
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground leading-normal">
+                                    <strong>Gatilho:</strong> {simulationResult.matchedObjectionReason || "Detectou ceticismo em relação a preço."}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-muted-foreground/80 leading-normal">
+                                  ✔️ Nenhuma objeção explícita ativada (IA usará o briefing geral).
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        )}
+
+                          {/* Step 3: Dynamic Tone Alignment */}
+                          <div className="relative">
+                            <span className="absolute -left-8.5 top-0.5 w-6 h-6 rounded-full bg-slate-900 border border-emerald-500/50 flex items-center justify-center text-xs select-none">
+                              🕯️
+                            </span>
+                            <div className="space-y-1">
+                              <h5 className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide leading-none select-none">Ajustando Tom de Voz</h5>
+                              <p className="text-[11px] font-semibold text-foreground">
+                                Alinhamento dinâmico: <span className="text-emerald-300 ml-1">{simulationResult.detectedToneExplanation || "Tom adaptado com empatia."}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Step 4: Closer Reply Writing */}
+                          <div className="relative">
+                            <span className="absolute -left-8.5 top-0.5 w-6 h-6 rounded-full bg-slate-900 border border-primary/50 flex items-center justify-center text-xs select-none animate-pulse">
+                              🧠
+                            </span>
+                            <div className="space-y-1">
+                              <h5 className="text-[10px] font-bold text-primary uppercase tracking-wide leading-none select-none">Roteiro Final de Resposta</h5>
+                              <p className="text-[10px] text-muted-foreground leading-normal">
+                                Resposta enxuta gerada especificamente para conversão no WhatsApp.
+                              </p>
+                            </div>
+                          </div>
+
+                        </div>
                       </div>
 
                       {/* Mockup WhatsApp Balloon */}
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold text-muted-foreground">Resposta Oficial Simulada (WhatsApp)</Label>
-                        <div className="p-4 rounded-xl bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat min-h-[140px] flex items-end justify-start border border-border/30">
-                          <div className="bg-[#1f2c34] text-[#e9edef] rounded-lg p-3 text-xs max-w-[85%] shadow-md leading-relaxed relative border border-[#233138]">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground select-none">Mensagem Simulada no WhatsApp</Label>
+                        <div className="p-4 rounded-xl bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat min-h-[140px] flex items-end justify-start border border-border/30 shadow-inner relative">
+                          <div className="absolute top-2 right-2 bg-emerald-500/10 text-emerald-400 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider select-none animate-pulse">
+                            Closer Live
+                          </div>
+                          
+                          <div className="bg-[#1f2c34] text-[#e9edef] rounded-lg p-3 text-xs max-w-[85%] shadow-md leading-relaxed relative border border-[#233138] mt-4 select-text">
                             <div className="whitespace-pre-wrap">{simulationResult.replyText}</div>
-                            <div className="text-[9px] text-muted-foreground text-right mt-1.5 font-sans leading-none flex items-center justify-end gap-1 select-none">
-                              <span>19:45</span>
+                            <div className="text-[9px] text-muted-foreground/60 text-right mt-1.5 font-sans leading-none flex items-center justify-end gap-1 select-none">
+                              <span>{new Date().toLocaleTimeString().slice(0, 5)}</span>
                               <span className="text-[#53bdeb] text-[12px]">✓✓</span>
                             </div>
                           </div>
@@ -838,12 +902,12 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
                       </div>
 
                       {/* Utility buttons */}
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 select-none">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 text-xs gap-1.5 border-border/40"
+                          className="h-8 text-xs gap-1.5 border-border/40 hover:bg-secondary/40"
                           onClick={() => copyToClipboard(simulationResult.replyText)}
                         >
                           <Copy className="h-3.5 w-3.5" />
@@ -852,14 +916,14 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
                       </div>
                     </div>
                   ) : (
-                    <div className="p-8 border border-dashed border-border/40 rounded-lg bg-secondary/5 flex flex-col items-center justify-center text-center space-y-4 min-h-[350px]">
+                    <div className="p-8 border border-dashed border-border/40 rounded-lg bg-secondary/5 flex flex-col items-center justify-center text-center space-y-4 min-h-[380px] select-none">
                       <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                         <Sparkles className="h-6 w-6" />
                       </div>
                       <div className="space-y-1">
                         <h4 className="text-xs font-bold text-foreground">Aguardando Mensagem para Simulação</h4>
                         <p className="text-[10px] text-muted-foreground max-w-xs leading-normal">
-                          Selecione um dos cenários rápidos à esquerda ou digite uma objeção real para rodar o Closer de IA e validar a cópia final.
+                          Selecione um dos cenários rápidos à esquerda ou digite uma objeção real para rodar o Closer de IA e validar o cérebro em tempo real.
                         </p>
                       </div>
                     </div>

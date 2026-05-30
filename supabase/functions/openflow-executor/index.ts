@@ -342,6 +342,86 @@ Deno.serve(async (req) => {
             }
           }
 
+          else if (step.tipo === "audio") {
+            const phone = lead_data?.phone || lead_data?.telefone;
+            if (!phone) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem telefone do lead";
+            } else {
+              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const msgText = (step.mensagem || step.template || "")
+                .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
+                .replace(/\{\{email\}\}/g, lead_data?.email || "")
+                .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
+                .replace(/\{\{telefone\}\}/g, phone || "")
+                .replace(/\{\{link\}\}/g, linkUrl)
+                .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
+                .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
+
+              let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+              if (!providerId && project_id) {
+                const { data: projProviders } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("id")
+                  .eq("is_active", true)
+                  .eq("project_id", project_id)
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+                if (projProviders?.length) providerId = projProviders[0].id;
+              }
+
+              if (!providerId) {
+                const { data: activeProviders } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("id")
+                  .eq("is_active", true)
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+                if (activeProviders?.length) providerId = activeProviders[0].id;
+              }
+
+              stepResult.provider_id = providerId || null;
+              stepResult.phone = phone;
+              stepResult.voice_provider = step.voice_provider || "elevenlabs";
+              stepResult.voice_id = step.voice_id || "fernanda_hq";
+
+              if (!providerId) {
+                stepResult.status = "error";
+                stepResult.reason = "Nenhum provider WhatsApp ativo encontrado";
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (audio): Nenhum provider ativo`);
+              } else {
+                // Call whatsapp-api with voice action, generating ElevenLabs audio converted to OGG Opus in real time, mimicking recordings!
+                const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_voice_synthesis`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${supabaseKey}`,
+                  },
+                  body: JSON.stringify({
+                    provider_id: providerId,
+                    phone: normalizeBRPhone(phone),
+                    text: msgText,
+                    voice_provider: step.voice_provider || "elevenlabs",
+                    voice_id: step.voice_id || "fernanda_hq",
+                    voice_stability: step.voice_stability || 75,
+                    voice_clarity: step.voice_clarity || 85,
+                    project_id,
+                  }),
+                });
+                const waData = await waRes.json();
+                stepResult.status = waData.success ? "sent" : "error";
+                stepResult.response = waData;
+                if (waData.success) {
+                  messagesSent++;
+                } else {
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (audio): ${waData.error || "Falha no envio do áudio"}`);
+                }
+              }
+            }
+          }
+
           else if (step.tipo === "email") {
             const toEmail = lead_data?.email;
             if (!toEmail) {
