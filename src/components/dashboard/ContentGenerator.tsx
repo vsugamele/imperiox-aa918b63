@@ -10,9 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Zap, Filter, Library } from "lucide-react";
+import { Sparkles, Loader2, Zap, Filter, Library, Compass } from "lucide-react";
 import { CONTENT_TYPES, TRIGGERS, FUNNEL_STAGES, type GeneratedItem, type StatusKey } from "./contentGenerator/constants";
 import { ResultCard } from "./contentGenerator/ResultCard";
+import { CreativeMatrix } from "../studio/CreativeMatrix";
 
 // Ângulos psicológicos para variações em lote — cada variação ataca por um ângulo distinto.
 const ANGLES = [
@@ -30,6 +31,7 @@ export function ContentGenerator() {
   const [trigger, setTrigger] = useState("carrinho_abandonado");
   const [funnelStage, setFunnelStage] = useState("fundo");
   const [customPrompt, setCustomPrompt] = useState("");
+  const [showMatrix, setShowMatrix] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [batchCount, setBatchCount] = useState(3);
   const [swipes, setSwipes] = useState<any[]>([]);
@@ -324,13 +326,37 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
 
   return (
     <Card className="border-border/50 bg-card/80 backdrop-blur">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between gap-4">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Zap className="h-5 w-5 text-primary" />
           Gerador de Conteúdo com IA
           <Badge variant="secondary" className="text-[10px]">Fase 3 — Pipeline</Badge>
         </CardTitle>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowMatrix(!showMatrix)}
+          className="gap-1.5 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary"
+        >
+          <Compass className="h-3.5 w-3.5" />
+          {showMatrix ? "Ocultar Matriz" : "💡 Matriz de Ângulos"}
+        </Button>
       </CardHeader>
+
+      {showMatrix && (
+        <div className="px-6 pb-4 border-b border-border/30 animate-fade-in">
+          <CreativeMatrix 
+            onSelectAngle={(key, hook) => {
+              setCustomPrompt(prev => (prev ? prev + "\n" : "") + `[Ângulo de Copy: ${key}] — ${hook}`);
+              toast.success("Hook do ângulo injetado nas instruções!");
+            }}
+            onSelectPrompt={(prompt) => {
+              setCustomPrompt(prompt);
+              toast.success("Prompt combinador injetado com sucesso!");
+            }}
+          />
+        </div>
+      )}
       <CardContent>
         <Tabs defaultValue="generate" className="space-y-4">
           <TabsList className="grid grid-cols-2 w-full max-w-xs">

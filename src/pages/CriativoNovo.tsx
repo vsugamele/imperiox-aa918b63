@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, X, Wand2, Image as ImageIcon, Target, Palette } from "lucide-react";
+import { Loader2, Sparkles, X, Wand2, Image as ImageIcon, Target, Palette, Compass } from "lucide-react";
 import { toast } from "sonner";
+import { CreativeMatrix } from "@/components/studio/CreativeMatrix";
 
 const ANGULOS = [
   { value: "dor", label: "Dor" },
@@ -54,6 +55,7 @@ export default function CriativoNovo() {
   const [projectId, setProjectId] = useState<string>("");
   const [selectedProductIdx, setSelectedProductIdx] = useState<string>(AVATAR_PRINCIPAL);
   const [autoMode, setAutoMode] = useState(true);
+  const [showMatrix, setShowMatrix] = useState(false);
 
   const [nome, setNome] = useState("");
   const [produto, setProduto] = useState("");
@@ -375,15 +377,41 @@ export default function CriativoNovo() {
   const hasBrand = !!(currentProject?.brand_kit && (currentProject.brand_kit.arquetipo || currentProject.brand_kit.cores || currentProject.brand_kit.tom_voz));
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl text-primary flex items-center gap-2">
-          <Sparkles className="h-7 w-7" /> Novo batch de criativos
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Configure o briefing e deixe a IA gerar {total} imagens em múltiplos ângulos.
-        </p>
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-3xl text-primary flex items-center gap-2">
+            <Sparkles className="h-7 w-7" /> Novo batch de criativos
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Configure o briefing e deixe a IA gerar {total} imagens em múltiplos ângulos.
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowMatrix(!showMatrix)}
+          className="gap-2 shrink-0 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary self-start sm:self-center"
+        >
+          <Compass className="h-4 w-4" /> 
+          {showMatrix ? "Fechar Matriz de Ângulos" : "💡 Matriz de Copys & Ângulos"}
+        </Button>
       </div>
+
+      {showMatrix && (
+        <div className="animate-fade-in">
+          <CreativeMatrix 
+            onSelectAngle={(key, text) => {
+              if (key.includes("dor") || key.includes("sintoma") || key.includes("causa") || key.includes("custo")) {
+                setDor(text);
+                toast.success("Copiado para o campo de Dor Principal!");
+              } else {
+                setDesejo(text);
+                toast.success("Copiado para o campo de Desejo!");
+              }
+            }}
+          />
+        </div>
+      )}
 
       <Card className="p-5 space-y-4">
         <div className="grid md:grid-cols-2 gap-3">
