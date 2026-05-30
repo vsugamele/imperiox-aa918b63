@@ -29,6 +29,7 @@ import TodayCard from "@/components/dashboard/TodayCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
 import ExecutiveSummary from "@/components/dashboard/ExecutiveSummary";
+import { DashboardCreativeHub } from "@/components/dashboard/DashboardCreativeHub";
 
 
 function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
@@ -163,6 +164,12 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TodayCard projectId={dashProject} />
         <LiveFunnelPanel projectFilter={dashProject} />
+      </section>
+
+      {/* FÁBRICA DE CRIATIVOS */}
+      <section className="space-y-3">
+        <SectionHead kicker="Fábrica de Criativos" title="Creative Factory & Fábrica de Ângulos" />
+        <DashboardCreativeHub projectId={dashProject} />
       </section>
 
       {/* PREDITIVO + HOT LEADS + ALERTS */}
