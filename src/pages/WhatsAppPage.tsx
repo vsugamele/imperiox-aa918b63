@@ -993,6 +993,8 @@ function MetaCloudStatusCard({ provider, projectName, projects, onSynced, onEdit
             {copiedToken ? "Copiado!" : "Verify Token"}
           </Button>
 
+          <AlertControls provider={provider} onChanged={onSynced} />
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Mais ações">

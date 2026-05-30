@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -51,6 +51,7 @@ const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção"];
 const ACAO_TIPOS = [
   { value: "email", label: "Email (Resend)", icon: Mail },
   { value: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { value: "audio", label: "Áudio WhatsApp (IA)", icon: Mic },
   { value: "telegram", label: "Telegram", icon: Send },
   { value: "aguardar", label: "Aguardar", icon: Clock },
 ];
