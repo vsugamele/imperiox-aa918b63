@@ -43,7 +43,7 @@ export function useProjectPulse(projectId: string | undefined, refreshMs = 60_00
       sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", dayStart).lt("created_at", dayEnd),
       sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
       sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", yStart).lt("created_at", dayStart),
-      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr),
       sb.from("imphq_vendas").select("id, status, last_intent_at").eq("project_id", projectId).neq("status", "aprovado").gte("last_intent_at", twoHoursAgo),
       sb.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("criado_em", dayStart),
     ];

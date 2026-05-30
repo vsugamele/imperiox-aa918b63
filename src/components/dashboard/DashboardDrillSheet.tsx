@@ -141,12 +141,12 @@ export default function DashboardDrillSheet({
             .select("valor, moeda, campanha")
             .gte("data_ref", fromDate)
             .lte("data_ref", toDate);
-          let custosQ: any = supabase
-            .from("imphq_custos")
-            .select("descricao, valor, moeda, categoria, data")
-            .gte("data", fromDate)
-            .lte("data", toDate)
-            .order("data", { ascending: false });
+           let custosQ: any = supabase
+            .from("imphq_project_costs")
+            .select("nome, valor, moeda, categoria, data_pagamento")
+            .gte("data_pagamento", fromDate)
+            .lte("data_pagamento", toDate)
+            .order("data_pagamento", { ascending: false });
           if (projectFilter !== "all") {
             vendasQ = vendasQ.eq("project_id", projectFilter);
             adsQ = adsQ.eq("project_id", projectFilter);
@@ -164,7 +164,13 @@ export default function DashboardDrillSheet({
           const ads = sumCur(aRes.data || []);
           const op = sumCur(cRes.data || []);
           setBreakdown({ revenue, ads, op });
-          setCustos(cRes.data || []);
+          
+          const mappedCustos = (cRes.data || []).map((c: any) => ({
+            ...c,
+            descricao: c.nome,
+            data: c.data_pagamento,
+          }));
+          setCustos(mappedCustos);
           // also aggregate ads by campaign for cost view
           const map = new Map<string, number>();
           (aRes.data || []).forEach((r: any) => {

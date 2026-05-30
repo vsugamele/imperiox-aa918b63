@@ -48,8 +48,8 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
         .gte("criado_em", from).lte("criado_em", to);
       if (projectFilter !== "all") leadsQ = leadsQ.eq("project_id", projectFilter);
 
-      let costQ: any = supabase.from("imphq_custos").select("valor, moeda")
-        .gte("data", fromDate).lte("data", toDate);
+      let costQ: any = supabase.from("imphq_project_costs").select("valor, moeda")
+        .gte("data_pagamento", fromDate).lte("data_pagamento", toDate);
       if (projectFilter !== "all") costQ = costQ.eq("project_id", projectFilter);
 
       let adsQ: any = supabase.from("imphq_ads_spend").select("valor, moeda")

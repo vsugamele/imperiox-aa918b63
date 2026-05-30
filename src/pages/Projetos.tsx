@@ -133,7 +133,7 @@ export default function Projetos() {
     const [vRes, aRes, lRes] = await Promise.all([
       supabase.from("imphq_vendas").select("project_id, valor, valor_liquido, data_venda").gte("data_venda", d60).limit(5000),
       supabase.from("imphq_ads_spend").select("project_id, valor, data_ref").gte("data_ref", d30).limit(5000),
-      supabase.from("imphq_leads").select("project_id, created_at").gte("created_at", ts7).limit(5000),
+      supabase.from("imphq_leads").select("project_id, criado_em").gte("criado_em", ts7).limit(5000),
     ]) as any;
 
     const map: Record<string, ProjectKpis> = {};

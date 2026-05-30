@@ -40,10 +40,14 @@ export default function Lancamentos() {
     setCampaigns((cps || []) as any);
     setSequences((seqs || []) as any);
 
-    let leadsQ = supabase.from("imphq_leads").select("id,created_at,project_id,data,email").gte("created_at", since).limit(5000);
+    let leadsQ = supabase.from("imphq_leads").select("id,criado_em,project_id,data,email").gte("criado_em", since).limit(5000);
     if (projectId !== "__all__") leadsQ = leadsQ.eq("project_id", projectId);
     const { data: lds } = await leadsQ;
-    setLeads((lds || []) as any);
+    const mappedLds = (lds || []).map((l: any) => ({
+      ...l,
+      created_at: l.criado_em,
+    }));
+    setLeads(mappedLds as any);
 
     const leadIds = (lds || []).map((l: any) => l.id);
     if (leadIds.length) {

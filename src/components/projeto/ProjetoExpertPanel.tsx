@@ -176,13 +176,17 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     const now = new Date();
     const weekEnd = addDays(now, 7);
     Promise.all([
-      supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", now.toISOString()).lte("start_date", weekEnd.toISOString()).order("start_date"),
+      supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", now.toISOString()).lte("event_date", weekEnd.toISOString()).order("event_date"),
       supabase.from("imphq_kanban_cards").select("id, title, priority, due_date, board, column_id").contains("tags", [projectId]).order("position"),
       supabase.from("imphq_processes" as any).select("*").eq("project_id", projectId),
       supabase.from("imphq_expert_logs" as any).select("*").eq("project_id", projectId),
       supabase.from("imphq_docs").select("id, title").eq("project_id", projectId).order("created_at", { ascending: false }),
     ]).then(([evRes, taskRes, procRes, logsRes, docsRes]) => {
-      setEvents(evRes.data || []);
+      const mappedEvents = (evRes.data || []).map((e: any) => ({
+        ...e,
+        start_date: e.event_date,
+      }));
+      setEvents(mappedEvents);
       setTasks(taskRes.data || []);
       setProcesses(procRes.data || []);
       setExpertLogs(logsRes.data || []);
@@ -191,10 +195,15 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
     // Fetch operational status
     Promise.all([
-      supabase.from("imphq_ad_accounts" as any).select("id, platform, account_name, is_active").eq("project_id", projectId),
+      supabase.from("imphq_ad_accounts").select("id, plataforma, nome, status"),
       supabase.from("imphq_wa_campaigns" as any).select("id, name, status").eq("project_id", projectId).eq("status", "active"),
     ]).then(([adsRes, waRes]) => {
-      const ads = adsRes.data || [];
+      const ads = (adsRes.data || []).map((a: any) => ({
+        id: a.id,
+        platform: a.plataforma,
+        account_name: a.nome,
+        is_active: a.status === "ativo",
+      }));
       const activeAds = ads.filter((a: any) => a.is_active);
       setOpsStatus({
         ads_connected: ads.length > 0,

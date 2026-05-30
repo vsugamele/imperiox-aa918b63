@@ -70,14 +70,14 @@ export function ProjetoComando({ projectId, project }: Props) {
       sb.from("imphq_leads").select("*").eq("project_id", projectId).order("criado_em", { ascending: false }).limit(10),
       sb.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
       sb.from("imphq_vendas").select("id, status, created_at, produto_nome, valor, plataforma, lead_id").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
-      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", todayStr).order("start_date", { ascending: true }),
+      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", todayStr).lte("event_date", todayStr).order("event_date", { ascending: true }),
       sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("created_at", yStart).lt("created_at", dayStart),
       sb.from("imphq_leads").select("criado_em").eq("project_id", projectId).gte("criado_em", sevenDaysAgo),
-      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr),
-      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")),
       sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
-      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("start_date", todayStr).lte("start_date", in48h).order("start_date", { ascending: true }),
-      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).gte("data", monthStart.slice(0, 10)),
+      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", todayStr).lte("event_date", in48h).order("event_date", { ascending: true }),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).gte("data_ref", monthStart.slice(0, 10)),
       sb.from("imphq_leads").select("id, criado_em").eq("project_id", projectId).gte("criado_em", monthStart),
       sb.from("imphq_vendas").select("id, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString()),
       sb.from("imphq_content").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", new Date(new Date(dayStart).getTime() - 14 * 86400000).toISOString()),
@@ -88,13 +88,13 @@ export function ProjetoComando({ projectId, project }: Props) {
     setLeads(leadsRes.data || []);
     setPendingVendas(vendasPendRes.data || []);
     setVendasHoje(vendasHojeRes.data || []);
-    setCalendarEvents(calEventsRes.data || []);
+    setCalendarEvents((calEventsRes.data || []).map((e: any) => ({ ...e, start_date: e.event_date })));
     setVendasOntem(vendasOntemRes.data || []);
     setLeads7d(leads7dRes.data || []);
     setAdsHoje(adsHojeRes.data || []);
     setAdsOntem(adsOntemRes.data || []);
     setVendasMes(vendasMesRes.data || []);
-    setEvents48h(events48hRes.data || []);
+    setEvents48h((events48hRes.data || []).map((e: any) => ({ ...e, start_date: e.event_date })));
     setAdsMes(adsMesRes.data || []);
     setLeadsMes(leadsMesRes.data || []);
     setVendas7dArr(vendas7dRes.data || []);
