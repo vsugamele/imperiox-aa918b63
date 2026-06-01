@@ -71,6 +71,7 @@ export default function CampaignManager({ projects, providers }: Props) {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupSearch, setGroupSearch] = useState("");
+  const [groupTab, setGroupTab] = useState<"all" | "selected">("all");
 
   // AI generation states during campaign creation
   const [generateWithAI, setGenerateWithAI] = useState(false);
@@ -633,7 +634,7 @@ export default function CampaignManager({ projects, providers }: Props) {
       </Dialog>
 
       {/* Group Selector Dialog */}
-      <Dialog open={!!showGroups} onOpenChange={() => { setShowGroups(null); setGroupSearch(""); }}>
+      <Dialog open={!!showGroups} onOpenChange={() => { setShowGroups(null); setGroupSearch(""); setGroupTab("all"); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Selecionar Grupos — {showGroups?.name}</DialogTitle>
@@ -645,30 +646,61 @@ export default function CampaignManager({ projects, providers }: Props) {
             <p className="text-sm text-muted-foreground py-4">Nenhum grupo encontrado. Verifique se a instância está conectada.</p>
           ) : (
             <>
-              <div className="relative">
+              <div className="flex gap-1.5 p-1 bg-secondary/20 rounded-lg border border-border/40 mb-3">
+                <Button
+                  size="sm"
+                  type="button"
+                  variant={groupTab === "all" ? "secondary" : "ghost"}
+                  className="flex-1 h-8 text-xs font-semibold"
+                  onClick={() => setGroupTab("all")}
+                >
+                  🌐 Todos ({availableGroups.length})
+                </Button>
+                <Button
+                  size="sm"
+                  type="button"
+                  variant={groupTab === "selected" ? "secondary" : "ghost"}
+                  className="flex-1 h-8 text-xs font-semibold"
+                  onClick={() => setGroupTab("selected")}
+                >
+                  ✅ Selecionados ({selectedGroups.length})
+                </Button>
+              </div>
+
+              <div className="relative mb-3">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar grupo..."
+                  placeholder={groupTab === "all" ? "Buscar em todos os grupos..." : "Buscar nos grupos selecionados..."}
                   value={groupSearch}
                   onChange={e => setGroupSearch(e.target.value)}
-                  className="pl-8 h-9 text-sm"
+                  className="pl-8 h-9 text-sm bg-background/50"
                 />
               </div>
               <ScrollArea className="max-h-[350px]">
                 <div className="space-y-1.5">
-                  {availableGroups
-                    .filter(g => !groupSearch || g.subject.toLowerCase().includes(groupSearch.toLowerCase()))
+                  {[...availableGroups]
+                    .filter(g => {
+                      const matchesSearch = !groupSearch || g.subject.toLowerCase().includes(groupSearch.toLowerCase());
+                      const matchesTab = groupTab === "all" || selectedGroups.includes(g.id);
+                      return matchesSearch && matchesTab;
+                    })
+                    .sort((a, b) => {
+                      const aSel = selectedGroups.includes(a.id) ? 1 : 0;
+                      const bSel = selectedGroups.includes(b.id) ? 1 : 0;
+                      if (aSel !== bSel) return bSel - aSel;
+                      return a.subject.localeCompare(b.subject);
+                    })
                     .map(g => {
                       const isPaused = (showGroups?.paused_groups || []).includes(g.id);
                       const isSelected = selectedGroups.includes(g.id);
                       return (
                         <div key={g.id} className={`flex items-center gap-2 p-2 rounded hover:bg-muted/50 ${isPaused ? "opacity-60" : ""}`}>
                           <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleGroup(g.id)}
-                            className="rounded cursor-pointer"
-                          />
+                             type="checkbox"
+                             checked={isSelected}
+                             onChange={() => toggleGroup(g.id)}
+                             className="rounded cursor-pointer"
+                           />
                           <span className="text-sm truncate flex-1">{g.subject}</span>
                           {isSelected && (
                             <Button
@@ -712,7 +744,14 @@ export default function CampaignManager({ projects, providers }: Props) {
             <DialogTitle>Sequência — {showSteps?.name}</DialogTitle>
             <DialogDescription className="hidden">Editor de passos e mensagens para a sequência da campanha.</DialogDescription>
           </DialogHeader>
-          {showSteps && <CampaignStepEditor campaignId={showSteps.id} projectId={showSteps.project_id || ""} produto={showSteps.produto || ""} />}
+          {showSteps && (
+            <CampaignStepEditor 
+              campaignId={showSteps.id} 
+              projectId={showSteps.project_id || ""} 
+              produto={showSteps.produto || ""} 
+              groups={showSteps.groups || []} 
+            />
+          )}
         </DialogContent>
       </Dialog>
 

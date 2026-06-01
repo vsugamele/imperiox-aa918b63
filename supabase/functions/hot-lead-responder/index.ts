@@ -10,7 +10,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 
 function normalizePhone(p: string): string {
   let s = (p || "").replace(/\D/g, "");
@@ -60,7 +60,7 @@ async function sendWhatsApp(provider: any, phone: string, message: string) {
 
 async function aiCopy(nome: string, produto: string, projeto: any): Promise<string> {
   const fallback = `Oi ${nome || ""}! 👋 Vi seu interesse em *${produto || "nossa oferta"}* — quero garantir que você não perca essa chance. Posso te enviar o link de pagamento ou tirar qualquer dúvida agora?`;
-  if (!LOVABLE_API_KEY) return fallback;
+  if (!OPENROUTER_API_KEY) return fallback;
 
   const avatar = projeto?.avatar || {};
   const brand = projeto?.brand_kit || {};
@@ -70,11 +70,14 @@ async function aiCopy(nome: string, produto: string, projeto: any): Promise<stri
   const prompt = `Você é ${persona} de ${projeto?.name || "uma marca premium"}, tom ${tom}. Escreva UMA mensagem WhatsApp curta (máx 2 linhas, com 1 emoji) para ${nome || "o lead"}, que demonstrou intenção de compra de "${produto || "nosso produto"}". Objetivo: reativar e oferecer ajuda imediata. Sem clichês, sem "olá tudo bem". Vá direto ao valor. Responda APENAS com a mensagem.`;
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+      headers: { 
+        "Content-Type": "application/json", 
+        Authorization: `Bearer ${OPENROUTER_API_KEY}` 
+      },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "openai/gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
       }),
     });

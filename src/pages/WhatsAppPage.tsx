@@ -940,10 +940,14 @@ function MetaCloudStatusCard({ provider, projectName, projects, onSynced, onEdit
 
   const deleteProvider = async () => {
     try {
-      const { error } = await supabase.from("imphq_wa_providers").delete().eq("id", provider.id);
+      const { data, error } = await supabase.functions.invoke("whatsapp-api?action=delete_instance", { body: { provider_id: provider.id } });
       if (error) throw error;
-      toast.success("Provider Oficial Meta removido");
-      onSynced();
+      if ((data as any)?.success) {
+        toast.success("Provider Oficial Meta removido");
+        onSynced();
+      } else {
+        toast.error("Falha ao remover");
+      }
     } catch (err: any) {
       toast.error("Erro ao remover: " + err.message);
     }

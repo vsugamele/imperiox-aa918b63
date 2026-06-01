@@ -1362,7 +1362,7 @@ serve(async (req) => {
                   let projectContext = "";
                   const { data: project } = await supabase
                     .from("imphq_projects")
-                    .select("name, data, avatar, brand_kit")
+                    .select("name, data, avatar, brand_kit, user_id")
                     .eq("id", projectId)
                     .single();
 
@@ -1390,15 +1390,23 @@ serve(async (req) => {
                     }
                   }
 
-                  // Get recent conversation history for context
+                  // Get recent conversation history for context (fetch up to 11 messages to account for the current message)
                   const { data: recentMsgs } = await supabase
                     .from("imphq_wa_messages")
                     .select("direction, content")
                     .eq("conversation_id", conv.id)
                     .order("created_at", { ascending: false })
-                    .limit(10);
+                    .limit(11);
 
-                  const chatHistory = (recentMsgs || []).reverse().map((m: any) =>
+                  // Filter out the current active incoming message if it is already in the database list
+                  const historyMsgs = (recentMsgs || []).slice();
+                  if (historyMsgs.length > 0 && historyMsgs[0].content === content && historyMsgs[0].direction === "incoming") {
+                    historyMsgs.shift();
+                  }
+                  // Keep only up to 10 history messages
+                  const finalHistoryMsgs = historyMsgs.slice(0, 10);
+
+                  const chatHistory = [...finalHistoryMsgs].reverse().map((m: any) =>
                     `${m.direction === "incoming" ? "Lead" : "Você"}: ${m.content}`
                   ).join("\n");
 
@@ -1483,12 +1491,12 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   // ─── RAG: busca semântica em imphq_wa_knowledge ───
                   let ragBlock = "";
                   try {
-                    const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
-                    if (LOVABLE_KEY && content.length > 8) {
-                      const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+                    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+                    if (OPENROUTER_API_KEY && content.length > 8) {
+                      const embRes = await fetch("https://openrouter.ai/api/v1/embeddings", {
                         method: "POST",
-                        headers: { Authorization: `Bearer ${LOVABLE_KEY}`, "Content-Type": "application/json" },
-                        body: JSON.stringify({ model: "google/gemini-embedding-001", input: content, dimensions: 768 }),
+                        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+                        body: JSON.stringify({ model: "openai/text-embedding-3-small", input: content, dimensions: 768 }),
                       });
                       if (embRes.ok) {
                         const { data: ed } = await embRes.json();
@@ -1511,8 +1519,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   const messages: any[] = [{ role: "system", content: enrichedSystem }];
                   
                   // Structuring the chat history using proper multi-turn conversation roles for maximum LLM precision
-                  if (recentMsgs && recentMsgs.length > 0) {
-                    const reversed = [...recentMsgs].reverse();
+                  if (finalHistoryMsgs && finalHistoryMsgs.length > 0) {
+                    const reversed = [...finalHistoryMsgs].reverse();
                     reversed.forEach((m: any) => {
                       messages.push({
                         role: m.direction === "incoming" ? "user" : "assistant",
@@ -1524,45 +1532,49 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   // Append the current active incoming message
                   messages.push({ role: "user", content });
 
-                  // ─── Call AI (provider switch: OpenRouter ou Lovable AI) ───
-                  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+                  // Strictly enforce alternating roles to conform to strict LLM APIs (Gemini/Claude)
+                  const formattedMessages: any[] = [];
+                  let lastRole: string | null = null;
+                  messages.forEach((msg) => {
+                    if (msg.role === lastRole) {
+                      if (formattedMessages.length > 0) {
+                        formattedMessages[formattedMessages.length - 1].content += "\n" + msg.content;
+                      }
+                    } else {
+                      formattedMessages.push({ ...msg });
+                      lastRole = msg.role;
+                    }
+                  });
+
+                  // ─── Call AI (pure OpenRouter flow) ───
                   const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-                  const provider = (aiConfig as any).ai_provider === "openrouter" ? "openrouter" : "lovable";
-                  const model = (aiConfig as any).ai_model || (provider === "openrouter" ? "openai/gpt-4o-mini" : "google/gemini-3-flash-preview");
+                  const model = (aiConfig as any).ai_model || "openai/gpt-4o-mini";
                   const temperature = Number((aiConfig as any).ai_temperature ?? 0.7);
                   const top_p = Number((aiConfig as any).ai_top_p ?? 1);
 
-                  async function callLLM(prov: string, mdl: string) {
-                    if (prov === "openrouter") {
-                      if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
-                      return await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                        method: "POST",
-                        headers: {
-                          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-                          "Content-Type": "application/json",
-                          "HTTP-Referer": "https://imperiox.lovable.app",
-                          "X-Title": "Imperio HQ",
-                        },
-                        body: JSON.stringify({ model: mdl, messages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
-                      });
-                    }
-                    return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                  async function callLLM(mdl: string) {
+                    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
+                    return await fetch("https://openrouter.ai/api/v1/chat/completions", {
                       method: "POST",
-                      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-                      body: JSON.stringify({ model: mdl, messages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
+                      headers: {
+                        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://imperiox.lovable.app",
+                        "X-Title": "Imperio HQ",
+                      },
+                      body: JSON.stringify({ model: mdl, messages: formattedMessages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
                     });
                   }
 
                   let aiRes: Response | null = null;
                   try {
-                    aiRes = await callLLM(provider, model);
-                    if (!aiRes.ok && provider === "openrouter") {
-                      console.warn(`[webhook] OpenRouter ${aiRes.status}, fallback Lovable AI`);
-                      aiRes = await callLLM("lovable", "google/gemini-3-flash-preview");
+                    aiRes = await callLLM(model);
+                    if (!aiRes.ok) {
+                      console.warn(`[webhook] OpenRouter primary model failed, fallback to cheaper OpenRouter model`);
+                      aiRes = await callLLM("openai/gpt-4o-mini");
                     }
                   } catch (e: any) {
-                    console.warn("[webhook] AI provider call failed, fallback:", e?.message);
-                    if (LOVABLE_API_KEY) aiRes = await callLLM("lovable", "google/gemini-3-flash-preview");
+                    console.warn("[webhook] AI provider call failed:", e?.message);
                   }
 
                   if (aiRes && aiRes.ok) {
@@ -1586,6 +1598,24 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                           ai_lock_until: null,
                         }).eq("id", conv.id);
                         console.log(`[webhook] AI draft saved for ${phone}`);
+
+                        // Fire-and-forget: notify project owner via Web Push notification
+                        try {
+                          const { data: projData } = await supabase.from("imphq_projects").select("user_id").eq("id", projectId).single();
+                          if (projData?.user_id) {
+                            const leadName = conv.contact_name || phone;
+                            supabase.functions.invoke("send-push", {
+                              body: {
+                                user_id: projData.user_id,
+                                title: `💡 Rascunho de IA pronto (${project?.name || "WhatsApp"})`,
+                                message: `Sugestão para ${leadName}: "${aiReply.slice(0, 60)}..."`,
+                                url: `/whatsapp?chat=${conv.id}`,
+                              },
+                            }).catch((e: any) => console.warn("[webhook] draft push invoke error:", e?.message));
+                          }
+                        } catch (pErr: any) {
+                          console.warn("[webhook] draft push skip:", pErr?.message);
+                        }
                       } else {
                         const delay = (aiConfig.response_delay_seconds || 3) * 1000;
                         if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 10000)));

@@ -30,6 +30,7 @@ import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
 import ExecutiveSummary from "@/components/dashboard/ExecutiveSummary";
 import { DashboardCreativeHub } from "@/components/dashboard/DashboardCreativeHub";
+import RagInspector from "@/components/dashboard/RagInspector";
 
 
 function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
@@ -164,6 +165,12 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TodayCard projectId={dashProject} />
         <LiveFunnelPanel projectFilter={dashProject} />
+      </section>
+
+      {/* CÉREBRO DA IA — INSPETOR DE RAG & MEMÓRIA */}
+      <section className="space-y-3">
+        <SectionHead kicker="Inteligência da IA" title="Central de Conhecimento & RAG Inspector" />
+        <RagInspector projectFilter={dashProject} />
       </section>
 
       {/* FÁBRICA DE CRIATIVOS */}

@@ -77,19 +77,313 @@ Deno.serve(async (req) => {
             last_message: messaging.message?.text || "[mídia]",
             last_message_at: new Date(messaging.timestamp || Date.now()).toISOString(),
           }, { onConflict: "account_id,participant_id" })
-          .select("id")
+          .select("id, participant_username, participant_name")
           .single();
 
         if (conv && messaging.message) {
+          const content = messaging.message.text || null;
           await supa.from("imphq_ig_messages").insert({
             conversation_id: conv.id,
             direction: isInbound ? "in" : "out",
             type: messaging.message.attachments?.[0]?.type || "text",
-            content: messaging.message.text || null,
+            content,
             media_url: messaging.message.attachments?.[0]?.payload?.url || null,
             mid: messaging.message.mid,
             status: "received",
           });
+
+          // AI Direct Message Autoresponder!
+          if (isInbound && content) {
+            try {
+              (async () => {
+                try {
+                  const { data: aiConfig } = await supa
+                    .from("imphq_wa_ai_config")
+                    .select("*")
+                    .eq("project_id", account.project_id)
+                    .eq("enabled", true)
+                    .maybeSingle();
+
+                  if (!aiConfig) {
+                    console.log(`[ig-webhook] AI not enabled for project ${account.project_id}`);
+                    return;
+                  }
+
+                  // 1. Business hours check
+                  if (aiConfig.business_hours_only) {
+                    const now = new Date();
+                    const brTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+                    const currentHour = brTime.getHours() * 100 + brTime.getMinutes();
+                    const [sh, sm] = (aiConfig.business_hours_start || "08:00").split(":").map(Number);
+                    const [eh, em] = (aiConfig.business_hours_end || "20:00").split(":").map(Number);
+                    const startNum = sh * 100 + sm;
+                    const endNum = eh * 100 + em;
+                    if (currentHour < startNum || currentHour > endNum) {
+                      console.log(`[ig-webhook] Outside business hours, skipping AI`);
+                      return;
+                    }
+                  }
+
+                  // 2. Escalation keywords check
+                  const lc = content.toLowerCase();
+                  const isEscalation = (aiConfig.escalation_keywords || []).some((kw: string) =>
+                    lc.includes(kw.toLowerCase())
+                  );
+                  if (isEscalation) {
+                    console.log(`[ig-webhook] Escalation keyword detected in DM, skipping AI`);
+                    return;
+                  }
+
+                  // 3. Cooldown check
+                  const cooldownSec = aiConfig.cooldown_seconds ?? 15;
+                  const { data: lastAiMsg } = await supa
+                    .from("imphq_ig_messages")
+                    .select("created_at")
+                    .eq("conversation_id", conv.id)
+                    .eq("direction", "out")
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (lastAiMsg?.created_at) {
+                    const last = new Date(lastAiMsg.created_at).getTime();
+                    if (Date.now() - last < cooldownSec * 1000) {
+                      console.log(`[ig-webhook] AI cooldown active (${cooldownSec}s), skipping`);
+                      return;
+                    }
+                  }
+
+                  // 4. Double-response check: if the last message in history is from us, skip
+                  const { data: recentMsgs } = await supa
+                    .from("imphq_ig_messages")
+                    .select("direction")
+                    .eq("conversation_id", conv.id)
+                    .order("created_at", { ascending: false })
+                    .limit(2);
+                  if (recentMsgs && recentMsgs.length > 0 && recentMsgs[0].direction === "out") {
+                    console.log(`[ig-webhook] Last message was outgoing, skipping to prevent double reply`);
+                    return;
+                  }
+
+                  // Build project context
+                  let projectContext = "";
+                  const { data: project } = await supa
+                    .from("imphq_projects")
+                    .select("name, data, avatar, brand_kit, user_id")
+                    .eq("id", account.project_id)
+                    .single();
+
+                  if (project) {
+                    const sources = aiConfig.context_sources || [];
+                    const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
+                    if (sources.includes("briefing") && d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 600)}\n`;
+                    if (sources.includes("produtos") && d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+                    if (sources.includes("avatar") && project.avatar) projectContext += `Avatar: ${JSON.stringify(project.avatar).slice(0, 400)}\n`;
+                    if (sources.includes("branding") && project.brand_kit) projectContext += `Branding: ${JSON.stringify(project.brand_kit).slice(0, 400)}\n`;
+                    if (sources.includes("copy_arsenal")) {
+                      const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
+                      if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
+                    }
+                    if (sources.includes("expert")) {
+                      const ex = d.expert || d.especialista;
+                      if (ex) projectContext += `Expert: ${JSON.stringify(ex).slice(0, 400)}\n`;
+                    }
+                    if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
+                      const faqStr = aiConfig.faq
+                        .slice(0, 20)
+                        .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+                        .join("\n");
+                      projectContext += `FAQ OFICIAL:\n${faqStr.slice(0, 1200)}\n`;
+                    }
+                  }
+
+                  // RAG search in imphq_wa_knowledge (using OpenRouter openai/text-embedding-3-small)
+                  let ragBlock = "";
+                  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+                  try {
+                    if (OPENROUTER_API_KEY && content.length > 8) {
+                      const embRes = await fetch("https://openrouter.ai/api/v1/embeddings", {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+                        body: JSON.stringify({ model: "openai/text-embedding-3-small", input: content, dimensions: 768 }),
+                      });
+                      if (embRes.ok) {
+                        const { data: ed } = await embRes.json();
+                        const qEmb = ed?.[0]?.embedding;
+                        if (qEmb) {
+                          const { data: matches } = await supa.rpc("match_wa_knowledge", {
+                            query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
+                          });
+                          if (matches && matches.length) {
+                            ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
+                              matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
+                          }
+                        }
+                      }
+                    }
+                  } catch (e: any) { console.warn("[ig-webhook] RAG skip:", e?.message); }
+
+                  const personalityPrompts: Record<string, string> = {
+                    assistente: "Você é um assistente virtual cordial e prestativo.",
+                    vendedor: "Você é um closer de vendas persuasivo mas não agressivo. Foque em entender a dor e apresentar a solução.",
+                    suporte: "Você é um agente de suporte técnico eficiente e empático.",
+                    consultor: "Você é um consultor especialista. Fale com autoridade e dê recomendações valiosas.",
+                  };
+
+                  const toneInstructions: Record<string, string> = {
+                    profissional: "Tom profissional e direto.",
+                    casual: "Tom casual e descontraído, use emojis moderadamente.",
+                    amigavel: "Tom amigável e acolhedor, use emojis.",
+                    formal: "Tom formal e respeitoso.",
+                    urgente: "Tom de urgência e escassez.",
+                  };
+
+                  const expertPersona = aiConfig.expert_persona;
+                  const customInstr = aiConfig.custom_instructions;
+                  const productFocus = aiConfig.product_focus;
+
+                  const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
+Você está respondendo via Instagram Direct (DM) para a empresa "${project?.name || ""}".
+${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
+${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
+${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
+${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}
+REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
+- Responda em português brasileiro de forma natural, curta, direta e simpática. DMs do Instagram devem ser dinâmicas e fluidas!
+- Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos).
+- Não envie blocos densos ou extensos de texto. Fale como um humano real conversando.
+- NUNCA invente informações. Se não souber, diga que verificará com a equipe.`;
+
+                  // Fetch recent messages for history context
+                  const { data: dbHistory } = await supa
+                    .from("imphq_ig_messages")
+                    .select("direction, content")
+                    .eq("conversation_id", conv.id)
+                    .order("created_at", { ascending: false })
+                    .limit(11);
+
+                  const historyMsgs = (dbHistory || []).slice();
+                  // Skip current message if already inserted
+                  if (historyMsgs.length > 0 && historyMsgs[0].content === content && historyMsgs[0].direction === "in") {
+                    historyMsgs.shift();
+                  }
+
+                  const messages: any[] = [{ role: "system", content: systemPrompt + ragBlock }];
+                  [...historyMsgs].reverse().forEach((m: any) => {
+                    messages.push({
+                      role: m.direction === "in" ? "user" : "assistant",
+                      content: m.content || "",
+                    });
+                  });
+                  messages.push({ role: "user", content });
+
+                  // Strictly alternate messages
+                  const formattedMessages: any[] = [];
+                  let lastRole: string | null = null;
+                  messages.forEach((msg) => {
+                    if (msg.role === lastRole) {
+                      if (formattedMessages.length > 0) {
+                        formattedMessages[formattedMessages.length - 1].content += "\n" + msg.content;
+                      }
+                    } else {
+                      formattedMessages.push({ ...msg });
+                      lastRole = msg.role;
+                    }
+                  });
+
+                  // LLM API Calls (Pure OpenRouter)
+                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const temperature = Number(aiConfig.ai_temperature ?? 0.7);
+                  const top_p = Number(aiConfig.ai_top_p ?? 1);
+
+                  async function callLLM(mdl: string) {
+                    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
+                    return await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://imperiox.lovable.app",
+                        "X-Title": "Imperio HQ",
+                      },
+                      body: JSON.stringify({ model: mdl, messages: formattedMessages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
+                    });
+                  }
+
+                  let aiRes: Response | null = null;
+                  try {
+                    aiRes = await callLLM(model);
+                    if (!aiRes.ok) {
+                      console.warn(`[ig-webhook] OpenRouter primary model failed, fallback to openai/gpt-4o-mini`);
+                      aiRes = await callLLM("openai/gpt-4o-mini");
+                    }
+                  } catch (e: any) {
+                    console.warn("[ig-webhook] AI provider call failed:", e?.message);
+                  }
+
+                  if (aiRes && aiRes.ok) {
+                    const aiData = await aiRes.json();
+                    const aiReply = aiData.choices?.[0]?.message?.content || "";
+
+                    if (aiReply.trim()) {
+                      if (aiConfig.draft_mode) {
+                        // Draft mode: save suggested reply
+                        await supa.from("imphq_wa_ai_drafts").insert({
+                          conversation_id: conv.id,
+                          project_id: account.project_id,
+                          incoming_text: content,
+                          suggested_text: aiReply,
+                          model,
+                          provider: "instagram",
+                          status: "pending",
+                        });
+                        console.log(`[ig-webhook] AI draft saved for @${conv.participant_username || 'lead'}`);
+
+                        // Web push notification
+                        if (project?.user_id) {
+                          const leadName = conv.participant_username || conv.participant_name || "Lead do Instagram";
+                          supa.functions.invoke("send-push", {
+                            body: {
+                              user_id: project.user_id,
+                              title: `💡 Rascunho de IA (Instagram)`,
+                              message: `Sugestão para @${leadName}: "${aiReply.slice(0, 60)}..."`,
+                              url: `/whatsapp`,
+                            },
+                          }).catch((e: any) => console.warn("[ig-webhook] push notify error:", e?.message));
+                        }
+                      } else {
+                        // Autoresponder active: wait for delay and reply
+                        const delay = (aiConfig.response_delay_seconds || 3) * 1000;
+                        if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 10000)));
+
+                        const replyRes = await supa.functions.invoke("instagram-api", {
+                          body: {
+                            action: "send_text",
+                            project_id: account.project_id,
+                            recipient_id: participantId,
+                            text: aiReply,
+                          },
+                        });
+                        const replyData = await replyRes.data;
+                        if (replyData?.success) {
+                          console.log(`[ig-webhook] AI direct reply sent successfully`);
+                        } else {
+                          console.error(`[ig-webhook] Failed to send AI direct reply:`, replyData?.error);
+                        }
+                      }
+                    }
+                  } else if (aiRes) {
+                    const errText = await aiRes.text();
+                    console.warn(`[ig-webhook] LLM error ${aiRes.status}:`, errText.slice(0, 200));
+                  }
+                } catch (innerErr: any) {
+                  console.error("[ig-webhook] Async DM AI error:", innerErr.message);
+                }
+              })();
+            } catch (triggerErr: any) {
+              console.warn("[ig-webhook] Async DM AI trigger error:", triggerErr.message);
+            }
+          }
         }
       }
 
@@ -97,15 +391,279 @@ Deno.serve(async (req) => {
       for (const change of entry.changes || []) {
         if (change.field === "comments") {
           const v = change.value || {};
+          const commentId = v.id;
+          const commentText = v.text;
+          const fromUserId = v.from?.id;
+          const fromUsername = v.from?.username;
+
+          // Upsert comment
           await supa.from("imphq_ig_comments").upsert({
             account_id: account.id,
             media_id: v.media?.id,
-            comment_id: v.id,
+            comment_id: commentId,
             parent_comment_id: v.parent_id || null,
-            from_user_id: v.from?.id,
-            from_username: v.from?.username,
-            text: v.text,
+            from_user_id: fromUserId,
+            from_username: fromUsername,
+            text: commentText,
           }, { onConflict: "comment_id" });
+
+          // AI autoresponder for PUBLIC COMMENTS!
+          // Make sure it is incoming (not from the business account owner themselves)
+          const isFromMe = fromUserId === igUserId;
+          if (!isFromMe && commentText) {
+            try {
+              (async () => {
+                try {
+                  const { data: aiConfig } = await supa
+                    .from("imphq_wa_ai_config")
+                    .select("*")
+                    .eq("project_id", account.project_id)
+                    .eq("enabled", true)
+                    .maybeSingle();
+
+                  if (!aiConfig) {
+                    console.log(`[ig-webhook] AI not enabled for project ${account.project_id}`);
+                    return;
+                  }
+
+                  // 1. Business hours check
+                  if (aiConfig.business_hours_only) {
+                    const now = new Date();
+                    const brTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+                    const currentHour = brTime.getHours() * 100 + brTime.getMinutes();
+                    const [sh, sm] = (aiConfig.business_hours_start || "08:00").split(":").map(Number);
+                    const [eh, em] = (aiConfig.business_hours_end || "20:00").split(":").map(Number);
+                    const startNum = sh * 100 + sm;
+                    const endNum = eh * 100 + em;
+                    if (currentHour < startNum || currentHour > endNum) {
+                      console.log(`[ig-webhook] Outside business hours, skipping comment AI`);
+                      return;
+                    }
+                  }
+
+                  // 2. Escalation keywords check
+                  const lc = commentText.toLowerCase();
+                  const isEscalation = (aiConfig.escalation_keywords || []).some((kw: string) =>
+                    lc.includes(kw.toLowerCase())
+                  );
+                  if (isEscalation) {
+                    console.log(`[ig-webhook] Escalation keyword detected in comment, skipping`);
+                    return;
+                  }
+
+                  // 3. Double reply safeguard
+                  const { data: existingComments } = await supa
+                    .from("imphq_ig_comments")
+                    .select("replied")
+                    .eq("comment_id", commentId)
+                    .maybeSingle();
+                  if (existingComments?.replied) {
+                    console.log(`[ig-webhook] Already replied to comment ${commentId}, skipping`);
+                    return;
+                  }
+
+                  // Build project context
+                  let projectContext = "";
+                  const { data: project } = await supa
+                    .from("imphq_projects")
+                    .select("name, data, avatar, brand_kit, user_id")
+                    .eq("id", account.project_id)
+                    .single();
+
+                  if (project) {
+                    const sources = aiConfig.context_sources || [];
+                    const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
+                    if (sources.includes("briefing") && d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 600)}\n`;
+                    if (sources.includes("produtos") && d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+                    if (sources.includes("avatar") && project.avatar) projectContext += `Avatar: ${JSON.stringify(project.avatar).slice(0, 400)}\n`;
+                    if (sources.includes("branding") && project.brand_kit) projectContext += `Branding: ${JSON.stringify(project.brand_kit).slice(0, 400)}\n`;
+                    if (sources.includes("copy_arsenal")) {
+                      const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
+                      if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
+                    }
+                    if (sources.includes("expert")) {
+                      const ex = d.expert || d.especialista;
+                      if (ex) projectContext += `Expert: ${JSON.stringify(ex).slice(0, 400)}\n`;
+                    }
+                    if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
+                      const faqStr = aiConfig.faq
+                        .slice(0, 20)
+                        .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+                        .join("\n");
+                      projectContext += `FAQ OFICIAL:\n${faqStr.slice(0, 1200)}\n`;
+                    }
+                  }
+
+                  // RAG search in imphq_wa_knowledge (using OpenRouter openai/text-embedding-3-small)
+                  let ragBlock = "";
+                  try {
+                    if (OPENROUTER_API_KEY && commentText.length > 8) {
+                      const embRes = await fetch("https://openrouter.ai/api/v1/embeddings", {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+                        body: JSON.stringify({ model: "openai/text-embedding-3-small", input: commentText, dimensions: 768 }),
+                      });
+                      if (embRes.ok) {
+                        const { data: ed } = await embRes.json();
+                        const qEmb = ed?.[0]?.embedding;
+                        if (qEmb) {
+                          const { data: matches } = await supa.rpc("match_wa_knowledge", {
+                            query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
+                          });
+                          if (matches && matches.length) {
+                            ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
+                              matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
+                          }
+                        }
+                      }
+                    }
+                  } catch (e: any) { console.warn("[ig-webhook] comment RAG skip:", e?.message); }
+
+                  const personalityPrompts: Record<string, string> = {
+                    assistente: "Você é um assistente virtual cordial e prestativo.",
+                    vendedor: "Você é um closer de vendas persuasivo mas não agressivo. Foque em entender a dor e apresentar a solução.",
+                    suporte: "Você é um agente de suporte técnico eficiente e empático.",
+                    consultor: "Você é um consultor especialista. Fale com autoridade e dê recomendações valiosas.",
+                  };
+
+                  const toneInstructions: Record<string, string> = {
+                    profissional: "Tom profissional e direto.",
+                    casual: "Tom casual e descontraído, use emojis moderadamente.",
+                    amigavel: "Tom amigável e acolhedor, use emojis.",
+                    formal: "Tom formal e respeitoso.",
+                    urgente: "Tom de urgência e escassez.",
+                  };
+
+                  const expertPersona = aiConfig.expert_persona;
+                  const customInstr = aiConfig.custom_instructions;
+                  const productFocus = aiConfig.product_focus;
+
+                  const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
+Você está respondendo a um comentário público no Instagram para a empresa "${project?.name || ""}".
+${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
+${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
+${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
+REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
+- Responda em português brasileiro de forma extremamente natural, amigável e muito curta (máximo 1-2 frases curtas). Comentários do Instagram devem ser super objetivos e chamativos!
+- Se o lead pedir informações, links, preços, etc. ou demonstrar forte interesse, responda de forma simpática dizendo que enviou os detalhes no Direct (DM) dele! Ex: "Te enviei tudo no direct! Confere lá 😉"
+- NUNCA invente informações.`;
+
+                  const messages = [
+                    { role: "system", content: systemPrompt + ragBlock },
+                    { role: "user", content: commentText }
+                  ];
+
+                  // LLM API Calls (Pure OpenRouter)
+                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const temperature = Number(aiConfig.ai_temperature ?? 0.7);
+                  const top_p = Number(aiConfig.ai_top_p ?? 1);
+
+                  async function callLLM(mdl: string) {
+                    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
+                    return await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://imperiox.lovable.app",
+                        "X-Title": "Imperio HQ",
+                      },
+                      body: JSON.stringify({ model: mdl, messages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
+                    });
+                  }
+
+                  let aiRes: Response | null = null;
+                  try {
+                    aiRes = await callLLM(model);
+                    if (!aiRes.ok) {
+                      console.warn(`[ig-webhook] Comment OpenRouter failed, fallback to openai/gpt-4o-mini`);
+                      aiRes = await callLLM("openai/gpt-4o-mini");
+                    }
+                  } catch (e: any) {
+                    console.warn("[ig-webhook] Comment AI provider call failed:", e?.message);
+                  }
+
+                  if (aiRes && aiRes.ok) {
+                    const aiData = await aiRes.json();
+                    const aiReply = aiData.choices?.[0]?.message?.content || "";
+
+                    if (aiReply.trim()) {
+                      if (aiConfig.draft_mode) {
+                        // Draft mode for comments: save draft
+                        await supa.from("imphq_wa_ai_drafts").insert({
+                          conversation_id: null,
+                          project_id: account.project_id,
+                          incoming_text: `Comentário de @${fromUsername}: "${commentText}"`,
+                          suggested_text: aiReply,
+                          model,
+                          provider: "instagram_comment",
+                          status: "pending",
+                        });
+                        console.log(`[ig-webhook] AI comment draft saved for @${fromUsername}`);
+
+                        // Web push notification
+                        if (project?.user_id) {
+                          supa.functions.invoke("send-push", {
+                            body: {
+                              user_id: project.user_id,
+                              title: `💡 Rascunho de Comentário IA`,
+                              message: `@${fromUsername} comentou: "${commentText.slice(0, 40)}..."`,
+                              url: `/whatsapp`,
+                            },
+                          }).catch((e: any) => console.warn("[ig-webhook] push notify error:", e?.message));
+                        }
+                      } else {
+                        // Autoresponder active: reply public comment
+                        const delay = (aiConfig.response_delay_seconds || 3) * 1000;
+                        if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 10000)));
+
+                        const replyRes = await supa.functions.invoke("instagram-api", {
+                          body: {
+                            action: "reply_comment",
+                            project_id: account.project_id,
+                            comment_id: commentId,
+                            message: aiReply,
+                          },
+                        });
+                        const replyData = await replyRes.data;
+                        if (replyData?.success) {
+                          console.log(`[ig-webhook] AI comment reply sent successfully`);
+
+                          // Premium: If the reply contains direct/chamei/enviei/inbox, send direct message
+                          const replyLc = aiReply.toLowerCase();
+                          if (replyLc.includes("direct") || replyLc.includes("chamei") || replyLc.includes("enviei") || replyLc.includes("inbox")) {
+                            const dmMessageText = productFocus 
+                              ? `Olá! Vi que você comentou no nosso post. Aqui estão as informações sobre a nossa oferta:\n\n${productFocus}`
+                              : `Olá! Vi que você comentou no nosso post. Como prometido, aqui estão as informações! Como posso te ajudar hoje?`;
+
+                            await supa.functions.invoke("instagram-api", {
+                              body: {
+                                action: "private_reply",
+                                project_id: account.project_id,
+                                comment_id: commentId,
+                                message: dmMessageText,
+                              },
+                            });
+                            console.log(`[ig-webhook] Triggered private direct message reply from comment`);
+                          }
+                        } else {
+                          console.error(`[ig-webhook] Failed to reply to comment:`, replyData?.error);
+                        }
+                      }
+                    }
+                  } else if (aiRes) {
+                    const errText = await aiRes.text();
+                    console.warn(`[ig-webhook] Comment LLM error ${aiRes.status}:`, errText.slice(0, 200));
+                  }
+                } catch (innerErr: any) {
+                  console.error("[ig-webhook] Async Comment AI error:", innerErr.message);
+                }
+              })();
+            } catch (triggerErr: any) {
+              console.warn("[ig-webhook] Async Comment AI trigger error:", triggerErr.message);
+            }
+          }
         }
       }
     }

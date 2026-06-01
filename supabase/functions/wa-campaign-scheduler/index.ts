@@ -140,44 +140,78 @@ serve(async (req) => {
         campanha: campaign?.name || "",
         grupo: "", grupo_nome: "", nome: "Teste",
       };
-      const rendered = renderVariables((step as any).content || "", vars);
-      const mt = (step as any).media_type;
-      const mediaUrl = (step as any).media_url;
 
-      let endpoint: string; let payload: any;
-      if (mt === "text" || !mediaUrl) {
-        endpoint = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
-        payload = { number: group_jid, text: rendered };
-      } else if (mt === "image") {
-        endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
-        payload = { number: group_jid, mediatype: "image", media: mediaUrl, caption: rendered };
-      } else if (mt === "audio") {
-        endpoint = `${apiUrl}/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`;
-        payload = { number: group_jid, audio: mediaUrl };
-      } else if (mt === "video") {
-        endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
-        payload = { number: group_jid, mediatype: "video", media: mediaUrl, caption: rendered };
-      } else {
-        endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
-        payload = { number: group_jid, mediatype: "document", media: mediaUrl, caption: rendered, fileName: "document" };
+      // Resolve the groups to send
+      let groupsToSend: string[] = [];
+      if (Array.isArray(group_jid)) {
+        groupsToSend = group_jid;
+      } else if (typeof group_jid === "string") {
+        groupsToSend = group_jid.split(",").map(g => g.trim()).filter(Boolean);
       }
 
-      try {
-        await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, payload, 1);
-        await supabase.from("imphq_wa_campaign_logs").insert({
-          step_id, campaign_id: campaign.id, group_jid, status: "sent", error: "TEST",
+      if (groupsToSend.length === 0) {
+        return new Response(JSON.stringify({ error: "no valid group JIDs found" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-        return new Response(JSON.stringify({ ok: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } catch (err: any) {
-        await supabase.from("imphq_wa_campaign_logs").insert({
-          step_id, campaign_id: campaign.id, group_jid, status: "failed", error: "TEST: " + (err.message || "").slice(0, 400),
-        });
-        return new Response(JSON.stringify({ error: err.message }), {
+      }
+
+      let sentCount = 0;
+      let failedCount = 0;
+      let lastError = "";
+
+      for (let idx = 0; idx < groupsToSend.length; idx++) {
+        const currentGroupJid = groupsToSend[idx];
+        if (idx > 0) {
+          // add a tiny sleep between manual tests to avoid rate limits
+          await sleep(2000);
+        }
+
+        const rendered = renderVariables((step as any).content || "", vars);
+        const mt = (step as any).media_type;
+        const mediaUrl = (step as any).media_url;
+
+        let endpoint: string; let payload: any;
+        if (mt === "text" || !mediaUrl) {
+          endpoint = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
+          payload = { number: currentGroupJid, text: rendered };
+        } else if (mt === "image") {
+          endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
+          payload = { number: currentGroupJid, mediatype: "image", media: mediaUrl, caption: rendered };
+        } else if (mt === "audio") {
+          endpoint = `${apiUrl}/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`;
+          payload = { number: currentGroupJid, audio: mediaUrl };
+        } else if (mt === "video") {
+          endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
+          payload = { number: currentGroupJid, mediatype: "video", media: mediaUrl, caption: rendered };
+        } else {
+          endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
+          payload = { number: currentGroupJid, mediatype: "document", media: mediaUrl, caption: rendered, fileName: "document" };
+        }
+
+        try {
+          await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, payload, 1);
+          await supabase.from("imphq_wa_campaign_logs").insert({
+            step_id, campaign_id: campaign.id, group_jid: currentGroupJid, status: "sent", error: "MANUAL_SEND",
+          });
+          sentCount++;
+        } catch (err: any) {
+          lastError = err.message || "";
+          await supabase.from("imphq_wa_campaign_logs").insert({
+            step_id, campaign_id: campaign.id, group_jid: currentGroupJid, status: "failed", error: "MANUAL_SEND: " + (err.message || "").slice(0, 400),
+          });
+          failedCount++;
+        }
+      }
+
+      if (failedCount > 0 && sentCount === 0) {
+        return new Response(JSON.stringify({ error: lastError }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      return new Response(JSON.stringify({ ok: true, sent: sentCount, failed: failedCount }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { dateStr: todayStr, timeStr: currentTime, hour: currentHour, minute: currentMinute } = nowInBR();

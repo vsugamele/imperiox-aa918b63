@@ -8,9 +8,9 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 
-async function classifyMessage(message: string, lastMessages: string[] = []) {
+async function classifyMessage(message: string, lastMessages: string[] = [], openrouterKey: string) {
   const sys = `Você é classificador de mensagens WhatsApp para vendas online. Responda apenas JSON válido com:
 {
   "intent": "compra_quente" | "duvida" | "objecao" | "suporte" | "saudacao" | "off_topic",
@@ -23,14 +23,16 @@ Considere o contexto. 'compra_quente' = quer comprar agora (pede link, preço, p
 
   const ctx = lastMessages.length > 0 ? `\n\nÚltimas msgs do lead:\n${lastMessages.join("\n")}` : "";
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      Authorization: `Bearer ${openrouterKey}`,
       "Content-Type": "application/json",
+      "HTTP-Referer": "https://imperiox.lovable.app",
+      "X-Title": "Imperio HQ",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
+      model: "openai/gpt-4o-mini",
       messages: [
         { role: "system", content: sys },
         { role: "user", content: `Mensagem: "${message}"${ctx}` },
@@ -53,6 +55,7 @@ Deno.serve(async (req) => {
     const { message, message_id, conversation_id, lead_id, projeto_id } = await req.json();
 
     if (!message) throw new Error("message obrigatório");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured in Supabase environment secrets");
 
     // Busca últimas 3 msgs do lead pra contexto
     let lastMessages: string[] = [];
@@ -67,7 +70,7 @@ Deno.serve(async (req) => {
       lastMessages = (prev || []).map((m: any) => m.content).filter(Boolean);
     }
 
-    const classification = await classifyMessage(message, lastMessages);
+    const classification = await classifyMessage(message, lastMessages, OPENROUTER_API_KEY);
 
     // Busca resposta de objeção cadastrada
     let suggestedReply: string | null = null;

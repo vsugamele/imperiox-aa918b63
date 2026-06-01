@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   Plus, Trash2, Image as ImageIcon, Mic, Video, FileText, Type, CalendarIcon,
   ArrowUp, ArrowDown, Send, Eye, Variable, Sparkles, Share2, Network,
+  GripVertical, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
@@ -173,6 +174,14 @@ interface CampaignStepCardProps {
   onUpdate: (id: string, field: string, value: any) => Promise<void>;
   onMediaUpload: (stepId: string, file: File) => Promise<void>;
   steps: Step[];
+  onReorder: (fromIdx: number, toIdx: number) => Promise<void>;
+  onAddStepBelow: (idx: number) => Promise<void>;
+  onDragStart: (e: React.DragEvent, index: number) => void;
+  onDragOver: (e: React.DragEvent, index: number) => void;
+  onDrop: (e: React.DragEvent, index: number) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+  isDragOver: boolean;
 }
 
 function CampaignStepCard({
@@ -189,9 +198,18 @@ function CampaignStepCard({
   onUpdate,
   onMediaUpload,
   steps,
+  onReorder,
+  onAddStepBelow,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  isDragging,
+  isDragOver,
 }: CampaignStepCardProps) {
   const [content, setContent] = useState(step.content || "");
   const [contentB, setContentB] = useState(step.content_b || "");
+  const [orderVal, setOrderVal] = useState(String(step.step_order + 1));
 
   useEffect(() => {
     setContent(step.content || "");
@@ -201,19 +219,50 @@ function CampaignStepCard({
     setContentB(step.content_b || "");
   }, [step.content_b]);
 
+  useEffect(() => {
+    setOrderVal(String(step.step_order + 1));
+  }, [step.step_order]);
+
   const insertVariable = (varKey: string) => {
     const newText = (content || "") + ` {${varKey}}`;
     setContent(newText.trim());
     onUpdate(step.id, "content", newText.trim());
   };
 
+  const handleOrderInputSubmit = () => {
+    const val = parseInt(orderVal);
+    if (!isNaN(val) && val >= 1 && val <= stepsCount) {
+      onReorder(idx, val - 1);
+    } else {
+      setOrderVal(String(step.step_order + 1));
+    }
+  };
+
   const Icon = MEDIA_ICONS[step.media_type] || Type;
 
   return (
-    <Card className={`border ${step.is_active ? "border-border" : "border-muted opacity-60"}`}>
+    <Card
+      draggable
+      onDragStart={(e) => onDragStart(e, idx)}
+      onDragOver={(e) => onDragOver(e, idx)}
+      onDrop={(e) => onDrop(e, idx)}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "border transition-all duration-200 select-none",
+        step.is_active ? "border-border" : "border-muted opacity-60",
+        isDragging && "opacity-40 border-dashed border-gold/60 scale-[0.99]",
+        isDragOver && "border-gold bg-gold/5 border-t-4"
+      )}
+    >
       <CardContent className="p-3 space-y-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <div
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-secondary/60 rounded"
+              title="Arraste para reordenar"
+            >
+              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-gold transition-colors" />
+            </div>
             <div className="flex flex-col">
               <Button
                 size="icon" variant="ghost" className="h-4 w-4"
@@ -228,7 +277,19 @@ function CampaignStepCard({
                 <ArrowDown className="h-3 w-3" />
               </Button>
             </div>
-            <Badge variant="outline" className="text-[10px]">#{step.step_order + 1}</Badge>
+            <div className="flex items-center gap-1 bg-secondary/80 px-2 py-0.5 rounded border border-border/40">
+              <span className="text-[9px] text-muted-foreground font-mono font-bold">ORDEM:</span>
+              <input
+                type="number"
+                className="w-8 h-4 bg-transparent border-0 text-gold font-bold font-mono text-xs focus:ring-0 focus:outline-none text-center p-0"
+                value={orderVal}
+                min={1}
+                max={stepsCount}
+                onChange={e => setOrderVal(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleOrderInputSubmit()}
+                onBlur={handleOrderInputSubmit}
+              />
+            </div>
             <Icon className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-1">
@@ -238,8 +299,11 @@ function CampaignStepCard({
             <Button size="icon" variant="ghost" className="h-6 w-6" title="Testar agora" onClick={() => onTest(step)}>
               <Send className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="ghost" className="h-6 w-6" title="Duplicar step" onClick={() => onDuplicate(step)}>
-              <Plus className="h-3 w-3" />
+            <Button size="icon" variant="ghost" className="h-6 w-6" title="Duplicar no final" onClick={() => onDuplicate(step)}>
+              <Copy className="h-3 w-3" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-6 w-6 text-gold hover:text-gold hover:bg-gold/10" title="Adicionar em branco abaixo" onClick={() => onAddStepBelow(idx)}>
+              <Plus className="h-3.5 w-3.5" />
             </Button>
             <div className="flex items-center gap-1 ml-1">
               <Label className="text-[10px]">Ativo</Label>
@@ -339,7 +403,7 @@ function CampaignStepCard({
             </div>
           </div>
           <Textarea
-            className="text-xs min-h-[160px] font-mono leading-6 whitespace-pre-wrap"
+            className="text-xs min-h-[160px] font-mono leading-6 whitespace-pre-wrap select-text"
             rows={8}
             value={content}
             onChange={e => setContent(e.target.value)}
@@ -361,7 +425,7 @@ function CampaignStepCard({
             <span>🧪 Variante B (teste A/B) {contentB ? "— ativa" : "— opcional"}</span>
           </summary>
           <Textarea
-            className="text-xs min-h-[50px] mt-1.5"
+            className="text-xs min-h-[50px] mt-1.5 select-text"
             value={contentB}
             onChange={e => setContentB(e.target.value)}
             onBlur={() => {
@@ -378,7 +442,7 @@ function CampaignStepCard({
             <Label className="text-[10px]">Mídia</Label>
             <div className="flex items-center gap-2">
               <Input
-                className="h-8 text-xs flex-1"
+                className="h-8 text-xs flex-1 select-text"
                 value={step.media_url || ""}
                 onChange={e => onUpdate(step.id, "media_url", e.target.value)}
                 placeholder="URL da mídia ou faça upload →"
@@ -412,9 +476,10 @@ interface CampaignStepEditorProps {
   campaignId: string;
   projectId?: string;
   produto?: string;
+  groups?: string[];
 }
 
-export default function CampaignStepEditor({ campaignId, projectId = "", produto = "" }: CampaignStepEditorProps) {
+export default function CampaignStepEditor({ campaignId, projectId = "", produto = "", groups = [] }: CampaignStepEditorProps) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewStep, setPreviewStep] = useState<Step | null>(null);
@@ -422,6 +487,11 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   const [testGroupJid, setTestGroupJid] = useState("");
   const [testing, setTesting] = useState(false);
   const [showAI, setShowAI] = useState(false);
+  
+  // Custom states for view modes and drag/drop
+  const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const [showImport, setShowImport] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -455,6 +525,33 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     load();
   };
 
+  const addStepBelow = async (idx: number) => {
+    const targetOrder = steps[idx].step_order + 1;
+
+    // Shift steps order
+    const shiftUpdates = steps
+      .filter(s => s.step_order >= targetOrder)
+      .map(s => 
+        supabase.from("imphq_wa_campaign_steps").update({ step_order: s.step_order + 1 } as any).eq("id", s.id)
+      );
+    await Promise.all(shiftUpdates);
+
+    // Insert the blank new step
+    const { error } = await supabase.from("imphq_wa_campaign_steps").insert({
+      campaign_id: campaignId,
+      step_order: targetOrder,
+      content: "",
+      media_type: "text",
+      send_time: "09:00",
+      days_offset: 0,
+      is_active: true,
+    } as any);
+
+    if (error) { toast.error(error.message); return; }
+    toast.success("Passo em branco criado abaixo");
+    load();
+  };
+
   const updateStep = async (id: string, field: string, value: any) => {
     const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value } as any).eq("id", id);
     if (error) { toast.error(error.message); return; }
@@ -467,22 +564,26 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     load();
   };
 
-  const moveStep = async (idx: number, dir: -1 | 1) => {
-    const target = idx + dir;
-    if (target < 0 || target >= steps.length) return;
-    const a = steps[idx];
-    const b = steps[target];
-    // swap step_order
-    setSteps(prev => {
-      const next = [...prev];
-      [next[idx], next[target]] = [next[target], next[idx]];
-      return next.map((s, i) => ({ ...s, step_order: i }));
-    });
-    await Promise.all([
-      supabase.from("imphq_wa_campaign_steps").update({ step_order: b.step_order } as any).eq("id", a.id),
-      supabase.from("imphq_wa_campaign_steps").update({ step_order: a.step_order } as any).eq("id", b.id),
-    ]);
+  const reorderSteps = async (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= steps.length || fromIdx === toIdx) return;
+    const updatedSteps = [...steps];
+    const [removed] = updatedSteps.splice(fromIdx, 1);
+    updatedSteps.splice(toIdx, 0, removed);
+
+    // Map new orders optimistically
+    const nextSteps = updatedSteps.map((s, i) => ({ ...s, step_order: i }));
+    setSteps(nextSteps);
+
+    // Update in database in parallel
+    const updates = nextSteps.map((s) => 
+      supabase.from("imphq_wa_campaign_steps").update({ step_order: s.step_order } as any).eq("id", s.id)
+    );
+    await Promise.all(updates);
     load();
+  };
+
+  const moveStep = async (idx: number, dir: -1 | 1) => {
+    await reorderSteps(idx, idx + dir);
   };
 
   const duplicateStep = async (step: Step) => {
@@ -515,16 +616,25 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
 
   const runTestSend = async () => {
     if (!testStep || !testGroupJid.trim()) {
-      toast.error("Informe o JID do grupo (ex: 1203...@g.us)");
+      toast.error("Informe o grupo de destino");
       return;
     }
     setTesting(true);
     try {
+      const targetJid = testGroupJid === "all_campaign_groups"
+        ? groups.join(",")
+        : testGroupJid.trim();
+
       const { error } = await supabase.functions.invoke("wa-campaign-scheduler", {
-        body: { action: "test_send", step_id: testStep.id, group_jid: testGroupJid.trim() },
+        body: { action: "test_send", step_id: testStep.id, group_jid: targetJid },
       });
       if (error) throw error;
-      toast.success("Mensagem de teste enviada!");
+      
+      if (testGroupJid === "all_campaign_groups") {
+        toast.success(`Mensagem enviada com sucesso para ${groups.length} grupos!`);
+      } else {
+        toast.success("Mensagem de teste enviada com sucesso!");
+      }
       setTestStep(null);
       setTestGroupJid("");
     } catch (err: any) {
@@ -534,15 +644,63 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     }
   };
 
+  // --- Drag and Drop handlers ---
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIdx(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === index) return;
+    setDragOverIdx(index);
+  };
+
+  const handleDrop = async (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === index) return;
+    await reorderSteps(draggedIdx, index);
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
   if (loading) return <p className="text-sm text-muted-foreground p-4">Carregando...</p>;
 
   const sampleVars = { nome: "João", produto: produto || "Produto", campanha: "Campanha", grupo_nome: "Grupo VIP" };
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 px-1 pb-2 mb-2 border-b border-border/40">
-        <p className="text-[11px] text-muted-foreground">{steps.length} mensagem{steps.length === 1 ? "" : "s"} nesta sequência</p>
-        <div className="flex items-center gap-1.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 pb-2 mb-2 border-b border-border/40">
+        <div className="flex items-center gap-3">
+          <p className="text-[11px] text-muted-foreground hidden sm:block">
+            {steps.length} mensagem{steps.length === 1 ? "" : "s"} na sequência
+          </p>
+          <div className="flex items-center bg-secondary/80 p-0.5 rounded-lg border border-border/40">
+            <Button
+              size="sm"
+              variant={viewMode === "edit" ? "secondary" : "ghost"}
+              className="h-6 text-[10px] px-2.5 rounded-md font-medium"
+              onClick={() => setViewMode("edit")}
+            >
+              Editor
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "preview" ? "secondary" : "ghost"}
+              className="h-6 text-[10px] px-2.5 rounded-md font-medium"
+              onClick={() => setViewMode("preview")}
+            >
+              Visualizar Fluxo
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
           <Button size="sm" variant="outline" className="h-7 text-[11px] border-gold/40 text-gold hover:bg-gold/10" onClick={() => setShowAI(true)}>
             <Sparkles className="h-3 w-3 mr-1" /> Gerar com IA
           </Button>
@@ -557,7 +715,8 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
           </Button>
         </div>
       </div>
-      <ScrollArea className="max-h-[60vh]">
+
+      <ScrollArea className="max-h-[62vh]">
         <div className="space-y-3 p-1">
           {steps.length === 0 ? (
             <div className="text-center py-8">
@@ -566,7 +725,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
                 <Sparkles className="h-3.5 w-3.5 mr-1" /> Gerar sequência com IA
               </Button>
             </div>
-          ) : (
+          ) : viewMode === "edit" ? (
             steps.map((step, idx) => (
               <CampaignStepCard
                 key={step.id}
@@ -577,19 +736,75 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
                 produto={produto}
                 onMove={moveStep}
                 onPreview={setPreviewStep}
-                onTest={(s) => { setTestStep(s); setTestGroupJid(""); }}
+                onTest={(s) => { 
+                  setTestStep(s); 
+                  setTestGroupJid(groups && groups.length > 0 ? "all_campaign_groups" : ""); 
+                }}
                 onDuplicate={duplicateStep}
                 onDelete={deleteStep}
                 onUpdate={updateStep}
                 onMediaUpload={handleMediaUpload}
                 steps={steps}
+                onReorder={reorderSteps}
+                onAddStepBelow={addStepBelow}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+                isDragging={draggedIdx === idx}
+                isDragOver={dragOverIdx === idx}
               />
             ))
+          ) : (
+            // WhatsApp sequence flow preview simulator
+            <div className="space-y-4 px-1 py-2">
+              {steps.map((step, idx) => (
+                <div
+                  key={step.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    "p-3 rounded-xl border bg-card/45 backdrop-blur-sm transition-all duration-200 cursor-grab active:cursor-grabbing relative",
+                    draggedIdx === idx && "opacity-40 border-dashed border-gold scale-[0.99]",
+                    dragOverIdx === idx && "border-gold bg-gold/5 border-t-4"
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-gold" />
+                      <Badge variant="outline" className="text-[10px] font-bold text-gold border-gold/30 bg-gold/5">
+                        #{step.step_order + 1}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {step.send_date ? `Data: ${format(parse(step.send_date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")}` : `Dia ${step.days_offset}`}
+                        {` às ${step.send_time?.slice(0, 5) || "09:00"}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 uppercase font-semibold">
+                        {step.media_type}
+                      </Badge>
+                      {!step.is_active && (
+                        <Badge className="text-[9px] px-1 py-0 h-4 bg-red-950/80 text-red-400 border border-red-900/60">
+                          Inativo
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <WhatsAppPreview step={step} sampleVars={sampleVars} />
+                </div>
+              ))}
+            </div>
           )}
 
-          <Button variant="outline" className="w-full" onClick={addStep}>
-            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar mensagem
-          </Button>
+          {viewMode === "edit" && (
+            <Button variant="outline" className="w-full border-dashed" onClick={addStep}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar mensagem no final
+            </Button>
+          )}
         </div>
       </ScrollArea>
 
@@ -614,16 +829,48 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground leading-6">
-              Envia esta mensagem agora para 1 grupo (ignorando janela e agendamento). Use o JID do grupo de teste.
+              Dispare esta mensagem de teste agora (ignorando janela e agendamento). Selecione todos os grupos da campanha, um específico ou digite um JID personalizado.
             </p>
             <div>
-              <Label className="text-xs">JID do grupo</Label>
-              <Input
-                value={testGroupJid}
-                onChange={e => setTestGroupJid(e.target.value)}
-                placeholder="ex: 1203630..@g.us"
-                className="text-xs"
-              />
+              <Label className="text-xs mb-1.5 block">Grupo de destino</Label>
+              {groups && groups.length > 0 ? (
+                <Select 
+                  value={testGroupJid}
+                  onValueChange={v => {
+                    if (v === "__custom__") {
+                      setTestGroupJid("");
+                    } else {
+                      setTestGroupJid(v);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-background">
+                    <SelectValue placeholder="Selecione um grupo da campanha" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all_campaign_groups" className="text-xs font-semibold text-emerald-400">
+                      👥 Enviar para todos os grupos ({groups.length})
+                    </SelectItem>
+                    {groups.map(g => (
+                      <SelectItem key={g} value={g} className="text-xs">
+                        👉 Grupo: {g.split("@")[0]}... ({g.slice(0, 10)})
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__custom__" className="text-xs font-semibold text-primary">
+                      ✏️ Digitar ID (JID) personalizado...
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
+
+              {(!groups || groups.length === 0 || (!groups.includes(testGroupJid) && testGroupJid !== "all_campaign_groups")) && (
+                <Input
+                  value={testGroupJid}
+                  onChange={e => setTestGroupJid(e.target.value)}
+                  placeholder="ex: 1203630..@g.us"
+                  className="text-xs mt-2 select-text"
+                />
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -667,3 +914,4 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     </>
   );
 }
+

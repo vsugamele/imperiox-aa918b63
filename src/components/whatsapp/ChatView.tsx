@@ -363,6 +363,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     // Poll AI drafts (modo rascunho)
     useEffect(() => {
       if (!conversationId) return;
+      setDraft(null); // Clear previous draft when changing conversations
       let stop = false;
       const fetchDraft = async () => {
         const { data } = await supabase
@@ -372,7 +373,19 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           .eq("status", "pending")
           .order("created_at", { ascending: false })
           .limit(1).maybeSingle();
-        if (!stop) setDraft((data as any) || null);
+        if (!stop) {
+          if (data) {
+            setDraft(data as any);
+          } else {
+            // Only clear if the current draft is NOT a locally generated Copilot suggestion
+            setDraft(prev => {
+              if (prev && prev.id && prev.id.startsWith("copilot-")) {
+                return prev; // Preserve local copilot drafts!
+              }
+              return null;
+            });
+          }
+        }
       };
       fetchDraft();
       const t = setInterval(fetchDraft, 8000);

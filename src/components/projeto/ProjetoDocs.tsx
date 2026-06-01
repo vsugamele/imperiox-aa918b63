@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, FileText, Trash2, Save, Download, Upload, Eye, FileIcon } from "lucide-react";
+import { Plus, FileText, Trash2, Save, Download, Upload, Eye, FileIcon, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DocViewerDialog } from "./DocViewerDialog";
@@ -27,6 +27,7 @@ export function ProjetoDocs({ projectId }: Props) {
   const [editing, setEditing] = useState<any>(null);
   const [viewing, setViewing] = useState<any>(null);
   const [expertDocIds, setExpertDocIds] = useState<string[]>([]);
+  const [trainingIds, setTrainingIds] = useState<string[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
 
   const fetchDocs = async () => {
@@ -57,6 +58,49 @@ export function ProjetoDocs({ projectId }: Props) {
 
     setExpertDocIds(newIds);
     toast.success(newIds.includes(docId) ? "Documento visível no Portal do Expert" : "Documento removido do Portal do Expert");
+  };
+
+  const toggleAiDoc = async (doc: any) => {
+    const isTrained = doc.tags?.includes("ia_treinada") || false;
+    const newTags = isTrained
+      ? (doc.tags || []).filter((t: string) => t !== "ia_treinada")
+      : [...(doc.tags || []), "ia_treinada"];
+
+    // Optimistic UI update
+    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, tags: newTags } : d));
+    setTrainingIds(prev => [...prev, doc.id]);
+
+    try {
+      const { error: updateErr } = await supabase
+        .from("imphq_docs")
+        .update({ tags: newTags })
+        .eq("id", doc.id);
+
+      if (updateErr) throw updateErr;
+
+      const { data, error: invokeErr } = await supabase.functions.invoke("wa-doc-embedder", {
+        body: {
+          doc_id: doc.id,
+          project_id: projectId,
+          active: !isTrained
+        }
+      });
+
+      if (invokeErr) throw invokeErr;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(isTrained 
+        ? "Conhecimento removido da IA com sucesso!" 
+        : `Treinamento concluído! Documento vetorizado em ${data.chunks || 0} blocos.`
+      );
+    } catch (err: any) {
+      console.error("[toggleAiDoc] Error:", err);
+      toast.error(`Falha no treinamento: ${err.message || err}`);
+      // Rollback UI update
+      setDocs(prev => prev.map(d => d.id === doc.id ? doc : d));
+    } finally {
+      setTrainingIds(prev => prev.filter(id => id !== doc.id));
+    }
   };
 
   const createDoc = async () => {
@@ -210,6 +254,11 @@ export function ProjetoDocs({ projectId }: Props) {
                     <Eye className="h-3 w-3" /> Expert
                   </span>
                 )}
+                {d.tags?.includes("ia_treinada") && (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                    <Brain className="h-3 w-3" /> IA Treinada
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Tooltip>
@@ -224,6 +273,21 @@ export function ProjetoDocs({ projectId }: Props) {
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <p className="text-xs">{isShared ? "Visível no Portal do Expert" : "Habilitar para o Expert"}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+                      <Switch
+                        checked={d.tags?.includes("ia_treinada") || false}
+                        disabled={trainingIds.includes(d.id)}
+                        onCheckedChange={() => toggleAiDoc(d)}
+                        className="scale-75"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">{d.tags?.includes("ia_treinada") ? "Remover do cérebro da IA" : "Treinar IA com este documento"}</p>
                   </TooltipContent>
                 </Tooltip>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setViewing(d); }} title="Visualizar">

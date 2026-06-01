@@ -740,92 +740,415 @@ export default function Leads() {
 
         {/* Edit Lead Dialog - kept inline as it's deeply coupled with state */}
         <Dialog open={!!editLead} onOpenChange={() => setEditLead(null)}>
-          <DialogContent className="max-w-xl">
-            <DialogHeader><DialogTitle>Editar Lead</DialogTitle></DialogHeader>
+          <DialogContent className="max-w-2xl bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
+            <DialogHeader>
+              <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+            </DialogHeader>
             {editLead && (
-              <Tabs defaultValue="dados" className="space-y-3">
-                <TabsList className="w-full">
-                  <TabsTrigger value="dados" className="flex-1 text-xs">📝 Dados</TabsTrigger>
-                  <TabsTrigger value="qualificacao" className="flex-1 text-xs">🎯 Qualificação</TabsTrigger>
-                  <TabsTrigger value="jornada" className="flex-1 text-xs">🗺️ Jornada ({timeline.length})</TabsTrigger>
-                  <TabsTrigger value="predicoes" className="flex-1 text-xs">🔮 Predições</TabsTrigger>
-                  <TabsTrigger value="automacoes" className="flex-1 text-xs">⚡ Automações</TabsTrigger>
-                  <TabsTrigger value="nutricao" className="flex-1 text-xs">📧 Nutrição</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="dados" className="space-y-3">
-                  <div className="flex items-center gap-3 pb-2"><Avatar className="h-10 w-10 bg-secondary"><AvatarFallback className="font-bold bg-secondary text-foreground">{(editLead.nome || "?")[0].toUpperCase()}</AvatarFallback></Avatar><div><p className="font-medium">{editLead.nome}</p><p className="text-xs text-muted-foreground">{editLead.email}</p></div></div>
-                  {(() => { const hours = getConversionHours(editLead); if (hours !== null && hours >= 0) return (<div className="flex items-center gap-2 p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20"><Clock className="h-4 w-4 text-emerald-400" /><span className="text-xs font-medium text-emerald-400">Tempo até compra: {formatConversionTime(hours)}</span></div>); if (editLead.criado_em && (!editLead._vendas || editLead._vendas.length === 0)) { try { const d = parseISO(editLead.criado_em); if (isValid(d)) { const daysSince = differenceInDays(new Date(), d); return (<div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20"><Clock className="h-4 w-4 text-amber-400" /><span className="text-xs text-amber-400">Aguardando conversão — {daysSince} dias desde captura</span></div>); } } catch {} } return null; })()}
-                  <div><Label>Nome</Label><Input value={editLead.nome || ""} onChange={e => setEditLead({ ...editLead, nome: e.target.value })} /></div>
-                  <div className="grid grid-cols-2 gap-3"><div><Label>Email</Label><Input value={editLead.email || ""} onChange={e => setEditLead({ ...editLead, email: e.target.value })} /></div><div><Label>Telefone</Label><Input value={editLead.phone || ""} onChange={e => setEditLead({ ...editLead, phone: e.target.value })} /></div></div>
-                  <div className="grid grid-cols-2 gap-3"><div><Label>Plataforma</Label><Select value={editLead.plataforma || ""} onValueChange={v => setEditLead({ ...editLead, plataforma: v })}><SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div><div><Label>Status</Label><Select value={editLead.status || "lead"} onValueChange={v => setEditLead({ ...editLead, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select></div></div>
-                  <div><Label>Tags</Label><EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} /></div>
-                  <div><Label>📝 Notas</Label><Textarea value={editLead.data?.notas || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, notas: e.target.value } })} placeholder="Anotações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div>
-                  <div className="space-y-2 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📍 Origem</p><div className="grid grid-cols-2 gap-2 text-[11px]"><div><span className="text-muted-foreground">Projeto:</span> <span className="font-medium">{(() => { const proj = projects.find(p => p.id === editLead.project_id); return proj ? `${proj.icon || "📁"} ${proj.name}` : "—"; })()}</span></div><div><span className="text-muted-foreground">Formulário:</span> <span className="font-medium">{(() => { const firstForm = formResponses.find(r => r.form_name); return firstForm?.form_name || "—"; })()}</span></div><div><span className="text-muted-foreground">Plataforma:</span> <span className="font-medium">{editLead.plataforma || editLead.data?.captura_origem || "—"}</span></div><div><span className="text-muted-foreground">Captura:</span> <span className="font-medium">{editLead.criado_em ? (() => { try { const d = parseISO(editLead.criado_em!); return isValid(d) ? format(d, "dd/MM/yy HH:mm") : "—"; } catch { return "—"; } })() : "—"}</span></div></div></div>
-                  {editLead._vendas && editLead._vendas.length > 0 && (<div className="space-y-2 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">💰 Dados de Compra</p>{editLead._vendas.map((v, i) => { const ownUtms = (v.data?.utms || v.data?.tracking || v.data?.checkout || {}) as any; const flat: any = v.data || {}; const utm_campaign = ownUtms.utm_campaign || flat.utm_campaign || (editLead.data as any)?.utms?.utm_campaign || (editLead.data as any)?.utm_campaign; const utm_content = ownUtms.utm_content || flat.utm_content || (editLead.data as any)?.utms?.utm_content || (editLead.data as any)?.utm_content; const inheritedFromLead = !((ownUtms.utm_campaign || flat.utm_campaign) || (ownUtms.utm_content || flat.utm_content)) && !!(utm_campaign || utm_content); const renderUtm = (val?: string | null) => { if (!val) return null; const parts = String(val).includes("|") ? String(val).split("|").map(s => s.trim()).filter(Boolean) : [String(val)]; return <div className="flex flex-wrap gap-1">{parts.map((p, idx) => <span key={idx} className="font-mono text-[9px] bg-secondary/60 px-1 py-0.5 rounded text-foreground/80 break-all">{p}</span>)}</div>; }; return (<div key={v.id || i} className="p-2 bg-secondary/50 rounded-lg space-y-1"><div className="flex items-center justify-between"><span className="text-xs font-medium">{v.produto_nome || "Produto"}</span><span className="text-xs font-mono text-primary">R$ {v.valor.toFixed(2)}</span></div><div className="flex items-center gap-1.5 flex-wrap">{v.data?.metodo_pagamento && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">💳 {v.data.metodo_pagamento}</Badge>}{(utm_campaign || utm_content) && inheritedFromLead && <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 leading-none border-amber-500/40 text-amber-400">↳ lead</Badge>}</div>{(utm_campaign || utm_content) && (<div className="space-y-0.5 pt-1 border-t border-border/40"><div className="flex items-start gap-1.5"><span className="text-[9px] uppercase tracking-wider text-muted-foreground min-w-[52px] pt-0.5">Campaign</span>{renderUtm(utm_campaign) || <span className="text-[9px] text-muted-foreground">—</span>}</div><div className="flex items-start gap-1.5"><span className="text-[9px] uppercase tracking-wider text-muted-foreground min-w-[52px] pt-0.5">Content</span>{renderUtm(utm_content) || <span className="text-[9px] text-muted-foreground">—</span>}</div></div>)}</div>); })}</div>)}
-                  <LeadUtmsPanel lead={editLead} />
-                </TabsContent>
-
-                <TabsContent value="qualificacao" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                  <div className="flex justify-end"><AIGenerateButton projectId={editLead.project_id || ""} action="analyze_lead" label="Analisar Lead com IA" size="sm" variant="outline" showMenteSelector contextSources={["Respostas do formulário", "Histórico de interações", "Score", "Dados do lead"]} fieldsToFill={["Dor Principal", "Nível de Consciência", "Objeções", "Notas"]} extraBody={{ lead: { nome: editLead.nome, email: editLead.email, phone: editLead.phone, plataforma: editLead.plataforma, score: editLead.score ?? editLead._score ?? 0, total_gasto: editLead.total_gasto, tags: editLead.tags, data: editLead.data }, form_responses: formResponses, score_log: scoreLog }} onResult={(data: any) => { if (data?.qualificacao) { setEditLead((prev: any) => ({ ...prev, data: { ...prev.data, qualificacao: { ...(prev.data?.qualificacao || {}), ...data.qualificacao } } })); toast.success("Análise IA preenchida nos campos de qualificação"); } }} /></div>
-                  <div className="space-y-2"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🎯 Score ({editLead.score ?? editLead._score ?? 0}/100)</p><Progress value={editLead.score ?? editLead._score ?? 0} className="h-2" />{scoreLog.length > 0 && (<div className="space-y-1">{scoreLog.map((s, i) => (<div key={i} className="flex items-center justify-between text-[11px]"><span className="text-muted-foreground">{s.acao}</span><div className="flex items-center gap-2"><Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-primary">+{s.pontos}</Badge><span className="text-[9px] text-muted-foreground">{(() => { try { const d = new Date(s.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div></div>))}</div>)}</div>
-                  <div className="space-y-3 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Respostas de Formulários</p>{formResponses.length === 0 ? (<p className="text-[11px] text-muted-foreground italic">Nenhuma resposta de formulário registrada.</p>) : (() => { const humanize = (q: string) => { if (!q || !q.includes("_") || q.includes(" ")) return q; return q.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()); }; const grouped: Record<string, typeof formResponses> = {}; formResponses.forEach(r => { const key = r.form_id || "_sem_form"; if (!grouped[key]) grouped[key] = []; grouped[key].push(r); }); return Object.entries(grouped).map(([formId, responses]) => { const formName = responses[0]?.form_name || "Formulário"; return (<div key={formId} className="space-y-1.5"><div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">📋 {formName}</Badge></div>{responses.map((r, i) => (<div key={i} className="flex items-start gap-2 text-[11px] pl-2"><span className="font-medium text-muted-foreground min-w-[80px]">{humanize(r.question)}</span><span className="text-foreground">{r.answer}</span></div>))}</div>); }); })()}</div>
-                  <div className="border-t border-border pt-3 space-y-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">✏️ Qualificação Manual</p><div><Label>Dor Principal</Label><Textarea value={editLead.data?.qualificacao?.dor_principal || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), dor_principal: e.target.value } } })} placeholder="Qual a maior dor/frustração deste lead?" className="bg-secondary min-h-[60px]" /></div><div className="grid grid-cols-2 gap-3"><div><Label>Nível de Consciência</Label><Select value={editLead.data?.qualificacao?.nivel_consciencia || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), nivel_consciencia: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="inconsciente">Inconsciente</SelectItem><SelectItem value="problema">Consciente do Problema</SelectItem><SelectItem value="solucao">Consciente da Solução</SelectItem><SelectItem value="produto">Consciente do Produto</SelectItem><SelectItem value="totalmente">Totalmente Consciente</SelectItem></SelectContent></Select></div><div><Label>Renda Estimada</Label><Select value={editLead.data?.qualificacao?.renda || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), renda: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="ate3k">Até R$3k</SelectItem><SelectItem value="3k-8k">R$3k — R$8k</SelectItem><SelectItem value="8k-15k">R$8k — R$15k</SelectItem><SelectItem value="15k-30k">R$15k — R$30k</SelectItem><SelectItem value="30k+">R$30k+</SelectItem></SelectContent></Select></div></div><div><Label>Objeções</Label><EditableTagList tags={editLead.data?.qualificacao?.objecoes || []} onChange={tags => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), objecoes: tags } } })} /></div><div><Label>Notas do Vendedor</Label><Textarea value={editLead.data?.qualificacao?.notas_vendedor || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), notas_vendedor: e.target.value } } })} placeholder="Observações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div></div>
-                </TabsContent>
-
-                <TabsContent value="jornada">
-                  {timelineLoading ? (<p className="text-sm text-muted-foreground text-center py-8">Carregando jornada...</p>) : timeline.length === 0 ? (<div className="text-center py-8 space-y-2"><Globe className="h-8 w-8 text-muted-foreground/30 mx-auto" /><p className="text-sm text-muted-foreground">Nenhum evento registrado</p></div>) : (
-                    <>
-                      <AttributionSummary timeline={timeline} hasSale={!!(editLead?._vendas && editLead._vendas.length > 0)} />
-                      <div className="relative max-h-[400px] overflow-y-auto pr-2"><div className="absolute left-[15px] top-0 bottom-0 w-px bg-border" /><div className="space-y-3">{timeline.map((ev) => { const config = EVENT_CONFIG[ev.type] || { icon: <Zap className="h-3 w-3" />, color: "bg-muted-foreground", label: ev.type }; return (<div key={ev.id} className="flex gap-3 relative"><div className={`h-[30px] w-[30px] rounded-full ${config.color} flex items-center justify-center text-white shrink-0 z-10`}>{config.icon}</div><div className="flex-1 min-w-0 pb-1"><div className="flex items-center gap-2"><span className="text-xs font-medium">{config.label}</span><span className="text-[10px] text-muted-foreground">{(() => { try { const d = new Date(ev.timestamp); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div>{ev.subtitle && <p className="text-[11px] text-muted-foreground truncate">{ev.subtitle}</p>}{ev.details && Object.keys(ev.details).filter(k => ev.details![k]).length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(ev.details).filter(([, v]) => v).slice(0, 4).map(([k, v]) => <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 30)}</Badge>)}</div>)}</div></div>); })}</div></div>
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="predicoes" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                  {editLead?.id && <LeadPredictivePanel leadIds={[editLead.id]} projectFilter={editLead.project_id || "all"} />}
-                </TabsContent>
-
-                <TabsContent value="automacoes" className="space-y-4">
-                  {(() => {
-                    const matching = automations.filter(a => {
-                      if (!a.ativo) return false;
-                      if (a.project_id && editLead?.project_id && a.project_id !== editLead.project_id) return false;
-                      if (a.campanha_id) {
-                        if (!(editLead as any)?.campanha_id) return false;
-                        if (a.campanha_id !== (editLead as any).campanha_id) return false;
-                      }
-                      return true;
-                    });
-                    return (
-                      <div className="space-y-2 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20">
-                        <p className="text-xs font-bold text-violet-300 uppercase tracking-wider">🎯 Fluxos que atendem este lead ({matching.length})</p>
-                        {(editLead as any)?.campanha_id && <Badge variant="outline" className="text-[9px] bg-violet-500/10 text-violet-400 border-violet-500/30">📣 Campanha vinculada</Badge>}
-                        {matching.length === 0 ? (
-                          <p className="text-[11px] text-muted-foreground italic">Nenhum fluxo ativo com escopo compatível.</p>
-                        ) : (
-                          <div className="space-y-1">{matching.map(a => (
-                            <div key={a.id} className="flex items-center justify-between text-[11px] p-1.5 bg-secondary/40 rounded">
-                              <span className="truncate">⚡ {a.nome}</span>
-                              <Badge variant="outline" className="text-[9px]">{a.trigger_tipo}</Badge>
-                            </div>
-                          ))}</div>
-                        )}
+              <div className="space-y-4">
+                {/* 1. Header Card - Glassmorphism, Redundancy Fix & Stats */}
+                <div className="relative p-4 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-md overflow-hidden">
+                  {/* Subtle golden background glow */}
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {/* Left: Avatar & Info */}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <Avatar className="h-12 w-12 border-2 border-slate-700 bg-slate-800 ring-2 ring-primary/20 ring-offset-2 ring-offset-slate-950 shrink-0 shadow-lg">
+                        <AvatarFallback className="font-bold text-sm bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950">
+                          {(() => {
+                            const isEmail = editLead.nome?.includes("@");
+                            const rawName = editLead.nome || "?";
+                            return isEmail 
+                              ? rawName.split("@")[0].substring(0, 2).toUpperCase()
+                              : rawName.split(" ").map(n => n[0]).filter(Boolean).join("").substring(0, 2).toUpperCase() || "?";
+                          })()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 space-y-0.5">
+                        <h3 className="font-bold text-lg text-slate-100 tracking-tight leading-none truncate">
+                          {(() => {
+                            const isEmail = editLead.nome?.includes("@");
+                            const rawName = editLead.nome || "";
+                            if (isEmail && editLead.nome === editLead.email) {
+                              return rawName.split("@")[0]
+                                .replace(/[\._\-+]/g, " ")
+                                .split(" ")
+                                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                                .join(" ");
+                            }
+                            return rawName;
+                          })()}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <span className="truncate">{editLead.email || "Sem email"}</span>
+                          {editLead.phone && (
+                            <>
+                              <span className="text-slate-600">•</span>
+                              <span className="font-mono text-[11px] text-slate-400">{editLead.phone}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })()}
-                  <div className="space-y-2"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">⚡ Disparar Automação</p>{(() => { const filteredAutos = editLead?.project_id ? automations.filter(a => !a.project_id || a.project_id === editLead.project_id) : automations; return filteredAutos.length === 0 ? (<p className="text-xs text-muted-foreground">Nenhuma automação cadastrada. Crie em OpenFlow.</p>) : (<div className="grid grid-cols-2 gap-2">{filteredAutos.map(a => (<Button key={a.id} size="sm" variant="outline" className="text-xs justify-start" onClick={() => editLead && triggerAutomation(editLead, a)}><Play className="h-3 w-3 mr-1" /> {a.nome}</Button>))}</div>); })()}</div>
-                  <div className="space-y-2 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Histórico de Ações</p>{leadAutomationLogs.length === 0 ? (<p className="text-xs text-muted-foreground text-center py-4">Nenhuma ação registrada</p>) : (<div className="space-y-2 max-h-[250px] overflow-y-auto">{leadAutomationLogs.map(log => (<div key={log.id} className="p-2 bg-secondary/50 rounded-lg"><div className="flex items-center justify-between"><span className="text-xs font-medium">{log.action}</span><span className="text-[10px] text-muted-foreground">{log.created_at ? (() => { try { const d = new Date(log.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })() : ""}</span></div>{log.details && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(log.details as Record<string, any>).filter(([, v]) => v).map(([k, v]) => (<Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 25)}</Badge>))}</div>)}</div>))}</div>)}</div>
-                </TabsContent>
+                    </div>
 
-                <TabsContent value="nutricao" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                  {editLead?.id && <LeadNurtureTimeline leadId={editLead.id} />}
-                </TabsContent>
-              </Tabs>
+                    {/* Right: Key Stats / Quick Badges */}
+                    <div className="flex flex-wrap items-center gap-2 md:self-center shrink-0">
+                      {/* Status Badge */}
+                      <Badge className={cn("px-2.5 py-0.5 rounded-full font-medium text-[10px] uppercase tracking-wider border shrink-0", 
+                        editLead.status === "cliente" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                        editLead.status === "vip" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                        editLead.status === "inativo" ? "bg-slate-800 text-slate-400 border-slate-700" :
+                        "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                      )}>
+                        {editLead.status || "lead"}
+                      </Badge>
+
+                      {/* Lead Score Badge */}
+                      <Badge variant="outline" className="px-2.5 py-0.5 rounded-full border-amber-500/30 text-amber-400 bg-amber-500/5 font-mono text-[10px] shrink-0 gap-1 flex items-center">
+                        <Crown className="h-3 w-3 text-amber-400 shrink-0" />
+                        <span>Score: {editLead.score ?? editLead._score ?? 0}</span>
+                      </Badge>
+
+                      {/* Total Spent (Total Gasto) */}
+                      {(() => {
+                        const totalSpent = editLead._vendas?.reduce((sum, v) => sum + (v.valor || 0), 0) || Number(editLead.total_gasto || 0);
+                        if (totalSpent > 0) {
+                          return (
+                            <Badge variant="outline" className="px-2.5 py-0.5 rounded-full border-emerald-500/30 text-emerald-400 bg-emerald-500/5 font-mono text-[10px] shrink-0 gap-0.5 flex items-center">
+                              <DollarSign className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                              <span>R$ {totalSpent.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                            </Badge>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Funnel conversion alert inside header */}
+                  {(() => {
+                    const hours = getConversionHours(editLead);
+                    if (hours !== null && hours >= 0) {
+                      return (
+                        <div className="mt-3 flex items-center gap-2 px-2.5 py-1.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20 text-[11px] text-emerald-400 font-medium">
+                          <Clock className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          <span>Tempo até compra: {formatConversionTime(hours)}</span>
+                        </div>
+                      );
+                    }
+                    if (editLead.criado_em && (!editLead._vendas || editLead._vendas.length === 0)) {
+                      try {
+                        const d = parseISO(editLead.criado_em);
+                        if (isValid(d)) {
+                          const daysSince = differenceInDays(new Date(), d);
+                          return (
+                            <div className="mt-3 flex items-center gap-2 px-2.5 py-1.5 bg-amber-500/5 rounded-lg border border-amber-500/10 text-[11px] text-amber-400">
+                              <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                              <span>Aguardando conversão — {daysSince} dias desde a primeira captura</span>
+                            </div>
+                          );
+                        }
+                      } catch {}
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                {/* 2. Main Dialog Tabs */}
+                <Tabs defaultValue="dados" className="space-y-3">
+                  <TabsList className="w-full grid grid-cols-6 h-9 bg-slate-900 border border-slate-800 p-0.5 rounded-lg">
+                    <TabsTrigger value="dados" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Dados</TabsTrigger>
+                    <TabsTrigger value="qualificacao" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Qualificar</TabsTrigger>
+                    <TabsTrigger value="jornada" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Jornada ({timeline.length})</TabsTrigger>
+                    <TabsTrigger value="predicoes" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Predições</TabsTrigger>
+                    <TabsTrigger value="automacoes" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Fluxos</TabsTrigger>
+                    <TabsTrigger value="nutricao" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Nutrição</TabsTrigger>
+                  </TabsList>
+
+                  {/* 3. DADOS TAB CONTENT */}
+                  <TabsContent value="dados" className="space-y-4 focus:outline-none">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Name Card */}
+                      <div className="md:col-span-2 space-y-1">
+                        <Label className="text-xs font-semibold text-slate-300">Nome do Lead</Label>
+                        <Input 
+                          value={editLead.nome || ""} 
+                          onChange={e => setEditLead({ ...editLead, nome: e.target.value })} 
+                          className="bg-slate-900 border-slate-800 focus:border-amber-500/50 focus:ring-amber-500/20 text-slate-100"
+                        />
+                      </div>
+
+                      {/* Email & Phone */}
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-300">E-mail</Label>
+                        <Input 
+                          value={editLead.email || ""} 
+                          onChange={e => setEditLead({ ...editLead, email: e.target.value })} 
+                          className="bg-slate-900 border-slate-800 focus:border-amber-500/50 focus:ring-amber-500/20 text-slate-100"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-300">Telefone</Label>
+                        <Input 
+                          value={editLead.phone || ""} 
+                          onChange={e => setEditLead({ ...editLead, phone: e.target.value })} 
+                          className="bg-slate-900 border-slate-800 focus:border-amber-500/50 focus:ring-amber-500/20 text-slate-100"
+                        />
+                      </div>
+
+                      {/* Plataforma Select with Fallback Support */}
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-300">Plataforma</Label>
+                        <Select 
+                          value={editLead.plataforma || ""} 
+                          onValueChange={v => setEditLead({ ...editLead, plataforma: v })}
+                        >
+                          <SelectTrigger className="bg-slate-900 border-slate-800 focus:border-amber-500/50 text-slate-100">
+                            <SelectValue placeholder="Selecionar..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                            {(() => {
+                              const dynamicPlatforms = editLead.plataforma && !PLATFORMS.includes(editLead.plataforma)
+                                ? [...PLATFORMS, editLead.plataforma]
+                                : PLATFORMS;
+                              return dynamicPlatforms.map(p => (
+                                <SelectItem key={p} value={p}>
+                                  {p}
+                                </SelectItem>
+                              ));
+                            })()}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Status Select */}
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-300">Status do Lead</Label>
+                        <Select 
+                          value={editLead.status || "lead"} 
+                          onValueChange={v => setEditLead({ ...editLead, status: v })}
+                        >
+                          <SelectTrigger className="bg-slate-900 border-slate-800 focus:border-amber-500/50 text-slate-100">
+                            <SelectValue placeholder="Selecionar status" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                            {STATUSES.map(s => (
+                              <SelectItem key={s} value={s} className="capitalize">
+                                {s}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-300">Tags do Lead</Label>
+                      <div className="p-2.5 rounded-lg border border-slate-800 bg-slate-900/40">
+                        <EditableTagList tags={editLead.tags || []} onChange={tags => setEditLead({ ...editLead, tags })} />
+                      </div>
+                    </div>
+
+                    {/* Internal Notes */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-300">📝 Anotações Internas</Label>
+                      <Textarea 
+                        value={editLead.data?.notas || ""} 
+                        onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, notas: e.target.value } })} 
+                        placeholder="Anotações internas sobre este lead..." 
+                        className="bg-slate-900 border-slate-800 text-slate-100 min-h-[70px] focus:border-amber-500/50 focus:ring-amber-500/20" 
+                      />
+                    </div>
+
+                    {/* Origem Detail Panel (Glassmorphic) */}
+                    <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/30 space-y-2">
+                      <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1">
+                        <Target className="h-3 w-3" /> Origem da Conversão
+                      </p>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-slate-400 text-[10px]">Projeto Principal</span>
+                          <span className="font-medium text-slate-200">
+                            {(() => {
+                              const proj = projects.find(p => p.id === editLead.project_id);
+                              return proj ? `${proj.icon || "📁"} ${proj.name}` : "—";
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-slate-400 text-[10px]">Formulário Captura</span>
+                          <span className="font-medium text-slate-200">
+                            {(() => {
+                              const firstForm = formResponses.find(r => r.form_name);
+                              return firstForm?.form_name || "—";
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-slate-400 text-[10px]">Plataforma Referência</span>
+                          <span className="font-medium text-slate-200">
+                            {editLead.plataforma || editLead.data?.captura_origem || "—"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-slate-400 text-[10px]">Data de Captura</span>
+                          <span className="font-medium text-slate-200 font-mono">
+                            {editLead.criado_em ? (() => {
+                              try {
+                                const d = parseISO(editLead.criado_em!);
+                                return isValid(d) ? format(d, "dd/MM/yyyy HH:mm") : "—";
+                              } catch { return "—"; }
+                            })() : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Purchases & Checkout Tracking Panel */}
+                    {editLead._vendas && editLead._vendas.length > 0 && (
+                      <div className="space-y-2.5">
+                        <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                          <DollarSign className="h-3.5 w-3.5" /> Histórico de Transações ({editLead._vendas.length})
+                        </p>
+                        <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                          {editLead._vendas.map((v, i) => {
+                            const ownUtms = (v.data?.utms || v.data?.tracking || v.data?.checkout || {}) as any;
+                            const flat: any = v.data || {};
+                            const utm_campaign = ownUtms.utm_campaign || flat.utm_campaign || (editLead.data as any)?.utms?.utm_campaign || (editLead.data as any)?.utm_campaign;
+                            const utm_content = ownUtms.utm_content || flat.utm_content || (editLead.data as any)?.utms?.utm_content || (editLead.data as any)?.utm_content;
+                            const inheritedFromLead = !((ownUtms.utm_campaign || flat.utm_campaign) || (ownUtms.utm_content || flat.utm_content)) && !!(utm_campaign || utm_content);
+                            
+                            const renderUtm = (val?: string | null) => {
+                              if (!val) return null;
+                              const parts = String(val).includes("|") ? String(val).split("|").map(s => s.trim()).filter(Boolean) : [String(val)];
+                              return (
+                                <div className="flex flex-wrap gap-1">
+                                  {parts.map((p, idx) => (
+                                    <span key={idx} className="font-mono text-[9px] bg-slate-950 border border-slate-800/80 px-1.5 py-0.5 rounded text-slate-300 break-all">
+                                      {p}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            };
+
+                            return (
+                              <div key={v.id || i} className="p-3 rounded-lg border border-slate-800 bg-slate-900/20 hover:bg-slate-900/40 transition-colors space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-slate-100">{v.produto_nome || "Produto"}</span>
+                                    {v.data?.metodo_pagamento && (
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-slate-900 border-slate-800 text-slate-300">
+                                        💳 {v.data.metodo_pagamento}
+                                      </Badge>
+                                    )}
+                                    {v.status && (
+                                      <Badge className={cn("text-[9px] px-1.5 py-0 h-4 uppercase font-bold shrink-0", 
+                                        ["aprovada", "Aprovada", "approved", "aprovado", "Aprovado"].includes(v.status) ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-slate-800 text-slate-400 border border-slate-700"
+                                      )}>
+                                        {v.status}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-bold font-mono text-emerald-400">R$ {v.valor.toFixed(2)}</span>
+                                </div>
+
+                                {/* UTM Attribution details */}
+                                {(utm_campaign || utm_content) && (
+                                  <div className="space-y-1.5 pt-1.5 border-t border-slate-800/40">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[8px] font-bold text-amber-500 uppercase tracking-wider">Atribuição</span>
+                                      {inheritedFromLead && <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded px-1">Herdada do Lead</span>}
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-1 text-[10px]">
+                                      {utm_campaign && (
+                                        <div className="flex items-start gap-1.5">
+                                          <span className="text-slate-400 font-medium min-w-[55px]">Campanha:</span>
+                                          {renderUtm(utm_campaign)}
+                                        </div>
+                                      )}
+                                      {utm_content && (
+                                        <div className="flex items-start gap-1.5">
+                                          <span className="text-slate-400 font-medium min-w-[55px]">Conteúdo:</span>
+                                          {renderUtm(utm_content)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <LeadUtmsPanel lead={editLead} />
+                  </TabsContent>
+
+                  <TabsContent value="qualificacao" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    <div className="flex justify-end"><AIGenerateButton projectId={editLead.project_id || ""} action="analyze_lead" label="Analisar Lead com IA" size="sm" variant="outline" showMenteSelector contextSources={["Respostas do formulário", "Histórico de interações", "Score", "Dados do lead"]} fieldsToFill={["Dor Principal", "Nível de Consciência", "Objeções", "Notas"]} extraBody={{ lead: { nome: editLead.nome, email: editLead.email, phone: editLead.phone, plataforma: editLead.plataforma, score: editLead.score ?? editLead._score ?? 0, total_gasto: editLead.total_gasto, tags: editLead.tags, data: editLead.data }, form_responses: formResponses, score_log: scoreLog }} onResult={(data: any) => { if (data?.qualificacao) { setEditLead((prev: any) => ({ ...prev, data: { ...prev.data, qualificacao: { ...(prev.data?.qualificacao || {}), ...data.qualificacao } } })); toast.success("Análise IA preenchida nos campos de qualificação"); } }} /></div>
+                    <div className="space-y-2"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🎯 Score ({editLead.score ?? editLead._score ?? 0}/100)</p><Progress value={editLead.score ?? editLead._score ?? 0} className="h-2" />{scoreLog.length > 0 && (<div className="space-y-1">{scoreLog.map((s, i) => (<div key={i} className="flex items-center justify-between text-[11px]"><span className="text-muted-foreground">{s.acao}</span><div className="flex items-center gap-2"><Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-primary">+{s.pontos}</Badge><span className="text-[9px] text-muted-foreground">{(() => { try { const d = new Date(s.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div></div>))}</div>)}</div>
+                    <div className="space-y-3 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Respostas de Formulários</p>{formResponses.length === 0 ? (<p className="text-[11px] text-muted-foreground italic">Nenhuma resposta de formulário registrada.</p>) : (() => { const humanize = (q: string) => { if (!q || !q.includes("_") || q.includes(" ")) return q; return q.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()); }; const grouped: Record<string, typeof formResponses> = {}; formResponses.forEach(r => { const key = r.form_id || "_sem_form"; if (!grouped[key]) grouped[key] = []; grouped[key].push(r); }); return Object.entries(grouped).map(([formId, responses]) => { const formName = responses[0]?.form_name || "Formulário"; return (<div key={formId} className="space-y-1.5"><div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">📋 {formName}</Badge></div>{responses.map((r, i) => (<div key={i} className="flex items-start gap-2 text-[11px] pl-2"><span className="font-medium text-muted-foreground min-w-[80px]">{humanize(r.question)}</span><span className="text-foreground">{r.answer}</span></div>))}</div>); }); })()}</div>
+                    <div className="border-t border-border pt-3 space-y-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">✏️ Qualificação Manual</p><div><Label>Dor Principal</Label><Textarea value={editLead.data?.qualificacao?.dor_principal || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), dor_principal: e.target.value } } })} placeholder="Qual a maior dor/frustração deste lead?" className="bg-secondary min-h-[60px]" /></div><div className="grid grid-cols-2 gap-3"><div><Label>Nível de Consciência</Label><Select value={editLead.data?.qualificacao?.nivel_consciencia || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), nivel_consciencia: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="inconsciente">Inconsciente</SelectItem><SelectItem value="problema">Consciente do Problema</SelectItem><SelectItem value="solucao">Consciente da Solução</SelectItem><SelectItem value="produto">Consciente do Produto</SelectItem><SelectItem value="totalmente">Totalmente Consciente</SelectItem></SelectContent></Select></div><div><Label>Renda Estimada</Label><Select value={editLead.data?.qualificacao?.renda || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), renda: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="ate3k">Até R$3k</SelectItem><SelectItem value="3k-8k">R$3k — R$8k</SelectItem><SelectItem value="8k-15k">R$8k — R$15k</SelectItem><SelectItem value="15k-30k">R$15k — R$30k</SelectItem><SelectItem value="30k+">R$30k+</SelectItem></SelectContent></Select></div></div><div><Label>Objeções</Label><EditableTagList tags={editLead.data?.qualificacao?.objecoes || []} onChange={tags => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), objecoes: tags } } })} /></div><div><Label>Notas do Vendedor</Label><Textarea value={editLead.data?.qualificacao?.notas_vendedor || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), notas_vendedor: e.target.value } } })} placeholder="Observações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div></div>
+                  </TabsContent>
+
+                  <TabsContent value="jornada">
+                    {timelineLoading ? (<p className="text-sm text-muted-foreground text-center py-8">Carregando jornada...</p>) : timeline.length === 0 ? (<div className="text-center py-8 space-y-2"><Globe className="h-8 w-8 text-muted-foreground/30 mx-auto" /><p className="text-sm text-muted-foreground">Nenhum evento registrado</p></div>) : (
+                      <>
+                        <AttributionSummary timeline={timeline} hasSale={!!(editLead?._vendas && editLead._vendas.length > 0)} />
+                        <div className="relative max-h-[400px] overflow-y-auto pr-2"><div className="absolute left-[15px] top-0 bottom-0 w-px bg-border" /><div className="space-y-3">{timeline.map((ev) => { const config = EVENT_CONFIG[ev.type] || { icon: <Zap className="h-3 w-3" />, color: "bg-muted-foreground", label: ev.type }; return (<div key={ev.id} className="flex gap-3 relative"><div className={`h-[30px] w-[30px] rounded-full ${config.color} flex items-center justify-center text-white shrink-0 z-10`}>{config.icon}</div><div className="flex-1 min-w-0 pb-1"><div className="flex items-center gap-2"><span className="text-xs font-medium">{config.label}</span><span className="text-[10px] text-muted-foreground">{(() => { try { const d = new Date(ev.timestamp); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div>{ev.subtitle && <p className="text-[11px] text-muted-foreground truncate">{ev.subtitle}</p>}{ev.details && Object.keys(ev.details).filter(k => ev.details![k]).length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(ev.details).filter(([, v]) => v).slice(0, 4).map(([k, v]) => <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 30)}</Badge>)}</div>)}</div></div>); })}</div></div>
+                      </>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="predicoes" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    {editLead?.id && <LeadPredictivePanel leadIds={[editLead.id]} projectFilter={editLead.project_id || "all"} />}
+                  </TabsContent>
+
+                  <TabsContent value="automacoes" className="space-y-4">
+                    {(() => {
+                      const matching = automations.filter(a => {
+                        if (!a.ativo) return false;
+                        if (a.project_id && editLead?.project_id && a.project_id !== editLead.project_id) return false;
+                        if (a.campanha_id) {
+                          if (!(editLead as any)?.campanha_id) return false;
+                          if (a.campanha_id !== (editLead as any).campanha_id) return false;
+                        }
+                        return true;
+                      });
+                      return (
+                        <div className="space-y-2 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20">
+                          <p className="text-xs font-bold text-violet-300 uppercase tracking-wider">🎯 Fluxos que atendem este lead ({matching.length})</p>
+                          {(editLead as any)?.campanha_id && <Badge variant="outline" className="text-[9px] bg-violet-500/10 text-violet-400 border-violet-500/30">📣 Campanha vinculada</Badge>}
+                          {matching.length === 0 ? (
+                            <p className="text-[11px] text-muted-foreground italic">Nenhum fluxo ativo com escopo compatível.</p>
+                          ) : (
+                            <div className="space-y-1">{matching.map(a => (
+                              <div key={a.id} className="flex items-center justify-between text-[11px] p-1.5 bg-secondary/40 rounded">
+                                <span className="truncate">⚡ {a.nome}</span>
+                                <Badge variant="outline" className="text-[9px]">{a.trigger_tipo}</Badge>
+                              </div>
+                            ))}</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <div className="space-y-2"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">⚡ Disparar Automação</p>{(() => { const filteredAutos = editLead?.project_id ? automations.filter(a => !a.project_id || a.project_id === editLead.project_id) : automations; return filteredAutos.length === 0 ? (<p className="text-xs text-muted-foreground">Nenhuma automação cadastrada. Crie em OpenFlow.</p>) : (<div className="grid grid-cols-2 gap-2">{filteredAutos.map(a => (<Button key={a.id} size="sm" variant="outline" className="text-xs justify-start" onClick={() => editLead && triggerAutomation(editLead, a)}><Play className="h-3 w-3 mr-1" /> {a.nome}</Button>))}</div>); })()}</div>
+                    <div className="space-y-2 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Histórico de Ações</p>{leadAutomationLogs.length === 0 ? (<p className="text-xs text-muted-foreground text-center py-4">Nenhuma ação registrada</p>) : (<div className="space-y-2 max-h-[250px] overflow-y-auto">{leadAutomationLogs.map(log => (<div key={log.id} className="p-2 bg-secondary/50 rounded-lg"><div className="flex items-center justify-between"><span className="text-xs font-medium">{log.action}</span><span className="text-[10px] text-muted-foreground">{log.created_at ? (() => { try { const d = new Date(log.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })() : ""}</span></div>{log.details && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(log.details as Record<string, any>).filter(([, v]) => v).map(([k, v]) => (<Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 25)}</Badge>))}</div>)}</div>))}</div>)}</div>
+                  </TabsContent>
+
+                  <TabsContent value="nutricao" className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    {editLead?.id && <LeadNurtureTimeline leadId={editLead.id} />}
+                  </TabsContent>
+                </Tabs>
+              </div>
             )}
-            <DialogFooter className="flex justify-between">
-              <Button variant="destructive" size="sm" onClick={() => editLead && setDeleteConfirm(editLead.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-              <Button onClick={saveEdit}>Salvar</Button>
+            <DialogFooter className="flex justify-between border-t border-slate-800/60 pt-3">
+              <Button variant="destructive" size="sm" onClick={() => editLead && setDeleteConfirm(editLead.id)} className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"><Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir Lead</Button>
+              <Button onClick={saveEdit} className="bg-amber-500 text-slate-950 font-bold hover:bg-amber-600">Salvar Alterações</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
