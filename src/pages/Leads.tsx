@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
@@ -823,6 +823,36 @@ export default function Leads() {
                         }
                         return null;
                       })()}
+
+                      {/* Eugene Schwartz Primary Desire Badge */}
+                      {(() => {
+                        const schwartzDesire = editLead.data?.desejo_schwartz || (() => {
+                          const desireTag = editLead.tags?.find(t => t.startsWith("Desejo: "));
+                          if (desireTag) {
+                            const type = desireTag.split(": ")[1]?.toLowerCase();
+                            if (type === "tempo" || type === "dinheiro" || type === "estresse" || type === "status") return type;
+                          }
+                          return null;
+                        })();
+
+                        if (!schwartzDesire) return null;
+
+                        const desireMeta: Record<string, { label: string; icon: string; color: string }> = {
+                          tempo: { label: "Liberdade de Tempo", icon: "⏳", color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" },
+                          dinheiro: { label: "Alavancagem Financeira", icon: "💰", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+                          estresse: { label: "Alívio de Estresse / Paz", icon: "🧘", color: "bg-violet-500/10 text-violet-400 border-violet-500/30" },
+                          status: { label: "Prestígio & Autoridade", icon: "👑", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" }
+                        };
+                        const meta = desireMeta[schwartzDesire];
+                        if (!meta) return null;
+
+                        return (
+                          <Badge variant="outline" className={cn("px-2.5 py-0.5 rounded-full font-mono text-[10px] shrink-0 gap-1 flex items-center shadow-lg shadow-black/20", meta.color)}>
+                            <span>{meta.icon}</span>
+                            <span>Desejo: {meta.label}</span>
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1092,7 +1122,95 @@ export default function Leads() {
                     <div className="flex justify-end"><AIGenerateButton projectId={editLead.project_id || ""} action="analyze_lead" label="Analisar Lead com IA" size="sm" variant="outline" showMenteSelector contextSources={["Respostas do formulário", "Histórico de interações", "Score", "Dados do lead"]} fieldsToFill={["Dor Principal", "Nível de Consciência", "Objeções", "Notas"]} extraBody={{ lead: { nome: editLead.nome, email: editLead.email, phone: editLead.phone, plataforma: editLead.plataforma, score: editLead.score ?? editLead._score ?? 0, total_gasto: editLead.total_gasto, tags: editLead.tags, data: editLead.data }, form_responses: formResponses, score_log: scoreLog }} onResult={(data: any) => { if (data?.qualificacao) { setEditLead((prev: any) => ({ ...prev, data: { ...prev.data, qualificacao: { ...(prev.data?.qualificacao || {}), ...data.qualificacao } } })); toast.success("Análise IA preenchida nos campos de qualificação"); } }} /></div>
                     <div className="space-y-2"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🎯 Score ({editLead.score ?? editLead._score ?? 0}/100)</p><Progress value={editLead.score ?? editLead._score ?? 0} className="h-2" />{scoreLog.length > 0 && (<div className="space-y-1">{scoreLog.map((s, i) => (<div key={i} className="flex items-center justify-between text-[11px]"><span className="text-muted-foreground">{s.acao}</span><div className="flex items-center gap-2"><Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-primary">+{s.pontos}</Badge><span className="text-[9px] text-muted-foreground">{(() => { try { const d = new Date(s.created_at); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div></div>))}</div>)}</div>
                     <div className="space-y-3 border-t border-border pt-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📋 Respostas de Formulários</p>{formResponses.length === 0 ? (<p className="text-[11px] text-muted-foreground italic">Nenhuma resposta de formulário registrada.</p>) : (() => { const humanize = (q: string) => { if (!q || !q.includes("_") || q.includes(" ")) return q; return q.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()); }; const grouped: Record<string, typeof formResponses> = {}; formResponses.forEach(r => { const key = r.form_id || "_sem_form"; if (!grouped[key]) grouped[key] = []; grouped[key].push(r); }); return Object.entries(grouped).map(([formId, responses]) => { const formName = responses[0]?.form_name || "Formulário"; return (<div key={formId} className="space-y-1.5"><div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">📋 {formName}</Badge></div>{responses.map((r, i) => (<div key={i} className="flex items-start gap-2 text-[11px] pl-2"><span className="font-medium text-muted-foreground min-w-[80px]">{humanize(r.question)}</span><span className="text-foreground">{r.answer}</span></div>))}</div>); }); })()}</div>
-                    <div className="border-t border-border pt-3 space-y-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">✏️ Qualificação Manual</p><div><Label>Dor Principal</Label><Textarea value={editLead.data?.qualificacao?.dor_principal || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), dor_principal: e.target.value } } })} placeholder="Qual a maior dor/frustração deste lead?" className="bg-secondary min-h-[60px]" /></div><div className="grid grid-cols-2 gap-3"><div><Label>Nível de Consciência</Label><Select value={editLead.data?.qualificacao?.nivel_consciencia || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), nivel_consciencia: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="inconsciente">Inconsciente</SelectItem><SelectItem value="problema">Consciente do Problema</SelectItem><SelectItem value="solucao">Consciente da Solução</SelectItem><SelectItem value="produto">Consciente do Produto</SelectItem><SelectItem value="totalmente">Totalmente Consciente</SelectItem></SelectContent></Select></div><div><Label>Renda Estimada</Label><Select value={editLead.data?.qualificacao?.renda || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), renda: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="ate3k">Até R$3k</SelectItem><SelectItem value="3k-8k">R$3k — R$8k</SelectItem><SelectItem value="8k-15k">R$8k — R$15k</SelectItem><SelectItem value="15k-30k">R$15k — R$30k</SelectItem><SelectItem value="30k+">R$30k+</SelectItem></SelectContent></Select></div></div><div><Label>Objeções</Label><EditableTagList tags={editLead.data?.qualificacao?.objecoes || []} onChange={tags => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), objecoes: tags } } })} /></div><div><Label>Notas do Vendedor</Label><Textarea value={editLead.data?.qualificacao?.notas_vendedor || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), notas_vendedor: e.target.value } } })} placeholder="Observações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div></div>
+                    <div className="border-t border-border pt-3 space-y-3"><p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">✏️ Qualificação Manual</p><div><Label>Dor Principal</Label><Textarea value={editLead.data?.qualificacao?.dor_principal || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), dor_principal: e.target.value } } })} placeholder="Qual a maior dor/frustração deste lead?" className="bg-secondary min-h-[60px]" /></div><div className="grid grid-cols-2 gap-3"><div><Label>Nível de Consciência</Label><Select value={editLead.data?.qualificacao?.nivel_consciencia || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), nivel_consciencia: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="inconsciente">Inconsciente</SelectItem><SelectItem value="problema">Consciente do Problema</SelectItem><SelectItem value="solucao">Consciente da Solução</SelectItem><SelectItem value="produto">Consciente do Produto</SelectItem><SelectItem value="totalmente">Totalmente Consciente</SelectItem></SelectContent></Select></div><div><Label>Renda Estimada</Label><Select value={editLead.data?.qualificacao?.renda || ""} onValueChange={v => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), renda: v } } })}><SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent><SelectItem value="ate3k">Até R$3k</SelectItem><SelectItem value="3k-8k">R$3k — R$8k</SelectItem><SelectItem value="8k-15k">R$8k — R$15k</SelectItem><SelectItem value="15k-30k">R$15k — R$30k</SelectItem><SelectItem value="30k+">R$30k+</SelectItem></SelectContent></Select></div></div><div><Label>Objeções</Label><EditableTagList tags={editLead.data?.qualificacao?.objecoes || []} onChange={tags => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), objecoes: tags } } })} /></div><div><Label>Notas do Vendedor</Label><Textarea value={editLead.data?.qualificacao?.notas_vendedor || ""} onChange={e => setEditLead({ ...editLead, data: { ...editLead.data, qualificacao: { ...(editLead.data?.qualificacao || {}), notas_vendedor: e.target.value } } })} placeholder="Observações internas sobre este lead..." className="bg-secondary min-h-[60px]" /></div>
+
+                      {/* E3 Persuasion Copilot Card */}
+                      {(() => {
+                        const schwartzDesire = editLead.data?.desejo_schwartz || (() => {
+                          const desireTag = editLead.tags?.find(t => t.startsWith("Desejo: "));
+                          if (desireTag) {
+                            const type = desireTag.split(": ")[1]?.toLowerCase();
+                            if (type === "tempo" || type === "dinheiro" || type === "estresse" || type === "status") return type;
+                          }
+                          return null;
+                        })();
+
+                        if (!schwartzDesire) return null;
+
+                        const copilotData: Record<string, { title: string; hook: string; objection: string; action: string; color: string }> = {
+                          tempo: {
+                            title: "Abordagem E3 (Foco em Liberdade de Tempo)",
+                            hook: "Oi {{nome}}, como o JP sempre fala: automatizar te tira da operação para você escalar. Quantas horas do seu dia hoje você perde com processos manuais e repetitivos?",
+                            objection: "Destaque que o ImperioHQ é o único que roda 24/7 de forma 100% autônoma, economizando mais de 20h semanais do time.",
+                            action: "Focar no valor da automatização e liberdade de tempo.",
+                            color: "border-cyan-500/30 bg-cyan-500/5 text-cyan-400"
+                          },
+                          dinheiro: {
+                            title: "Abordagem E3 (Foco em Escala e ROI)",
+                            hook: "Oi {{nome}}, a grande verdade é que lead sem resposta rápida é dinheiro queimado. Se você puder botar um atendente digital que responde e qualifica em 2 segundos sem cansar, quanto isso adiciona no seu ROI?",
+                            objection: "Mostre o caso prático de recuperação automática de carrinho abandonado com IA que gera ROI de até 12x no primeiro mês.",
+                            action: "Focar em recuperação de vendas, conversão acelerada e lucro.",
+                            color: "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+                          },
+                          estresse: {
+                            title: "Abordagem E3 (Foco em Simplicidade e Paz)",
+                            hook: "Oi {{nome}}, gerenciar suporte e equipe de vendas é uma dor de cabeça constante. Nosso sistema de IA faz a triagem limpa e entrega tudo mastigado. Que tal tirar o peso operacional das suas costas?",
+                            objection: "Explique que a IA faz a classificação automática de sentimentos e objeções, acionando o suporte humano apenas nos casos cirúrgicos.",
+                            action: "Focar em facilidade, redução de atrito e estabilidade operacional.",
+                            color: "border-violet-500/30 bg-violet-500/5 text-violet-400"
+                          },
+                          status: {
+                            title: "Abordagem E3 (Foco em Autoridade e Prestígio)",
+                            hook: "Oi {{nome}}, os maiores players do mercado digital hoje usam IA para atendimento personalizado de ponta. Ficar no manual passa uma imagem amadora. Quer subir o nível de autoridade da sua marca?",
+                            objection: "Demonstre como a IA usa avatares de voz clonados de alta definição para closer, gerando um atendimento VIP insuperável.",
+                            action: "Focar em posicionamento premium, tecnologia de ponta e branding de autoridade.",
+                            color: "border-amber-500/30 bg-amber-500/5 text-amber-400"
+                          }
+                        };
+
+                        const currentCopilot = copilotData[schwartzDesire];
+                        if (!currentCopilot) return null;
+
+                        return (
+                          <div className={cn("p-3.5 rounded-xl border space-y-2 mt-4 shadow-inner relative overflow-hidden", currentCopilot.color.split(" text-")[0])}>
+                            <div className="absolute -top-12 -right-12 w-24 h-24 bg-white/5 rounded-full blur-xl pointer-events-none" />
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
+                                {currentCopilot.title}
+                              </p>
+                              <span className="text-[9px] bg-slate-900 border border-slate-800 rounded px-1.5 font-bold uppercase py-0.5">Copilot E3</span>
+                            </div>
+                            <div className="space-y-1.5 text-xs text-slate-300">
+                              <div>
+                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-semibold block">Gancho de Abordagem Sugerido:</span>
+                                <p className="bg-slate-950/60 p-2 rounded border border-slate-800 text-slate-200 leading-relaxed font-sans italic relative pr-8">
+                                  "{currentCopilot.hook.replace("{{nome}}", editLead.nome || "amigo")}"
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 absolute right-1.5 top-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(currentCopilot.hook.replace("{{nome}}", editLead.nome || "amigo"));
+                                      toast.success("Gancho copiado!");
+                                    }}
+                                    title="Copiar script"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-semibold block">Foco de Persuasão:</span>
+                                <p className="text-slate-300 leading-relaxed pl-2 border-l border-amber-500/50 text-[11px]">
+                                  {currentCopilot.objection}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="jornada">

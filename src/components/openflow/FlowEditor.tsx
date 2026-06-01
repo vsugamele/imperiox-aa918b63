@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
@@ -111,6 +112,43 @@ export function FlowEditor({
   const [zoom, setZoom] = useState<number>(1);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+
+  // Flow View and Reorder States
+  const [activeTab, setActiveTab] = useState<"editor" | "simulator">("editor");
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDraggedIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", idx.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === idx) return;
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === targetIdx) return;
+    
+    const updated = [...acoes];
+    const [draggedItem] = updated.splice(draggedIdx, 1);
+    updated.splice(targetIdx, 0, draggedItem);
+    
+    onChange(updated);
+    setSelectedIdx(targetIdx);
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+    toast.success(`Fluxo reorganizado! Ação #${draggedIdx + 1} movida para a posição #${targetIdx + 1}.`);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
 
   // Audio Voice States
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
@@ -373,11 +411,34 @@ export function FlowEditor({
         )}
       </div>
 
+      {/* ── VIEWPORT TABS (Top Centered Toolbar) ── */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-lg shrink-0 select-none">
+        <Button
+          variant={activeTab === "editor" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("editor")}
+          className={`h-7 text-[10px] font-bold gap-1 rounded-lg ${activeTab === "editor" ? "bg-amber-500 text-black hover:bg-amber-400" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Sliders className="h-3.5 w-3.5" />
+          Editor de Fluxo
+        </Button>
+        <Button
+          variant={activeTab === "simulator" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("simulator")}
+          className={`h-7 text-[10px] font-bold gap-1 rounded-lg ${activeTab === "simulator" ? "bg-amber-500 text-black hover:bg-amber-400" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Simulador WhatsApp
+        </Button>
+      </div>
+
       {/* ── CANVAS WORKSPACE ── */}
-      <div 
-        ref={canvasRef}
-        className="flex-1 overflow-auto p-12 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] bg-slate-950/40 relative"
-      >
+      {activeTab === "editor" && (
+        <div 
+          ref={canvasRef}
+          className="flex-1 overflow-auto p-12 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] bg-slate-950/40 relative"
+        >
         <div 
           className="flex flex-col items-center min-w-max mx-auto transition-transform duration-200 select-none"
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
@@ -428,15 +489,29 @@ export function FlowEditor({
             const isSelected = selectedIdx === idx;
             const isAguardar = acao.tipo === "aguardar";
             const isCondicao = acao.tipo === "condicao";
+            const isDragging = draggedIdx === idx;
+            const isDragOver = dragOverIdx === idx;
 
             // serpentine x stagger offset to look highly visual node-based
             const staggerClass = idx % 2 === 0 ? "translate-x-3" : "-translate-x-3";
 
             return (
-              <div key={idx} className="flex flex-col items-center shrink-0">
+              <div 
+                key={idx} 
+                className="flex flex-col items-center shrink-0"
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={(e) => handleDrop(e, idx)}
+              >
                 
                 {/* Visual Stagger node wrapper */}
-                <div className={`relative transition-all duration-300 ${staggerClass} group`}>
+                <div 
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative transition-all duration-300 ${staggerClass} group ${
+                    isDragging ? "opacity-30 scale-95" : ""
+                  } ${isDragOver ? "pt-4 duration-150 border-t-2 border-dashed border-amber-500/50" : ""}`}
+                >
                   
                   {/* Glowing halo indicator */}
                   <div className={`absolute -inset-0.5 rounded-xl blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${
@@ -446,9 +521,11 @@ export function FlowEditor({
                   {/* Node Card */}
                   <div
                     onClick={() => setSelectedIdx(isSelected ? null : idx)}
-                    className={`w-64 border rounded-xl p-4 bg-slate-900/80 backdrop-blur-md cursor-pointer relative shadow-md transition-all duration-200 hover:-translate-y-0.5 ${
+                    className={`w-64 border rounded-xl p-4 bg-slate-900/80 backdrop-blur-md cursor-grab active:cursor-grabbing relative shadow-md transition-all duration-200 hover:-translate-y-0.5 ${
                       isSelected
                         ? "border-primary bg-slate-900 shadow-inner"
+                        : isDragOver
+                        ? "border-amber-500 bg-amber-500/5 shadow-[0_0_12px_rgba(245,158,11,0.2)] animate-pulse"
                         : `border-border/60 ${meta.color}`
                     }`}
                   >
@@ -565,6 +642,182 @@ export function FlowEditor({
 
         </div>
       </div>
+      )}
+
+      {/* ── SIMULATOR WORKSPACE ── */}
+      {activeTab === "simulator" && (
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-950 flex justify-center items-center relative select-text">
+          {/* Subtle phone-like border frame with glassmorphic look */}
+          <div className="w-[360px] h-[550px] rounded-[36px] border-4 border-slate-800 bg-slate-900 shadow-2xl flex flex-col overflow-hidden relative shadow-emerald-500/5">
+            {/* Camera notch */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-4 bg-slate-800 rounded-b-xl z-20 flex justify-center items-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-slate-900 mr-2" />
+              <div className="w-8 h-1 rounded-full bg-slate-900" />
+            </div>
+
+            {/* WhatsApp Chat Header */}
+            <div className="bg-slate-950/80 backdrop-blur border-b border-border/40 p-4 pt-6 flex items-center gap-2 shrink-0 select-none">
+              <Avatar className="h-8 w-8 border border-emerald-500/20 bg-emerald-500/10">
+                <AvatarFallback className="text-[10px] font-bold text-emerald-400">HQ</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-100 flex items-center gap-1 leading-none">
+                  Atendente ImperioHQ
+                  <Badge className="bg-emerald-500/10 border-emerald-500/20 text-emerald-400 text-[7px] scale-90 px-1 py-0 h-3 font-semibold">BOT</Badge>
+                </p>
+                <p className="text-[9px] text-emerald-400 mt-0.5 flex items-center gap-1 leading-none">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Online (Copy E3)
+                </p>
+              </div>
+            </div>
+
+            {/* WhatsApp Message Logs Container */}
+            <div className="flex-1 overflow-y-auto p-4 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-slate-950/80 bg-blend-multiply space-y-4">
+              
+              {/* Gatilho Node (First incoming message from Lead) */}
+              <div className="flex justify-start select-none">
+                <div className="max-w-[85%] bg-slate-900/90 backdrop-blur-sm border border-border/40 p-3 rounded-2xl rounded-tl-none shadow-md space-y-1">
+                  <span className="text-[8px] font-bold text-primary tracking-widest uppercase block">⚡ Gatilho Ativado</span>
+                  <p className="text-xs text-slate-300 font-sans leading-relaxed">
+                    Lead realiza a ação de: <strong>{trigger.label}</strong>
+                  </p>
+                </div>
+              </div>
+
+              {/* Seriado WhatsApp Actions Outbound */}
+              {acoes.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground select-none">
+                  <MessageCircle className="h-8 w-8 mx-auto opacity-20 mb-2" />
+                  <p className="text-xs">Nenhum disparo configurado.</p>
+                  <p className="text-[10px] opacity-60">Volte para o Editor de Fluxo para adicionar.</p>
+                </div>
+              ) : (
+                (() => {
+                  let accumDelay = 0;
+                  return acoes.map((acao, idx) => {
+                    const meta = acaoMeta(acao.tipo);
+                    const isSelected = selectedIdx === idx;
+                    const isAguardar = acao.tipo === "aguardar";
+                    const isCondicao = acao.tipo === "condicao";
+                    accumDelay += acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0);
+
+                    const isDragging = draggedIdx === idx;
+                    const isDragOver = dragOverIdx === idx;
+
+                    return (
+                      <div
+                        key={idx}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, idx)}
+                        onDragOver={(e) => handleDragOver(e, idx)}
+                        onDrop={(e) => handleDrop(e, idx)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => setSelectedIdx(isSelected ? null : idx)}
+                        className={`flex flex-col cursor-grab active:cursor-grabbing relative select-none rounded-xl transition-all duration-200 ${
+                          isDragging ? "opacity-30 scale-95" : ""
+                        } ${isDragOver ? "border-t-2 border-amber-500 pt-2" : ""} ${
+                          isSelected ? "ring-1 ring-primary/40 bg-primary/5 p-1" : ""
+                        }`}
+                      >
+                        {/* Time Offset Indicator tag */}
+                        <div className="flex justify-center my-1">
+                          <span className="text-[8px] bg-slate-900/90 text-amber-400 border border-amber-500/10 px-2 py-0.5 rounded-full font-mono font-bold tracking-wider shadow">
+                            ⏱️ +{acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0)}min (Acumulado: {accumDelay}min)
+                          </span>
+                        </div>
+
+                        {/* WhatsApp Styled Outbound Bubble */}
+                        {isAguardar ? (
+                          <div className="flex justify-center select-none my-1">
+                            <span className="text-[9px] bg-slate-900/60 text-slate-400 border border-border px-3 py-1 rounded-lg">
+                              ⏱️ Ação de Espera de {acao.delay_min} minutos
+                            </span>
+                          </div>
+                        ) : isCondicao ? (
+                          <div className="flex justify-center select-none my-1">
+                            <span className="text-[9px] bg-violet-950/40 text-violet-300 border border-violet-500/20 px-3 py-1 rounded-lg text-center font-medium max-w-[85%]">
+                              🔀 Se atender: "{CONDICAO_TIPOS.find(c => c.value === acao.condicao_tipo)?.label || acao.condicao_tipo}" (limite: {acao.condicao_tempo_min || 0}min)
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end pr-1">
+                            <div className={`max-w-[85%] p-3 rounded-2xl rounded-tr-none shadow-md space-y-1 relative border transition-all ${
+                              isSelected 
+                                ? "bg-emerald-800/95 border-primary text-slate-100 shadow-[0_0_10px_rgba(0,255,200,0.1)]" 
+                                : "bg-emerald-950/90 hover:bg-emerald-900/95 border-emerald-800/40 text-slate-200"
+                            }`}>
+                              <div className="flex items-center justify-between text-[8px] font-bold opacity-80 select-none pb-0.5 border-b border-white/10">
+                                <span className="flex items-center gap-1">
+                                  {meta.emoji} {meta.label}
+                                </span>
+                                <span>#{idx + 1}</span>
+                              </div>
+
+                              {/* Audio Content mock */}
+                              {acao.tipo === "audio" ? (
+                                <div className="py-1.5 space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400 shrink-0"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        playSpeechTTS(idx, acao.template, acao.voice_id);
+                                      }}
+                                    >
+                                      {isPlayingVoice && selectedIdx === idx ? (
+                                        <Pause className="h-3 w-3 fill-slate-950 text-slate-950" />
+                                      ) : (
+                                        <Play className="h-3 w-3 fill-slate-950 text-slate-950 translate-x-0.5" />
+                                      )}
+                                    </Button>
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                      {/* Audio Wave preview lines */}
+                                      <div className="h-3 flex items-center gap-0.5">
+                                        {[...Array(12)].map((_, i) => (
+                                          <div
+                                            key={i}
+                                            className="w-0.5 h-1.5 bg-emerald-400/50 rounded-full"
+                                            style={{
+                                              height: isPlayingVoice && selectedIdx === idx ? `${Math.sin(i + playbackTime) * 8 + 12}px` : "6px"
+                                            }}
+                                          />
+                                        ))}
+                                      </div>
+                                      <p className="text-[8px] opacity-75 leading-none">🎙️ Mensagem de Áudio ({acao.voice_id === "felipe_sales" ? "Felipe Sales" : "Fernanda HQ"})</p>
+                                    </div>
+                                  </div>
+                                  {/* Small preview of script script */}
+                                  <p className="text-[10px] italic opacity-85 leading-snug pl-1.5 border-l border-emerald-400 pt-0.5 truncate">
+                                    "{renderPreview(acao.template || "")}"
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
+                                  {renderPreview(acao.template || "")}
+                                </p>
+                              )}
+
+                              {/* WhatsApp Timestamp and Single check */}
+                              <div className="text-[7px] text-emerald-300 flex justify-end items-center gap-0.5 select-none leading-none pt-0.5">
+                                <span>{accumDelay} min</span>
+                                <span>✔✔</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── RIGHT PROPERTIES DRAWER ── */}
       {selectedIdx !== null && selectedIdx < acoes.length && (
@@ -599,7 +852,36 @@ export function FlowEditor({
               {/* Drawer Body */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 
-                {/* Acao Type Selector */}
+                {/* Manual Sequence Position Selector */}
+                 <div className="space-y-1">
+                   <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Posição no Fluxo</Label>
+                   <Select 
+                     value={(selectedIdx + 1).toString()} 
+                     onValueChange={v => {
+                       const newPos = parseInt(v) - 1;
+                       if (newPos === selectedIdx || newPos < 0 || newPos >= acoes.length) return;
+                       
+                       const updated = [...acoes];
+                       const [movedItem] = updated.splice(selectedIdx, 1);
+                       updated.splice(newPos, 0, movedItem);
+                       
+                       onChange(updated);
+                       setSelectedIdx(newPos);
+                       toast.success(`Ação reposicionada para #${newPos + 1}!`);
+                     }}
+                   >
+                     <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80 text-foreground">
+                       <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                       {acoes.map((_, i) => (
+                         <SelectItem key={i} value={(i + 1).toString()}>#{i + 1} - Ação {i + 1}</SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
+
+                 {/* Acao Type Selector */}
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Tipo de Ação</Label>
                   <Select value={acao.tipo} onValueChange={v => updateAcao(selectedIdx, "tipo", v)}>

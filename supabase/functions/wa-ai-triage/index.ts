@@ -17,8 +17,14 @@ async function classifyMessage(message: string, lastMessages: string[] = [], ope
   "sentiment": "positivo" | "neutro" | "negativo",
   "urgency": "high" | "medium" | "low",
   "fit_score": 0-100,
-  "objecao": "string ou null (se intent=objecao, descreva a objeção em <50 chars)"
+  "objecao": "string ou null (se intent=objecao, descreva a objeção em <50 chars)",
+  "desejo_schwartz": "tempo" | "dinheiro" | "estresse" | "status" | null
 }
+Mapeie o desejo visceral do cliente (Lei 4 de Eugene Schwartz):
+- "tempo" (liberdade, economizar tempo, automatizar processos manuais)
+- "dinheiro" (escala de faturamento, lucro, retorno financeiro, ROI)
+- "estresse" (alívio de complexidade, facilidade, estabilidade, paz de espírito)
+- "status" (prestígio, autoridade no mercado, ser o melhor da área, destaque de marca)
 Considere o contexto. 'compra_quente' = quer comprar agora (pede link, preço, pix).`;
 
   const ctx = lastMessages.length > 0 ? `\n\nÚltimas msgs do lead:\n${lastMessages.join("\n")}` : "";
@@ -128,6 +134,58 @@ Deno.serve(async (req) => {
         source: "wa-ai-triage",
         status: "proposed",
       });
+    }
+
+    // Eugene Schwartz desire classification and tagging
+    if (lead_id && classification.desejo_schwartz) {
+      const desejoMap: Record<string, string> = {
+        tempo: "Desejo: Tempo",
+        dinheiro: "Desejo: Dinheiro",
+        estresse: "Desejo: Estresse",
+        status: "Desejo: Status"
+      };
+      const tagToAdd = desejoMap[classification.desejo_schwartz];
+      if (tagToAdd) {
+        try {
+          const { data: currentLead } = await supabase
+            .from("imphq_leads")
+            .select("tags, data")
+            .eq("id", lead_id)
+            .maybeSingle();
+          
+          const currentTags = currentLead?.tags || [];
+          const currentData = currentLead?.data || {};
+          
+          const updatePayload: any = {
+            updated_at: new Date().toISOString()
+          };
+          
+          let needsUpdate = false;
+          
+          if (!currentTags.includes(tagToAdd)) {
+            updatePayload.tags = [...currentTags, tagToAdd];
+            needsUpdate = true;
+          }
+          
+          if (currentData.desejo_schwartz !== classification.desejo_schwartz) {
+            updatePayload.data = {
+              ...currentData,
+              desejo_schwartz: classification.desejo_schwartz
+            };
+            needsUpdate = true;
+          }
+          
+          if (needsUpdate) {
+            await supabase
+              .from("imphq_leads")
+              .update(updatePayload)
+              .eq("id", lead_id);
+            console.log(`[triage] Updated lead ${lead_id} with desire "${classification.desejo_schwartz}" (tag: "${tagToAdd}")`);
+          }
+        } catch (tagErr) {
+          console.warn("[triage] Failed to update lead tags:", tagErr);
+        }
+      }
     }
 
     if (classification.sentiment === "negativo") {

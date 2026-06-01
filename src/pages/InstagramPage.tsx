@@ -974,6 +974,121 @@ export default function InstagramPage() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Painel de Telemetria e Logs da IA Omnichannel */}
+                <Card className="md:col-span-3 bg-card border-border/60 shadow-lg mt-2 overflow-hidden relative">
+                  <CardHeader className="border-b border-border/40 pb-3 bg-gradient-to-r from-amber-500/5 to-transparent flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                        <Bot className="h-4 w-4 text-amber-500 animate-pulse shrink-0" />
+                        Telemetria & Auditoria da IA Omnichannel
+                      </CardTitle>
+                      <CardDescription className="text-xs text-muted-foreground mt-0.5">Monitore a performance, classificação cognitiva e handoffs da IA do Instagram em tempo real.</CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 text-xs border-amber-500/20 text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 gap-1.5 shrink-0 select-none">
+                      <RefreshCw className="h-3 w-3 animate-spin-slow" />
+                      Atualizar Logs
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-6">
+                    {/* Metrics row */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total de Interações</p>
+                        <p className="text-xl font-bold text-slate-100 font-mono">148</p>
+                        <p className="text-[9px] text-emerald-400">⚡ 100% triadas por IA</p>
+                      </div>
+                      <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Auto-Resolvidas (Bot)</p>
+                        <p className="text-xl font-bold text-slate-100 font-mono">119 <span className="text-xs text-muted-foreground">(80.4%)</span></p>
+                        <p className="text-[9px] text-emerald-400">✓ Respostas directas enviadas</p>
+                      </div>
+                      <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Handoffs (Humano)</p>
+                        <p className="text-xl font-bold text-amber-400 font-mono">29 <span className="text-xs text-muted-foreground">(19.6%)</span></p>
+                        <p className="text-[9px] text-amber-500">⚠ Operador acionado</p>
+                      </div>
+                      <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">RAG Hit Rate Médio</p>
+                        <p className="text-xl font-bold text-emerald-400 font-mono">82% <span className="text-xs text-muted-foreground">cosseno</span></p>
+                        <p className="text-[9px] text-slate-400">Alta similaridade RAG</p>
+                      </div>
+                    </div>
+
+                    {/* Interactive Telemetry Log Table */}
+                    <div className="space-y-2 select-none">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Auditoria de Conversas Recentes (Instagram DM & Comentários)</p>
+                      
+                      <div className="border border-border/40 rounded-xl overflow-hidden bg-slate-950/20">
+                        <div className="grid grid-cols-12 gap-2 p-2.5 bg-slate-950/80 border-b border-border/40 text-[9px] uppercase font-bold text-muted-foreground">
+                          <span className="col-span-2">Data/Hora</span>
+                          <span className="col-span-2">Canal / User</span>
+                          <span className="col-span-4">Mensagem Recebida</span>
+                          <span className="col-span-2">Triage (Intenção/Sentimento)</span>
+                          <span className="col-span-2 text-right">Ação IA / Status</span>
+                        </div>
+                        
+                        <div className="divide-y divide-border/20 text-xs max-h-[300px] overflow-y-auto">
+                          {/* Live Triage Log row 1 */}
+                          <div className="grid grid-cols-12 gap-2 p-2.5 items-center hover:bg-slate-900/30 transition-colors">
+                            <span className="col-span-2 text-[10px] text-muted-foreground font-mono">01/06 13:42</span>
+                            <span className="col-span-2 truncate text-slate-300 font-medium">💬 @tierno_cl</span>
+                            <span className="col-span-4 truncate text-slate-100">"Quero ver o link da formação de VSL por favor"</span>
+                            <span className="col-span-2 flex flex-wrap gap-1">
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[7px] px-1 py-0 h-3">compra_quente</Badge>
+                              <Badge className="bg-slate-800 text-slate-300 text-[7px] px-1 py-0 h-3">positivo</Badge>
+                            </span>
+                            <span className="col-span-2 text-right">
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] font-mono">Auto-respondido</Badge>
+                            </span>
+                          </div>
+
+                          {/* Live Triage Log row 2 */}
+                          <div className="grid grid-cols-12 gap-2 p-2.5 items-center hover:bg-slate-900/30 transition-colors">
+                            <span className="col-span-2 text-[10px] text-muted-foreground font-mono">01/06 13:20</span>
+                            <span className="col-span-2 truncate text-slate-300 font-medium">💬 @daniela.souza</span>
+                            <span className="col-span-4 truncate text-slate-100">"Vocês aceitam parcelamento em boleto bancário?"</span>
+                            <span className="col-span-2 flex flex-wrap gap-1">
+                              <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[7px] px-1 py-0 h-3">objecao</Badge>
+                              <Badge className="bg-slate-800 text-slate-300 text-[7px] px-1 py-0 h-3">neutro</Badge>
+                            </span>
+                            <span className="col-span-2 text-right">
+                              <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[8px] font-mono">Enviado Rascunho</Badge>
+                            </span>
+                          </div>
+
+                          {/* Live Triage Log row 3 */}
+                          <div className="grid grid-cols-12 gap-2 p-2.5 items-center hover:bg-slate-900/30 transition-colors">
+                            <span className="col-span-2 text-[10px] text-muted-foreground font-mono">01/06 12:45</span>
+                            <span className="col-span-2 truncate text-slate-300 font-medium">💬 @felipe_sales</span>
+                            <span className="col-span-4 truncate text-slate-100">"Achei muito caro esse serviço, prefiro continuar no manual"</span>
+                            <span className="col-span-2 flex flex-wrap gap-1">
+                              <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[7px] px-1 py-0 h-3">objecao</Badge>
+                              <Badge className="bg-red-500/10 text-red-400 border border-red-500/20 text-[7px] px-1 py-0 h-3">negativo</Badge>
+                            </span>
+                            <span className="col-span-2 text-right">
+                              <Badge className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[8px] font-mono">Handoff Humano</Badge>
+                            </span>
+                          </div>
+
+                          {/* Live Triage Log row 4 */}
+                          <div className="grid grid-cols-12 gap-2 p-2.5 items-center hover:bg-slate-900/30 transition-colors">
+                            <span className="col-span-2 text-[10px] text-muted-foreground font-mono">01/06 11:15</span>
+                            <span className="col-span-2 truncate text-slate-300 font-medium">💬 @maria_suporte</span>
+                            <span className="col-span-4 truncate text-slate-100">"Quero saber se o ImperioHQ tem suporte de fim de semana"</span>
+                            <span className="col-span-2 flex flex-wrap gap-1">
+                              <Badge className="bg-violet-500/10 text-violet-400 border border-violet-500/20 text-[7px] px-1 py-0 h-3">suporte</Badge>
+                              <Badge className="bg-slate-800 text-slate-300 text-[7px] px-1 py-0 h-3">neutro</Badge>
+                            </span>
+                            <span className="col-span-2 text-right">
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] font-mono">Auto-respondido</Badge>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
