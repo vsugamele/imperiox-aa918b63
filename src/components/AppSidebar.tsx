@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
-  Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
+  Search, Brain, Workflow, FileText, MessageSquare, Instagram, Link2, Image,
   Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot, Compass, Radio, FlaskConical
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -16,6 +16,7 @@ const operarItems = [
   { title: "Assistente", url: "/assistente", icon: Compass },
   { title: "Leads", url: "/leads", icon: Users },
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare },
+  { title: "Instagram", url: "/instagram", icon: Instagram },
   { title: "OpenFlow", url: "/openflow", icon: Workflow },
   { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy },
 ];

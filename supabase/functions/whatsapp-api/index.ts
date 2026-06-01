@@ -1342,8 +1342,17 @@ serve(async (req) => {
                 let withinHours = true;
                 if (aiConfig.business_hours_only) {
                   const now = new Date();
-                  const brTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-                  const currentHour = brTime.getHours() * 100 + brTime.getMinutes();
+                  const formatter = new Intl.DateTimeFormat("en-US", {
+                    timeZone: "America/Sao_Paulo",
+                    hour: "numeric",
+                    minute: "numeric",
+                    hour12: false,
+                  });
+                  const parts = formatter.formatToParts(now);
+                  const hourVal = parts.find(p => p.type === "hour")?.value;
+                  const minuteVal = parts.find(p => p.type === "minute")?.value;
+                  const currentHour = Number(hourVal) * 100 + Number(minuteVal);
+                  
                   const [sh, sm] = (aiConfig.business_hours_start || "08:00").split(":").map(Number);
                   const [eh, em] = (aiConfig.business_hours_end || "20:00").split(":").map(Number);
                   const startNum = sh * 100 + sm;

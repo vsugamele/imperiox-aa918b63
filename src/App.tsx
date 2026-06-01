@@ -25,6 +25,7 @@ const Funis = lazy(() => import("./pages/Funis"));
 const OpenFlow = lazy(() => import("./pages/OpenFlow"));
 const Docs = lazy(() => import("./pages/Docs"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
+const InstagramPage = lazy(() => import("./pages/InstagramPage"));
 const Tracker = lazy(() => import("./pages/Tracker"));
 const Referencias = lazy(() => import("./pages/Referencias"));
 const Skills = lazy(() => import("./pages/Skills"));
@@ -112,6 +113,7 @@ const App = () => (
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="docs" element={<Docs />} />
                 <Route path="whatsapp" element={<WhatsAppPage />} />
+                <Route path="instagram" element={<InstagramPage />} />
                 <Route path="tracker" element={<Tracker />} />
                 <Route path="referencias" element={<Referencias />} />
                 <Route path="skills" element={<Skills />} />
