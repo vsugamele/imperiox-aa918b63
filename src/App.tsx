@@ -51,6 +51,7 @@ const Campanhas = lazy(() => import("./pages/Campanhas"));
 const Lancamentos = lazy(() => import("./pages/Lancamentos"));
 const Assistente = lazy(() => import("./pages/Assistente"));
 const Webinar = lazy(() => import("./pages/Webinar"));
+const VslLab = lazy(() => import("./pages/VslLab"));
 const WebinarSessao = lazy(() => import("./pages/WebinarSessao"));
 const WebinarPublic = lazy(() => import("./pages/WebinarPublic"));
 const FormPublic = lazy(() => import("./pages/FormPublic"));
@@ -132,6 +133,7 @@ const App = () => (
                 <Route path="swipe" element={<Swipe />} />
                 <Route path="imperius" element={<Imperius />} />
                 <Route path="assistente" element={<Assistente />} />
+                <Route path="vsl-lab" element={<VslLab />} />
                 <Route path="webinar" element={<Webinar />} />
                 <Route path="webinar/:sessionId" element={<WebinarSessao />} />
               </Route>

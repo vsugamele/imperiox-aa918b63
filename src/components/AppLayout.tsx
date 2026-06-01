@@ -30,6 +30,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   mentes: { kicker: "IA", title: "Mentes" },
   "market-intel": { kicker: "IA", title: "Market Intel" },
   "conteudo-ia": { kicker: "IA", title: "Conteúdo" },
+  "vsl-lab": { kicker: "IA", title: "VSL Lab" },
   criativos: { kicker: "IA", title: "Criativos" },
   studio: { kicker: "IA", title: "Studio" },
   swipe: { kicker: "Acervo", title: "Swipe File" },

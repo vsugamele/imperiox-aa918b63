@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot, Compass, Radio
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot, Compass, Radio, FlaskConical
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +38,7 @@ const inteligenciaItems = [
   { title: "Mentes IA", url: "/mentes", icon: Brain },
   { title: "Market Intel", url: "/market-intel", icon: Search },
   { title: "Conteúdo IA", url: "/conteudo-ia", icon: Zap },
+  { title: "VSL Lab", url: "/vsl-lab", icon: FlaskConical },
   { title: "Criativos IA", url: "/criativos", icon: Sparkles },
   { title: "Studio", url: "/studio", icon: Clapperboard },
   { title: "Swipe File", url: "/swipe", icon: Library },
