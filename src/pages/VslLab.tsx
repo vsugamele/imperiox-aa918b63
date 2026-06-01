@@ -29,7 +29,7 @@ const VSL_TOOLS: VslTool[] = [
   { id: "mechanism_lab", title: "Mechanism Lab", icon: FlaskConical, desc: "Criação do mecanismo único, apelidos curiosos e o seu One Belief.", promptNum: 2 },
   { id: "logic_points", title: "Logic Points Builder", icon: AlignLeft, desc: "Construção da Escada de Pontos Lógicos e a conclusão inevitável da tese.", promptNum: 3 },
   { id: "story_architect", title: "Story Architect", icon: PenTool, desc: "Desenho da origin story da VSL estruturada em 7 beats de identificação.", promptNum: 4 },
-  { id: "lead_creator", title: "Lead Hook Creator", icon: Sparkles, desc: "Ganchos e leads irresistíveis estruturados nos 3 esqueletos campeões.", promptNum: 5 },
+  { id: "lead_creator", title: "Lead Architect (E3)", icon: Sparkles, desc: "Ganchos e leads magnéticos baseados nos 3 esqueletos campeões e 9 elementos.", promptNum: 5 },
   { id: "offer_builder", title: "Offer Builder", icon: Award, desc: "Montagem da Oferta VSL e bloco de construção com a escada de ancoragem.", promptNum: 6 },
 ];
 
@@ -346,9 +346,22 @@ O DOCUMENTO QUE VOCÊ DEVE ENTREGAR DEVE SEGUIR EXATAMENTE ESTE FORMATO MARKDOWN
 - Raio-X do Público (se houver): ${storyForm.raioX}`;
       }
       else if (activeTool === "lead_creator") {
-        systemPrompt = `Você é um copywriter brasileiro especialista em Direct Response e VSLs multimilionárias.
-Sua missão é escrever a LEAD (bloco inicial de 2 a 3 minutos da VSL) modelando de forma estrita e rígida o esqueleto do ângulo escolhido pelo usuário.
-Não invente estrutura, siga os passos descritos sequencialmente.
+        systemPrompt = `Você é um copywriter brasileiro de elite especialista em Direct Response, engenharia de VSLs e criador do "Lead Architect" da metodologia E3 do Tiago Filemon.
+Sua missão é escrever a LEAD (bloco inicial magnético de 2 a 3 minutos da VSL) modelando de forma estrita e rígida o esqueleto do ângulo escolhido pelo usuário.
+
+Você opera sob a LEI 4 DE EUGENE SCHWARTZ: "Desejo não pode ser criado, apenas canalizado."
+Portanto, não tente 'criar' desejos novos na lead. Identifique a dor/desejo visceral pré-existente do público-alvo e canalize-os diretamente para o seu Mecanismo Único.
+
+Você DEVE estruturar o texto gerado de forma a conter e destacar todos os 9 Elementos de uma Lead de Sucesso:
+1. Mencione um problema visceral e cotidiano (Dor aguda).
+2. Prometa uma solução que economize tempo e dinheiro.
+3. Spoiler da história (antecipação instigante da jornada do expert/protagonista).
+4. Spoiler do Mecanismo/Tese (cite o Apelido do Mecanismo para atiçar curiosidade, mas não explique a ciência).
+5. Bullets de curiosidade (três bullets magnéticos e misteriosos usando ganchos de antecipação profunda).
+6. Reconheça a descrença de forma empática ("Eu sei que isso soa bom demais para ser verdade...").
+7. Qualificadores ("Esta apresentação é apenas para quem [X], e NÃO serve para quem [Y]").
+8. Depoimentos baseados na eficácia do método/mecanismo (nunca sobre o produto em si).
+9. Elementos de credibilidade e autoridade.
 
 ÂNGULOS E ESQUELETOS PERMITIDOS:
 1. MECANISMO:
@@ -379,10 +392,11 @@ Não invente estrutura, siga os passos descritos sequencialmente.
   - Nomeia o Apelido como Clímax da lead.
   - Abre loop para a História.
 
-*REGRAS DRÁSTICAS DE PERSUASÃO:*
+*REGRAS DRÁSTICAS DE PERSUASÃO E RITMO:*
 - O Apelido é ISCA. Nomeie para atiçar a curiosidade, mas NÃO explique como funciona de forma lógica na lead.
 - NUNCA parecer que vai vender algo. Sem preço, sem 'curso', sem especificações de produto. Trate como uma descoberta de utilidade pública.
-- Use placeholders [[ ... ]] para dados não informados (como depoimentos ou números de clientes).`;
+- Use placeholders [[ ... ]] para dados não informados (como depoimentos ou números de clientes).
+- Escreva com ritmo cinematográfico: parágrafos curtos (1-2 frases no máximo), espaçamento para respiração e linguagem puramente de conversação humana falada.`;
 
         userPrompt = `DADOS DA LEAD:
 - ÂNGULO DE Persuasão: ${leadForm.angulo.toUpperCase()}
@@ -789,7 +803,39 @@ Siga os 17 beats de oferta:
 
               {/* Tool 5 Form */}
               {activeTool === "lead_creator" && (
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  {/* Premium E3 Lead Architect Visual Helper Card */}
+                  <div className="bg-amber-500/5 border border-amber-500/10 rounded-lg p-3.5 space-y-3 text-xs">
+                    <div className="flex items-center gap-2 text-amber-400 font-bold">
+                      <Sparkles className="h-4 w-4 text-amber-400" />
+                      <span>Lead Architect E3 — Método Tiago Filemon</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      Este agente processará sua oferta utilizando a <strong className="text-amber-300">Lei 4 de Eugene Schwartz</strong> (<em>Desejo não pode ser criado, apenas canalizado</em>), estruturando os ganchos do seu público-alvo sob a tese do seu Mecanismo Único.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-slate-400 border-t border-slate-800/80 pt-2.5">
+                      <div className="space-y-1">
+                        <span className="font-bold text-amber-500/80 uppercase tracking-wider block">Checklist dos 9 Elementos da Lead:</span>
+                        <ul className="list-decimal pl-4 space-y-0.5">
+                          <li>Mencionar o problema agudo</li>
+                          <li>Prometer solução rápida (tempo/dinheiro)</li>
+                          <li>Spoiler instigante da história</li>
+                          <li>Spoiler semântico do mecanismo/tese</li>
+                          <li>Bullets magnéticos de curiosidade</li>
+                        </ul>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="opacity-0 block">&nbsp;</span>
+                        <ul className="list-decimal pl-4 space-y-0.5" start={6}>
+                          <li>Tratamento da descrença do leitor</li>
+                          <li>Qualificadores definidos (para quem é/não é)</li>
+                          <li>Depoimentos focados no método/mecanismo</li>
+                          <li>Elementos elegantes de credibilidade</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs font-semibold text-slate-300">Ângulo do Esqueleto *</Label>
