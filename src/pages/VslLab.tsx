@@ -453,7 +453,7 @@ Siga os 17 beats de oferta:
         body: {
           project_id: selectedProjectId || "manual",
           action: "generate_content",
-          custom_prompt: systemPrompt + "\n\n" + userPrompt,
+          prompt: systemPrompt + "\n\n" + userPrompt,
           model: "google/gemini-3-flash-preview",
         },
       });
