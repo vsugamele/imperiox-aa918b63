@@ -269,6 +269,30 @@ export type Database = {
           },
         ]
       }
+      appbrabas_ai_config: {
+        Row: {
+          id: number
+          model: string
+          provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: number
+          model?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: number
+          model?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       appbrabas_anamnese_campos: {
         Row: {
           ativo: boolean
@@ -16365,6 +16389,7 @@ export type Database = {
           provider_id: string | null
           quiet_end: number | null
           quiet_start: number | null
+          tag_filtro: string | null
           trigger_tipo: string
           updated_at: string | null
         }
@@ -16382,6 +16407,7 @@ export type Database = {
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          tag_filtro?: string | null
           trigger_tipo: string
           updated_at?: string | null
         }
@@ -16399,6 +16425,7 @@ export type Database = {
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          tag_filtro?: string | null
           trigger_tipo?: string
           updated_at?: string | null
         }
