@@ -72,10 +72,10 @@ export default function WhatsApp() {
   const load = useCallback(async () => {
     setLoading(true);
     const [sRes, pRes, provRes, tRes] = await Promise.all([
-      supabase.from("imphq_wa_conversations").select("id, contact_name, phone, last_message, last_message_at, last_message_direction, unread_count, status, project_id, ai_enabled, draft_mode, message_count, updated_at, ai_last_reply_at, ai_lock_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
+      supabase.from("imphq_wa_conversations").select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_wa_providers").select("id, name, provider, instance_name, api_url, is_active, project_id").eq("is_active", true).order("created_at"),
-      supabase.from("imphq_wa_templates").select("id, name, content, category, language, project_id, created_at").order("created_at", { ascending: false }),
+      supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at").eq("is_active", true).order("created_at"),
+      supabase.from("imphq_wa_templates").select("id, name, content, category, project_id, created_at").order("created_at", { ascending: false }),
     ]);
     setSessions(sRes.data as any[] || []);
     setProjects(pRes.data || []);
