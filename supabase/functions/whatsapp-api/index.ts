@@ -1190,8 +1190,8 @@ serve(async (req) => {
               const { data: leadRow } = await supabase
                 .from("imphq_leads")
                 .select("id, score, tags, data")
-                .eq("telefone", phone)
-                .eq("projeto_id", projectId)
+                .eq("phone", phone)
+                .eq("project_id", projectId)
                 .maybeSingle();
               if (leadRow) {
                 const ld = typeof leadRow.data === "string" ? JSON.parse(leadRow.data) : (leadRow.data || {});
