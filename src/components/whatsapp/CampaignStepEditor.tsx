@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -406,11 +406,10 @@ function CampaignStepCard({
             className="text-xs min-h-[160px] font-mono leading-6 whitespace-pre-wrap select-text"
             rows={8}
             value={content}
-            onChange={e => setContent(e.target.value)}
-            onBlur={() => {
-              if (content !== step.content) {
-                onUpdate(step.id, "content", content);
-              }
+            onChange={e => {
+              const val = e.target.value;
+              setContent(val);
+              onUpdate(step.id, "content", val);
             }}
             placeholder={"Texto da mensagem...\n\nUse linhas em branco entre parágrafos para criar espaçamento (como no WhatsApp real).\n\nVariáveis: {nome}, {produto}, {grupo_nome}"}
           />
@@ -427,11 +426,10 @@ function CampaignStepCard({
           <Textarea
             className="text-xs min-h-[50px] mt-1.5 select-text"
             value={contentB}
-            onChange={e => setContentB(e.target.value)}
-            onBlur={() => {
-              if (contentB !== step.content_b) {
-                onUpdate(step.id, "content_b", contentB || null);
-              }
+            onChange={e => {
+              const val = e.target.value;
+              setContentB(val);
+              onUpdate(step.id, "content_b", val || null);
             }}
             placeholder="Texto alternativo. Se preenchido, 50% dos grupos recebem esta versão."
           />
@@ -481,6 +479,8 @@ interface CampaignStepEditorProps {
 
 export default function CampaignStepEditor({ campaignId, projectId = "", produto = "", groups = [] }: CampaignStepEditorProps) {
   const [steps, setSteps] = useState<Step[]>([]);
+  const [campaign, setCampaign] = useState<any | null>(null);
+  const pendingUpdates = useRef<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [previewStep, setPreviewStep] = useState<Step | null>(null);
   const [testStep, setTestStep] = useState<Step | null>(null);
@@ -499,16 +499,90 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data: stepsData } = await supabase
       .from("imphq_wa_campaign_steps")
       .select("*")
       .eq("campaign_id", campaignId)
       .order("step_order", { ascending: true });
-    setSteps((data as any[]) || []);
+    setSteps((stepsData as any[]) || []);
+
+    const { data: campaignData } = await supabase
+      .from("imphq_wa_campaigns")
+      .select("*")
+      .eq("id", campaignId)
+      .maybeSingle();
+    setCampaign(campaignData);
+
     setLoading(false);
   }, [campaignId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Realtime subscription for campaign steps
+  useEffect(() => {
+    const channel = supabase
+      .channel(`campaign-steps-${campaignId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "imphq_wa_campaign_steps",
+          filter: `campaign_id=eq.${campaignId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT" || payload.eventType === "DELETE") {
+            load();
+          } else if (payload.eventType === "UPDATE") {
+            const updatedStep = payload.new as Step;
+            setSteps((prev) => {
+              return prev.map((s) => {
+                if (s.id === updatedStep.id) {
+                  const hasPendingContent = pendingUpdates.current[`${s.id}-content`];
+                  const hasPendingContentB = pendingUpdates.current[`${s.id}-content_b`];
+                  
+                  return {
+                    ...s,
+                    ...updatedStep,
+                    content: hasPendingContent ? s.content : updatedStep.content,
+                    content_b: hasPendingContentB ? s.content_b : updatedStep.content_b,
+                  };
+                }
+                return s;
+              });
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [campaignId, load]);
+
+  // Realtime subscription for campaign metadata
+  useEffect(() => {
+    const channel = supabase
+      .channel(`campaign-${campaignId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "imphq_wa_campaigns",
+          filter: `id=eq.${campaignId}`,
+        },
+        (payload) => {
+          setCampaign(payload.new);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [campaignId]);
 
   const addStep = async () => {
     const maxOrder = steps.length > 0 ? Math.max(...steps.map(s => s.step_order)) + 1 : 0;
@@ -553,9 +627,24 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   };
 
   const updateStep = async (id: string, field: string, value: any) => {
-    const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
     setSteps(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+
+    if (field === "content" || field === "content_b") {
+      const key = `${id}-${field}`;
+      if (pendingUpdates.current[key]) {
+        clearTimeout(pendingUpdates.current[key]);
+      }
+      pendingUpdates.current[key] = setTimeout(async () => {
+        delete pendingUpdates.current[key];
+        const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value } as any).eq("id", id);
+        if (error) {
+          console.error("Erro no auto-save do passo:", error);
+        }
+      }, 800);
+    } else {
+      const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value } as any).eq("id", id);
+      if (error) { toast.error(error.message); return; }
+    }
   };
 
   const deleteStep = async (id: string) => {
@@ -906,11 +995,14 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
         produto={produto}
       />
 
-      <CampaignSequenceDiagram
-        open={showDiagram}
-        onClose={() => setShowDiagram(false)}
-        steps={steps as any}
-      />
+      {showDiagram && (
+        <CampaignSequenceDiagram
+          open={showDiagram}
+          onClose={() => setShowDiagram(false)}
+          steps={steps as any}
+          baseDate={campaign?.start_date ? new Date(campaign.start_date + "T00:00:00") : campaign?.created_at ? new Date(campaign.created_at) : new Date()}
+        />
+      )}
     </>
   );
 }
