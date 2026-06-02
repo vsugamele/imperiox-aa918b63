@@ -1182,8 +1182,6 @@ export default function InstagramPage() {
         </div>
       )}
 
-    </div>
-
       {/* Simulation Dialog */}
       <Dialog open={showSimulateDialog} onOpenChange={setShowSimulateDialog}>
         <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-md">
