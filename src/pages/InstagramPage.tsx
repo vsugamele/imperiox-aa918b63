@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   Instagram, MessageSquare, Settings2, Trash2, Eye, EyeOff, Mail,
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
@@ -80,6 +81,13 @@ export default function InstagramPage() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+
+  // Simulation states
+  const [showSimulateDialog, setShowSimulateDialog] = useState(false);
+  const [simUsername, setSimUsername] = useState("bruno_test");
+  const [simName, setSimName] = useState("Bruno Teste");
+  const [simMessage, setSimMessage] = useState("");
+  const [simLoading, setSimLoading] = useState(false);
 
   // Comments state
   const [comments, setComments] = useState<IgComment[]>([]);
@@ -233,6 +241,71 @@ export default function InstagramPage() {
       supabase.removeChannel(channel);
     };
   }, [selectedAccount, selectedConv, loadConversations]);
+
+  const handleSimulateWebhook = async () => {
+    if (!simMessage.trim() || !selectedAccount) {
+      toast.error("Por favor, digite uma mensagem para simular");
+      return;
+    }
+    setSimLoading(true);
+    try {
+      const cleanSenderId = `SIM_${simUsername.toLowerCase().replace(/\s+/g, "_")}`;
+      const payload = {
+        object: "instagram",
+        entry: [
+          {
+            id: selectedAccount.ig_user_id,
+            messaging: [
+              {
+                sender: { 
+                  id: cleanSenderId, 
+                  username: simUsername.trim(),
+                  name: simName.trim(),
+                  avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${simUsername.trim()}`
+                },
+                recipient: { id: selectedAccount.ig_user_id },
+                timestamp: Date.now(),
+                message: {
+                  mid: `sim_mid_${Date.now()}`,
+                  text: simMessage.trim()
+                }
+              }
+            ]
+          }
+        ]
+      };
+
+      const { data, error } = await supabase.functions.invoke("instagram-webhook", {
+        body: payload
+      });
+
+      if (error) throw error;
+
+      toast.success("Mensagem simulada enviada! A IA irá responder em instantes.");
+      setShowSimulateDialog(false);
+      setSimMessage("");
+      
+      // Reload conversations
+      await loadConversations(selectedAccount.id);
+      
+      // Attempt to auto-select the conversation
+      const { data: convData } = await supabase
+        .from("imphq_ig_conversations")
+        .select("*")
+        .eq("account_id", selectedAccount.id)
+        .eq("participant_id", cleanSenderId)
+        .maybeSingle();
+      
+      if (convData) {
+        setSelectedConv(convData);
+      }
+    } catch (err: any) {
+      console.error("[simulate ig] error:", err);
+      toast.error("Erro na simulação: " + (err.message || err));
+    } finally {
+      setSimLoading(false);
+    }
+  };
 
   // Send Direct Message
   async function handleSendDM() {
@@ -475,10 +548,21 @@ export default function InstagramPage() {
                   </div>
                   <span className="text-sm font-semibold">@{selectedAccount.username}</span>
                 </div>
-                <RefreshCw
-                  className={`h-4 w-4 text-muted-foreground hover:text-foreground cursor-pointer transition ${loadingConvs ? "animate-spin" : ""}`}
-                  onClick={() => loadConversations(selectedAccount.id)}
-                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-amber-500 hover:text-amber-400 hover:bg-slate-900"
+                    title="Simular DM"
+                    onClick={() => setShowSimulateDialog(true)}
+                  >
+                    <Sparkles className="h-4 w-4 text-amber-400 animate-pulse" />
+                  </Button>
+                  <RefreshCw
+                    className={`h-4 w-4 text-muted-foreground hover:text-foreground cursor-pointer transition ${loadingConvs ? "animate-spin" : ""}`}
+                    onClick={() => loadConversations(selectedAccount.id)}
+                  />
+                </div>
               </div>
 
               <div className="p-2 space-y-1">
@@ -1098,6 +1182,72 @@ export default function InstagramPage() {
         </div>
       )}
 
+    </div>
+
+      {/* Simulation Dialog */}
+      <Dialog open={showSimulateDialog} onOpenChange={setShowSimulateDialog}>
+        <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-amber-500 font-bold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 animate-pulse" /> Simular DM no Instagram
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Simule o recebimento de uma mensagem direta (DM) no Instagram deste projeto para auditar o comportamento e a resposta gerada pela IA.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-300">Username do Usuário</Label>
+                <Input
+                  value={simUsername}
+                  onChange={(e) => setSimUsername(e.target.value)}
+                  placeholder="ex: bruno_vsl"
+                  className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-300">Nome Exibido</Label>
+                <Input
+                  value={simName}
+                  onChange={(e) => setSimName(e.target.value)}
+                  placeholder="ex: Bruno Ramos"
+                  className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-300">Mensagem Enviada</Label>
+              <Input
+                value={simMessage}
+                onChange={(e) => setSimMessage(e.target.value)}
+                placeholder="Digite a dúvida ou mensagem do lead..."
+                className="bg-slate-950 border-slate-800 text-xs h-9 text-slate-100"
+                onKeyDown={(e) => e.key === "Enter" && handleSimulateWebhook()}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 border-t border-slate-800/60 pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSimulateDialog(false)}
+              className="text-xs hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={simLoading || !simMessage.trim()}
+              onClick={handleSimulateWebhook}
+              className="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs"
+            >
+              {simLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
+              Disparar Simulação
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

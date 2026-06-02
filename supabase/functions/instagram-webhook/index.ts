@@ -68,15 +68,25 @@ Deno.serve(async (req) => {
         const participantId = isInbound ? senderId : recipientId;
         if (!participantId) continue;
 
+        const senderUsername = messaging.sender?.username || null;
+        const senderName = messaging.sender?.name || null;
+        const senderAvatar = messaging.sender?.avatar || null;
+
+        const upsertData: any = {
+          account_id: account.id,
+          participant_id: participantId,
+          last_message: messaging.message?.text || "[mídia]",
+          last_message_at: new Date(messaging.timestamp || Date.now()).toISOString(),
+        };
+
+        if (senderUsername) upsertData.participant_username = senderUsername;
+        if (senderName) upsertData.participant_name = senderName;
+        if (senderAvatar) upsertData.participant_avatar = senderAvatar;
+
         // upsert conversation
         const { data: conv } = await supa
           .from("imphq_ig_conversations")
-          .upsert({
-            account_id: account.id,
-            participant_id: participantId,
-            last_message: messaging.message?.text || "[mídia]",
-            last_message_at: new Date(messaging.timestamp || Date.now()).toISOString(),
-          }, { onConflict: "account_id,participant_id" })
+          .upsert(upsertData, { onConflict: "account_id,participant_id" })
           .select("id, participant_username, participant_name")
           .single();
 
