@@ -101,7 +101,7 @@ export default function LiveFunnelPanel({ projectFilter }: Props) {
     }
 
     load();
-    const id = setInterval(load, 15000);
+    const id = setInterval(load, 60_000); // safety fallback — Realtime handles instant updates
 
     // Realtime: novos eventos invalidam imediatamente
     const ch = supabase

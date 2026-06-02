@@ -72,10 +72,10 @@ export default function WhatsApp() {
   const load = useCallback(async () => {
     setLoading(true);
     const [sRes, pRes, provRes, tRes] = await Promise.all([
-      supabase.from("imphq_wa_conversations").select("*").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
+      supabase.from("imphq_wa_conversations").select("id, contact_name, phone, last_message, last_message_at, last_message_direction, unread_count, status, project_id, ai_enabled, draft_mode, message_count, updated_at, ai_last_reply_at, ai_lock_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
-      supabase.from("imphq_wa_templates").select("*").order("created_at", { ascending: false }),
+      supabase.from("imphq_wa_providers").select("id, name, provider, instance_name, api_url, is_active, project_id").eq("is_active", true).order("created_at"),
+      supabase.from("imphq_wa_templates").select("id, name, content, category, language, project_id, created_at").order("created_at", { ascending: false }),
     ]);
     setSessions(sRes.data as any[] || []);
     setProjects(pRes.data || []);

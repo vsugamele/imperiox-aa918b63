@@ -57,17 +57,22 @@ export default function Dashboard() {
   const [recoveryRisk, setRecoveryRisk] = useState(0);
 
   useEffect(() => {
-    supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => setAllProjects(data || []));
-    supabase.from("imphq_vendas").select("produto_nome").neq("produto_nome", "").not("produto_nome", "is", null).then(({ data }) => {
-      const unique = [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();
-      setAllProducts(unique);
-    });
+    const queries: Promise<any>[] = [
+      supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => setAllProjects(data || [])),
+      supabase.from("imphq_vendas").select("produto_nome").neq("produto_nome", "").not("produto_nome", "is", null).then(({ data }) => {
+        const unique = [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();
+        setAllProducts(unique);
+      }),
+    ];
     if (user) {
-      supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle().then(({ data }) => {
-        const r = (data?.role || "").toLowerCase();
-        setIsAdmin(r === "admin" || r === "owner");
-      });
+      queries.push(
+        supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+          const r = (data?.role || "").toLowerCase();
+          setIsAdmin(r === "admin" || r === "owner");
+        })
+      );
     }
+    Promise.all(queries);
   }, [user]);
 
   const projectLabel = useMemo(() => {

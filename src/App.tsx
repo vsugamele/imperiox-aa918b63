@@ -58,14 +58,15 @@ const WebinarPublic = lazy(() => import("./pages/WebinarPublic"));
 const FormPublic = lazy(() => import("./pages/FormPublic"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Semana 2 — defaults conservadores p/ reduzir egress e refetches desnecessários.
-// staleTime 60s evita refetch instantâneo ao trocar de aba/rota. gcTime 5min mantém cache.
-// refetchOnWindowFocus false: nada de hammering ao voltar pra aba.
+// Cache agressivo: dados de configuração raramente mudam.
+// staleTime 5min evita refetches ao navegar entre páginas.
+// gcTime 15min mantém cache em memória — retorno a página = instantâneo.
+// refetchOnWindowFocus false: sem hammering ao voltar para a aba.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      staleTime: 5 * 60_000,
+      gcTime: 15 * 60_000,
       refetchOnWindowFocus: false,
       retry: 1,
     },

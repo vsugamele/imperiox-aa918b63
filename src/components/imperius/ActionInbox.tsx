@@ -50,7 +50,7 @@ export function ActionInbox() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from("imphq_ai_actions")
-      .select("*")
+      .select("id, kind, risk_level, status, confidence, title, reason, payload, auto_executed, executed_at, error, projeto_id, created_at, impact_brl, priority_score")
       .or(`status.eq.proposed,executed_at.gte.${since}`)
       .order("priority_score", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -61,8 +61,14 @@ export function ActionInbox() {
 
   useEffect(() => {
     load();
-    const i = setInterval(load, 60000);
-    return () => clearInterval(i);
+    // Realtime: recebe novas ações da IA instantaneamente (sem polling agressivo)
+    const ch = supabase
+      .channel("action_inbox_rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_ai_actions" }, load)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_ai_actions" }, load)
+      .subscribe();
+    const i = setInterval(load, 5 * 60_000); // safety fallback a cada 5min
+    return () => { clearInterval(i); supabase.removeChannel(ch); };
   }, []);
 
   const handle = async (a: AIAction, mode: "execute" | "revert" | "reject") => {

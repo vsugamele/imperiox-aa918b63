@@ -74,8 +74,13 @@ export default function HotLeadAlerts({ projectFilter }: Props) {
       setLeads(hot);
     }
     load();
-    const interval = setInterval(load, 60000); // refresh every minute
-    return () => clearInterval(interval);
+    // Realtime: atualiza imediatamente quando um lead muda de status
+    const ch = supabase
+      .channel("hot_leads_rt")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_leads" }, load)
+      .subscribe();
+    const interval = setInterval(load, 5 * 60_000); // safety fallback a cada 5min
+    return () => { clearInterval(interval); supabase.removeChannel(ch); };
   }, [projectFilter]);
 
   if (leads.length === 0) return null;
