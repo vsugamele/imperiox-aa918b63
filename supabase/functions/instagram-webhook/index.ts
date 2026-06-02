@@ -183,6 +183,22 @@ Deno.serve(async (req) => {
                     return;
                   }
 
+                  // Fire triage (fire-and-forget) + read last triage for this IG conversation
+                  let lastIgTriage: any = null;
+                  try {
+                    const { data: tr } = await supa
+                      .from("imphq_wa_triage")
+                      .select("intent, sentiment, fit_score, desejo_schwartz, ai_response")
+                      .eq("conversation_id", conv.id)
+                      .order("created_at", { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
+                    lastIgTriage = tr;
+                  } catch (_) {}
+                  supa.functions.invoke("wa-ai-triage", {
+                    body: { message: content, conversation_id: conv.id, projeto_id: account.project_id },
+                  }).catch(() => {});
+
                   // Build project context
                   let projectContext = "";
                   const { data: project } = await supa
@@ -260,13 +276,23 @@ Deno.serve(async (req) => {
                   const customInstr = aiConfig.custom_instructions;
                   const productFocus = aiConfig.product_focus;
 
+                  // Pre-compute triage profile block for Instagram DM system prompt
+                  let igTriageBlock = "";
+                  if (lastIgTriage?.intent) {
+                    igTriageBlock += `\n📊 PERFIL DO LEAD:\n- Intenção: ${lastIgTriage.intent} | Sentimento: ${lastIgTriage.sentiment} | Fit Score: ${lastIgTriage.fit_score}/100`;
+                    if (lastIgTriage.desejo_schwartz) igTriageBlock += ` | Desejo: ${lastIgTriage.desejo_schwartz}`;
+                    if (lastIgTriage.ai_response) igTriageBlock += `\n- Resposta sugerida para objeção: "${lastIgTriage.ai_response}"`;
+                    if (lastIgTriage.intent === "compra_quente") igTriageBlock += "\n⚡ Lead QUENTE — conduza para o fechamento!";
+                    if (lastIgTriage.intent === "objecao") igTriageBlock += "\n⚠️ Lead com objeção — quebre com empatia.";
+                  }
+
                   const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
 ${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
 Você está respondendo via Instagram Direct (DM) para a empresa "${project?.name || ""}".
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
 ${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
 ${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
-${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}
+${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}${igTriageBlock}
 REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
 - Responda em português brasileiro de forma natural, curta, direta e simpática. DMs do Instagram devem ser dinâmicas e fluidas!
 - ABORDAGEM DE COPY E PERSUASÃO (MÉTODO E3):

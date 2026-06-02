@@ -1182,14 +1182,21 @@ serve(async (req) => {
 
           // ── Fire-and-forget triagem IA (pula grupos/broadcast) ──
           const isGroup = jidSuffix === "g.us" || jidSuffix === "broadcast" || rawJid.includes("@g.us") || rawJid.includes("@broadcast");
+          // Lead profile + last triage result (read from DB — zero added latency, used to personalize AI prompt)
+          let leadProfile: { score: number | null; tags: string[]; desejo_schwartz: string | null } | null = null;
+          let lastTriage: { intent: string; sentiment: string; fit_score: number; desejo_schwartz: string | null; ai_response: string | null } | null = null;
           if (!isGroup) {
             try {
               const { data: leadRow } = await supabase
                 .from("imphq_leads")
-                .select("id")
+                .select("id, score, tags, data")
                 .eq("telefone", phone)
                 .eq("projeto_id", projectId)
                 .maybeSingle();
+              if (leadRow) {
+                const ld = typeof leadRow.data === "string" ? JSON.parse(leadRow.data) : (leadRow.data || {});
+                leadProfile = { score: leadRow.score ?? null, tags: leadRow.tags || [], desejo_schwartz: ld.desejo_schwartz || null };
+              }
               supabase.functions.invoke("wa-ai-triage", {
                 body: {
                   message: content,
@@ -1201,6 +1208,17 @@ serve(async (req) => {
             } catch (tErr: any) {
               console.warn("[webhook] triagem skip:", tErr?.message);
             }
+            // Read last triage classification from DB (previous messages in this conversation)
+            try {
+              const { data: tr } = await supabase
+                .from("imphq_wa_triage")
+                .select("intent, sentiment, fit_score, desejo_schwartz, ai_response")
+                .eq("conversation_id", conv.id)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (tr) lastTriage = tr as any;
+            } catch (_) {}
           }
 
           // ── Auto-reply by command ──
@@ -1338,6 +1356,41 @@ serve(async (req) => {
               }
 
               if (aiConfig) {
+                // ── Welcome automática na primeira mensagem ──
+                if (aiConfig.welcome_message && (conv.message_count || 0) === 0) {
+                  try {
+                    const { data: provWel } = await supabase
+                      .from("imphq_wa_providers")
+                      .select("api_url, api_key, instance_name, provider")
+                      .eq("id", providerId!)
+                      .single();
+                    if (provWel?.provider === "evolution") {
+                      const wBase = provWel.api_url.replace(/\/+$/, "");
+                      const wInst = encodeURIComponent(provWel.instance_name);
+                      const firstName = (conv.contact_name || pushName || "").trim().split(/\s+/)[0] || "";
+                      const welcomeTxt = String(aiConfig.welcome_message)
+                        .replace(/\{\{?\s*nome\s*\}?\}/gi, firstName)
+                        .replace(/\{\{?\s*name\s*\}?\}/gi, firstName);
+                      await fetch(`${wBase}/message/sendText/${wInst}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", apikey: provWel.api_key },
+                        body: JSON.stringify({ number: phone + "@s.whatsapp.net", text: welcomeTxt }),
+                      });
+                      await supabase.from("imphq_wa_messages").insert({
+                        conversation_id: conv.id, direction: "outgoing", phone,
+                        content: welcomeTxt, message_type: "text",
+                        project_id: projectId, provider: "evolution",
+                        status: "sent", sent_by: "ai",
+                        metadata: { source: "welcome_auto" },
+                      });
+                      await new Promise(r => setTimeout(r, 1200));
+                      console.log(`[webhook] Welcome auto sent to ${phone}`);
+                    }
+                  } catch (welErr: any) {
+                    console.warn("[webhook] Welcome auto error:", welErr.message);
+                  }
+                }
+
                 // Check business hours
                 let withinHours = true;
                 if (aiConfig.business_hours_only) {
@@ -1438,13 +1491,28 @@ serve(async (req) => {
                   const customInstr = (aiConfig as any).custom_instructions;
                   const productFocus = (aiConfig as any).product_focus;
 
+                  // Pre-compute triage + lead profile block to inject into system prompt
+                  let triageProfileBlock = "";
+                  if (lastTriage?.intent) {
+                    triageProfileBlock += `\n📊 PERFIL ATUAL DO LEAD:\n- Intenção: ${lastTriage.intent} | Sentimento: ${lastTriage.sentiment} | Fit Score: ${lastTriage.fit_score}/100`;
+                    if (lastTriage.desejo_schwartz) triageProfileBlock += ` | Desejo (Schwartz): ${lastTriage.desejo_schwartz}`;
+                    if (lastTriage.ai_response) triageProfileBlock += `\n- RESPOSTA DE OBJEÇÃO RECOMENDADA (use como base): "${lastTriage.ai_response}"`;
+                    if (lastTriage.intent === "compra_quente") triageProfileBlock += "\n⚡ Lead QUENTE — conduza ativamente para o fechamento/checkout agora!";
+                    if (lastTriage.intent === "objecao") triageProfileBlock += "\n⚠️ Lead com objeção — quebre-a com empatia antes de avançar.";
+                  }
+                  if (leadProfile) {
+                    if (leadProfile.score !== null) triageProfileBlock += `\n- Score CRM: ${leadProfile.score}/100`;
+                    if (leadProfile.tags.length > 0) triageProfileBlock += `\n- Tags: ${leadProfile.tags.join(", ")}`;
+                    if (leadProfile.desejo_schwartz && !lastTriage?.desejo_schwartz) triageProfileBlock += `\n- Desejo histórico: ${leadProfile.desejo_schwartz}`;
+                  }
+
                   const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
 ${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
 Você está respondendo via WhatsApp para a empresa "${project?.name || ""}".
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
 ${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
 ${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
-${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}
+${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}${triageProfileBlock}
 REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 - Responda em português brasileiro com fluidez e empatia natural, evite ser robótico, excessivamente polido ou formal (a menos que a instrução do tom seja formal).
 - ABORDAGEM DE COPY E PERSUASÃO (MÉTODO E3):
@@ -1678,6 +1746,30 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   }
                 } else if (isEscalation) {
                   console.log(`[webhook] Escalation keyword detected from ${phone}, skipping AI`);
+                  // Mark conversation as needing human + notify project owner via push
+                  try {
+                    await supabase.from("imphq_wa_conversations")
+                      .update({ status: "needs_human", ai_lock_until: null })
+                      .eq("id", conv.id);
+                    const { data: projHandoff } = await supabase
+                      .from("imphq_projects")
+                      .select("user_id")
+                      .eq("id", projectId)
+                      .maybeSingle();
+                    if (projHandoff?.user_id) {
+                      const leadName = conv.contact_name || phone;
+                      supabase.functions.invoke("send-push", {
+                        body: {
+                          user_id: projHandoff.user_id,
+                          title: `🚨 Atendimento humano solicitado`,
+                          message: `${leadName}: "${content.slice(0, 80)}"`,
+                          url: `/whatsapp?chat=${conv.id}`,
+                        },
+                      }).catch((e: any) => console.warn("[webhook] handoff push error:", e?.message));
+                    }
+                  } catch (hErr: any) {
+                    console.warn("[webhook] handoff notify error:", hErr.message);
+                  }
                 }
               }
             }
