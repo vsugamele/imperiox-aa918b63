@@ -9,13 +9,14 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff, BarChart3, Loader2, HelpCircle } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff, BarChart3, Loader2, HelpCircle, Zap } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CopyArsenalSection } from "./CopyArsenalSection";
 import { AIGenerateButton } from "./AIGenerateButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ProductInsightDrawer } from "./insights/ProductInsightDrawer";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
@@ -108,6 +109,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [behaviorDialog, setBehaviorDialog] = useState<{ open: boolean; prodIndex: number; loading: boolean; results: any[] }>({ open: false, prodIndex: -1, loading: false, results: [] });
   const [capiGuideOpen, setCapiGuideOpen] = useState(false);
+  const [drawerProduto, setDrawerProduto] = useState<string | null>(null);
 
   const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -487,9 +489,14 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                     <Label className="text-xs text-muted-foreground">🔍 Clarity ID (produto)</Label>
                     <Input value={p.clarity_id || ""} onChange={(e) => updateProduto(i, "clarity_id", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="ID do Clarity para este produto" />
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 text-xs gap-1 shrink-0" onClick={() => analyzeBehavior(i)}>
-                    <BarChart3 className="h-3 w-3" /> Analisar Comportamento
-                  </Button>
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-amber-500/20 hover:border-amber-500/50" onClick={() => setDrawerProduto(p.nome)}>
+                      <Zap className="h-3.5 w-3.5 text-amber-500" /> Métricas (Drilldown)
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => analyzeBehavior(i)}>
+                      <BarChart3 className="h-3 w-3" /> Analisar Comportamento
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -879,6 +886,15 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           </div>
         </DialogContent>
       </Dialog>
+
+      <ProductInsightDrawer
+        open={!!drawerProduto}
+        onClose={() => setDrawerProduto(null)}
+        projectId={project.id}
+        produto={drawerProduto}
+        source="vendas"
+        period="30d"
+      />
     </div>
   );
 }
