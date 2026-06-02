@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, ExternalLink, Trash2, Phone, Tag, X } from "lucide-react";
+import { Copy, ExternalLink, Trash2, Phone, Tag, X, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 
 interface WaSession {
@@ -45,6 +45,37 @@ export default function SessionDetailView({ session, projectName, providerLabel,
   const [crm, setCrm] = useState<CrmData>({ conversation_id: session.id, stage: "lead", tags: [], notes: "", value: 0 });
   const [newTag, setNewTag] = useState("");
   const [saving, setSaving] = useState(false);
+  const [groups, setGroups] = useState<{ id: string; subject: string }[] | null>(null);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+
+  const fetchCommonGroups = useCallback(async () => {
+    if (!session.provider_id) {
+      setGroups([]);
+      return;
+    }
+    setLoadingGroups(true);
+    setGroups(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-api?action=fetch_common_groups", {
+        body: { provider_id: session.provider_id, phone: session.phone },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setGroups(data.groups || []);
+      } else {
+        setGroups([]);
+      }
+    } catch (err) {
+      console.error("[SessionDetailView] error fetching groups:", err);
+      setGroups([]);
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, [session.provider_id, session.phone]);
+
+  useEffect(() => {
+    fetchCommonGroups();
+  }, [fetchCommonGroups]);
 
   const loadCrm = useCallback(async () => {
     const { data } = await supabase
@@ -149,6 +180,39 @@ export default function SessionDetailView({ session, projectName, providerLabel,
           </div>
         </CardContent>
       </Card>
+
+      {/* Grupos em Comum */}
+      {session.provider_id && (
+        <Card className="bg-card border-border">
+          <CardContent className="space-y-3 pt-5">
+            <h4 className="font-semibold text-sm flex items-center gap-1.5">
+              <Users className="h-4 w-4 text-primary" /> Grupos em Comum
+            </h4>
+
+            {loadingGroups ? (
+              <div className="flex items-center justify-center py-4 text-xs text-muted-foreground gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <span>Buscando grupos em comum...</span>
+              </div>
+            ) : groups === null ? (
+              <p className="text-xs text-muted-foreground py-2 text-center">Carregando...</p>
+            ) : groups.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 text-center">Nenhum grupo em comum encontrado.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                {groups.map((g) => (
+                  <div key={g.id} className="flex items-center justify-between p-2 bg-secondary/30 border border-border/50 rounded-md text-xs">
+                    <span className="font-medium truncate max-w-[200px]" title={g.subject}>{g.subject}</span>
+                    <Badge variant="secondary" className="text-[9px] scale-90 select-none bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Membro
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* CRM Section */}
       <Card className="bg-card border-border">
