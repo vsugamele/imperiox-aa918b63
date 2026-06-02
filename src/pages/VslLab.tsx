@@ -219,6 +219,10 @@ export default function VslLab() {
         </div>
 
         <div className="lg:col-span-8 space-y-4">
+          {result && (
+            <Card className="border-slate-800 bg-slate-900/60">
+              <CardContent className="p-4">
+                <ScrollArea className="h-[60vh]">
                   <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed select-all">
                     {result}
                   </pre>
