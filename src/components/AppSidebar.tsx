@@ -38,6 +38,7 @@ const venderItems = [
 
 const inteligenciaItems = [
   { title: "Mentes IA", url: "/mentes", icon: Brain },
+  { title: "Copilot de Produtos", url: "/product-copilot", icon: Sparkles },
   { title: "Market Intel", url: "/market-intel", icon: Search },
   { title: "Conteúdo IA", url: "/conteudo-ia", icon: Zap },
   { title: "VSL Lab", url: "/vsl-lab", icon: FlaskConical },

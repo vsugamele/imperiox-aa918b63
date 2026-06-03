@@ -57,6 +57,7 @@ const Rascunhos = lazy(() => import("./pages/Rascunhos"));
 const WebinarSessao = lazy(() => import("./pages/WebinarSessao"));
 const WebinarPublic = lazy(() => import("./pages/WebinarPublic"));
 const FormPublic = lazy(() => import("./pages/FormPublic"));
+const ProductCopilot = lazy(() => import("./pages/ProductCopilot"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -139,6 +140,7 @@ const App = () => (
                 <Route path="assistente" element={<Assistente />} />
                 <Route path="rascunhos" element={<Rascunhos />} />
                 <Route path="vsl-lab" element={<VslLab />} />
+                <Route path="product-copilot" element={<ProductCopilot />} />
                 <Route path="webinar" element={<Webinar />} />
                 <Route path="webinar/:sessionId" element={<WebinarSessao />} />
               </Route>

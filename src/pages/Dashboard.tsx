@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Package, GitCompareArrows, LifeBuoy } from "lucide-react";
+import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Brain, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import DashboardRevenue from "@/components/dashboard/DashboardRevenue";
@@ -162,6 +162,32 @@ export default function Dashboard() {
       {/* IMPERIUS STRIP */}
       <section>
         <ImperiusStrip projectId={dashProject} />
+      </section>
+
+      {/* PRODUCT COPILOT AD BANNER */}
+      <section className="relative rounded-xl border border-gold/30 bg-gradient-to-r from-gold/5 via-secondary/10 to-transparent p-5 backdrop-blur-md overflow-hidden animate-fade-in group">
+        <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none group-hover:scale-110 transition-transform">
+          <Brain className="h-24 w-24 text-gold" />
+        </div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[9px] font-bold tracking-[0.2em] uppercase bg-gold/15 text-gold px-2.5 py-0.5 rounded-full border border-gold/30">Cérebro IA</span>
+              <span className="text-[10px] text-muted-foreground font-mono">NOVO RECURSO</span>
+            </div>
+            <h3 className="font-serif text-lg text-foreground font-medium">Modelador de Oferta & Copilot de Produtos</h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+              Escreva ganchos de tráfego, timeline de VSL, stack de bônus e o mecanismo único para qualquer projeto com o novo assistente interativo da Imperio HQ.
+            </p>
+          </div>
+          <Link
+            to="/product-copilot"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-gold text-slate-950 text-xs font-semibold hover:bg-gold/80 transition-all self-start md:self-center shrink-0 shadow-lg shadow-gold/10"
+          >
+            <span>Modelar Novo Produto</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </section>
 
       <FacebookHealthAlert />
