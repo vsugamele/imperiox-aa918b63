@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.ai-job-runner]
 verify_jwt = false
+
+[functions.instagram-followup-scheduler]
+verify_jwt = false

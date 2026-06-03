@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
 
     // ============ SEND_TEXT ============
     if (action === "send_text") {
-      const { project_id, recipient_id, text } = body;
+      const { project_id, recipient_id, text, metadata } = body;
       if (!project_id || !recipient_id || !text) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
       if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
@@ -160,7 +160,13 @@ Deno.serve(async (req) => {
       const { data: conv } = await supa.from("imphq_ig_conversations").select("id").eq("participant_id", recipient_id).maybeSingle();
       if (conv) {
         await supa.from("imphq_ig_messages").insert({
-          conversation_id: conv.id, direction: "out", type: "text", content: text, mid: data.message_id, status: "sent",
+          conversation_id: conv.id,
+          direction: "out",
+          type: "text",
+          content: text,
+          mid: data.message_id,
+          status: "sent",
+          metadata: metadata || null,
         });
       }
       return json({ success: true, message_id: data.message_id });
