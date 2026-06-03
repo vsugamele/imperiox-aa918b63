@@ -14,6 +14,7 @@ const operarItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Imperius", url: "/imperius", icon: Bot },
   { title: "Assistente", url: "/assistente", icon: Compass },
+  { title: "Rascunhos IA", url: "/rascunhos", icon: Sparkles },
   { title: "Leads", url: "/leads", icon: Users },
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare },
   { title: "Instagram", url: "/instagram", icon: Instagram },

@@ -650,6 +650,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                           model,
                           provider: "instagram_comment",
                           status: "pending",
+                          metadata: { comment_id: commentId, from_username: fromUsername },
                         });
                         console.log(`[ig-webhook] AI comment draft saved for @${fromUsername}`);
 
