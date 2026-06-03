@@ -465,6 +465,74 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
             try {
               (async () => {
                 try {
+                  // --- CHECK INSTAGRAM COMMENT TRIGGERS ---
+                  const { data: matchedTriggers } = await supa
+                    .from("imphq_ig_comment_triggers")
+                    .select("*")
+                    .eq("project_id", account.project_id)
+                    .eq("is_active", true);
+
+                  const commentLc = commentText.toLowerCase().trim();
+                  let matchedTrigger: any = null;
+
+                  if (matchedTriggers && matchedTriggers.length > 0) {
+                    matchedTrigger = matchedTriggers.find((t: any) => {
+                      const kw = (t.trigger_keyword || "").toLowerCase().trim();
+                      if (!kw) return false;
+                      // Match comment text containing keyword
+                      return commentLc.includes(kw);
+                    });
+                  }
+
+                  if (matchedTrigger) {
+                    console.log(`[ig-webhook] Matched comment trigger: "${matchedTrigger.trigger_keyword}" for comment "${commentText}"`);
+                    
+                    // Increment match count
+                    await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id }).catch(() => {
+                      supa.from("imphq_ig_comment_triggers")
+                        .update({ match_count: (matchedTrigger.match_count || 0) + 1 })
+                        .eq("id", matchedTrigger.id);
+                    });
+
+                    // 1. Public Reply
+                    if (matchedTrigger.reply_comment_template) {
+                      const replyText = matchedTrigger.reply_comment_template.replace("{{nome}}", fromUsername || "você");
+                      await supa.functions.invoke("instagram-api", {
+                        body: {
+                          action: "reply_comment",
+                          project_id: account.project_id,
+                          comment_id: commentId,
+                          message: replyText
+                        }
+                      });
+                    }
+
+                    // 2. Private Direct Message (DM) Reply
+                    if (matchedTrigger.send_dm_template) {
+                      const dmText = matchedTrigger.send_dm_template.replace("{{nome}}", fromUsername || "você");
+                      const dmRes = await supa.functions.invoke("instagram-api", {
+                        body: {
+                          action: "private_reply",
+                          project_id: account.project_id,
+                          comment_id: commentId,
+                          message: dmText
+                        }
+                      });
+                      
+                      const dmSuccess = dmRes.data?.success || false;
+                      if (dmSuccess) {
+                        await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id }).catch(() => {
+                          supa.from("imphq_ig_comment_triggers")
+                            .update({ dm_sent_count: (matchedTrigger.dm_sent_count || 0) + 1 })
+                            .eq("id", matchedTrigger.id);
+                        });
+                      }
+                    }
+
+                    // Skip standard AI autoresponder
+                    return;
+                  }
+
                   const { data: aiConfig } = await supa
                     .from("imphq_wa_ai_config")
                     .select("*")

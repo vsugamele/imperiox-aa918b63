@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import {
   Instagram, MessageSquare, Settings2, Trash2, Eye, EyeOff, Mail,
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
-  Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot
+  Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot,
+  Workflow, Zap, ArrowRight, Check, Play, Square, Info
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -71,7 +72,7 @@ export default function InstagramPage() {
   const [selectedAccount, setSelectedAccount] = useState<IgAccount | null>(null);
   
   // Tab control
-  const [activeMainTab, setActiveMainTab] = useState<"dms" | "comments" | "brain">("dms");
+  const [activeMainTab, setActiveMainTab] = useState<"dms" | "comments" | "brain" | "triggers">("dms");
   
   // DMs state
   const [conversations, setConversations] = useState<IgConversation[]>([]);
@@ -97,6 +98,18 @@ export default function InstagramPage() {
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [showPrivateModal, setShowPrivateModal] = useState<string | null>(null);
   
+  // Comment Triggers state
+  const [triggers, setTriggers] = useState<any[]>([]);
+  const [loadingTriggers, setLoadingTriggers] = useState(false);
+  const [showAddTrigger, setShowAddTrigger] = useState(false);
+  const [newTrigger, setNewTrigger] = useState({
+    trigger_keyword: "",
+    post_id: "all",
+    reply_comment_template: "",
+    send_dm_template: "",
+    is_active: true
+  });
+
   // AI Brain state
   const [aiConfig, setAiConfig] = useState<any>(null);
   const [loadingAi, setLoadingAi] = useState(false);
@@ -214,6 +227,97 @@ export default function InstagramPage() {
         });
     }
   }, [selectedProjectId, activeMainTab]);
+
+  // Load comment triggers
+  const loadTriggers = useCallback(async () => {
+    if (!selectedProjectId) return;
+    setLoadingTriggers(true);
+    try {
+      const { data, error } = await supabase
+        .from("imphq_ig_comment_triggers")
+        .select("*")
+        .eq("project_id", selectedProjectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setTriggers(data || []);
+    } catch (e: any) {
+      toast.error("Erro ao carregar gatilhos: " + e.message);
+    } finally {
+      setLoadingTriggers(false);
+    }
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (activeMainTab === "triggers" && selectedProjectId) {
+      loadTriggers();
+    }
+  }, [activeMainTab, selectedProjectId, loadTriggers]);
+
+  const handleSaveTrigger = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTrigger.trigger_keyword.trim() || !newTrigger.send_dm_template.trim()) {
+      toast.error("Palavra-chave e Mensagem Direct são obrigatórias.");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("imphq_ig_comment_triggers")
+        .insert({
+          project_id: selectedProjectId,
+          trigger_keyword: newTrigger.trigger_keyword.trim(),
+          post_id: newTrigger.post_id.trim() || "all",
+          reply_comment_template: newTrigger.reply_comment_template.trim() || null,
+          send_dm_template: newTrigger.send_dm_template.trim(),
+          is_active: newTrigger.is_active,
+          match_count: 0,
+          dm_sent_count: 0,
+          click_count: 0
+        });
+
+      if (error) throw error;
+      toast.success("Gatilho criado com sucesso!");
+      setShowAddTrigger(false);
+      setNewTrigger({
+        trigger_keyword: "",
+        post_id: "all",
+        reply_comment_template: "",
+        send_dm_template: "",
+        is_active: true
+      });
+      loadTriggers();
+    } catch (err: any) {
+      toast.error("Erro ao criar gatilho: " + err.message);
+    }
+  };
+
+  const handleToggleTriggerActive = async (id: string, active: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("imphq_ig_comment_triggers")
+        .update({ is_active: active })
+        .eq("id", id);
+      if (error) throw error;
+      setTriggers(prev => prev.map(t => t.id === id ? { ...t, is_active: active } : t));
+      toast.success(active ? "Gatilho ativado!" : "Gatilho desativado!");
+    } catch (err: any) {
+      toast.error("Erro ao alterar status: " + err.message);
+    }
+  };
+
+  const handleDeleteTrigger = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este gatilho?")) return;
+    try {
+      const { error } = await supabase
+        .from("imphq_ig_comment_triggers")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      setTriggers(prev => prev.filter(t => t.id !== id));
+      toast.success("Gatilho excluído com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao excluir gatilho: " + err.message);
+    }
+  };
 
   // Real-time listener for Instagram messages and comments
   useEffect(() => {
@@ -586,6 +690,14 @@ export default function InstagramPage() {
                     <Heart className="h-4 w-4" /> Comentários
                   </span>
                   {activeCommentsCount > 0 && <Badge variant="outline">{activeCommentsCount}</Badge>}
+                </Button>
+
+                <Button
+                  variant={activeMainTab === "triggers" ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2 font-normal text-sm"
+                  onClick={() => setActiveMainTab("triggers")}
+                >
+                  <Workflow className="h-4 w-4" /> Gatilhos de Comentário
                 </Button>
 
                 <Button
@@ -1177,6 +1289,165 @@ export default function InstagramPage() {
               </div>
             )}
 
+            {activeMainTab === "triggers" && (
+              <div className="lg:col-span-3 space-y-6">
+                
+                {/* ─── FUNIL VISUAL DE CONVERSÃO ─── */}
+                <Card className="bg-card border-border/60 shadow-lg">
+                  <CardHeader className="border-b border-border/40 pb-3">
+                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                      <Zap className="h-4 w-4 text-amber-500" /> Funil de Conversão em Tempo Real
+                    </CardTitle>
+                    <CardDescription className="text-xs">Taxas de cliques e envios a partir de comentários públicos.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-5">
+                    {(() => {
+                      const totalMatches = triggers.reduce((acc, t) => acc + (t.match_count || 0), 0);
+                      const totalDms = triggers.reduce((acc, t) => acc + (t.dm_sent_count || 0), 0);
+                      const totalClicks = triggers.reduce((acc, t) => acc + (t.click_count || 0), 0);
+                      const dmRate = totalMatches > 0 ? Math.round((totalDms / totalMatches) * 100) : 0;
+                      const clickRate = totalDms > 0 ? Math.round((totalClicks / totalDms) * 100) : 0;
+
+                      return (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-secondary/10 p-3.5 rounded-xl border border-border/30 text-center">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">1. Comentários Capturados</span>
+                              <p className="text-2xl font-bold text-foreground mt-1 font-mono">{totalMatches}</p>
+                            </div>
+                            <div className="bg-secondary/10 p-3.5 rounded-xl border border-border/30 text-center">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">2. DMs Enviadas</span>
+                              <p className="text-2xl font-bold text-foreground mt-1 font-mono">{totalDms}</p>
+                              <span className="text-[10px] text-emerald-400 font-medium font-mono">{dmRate}% conversão</span>
+                            </div>
+                            <div className="bg-secondary/10 p-3.5 rounded-xl border border-border/30 text-center">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">3. Cliques na Oferta</span>
+                              <p className="text-2xl font-bold text-foreground mt-1 font-mono">{totalClicks}</p>
+                              <span className="text-[10px] text-amber-500 font-medium font-mono">{clickRate}% CTR</span>
+                            </div>
+                          </div>
+
+                          {/* Funnel visualization */}
+                          <div className="relative pt-4 pb-2 px-10 flex flex-col items-center justify-center space-y-4">
+                            {/* Step 1 */}
+                            <div className="w-full max-w-md bg-gradient-to-r from-pink-500/20 to-red-500/20 border border-pink-500/30 rounded-xl p-3 flex justify-between items-center shadow-lg">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><Heart className="h-4 w-4 text-pink-500" /> Comentou Palavra-chave</span>
+                              <Badge variant="outline" className="font-mono text-xs font-bold text-pink-400">{totalMatches}</Badge>
+                            </div>
+
+                            <ArrowRight className="h-5 w-5 text-muted-foreground/60 rotate-90" />
+
+                            {/* Step 2 */}
+                            <div className="w-full max-w-sm bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl p-3 flex justify-between items-center shadow-lg">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-amber-500" /> Recebeu direct (DM) + Resposta pública</span>
+                              <Badge variant="outline" className="font-mono text-xs font-bold text-amber-400">{totalDms}</Badge>
+                            </div>
+
+                            <ArrowRight className="h-5 w-5 text-muted-foreground/60 rotate-90" />
+
+                            {/* Step 3 */}
+                            <div className="w-full max-w-xs bg-gradient-to-r from-emerald-500/20 to-green-500/20 border border-emerald-500/30 rounded-xl p-3 flex justify-between items-center shadow-lg">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><Zap className="h-4 w-4 text-emerald-500" /> Clicou no link da DM</span>
+                              <Badge variant="outline" className="font-mono text-xs font-bold text-emerald-400">{totalClicks}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* ─── LISTAGEM DE REGRAS DE GATILHOS ─── */}
+                <Card className="bg-card border-border/60 shadow-lg">
+                  <CardHeader className="border-b border-border/40 pb-3 flex flex-row items-center justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Regras de Gatilhos Ativas</CardTitle>
+                      <CardDescription className="text-xs">Configure termos específicos para capturar leads a partir de posts.</CardDescription>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowAddTrigger(true)}
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs h-8"
+                    >
+                      <Zap className="h-3.5 w-3.5 mr-1" /> Novo Gatilho
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {loadingTriggers ? (
+                      <div className="flex items-center justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                    ) : triggers.length === 0 ? (
+                      <div className="text-center p-12 text-sm text-muted-foreground flex flex-col items-center justify-center gap-2">
+                        <Info className="h-6 w-6 text-muted-foreground/50" />
+                        <span>Nenhum gatilho de comentário criado ainda.</span>
+                        <Button variant="link" className="text-amber-500 hover:text-amber-400 text-xs" onClick={() => setShowAddTrigger(true)}>Criar meu primeiro gatilho</Button>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border/40">
+                        {triggers.map((trigger) => (
+                          <div key={trigger.id} className="p-4 space-y-3 hover:bg-secondary/5 transition">
+                            <div className="flex items-start justify-between gap-4 flex-wrap">
+                              <div className="flex items-center gap-2.5">
+                                <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono text-xs uppercase px-2 py-0.5">
+                                  Comentou: "{trigger.trigger_keyword}"
+                                </Badge>
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  • Post: {trigger.post_id === "all" ? "Qualquer Post" : `ID: ${trigger.post_id}`}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleToggleTriggerActive(trigger.id, !trigger.is_active)}
+                                  className={`text-[10px] uppercase font-bold h-7 px-2 border ${trigger.is_active ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20" : "bg-secondary/40 border-border/60 text-muted-foreground"}`}
+                                >
+                                  {trigger.is_active ? "Ativo" : "Pausado"}
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 border border-border/40"
+                                  onClick={() => handleDeleteTrigger(trigger.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Templates details */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                              {trigger.reply_comment_template && (
+                                <div className="space-y-1 bg-secondary/10 p-2.5 rounded-lg border border-border/30">
+                                  <span className="text-[9px] font-bold text-muted-foreground uppercase block">Resposta Pública no Post:</span>
+                                  <p className="text-foreground italic leading-relaxed">"{trigger.reply_comment_template}"</p>
+                                </div>
+                              )}
+                              <div className="space-y-1 bg-secondary/15 p-2.5 rounded-lg border border-border/30 col-span-1 md:col-span-2">
+                                <span className="text-[9px] font-bold text-amber-500 uppercase block">Mensagem no Direct (Privado):</span>
+                                <p className="text-foreground font-medium leading-relaxed whitespace-pre-wrap">{trigger.send_dm_template}</p>
+                              </div>
+                            </div>
+
+                            {/* Conversion stats per trigger */}
+                            <div className="flex flex-wrap items-center gap-6 pt-1 text-[10px] text-muted-foreground font-mono">
+                              <div>Matches: <span className="font-bold text-foreground">{trigger.match_count || 0}</span></div>
+                              <div>DMs Enviadas: <span className="font-bold text-foreground">{trigger.dm_sent_count || 0}</span></div>
+                              <div>Cliques: <span className="font-bold text-foreground">{trigger.click_count || 0}</span></div>
+                              <div>Conversão: <span className="font-bold text-emerald-400">
+                                {trigger.match_count > 0 ? Math.round(((trigger.dm_sent_count || 0) / trigger.match_count) * 100) : 0}%
+                              </span></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
           </div>
 
         </div>
@@ -1244,6 +1515,89 @@ export default function InstagramPage() {
               Disparar Simulação
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Trigger Dialog */}
+      <Dialog open={showAddTrigger} onOpenChange={setShowAddTrigger}>
+        <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-lg">
+          <form onSubmit={handleSaveTrigger}>
+            <DialogHeader>
+              <DialogTitle className="text-amber-500 font-bold flex items-center gap-1.5">
+                <Zap className="h-5 w-5 text-amber-500" /> Criar Novo Gatilho de Comentário
+              </DialogTitle>
+              <DialogDescription className="text-slate-400 text-xs">
+                Configure regras automáticas. Ao detectarmos a palavra-chave em comentários, enviaremos a resposta pública e o direct privado.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-300">Palavra-chave (Keyword)</Label>
+                  <Input
+                    required
+                    value={newTrigger.trigger_keyword}
+                    onChange={(e) => setNewTrigger({ ...newTrigger, trigger_keyword: e.target.value })}
+                    placeholder="ex: quero, cupom, desconto"
+                    className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
+                  />
+                  <span className="text-[9px] text-slate-500 block">Ativação por correspondência parcial (case-insensitive).</span>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-300">ID do Post do Instagram</Label>
+                  <Input
+                    value={newTrigger.post_id}
+                    onChange={(e) => setNewTrigger({ ...newTrigger, post_id: e.target.value })}
+                    placeholder="ex: all ou ID numérico"
+                    className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
+                  />
+                  <span className="text-[9px] text-slate-500 block">Deixe 'all' para disparar em qualquer post.</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-300">Resposta Pública no Post (Opcional)</Label>
+                <Input
+                  value={newTrigger.reply_comment_template}
+                  onChange={(e) => setNewTrigger({ ...newTrigger, reply_comment_template: e.target.value })}
+                  placeholder="ex: Te enviei os detalhes no privado! Confere lá 😉"
+                  className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
+                />
+                <span className="text-[9px] text-slate-500 block">Comentário público que a conta fará respondendo ao lead.</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-300">Mensagem Enviada no Direct (DM) (Obrigatório)</Label>
+                <textarea
+                  required
+                  rows={4}
+                  value={newTrigger.send_dm_template}
+                  onChange={(e) => setNewTrigger({ ...newTrigger, send_dm_template: e.target.value })}
+                  placeholder="ex: Olá! Aqui está seu link com desconto exclusivo: https://..."
+                  className="w-full rounded-md bg-slate-950 border border-slate-800 text-xs p-2 text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                />
+                <span className="text-[9px] text-slate-500 block">Mensagem privada enviada ao direct do lead. Use &#123;&#123;nome&#125;&#125; para referenciar o username.</span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-800/60 pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAddTrigger(false)}
+                className="text-xs hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs"
+              >
+                Salvar Regra
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
