@@ -735,6 +735,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             const formattedMessages = [{ role: "system", content: systemPrompt }];
             let lastRole: string | null = null;
+            const reversed = [...finalHistoryMsgs].reverse();
             reversed.forEach((msg) => {
               const role = msg.direction === "incoming" ? "user" : "assistant";
               if (role === lastRole) {
