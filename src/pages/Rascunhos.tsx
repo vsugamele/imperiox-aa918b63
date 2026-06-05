@@ -120,7 +120,7 @@ export default function Rascunhos() {
       
       // Initialize local inputs
       const initialTexts: Record<string, string> = {};
-      (data || []).forEach((d: AiDraft) => {
+      (data as any[] || []).forEach((d: AiDraft) => {
         initialTexts[d.id] = d.suggested_text;
       });
       setEditedTexts(initialTexts);

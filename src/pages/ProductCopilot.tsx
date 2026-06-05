@@ -534,16 +534,16 @@ ${dossier.ad_angles}
 
           {/* Quick Actions Panel */}
           <div className="p-2 border-b border-border/40 bg-secondary/10 flex flex-wrap gap-1.5 shrink-0">
-            <Button variant="outline" size="xs" onClick={() => triggerFastAction("naming")} className="text-[10px] h-7 border-gold/25 text-gold hover:bg-gold/10 gap-1">
+            <Button variant="outline" size="sm" onClick={() => triggerFastAction("naming")} className="text-[10px] h-7 border-gold/25 text-gold hover:bg-gold/10 gap-1">
               <PenTool className="h-3 w-3" /> Naming & Tom
             </Button>
-            <Button variant="outline" size="xs" onClick={() => triggerFastAction("mecanismo")} className="text-[10px] h-7 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 gap-1">
+            <Button variant="outline" size="sm" onClick={() => triggerFastAction("mecanismo")} className="text-[10px] h-7 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 gap-1">
               <Wrench className="h-3 w-3" /> Mecanismo
             </Button>
-            <Button variant="outline" size="xs" onClick={() => triggerFastAction("oferta")} className="text-[10px] h-7 border-blue-500/20 text-blue-400 hover:bg-blue-500/10 gap-1">
+            <Button variant="outline" size="sm" onClick={() => triggerFastAction("oferta")} className="text-[10px] h-7 border-blue-500/20 text-blue-400 hover:bg-blue-500/10 gap-1">
               <Award className="h-3 w-3" /> Oferta & Bônus
             </Button>
-            <Button variant="outline" size="xs" onClick={() => triggerFastAction("vsl")} className="text-[10px] h-7 border-purple-500/20 text-purple-400 hover:bg-purple-500/10 gap-1">
+            <Button variant="outline" size="sm" onClick={() => triggerFastAction("vsl")} className="text-[10px] h-7 border-purple-500/20 text-purple-400 hover:bg-purple-500/10 gap-1">
               <Lightbulb className="h-3 w-3" /> Ganchos & VSL
             </Button>
           </div>
@@ -616,10 +616,10 @@ ${dossier.ad_angles}
             
             {/* Action buttons */}
             <div className="flex items-center gap-2">
-              <Button size="xs" variant="outline" onClick={handleExportDoc} className="text-[10px] h-7 border-border/60 hover:text-foreground">
+              <Button size="sm" variant="outline" onClick={handleExportDoc} className="text-[10px] h-7 border-border/60 hover:text-foreground">
                 <FileDown className="h-3 w-3 mr-1" /> Exportar MD
               </Button>
-              <Button size="xs" onClick={handleSaveToProject} disabled={savingProject} className="text-[10px] h-7 bg-gold text-slate-950 hover:bg-gold/80 font-medium">
+              <Button size="sm" onClick={handleSaveToProject} disabled={savingProject} className="text-[10px] h-7 bg-gold text-slate-950 hover:bg-gold/80 font-medium">
                 {savingProject ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
                 Salvar no Projeto
               </Button>
