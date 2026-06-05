@@ -41,13 +41,16 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.json();
     // Loga tudo primeiro (auditoria)
-    await supa.from("imphq_ig_webhook_logs").insert({
+    const { data: logEntry } = await supa.from("imphq_ig_webhook_logs").insert({
       event_type: payload.object || "unknown",
       payload,
       processed: false,
-    });
+    }).select("id").maybeSingle();
 
     if (payload.object !== "instagram") {
+      if (logEntry) {
+        await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+      }
       return new Response("OK", { status: 200 });
     }
 
@@ -107,12 +110,17 @@ Deno.serve(async (req) => {
             try {
               (async () => {
                 try {
-                  const { data: aiConfig } = await supa
+                  let aiConfig = null;
+                  const { data: configs, error: configErr } = await supa
                     .from("imphq_wa_ai_config")
                     .select("*")
                     .eq("project_id", account.project_id)
-                    .eq("enabled", true)
-                    .maybeSingle();
+                    .eq("enabled", true);
+                  if (configErr) {
+                    console.error("[ig-webhook] Config query error:", configErr.message);
+                  } else if (configs && configs.length > 0) {
+                    aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+                  }
 
                   if (!aiConfig) {
                     console.log(`[ig-webhook] AI not enabled for project ${account.project_id}`);
@@ -533,12 +541,17 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     return;
                   }
 
-                  const { data: aiConfig } = await supa
+                  let aiConfig = null;
+                  const { data: configs, error: configErr } = await supa
                     .from("imphq_wa_ai_config")
                     .select("*")
                     .eq("project_id", account.project_id)
-                    .eq("enabled", true)
-                    .maybeSingle();
+                    .eq("enabled", true);
+                  if (configErr) {
+                    console.error("[ig-webhook] Config query error (comments):", configErr.message);
+                  } else if (configs && configs.length > 0) {
+                    aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+                  }
 
                   if (!aiConfig) {
                     console.log(`[ig-webhook] AI not enabled for project ${account.project_id}`);
@@ -788,6 +801,9 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
       }
     }
 
+    if (logEntry) {
+      await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+    }
     return new Response("OK", { status: 200 });
   } catch (err: any) {
     console.error("instagram-webhook error:", err);

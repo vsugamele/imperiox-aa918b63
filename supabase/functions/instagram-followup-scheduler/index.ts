@@ -63,12 +63,17 @@ Deno.serve(async (req) => {
 
       try {
         // 2. Buscar a configuração de IA do projeto
-        const { data: aiConfig } = await supa
+        let aiConfig = null;
+        const { data: configs, error: configErr } = await supa
           .from("imphq_wa_ai_config")
           .select("*")
           .eq("project_id", projectId)
-          .eq("enabled", true)
-          .maybeSingle();
+          .eq("enabled", true);
+        if (configErr) {
+          console.error(`[ig-followup-scheduler] Config query error for ${projectId}:`, configErr.message);
+        } else if (configs && configs.length > 0) {
+          aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+        }
 
         if (!aiConfig) {
           console.log(`[ig-followup-scheduler] IA desabilitada ou não configurada para o projeto ${projectId}`);

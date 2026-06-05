@@ -59,3 +59,15 @@ verify_jwt = false
 
 [functions.instagram-followup-scheduler]
 verify_jwt = false
+
+[functions.instagram-webhook]
+verify_jwt = false
+
+[functions.wa-ai-reply]
+verify_jwt = false
+
+[functions.wa-ai-refine]
+verify_jwt = false
+
+[functions.wa-learn-from-human]
+verify_jwt = false

@@ -79,11 +79,10 @@ Deno.serve(async (req) => {
         .from("imphq_wa_ai_config")
         .select("*")
         .eq("project_id", project_id)
-        .eq("enabled", true)
-        .maybeSingle();
+        .eq("enabled", true);
       configErr = error;
-      if (data) {
-        aiConfig = data;
+      if (data && data.length > 0) {
+        aiConfig = data.find((c: any) => !c.provider_id) || data[0];
         console.log(`[wa-ai-reply] AI Config found for project_id=${project_id} (fallback)`);
       }
     }

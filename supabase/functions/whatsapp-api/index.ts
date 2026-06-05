@@ -2049,12 +2049,14 @@ Deno.serve(async (req) => {
         aiConfig = data;
       }
       if (!aiConfig) {
-        const { data } = await supabase
+        const { data: configs } = await supabase
           .from("imphq_wa_ai_config")
           .select("*")
           .eq("project_id", project_id)
-          .maybeSingle();
-        aiConfig = data;
+          .eq("enabled", true);
+        if (configs && configs.length > 0) {
+          aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+        }
       }
 
       // 2. Fetch Project Info for context

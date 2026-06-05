@@ -220,9 +220,13 @@ export default function InstagramPage() {
         .select("*")
         .eq("project_id", selectedProjectId)
         .eq("enabled", true)
-        .maybeSingle()
         .then(({ data }) => {
-          setAiConfig(data);
+          if (data && data.length > 0) {
+            const config = data.find(c => !c.provider_id) || data[0];
+            setAiConfig(config);
+          } else {
+            setAiConfig(null);
+          }
           setLoadingAi(false);
         });
     }

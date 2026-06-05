@@ -137,10 +137,19 @@ Responda sempre em pt-BR, direto, sem rodeios. NÃO invente dados — só salve 
         }).select().single();
         saved.push({ tipo: "licao", ...args, id: ins?.id });
       } else if (name === "update_tone") {
-        const { data: cfg } = await supabase.from("imphq_wa_ai_config").select("custom_instructions").eq("project_id", projeto_id).maybeSingle();
+        const { data: configs } = await supabase
+          .from("imphq_wa_ai_config")
+          .select("id, custom_instructions, provider_id")
+          .eq("project_id", projeto_id)
+          .eq("enabled", true);
+        const cfg = configs?.find((c: any) => !c.provider_id) || configs?.[0];
         const prev = (cfg as any)?.custom_instructions || "";
         const novo = prev ? `${prev}\n• ${args.instrucao}` : `• ${args.instrucao}`;
-        await supabase.from("imphq_wa_ai_config").update({ custom_instructions: novo, updated_at: new Date().toISOString() }).eq("project_id", projeto_id);
+        if (cfg?.id) {
+          await supabase.from("imphq_wa_ai_config").update({ custom_instructions: novo, updated_at: new Date().toISOString() }).eq("id", cfg.id);
+        } else {
+          await supabase.from("imphq_wa_ai_config").update({ custom_instructions: novo, updated_at: new Date().toISOString() }).eq("project_id", projeto_id);
+        }
         saved.push({ tipo: "tom", ...args });
       }
     }

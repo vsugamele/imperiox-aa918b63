@@ -22,11 +22,12 @@ Deno.serve(async (req) => {
     }
 
     // Aprendizado só roda se learning_mode = true na config
-    const { data: cfg } = await supabase
+    const { data: configs } = await supabase
       .from("imphq_wa_ai_config")
-      .select("learning_mode")
+      .select("learning_mode, provider_id")
       .eq("project_id", project_id)
-      .maybeSingle();
+      .eq("enabled", true);
+    const cfg = configs?.find((c: any) => !c.provider_id) || configs?.[0];
     if (cfg && (cfg as any).learning_mode === false) {
       return new Response(JSON.stringify({ ok: true, skipped: "learning_disabled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

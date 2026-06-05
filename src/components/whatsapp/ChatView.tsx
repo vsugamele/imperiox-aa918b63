@@ -223,8 +223,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
             .from("imphq_wa_ai_config")
             .select("*")
             .eq("project_id", projectId)
-            .eq("is_active", true)
-            .maybeSingle(),
+            .eq("enabled", true),
           supabase
             .from("imphq_projects")
             .select("name, data")
@@ -232,7 +231,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
             .maybeSingle()
         ]);
 
-        const aiConfig = configRes.data;
+        const configs = configRes.data || [];
+        const aiConfig = configs.find((c: any) => !c.provider_id) || configs[0] || null;
         const project = projectRes.data;
 
         let projectContext = "";
