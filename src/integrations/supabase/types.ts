@@ -6859,6 +6859,584 @@ export type Database = {
         }
         Relationships: []
       }
+      astrogenius_charts: {
+        Row: {
+          analysis: Json
+          birth_date: string
+          birth_time: string
+          chart_data: Json | null
+          city: string
+          created_at: string | null
+          cusps: Json
+          elemental_data: Json
+          elements: Json
+          email: string | null
+          id: string
+          is_unlocked: boolean | null
+          modality_data: Json
+          name: string
+          positions: Json
+          user_id: string | null
+        }
+        Insert: {
+          analysis: Json
+          birth_date: string
+          birth_time: string
+          chart_data?: Json | null
+          city: string
+          created_at?: string | null
+          cusps: Json
+          elemental_data: Json
+          elements: Json
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          modality_data: Json
+          name: string
+          positions: Json
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          birth_date?: string
+          birth_time?: string
+          chart_data?: Json | null
+          city?: string
+          created_at?: string | null
+          cusps?: Json
+          elemental_data?: Json
+          elements?: Json
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          modality_data?: Json
+          name?: string
+          positions?: Json
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astrogenius_charts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_charts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_charts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "astrogenius_charts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_charts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      astrogenius_solar_returns: {
+        Row: {
+          analysis: Json
+          birth_city: string
+          birth_date: string
+          birth_time: string
+          created_at: string
+          current_city: string
+          cusps: Json
+          email: string | null
+          id: string
+          is_unlocked: boolean | null
+          name: string
+          natal_positions: Json
+          positions: Json
+          return_date: string
+          target_year: number
+          user_id: string | null
+        }
+        Insert: {
+          analysis: Json
+          birth_city: string
+          birth_date: string
+          birth_time: string
+          created_at?: string
+          current_city: string
+          cusps: Json
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name: string
+          natal_positions: Json
+          positions: Json
+          return_date: string
+          target_year: number
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          birth_city?: string
+          birth_date?: string
+          birth_time?: string
+          created_at?: string
+          current_city?: string
+          cusps?: Json
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name?: string
+          natal_positions?: Json
+          positions?: Json
+          return_date?: string
+          target_year?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astrogenius_solar_returns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_solar_returns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_solar_returns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "astrogenius_solar_returns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_solar_returns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      astrogenius_soulmate_readings: {
+        Row: {
+          analysis: Json
+          birth_city: string
+          birth_date: string
+          birth_time: string
+          created_at: string
+          email: string | null
+          id: string
+          is_unlocked: boolean
+          mode: string
+          name: string
+          partner_birth_city: string | null
+          partner_birth_date: string | null
+          partner_birth_time: string | null
+          partner_name: string | null
+          user_id: string | null
+        }
+        Insert: {
+          analysis: Json
+          birth_city: string
+          birth_date: string
+          birth_time: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean
+          mode?: string
+          name: string
+          partner_birth_city?: string | null
+          partner_birth_date?: string | null
+          partner_birth_time?: string | null
+          partner_name?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          birth_city?: string
+          birth_date?: string
+          birth_time?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean
+          mode?: string
+          name?: string
+          partner_birth_city?: string | null
+          partner_birth_date?: string | null
+          partner_birth_time?: string | null
+          partner_name?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astrogenius_soulmate_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      astrogenius_synastries: {
+        Row: {
+          analysis: Json
+          aspects: Json
+          compatibility_scores: Json
+          created_at: string | null
+          cusps: Json
+          id: string
+          is_unlocked: boolean | null
+          partner1_email: string | null
+          partner1_name: string
+          partner1_positions: Json
+          partner2_name: string
+          partner2_positions: Json
+          theme: string | null
+          user_id: string | null
+        }
+        Insert: {
+          analysis: Json
+          aspects: Json
+          compatibility_scores: Json
+          created_at?: string | null
+          cusps: Json
+          id?: string
+          is_unlocked?: boolean | null
+          partner1_email?: string | null
+          partner1_name: string
+          partner1_positions: Json
+          partner2_name: string
+          partner2_positions: Json
+          theme?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          aspects?: Json
+          compatibility_scores?: Json
+          created_at?: string | null
+          cusps?: Json
+          id?: string
+          is_unlocked?: boolean | null
+          partner1_email?: string | null
+          partner1_name?: string
+          partner1_positions?: Json
+          partner2_name?: string
+          partner2_positions?: Json
+          theme?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astrogenius_synastries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_synastries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_synastries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "astrogenius_synastries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_synastries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      astrogenius_tarot_readings: {
+        Row: {
+          analysis: Json
+          birth_city: string
+          birth_date: string
+          birth_time: string
+          cards: Json
+          created_at: string | null
+          email: string | null
+          id: string
+          is_unlocked: boolean | null
+          name: string
+          question: string | null
+          user_id: string | null
+        }
+        Insert: {
+          analysis: Json
+          birth_city: string
+          birth_date: string
+          birth_time: string
+          cards: Json
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name: string
+          question?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          birth_city?: string
+          birth_date?: string
+          birth_time?: string
+          cards?: Json
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name?: string
+          question?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astrogenius_tarot_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_tarot_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_tarot_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "astrogenius_tarot_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_tarot_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      astrogenius_wellness_guides: {
+        Row: {
+          analysis: Json
+          birth_date: string
+          birth_time: string
+          city: string
+          created_at: string
+          elements: Json
+          email: string | null
+          id: string
+          is_unlocked: boolean | null
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          analysis: Json
+          birth_date: string
+          birth_time: string
+          city: string
+          created_at?: string
+          elements: Json
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          birth_date?: string
+          birth_time?: string
+          city?: string
+          created_at?: string
+          elements?: Json
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astrogenius_wellness_guides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_wellness_guides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_wellness_guides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "astrogenius_wellness_guides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_wellness_guides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      astrogenius_yearly_forecasts: {
+        Row: {
+          analysis: Json | null
+          birth_city: string | null
+          birth_date: string | null
+          birth_time: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_unlocked: boolean | null
+          name: string | null
+          natal_positions: Json | null
+          target_year: number | null
+          transits: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          analysis?: Json | null
+          birth_city?: string | null
+          birth_date?: string | null
+          birth_time?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name?: string | null
+          natal_positions?: Json | null
+          target_year?: number | null
+          transits?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json | null
+          birth_city?: string | null
+          birth_date?: string | null
+          birth_time?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name?: string | null
+          natal_positions?: Json | null
+          target_year?: number | null
+          transits?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astrogenius_yearly_forecasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_yearly_forecasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_yearly_forecasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "astrogenius_yearly_forecasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astrogenius_yearly_forecasts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banner_images: {
         Row: {
           alt_text: string | null
@@ -18239,6 +18817,66 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ig_comment_triggers: {
+        Row: {
+          click_count: number
+          created_at: string | null
+          dm_sent_count: number
+          id: string
+          is_active: boolean
+          match_count: number
+          post_id: string
+          project_id: string
+          reply_comment_template: string | null
+          send_dm_template: string
+          trigger_keyword: string
+          updated_at: string | null
+        }
+        Insert: {
+          click_count?: number
+          created_at?: string | null
+          dm_sent_count?: number
+          id?: string
+          is_active?: boolean
+          match_count?: number
+          post_id?: string
+          project_id: string
+          reply_comment_template?: string | null
+          send_dm_template: string
+          trigger_keyword: string
+          updated_at?: string | null
+        }
+        Update: {
+          click_count?: number
+          created_at?: string | null
+          dm_sent_count?: number
+          id?: string
+          is_active?: boolean
+          match_count?: number
+          post_id?: string
+          project_id?: string
+          reply_comment_template?: string | null
+          send_dm_template?: string
+          trigger_keyword?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_comment_triggers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ig_comment_triggers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_ig_comments: {
         Row: {
           account_id: string
@@ -18296,6 +18934,8 @@ export type Database = {
         Row: {
           account_id: string
           created_at: string
+          follow_up_sent_at: string | null
+          follow_up_status: string | null
           id: string
           ig_thread_id: string | null
           last_message: string | null
@@ -18311,6 +18951,8 @@ export type Database = {
         Insert: {
           account_id: string
           created_at?: string
+          follow_up_sent_at?: string | null
+          follow_up_status?: string | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -18326,6 +18968,8 @@ export type Database = {
         Update: {
           account_id?: string
           created_at?: string
+          follow_up_sent_at?: string | null
+          follow_up_status?: string | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -21357,19 +22001,23 @@ export type Database = {
           business_hours_only: boolean | null
           business_hours_start: string | null
           context_sources: string[] | null
+          cooldown_seconds: number | null
           created_at: string | null
           custom_instructions: string | null
+          debounce_seconds: number | null
           draft_mode: boolean
           enabled: boolean | null
           escalation_keywords: string[] | null
           expert_persona: string | null
           faq: Json
           id: string
+          ignored_phones: string[] | null
           learning_mode: boolean
           max_tokens: number | null
           personality: string | null
           product_focus: string | null
           project_id: string
+          provider_id: string | null
           response_delay_seconds: number | null
           tone: string | null
           updated_at: string | null
@@ -21384,19 +22032,23 @@ export type Database = {
           business_hours_only?: boolean | null
           business_hours_start?: string | null
           context_sources?: string[] | null
+          cooldown_seconds?: number | null
           created_at?: string | null
           custom_instructions?: string | null
+          debounce_seconds?: number | null
           draft_mode?: boolean
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
           id?: string
+          ignored_phones?: string[] | null
           learning_mode?: boolean
           max_tokens?: number | null
           personality?: string | null
           product_focus?: string | null
           project_id: string
+          provider_id?: string | null
           response_delay_seconds?: number | null
           tone?: string | null
           updated_at?: string | null
@@ -21411,35 +22063,48 @@ export type Database = {
           business_hours_only?: boolean | null
           business_hours_start?: string | null
           context_sources?: string[] | null
+          cooldown_seconds?: number | null
           created_at?: string | null
           custom_instructions?: string | null
+          debounce_seconds?: number | null
           draft_mode?: boolean
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
           id?: string
+          ignored_phones?: string[] | null
           learning_mode?: boolean
           max_tokens?: number | null
           personality?: string | null
           product_focus?: string | null
           project_id?: string
+          provider_id?: string | null
           response_delay_seconds?: number | null
           tone?: string | null
           updated_at?: string | null
           welcome_message?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_ai_config_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_wa_ai_drafts: {
         Row: {
-          conversation_id: string
+          conversation_id: string | null
           created_at: string
           diff_ratio: number | null
           final_text: string | null
           id: string
           incoming_message_id: string | null
           incoming_text: string | null
+          metadata: Json | null
           model: string | null
           project_id: string
           provider: string | null
@@ -21448,13 +22113,14 @@ export type Database = {
           suggested_text: string
         }
         Insert: {
-          conversation_id: string
+          conversation_id?: string | null
           created_at?: string
           diff_ratio?: number | null
           final_text?: string | null
           id?: string
           incoming_message_id?: string | null
           incoming_text?: string | null
+          metadata?: Json | null
           model?: string | null
           project_id: string
           provider?: string | null
@@ -21463,13 +22129,14 @@ export type Database = {
           suggested_text: string
         }
         Update: {
-          conversation_id?: string
+          conversation_id?: string | null
           created_at?: string
           diff_ratio?: number | null
           final_text?: string | null
           id?: string
           incoming_message_id?: string | null
           incoming_text?: string | null
+          metadata?: Json | null
           model?: string | null
           project_id?: string
           provider?: string | null
@@ -22305,6 +22972,7 @@ export type Database = {
       imphq_wa_providers: {
         Row: {
           access_token: string | null
+          ai_enabled: boolean
           api_key: string | null
           api_url: string | null
           created_at: string | null
@@ -22324,6 +22992,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          ai_enabled?: boolean
           api_key?: string | null
           api_url?: string | null
           created_at?: string | null
@@ -22343,6 +23012,7 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          ai_enabled?: boolean
           api_key?: string | null
           api_url?: string | null
           created_at?: string | null
@@ -27980,6 +28650,78 @@ export type Database = {
           },
           {
             foreignKeyName: "nutrition_habits_summary_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          amount: number
+          created_at: string
+          email: string
+          id: string
+          map_id: string | null
+          payment_platform: string
+          product_name: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          email: string
+          id?: string
+          map_id?: string | null
+          payment_platform: string
+          product_name: string
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          email?: string
+          id?: string
+          map_id?: string | null
+          payment_platform?: string
+          product_name?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
@@ -35253,7 +35995,9 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           email: string | null
+          full_name: string | null
           id: string
+          is_subscribed: boolean | null
           updated_at: string | null
           username: string | null
         }
@@ -35261,7 +36005,9 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           email?: string | null
+          full_name?: string | null
           id: string
+          is_subscribed?: boolean | null
           updated_at?: string | null
           username?: string | null
         }
@@ -35269,7 +36015,9 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           email?: string | null
+          full_name?: string | null
           id?: string
+          is_subscribed?: boolean | null
           updated_at?: string | null
           username?: string | null
         }
@@ -39021,6 +39769,29 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_v_ai_drafts: {
+        Row: {
+          contact_identifier: string | null
+          contact_name: string | null
+          contact_username: string | null
+          conversation_id: string | null
+          created_at: string | null
+          diff_ratio: number | null
+          final_text: string | null
+          id: string | null
+          incoming_message_id: string | null
+          incoming_text: string | null
+          metadata: Json | null
+          model: string | null
+          project_id: string | null
+          project_name: string | null
+          provider: string | null
+          resolved_at: string | null
+          status: string | null
+          suggested_text: string | null
+        }
+        Relationships: []
+      }
       nutrition_progress_metrics: {
         Row: {
           adherence_rate: number | null
@@ -39447,6 +40218,14 @@ export type Database = {
       }
       increment_distributor_click: {
         Args: { _dist_id: string }
+        Returns: undefined
+      }
+      increment_trigger_dms: {
+        Args: { trigger_id: string }
+        Returns: undefined
+      }
+      increment_trigger_matches: {
+        Args: { trigger_id: string }
         Returns: undefined
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
