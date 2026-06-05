@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -358,8 +358,8 @@ serve(async (req) => {
               lead_id: leadRow?.id || null,
               projeto_id: projectId,
             },
-          }).catch((e: any) => console.warn("[webhook] triagem invoke error:", e?.message));
-        } catch (tErr: any) {
+          }).catch((e) => console.warn("[webhook] triagem invoke error:", e?.message));
+        } catch (tErr) {
           console.warn("[webhook] triagem skip:", tErr?.message);
         }
 
@@ -452,7 +452,7 @@ serve(async (req) => {
             }
           }
         }
-      } catch (cmdErr: any) {
+      } catch (cmdErr) {
         console.warn("[webhook] Command auto-reply error:", cmdErr.message);
       }
       // AI autoresponder: delega para wa-ai-reply (funcao dedicada, fix lock bug)
@@ -467,13 +467,12 @@ serve(async (req) => {
               message: content,
               push_name: pushName,
             },
-          }).catch((e: any) => console.warn("[webhook] wa-ai-reply invoke error:", e?.message));
+          }).catch((e) => console.warn("[webhook] wa-ai-reply invoke error:", e?.message));
           console.log("[webhook] wa-ai-reply invocado conv=" + conv.id);
         }
-      } catch (aiErr: any) {
+      } catch (aiErr) {
         console.error("[webhook] AI delegate error:", aiErr.message);
       }
-    }
     }
 
     // ── Helper: normalize phone (BR-friendly, mas preserva DDIs internacionais) ──
@@ -585,7 +584,7 @@ serve(async (req) => {
       let result;
       try {
         result = await attemptSend(provider);
-      } catch (sendErr: any) {
+      } catch (sendErr) {
         console.error("[send_message] provider error:", sendErr.message);
         const isConnectionClosed = isTransientConnError(sendErr.message || "");
 
@@ -611,7 +610,7 @@ serve(async (req) => {
                 usedFailover = true;
                 break;
               }
-            } catch (e: any) {
+            } catch (e) {
               console.warn(`[send_message] failover attempt failed on ${sib.instance_name}:`, e.message);
             }
           }
@@ -697,7 +696,7 @@ serve(async (req) => {
       if (sent_by === "human" && content && content.length > 15) {
         supabase.functions.invoke("wa-learn-from-human", {
           body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: project_id || provider.project_id },
-        }).catch((e: any) => console.warn("[send_message] learn invoke skip:", e?.message));
+        }).catch((e) => console.warn("[send_message] learn invoke skip:", e?.message));
       }
 
       return new Response(JSON.stringify({
@@ -824,7 +823,7 @@ serve(async (req) => {
           if (delayTime > 0) {
             await new Promise((r) => setTimeout(r, delayTime));
           }
-        } catch (err: any) {
+        } catch (err) {
           results.push({ phone: contact.phone, status: "error", error: err.message });
         }
       }
@@ -1174,7 +1173,7 @@ serve(async (req) => {
           }
         }
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (e: any) {
+      } catch (e) {
         console.error("[meta_cloud] webhook error:", e.message);
         return new Response(JSON.stringify({ success: false, error: e.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -1326,7 +1325,7 @@ serve(async (req) => {
                   console.warn("[webhook] Failed to fetch media base64:", mediaRes.status);
                 }
               }
-            } catch (mediaErr: any) {
+            } catch (mediaErr) {
               console.warn("[webhook] Media download error:", mediaErr.message);
             }
           }
@@ -1509,7 +1508,7 @@ serve(async (req) => {
                       .eq("group_jid", groupJid)
                       .eq("message_sent", false);
                     console.log(`[webhook] Exit DM sent to ${exitPhone} from campaign ${ec.id}`);
-                  } catch (dmErr: any) {
+                  } catch (dmErr) {
                     console.warn(`[webhook] Exit DM error: ${dmErr.message}`);
                   }
                 }
@@ -1733,7 +1732,7 @@ serve(async (req) => {
           else if (Array.isArray(data?.messages)) msgs = data.messages;
           else if (Array.isArray(data?.messages?.records)) msgs = data.messages.records;
           else msgs = [];
-        } catch (e: any) {
+        } catch (e) {
           console.warn(`[sync_messages] fetch page ${page} error:`, e?.message);
           break;
         }
@@ -1837,7 +1836,7 @@ serve(async (req) => {
             } else {
               imported++;
             }
-          } catch (mErr: any) {
+          } catch (mErr) {
             console.warn("[sync_messages] msg error:", mErr?.message);
             skipped++;
           }
@@ -1944,7 +1943,7 @@ serve(async (req) => {
             const errBody = await ttsRes.text();
             console.warn(`[send_voice_synthesis] ElevenLabs API respondeu com erro ${ttsRes.status}:`, errBody);
           }
-        } catch (err: any) {
+        } catch (err) {
           console.error("[send_voice_synthesis] ElevenLabs integration crashed:", err.message);
         }
       } else {
@@ -1966,7 +1965,7 @@ serve(async (req) => {
             body: JSON.stringify({ number: phone + "@s.whatsapp.net", presence: "recording" }),
           });
           await new Promise(r => setTimeout(r, 4500)); // wait recording delay
-        } catch (e: any) {
+        } catch (e) {
           console.warn("[send_voice_synthesis] Falha ao enviar presença:", e.message);
         }
 
@@ -2229,7 +2228,7 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
         return new Response(JSON.stringify({ success: true, ...parsedSimulation }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch (parseErr: any) {
+      } catch (parseErr) {
         return new Response(JSON.stringify({ success: false, error: `Falha ao interpretar JSON da IA: ${parseErr.message}` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -2240,7 +2239,7 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("whatsapp-api error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
