@@ -13,7 +13,7 @@ import {
   Instagram, MessageSquare, Settings2, Trash2, Eye, EyeOff, Mail,
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
   Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot,
-  Workflow, Zap, ArrowRight, Check, Play, Square, Info
+  Workflow, Zap, ArrowRight, Check, Play, Square, Info, ExternalLink
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -522,6 +522,30 @@ export default function InstagramPage() {
     );
   }
 
+  // Open Instagram post URL
+  async function handleOpenMedia(mediaId: string) {
+    if (!selectedProjectId || !mediaId) return;
+    
+    toast.promise(
+      async () => {
+        const { data, error } = await supabase.functions.invoke("instagram-api", {
+          body: { action: "get_media", project_id: selectedProjectId, media_id: mediaId },
+        });
+        if (error || data?.error) throw new Error(data?.error || error?.message);
+        if (data?.media?.permalink) {
+          window.open(data.media.permalink, "_blank");
+        } else {
+          throw new Error("Link do post não encontrado");
+        }
+      },
+      {
+        loading: "Buscando link do post...",
+        success: "Abrindo post no Instagram!",
+        error: (err) => err.message || "Erro ao buscar link do post"
+      }
+    );
+  }
+
   // Private DM Reply from Comment
   async function handlePrivateReply(comment: IgComment) {
     const text = privateReplyInputs[comment.comment_id]?.trim();
@@ -948,6 +972,18 @@ export default function InstagramPage() {
 
                             {/* Ações Rápidas de Ocultar/Deletar */}
                             <div className="flex items-center gap-1">
+                              {comment.media_id && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                  onClick={() => handleOpenMedia(comment.media_id)}
+                                  title="Ver Post no Instagram"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+
                               <Button
                                 variant="ghost"
                                 size="icon"

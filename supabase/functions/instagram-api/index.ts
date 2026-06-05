@@ -246,6 +246,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ============ GET_MEDIA (info do post) ============
+    if (action === "get_media") {
+      const project_id = url.searchParams.get("project_id") || body.project_id;
+      const media_id = url.searchParams.get("media_id") || body.media_id;
+      if (!project_id || !media_id) return json({ error: "Faltam campos" }, 400);
+      const creds = await getCreds(supa, project_id);
+      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
+      const r = await fetch(`${GRAPH}/${media_id}?fields=permalink,shortcode,caption&access_token=${creds.page_access_token}`);
+      const data = await r.json();
+      if (data.error) return json({ error: data.error.message }, 400);
+      return json({ success: true, media: data });
+    }
+
     return json({ error: "Action desconhecida" }, 400);
   } catch (err: any) {
     console.error("instagram-api error:", err);
