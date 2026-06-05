@@ -2029,7 +2029,7 @@ Deno.serve(async (req) => {
     // ── ACTION: simulate_ai_reply ──
     if (action === "simulate_ai_reply") {
       const body = await req.json();
-      const { project_id, message: leadMessage, history = [] } = body;
+      const { project_id, provider_id, message: leadMessage, history = [] } = body;
       
       if (!project_id || !leadMessage) {
         return new Response(JSON.stringify({ success: false, error: "project_id e message são obrigatórios" }), {
@@ -2038,12 +2038,24 @@ Deno.serve(async (req) => {
         });
       }
 
-      // 1. Fetch AI Config
-      const { data: aiConfig } = await supabase
-        .from("imphq_wa_ai_config")
-        .select("*")
-        .eq("project_id", project_id)
-        .maybeSingle();
+      // 1. Fetch AI Config (first by provider_id, then project_id fallback)
+      let aiConfig = null;
+      if (provider_id) {
+        const { data } = await supabase
+          .from("imphq_wa_ai_config")
+          .select("*")
+          .eq("provider_id", provider_id)
+          .maybeSingle();
+        aiConfig = data;
+      }
+      if (!aiConfig) {
+        const { data } = await supabase
+          .from("imphq_wa_ai_config")
+          .select("*")
+          .eq("project_id", project_id)
+          .maybeSingle();
+        aiConfig = data;
+      }
 
       // 2. Fetch Project Info for context
       const { data: project } = await supabase

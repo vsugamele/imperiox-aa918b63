@@ -68,13 +68,14 @@ export default function WhatsApp() {
   const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai" | "triagem" | "objecoes">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
+  const [selectedAiProviderId, setSelectedAiProviderId] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
     const [sRes, pRes, provRes, tRes] = await Promise.all([
       supabase.from("imphq_wa_conversations").select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at").eq("is_active", true).order("created_at"),
+      supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at, ai_enabled").eq("is_active", true).order("created_at"),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id, created_at").order("created_at", { ascending: false }),
     ]);
     setSessions(sRes.data as any[] || []);
@@ -474,11 +475,42 @@ export default function WhatsApp() {
 
         {activeTab === "ai" && (
           <ScrollArea className="h-full">
-            <div className="p-4 max-w-2xl">
-              {filterProject && filterProject !== "all" ? (
-                <WhatsAppAIConfig projectId={filterProject} />
+            <div className="p-4 max-w-2xl space-y-4">
+              <div className="flex flex-col gap-1.5 p-4 bg-card rounded-lg border border-border/40">
+                <Label className="text-xs font-semibold text-muted-foreground">Selecione o Chip / Sessão do WhatsApp:</Label>
+                <Select
+                  value={selectedAiProviderId || (providers[0]?.id || "none")}
+                  onValueChange={(v) => setSelectedAiProviderId(v)}
+                >
+                  <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
+                    <SelectValue placeholder="Selecione um número" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.display_name || p.instance_name} ({p.provider === "evolution" ? "Evolution" : "Meta Oficial"})
+                      </SelectItem>
+                    ))}
+                    {providers.length === 0 && (
+                      <SelectItem value="none" disabled>Nenhum chip conectado</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedAiProviderId && selectedAiProviderId !== "none" ? (
+                (() => {
+                  const prov = providers.find(p => p.id === selectedAiProviderId);
+                  return prov ? (
+                    <WhatsAppAIConfig key={prov.id} projectId={prov.project_id} providerId={prov.id} />
+                  ) : null;
+                })()
+              ) : providers[0] ? (
+                <WhatsAppAIConfig key={providers[0].id} projectId={providers[0].project_id} providerId={providers[0].id} />
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">Selecione um projeto no filtro acima para configurar a IA Autônoma.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Nenhum WhatsApp conectado. Conecte um provider para configurar a IA.
+                </p>
               )}
             </div>
           </ScrollArea>
@@ -788,6 +820,9 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
               <Badge variant="outline" className={`text-[9px] ${isConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
                 {loading ? "..." : isConnected ? "Conectado" : "Desconectado"}
               </Badge>
+              <Badge variant="outline" className={`text-[9px] ${provider.ai_enabled !== false ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30" : "bg-muted text-muted-foreground border-border"}`}>
+                🤖 {provider.ai_enabled !== false ? "IA Ativa" : "IA Inativa"}
+              </Badge>
             </div>
             <p className="text-[10px] text-muted-foreground">{number ? formatNumber(number) : "—"} · Evolution</p>
           </div>
@@ -980,6 +1015,9 @@ function MetaCloudStatusCard({ provider, projectName, projects, onSynced, onEdit
               </Badge>
               <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                 Ativo
+              </Badge>
+              <Badge variant="outline" className={`text-[9px] ${provider.ai_enabled !== false ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30" : "bg-muted text-muted-foreground border-border"}`}>
+                🤖 {provider.ai_enabled !== false ? "IA Ativa" : "IA Inativa"}
               </Badge>
             </div>
             <p className="text-[10px] text-muted-foreground">

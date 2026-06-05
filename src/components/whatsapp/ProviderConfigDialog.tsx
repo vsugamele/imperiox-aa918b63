@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Eye, EyeOff, HelpCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import MetaCloudGuide from "./MetaCloudGuide";
 import EvolutionGuide from "./EvolutionGuide";
 
@@ -34,6 +35,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
     waba_id: "",
     access_token: "",
     webhook_verify_token: "",
+    ai_enabled: true,
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [showToken, setShowToken] = useState(false);
@@ -53,6 +55,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
         waba_id: editingProvider.waba_id || "",
         access_token: editingProvider.access_token || "",
         webhook_verify_token: editingProvider.webhook_verify_token || "",
+        ai_enabled: editingProvider.ai_enabled !== false,
       });
     } else if (open && !editingProvider) {
       setForm({
@@ -67,6 +70,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
         waba_id: "",
         access_token: "",
         webhook_verify_token: "",
+        ai_enabled: true,
       });
     }
   }, [open, editingProvider]);
@@ -95,6 +99,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
       waba_id: form.waba_id || null,
       access_token: form.access_token || null,
       webhook_verify_token: form.webhook_verify_token || null,
+      ai_enabled: form.ai_enabled,
     };
 
     if (editingProvider) {
@@ -180,6 +185,14 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
             {form.provider === "twilio" && (
               <div><Label>Número Twilio (com DDI)</Label><Input value={form.twilio_from} onChange={e => setForm({ ...form, twilio_from: e.target.value })} placeholder="+5511999999999" /></div>
             )}
+
+            <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border/30 my-2">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold">IA Autônoma ativa</Label>
+                <p className="text-[10px] text-muted-foreground leading-normal">Se desativado, a IA nunca responderá automaticamente a este chip.</p>
+              </div>
+              <Switch checked={form.ai_enabled} onCheckedChange={v => setForm({ ...form, ai_enabled: v })} />
+            </div>
           </div>
           <DialogFooter><Button onClick={save}>Salvar Provider</Button></DialogFooter>
         </DialogContent>

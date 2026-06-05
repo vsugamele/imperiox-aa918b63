@@ -18,6 +18,7 @@ interface FaqItem { pergunta: string; resposta: string; }
 interface AIConfig {
   id?: string;
   project_id: string;
+  provider_id?: string | null;
   enabled: boolean;
   personality: string;
   tone: string;
@@ -33,6 +34,7 @@ interface AIConfig {
   custom_instructions?: string;
   product_focus?: string;
   faq?: FaqItem[];
+  ignored_phones?: string[];
 }
 
 const PERSONALITIES = [
@@ -62,9 +64,10 @@ const CONTEXT_OPTIONS = [
 
 interface Props {
   projectId: string;
+  providerId?: string;
 }
 
-export default function WhatsAppAIConfig({ projectId }: Props) {
+export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [config, setConfig] = useState<AIConfig>({
     project_id: projectId,
     enabled: false,
@@ -87,6 +90,25 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
   const [testMessage, setTestMessage] = useState("");
   const [simulationResult, setSimulationResult] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [ignoredPhonesText, setIgnoredPhonesText] = useState("");
+  const [projectProducts, setProjectProducts] = useState<any[]>([]);
+
+  const isProductSelected = (productName: string) => {
+    if (!config.product_focus) return false;
+    return config.product_focus.toLowerCase().includes(productName.toLowerCase());
+  };
+
+  const handleToggleProduct = (product: any) => {
+    if (isProductSelected(product.nome)) {
+      const currentSelected = projectProducts.filter(p => p.nome !== product.nome && isProductSelected(p.nome));
+      const newFocus = currentSelected.map(p => `Produto: ${p.nome}${p.preco ? ` · Preço: ${p.preco}` : ""}${p.link ? ` · Link: ${p.link}` : ""}`).join(" | ");
+      setConfig(prev => ({ ...prev, product_focus: newFocus }));
+    } else {
+      const currentSelected = [...projectProducts.filter(p => isProductSelected(p.nome)), product];
+      const newFocus = currentSelected.map(p => `Produto: ${p.nome}${p.preco ? ` · Preço: ${p.preco}` : ""}${p.link ? ` · Link: ${p.link}` : ""}`).join(" | ");
+      setConfig(prev => ({ ...prev, product_focus: newFocus }));
+    }
+  };
 
   const handleSimulate = async () => {
     if (!testMessage.trim()) {
@@ -101,6 +123,7 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
         body: {
           action: "simulate_ai_reply",
           project_id: projectId,
+          provider_id: providerId || null,
           message: testMessage,
           history: [],
         }
@@ -130,18 +153,78 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
 
   useEffect(() => {
     loadConfig();
-  }, [projectId]);
+  }, [projectId, providerId]);
 
   const loadConfig = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const query = supabase
       .from("imphq_wa_ai_config")
       .select("*")
-      .eq("project_id", projectId)
-      .maybeSingle();
+      .eq("project_id", projectId);
+    
+    if (providerId) {
+      query.eq("provider_id", providerId);
+    } else {
+      query.is("provider_id", null);
+    }
+
+    const { data } = await query.maybeSingle();
     if (data) {
       setConfig(data as any);
       setKeywordsText((data.escalation_keywords || []).join(", "));
+      setIgnoredPhonesText((data.ignored_phones || []).join(", "));
+    } else {
+      setConfig({
+        project_id: projectId,
+        provider_id: providerId || null,
+        enabled: false,
+        personality: "assistente",
+        tone: "profissional",
+        max_tokens: 300,
+        escalation_keywords: ["humano", "atendente", "pessoa", "falar com alguém"],
+        welcome_message: "",
+        context_sources: ["briefing", "avatar", "produtos", "faq"],
+        response_delay_seconds: 3,
+        business_hours_only: false,
+        business_hours_start: "08:00",
+        business_hours_end: "20:00",
+      });
+      setKeywordsText("humano, atendente, pessoa, falar com alguém");
+      setIgnoredPhonesText("");
+    }
+
+    // Fetch project products
+    const { data: proj } = await supabase
+      .from("imphq_projects")
+      .select("name, data")
+      .eq("id", projectId)
+      .maybeSingle();
+
+    if (proj) {
+      const d: any = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
+      let list: any[] = [];
+      if (Array.isArray(d.produtos)) {
+        list = d.produtos.map((p: any) => ({
+          nome: p.nome || p.name || "",
+          preco: p.preco || p.price || "",
+          link: p.link_checkout || p.link || ""
+        })).filter((p: any) => p.nome);
+      }
+      
+      const mainProductName = d.produto_principal?.nome || d.produto_principal?.name || d.produto || d.produto_principal || "";
+      const mainProductPrice = d.produto_principal?.preco || d.produto_principal?.price || d.preco || "";
+      const mainProductLink = d.produto_principal?.link_checkout || d.produto_principal?.link || "";
+
+      if (mainProductName && typeof mainProductName === "string" && !list.some(p => p.nome.toLowerCase() === mainProductName.toLowerCase())) {
+        list.unshift({
+          nome: mainProductName,
+          preco: mainProductPrice,
+          link: mainProductLink
+        });
+      }
+      setProjectProducts(list);
+    } else {
+      setProjectProducts([]);
     }
     setLoading(false);
   };
@@ -149,7 +232,14 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
   const handleSave = async () => {
     setSaving(true);
     const keywords = keywordsText.split(",").map(k => k.trim()).filter(Boolean);
-    const payload: any = { ...config, escalation_keywords: keywords, updated_at: new Date().toISOString() };
+    const ignored = ignoredPhonesText.split(",").map(n => n.trim()).filter(Boolean);
+    const payload: any = { 
+      ...config, 
+      escalation_keywords: keywords, 
+      ignored_phones: ignored,
+      provider_id: providerId || null,
+      updated_at: new Date().toISOString() 
+    };
 
     const { error } = config.id
       ? await supabase.from("imphq_wa_ai_config").update(payload).eq("id", config.id)
@@ -508,6 +598,23 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
                 </div>
               </div>
 
+              <div className="space-y-2 pt-4 border-t border-border/20">
+                <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                  <Bot className="h-4 w-4 text-primary" /> Contatos Ignorados (Blacklist de Leads)
+                </Label>
+                <div className="p-3 bg-secondary/20 rounded border border-border/40 space-y-2.5">
+                  <Input
+                    value={ignoredPhonesText}
+                    onChange={e => setIgnoredPhonesText(e.target.value)}
+                    placeholder="ex: +5511999999999, 5511888888888"
+                    className="text-xs bg-background border-border/30 h-10"
+                  />
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Separe por vírgulas. A IA nunca responderá automaticamente a estes números de telefone (leads). Útil para o seu próprio número, parceiros ou clientes sob suporte manual.
+                  </p>
+                </div>
+              </div>
+
               <div className="bg-secondary/15 rounded-lg border border-border/30 p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
@@ -627,8 +734,45 @@ export default function WhatsAppAIConfig({ projectId }: Props) {
               </div>
 
               {/* Product and Focus details */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-muted-foreground">Produto / Oferta Principal em Foco</Label>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-muted-foreground">Produto / Oferta Principal em Foco</Label>
+                  <p className="text-[10px] text-muted-foreground">Clique para selecionar um ou mais produtos do projeto. A IA focará em convertê-los na conversa.</p>
+                </div>
+
+                {projectProducts.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-1">
+                    {projectProducts.map((prod, idx) => {
+                      const selected = isProductSelected(prod.nome);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleToggleProduct(prod)}
+                          className={`text-left p-3 rounded-lg border transition-all flex items-center justify-between ${
+                            selected
+                              ? "bg-primary/10 border-primary/40 text-primary"
+                              : "bg-secondary/20 border-border/40 hover:border-border/60 text-muted-foreground"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="text-xs font-semibold truncate text-foreground">{prod.nome}</p>
+                            {prod.preco && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">Preço: {prod.preco}</p>
+                            )}
+                            {prod.link && (
+                              <p className="text-[9px] text-muted-foreground truncate mt-0.5">{prod.link}</p>
+                            )}
+                          </div>
+                          <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"}`}>
+                            {selected && <CheckCircle className="h-3.5 w-3.5" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <Input
                   value={config.product_focus || ""}
                   onChange={e => setConfig(p => ({ ...p, product_focus: e.target.value }))}
