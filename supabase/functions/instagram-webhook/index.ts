@@ -93,6 +93,41 @@ Deno.serve(async (req) => {
           .select("id, participant_username, participant_name")
           .single();
 
+        // Fetch/Update user profile info if missing
+        if (conv && (!conv.participant_username || conv.participant_username === "null" || !conv.participant_name || conv.participant_name === "null")) {
+          (async () => {
+            try {
+              const { data: credsData } = await supa
+                .from("imphq_integration_credentials")
+                .select("credentials")
+                .eq("project_id", account.project_id)
+                .eq("provider", "instagram")
+                .maybeSingle();
+              const pageAccessToken = credsData?.credentials?.page_access_token;
+              if (pageAccessToken) {
+                const profileRes = await fetch(`https://graph.facebook.com/v21.0/${participantId}?fields=name,username,profile_pic&access_token=${pageAccessToken}`);
+                if (profileRes.ok) {
+                  const profile = await profileRes.json();
+                  const updateProfileData: any = {};
+                  if (profile.username) updateProfileData.participant_username = profile.username;
+                  if (profile.name) updateProfileData.participant_name = profile.name;
+                  if (profile.profile_pic) updateProfileData.participant_avatar = profile.profile_pic;
+                  
+                  if (Object.keys(updateProfileData).length > 0) {
+                    await supa.from("imphq_ig_conversations").update(updateProfileData).eq("id", conv.id);
+                    console.log(`[ig-webhook] Updated profile for participant ${participantId}`);
+                  }
+                } else {
+                  const errText = await profileRes.text();
+                  console.warn(`[ig-webhook] Failed to fetch profile for ${participantId}:`, errText);
+                }
+              }
+            } catch (profileErr: any) {
+              console.warn(`[ig-webhook] Profile fetch error:`, profileErr.message);
+            }
+          })();
+        }
+
         if (conv && messaging.message) {
           const content = messaging.message.text || null;
           await supa.from("imphq_ig_messages").insert({

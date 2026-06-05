@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
       if (!project_id || !recipient_id || !text) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
       if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
-      const r = await fetch(`${GRAPH}/${creds.ig_user_id}/messages`, {
+      const r = await fetch(`${GRAPH}/me/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
       const { project_id, comment_id, message } = body;
       const creds = await getCreds(supa, project_id);
       if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
-      const r = await fetch(`${GRAPH}/${creds.ig_user_id}/messages`, {
+      const r = await fetch(`${GRAPH}/me/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

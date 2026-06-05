@@ -765,11 +765,13 @@ export default function InstagramPage() {
                             {c.participant_avatar ? (
                               <img src={c.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
                             ) : (
-                              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(c.participant_username || "?")[0].toUpperCase()}</div>
+                              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(c.participant_username && c.participant_username !== "null" ? c.participant_username : c.participant_name || "L")[0].toUpperCase()}</div>
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
-                                <span className="font-semibold text-sm truncate block text-foreground">@{c.participant_username}</span>
+                                <span className="font-semibold text-sm truncate block text-foreground">
+                                  {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || `Lead (${c.participant_id.slice(-4)})`}
+                                </span>
                                 {c.last_message_at && (
                                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                     {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false, locale: ptBR })}
@@ -806,10 +808,12 @@ export default function InstagramPage() {
                           {selectedConv.participant_avatar ? (
                             <img src={selectedConv.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(selectedConv.participant_username || "?")[0].toUpperCase()}</div>
+                            <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(selectedConv.participant_username && selectedConv.participant_username !== "null" ? selectedConv.participant_username : selectedConv.participant_name || "L")[0].toUpperCase()}</div>
                           )}
                           <div>
-                            <span className="font-bold text-sm text-foreground block">@{selectedConv.participant_username}</span>
+                            <span className="font-bold text-sm text-foreground block">
+                              {selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`}
+                            </span>
                             <span className="text-xs text-muted-foreground">{selectedConv.participant_name || "Comunicação ativa"}</span>
                           </div>
                         </div>
@@ -852,7 +856,7 @@ export default function InstagramPage() {
                           value={composedMsg}
                           onChange={(e) => setComposedMsg(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && handleSendDM()}
-                          placeholder={`Responder @${selectedConv.participant_username} via Instagram...`}
+                          placeholder={`Responder a ${selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : (selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`)} via Instagram...`}
                           className="bg-secondary/40 border-border/60 focus-visible:ring-amber-500"
                         />
                         <Button
@@ -883,9 +887,11 @@ export default function InstagramPage() {
                           {selectedConv.participant_avatar ? (
                             <img src={selectedConv.participant_avatar} alt="" className="w-16 h-16 rounded-full border-2 border-amber-500/20 mb-2" />
                           ) : (
-                            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center font-bold text-lg mb-2">{(selectedConv.participant_username || "?")[0].toUpperCase()}</div>
+                            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center font-bold text-lg mb-2">{(selectedConv.participant_username && selectedConv.participant_username !== "null" ? selectedConv.participant_username : selectedConv.participant_name || "L")[0].toUpperCase()}</div>
                           )}
-                          <span className="font-bold text-sm">@{selectedConv.participant_username}</span>
+                          <span className="font-bold text-sm">
+                            {selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`}
+                          </span>
                           <span className="text-xs text-muted-foreground">{selectedConv.participant_name || "—"}</span>
                         </div>
 
