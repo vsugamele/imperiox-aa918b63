@@ -180,7 +180,7 @@ export default function InstagramPage() {
       .select("*")
       .eq("conversation_id", convId)
       .order("created_at", { ascending: true });
-    setMessages(data || []);
+    setMessages((data as any) || []);
     setLoadingMsgs(false);
   }, []);
 
@@ -556,7 +556,7 @@ export default function InstagramPage() {
     setTestLoading(true);
     setTestResult(null);
     try {
-      const OPENROUTER_API_KEY = Deno.env.get?.("OPENROUTER_API_KEY") || "use-env-secrets";
+      
       
       // Get embeddings from openflow-ai / or helper
       const { data: embData, error: embErr } = await supabase.functions.invoke("wa-doc-embedder", {
@@ -801,7 +801,7 @@ export default function InstagramPage() {
                         ) : (
                           <div className="space-y-4">
                             {messages.map((m) => {
-                              const isInbound = m.direction === "in" || m.direction === "incoming";
+                              const isInbound = m.direction === "in" || (m.direction as string) === "incoming";
                               return (
                                 <div key={m.id} className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
                                   <div className={`max-w-[70%] p-3 rounded-2xl shadow-sm text-sm leading-relaxed ${isInbound ? "bg-secondary text-foreground rounded-tl-none border border-border/40" : "bg-gradient-to-tr from-amber-600 to-amber-500 text-black font-medium rounded-tr-none"}`}>

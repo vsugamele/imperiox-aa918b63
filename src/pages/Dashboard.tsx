@@ -57,7 +57,7 @@ export default function Dashboard() {
   const [recoveryRisk, setRecoveryRisk] = useState(0);
 
   useEffect(() => {
-    const queries: Promise<any>[] = [
+    const queries: PromiseLike<any>[] = [
       supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => setAllProjects(data || [])),
       supabase.from("imphq_vendas").select("produto_nome").neq("produto_nome", "").not("produto_nome", "is", null).then(({ data }) => {
         const unique = [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();

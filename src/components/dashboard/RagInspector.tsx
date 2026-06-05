@@ -99,8 +99,8 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
       if (docErr) throw docErr;
       
-      const allDocs: DocItem[] = docData || [];
-      const trainedDocs = allDocs.filter(d => d.tags?.includes("ia_treinada"));
+      const allDocs: DocItem[] = (docData as any[]) || [];
+      const trainedDocs = allDocs.filter(d => Array.isArray(d.tags) && d.tags.includes("ia_treinada"));
       setDocs(trainedDocs);
 
       // 2. Count chunks in imphq_wa_knowledge by doc source tag
@@ -178,7 +178,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
       // Step 2: Query RPC function for cosine similarity matching
       const { data: matchData, error: matchErr } = await supabase.rpc("match_wa_knowledge", {
-        query_embedding: embedding,
+        query_embedding: embedding as any,
         p_project_id: projectId,
         match_count: matchCount,
         min_similarity: minSimilarity

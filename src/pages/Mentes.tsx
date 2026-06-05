@@ -12,7 +12,7 @@ import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import {
   Brain, Send, X, ChevronRight, Zap, Target, BarChart3,
   MessageSquare, Dna, Lightbulb, BookOpen, ArrowLeft, Wrench,
-  Users, FileText, Download, Copy, ChevronDown, Sparkles, AlertCircle, RefreshCw
+  Users, FileText, Download, Copy, ChevronDown, Sparkles, AlertCircle, RefreshCw, Layers
 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
