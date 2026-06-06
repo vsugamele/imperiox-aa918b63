@@ -18933,6 +18933,8 @@ export type Database = {
       imphq_ig_conversations: {
         Row: {
           account_id: string
+          ai_paused: boolean | null
+          ai_paused_reason: string | null
           created_at: string
           follow_up_sent_at: string | null
           follow_up_status: string | null
@@ -18950,6 +18952,8 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          ai_paused?: boolean | null
+          ai_paused_reason?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
@@ -18967,6 +18971,8 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          ai_paused?: boolean | null
+          ai_paused_reason?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
@@ -18994,10 +19000,13 @@ export type Database = {
       }
       imphq_ig_messages: {
         Row: {
+          ai_generated: boolean | null
           content: string | null
           conversation_id: string
           created_at: string
           direction: string
+          feedback: string | null
+          feedback_correction: string | null
           id: string
           media_url: string | null
           metadata: Json | null
@@ -19006,10 +19015,13 @@ export type Database = {
           type: string
         }
         Insert: {
+          ai_generated?: boolean | null
           content?: string | null
           conversation_id: string
           created_at?: string
           direction: string
+          feedback?: string | null
+          feedback_correction?: string | null
           id?: string
           media_url?: string | null
           metadata?: Json | null
@@ -19018,10 +19030,13 @@ export type Database = {
           type?: string
         }
         Update: {
+          ai_generated?: boolean | null
           content?: string | null
           conversation_id?: string
           created_at?: string
           direction?: string
+          feedback?: string | null
+          feedback_correction?: string | null
           id?: string
           media_url?: string | null
           metadata?: Json | null
@@ -19036,6 +19051,111 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_ig_conversations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_sequence_enrollments: {
+        Row: {
+          completed: boolean | null
+          conversation_id: string
+          created_at: string | null
+          current_step: number | null
+          id: string
+          next_send_at: string | null
+          paused: boolean | null
+          project_id: string
+          sequence_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          conversation_id: string
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          next_send_at?: string | null
+          paused?: boolean | null
+          project_id: string
+          sequence_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          conversation_id?: string
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          next_send_at?: string | null
+          paused?: boolean | null
+          project_id?: string
+          sequence_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_sequence_enrollments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ig_sequence_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_sequences: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          id: string
+          name: string
+          project_id: string
+          steps: Json
+          trigger_delay_hours: number | null
+          trigger_event: string
+          trigger_stage: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          name: string
+          project_id: string
+          steps?: Json
+          trigger_delay_hours?: number | null
+          trigger_event?: string
+          trigger_stage?: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          steps?: Json
+          trigger_delay_hours?: number | null
+          trigger_event?: string
+          trigger_stage?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_sequences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ig_sequences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -22012,6 +22132,10 @@ export type Database = {
           faq: Json
           id: string
           ignored_phones: string[] | null
+          instagram_comments_behavior: string | null
+          instagram_comments_custom_dm: string | null
+          instagram_comments_enabled: boolean | null
+          instagram_enabled: boolean | null
           learning_mode: boolean
           max_tokens: number | null
           personality: string | null
@@ -22020,6 +22144,8 @@ export type Database = {
           provider_id: string | null
           response_delay_seconds: number | null
           tone: string | null
+          triage_prompt: string | null
+          triage_stages: Json | null
           updated_at: string | null
           welcome_message: string | null
         }
@@ -22043,6 +22169,10 @@ export type Database = {
           faq?: Json
           id?: string
           ignored_phones?: string[] | null
+          instagram_comments_behavior?: string | null
+          instagram_comments_custom_dm?: string | null
+          instagram_comments_enabled?: boolean | null
+          instagram_enabled?: boolean | null
           learning_mode?: boolean
           max_tokens?: number | null
           personality?: string | null
@@ -22051,6 +22181,8 @@ export type Database = {
           provider_id?: string | null
           response_delay_seconds?: number | null
           tone?: string | null
+          triage_prompt?: string | null
+          triage_stages?: Json | null
           updated_at?: string | null
           welcome_message?: string | null
         }
@@ -22074,6 +22206,10 @@ export type Database = {
           faq?: Json
           id?: string
           ignored_phones?: string[] | null
+          instagram_comments_behavior?: string | null
+          instagram_comments_custom_dm?: string | null
+          instagram_comments_enabled?: boolean | null
+          instagram_enabled?: boolean | null
           learning_mode?: boolean
           max_tokens?: number | null
           personality?: string | null
@@ -22082,6 +22218,8 @@ export type Database = {
           provider_id?: string | null
           response_delay_seconds?: number | null
           tone?: string | null
+          triage_prompt?: string | null
+          triage_stages?: Json | null
           updated_at?: string | null
           welcome_message?: string | null
         }
