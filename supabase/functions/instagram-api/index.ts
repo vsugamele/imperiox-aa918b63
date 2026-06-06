@@ -225,28 +225,25 @@ Deno.serve(async (req) => {
           .eq("participant_id", recipient_id)
           .maybeSingle();
 
-        if (conv?.ig_thread_id) {
-          console.log(`[instagram-api] Sending text via Zernio. Conv: ${conv.ig_thread_id}`);
-          const zRes = await fetch(`https://zernio.com/api/v1/inbox/conversations/${conv.ig_thread_id}/messages`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${creds.zernio_api_key}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              accountId: creds.zernio_account_id,
-              message: text,
-            }),
-          });
-          if (!zRes.ok) {
-            const errBody = await zRes.text();
-            return json({ error: `Zernio send error (${zRes.status}): ${errBody}` }, 400);
-          }
-          const zData = await zRes.json();
-          messageId = zData.messageId || zData.id || "zernio-" + Date.now();
-        } else {
-          return json({ error: "ID de conversa (thread ID) do Zernio não encontrado. A conversa deve ser iniciada pelo cliente no Instagram." }, 400);
+        const threadId = conv?.ig_thread_id || recipient_id;
+        console.log(`[instagram-api] Sending text via Zernio. Conv: ${threadId}`);
+        const zRes = await fetch(`https://zernio.com/api/v1/inbox/conversations/${threadId}/messages`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${creds.zernio_api_key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            accountId: creds.zernio_account_id,
+            message: text,
+          }),
+        });
+        if (!zRes.ok) {
+          const errBody = await zRes.text();
+          return json({ error: `Zernio send error (${zRes.status}): ${errBody}` }, 400);
         }
+        const zData = await zRes.json();
+        messageId = zData.messageId || zData.id || "zernio-" + Date.now();
       } else {
         if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
         if (creds?.n8n_webhook_url) {
@@ -366,13 +363,15 @@ Deno.serve(async (req) => {
 
         const { data: conv } = await supa
           .from("imphq_ig_conversations")
-          .select("id, ig_thread_id")
+          .select("id, ig_thread_id, participant_id")
           .eq("participant_username", commentData?.username)
           .maybeSingle();
 
-        if (conv?.ig_thread_id) {
-          console.log(`[instagram-api] Sending private reply via Zernio. Conv: ${conv.ig_thread_id}`);
-          const zRes = await fetch(`https://zernio.com/api/v1/inbox/conversations/${conv.ig_thread_id}/messages`, {
+        const threadId = conv?.ig_thread_id || conv?.participant_id;
+
+        if (threadId) {
+          console.log(`[instagram-api] Sending private reply via Zernio. Conv: ${threadId}`);
+          const zRes = await fetch(`https://zernio.com/api/v1/inbox/conversations/${threadId}/messages`, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${creds.zernio_api_key}`,
