@@ -41,90 +41,113 @@ Deno.serve(async (req) => {
     const conversation = data.conversation;
     const account = data.account;
 
-    // Campos extraídos de forma altamente flexível e robusta
-    const messageId = message?.id || message?.messageId || data.messageId;
+    // Extração robusta — cobre múltiplas estruturas de payload do Zernio
+    const messageId      = message?.id || message?.messageId || data.messageId;
     const conversationId = conversation?.id || conversation?.conversationId || data.conversationId;
-    const text = message?.text || message?.content || message?.body || data.text || "";
-    const senderId = message?.sender?.id || message?.sender?.contactId || data.contactId || data.senderId;
-    const senderUsername = message?.sender?.username || message?.sender?.instagramProfile?.username || message?.sender?.name || "cliente_instagram";
-    const senderName = message?.sender?.name || message?.sender?.instagramProfile?.displayName || senderUsername;
-    const senderAvatar = message?.sender?.avatar || message?.sender?.instagramProfile?.profilePicture || null;
-    
-    // igUserId é o ID da nossa própria conta comercial (obtido do account context do Zernio)
-    const igUserId = account?.platformUserId || data.accountId || data.igUserId || account?.instagramScopedId;
+    const text           = message?.text || message?.content || message?.body || data.text || "";
+
+    // sender pode estar em vários lugares dependendo da versão do Zernio
+    const sender       = message?.sender || data.sender || conversation?.participants?.find((p: any) => p.role === "customer" || p.type === "customer") || {};
+    const senderId     = sender.id || sender.contactId || sender.platformId || data.contactId || data.senderId;
+
+    // Nome e foto — cascata de fallbacks para pegar o máximo possível
+    const senderUsername = sender.username
+      || sender.instagramProfile?.username
+      || conversation?.participantUsername
+      || data.participantUsername
+      || null;
+
+    const senderName = sender.name
+      || sender.instagramProfile?.displayName
+      || conversation?.participantName
+      || data.participantName
+      || senderUsername
+      || "Lead Instagram";
+
+    const senderAvatar = sender.avatar
+      || sender.profilePicture
+      || sender.instagramProfile?.profilePicture
+      || conversation?.participantPicture
+      || data.participantPicture
+      || null;
+
+    // Instagram-specific extras (follower info etc)
+    const igProfile = sender.instagramProfile || {};
+    const isFollower   = igProfile.isFollower   ?? null;
+    const isFollowing  = igProfile.isFollowing  ?? null;
+    const followerCount= igProfile.followerCount ?? null;
+    const isVerified   = igProfile.isVerified   ?? null;
+
+    // igUserId = ID da nossa conta comercial Instagram
+    const igUserId = account?.platformUserId || account?.instagramScopedId || data.accountId || data.igUserId;
 
     if (!messageId || !conversationId || !senderId || !igUserId) {
-      console.error("[zernio-webhook] Campos obrigatórios ausentes no payload:", { messageId, conversationId, senderId, igUserId });
+      console.error("[zernio-webhook] Campos obrigatórios ausentes:", { messageId, conversationId, senderId, igUserId });
       return new Response("Invalid payload structure", { status: 400 });
     }
 
-    // Reconstrói o envelope no formato do Meta Webhook
+    // Reconstrói envelope no formato Meta para reaproveitarmos o instagram-webhook
     const metaEnvelope = {
       object: "instagram",
-      entry: [
-        {
-          id: igUserId,
-          messaging: [
-            {
-              sender: {
-                id: senderId,
-                username: senderUsername,
-                name: senderName,
-                avatar: senderAvatar
-              },
-              recipient: {
-                id: igUserId
-              },
-              timestamp: Date.now(),
-              message: {
-                mid: messageId,
-                text: text,
-                attachments: []
-              }
-            }
-          ]
-        }
-      ]
+      entry: [{
+        id: igUserId,
+        messaging: [{
+          sender: { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar },
+          recipient: { id: igUserId },
+          timestamp: Date.now(),
+          message: { mid: messageId, text, attachments: [] },
+        }],
+      }],
     };
 
-    console.log(`[zernio-webhook] Forwarding Meta envelope to instagram-webhook...`);
+    console.log(`[zernio-webhook] Forwarding to instagram-webhook (sender: ${senderId}, name: ${senderName})`);
     const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
     const forwardRes = await fetch(forwardUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": req.headers.get("Authorization") || "",
-      },
+      headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") || "" },
       body: JSON.stringify(metaEnvelope),
     });
 
     if (!forwardRes.ok) {
       const errText = await forwardRes.text();
-      console.error(`[zernio-webhook] Failed to forward to instagram-webhook: ${errText}`);
+      console.error(`[zernio-webhook] Falha ao encaminhar: ${errText}`);
       return new Response(`Error forwarding: ${errText}`, { status: 500 });
     }
 
-    console.log(`[zernio-webhook] Handled successfully by instagram-webhook.`);
-
-    // AGORA ATUALIZAMOS O CONVERSATION ID DO ZERNIO NO BANCO DE DADOS
-    // A função instagram-webhook cria/atualiza a conversa associada ao senderId (participant_id).
-    // Buscamos essa conversa e salvamos o conversationId do Zernio em ig_thread_id.
+    // Atualiza a conversa com o ig_thread_id do Zernio + enriquece perfil do lead
     const { data: conv } = await supa
       .from("imphq_ig_conversations")
-      .select("id, ig_thread_id")
+      .select("id, ig_thread_id, participant_username, participant_name")
       .eq("participant_id", senderId)
       .maybeSingle();
 
     if (conv) {
-      if (conv.ig_thread_id !== conversationId) {
-        await supa
-          .from("imphq_ig_conversations")
-          .update({ ig_thread_id: conversationId, updated_at: new Date().toISOString() })
-          .eq("id", conv.id);
-        console.log(`[zernio-webhook] Updated ig_thread_id to Zernio conversation ID: ${conversationId}`);
+      const updates: any = {};
+
+      // Sempre atualiza ig_thread_id se mudou
+      if (conv.ig_thread_id !== conversationId) updates.ig_thread_id = conversationId;
+
+      // Atualiza perfil apenas se veio dado melhor que o atual
+      if (senderName && senderName !== "Lead Instagram" && (!conv.participant_name || conv.participant_name.startsWith("Lead #"))) {
+        updates.participant_name = senderName;
+      }
+      if (senderUsername && (!conv.participant_username || conv.participant_username.startsWith("user_"))) {
+        updates.participant_username = senderUsername;
+      }
+      if (senderAvatar) updates.participant_avatar = senderAvatar;
+
+      // Salva dados do Instagram profile se disponíveis
+      if (isFollower !== null || followerCount !== null) {
+        updates.ig_profile_data = { isFollower, isFollowing, followerCount, isVerified, updatedAt: new Date().toISOString() };
+      }
+
+      if (Object.keys(updates).length > 0) {
+        updates.updated_at = new Date().toISOString();
+        await supa.from("imphq_ig_conversations").update(updates).eq("id", conv.id);
+        console.log(`[zernio-webhook] Perfil atualizado para ${senderId}:`, Object.keys(updates));
       }
     } else {
-      console.warn(`[zernio-webhook] Conversation not found for participant: ${senderId}`);
+      console.warn(`[zernio-webhook] Conversa nao encontrada para: ${senderId}`);
     }
 
     return new Response("OK", { status: 200, headers: { "Content-Type": "text/plain" } });
