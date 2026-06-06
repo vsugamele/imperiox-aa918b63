@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
   Instagram, CheckCircle2, XCircle, ExternalLink, Copy, RefreshCw,
-  Eye, EyeOff, AlertCircle, Loader2,
+  Eye, EyeOff, AlertCircle, Loader2, Bot, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -49,12 +51,23 @@ export function ProjetoInstagram({ projectId }: Props) {
   const [selectedZernioAccountId, setSelectedZernioAccountId] = useState("");
   const [fetchingZernioAccounts, setFetchingZernioAccounts] = useState(false);
 
+  // Form AI Config
+  const [aiConfig, setAiConfig] = useState<any>(null);
+  const [instagramEnabled, setInstagramEnabled] = useState(false);
+  const [instagramCommentsEnabled, setInstagramCommentsEnabled] = useState(false);
+  const [instagramCommentsBehavior, setInstagramCommentsBehavior] = useState("reply_and_dm");
+  const [instagramCommentsCustomDm, setInstagramCommentsCustomDm] = useState("");
+  const [savingAi, setSavingAi] = useState(false);
+  const [productFocus, setProductFocus] = useState("");
+
   async function load() {
     setLoading(true);
     const sb = supabase as any;
-    const [accRes, credRes] = await Promise.all([
+    const [accRes, credRes, configRes, projectRes] = await Promise.all([
       sb.from("imphq_ig_accounts").select("*").eq("project_id", projectId).maybeSingle(),
       sb.from("imphq_integration_credentials").select("credentials").eq("project_id", projectId).eq("provider", "instagram").maybeSingle(),
+      sb.from("imphq_wa_ai_config").select("*").eq("project_id", projectId).is("provider_id", null).maybeSingle(),
+      sb.from("imphq_projects").select("data").eq("id", projectId).maybeSingle(),
     ] as PromiseLike<any>[]);
     setAccount(accRes.data);
     const c = credRes.data?.credentials || {};
@@ -69,10 +82,69 @@ export function ProjetoInstagram({ projectId }: Props) {
     } else {
       setIntegrationMethod("meta");
     }
+
+    if (configRes.data) {
+      setAiConfig(configRes.data);
+      setInstagramEnabled(configRes.data.instagram_enabled || false);
+      setInstagramCommentsEnabled(configRes.data.instagram_comments_enabled || false);
+      setInstagramCommentsBehavior(configRes.data.instagram_comments_behavior || "reply_and_dm");
+      setInstagramCommentsCustomDm(configRes.data.instagram_comments_custom_dm || "");
+    } else {
+      setAiConfig(null);
+      setInstagramEnabled(false);
+      setInstagramCommentsEnabled(false);
+      setInstagramCommentsBehavior("reply_and_dm");
+      setInstagramCommentsCustomDm("");
+    }
+
+    if (projectRes.data) {
+      const d = typeof projectRes.data.data === "string" ? JSON.parse(projectRes.data.data) : (projectRes.data.data || {});
+      setProductFocus(d.produtos?.[0]?.oferta || d.briefing?.oferta || "");
+    }
+    
     setLoading(false);
   }
 
   useEffect(() => { load(); }, [projectId]);
+
+  async function saveAiConfig() {
+    setSavingAi(true);
+    try {
+      const sb = supabase as any;
+      const payload = {
+        instagram_enabled: instagramEnabled,
+        instagram_comments_enabled: instagramCommentsEnabled,
+        instagram_comments_behavior: instagramCommentsBehavior,
+        instagram_comments_custom_dm: instagramCommentsCustomDm || null,
+        updated_at: new Date().toISOString()
+      };
+      
+      let error;
+      if (aiConfig?.id) {
+        const res = await sb.from("imphq_wa_ai_config").update(payload).eq("id", aiConfig.id);
+        error = res.error;
+      } else {
+        const res = await sb.from("imphq_wa_ai_config").insert({
+          ...payload,
+          project_id: projectId,
+          enabled: false,
+          personality: "assistente",
+          tone: "profissional",
+          max_tokens: 300,
+          response_delay_seconds: 3,
+        });
+        error = res.error;
+      }
+      
+      if (error) throw error;
+      toast.success("Configurações de IA do Instagram salvas!");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao salvar configurações de IA");
+    } finally {
+      setSavingAi(false);
+    }
+  }
 
   async function saveToken() {
     if (!accessToken.trim()) { toast.error("Cole o Access Token primeiro"); return; }
@@ -570,6 +642,77 @@ export function ProjetoInstagram({ projectId }: Props) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ─── CONFIGURAÇÃO DE IA DO INSTAGRAM ─── */}
+      {account && (
+        <Card className="bg-card border-border mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider text-primary font-sans">
+              <Bot className="h-4 w-4 text-violet-500" /> Configuração de IA no Instagram
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between gap-4 p-4 bg-muted/20 border border-border/40 rounded-lg">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">IA para Mensagens Diretas (DMs)</Label>
+                <p className="text-xs text-muted-foreground">Responder automaticamente no Direct do Instagram usando a IA.</p>
+              </div>
+              <Switch checked={instagramEnabled} onCheckedChange={setInstagramEnabled} />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 p-4 bg-muted/20 border border-border/40 rounded-lg">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">IA para Comentários públicos</Label>
+                <p className="text-xs text-muted-foreground">Responder comentários públicos nas publicações de forma inteligente.</p>
+              </div>
+              <Switch checked={instagramCommentsEnabled} onCheckedChange={setInstagramCommentsEnabled} />
+            </div>
+
+            {instagramCommentsEnabled && (
+              <div className="space-y-4 pt-2 pl-4 border-l border-border/60">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Comportamento da IA para Comentários</Label>
+                  <Select value={instagramCommentsBehavior} onValueChange={setInstagramCommentsBehavior}>
+                    <SelectTrigger className="w-full md:max-w-md text-xs">
+                      <SelectValue placeholder="Selecione o comportamento..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="reply_and_dm">Responder comentário publicamente & Enviar Direct (DM)</SelectItem>
+                      <SelectItem value="reply_only">Apenas responder comentário publicamente</SelectItem>
+                      <SelectItem value="dm_only">Apenas enviar Direct (DM) privadamente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {instagramCommentsBehavior !== "reply_only" && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Mensagem de Direct (DM) enviada a partir de comentários</Label>
+                    <Textarea
+                      value={instagramCommentsCustomDm}
+                      onChange={(e) => setInstagramCommentsCustomDm(e.target.value)}
+                      placeholder={
+                        productFocus
+                          ? `Mensagem padrão da oferta será enviada:\n\n${productFocus}`
+                          : "Olá! Vi que você comentou no nosso post. Como prometido, aqui estão as informações! Como posso te ajudar hoje?"
+                      }
+                      rows={4}
+                      className="text-xs font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Esta mensagem será enviada na DM do usuário quando ele interagir nos comentários. Deixe em branco para usar a oferta padrão do projeto.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button onClick={saveAiConfig} disabled={savingAi} className="w-full">
+              {savingAi && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Sparkles className="h-4 w-4 mr-2" /> Salvar Configurações de IA do Instagram
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

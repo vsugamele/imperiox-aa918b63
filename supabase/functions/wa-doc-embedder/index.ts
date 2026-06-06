@@ -29,6 +29,63 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ");
 }
 
+// Consistent embedding getter
+async function getEmbedding(text: string): Promise<number[]> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (LOVABLE_API_KEY) {
+    console.log(`[embeddings] Generating embedding via Lovable AI Gateway (google/gemini-embedding-001)...`);
+    try {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-embedding-001",
+          input: text.trim(),
+          dimensions: 768,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const emb = data?.data?.[0]?.embedding;
+        if (emb) return emb;
+      }
+      console.warn(`[embeddings] Lovable AI Gateway call failed: ${res.status}`);
+    } catch (e: any) {
+      console.warn(`[embeddings] Lovable AI Gateway error: ${e.message}`);
+    }
+  }
+
+  // Fallback to OpenRouter
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (OPENROUTER_API_KEY) {
+    console.log(`[embeddings] Generating embedding via OpenRouter (openai/text-embedding-3-small)...`);
+    const res = await fetch("https://openrouter.ai/api/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/text-embedding-3-small",
+        input: text.trim(),
+        dimensions: 768,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const emb = data?.data?.[0]?.embedding;
+      if (emb) return emb;
+    }
+    const errText = await res.text();
+    throw new Error(`OpenRouter Embedding failed: ${res.status} - ${errText}`);
+  }
+
+  throw new Error("No embedding provider available (both LOVABLE_API_KEY and OPENROUTER_API_KEY are missing or failed)");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -51,36 +108,8 @@ serve(async (req) => {
         });
       }
 
-      if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not configured in Supabase environment secrets");
-      }
-
       console.log(`[wa-doc-embedder] Generating query embedding for: "${text.substring(0, 50)}..."`);
-      
-      const embRes = await fetch("https://openrouter.ai/api/v1/embeddings", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "openai/text-embedding-3-small",
-          input: text.trim(),
-          dimensions: 768,
-        }),
-      });
-
-      if (!embRes.ok) {
-        const errText = await embRes.text();
-        throw new Error(`OpenRouter Embedding API failed: ${embRes.status} - ${errText}`);
-      }
-
-      const embData = await embRes.json();
-      const embedding = embData?.data?.[0]?.embedding;
-
-      if (!embedding) {
-        throw new Error("Failed to extract embedding vector from OpenRouter response");
-      }
+      const embedding = await getEmbedding(text);
 
       return new Response(JSON.stringify({ success: true, embedding }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -165,40 +194,13 @@ serve(async (req) => {
     const chunks = splitText(cleanText, 600, 100);
     console.log(`[wa-doc-embedder] Chunked document into ${chunks.length} parts.`);
 
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured in Supabase environment secrets");
-    }
-
     let inserted = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunkText = chunks[i].trim();
       if (!chunkText) continue;
 
-      // Call OpenRouter Embeddings API with text-embedding-3-small truncated to 768 dimensions
-      const embRes = await fetch("https://openrouter.ai/api/v1/embeddings", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "openai/text-embedding-3-small",
-          input: chunkText,
-          dimensions: 768,
-        }),
-      });
-
-      if (!embRes.ok) {
-        const errText = await embRes.text();
-        throw new Error(`OpenRouter Embedding API failed: ${embRes.status} - ${errText}`);
-      }
-
-      const embData = await embRes.json();
-      const embedding = embData?.data?.[0]?.embedding;
-
-      if (!embedding) {
-        throw new Error("Failed to extract embedding vector from OpenRouter response");
-      }
+      console.log(`[wa-doc-embedder] Embedding chunk ${i + 1}/${chunks.length}...`);
+      const embedding = await getEmbedding(chunkText);
 
       // Insert chunk into knowledge base
       const { error: insErr } = await supabase

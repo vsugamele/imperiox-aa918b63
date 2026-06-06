@@ -7,6 +7,57 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
+// Consistent embedding getter
+async function getEmbedding(text: string): Promise<number[]> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (LOVABLE_API_KEY) {
+    try {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-embedding-001",
+          input: text.trim(),
+          dimensions: 768,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const emb = data?.data?.[0]?.embedding;
+        if (emb) return emb;
+      }
+    } catch {}
+  }
+
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (OPENROUTER_API_KEY) {
+    const res = await fetch("https://openrouter.ai/api/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/text-embedding-3-small",
+        input: text.trim(),
+        dimensions: 768,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const emb = data?.data?.[0]?.embedding;
+      if (emb) return emb;
+    }
+    const errText = await res.text();
+    throw new Error(`OpenRouter Embedding failed: ${res.status} - ${errText}`);
+  }
+
+  throw new Error("No embedding provider available");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -149,16 +200,15 @@ Deno.serve(async (req) => {
                   const { data: configs, error: configErr } = await supa
                     .from("imphq_wa_ai_config")
                     .select("*")
-                    .eq("project_id", account.project_id)
-                    .eq("enabled", true);
+                    .eq("project_id", account.project_id);
                   if (configErr) {
                     console.error("[ig-webhook] Config query error:", configErr.message);
                   } else if (configs && configs.length > 0) {
                     aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
                   }
 
-                  if (!aiConfig) {
-                    console.log(`[ig-webhook] AI not enabled for project ${account.project_id}`);
+                  if (!aiConfig || !aiConfig.instagram_enabled) {
+                    console.log(`[ig-webhook] AI Instagram DMs not enabled for project ${account.project_id}`);
                     return;
                   }
 
@@ -274,27 +324,18 @@ Deno.serve(async (req) => {
                     }
                   }
 
-                  // RAG search in imphq_wa_knowledge (using OpenRouter openai/text-embedding-3-small)
+                  // RAG search in imphq_wa_knowledge (using consistent embedding helper)
                   let ragBlock = "";
-                  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
                   try {
-                    if (OPENROUTER_API_KEY && content.length > 8) {
-                      const embRes = await fetch("https://openrouter.ai/api/v1/embeddings", {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-                        body: JSON.stringify({ model: "openai/text-embedding-3-small", input: content, dimensions: 768 }),
-                      });
-                      if (embRes.ok) {
-                        const { data: ed } = await embRes.json();
-                        const qEmb = ed?.[0]?.embedding;
-                        if (qEmb) {
-                          const { data: matches } = await supa.rpc("match_wa_knowledge", {
-                            query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
-                          });
-                          if (matches && matches.length) {
-                            ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
-                              matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
-                          }
+                    if (content.length > 8) {
+                      const qEmb = await getEmbedding(content);
+                      if (qEmb) {
+                        const { data: matches } = await supa.rpc("match_wa_knowledge", {
+                          query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
+                        });
+                        if (matches && matches.length) {
+                          ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
+                            matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
                         }
                       }
                     }
@@ -580,16 +621,15 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   const { data: configs, error: configErr } = await supa
                     .from("imphq_wa_ai_config")
                     .select("*")
-                    .eq("project_id", account.project_id)
-                    .eq("enabled", true);
+                    .eq("project_id", account.project_id);
                   if (configErr) {
                     console.error("[ig-webhook] Config query error (comments):", configErr.message);
                   } else if (configs && configs.length > 0) {
                     aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
                   }
 
-                  if (!aiConfig) {
-                    console.log(`[ig-webhook] AI not enabled for project ${account.project_id}`);
+                  if (!aiConfig || !aiConfig.instagram_comments_enabled) {
+                    console.log(`[ig-webhook] AI Instagram Comments not enabled for project ${account.project_id}`);
                     return;
                   }
 
@@ -661,26 +701,18 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     }
                   }
 
-                  // RAG search in imphq_wa_knowledge (using OpenRouter openai/text-embedding-3-small)
+                  // RAG search in imphq_wa_knowledge (using consistent embedding helper)
                   let ragBlock = "";
                   try {
-                    if (OPENROUTER_API_KEY && commentText.length > 8) {
-                      const embRes = await fetch("https://openrouter.ai/api/v1/embeddings", {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-                        body: JSON.stringify({ model: "openai/text-embedding-3-small", input: commentText, dimensions: 768 }),
-                      });
-                      if (embRes.ok) {
-                        const { data: ed } = await embRes.json();
-                        const qEmb = ed?.[0]?.embedding;
-                        if (qEmb) {
-                          const { data: matches } = await supa.rpc("match_wa_knowledge", {
-                            query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
-                          });
-                          if (matches && matches.length) {
-                            ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
-                              matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
-                          }
+                    if (commentText.length > 8) {
+                      const qEmb = await getEmbedding(commentText);
+                      if (qEmb) {
+                        const { data: matches } = await supa.rpc("match_wa_knowledge", {
+                          query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
+                        });
+                        if (matches && matches.length) {
+                          ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
+                            matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
                         }
                       }
                     }
@@ -782,41 +814,63 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                           }).catch((e: any) => console.warn("[ig-webhook] push notify error:", e?.message));
                         }
                       } else {
-                        // Autoresponder active: reply public comment
+                        // Autoresponder active: reply public comment / DM based on behavior
                         const delay = (aiConfig.response_delay_seconds || 3) * 1000;
                         if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 10000)));
 
-                        const replyRes = await supa.functions.invoke("instagram-api", {
-                          body: {
-                            action: "reply_comment",
-                            project_id: account.project_id,
-                            comment_id: commentId,
-                            message: aiReply,
-                          },
-                        });
-                        const replyData = await replyRes.data;
-                        if (replyData?.success) {
-                          console.log(`[ig-webhook] AI comment reply sent successfully`);
+                        const behavior = aiConfig.instagram_comments_behavior || "reply_and_dm";
+                        const customDmText = aiConfig.instagram_comments_custom_dm || 
+                          (productFocus 
+                            ? `Olá! Vi que você comentou no nosso post. Aqui estão as informações sobre a nossa oferta:\n\n${productFocus}`
+                            : `Olá! Vi que você comentou no nosso post. Como prometido, aqui estão as informações! Como posso te ajudar hoje?`);
 
-                          // Premium: If the reply contains direct/chamei/enviei/inbox, send direct message
+                        let replySuccess = false;
+
+                        // 1. PUBLIC COMMENT REPLY
+                        if (behavior === "reply_and_dm" || behavior === "reply_only") {
+                          const replyRes = await supa.functions.invoke("instagram-api", {
+                            body: {
+                              action: "reply_comment",
+                              project_id: account.project_id,
+                              comment_id: commentId,
+                              message: aiReply,
+                            },
+                          });
+                          const replyData = await replyRes.data;
+                          if (replyData?.success) {
+                            console.log(`[ig-webhook] AI comment reply sent successfully`);
+                            replySuccess = true;
+                          } else {
+                            console.error(`[ig-webhook] Failed to reply to comment:`, replyData?.error);
+                          }
+                        }
+
+                        // 2. PRIVATE DM REPLY
+                        if (behavior === "dm_only") {
+                          // Unconditional private reply if behavior is dm_only
+                          await supa.functions.invoke("instagram-api", {
+                            body: {
+                              action: "private_reply",
+                              project_id: account.project_id,
+                              comment_id: commentId,
+                              message: customDmText,
+                            },
+                          });
+                          console.log(`[ig-webhook] Sent direct message only for comment`);
+                        } else if (behavior === "reply_and_dm" && replySuccess) {
+                          // Conditional private reply if reply has keywords and was successful
                           const replyLc = aiReply.toLowerCase();
                           if (replyLc.includes("direct") || replyLc.includes("chamei") || replyLc.includes("enviei") || replyLc.includes("inbox")) {
-                            const dmMessageText = productFocus 
-                              ? `Olá! Vi que você comentou no nosso post. Aqui estão as informações sobre a nossa oferta:\n\n${productFocus}`
-                              : `Olá! Vi que você comentou no nosso post. Como prometido, aqui estão as informações! Como posso te ajudar hoje?`;
-
                             await supa.functions.invoke("instagram-api", {
                               body: {
                                 action: "private_reply",
                                 project_id: account.project_id,
                                 comment_id: commentId,
-                                message: dmMessageText,
+                                message: customDmText,
                               },
                             });
-                            console.log(`[ig-webhook] Triggered private direct message reply from comment`);
+                            console.log(`[ig-webhook] Triggered private direct message reply from comment (reply_and_dm)`);
                           }
-                        } else {
-                          console.error(`[ig-webhook] Failed to reply to comment:`, replyData?.error);
                         }
                       }
                     }
