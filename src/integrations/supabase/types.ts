@@ -21069,6 +21069,98 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_skill_outputs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          extra_instructions: string | null
+          id: string
+          model: string | null
+          pipeline_id: string | null
+          produto: string | null
+          project_id: string | null
+          result: string
+          skill_id: string
+          skill_nome: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          extra_instructions?: string | null
+          id?: string
+          model?: string | null
+          pipeline_id?: string | null
+          produto?: string | null
+          project_id?: string | null
+          result: string
+          skill_id: string
+          skill_nome?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          extra_instructions?: string | null
+          id?: string
+          model?: string | null
+          pipeline_id?: string | null
+          produto?: string | null
+          project_id?: string | null
+          result?: string
+          skill_id?: string
+          skill_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_skill_outputs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skill_outputs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skill_outputs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_skill_outputs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skill_outputs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skill_outputs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_skill_outputs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_skills: {
         Row: {
           categoria: string
@@ -22120,6 +22212,9 @@ export type Database = {
           business_hours_end: string | null
           business_hours_only: boolean | null
           business_hours_start: string | null
+          closer_mode_enabled: boolean | null
+          cold_lead_hours: number | null
+          cold_lead_reactivation_enabled: boolean | null
           context_sources: string[] | null
           cooldown_seconds: number | null
           created_at: string | null
@@ -22138,6 +22233,7 @@ export type Database = {
           instagram_enabled: boolean | null
           learning_mode: boolean
           max_tokens: number | null
+          payment_link: string | null
           personality: string | null
           product_focus: string | null
           project_id: string
@@ -22157,6 +22253,9 @@ export type Database = {
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
+          closer_mode_enabled?: boolean | null
+          cold_lead_hours?: number | null
+          cold_lead_reactivation_enabled?: boolean | null
           context_sources?: string[] | null
           cooldown_seconds?: number | null
           created_at?: string | null
@@ -22175,6 +22274,7 @@ export type Database = {
           instagram_enabled?: boolean | null
           learning_mode?: boolean
           max_tokens?: number | null
+          payment_link?: string | null
           personality?: string | null
           product_focus?: string | null
           project_id: string
@@ -22194,6 +22294,9 @@ export type Database = {
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
+          closer_mode_enabled?: boolean | null
+          cold_lead_hours?: number | null
+          cold_lead_reactivation_enabled?: boolean | null
           context_sources?: string[] | null
           cooldown_seconds?: number | null
           created_at?: string | null
@@ -22212,6 +22315,7 @@ export type Database = {
           instagram_enabled?: boolean | null
           learning_mode?: boolean
           max_tokens?: number | null
+          payment_link?: string | null
           personality?: string | null
           product_focus?: string | null
           project_id?: string
@@ -22618,6 +22722,7 @@ export type Database = {
           ai_last_reply_at: string | null
           ai_lock_until: string | null
           avatar_url: string | null
+          buy_intent_detected: boolean | null
           contact_name: string | null
           created_at: string
           id: string
@@ -22625,6 +22730,7 @@ export type Database = {
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
+          last_reactivation_at: string | null
           last_read_at: string | null
           message_count: number
           metadata: Json | null
@@ -22635,6 +22741,7 @@ export type Database = {
           provider_id: string | null
           session: string
           status: string
+          temperature: string | null
           unread_count: number
           updated_at: string
         }
@@ -22642,6 +22749,7 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           avatar_url?: string | null
+          buy_intent_detected?: boolean | null
           contact_name?: string | null
           created_at?: string
           id?: string
@@ -22649,6 +22757,7 @@ export type Database = {
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_reactivation_at?: string | null
           last_read_at?: string | null
           message_count?: number
           metadata?: Json | null
@@ -22659,6 +22768,7 @@ export type Database = {
           provider_id?: string | null
           session: string
           status?: string
+          temperature?: string | null
           unread_count?: number
           updated_at?: string
         }
@@ -22666,6 +22776,7 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           avatar_url?: string | null
+          buy_intent_detected?: boolean | null
           contact_name?: string | null
           created_at?: string
           id?: string
@@ -22673,6 +22784,7 @@ export type Database = {
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_reactivation_at?: string | null
           last_read_at?: string | null
           message_count?: number
           metadata?: Json | null
@@ -22683,6 +22795,7 @@ export type Database = {
           provider_id?: string | null
           session?: string
           status?: string
+          temperature?: string | null
           unread_count?: number
           updated_at?: string
         }
