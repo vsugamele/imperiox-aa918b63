@@ -132,6 +132,77 @@ export default function InstagramPage() {
   // Real telemetry state
   const [aiStats, setAiStats] = useState({ totalMsgs: 0, autoReplied: 0, handoffs: 0, ragHitRate: 0, loading: true });
 
+  // Profile backfill state
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Business hours state
+  const [businessHours, setBusinessHours] = useState<any>(null);
+  const [showBusinessHours, setShowBusinessHours] = useState(false);
+  const [savingHours, setSavingHours] = useState(false);
+  const [hoursForm, setHoursForm] = useState({
+    enabled: true,
+    open_time: "08:00",
+    close_time: "18:00",
+    days_of_week: [1,2,3,4,5] as number[],
+    outside_hours_message: "Nosso atendimento acontece de segunda a sexta, das 8h às 18h. Deixe sua mensagem e te respondemos em breve! 😊",
+    pause_ai_outside_hours: false,
+  });
+
+  const runProfileBackfill = async () => {
+    if (!selectedAccount) return;
+    setBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ig-profile-backfill", {
+        body: { account_id: selectedAccount.id },
+      });
+      if (error) throw error;
+      toast.success(`Backfill concluído! ${data?.updated || 0} perfis atualizados.`);
+      loadConversations(selectedAccount.id);
+    } catch (e: any) {
+      toast.error("Erro no backfill: " + e.message);
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
+  const loadBusinessHours = async (projectId: string) => {
+    const { data } = await supabase.from("imphq_business_hours")
+      .select("*").eq("project_id", projectId).eq("channel", "instagram").maybeSingle();
+    if (data) {
+      setBusinessHours(data);
+      setHoursForm({
+        enabled: data.enabled,
+        open_time: data.open_time?.slice(0,5) || "08:00",
+        close_time: data.close_time?.slice(0,5) || "18:00",
+        days_of_week: data.days_of_week || [1,2,3,4,5],
+        outside_hours_message: data.outside_hours_message || "",
+        pause_ai_outside_hours: data.pause_ai_outside_hours || false,
+      });
+    }
+  };
+
+  const saveBusinessHours = async () => {
+    if (!selectedAccount) return;
+    setSavingHours(true);
+    try {
+      const payload = { ...hoursForm, project_id: selectedAccount.project_id, channel: "instagram" };
+      if (businessHours?.id) {
+        await supabase.from("imphq_business_hours").update(payload).eq("id", businessHours.id);
+      } else {
+        const { data } = await supabase.from("imphq_business_hours").insert(payload).select().single();
+        setBusinessHours(data);
+      }
+      toast.success("Horários salvos!");
+      setShowBusinessHours(false);
+    } catch (e: any) {
+      toast.error("Erro ao salvar horários: " + e.message);
+    } finally {
+      setSavingHours(false);
+    }
+  };
+
+  const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
   // Sequences state (Bloco 2)
   const [sequences, setSequences] = useState<any[]>([]);
   const [loadingSeqs, setLoadingSeqs] = useState(false);
@@ -881,6 +952,15 @@ export default function InstagramPage() {
                   >
                     <Sparkles className="h-4 w-4 text-amber-400 animate-pulse" />
                   </Button>
+                  <Button
+                    size="icon" variant="ghost"
+                    className="h-7 w-7 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10"
+                    title="Buscar nomes e fotos dos leads (backfill)"
+                    onClick={runProfileBackfill}
+                    disabled={backfilling}
+                  >
+                    {backfilling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <User className="h-3.5 w-3.5" />}
+                  </Button>
                   <RefreshCw
                     className={`h-4 w-4 text-muted-foreground hover:text-foreground cursor-pointer transition ${loadingConvs ? "animate-spin" : ""}`}
                     onClick={() => loadConversations(selectedAccount.id)}
@@ -978,7 +1058,98 @@ export default function InstagramPage() {
                     <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_comments_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
                   </span>
                 </div>
+
+                {/* Business Hours toggle */}
+                <div
+                  role="button" tabIndex={0}
+                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border bg-secondary/20 border-border/40 cursor-pointer hover:bg-secondary/40 transition-all select-none"
+                  onClick={() => { setShowBusinessHours(v => !v); if (selectedAccount) loadBusinessHours(selectedAccount.project_id); }}
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-medium">
+                    <Clock className="h-3 w-3" /> Horários de Atendimento
+                  </span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                    businessHours?.enabled ? "bg-emerald-500/15 text-emerald-400" : "bg-secondary text-muted-foreground"
+                  }`}>{businessHours?.enabled ? `${businessHours.open_time?.slice(0,5)} – ${businessHours.close_time?.slice(0,5)}` : "Não config."}</span>
+                </div>
+
+                {/* Business Hours panel (inline) */}
+                {showBusinessHours && (
+                  <div className="rounded-lg border border-border/60 bg-secondary/20 p-3 space-y-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-foreground">⏰ Horários de Atendimento</span>
+                      <div
+                        role="button"
+                        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border cursor-pointer transition-colors ${
+                          hoursForm.enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"
+                        }`}
+                        onClick={() => setHoursForm(p => ({ ...p, enabled: !p.enabled }))}
+                      >
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${hoursForm.enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase mb-1">Abre</p>
+                        <input type="time" value={hoursForm.open_time}
+                          onChange={e => setHoursForm(p => ({ ...p, open_time: e.target.value }))}
+                          className="w-full text-xs bg-background border border-border/60 rounded px-2 py-1" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase mb-1">Fecha</p>
+                        <input type="time" value={hoursForm.close_time}
+                          onChange={e => setHoursForm(p => ({ ...p, close_time: e.target.value }))}
+                          className="w-full text-xs bg-background border border-border/60 rounded px-2 py-1" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground uppercase mb-1.5">Dias da semana</p>
+                      <div className="flex gap-1 flex-wrap">
+                        {DAY_LABELS.map((d, i) => (
+                          <button key={i}
+                            className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${
+                              hoursForm.days_of_week.includes(i)
+                                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                                : "bg-secondary/30 border-border/40 text-muted-foreground"
+                            }`}
+                            onClick={() => setHoursForm(p => ({
+                              ...p,
+                              days_of_week: p.days_of_week.includes(i)
+                                ? p.days_of_week.filter(x => x !== i)
+                                : [...p.days_of_week, i].sort()
+                            }))}
+                          >{d}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground uppercase mb-1">Mensagem fora do horário</p>
+                      <textarea
+                        value={hoursForm.outside_hours_message}
+                        onChange={e => setHoursForm(p => ({ ...p, outside_hours_message: e.target.value }))}
+                        rows={2}
+                        className="w-full text-[11px] bg-background border border-border/60 rounded px-2 py-1 resize-none"
+                      />
+                    </div>
+                    <div
+                      role="button"
+                      className="flex items-center justify-between px-2 py-1.5 rounded border border-border/40 bg-secondary/20 cursor-pointer"
+                      onClick={() => setHoursForm(p => ({ ...p, pause_ai_outside_hours: !p.pause_ai_outside_hours }))}
+                    >
+                      <span className="text-[11px]">Pausar IA fora do horário</span>
+                      <span className={`relative inline-flex h-3.5 w-6 items-center rounded-full border transition-colors ${
+                        hoursForm.pause_ai_outside_hours ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"
+                      }`}>
+                        <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white shadow transition-transform ${hoursForm.pause_ai_outside_hours ? "translate-x-[10px]" : "translate-x-[1px]"}`} />
+                      </span>
+                    </div>
+                    <Button size="sm" className="w-full h-7 text-xs" onClick={saveBusinessHours} disabled={savingHours}>
+                      {savingHours ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar Horários"}
+                    </Button>
+                  </div>
+                )}
               </div>
+            </Card>
             </Card>
 
             {/* LISTA DE CONVERSAS (SE ESTIVER EM DMS) */}
@@ -1013,16 +1184,20 @@ export default function InstagramPage() {
                           >
                             <div className="relative shrink-0">
                               {c.participant_avatar ? (
-                                <img src={c.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
+                                <img src={c.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border object-cover" />
                               ) : (
-                                <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(c.participant_username && c.participant_username !== "null" ? c.participant_username : c.participant_name || "L")[0].toUpperCase()}</div>
+                                <img
+                                  src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(c.participant_username || c.participant_name || c.participant_id)}&backgroundColor=1e293b&fontSize=40`}
+                                  alt=""
+                                  className="w-9 h-9 rounded-full border border-border/40"
+                                />
                               )}
                               {c.ai_paused && <span title="Humano assumiu" className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center text-[7px] text-white font-bold">H</span>}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-semibold text-sm truncate block text-foreground">
-                                  {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || `Lead (${c.participant_id.slice(-4)})`}
+                                  {c.participant_name || (c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : `Lead #${c.participant_id.slice(-4)}`)}
                                 </span>
                                 {c.triage_intent && (
                                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full uppercase font-bold ${
