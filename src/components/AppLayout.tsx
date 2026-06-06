@@ -7,6 +7,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { PushOptIn } from "@/components/PushOptIn";
 import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
+import { CommandPalette } from "@/components/CommandPalette";
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 
@@ -88,7 +89,8 @@ export function AppLayout() {
             <div className="flex-1 flex justify-center px-4 max-w-2xl mx-auto">
               <GlobalSearch />
             </div>
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-2">
+              <CommandPalette />
               <ActionInbox />
               <PushOptIn />
               <NotificationBell />

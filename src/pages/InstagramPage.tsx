@@ -39,6 +39,11 @@ interface IgConversation {
   last_message_at: string | null;
   unread_count: number;
   lead_id: string | null;
+  ai_paused: boolean;
+  ai_paused_reason: string | null;
+  // Triage data (loaded separately, merged)
+  triage_intent?: string | null;
+  triage_fit_score?: number | null;
 }
 
 interface IgMessage {
@@ -50,6 +55,9 @@ interface IgMessage {
   media_url: string | null;
   created_at: string;
   status: string;
+  ai_generated?: boolean;
+  feedback?: string | null;
+  feedback_correction?: string | null;
 }
 
 interface IgComment {
@@ -72,7 +80,7 @@ export default function InstagramPage() {
   const [selectedAccount, setSelectedAccount] = useState<IgAccount | null>(null);
   
   // Tab control
-  const [activeMainTab, setActiveMainTab] = useState<"dms" | "comments" | "brain" | "triggers">("dms");
+  const [activeMainTab, setActiveMainTab] = useState<"dms" | "comments" | "brain" | "triggers" | "funil" | "sequencias">("dms");
   
   // DMs state
   const [conversations, setConversations] = useState<IgConversation[]>([]);
@@ -117,12 +125,59 @@ export default function InstagramPage() {
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
+  // DM search & templates
+  const [convSearch, setConvSearch] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  // Real telemetry state
+  const [aiStats, setAiStats] = useState({ totalMsgs: 0, autoReplied: 0, handoffs: 0, ragHitRate: 0, loading: true });
+
+  // Sequences state (Bloco 2)
+  const [sequences, setSequences] = useState<any[]>([]);
+  const [loadingSeqs, setLoadingSeqs] = useState(false);
+  const [showAddSeq, setShowAddSeq] = useState(false);
+  const [newSeq, setNewSeq] = useState({ name: "", trigger_stage: "quente", trigger_delay_hours: 0, steps: [{message: "Oi {nome}! Vi que você se interessou. Posso te ajudar?", delay_hours: 0}] });
+  const [savingSeq, setSavingSeq] = useState(false);
+
+  // Funnel kanban state (Bloco 1)
+  const [funnelGroups, setFunnelGroups] = useState<Record<string, IgConversation[]>>({});
+  const [loadingFunnel, setLoadingFunnel] = useState(false);
+
   // Persist project filter
   useEffect(() => {
     if (selectedProjectId) {
       localStorage.setItem("ig.selectedProject", selectedProjectId);
     }
   }, [selectedProjectId]);
+
+  // Load sequences when tab is active
+  useEffect(() => {
+    if (activeMainTab !== "sequencias" || !selectedProjectId) return;
+    setLoadingSeqs(true);
+    supabase.from("imphq_ig_sequences").select("*").eq("project_id", selectedProjectId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => { setSequences(data || []); setLoadingSeqs(false); });
+  }, [activeMainTab, selectedProjectId]);
+
+  // Load funnel kanban when tab is active
+  useEffect(() => {
+    if (activeMainTab !== "funil" || !selectedAccount) return;
+    setLoadingFunnel(true);
+    supabase.from("imphq_ig_conversations")
+      .select("*")
+      .eq("account_id", selectedAccount.id)
+      .order("last_message_at", { ascending: false })
+      .then(({ data: convs }) => {
+        const groups: Record<string, IgConversation[]> = { frio: [], morno: [], quente: [], cliente: [] };
+        for (const c of convs || []) {
+          const stage = (c as any).triage_intent || "frio";
+          if (!groups[stage]) groups[stage] = [];
+          groups[stage].push(c);
+        }
+        setFunnelGroups(groups);
+        setLoadingFunnel(false);
+      });
+  }, [activeMainTab, selectedAccount]);
 
   // Load initial projects
   useEffect(() => {
@@ -162,7 +217,32 @@ export default function InstagramPage() {
       .select("*")
       .eq("account_id", accountId)
       .order("last_message_at", { ascending: false });
-    setConversations(data || []);
+    const convs = data || [];
+
+    // Load latest triage per conversation (for hot lead badge)
+    if (convs.length > 0) {
+      const convIds = convs.map((c: any) => c.id);
+      const { data: triages } = await supabase
+        .from("imphq_wa_triage")
+        .select("conversation_id, intent, fit_score, created_at")
+        .in("conversation_id", convIds)
+        .order("created_at", { ascending: false });
+
+      // Keep only the latest triage per conversation
+      const latestByConv: Record<string, any> = {};
+      for (const t of triages || []) {
+        if (!latestByConv[t.conversation_id]) latestByConv[t.conversation_id] = t;
+      }
+
+      const enriched = convs.map((c: any) => ({
+        ...c,
+        triage_intent: latestByConv[c.id]?.intent ?? null,
+        triage_fit_score: latestByConv[c.id]?.fit_score ?? null,
+      }));
+      setConversations(enriched);
+    } else {
+      setConversations(convs);
+    }
     setLoadingConvs(false);
   }, []);
 
@@ -613,6 +693,119 @@ export default function InstagramPage() {
   const activeCommentsCount = useMemo(() => comments.length, [comments]);
   const activeUnreadCount = useMemo(() => conversations.reduce((acc, c) => acc + c.unread_count, 0), [conversations]);
 
+  const filteredConversations = useMemo(() => {
+    if (!convSearch.trim()) return conversations;
+    const q = convSearch.toLowerCase();
+    return conversations.filter(c =>
+      (c.participant_username || "").toLowerCase().includes(q) ||
+      (c.participant_name || "").toLowerCase().includes(q) ||
+      (c.last_message || "").toLowerCase().includes(q)
+    );
+  }, [conversations, convSearch]);
+
+  // Bloco 3: Feedback on AI messages
+  const handleFeedback = async (msgId: string, fb: "good" | "bad") => {
+    if (!selectedProjectId) return;
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, feedback: fb } : m));
+    try {
+      await supabase.functions.invoke("ig-feedback-learn", {
+        body: { message_id: msgId, feedback: fb, project_id: selectedProjectId }
+      });
+    } catch (e) { console.warn("feedback failed", e); }
+  };
+
+  // Save a new sequence
+  const handleSaveSequence = async () => {
+    if (!selectedProjectId || !newSeq.name.trim()) return;
+    setSavingSeq(true);
+    const { data, error } = await supabase.from("imphq_ig_sequences").insert({
+      project_id: selectedProjectId,
+      name: newSeq.name,
+      trigger_stage: newSeq.trigger_stage,
+      trigger_delay_hours: newSeq.trigger_delay_hours,
+      steps: newSeq.steps,
+      active: true,
+    }).select().single();
+    if (!error && data) {
+      setSequences(prev => [data, ...prev]);
+      setShowAddSeq(false);
+      setNewSeq({ name: "", trigger_stage: "quente", trigger_delay_hours: 0, steps: [{message: "Oi {nome}! Vi que você se interessou. Posso te ajudar?", delay_hours: 0}] });
+    }
+    setSavingSeq(false);
+  };
+
+  // Toggle sequence active/inactive
+  const handleToggleSeq = async (seqId: string, active: boolean) => {
+    await supabase.from("imphq_ig_sequences").update({ active }).eq("id", seqId);
+    setSequences(prev => prev.map(s => s.id === seqId ? { ...s, active } : s));
+  };
+
+  // Load real telemetry stats for Brain tab
+  useEffect(() => {
+    if (!selectedAccount || activeMainTab !== "brain") return;
+    async function loadStats() {
+      setAiStats(s => ({ ...s, loading: true }));
+      try {
+        const [{ count: totalIn }, { count: totalOut }, { count: cmtReplied }, { count: cmtTotal }] = await Promise.all([
+          supabase.from("imphq_ig_messages").select("*", { count: "exact", head: true }).eq("direction", "in"),
+          supabase.from("imphq_ig_messages").select("*", { count: "exact", head: true }).eq("direction", "out"),
+          supabase.from("imphq_ig_comments").select("*", { count: "exact", head: true }).eq("account_id", selectedAccount!.id).eq("replied", true),
+          supabase.from("imphq_ig_comments").select("*", { count: "exact", head: true }).eq("account_id", selectedAccount!.id),
+        ]);
+        const total = (totalIn || 0) + (totalOut || 0);
+        const ragRate = total > 0 ? Math.round(((totalOut || 0) / Math.max(totalIn || 1, 1)) * 100) : 0;
+        setAiStats({
+          totalMsgs: (totalIn || 0),
+          autoReplied: (totalOut || 0),
+          handoffs: Math.max(0, (totalIn || 0) - (totalOut || 0)),
+          ragHitRate: Math.min(ragRate, 99),
+          loading: false,
+        });
+      } catch {
+        setAiStats(s => ({ ...s, loading: false }));
+      }
+    }
+    loadStats();
+  }, [selectedAccount, activeMainTab]);
+
+  // Human takeover toggle per conversation
+  const handleToggleAiPaused = async (conv: IgConversation) => {
+    const next = !conv.ai_paused;
+    try {
+      const { error } = await supabase
+        .from("imphq_ig_conversations")
+        .update({ ai_paused: next, ai_paused_reason: next ? "Operador assumiu" : null })
+        .eq("id", conv.id);
+      if (error) throw error;
+      setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, ai_paused: next } : c));
+      if (selectedConv?.id === conv.id) setSelectedConv(s => s ? { ...s, ai_paused: next } : s);
+      toast.success(next ? "🧑 Modo humano ativado — IA pausada nesta conversa." : "🤖 IA retomou o controle desta conversa.");
+    } catch (e: any) {
+      toast.error("Erro ao alternar modo: " + e.message);
+    }
+  };
+  const selectedProjectName = useMemo(() => projects.find(p => p.id === selectedProjectId)?.name || "Projeto", [projects, selectedProjectId]);
+
+  // Toggle IA for DMs or Comments directly from Instagram page
+  const handleToggleAI = async (field: 'instagram_enabled' | 'instagram_comments_enabled', value: boolean) => {
+    if (!selectedProjectId || !aiConfig?.id) {
+      toast.error("Configure a IA no projeto antes de ativar.");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("imphq_wa_ai_config")
+        .update({ [field]: value })
+        .eq("id", aiConfig.id);
+      if (error) throw error;
+      setAiConfig((prev: any) => ({ ...prev, [field]: value }));
+      const label = field === 'instagram_enabled' ? 'IA no Direct' : 'IA nos Comentários';
+      toast.success(value ? `${label} ativada!` : `${label} desativada!`);
+    } catch (e: any) {
+      toast.error("Erro ao atualizar configuração: " + e.message);
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 space-y-6 max-w-7xl font-sans">
       
@@ -733,6 +926,58 @@ export default function InstagramPage() {
                 >
                   <Bot className="h-4 w-4" /> Central da IA & RAG
                 </Button>
+
+                <Button
+                  variant={activeMainTab === "funil" ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2 font-normal text-sm"
+                  onClick={() => setActiveMainTab("funil")}
+                >
+                  <span className="text-base">🎯</span> Funil de Leads
+                  {(funnelGroups["quente"]?.length || 0) > 0 && <Badge className="ml-auto bg-red-500/20 text-red-400 border-red-500/30">{funnelGroups["quente"].length} 🔥</Badge>}
+                </Button>
+
+                <Button
+                  variant={activeMainTab === "sequencias" ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2 font-normal text-sm"
+                  onClick={() => setActiveMainTab("sequencias")}
+                >
+                  <span className="text-base">🔄</span> Sequências de Funil
+                  {sequences.length > 0 && <Badge variant="outline" className="ml-auto">{sequences.length}</Badge>}
+                </Button>
+              </div>
+
+              {/* ─── AI QUICK TOGGLES ─── */}
+              <div className="px-3 pb-3 pt-2 border-t border-border/30 space-y-1.5">
+                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest px-0.5 mb-2">Controles de IA</p>
+                {!aiConfig && (
+                  <p className="text-[9px] text-amber-500/80 text-center pb-1">Configure a IA no projeto para ativar.</p>
+                )}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all select-none ${aiConfig ? "cursor-pointer" : "pointer-events-none opacity-40"} ${aiConfig?.instagram_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
+                  onClick={() => handleToggleAI('instagram_enabled', !aiConfig?.instagram_enabled)}
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-medium">
+                    <MessageSquare className="h-3 w-3" /> IA no Direct
+                  </span>
+                  <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
+                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                  </span>
+                </div>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all select-none ${aiConfig ? "cursor-pointer" : "pointer-events-none opacity-40"} ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
+                  onClick={() => handleToggleAI('instagram_comments_enabled', !aiConfig?.instagram_comments_enabled)}
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-medium">
+                    <Heart className="h-3 w-3" /> IA em Comentários
+                  </span>
+                  <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
+                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_comments_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                  </span>
+                </div>
               </div>
             </Card>
 
@@ -740,19 +985,25 @@ export default function InstagramPage() {
             {activeMainTab === "dms" && (
               <Card className="bg-card border-border/60 shadow-lg flex flex-col h-[500px]">
                 <CardHeader className="px-4 py-3 border-b border-border/40">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-2">
                     <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">Conversas Recentes</CardTitle>
                     <Filter className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
+                  <Input
+                    value={convSearch}
+                    onChange={e => setConvSearch(e.target.value)}
+                    placeholder="Buscar conversa..."
+                    className="h-7 text-xs bg-secondary/30 border-border/50 focus-visible:ring-amber-500"
+                  />
                 </CardHeader>
                 <ScrollArea className="flex-1">
                   {loadingConvs ? (
                     <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                  ) : conversations.length === 0 ? (
-                    <div className="text-center p-8 text-xs text-muted-foreground">Nenhuma conversa encontrada.</div>
+                  ) : filteredConversations.length === 0 ? (
+                    <div className="text-center p-8 text-xs text-muted-foreground">{convSearch ? "Nenhuma conversa encontrada para sua busca." : "Nenhuma conversa encontrada."}</div>
                   ) : (
                     <div className="divide-y divide-border/30">
-                      {conversations.map((c) => {
+                      {filteredConversations.map((c) => {
                         const isSelected = selectedConv?.id === c.id;
                         return (
                           <div
@@ -760,16 +1011,28 @@ export default function InstagramPage() {
                             onClick={() => setSelectedConv(c)}
                             className={`p-3 cursor-pointer transition duration-150 flex items-center gap-3 hover:bg-secondary/20 ${isSelected ? "bg-secondary/40 border-l-2 border-amber-500" : ""}`}
                           >
-                            {c.participant_avatar ? (
-                              <img src={c.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(c.participant_username && c.participant_username !== "null" ? c.participant_username : c.participant_name || "L")[0].toUpperCase()}</div>
-                            )}
+                            <div className="relative shrink-0">
+                              {c.participant_avatar ? (
+                                <img src={c.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(c.participant_username && c.participant_username !== "null" ? c.participant_username : c.participant_name || "L")[0].toUpperCase()}</div>
+                              )}
+                              {c.ai_paused && <span title="Humano assumiu" className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center text-[7px] text-white font-bold">H</span>}
+                            </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-2">
                                 <span className="font-semibold text-sm truncate block text-foreground">
                                   {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || `Lead (${c.participant_id.slice(-4)})`}
                                 </span>
+                                {c.triage_intent && (
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full uppercase font-bold ${
+                                    c.triage_intent === 'compra_quente' ? 'bg-red-500/20 text-red-400 animate-pulse' :
+                                    c.triage_intent === 'objecao' ? 'bg-orange-500/20 text-orange-400' :
+                                    'bg-amber-500/20 text-amber-400'
+                                  }`}>
+                                    {c.triage_intent === 'compra_quente' ? '🔥' : c.triage_intent === 'objecao' ? '⚠️' : '🤔'}
+                                  </span>
+                                )}
                                 {c.last_message_at && (
                                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                     {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false, locale: ptBR })}
@@ -801,7 +1064,7 @@ export default function InstagramPage() {
                   {selectedConv ? (
                     <>
                       {/* Top Header do Chat */}
-                      <div className="bg-secondary/10 px-4 py-3 border-b border-border/40 flex items-center gap-3 justify-between">
+                      <div className="bg-secondary/10 px-4 py-3 border-b border-border/40 flex items-center gap-3 justify-between flex-wrap">
                         <div className="flex items-center gap-3">
                           {selectedConv.participant_avatar ? (
                             <img src={selectedConv.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
@@ -815,8 +1078,50 @@ export default function InstagramPage() {
                             <span className="text-xs text-muted-foreground">{selectedConv.participant_name || "Comunicação ativa"}</span>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-[10px] tracking-wider uppercase bg-secondary/30">IG DM</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] tracking-wider uppercase bg-secondary/30">IG DM</Badge>
+                          {/* Hot lead intent badge */}
+                          {selectedConv.triage_intent === "compra_quente" && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-2 py-0.5 animate-pulse">
+                              🔥 Lead QUENTE
+                            </span>
+                          )}
+                          {selectedConv.triage_intent === "objecao" && (
+                            <span className="text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full px-2 py-0.5">
+                              ⚠️ Objeção
+                            </span>
+                          )}
+                          {selectedConv.triage_intent === "interesse" && (
+                            <span className="text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5">
+                              🤔 Interesse
+                            </span>
+                          )}
+                          {selectedConv.triage_fit_score != null && (
+                            <span className="text-[10px] text-muted-foreground">Score: <strong className="text-foreground">{selectedConv.triage_fit_score}</strong></span>
+                          )}
+                          {/* Human takeover toggle */}
+                          <button
+                            title={selectedConv.ai_paused ? "Devolver para IA" : "Humano assume — pausar IA nesta conversa"}
+                            onClick={() => handleToggleAiPaused(selectedConv)}
+                            className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full border transition-all ${
+                              selectedConv.ai_paused
+                                ? "bg-blue-500/20 border-blue-500/40 text-blue-400 hover:bg-blue-500/30"
+                                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${selectedConv.ai_paused ? "bg-blue-400" : "bg-emerald-500 animate-pulse"}`} />
+                            {selectedConv.ai_paused ? "🧑 Humano" : "🤖 IA"}
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Banner human takeover */}
+                      {selectedConv.ai_paused && (
+                        <div className="bg-blue-500/10 border-b border-blue-500/20 px-4 py-1.5 flex items-center gap-2">
+                          <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">🧑 Modo Humano ativo — IA não responderá automaticamente nesta conversa.</span>
+                          <button onClick={() => handleToggleAiPaused(selectedConv)} className="ml-auto text-[9px] text-blue-400 underline hover:text-blue-300">Devolver à IA</button>
+                        </div>
+                      )}
 
                       {/* Conteúdo de Mensagens */}
                       <ScrollArea className="flex-1 p-4 bg-secondary/5">
@@ -828,18 +1133,51 @@ export default function InstagramPage() {
                           <div className="space-y-4">
                             {messages.map((m) => {
                               const isInbound = m.direction === "in" || (m.direction as string) === "incoming";
+                              const isAI = !isInbound && m.ai_generated;
                               return (
                                 <div key={m.id} className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
-                                  <div className={`max-w-[70%] p-3 rounded-2xl shadow-sm text-sm leading-relaxed ${isInbound ? "bg-secondary text-foreground rounded-tl-none border border-border/40" : "bg-gradient-to-tr from-amber-600 to-amber-500 text-black font-medium rounded-tr-none"}`}>
-                                    {m.content}
-                                    <div className="flex items-center justify-between gap-2 mt-1.5 text-[9px] opacity-60">
-                                      <span>
-                                        {formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR })}
-                                      </span>
-                                      {!isInbound && (
-                                        <span className="capitalize">{m.status || "enviado"}</span>
-                                      )}
+                                  <div className="group relative">
+                                    <div className={`max-w-[70%] p-3 rounded-2xl shadow-sm text-sm leading-relaxed ${isInbound ? "bg-secondary text-foreground rounded-tl-none border border-border/40" : "bg-gradient-to-tr from-amber-600 to-amber-500 text-black font-medium rounded-tr-none"}`}>
+                                      {m.content}
+                                      <div className="flex items-center justify-between gap-2 mt-1.5 text-[9px] opacity-60">
+                                        <span>
+                                          {formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR })}
+                                        </span>
+                                        {!isInbound && (
+                                          <span className="capitalize flex items-center gap-1">
+                                            {isAI && <span className="text-[8px] opacity-80">IA</span>}
+                                            {m.status || "enviado"}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
+                                    {/* Feedback buttons — only on AI outbound messages */}
+                                    {isAI && (
+                                      <div className={`absolute -bottom-5 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                                        <button
+                                          onClick={() => handleFeedback(m.id, "good")}
+                                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                                            m.feedback === "good"
+                                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                                              : "bg-card text-muted-foreground border-border/40 hover:text-emerald-400"
+                                          }`}
+                                          title="Boa resposta — adicionar ao conhecimento"
+                                        >
+                                          👍
+                                        </button>
+                                        <button
+                                          onClick={() => handleFeedback(m.id, "bad")}
+                                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                                            m.feedback === "bad"
+                                              ? "bg-red-500/20 text-red-400 border-red-500/40"
+                                              : "bg-card text-muted-foreground border-border/40 hover:text-red-400"
+                                          }`}
+                                          title="Resposta ruim — marcar para revisao"
+                                        >
+                                          👎
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -849,21 +1187,52 @@ export default function InstagramPage() {
                       </ScrollArea>
 
                       {/* Compositor de Mensagem */}
-                      <div className="p-3 border-t border-border/40 bg-card flex gap-2">
-                        <Input
-                          value={composedMsg}
-                          onChange={(e) => setComposedMsg(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleSendDM()}
-                          placeholder={`Responder a ${selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : (selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`)} via Instagram...`}
-                          className="bg-secondary/40 border-border/60 focus-visible:ring-amber-500"
-                        />
-                        <Button
-                          disabled={sendingMsg || !composedMsg.trim()}
-                          onClick={handleSendDM}
-                          className="bg-amber-500 text-black hover:bg-amber-400"
-                        >
-                          {sendingMsg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        </Button>
+                      <div className="border-t border-border/40 bg-card">
+                        {/* Quick reply templates */}
+                        {showTemplates && (
+                          <div className="px-3 pt-2 pb-1 flex flex-wrap gap-1 border-b border-border/30">
+                            {[
+                              "Olá! Como posso ajudar? 😊",
+                              "Vou verificar isso com a equipe e retorno em breve!",
+                              "Quer saber mais sobre a formação? Posso te enviar os detalhes!",
+                              "Qual a sua maior dificuldade hoje?",
+                              "Perfeito! Me passa seu e-mail para enviar as informações 📩",
+                            ].map(t => (
+                              <button
+                                key={t}
+                                onClick={() => { setComposedMsg(t); setShowTemplates(false); }}
+                                className="text-[10px] bg-secondary/50 hover:bg-secondary border border-border/50 rounded-full px-2 py-0.5 text-left truncate max-w-[200px] transition-colors"
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="p-3 flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Templates rápidos"
+                            onClick={() => setShowTemplates(v => !v)}
+                            className={`h-9 w-9 shrink-0 text-muted-foreground hover:text-amber-400 ${showTemplates ? "bg-amber-500/10 text-amber-400" : ""}`}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </Button>
+                          <Input
+                            value={composedMsg}
+                            onChange={(e) => setComposedMsg(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSendDM()}
+                            placeholder={`Responder a ${selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : (selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`)} via Instagram...`}
+                            className="bg-secondary/40 border-border/60 focus-visible:ring-amber-500"
+                          />
+                          <Button
+                            disabled={sendingMsg || !composedMsg.trim()}
+                            onClick={handleSendDM}
+                            className="bg-amber-500 text-black hover:bg-amber-400"
+                          >
+                            {sendingMsg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </div>
                     </>
                   ) : (
@@ -927,24 +1296,36 @@ export default function InstagramPage() {
 
                   {selectedConv && (
                     <div className="bg-secondary/20 p-2.5 rounded-lg border border-border/30 mt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">IA no Direct</span>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          title={aiConfig ? (aiConfig.instagram_enabled ? "Desativar IA no Direct" : "Ativar IA no Direct") : "Configure a IA primeiro"}
+                          className={`relative inline-flex h-4 w-7 items-center rounded-full border transition-colors ${aiConfig?.instagram_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"} ${!aiConfig ? "pointer-events-none opacity-40" : "cursor-pointer"}`}
+                          onClick={() => handleToggleAI('instagram_enabled', !aiConfig?.instagram_enabled)}
+                        >
+                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                        </div>
+                      </div>
                       {aiConfig?.instagram_enabled ? (
                         <>
                           <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[10px] uppercase font-bold text-emerald-400">IA Ativa no Direct</span>
+                            <span className="text-[10px] uppercase font-bold text-emerald-400">IA Ativa</span>
                           </div>
                           <p className="text-[11px] text-muted-foreground leading-relaxed">
-                            A IA responderá automaticamente a este usuário no Direct respeitando a base semântica configurada.
+                            A IA está respondendo automaticamente neste Direct.
                           </p>
                         </>
                       ) : (
                         <>
                           <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-                            <span className="text-[10px] uppercase font-bold text-muted-foreground">IA Desativada no Direct</span>
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">IA Inativa</span>
                           </div>
                           <p className="text-[11px] text-muted-foreground leading-relaxed">
-                            As respostas automáticas no Direct estão desativadas. Você pode ativá-las nas Configurações do Projeto &gt; Instagram.
+                            {aiConfig ? "Ative o toggle acima para ligar as respostas automáticas." : "Configure a IA no projeto para ativar."}
                           </p>
                         </>
                       )}
@@ -1115,14 +1496,184 @@ export default function InstagramPage() {
             )}
 
             {/* ABA CÉREBRO: CENTRAL DE IA & RAG */}
+            {/* FUNIL KANBAN */}
+            {activeMainTab === "funil" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold">Funil de Leads 🎯</h2>
+                    <p className="text-xs text-muted-foreground">Distribuição automática baseada na triage da IA</p>
+                  </div>
+                  {!selectedAccount && <p className="text-amber-500 text-xs">Selecione uma conta Instagram para ver o funil.</p>}
+                </div>
+                {loadingFunnel ? (
+                  <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { id: "frio", label: "Frio", emoji: "❄️", color: "border-blue-500/30 bg-blue-500/5" },
+                      { id: "morno", label: "Morno", emoji: "🌡️", color: "border-amber-500/30 bg-amber-500/5" },
+                      { id: "quente", label: "Quente", emoji: "🔥", color: "border-red-500/30 bg-red-500/5" },
+                      { id: "cliente", label: "Cliente", emoji: "✅", color: "border-emerald-500/30 bg-emerald-500/5" },
+                    ].map(stage => (
+                      <Card key={stage.id} className={`border ${stage.color}`}>
+                        <CardHeader className="pb-2 pt-3 px-3">
+                          <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                            <span>{stage.emoji} {stage.label}</span>
+                            <Badge variant="outline" className="text-[10px]">{(funnelGroups[stage.id] || []).length}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-2 pb-3 space-y-1.5 max-h-[50vh] overflow-y-auto">
+                          {(funnelGroups[stage.id] || []).length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-3">Nenhum lead</p>
+                          ) : (funnelGroups[stage.id] || []).map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => { setSelectedConv(c); setActiveMainTab("dms"); }}
+                              className="cursor-pointer p-2 rounded-lg bg-card hover:bg-secondary/40 border border-border/40 transition-colors"
+                            >
+                              <p className="text-xs font-semibold truncate">
+                                {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || "Lead"}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
+                              {c.last_message_at && (
+                                <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+                                  {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SEQUENCIAS DE FUNIL */}
+            {activeMainTab === "sequencias" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold">Sequências de Funil 🔄</h2>
+                    <p className="text-xs text-muted-foreground">Mensagens automáticas enviadas quando um lead atinge um estágio</p>
+                  </div>
+                  <Button onClick={() => setShowAddSeq(true)} className="bg-amber-500 text-black hover:bg-amber-400 gap-2">
+                    <span>+</span> Nova Sequência
+                  </Button>
+                </div>
+
+                {showAddSeq && (
+                  <Card className="border-amber-500/30 bg-amber-500/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Nova Sequência Automática</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase font-bold text-muted-foreground">Nome</label>
+                          <Input
+                            value={newSeq.name}
+                            onChange={e => setNewSeq(p => ({ ...p, name: e.target.value }))}
+                            placeholder="Ex: Follow-up Lead Quente"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase font-bold text-muted-foreground">Disparar quando lead é:</label>
+                          <select
+                            value={newSeq.trigger_stage}
+                            onChange={e => setNewSeq(p => ({ ...p, trigger_stage: e.target.value }))}
+                            className="w-full h-8 text-xs rounded-md border border-border/60 bg-background px-2"
+                          >
+                            <option value="frio">❄️ Frio</option>
+                            <option value="morno">🌡️ Morno</option>
+                            <option value="quente">🔥 Quente</option>
+                            <option value="cliente">✅ Cliente</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-muted-foreground">1º Mensagem (use {nome} para personalizar)</label>
+                        <textarea
+                          value={newSeq.steps[0]?.message || ""}
+                          onChange={e => setNewSeq(p => ({ ...p, steps: [{ ...p.steps[0], message: e.target.value }] }))}
+                          rows={3}
+                          placeholder="Oi {nome}! Vi que você tem interesse..."
+                          className="w-full text-xs rounded-md border border-border/60 bg-background px-3 py-2 resize-none"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setShowAddSeq(false)}>Cancelar</Button>
+                        <Button size="sm" onClick={handleSaveSequence} disabled={savingSeq} className="bg-amber-500 text-black hover:bg-amber-400">
+                          {savingSeq ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Salvar"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {loadingSeqs ? (
+                  <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : sequences.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="py-12 text-center space-y-2">
+                      <p className="text-3xl">🔄</p>
+                      <p className="font-semibold text-sm">Nenhuma sequência criada</p>
+                      <p className="text-xs text-muted-foreground">Crie uma sequência para enviar mensagens automáticas quando um lead atingir um estágio do funil.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {sequences.map(seq => (
+                      <Card key={seq.id} className={`border-border/60 ${seq.active ? "" : "opacity-60"}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold text-sm">{seq.name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Dispara quando lead é <strong>{seq.trigger_stage}</strong> • {(seq.steps || []).length} step(s)
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                                seq.active ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-secondary text-muted-foreground border-border"
+                              }`}>{seq.active ? "Ativa" : "Inativa"}</span>
+                              <button
+                                onClick={() => handleToggleSeq(seq.id, !seq.active)}
+                                className="text-[10px] text-muted-foreground hover:text-foreground border border-border/60 rounded px-2 py-0.5"
+                              >
+                                {seq.active ? "Pausar" : "Ativar"}
+                              </button>
+                            </div>
+                          </div>
+                          {(seq.steps || []).length > 0 && (
+                            <div className="mt-3 space-y-1">
+                              {(seq.steps as any[]).map((step: any, si: number) => (
+                                <div key={si} className="text-[10px] bg-secondary/30 rounded px-2 py-1 border border-border/30">
+                                  <span className="text-muted-foreground">Step {si + 1} (+{step.delay_hours || 0}h): </span>
+                                  <span className="truncate">{step.message}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeMainTab === "brain" && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Visualizador de Configurações */}
                 <Card className="md:col-span-1 bg-card border-border/60 shadow-lg">
                   <CardHeader className="border-b border-border/40 pb-3">
-                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Cérebro da IA Ativo</CardTitle>
-                    <CardDescription className="text-xs">Resumo das regras ativas para o projeto JP Freitas.</CardDescription>
+                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Cérebro da IA</CardTitle>
+                    <CardDescription className="text-xs">Configurações ativas para <strong>{selectedProjectName}</strong>.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 space-y-4">
                     {loadingAi ? (
@@ -1155,11 +1706,45 @@ export default function InstagramPage() {
                             "{aiConfig.welcome_message || "Nenhuma mensagem de boas-vindas configurada"}"
                           </p>
                         </div>
+
+                        {/* IA Toggle Controls */}
+                        <div className="border-t border-border/40 pt-3 space-y-2">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ativar / Desativar IA:</span>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all select-none ${aiConfig?.instagram_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
+                            onClick={() => handleToggleAI('instagram_enabled', !aiConfig?.instagram_enabled)}
+                          >
+                            <span className="flex items-center gap-1.5 font-medium text-[11px]">
+                              <MessageSquare className="h-3 w-3" /> IA no Direct (DM)
+                            </span>
+                            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
+                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                            </span>
+                          </div>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all select-none ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
+                            onClick={() => handleToggleAI('instagram_comments_enabled', !aiConfig?.instagram_comments_enabled)}
+                          >
+                            <span className="flex items-center gap-1.5 font-medium text-[11px]">
+                              <Heart className="h-3 w-3" /> IA em Comentários
+                            </span>
+                            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
+                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_comments_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-6 text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
                         <AlertCircle className="h-5 w-5 text-amber-500" />
-                        AI Config não encontrada ou desativada para este projeto.
+                        <p>IA não configurada para este projeto.</p>
+                        <Button variant="outline" size="sm" className="text-xs h-7 border-amber-500/30 text-amber-400" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+                          Configurar no Projeto
+                        </Button>
                       </div>
                     )}
                   </CardContent>
@@ -1249,27 +1834,37 @@ export default function InstagramPage() {
                     </Button>
                   </CardHeader>
                   <CardContent className="p-4 space-y-6">
-                    {/* Metrics row */}
+                    {/* Metrics row — dados reais */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total de Interações</p>
-                        <p className="text-xl font-bold text-slate-100 font-mono">148</p>
-                        <p className="text-[9px] text-emerald-400">⚡ 100% triadas por IA</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">DMs Recebidas</p>
+                        <p className="text-xl font-bold text-slate-100 font-mono">{aiStats.loading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : aiStats.totalMsgs}</p>
+                        <p className="text-[9px] text-emerald-400">⚡ mensagens inbound</p>
                       </div>
                       <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Auto-Resolvidas (Bot)</p>
-                        <p className="text-xl font-bold text-slate-100 font-mono">119 <span className="text-xs text-muted-foreground">(80.4%)</span></p>
-                        <p className="text-[9px] text-emerald-400">✓ Respostas directas enviadas</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Respostas da IA</p>
+                        <p className="text-xl font-bold text-slate-100 font-mono">
+                          {aiStats.loading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : <>
+                            {aiStats.autoReplied} <span className="text-xs text-muted-foreground">({aiStats.totalMsgs > 0 ? Math.round((aiStats.autoReplied / aiStats.totalMsgs) * 100) : 0}%)</span>
+                          </>}
+                        </p>
+                        <p className="text-[9px] text-emerald-400">✓ Respostas automáticas enviadas</p>
                       </div>
                       <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Handoffs (Humano)</p>
-                        <p className="text-xl font-bold text-amber-400 font-mono">29 <span className="text-xs text-muted-foreground">(19.6%)</span></p>
-                        <p className="text-[9px] text-amber-500">⚠ Operador acionado</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Sem Resposta (Handoff)</p>
+                        <p className="text-xl font-bold text-amber-400 font-mono">
+                          {aiStats.loading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : <>
+                            {aiStats.handoffs} <span className="text-xs text-muted-foreground">({aiStats.totalMsgs > 0 ? Math.round((aiStats.handoffs / Math.max(aiStats.totalMsgs, 1)) * 100) : 0}%)</span>
+                          </>}
+                        </p>
+                        <p className="text-[9px] text-amber-500">⚠ Aguardando operador</p>
                       </div>
                       <div className="bg-slate-950/60 p-3.5 rounded-xl border border-border/40 space-y-1 relative shadow-inner">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">RAG Hit Rate Médio</p>
-                        <p className="text-xl font-bold text-emerald-400 font-mono">82% <span className="text-xs text-muted-foreground">cosseno</span></p>
-                        <p className="text-[9px] text-slate-400">Alta similaridade RAG</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Taxa de Cobertura IA</p>
+                        <p className="text-xl font-bold text-emerald-400 font-mono">
+                          {aiStats.loading ? <Loader2 className="h-4 w-4 animate-spin inline" /> : <>{aiStats.ragHitRate}% <span className="text-xs text-muted-foreground">cobertura</span></>}
+                        </p>
+                        <p className="text-[9px] text-slate-400">% de DMs respondidas pela IA</p>
                       </div>
                     </div>
 

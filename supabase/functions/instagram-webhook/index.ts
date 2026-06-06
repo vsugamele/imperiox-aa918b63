@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
         const { data: conv } = await supa
           .from("imphq_ig_conversations")
           .upsert(upsertData, { onConflict: "account_id,participant_id" })
-          .select("id, participant_username, participant_name")
+          .select("id, participant_username, participant_name, ai_paused")
           .single();
 
         // Fetch/Update user profile info if missing
@@ -193,6 +193,15 @@ Deno.serve(async (req) => {
 
           // AI Direct Message Autoresponder!
           if (isInbound && content) {
+            // Pause active sequence enrollments when lead replies (they engaged!)
+            supa.from("imphq_ig_sequence_enrollments")
+              .update({ paused: true })
+              .eq("conversation_id", conv.id)
+              .eq("completed", false)
+              .eq("paused", false)
+              .then(() => console.log(`[ig-webhook] Paused sequences for conv ${conv.id} — lead replied`))
+              .catch(() => {});
+
             try {
               (async () => {
                 try {
@@ -209,6 +218,12 @@ Deno.serve(async (req) => {
 
                   if (!aiConfig || !aiConfig.instagram_enabled) {
                     console.log(`[ig-webhook] AI Instagram DMs not enabled for project ${account.project_id}`);
+                    return;
+                  }
+
+                  // Check per-conversation human takeover
+                  if (conv?.ai_paused) {
+                    console.log(`[ig-webhook] Human takeover active for conversation ${conv.id} — skipping AI reply`);
                     return;
                   }
 
@@ -379,6 +394,7 @@ ${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInst
 ${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}${igTriageBlock}
 REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
 - Responda em português brasileiro de forma natural, curta, direta e simpática. DMs do Instagram devem ser dinâmicas e fluidas!
+- HUMANIZAÇÃO ADAPTATIVA: Analise o estilo de escrita do lead. Se ele usar emoji, gírias, texto informal ou linguagem casual, espelhe esse tom naturalmente. Se for formal e objetivo, seja igualmente direto e profissional. Adapte-se sempre ao estilo percebido — isso cria rapport imediato.
 - ABORDAGEM DE COPY E PERSUASÃO (MÉTODO E3):
   * Nunca invente ou tente criar desejos na mente do lead. Identifique seu desejo ou dor primária e use-os para canalizar a resposta (conforme a Lei 4 de Eugene Schwartz).
   * Sempre que o lead perguntar sobre a eficácia do produto, preço, diferencial ou como funciona, explique de forma cativante baseando-se no MECANISMO ÚNICO (apelido e processo exclusivo) cadastrado no contexto do projeto.
@@ -389,13 +405,13 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
 - Se o lead perguntar sobre entrega de produtos, status de pedidos, envio, rastreamento ou qualquer suporte técnico/financeiro que você não saiba responder, diga amigavelmente que vai verificar os detalhes com a equipe administrativa interna imediatamente e que ele receberá uma notificação com a resposta em breve (por e-mail, WhatsApp ou notificação push no aplicativo/PWA).
 - NUNCA invente informações. Se não souber, diga que verificará com a equipe.`;
 
-                  // Fetch recent messages for history context
+                  // Fetch recent messages for history context — expanded to 20 messages for richer memory
                   const { data: dbHistory } = await supa
                     .from("imphq_ig_messages")
                     .select("direction, content")
                     .eq("conversation_id", conv.id)
                     .order("created_at", { ascending: false })
-                    .limit(11);
+                    .limit(20);
 
                   const historyMsgs = (dbHistory || []).slice();
                   // Skip current message if already inserted
@@ -502,6 +518,15 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                         const replyData = await replyRes.data;
                         if (replyData?.success) {
                           console.log(`[ig-webhook] AI direct reply sent successfully`);
+                          // Save AI reply to DB with ai_generated=true for feedback UI
+                          await supa.from("imphq_ig_messages").insert({
+                            conversation_id: conv.id,
+                            direction: "out",
+                            type: "text",
+                            content: aiReply,
+                            ai_generated: true,
+                            status: "sent",
+                          }).catch(() => {});
                         } else {
                           console.error(`[ig-webhook] Failed to send AI direct reply:`, replyData?.error);
                         }

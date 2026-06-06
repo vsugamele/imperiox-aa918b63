@@ -179,6 +179,27 @@ Deno.serve(async (req) => {
       const escalated = (aiConfig.escalation_keywords || []).some((kw: string) =>
         lc.includes(kw.toLowerCase())
       );
+
+      // 5.1. Buy Intent Detector — keywords que indicam que o lead quer comprar
+      const BUY_INTENT_KEYWORDS = [
+        "quanto custa", "qual o valor", "qual o preco", "como pago", "aceita pix",
+        "tem parcela", "tem parcelamento", "como compro", "quero comprar", "quero me inscrever",
+        "onde compro", "link de pagamento", "link para comprar", "me manda o link",
+        "tem garantia", "como funciona o pagamento", "posso pagar", "aceita cartao",
+        "quando abre", "ainda tem vaga", "ainda da tempo", "inscricao aberta", "ta aberto",
+        "quero fechar", "bora fechar", "vou comprar", "quero sim", "pode ser", "ta bom",
+        "fechado", "vou entrar",
+      ];
+      const hasBuyIntent = BUY_INTENT_KEYWORDS.some(kw => lc.includes(kw));
+      if (hasBuyIntent) {
+        console.log(`[wa-ai-reply] 🔥 BUY INTENT detected: "${message.slice(0, 60)}"`);
+        // Update conversation temperature
+        supabase.from("imphq_wa_conversations")
+          .update({ buy_intent_detected: true, temperature: "hot" })
+          .eq("id", conversation_id)
+          .then(() => {})
+          .catch(() => {});
+      }
       if (escalated) {
         console.log(`[wa-ai-reply] Keyword de escalação detectada`);
         await supabase.from("imphq_wa_conversations")
@@ -289,10 +310,25 @@ Deno.serve(async (req) => {
         formal: "Tom formal e polido.",
       };
 
+      // CLOSER MODE: injecao de prompt agressivo quando ha intencao de compra
+      const closerEnabled = aiConfig.closer_mode_enabled !== false; // default true
+      const paymentLink = aiConfig.payment_link || null;
+      const closerBlock = (hasBuyIntent && closerEnabled)
+        ? `
+
+❗ MODO CLOSER ATIVADO — MISSAO CRITICA:
+O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR. Regras:
+1. Seja direto. Sem rodeios. Sem "vou te passar mais informacoes".
+2. Remova a ultima barreira com empatia e seguranca ("pode confiar, eu uso isso").
+3. ${paymentLink ? `Passe ESTE link de pagamento: ${paymentLink}` : "Passe o link de pagamento imediatamente ao perguntar como pagar."}
+4. Se o lead tiver objecao (ex: "e caro"), use 1 frase de contorno e volte ao link.
+5. Maximo 3 frases por mensagem. Nao explique. VENDA.`
+        : "";
+
       const systemPrompt = `${expertPersona}${personalityMap[aiConfig.personality] || personalityMap.consultor}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 Você atende pelo WhatsApp para "${project?.name || project_id}".
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${objectionsBlock}
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${objectionsBlock}${closerBlock}
 REGRAS GERAIS:
 - Responda em português brasileiro natural, sem parecer robótico.
 - Seja conciso (WhatsApp = mensagens curtas).

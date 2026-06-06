@@ -207,6 +207,74 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
     const [loadingCopilot, setLoadingCopilot] = useState(false);
 
+    // 🔥 Live temperature score based on last 5 messages
+    const BUY_KEYWORDS = [
+      "quanto custa", "qual o valor", "como pago", "aceita pix", "tem parcela",
+      "quero comprar", "me manda o link", "tem garantia", "quero fechar", "vou entrar",
+      "link", "preco", "valor", "pagar", "compro", "assinar", "inscricao",
+    ];
+    const temperature = (() => {
+      const last5 = messages.filter(m => m.direction === "incoming").slice(-5);
+      if (last5.length === 0) return "cold";
+      const combined = last5.map(m => (m.content || "").toLowerCase()).join(" ");
+      const buyHits = BUY_KEYWORDS.filter(kw => combined.includes(kw)).length;
+      const hasActivity = last5.length >= 3 || (Date.now() - new Date(last5[last5.length - 1]?.created_at || 0).getTime()) < 15 * 60 * 1000;
+      if (buyHits >= 2) return "hot";
+      if (buyHits >= 1 || hasActivity) return "warm";
+      return "cold";
+    })();
+
+    // 3-option quick suggest state
+    const [showQuickSuggest, setShowQuickSuggest] = useState(false);
+    const [quickOptions, setQuickOptions] = useState<{type: string; label: string; emoji: string; text: string}[]>([]);
+    const [loadingQuick, setLoadingQuick] = useState(false);
+
+    const generateQuickOptions = async () => {
+      if (messages.length === 0) return;
+      setLoadingQuick(true);
+      setShowQuickSuggest(true);
+      try {
+        const savedKeys = localStorage.getItem("imphq_api_keys");
+        const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
+        const orKey = apiKeys.openrouter;
+        if (!orKey) { setQuickOptions([]); setLoadingQuick(false); return; }
+
+        const last = messages.filter(m => m.direction === "incoming").slice(-3);
+        const lastMsg = last[last.length - 1]?.content || "";
+        const history = messages.slice(-6).map(m => `${m.direction === "incoming" ? "Lead" : "Você"}: ${m.content}`).join("\n");
+
+        const prompt = `Gere 3 respostas curtas (max 2 frases cada) para esta mensagem do lead: "${lastMsg}"
+
+Histórico recente:
+${history}
+
+Gere exatamente neste formato JSON (sem markdown):
+[{"type":"empatica","text":"..."},{"type":"tecnica","text":"..."},{"type":"fechamento","text":"..."}]`;
+
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${orKey}` },
+          body: JSON.stringify({ model: "openai/gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 300, temperature: 0.7 }),
+        });
+        const data = await res.json();
+        const raw = data.choices?.[0]?.message?.content || "";
+        const clean = raw.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(clean);
+        const labels: Record<string, {label: string; emoji: string}> = {
+          empatica: { label: "Empática", emoji: "🤗" },
+          tecnica: { label: "Técnica", emoji: "🎯" },
+          fechamento: { label: "Fechamento", emoji: "🔥" },
+        };
+        setQuickOptions(parsed.map((o: any) => ({
+          ...o, ...labels[o.type] || { label: o.type, emoji: "💬" },
+        })));
+      } catch (e) {
+        setQuickOptions([]);
+      } finally {
+        setLoadingQuick(false);
+      }
+    };
+
     const generateCopilotSuggestion = async () => {
       if (messages.length === 0) {
         toast.error("Nenhuma mensagem na conversa para analisar.");
@@ -874,7 +942,44 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
               </div>
             </div>
           )}
+
+          {/* Quick 3-option suggestions panel */}
+          {showQuickSuggest && (
+            <div className="max-w-3xl mx-auto mb-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] text-muted-foreground font-semibold">✨ Escolha a abordagem:</span>
+                <button onClick={() => { setShowQuickSuggest(false); setQuickOptions([]); }} className="text-[9px] text-muted-foreground hover:text-foreground">fechar</button>
+              </div>
+              {loadingQuick ? (
+                <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando 3 opções...
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {quickOptions.map(opt => (
+                    <button
+                      key={opt.type}
+                      onClick={() => { setText(opt.text); textareaRef.current?.focus(); setShowQuickSuggest(false); }}
+                      className="text-left px-2.5 py-2 rounded-lg border border-border/60 bg-card hover:bg-secondary/50 transition-colors text-xs"
+                    >
+                      <p className="font-semibold text-[10px] text-muted-foreground mb-0.5">{opt.emoji} {opt.label}</p>
+                      <p className="leading-snug line-clamp-3">{opt.text}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-end gap-2 max-w-3xl mx-auto">
+            {/* Temperature badge */}
+            <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
+              temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
+              temperature === "warm" ? "bg-amber-500/20 text-amber-400" :
+              "bg-blue-500/10 text-blue-400/70"
+            }`} title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}>
+              {temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}
+            </div>
             {/* Emoji picker */}
             <Popover open={showEmoji} onOpenChange={setShowEmoji}>
               <PopoverTrigger asChild>
@@ -948,6 +1053,21 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
               ) : (
                 <Brain className="h-4 w-4 text-primary" />
               )}
+            </Button>
+
+            {/* 3 opções rápidas (empática, técnica, fechamento) */}
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className={`shrink-0 h-9 w-9 rounded-full hover:bg-amber-500/10 ${
+                showQuickSuggest ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground"
+              }`}
+              title="3 sugestões de resposta (empática, técnica, fechamento)"
+              onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()}
+              disabled={loadingQuick || messages.length === 0}
+            >
+              <Sparkles className="h-4 w-4" />
             </Button>
 
             {/* Message input */}
