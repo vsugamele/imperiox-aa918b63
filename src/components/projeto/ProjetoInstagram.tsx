@@ -166,9 +166,10 @@ export function ProjetoInstagram({ projectId }: Props) {
       return;
     }
     
-    let selectedAcc = zernioAccounts.find(acc => acc.id === selectedZernioAccountId);
+    let selectedAcc = zernioAccounts.find(acc => (acc.id || acc._id) === selectedZernioAccountId);
     if (!selectedAcc && selectedZernioAccountId === account?.page_id) {
       selectedAcc = {
+        _id: account.page_id,
         id: account.page_id,
         platformUserId: account.ig_user_id,
         username: account.username,
@@ -190,7 +191,7 @@ export function ProjetoInstagram({ projectId }: Props) {
           auth_method: "zernio",
           project_id: projectId,
           zernio_api_key: zernioApiKey.trim(),
-          zernio_account_id: selectedAcc.id,
+          zernio_account_id: selectedAcc.id || selectedAcc._id,
           ig_user_id: selectedAcc.platformUserId,
           username: selectedAcc.username,
           display_name: selectedAcc.name || selectedAcc.username,
@@ -547,7 +548,7 @@ export function ProjetoInstagram({ projectId }: Props) {
                         </SelectItem>
                       ) : (
                         zernioAccounts.map((acc) => (
-                          <SelectItem key={acc.id} value={acc.id}>
+                          <SelectItem key={acc.id || acc._id} value={acc.id || acc._id}>
                             {acc.name || acc.username} (@{acc.username}) — ID: {acc.platformUserId}
                           </SelectItem>
                         ))
