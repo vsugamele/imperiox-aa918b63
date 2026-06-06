@@ -214,23 +214,21 @@ export default function InstagramPage() {
 
   // Load AI configuration
   useEffect(() => {
-    if (selectedProjectId && activeMainTab === "brain") {
+    if (selectedProjectId) {
       setLoadingAi(true);
       supabase.from("imphq_wa_ai_config")
         .select("*")
         .eq("project_id", selectedProjectId)
-        .eq("enabled", true)
+        .is("provider_id", null)
+        .maybeSingle()
         .then(({ data }) => {
-          if (data && data.length > 0) {
-            const config = data.find(c => !c.provider_id) || data[0];
-            setAiConfig(config);
-          } else {
-            setAiConfig(null);
-          }
+          setAiConfig(data || null);
           setLoadingAi(false);
         });
+    } else {
+      setAiConfig(null);
     }
-  }, [selectedProjectId, activeMainTab]);
+  }, [selectedProjectId]);
 
   // Load comment triggers
   const loadTriggers = useCallback(async () => {
@@ -928,11 +926,28 @@ export default function InstagramPage() {
                   </div>
 
                   {selectedConv && (
-                    <div className="bg-secondary/20 p-2.5 rounded-lg border border-border/30 mt-4">
-                      <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">Cérebro da IA ativo</span>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        A IA responderá automaticamente a este usuário respeitando a base semântica configurada e o tom de voz ativo.
-                      </p>
+                    <div className="bg-secondary/20 p-2.5 rounded-lg border border-border/30 mt-4 space-y-2">
+                      {aiConfig?.instagram_enabled ? (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] uppercase font-bold text-emerald-400">IA Ativa no Direct</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            A IA responderá automaticamente a este usuário no Direct respeitando a base semântica configurada.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">IA Desativada no Direct</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            As respostas automáticas no Direct estão desativadas. Você pode ativá-las nas Configurações do Projeto &gt; Instagram.
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                 </Card>
