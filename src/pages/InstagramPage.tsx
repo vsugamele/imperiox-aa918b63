@@ -1595,7 +1595,7 @@ export default function InstagramPage() {
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-muted-foreground">1º Mensagem (use {nome} para personalizar)</label>
+                        <label className="text-[10px] uppercase font-bold text-muted-foreground">1º Mensagem (use {"{nome}"} para personalizar)</label>
                         <textarea
                           value={newSeq.steps[0]?.message || ""}
                           onChange={e => setNewSeq(p => ({ ...p, steps: [{ ...p.steps[0], message: e.target.value }] }))}
