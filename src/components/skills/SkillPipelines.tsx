@@ -238,7 +238,7 @@ export function SkillPipelines({ projects }: Props) {
           result,
           model,
           produto: produto || null,
-        }).catch(() => {});
+        }).then(undefined, () => {});
 
       } catch (err: any) {
         results[i].status = "error";
