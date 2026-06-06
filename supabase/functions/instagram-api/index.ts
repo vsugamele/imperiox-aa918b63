@@ -70,7 +70,54 @@ Deno.serve(async (req) => {
   try {
     // ============ SAVE_TOKEN ============
     if (action === "save_token") {
-      const { project_id, access_token, app_id, app_secret } = body;
+      const { project_id, access_token, app_id, app_secret, auth_method, zernio_api_key, zernio_account_id, ig_user_id, username, display_name, avatar_url } = body;
+      
+      if (auth_method === "zernio") {
+        if (!project_id || !zernio_api_key || !zernio_account_id || !ig_user_id) {
+          return json({ error: "Campos obrigatórios do Zernio ausentes" }, 400);
+        }
+        
+        const credentials = {
+          auth_method: "zernio",
+          zernio_api_key,
+          zernio_account_id,
+          ig_user_id,
+          username,
+          saved_at: new Date().toISOString()
+        };
+        
+        await saveCreds(supa, project_id, credentials);
+        
+        // Upsert account row
+        const { data: existing } = await supa
+          .from("imphq_ig_accounts")
+          .select("id")
+          .eq("project_id", project_id)
+          .eq("ig_user_id", ig_user_id)
+          .maybeSingle();
+
+        const payload = {
+          project_id,
+          ig_user_id,
+          username,
+          page_id: zernio_account_id,
+          display_name: display_name || username,
+          avatar_url: avatar_url || null,
+          status: "active",
+          auth_method: "zernio",
+          last_refresh_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+
+        if (existing) {
+          await supa.from("imphq_ig_accounts").update(payload).eq("id", existing.id);
+        } else {
+          await supa.from("imphq_ig_accounts").insert(payload);
+        }
+
+        return json({ success: true, account: payload });
+      }
+
       if (!project_id || !access_token) return json({ error: "project_id e access_token obrigatórios" }, 400);
 
       // Descobre conta IG
@@ -118,6 +165,25 @@ Deno.serve(async (req) => {
       return json({ success: true, account: payload });
     }
 
+    // ============ ZERNIO_LIST_ACCOUNTS ============
+    if (action === "zernio_list_accounts") {
+      const { zernio_api_key } = body;
+      if (!zernio_api_key) return json({ error: "zernio_api_key obrigatório" }, 400);
+
+      const r = await fetch("https://zernio.com/api/v1/accounts", {
+        headers: {
+          "Authorization": `Bearer ${zernio_api_key}`,
+        },
+      });
+      if (!r.ok) {
+        const errBody = await r.text();
+        return json({ error: `Zernio error (${r.status}): ${errBody}` }, 400);
+      }
+      const data = await r.json();
+      const igAccounts = (data.accounts || []).filter((acc: any) => acc.platform === "instagram");
+      return json({ success: true, accounts: igAccounts });
+    }
+
     // ============ REFRESH_TOKEN ============
     if (action === "refresh_token") {
       const { project_id } = body;
@@ -144,18 +210,83 @@ Deno.serve(async (req) => {
       const { project_id, recipient_id, text, metadata } = body;
       if (!project_id || !recipient_id || !text) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
-      if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
-      const r = await fetch(`${GRAPH}/me/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipient: { id: recipient_id },
-          message: { text },
-          access_token: creds.page_access_token,
-        }),
-      });
-      const data = await r.json();
-      if (data.error) return json({ error: data.error.message }, 400);
+      if (!creds) return json({ error: "Conta IG não conectada" }, 404);
+
+      let messageId = "";
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key || !creds.zernio_account_id) {
+          return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        }
+
+        const { data: conv } = await supa
+          .from("imphq_ig_conversations")
+          .select("id, ig_thread_id")
+          .eq("participant_id", recipient_id)
+          .maybeSingle();
+
+        if (conv?.ig_thread_id) {
+          console.log(`[instagram-api] Sending text via Zernio. Conv: ${conv.ig_thread_id}`);
+          const zRes = await fetch(`https://zernio.com/api/v1/inbox/conversations/${conv.ig_thread_id}/messages`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${creds.zernio_api_key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              accountId: creds.zernio_account_id,
+              message: text,
+            }),
+          });
+          if (!zRes.ok) {
+            const errBody = await zRes.text();
+            return json({ error: `Zernio send error (${zRes.status}): ${errBody}` }, 400);
+          }
+          const zData = await zRes.json();
+          messageId = zData.messageId || zData.id || "zernio-" + Date.now();
+        } else {
+          return json({ error: "ID de conversa (thread ID) do Zernio não encontrado. A conversa deve ser iniciada pelo cliente no Instagram." }, 400);
+        }
+      } else {
+        if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
+        if (creds?.n8n_webhook_url) {
+          console.log(`[instagram-api] Forwarding send_text to N8N webhook: ${creds.n8n_webhook_url}`);
+          const nr = await fetch(creds.n8n_webhook_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recipient_id, text }),
+          });
+          if (!nr.ok) {
+            const errBody = await nr.text();
+            return json({ error: `N8N error (${nr.status}): ${errBody}` }, 400);
+          }
+          const resText = await nr.text();
+          if (resText.trim()) {
+            try {
+              const ndata = JSON.parse(resText);
+              messageId = ndata.message_id || ndata.id || "n8n-" + Date.now();
+            } catch {
+              messageId = "n8n-" + Date.now();
+            }
+          } else {
+            messageId = "n8n-" + Date.now();
+          }
+        } else {
+          const r = await fetch(`${GRAPH}/me/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recipient: { id: recipient_id },
+              message: { text },
+              access_token: creds.page_access_token,
+            }),
+          });
+          const data = await r.json();
+          if (data.error) return json({ error: data.error.message }, 400);
+          messageId = data.message_id;
+        }
+      }
+
       // Grava mensagem outbound
       const { data: conv } = await supa.from("imphq_ig_conversations").select("id").eq("participant_id", recipient_id).maybeSingle();
       if (conv) {
@@ -164,12 +295,12 @@ Deno.serve(async (req) => {
           direction: "out",
           type: "text",
           content: text,
-          mid: data.message_id,
+          mid: messageId,
           status: "sent",
           metadata: metadata || null,
         });
       }
-      return json({ success: true, message_id: data.message_id });
+      return json({ success: true, message_id: messageId });
     }
 
     // ============ REPLY_COMMENT ============
@@ -218,26 +349,117 @@ Deno.serve(async (req) => {
     if (action === "private_reply") {
       const { project_id, comment_id, message } = body;
       const creds = await getCreds(supa, project_id);
-      if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
-      const r = await fetch(`${GRAPH}/me/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipient: { comment_id },
-          message: { text: message },
-          access_token: creds.page_access_token,
-        }),
-      });
-      const data = await r.json();
-      if (data.error) return json({ error: data.error.message }, 400);
-      return json({ success: true });
+      if (!creds) return json({ error: "Conta IG não conectada" }, 404);
+
+      let messageId = "";
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key || !creds.zernio_account_id) {
+          return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        }
+
+        const { data: commentData } = await supa
+          .from("imphq_ig_comments")
+          .select("username")
+          .eq("comment_id", comment_id)
+          .maybeSingle();
+
+        const { data: conv } = await supa
+          .from("imphq_ig_conversations")
+          .select("id, ig_thread_id")
+          .eq("participant_username", commentData?.username)
+          .maybeSingle();
+
+        if (conv?.ig_thread_id) {
+          console.log(`[instagram-api] Sending private reply via Zernio. Conv: ${conv.ig_thread_id}`);
+          const zRes = await fetch(`https://zernio.com/api/v1/inbox/conversations/${conv.ig_thread_id}/messages`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${creds.zernio_api_key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              accountId: creds.zernio_account_id,
+              message: message,
+            }),
+          });
+          if (!zRes.ok) {
+            const errBody = await zRes.text();
+            return json({ error: `Zernio private reply error (${zRes.status}): ${errBody}` }, 400);
+          }
+          const zData = await zRes.json();
+          messageId = zData.messageId || zData.id || "zernio-" + Date.now();
+        } else {
+          return json({ error: "Conversa do Zernio correspondente ao comentário não encontrada." }, 400);
+        }
+      } else {
+        if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
+        if (creds?.n8n_webhook_url) {
+          console.log(`[instagram-api] Forwarding private_reply to N8N webhook: ${creds.n8n_webhook_url}`);
+          const nr = await fetch(creds.n8n_webhook_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ comment_id, text: message }),
+          });
+          if (!nr.ok) {
+            const errBody = await nr.text();
+            return json({ error: `N8N error (${nr.status}): ${errBody}` }, 400);
+          }
+          const resText = await nr.text();
+          if (resText.trim()) {
+            try {
+              const ndata = JSON.parse(resText);
+              messageId = ndata.message_id || ndata.id || "n8n-" + Date.now();
+            } catch {
+              messageId = "n8n-" + Date.now();
+            }
+          } else {
+            messageId = "n8n-" + Date.now();
+          }
+        } else {
+          const r = await fetch(`${GRAPH}/me/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recipient: { comment_id },
+              message: { text: message },
+              access_token: creds.page_access_token,
+            }),
+          });
+          const data = await r.json();
+          if (data.error) return json({ error: data.error.message }, 400);
+          messageId = data.message_id;
+        }
+      }
+      return json({ success: true, message_id: messageId });
     }
 
     // ============ FETCH_ACCOUNT (info da conta) ============
     if (action === "fetch_account") {
       const project_id = url.searchParams.get("project_id") || body.project_id;
       const creds = await getCreds(supa, project_id);
-      if (!creds?.access_token) return json({ has_token: false });
+      if (!creds?.access_token && !creds?.zernio_api_key) return json({ has_token: false });
+
+      if (creds.auth_method === "zernio") {
+        const { data: localAcc } = await supa
+          .from("imphq_ig_accounts")
+          .select("*")
+          .eq("project_id", project_id)
+          .eq("ig_user_id", creds.ig_user_id)
+          .maybeSingle();
+
+        return json({
+          has_token: true,
+          account: localAcc || {
+            username: creds.username || "zernio_account",
+            display_name: creds.username || "Zernio Account",
+            ig_user_id: creds.ig_user_id,
+            status: "active",
+            auth_method: "zernio"
+          }
+        });
+      }
+
       try {
         const info = await discoverIgAccount(creds.access_token);
         return json({ has_token: true, account: info });

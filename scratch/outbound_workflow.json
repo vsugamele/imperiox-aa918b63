@@ -1,0 +1,73 @@
+{
+  "name": "ImperioX - Instagram Outbound Send",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-instagram-message",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 300],
+      "id": "webhook-trigger",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/me/messages",
+        "authentication": "predefined",
+        "nodeCredentialType": "facebookPageApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { recipient: $json.body.comment_id ? { comment_id: $json.body.comment_id } : { id: $json.body.recipient_id }, message: { text: $json.body.text || $json.body.message } } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [350, 300],
+      "id": "meta-graph-api-send",
+      "name": "Send via Facebook Page API"
+    },
+    {
+      "parameters": {
+        "responseDataSource": "allConnections",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Send via Facebook Page API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via Facebook Page API": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

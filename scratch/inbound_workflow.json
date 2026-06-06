@@ -1,0 +1,67 @@
+{
+  "name": "ImperioX - Instagram Inbound Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["messages", "comments"]
+      },
+      "type": "n8n-nodes-base.instagramTrigger",
+      "typeVersion": 1,
+      "position": [100, 300],
+      "id": "instagram-trigger",
+      "name": "Instagram Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nif (item.message) {\n  return {\n    object: \"instagram\",\n    entry: [\n      {\n        id: item.recipient?.id || \"\",\n        messaging: [ item ]\n      }\n    ]\n  };\n} else {\n  return {\n    object: \"instagram\",\n    entry: [\n      {\n        id: item.instagram_business_account_id || \"\",\n        changes: [\n          {\n            field: \"comments\",\n            value: item\n          }\n        ]\n      }\n    ]\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 300],
+      "id": "reconstruct-meta-envelope",
+      "name": "Reconstruct Envelope"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/instagram-webhook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "id": "http-request-supabase",
+      "name": "Forward to Supabase"
+    }
+  ],
+  "connections": {
+    "Instagram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Reconstruct Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reconstruct Envelope": {
+      "main": [
+        [
+          {
+            "node": "Forward to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
