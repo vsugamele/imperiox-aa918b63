@@ -47,6 +47,7 @@ interface WaSession {
   last_message_at?: string | null;
   unread_count?: number;
   last_message_direction?: string | null;
+  ai_paused_until?: string | null;
 }
 
 export default function WhatsApp() {
@@ -73,7 +74,7 @@ export default function WhatsApp() {
   const load = useCallback(async () => {
     setLoading(true);
     const [sRes, pRes, provRes, tRes] = await Promise.all([
-      supabase.from("imphq_wa_conversations").select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
+      supabase.from("imphq_wa_conversations").select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at, ai_enabled").eq("is_active", true).order("created_at"),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id, created_at").order("created_at", { ascending: false }),
@@ -363,6 +364,51 @@ export default function WhatsApp() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
+                      {/* AI Pause/Resume controls */}
+                      {(() => {
+                        const isAiPaused = selectedSession.ai_paused_until && new Date(selectedSession.ai_paused_until) > new Date();
+                        const remainingMinutes = selectedSession.ai_paused_until
+                          ? Math.max(0, Math.ceil((new Date(selectedSession.ai_paused_until).getTime() - Date.now()) / 60000))
+                          : 0;
+
+                        const toggleAiPause = async () => {
+                          const newPausedUntil = isAiPaused ? null : new Date(Date.now() + 30 * 60 * 1000).toISOString();
+                          const { error } = await supabase
+                            .from("imphq_wa_conversations")
+                            .update({ ai_paused_until: newPausedUntil } as any)
+                            .eq("id", selectedSession.id);
+                          
+                          if (error) {
+                            toast.error("Erro ao alterar status da IA: " + error.message);
+                            return;
+                          }
+
+                          setSessions(prev => prev.map(s => s.id === selectedSession.id ? { ...s, ai_paused_until: newPausedUntil } : s));
+                          setSelectedSession(prev => prev ? { ...prev, ai_paused_until: newPausedUntil } : null);
+                          toast.success(isAiPaused ? "IA retomada com sucesso!" : "IA pausada por 30 minutos.");
+                        };
+
+                        return (
+                          <Button
+                            size="sm"
+                            variant={isAiPaused ? "secondary" : "ghost"}
+                            className={`h-7 text-[10px] gap-1 transition-all ${
+                              isAiPaused 
+                                ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400" 
+                                : "text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
+                            }`}
+                            onClick={toggleAiPause}
+                            title={isAiPaused ? "Retomar a resposta automática da IA" : "Pausar a IA nesta conversa por 30 minutos"}
+                          >
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isAiPaused ? "bg-amber-400" : "bg-emerald-400"}`}></span>
+                              <span className={`relative inline-flex rounded-full h-2 w-2 ${isAiPaused ? "bg-amber-500" : "bg-emerald-500"}`}></span>
+                            </span>
+                            <span>{isAiPaused ? `IA Pausada (${remainingMinutes}m)` : "IA Ativa"}</span>
+                          </Button>
+                        );
+                      })()}
+
                       <Button
                         size="sm"
                         variant="ghost"

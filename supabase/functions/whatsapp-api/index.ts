@@ -112,7 +112,13 @@ Deno.serve(async (req) => {
 
 
     // ── Helper: update conversation metadata after message ──
-    async function updateConversationAfterMessage(conversationId: string, content: string, currentCount: number, incrementUnread: boolean = false) {
+    async function updateConversationAfterMessage(
+      conversationId: string,
+      content: string,
+      currentCount: number,
+      incrementUnread: boolean = false,
+      pauseAI: boolean = false
+    ) {
       const patch: Record<string, any> = {
         last_message: content.substring(0, 200),
         last_message_at: new Date().toISOString(),
@@ -127,7 +133,15 @@ Deno.serve(async (req) => {
           .eq("id", conversationId)
           .maybeSingle();
         patch.unread_count = ((cur?.unread_count as number) || 0) + 1;
+      } else {
+        patch.unread_count = 0;
       }
+
+      if (pauseAI) {
+        // Pausa a IA por 30 minutos a partir de agora
+        patch.ai_paused_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      }
+
       const { error } = await supabase
         .from("imphq_wa_conversations")
         .update(patch)
@@ -689,8 +703,8 @@ Deno.serve(async (req) => {
         throw new Error("Mensagem enviada mas falhou ao salvar: " + msgError.message);
       }
 
-      // Update conversation metadata
-      await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0);
+      // Update conversation metadata (pause AI if sent by human)
+      await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0, false, sent_by === "human");
 
       // Fire-and-forget: aprendizado com respostas humanas
       if (sent_by === "human" && content && content.length > 15) {
@@ -1207,25 +1221,40 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Skip outgoing messages (fromMe) to avoid duplicates — check all common envelopes
+        const rawJid = key?.remoteJid || "";
+        const jidSuffix = (rawJid.split("@")[1] || "s.whatsapp.net").toLowerCase();
+        const phone = rawJid.split("@")[0].replace(/\D/g, "");
+        const providerMsgId = key?.id || "";
+
+        // Skip outgoing messages (fromMe) if they already exist in the database (sent via IA or Panel)
         const isFromMe =
           key?.fromMe === true ||
           body?.data?.fromMe === true ||
           body?.data?.key?.fromMe === true ||
           body?.fromMe === true;
+
         if (isFromMe) {
-          console.log("[webhook] Skipping fromMe message");
-          return new Response(JSON.stringify({ success: true, skipped: "fromMe" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          if (providerMsgId) {
+            const { data: existingMsg } = await supabase
+              .from("imphq_wa_messages")
+              .select("id")
+              .eq("provider_message_id", providerMsgId)
+              .maybeSingle();
+
+            if (existingMsg) {
+              console.log(`[webhook] Outgoing message ${providerMsgId} already exists in DB. Skipping duplicate.`);
+              return new Response(JSON.stringify({ success: true, skipped: "fromMe_duplicate" }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+            console.log(`[webhook] Outgoing message ${providerMsgId} not in DB. Processing as operator external reply.`);
+          } else {
+            console.log("[webhook] Skipping fromMe message due to missing provider_message_id");
+            return new Response(JSON.stringify({ success: true, skipped: "fromMe_no_id" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
-
-
-        const rawJid = key?.remoteJid || "";
-        const jidSuffix = (rawJid.split("@")[1] || "s.whatsapp.net").toLowerCase();
-        const phone = rawJid.split("@")[0].replace(/\D/g, "");
-
-        const providerMsgId = key?.id || "";
 
         // Extract content from various message types
         let content = "";
@@ -1349,7 +1378,7 @@ Deno.serve(async (req) => {
 
           const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
             conversation_id: conv.id,
-            direction: "incoming",
+            direction: isFromMe ? "outgoing" : "incoming",
             phone,
             content,
             message_type: messageType,
@@ -1357,10 +1386,9 @@ Deno.serve(async (req) => {
             project_id: projectId,
             provider: providerType,
             provider_message_id: providerMsgId,
-            status: "received",
-            sent_by: "lead",
+            status: isFromMe ? "sent" : "received",
+            sent_by: isFromMe ? "human" : "lead",
           });
-
 
           if (msgError) {
             console.error("[webhook] DB save error:", msgError.message);
@@ -1368,19 +1396,25 @@ Deno.serve(async (req) => {
             console.log(`[webhook] Saved ${messageType} from ${phone} (conv=${conv.id}) media=${!!mediaUrl}`);
           }
 
-          await runWhatsAppAutoresponder(
-            conv,
-            phone,
-            content,
-            messageType,
-            providerMsgId,
-            pushName,
-            providerId,
-            projectId,
-            "evolution",
-            jidSuffix,
-            incomingAt
-          );
+          if (isFromMe) {
+            // Se foi uma resposta manual do operador (fromMe), atualiza metadados e pausa a IA por 30m
+            await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, false, true);
+          } else {
+            // Se foi recebida do lead, executa autoresponder normal
+            await runWhatsAppAutoresponder(
+              conv,
+              phone,
+              content,
+              messageType,
+              providerMsgId,
+              pushName,
+              providerId,
+              projectId,
+              "evolution",
+              jidSuffix,
+              incomingAt
+            );
+          }
 
         } else {
           console.log(`[webhook] Skipped: phone=${phone} content=${!!content} project=${projectId}`);

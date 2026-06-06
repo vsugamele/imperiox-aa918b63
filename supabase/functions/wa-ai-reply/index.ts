@@ -114,15 +114,27 @@ Deno.serve(async (req) => {
     // 2. Verifica cooldown e se a conversa está sob atendimento humano
     const { data: conv } = await supabase
       .from("imphq_wa_conversations")
-      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status")
+      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until")
       .eq("id", conversation_id)
       .maybeSingle();
 
     if (conv?.status === "needs_human") {
-      console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA autoresponder`);
+      console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA`);
       return new Response(JSON.stringify({ skipped: "needs_human" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Verifica pausa manual (humano respondeu recentemente)
+    if (conv?.ai_paused_until) {
+      const pausedUntil = new Date(conv.ai_paused_until);
+      if (pausedUntil > new Date()) {
+        const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
+        console.log(`[wa-ai-reply] IA pausada por mais ${remainMin}min (humano respondeu). Para retomar: setar ai_paused_until=null`);
+        return new Response(JSON.stringify({ skipped: "human_override", paused_until: conv.ai_paused_until, resumes_in_min: remainMin }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const cooldownSec = Number(aiConfig.cooldown_seconds ?? 5);
@@ -319,21 +331,35 @@ Deno.serve(async (req) => {
 ❗ MODO CLOSER ATIVADO — MISSAO CRITICA:
 O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR. Regras:
 1. Seja direto. Sem rodeios. Sem "vou te passar mais informacoes".
-2. Remova a ultima barreira com empatia e seguranca ("pode confiar, eu uso isso").
-3. ${paymentLink ? `Passe ESTE link de pagamento: ${paymentLink}` : "Passe o link de pagamento imediatamente ao perguntar como pagar."}
-4. Se o lead tiver objecao (ex: "e caro"), use 1 frase de contorno e volte ao link.
-5. Maximo 3 frases por mensagem. Nao explique. VENDA.`
+2. Remova a ultima barreira com empatia e seguranca (ex: "muita gente ja comprou e transformou o resultado").
+3. ${paymentLink
+  ? `Passe ESTE link de pagamento EXATO, sem parafrasear: ${paymentLink}`
+  : `NAO invente link. Diga: "Vou te passar o link agora, me da um segundo." e aguarde o humano enviar.`}
+4. Se o lead tiver objecao (ex: "e caro"), use 1 frase de contorno e volte ao fechamento.
+5. Maximo 3 frases curtas. Nao explique. FECHE.`
         : "";
 
-      const systemPrompt = `${expertPersona}${personalityMap[aiConfig.personality] || personalityMap.consultor}
+      // Nome do lead para personalizar
+      const leadFirstName = (conv?.contact_name || push_name || "").trim().split(/\s+/)[0] || "";
+      const leadGreeting = leadFirstName ? `O nome do lead e "${leadFirstName}". Use o nome dele nas primeiras mensagens da conversa.` : "";
+
+      const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+${personalityMap[aiConfig.personality] || personalityMap.consultor}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
-Você atende pelo WhatsApp para "${project?.name || project_id}".
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${objectionsBlock}${closerBlock}
-REGRAS GERAIS:
-- Responda em português brasileiro natural, sem parecer robótico.
-- Seja conciso (WhatsApp = mensagens curtas).
-- Nunca revele que é IA.
-- Use método E3: Empatia → Especificidade → Envolvimento (pergunta final).`.trim();
+${leadGreeting}
+
+METODO OBRIGATORIO — use SEMPRE:
+1. EMPATIA: 1 frase que valida a situacao ou desejo do lead (ex: "Faz todo sentido querer isso!")
+2. ESPECIFICIDADE: 1-2 frases com dado ou beneficio concreto do produto (NAO seja vago)
+3. ENVOLVIMENTO: Feche com 1 pergunta consultiva que avanca a conversa
+
+REGRAS CRITICAS:
+- NUNCA use placeholders como [Link] ou [Nome do curso]. Se nao souber algo, diga que vai buscar.
+- NUNCA seja vago. Ex: ruim: "o curso e focado em corte". Bom: "o curso ensina 7 tecnicas de corte que funcionam em cabelos lisos e cacheados".
+- Respostas curtas (maximo 4 linhas no WhatsApp). Sem blocos de texto.
+- Nunca revele que e IA.
+- Responda em portugues brasileiro natural.
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${objectionsBlock}${closerBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string }[] = [{ role: "system", content: systemPrompt }];
