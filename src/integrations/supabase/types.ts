@@ -17024,6 +17024,63 @@ export type Database = {
           },
         ]
       }
+      imphq_business_hours: {
+        Row: {
+          channel: string
+          close_time: string | null
+          created_at: string | null
+          days_of_week: number[] | null
+          enabled: boolean | null
+          id: string
+          open_time: string | null
+          outside_hours_message: string | null
+          pause_ai_outside_hours: boolean | null
+          project_id: string | null
+          timezone: string | null
+        }
+        Insert: {
+          channel?: string
+          close_time?: string | null
+          created_at?: string | null
+          days_of_week?: number[] | null
+          enabled?: boolean | null
+          id?: string
+          open_time?: string | null
+          outside_hours_message?: string | null
+          pause_ai_outside_hours?: boolean | null
+          project_id?: string | null
+          timezone?: string | null
+        }
+        Update: {
+          channel?: string
+          close_time?: string | null
+          created_at?: string | null
+          days_of_week?: number[] | null
+          enabled?: boolean | null
+          id?: string
+          open_time?: string | null
+          outside_hours_message?: string | null
+          pause_ai_outside_hours?: boolean | null
+          project_id?: string | null
+          timezone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_business_hours_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_business_hours_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_calendar_events: {
         Row: {
           all_day: boolean | null
@@ -22721,6 +22778,7 @@ export type Database = {
         Row: {
           ai_last_reply_at: string | null
           ai_lock_until: string | null
+          ai_paused_until: string | null
           avatar_url: string | null
           buy_intent_detected: boolean | null
           contact_name: string | null
@@ -22748,6 +22806,7 @@ export type Database = {
         Insert: {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
+          ai_paused_until?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
@@ -22775,6 +22834,7 @@ export type Database = {
         Update: {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
+          ai_paused_until?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
