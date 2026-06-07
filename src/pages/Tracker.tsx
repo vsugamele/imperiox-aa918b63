@@ -162,14 +162,27 @@ export default function Tracker() {
 
   const buildUrl = (l: Partial<TrackingLink>) => {
     if (!l.destino) return "";
-    const params = new URLSearchParams();
-    if (l.utm_source) params.set("utm_source", l.utm_source);
-    if (l.utm_medium) params.set("utm_medium", l.utm_medium);
-    if (l.utm_campaign) params.set("utm_campaign", l.utm_campaign);
-    if (l.utm_content) params.set("utm_content", l.utm_content);
-    if (l.utm_term) params.set("utm_term", l.utm_term);
-    const qs = params.toString();
-    return qs ? `${l.destino}?${qs}` : l.destino;
+    try {
+      const url = new URL(l.destino.startsWith("http") ? l.destino : `https://${l.destino}`);
+      if (l.utm_source) url.searchParams.set("utm_source", l.utm_source);
+      if (l.utm_medium) url.searchParams.set("utm_medium", l.utm_medium);
+      if (l.utm_campaign) url.searchParams.set("utm_campaign", l.utm_campaign);
+      if (l.utm_content) url.searchParams.set("utm_content", l.utm_content);
+      if (l.utm_term) url.searchParams.set("utm_term", l.utm_term);
+      if (l.id) url.searchParams.set("imp_link_id", l.id);
+      return url.toString();
+    } catch (e) {
+      const params = new URLSearchParams();
+      if (l.utm_source) params.set("utm_source", l.utm_source);
+      if (l.utm_medium) params.set("utm_medium", l.utm_medium);
+      if (l.utm_campaign) params.set("utm_campaign", l.utm_campaign);
+      if (l.utm_content) params.set("utm_content", l.utm_content);
+      if (l.utm_term) params.set("utm_term", l.utm_term);
+      if (l.id) params.set("imp_link_id", l.id);
+      const qs = params.toString();
+      const separator = l.destino.includes("?") ? "&" : "?";
+      return qs ? `${l.destino}${separator}${qs}` : l.destino;
+    }
   };
 
   const createLink = async () => {
@@ -312,6 +325,10 @@ export default function Tracker() {
     else { var s = localStorage.getItem("imp_"+k); if(s) utms[k] = s; }
   });
   
+  // Capture link_id
+  var linkId = params.get("imp_link_id") || localStorage.getItem("imp_link_id") || null;
+  if(params.get("imp_link_id")){ localStorage.setItem("imp_link_id", params.get("imp_link_id")); }
+  
   // Store landing page
   if(!localStorage.getItem("imp_landing")) localStorage.setItem("imp_landing", window.location.href);
   
@@ -332,10 +349,11 @@ export default function Tracker() {
     }).catch(function(){});
   }
   
-  // Register click (if UTMs present)
-  if(Object.keys(utms).length > 0){
+  // Register click (if UTMs or linkId present)
+  if(Object.keys(utms).length > 0 || linkId){
     sbPost("imphq_clicks", {
       id: crypto.randomUUID(),
+      link_id: linkId,
       utm_source: utms.utm_source || null,
       utm_medium: utms.utm_medium || null,
       utm_campaign: utms.utm_campaign || null,

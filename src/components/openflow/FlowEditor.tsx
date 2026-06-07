@@ -11,8 +11,9 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -29,6 +30,9 @@ const ACAO_TIPOS = [
   { value: "email", label: "Email (Resend)", icon: Mail, emoji: "✉️", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
   { value: "whatsapp", label: "WhatsApp", icon: MessageCircle, emoji: "💬", color: "border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400" },
   { value: "audio", label: "Áudio WhatsApp (IA)", icon: Mic, emoji: "🎙️", color: "border-rose-500/40 bg-rose-500/5 hover:border-rose-400" },
+  { value: "ia_message", label: "IA Conversacional (Mente)", icon: Sparkles, emoji: "🤖", color: "border-purple-500/40 bg-purple-500/5 hover:border-purple-400" },
+  { value: "adicionar_tag", label: "Atribuir Tag", icon: Tag, emoji: "🏷️", color: "border-indigo-500/40 bg-indigo-500/5 hover:border-indigo-400" },
+  { value: "remover_tag", label: "Remover Tag", icon: Tag, emoji: "🏷️", color: "border-rose-500/40 bg-rose-500/5 hover:border-rose-400" },
   { value: "telegram", label: "Telegram", icon: Send, emoji: "📨", color: "border-sky-500/40 bg-sky-500/5 hover:border-sky-400" },
   { value: "aguardar", label: "Aguardar", icon: Clock, emoji: "⏱", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
@@ -75,6 +79,9 @@ export interface Acao {
   voice_id?: string;
   voice_stability?: number;
   voice_clarity?: number;
+  tag?: string;
+  else_action?: string;
+  else_skip?: number;
 }
 
 export interface WaProvider {
@@ -112,6 +119,51 @@ export function FlowEditor({
   const [zoom, setZoom] = useState<number>(1);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+
+  const [resendConfig, setResendConfig] = useState<{ from_email?: string; from_name?: string } | null>(null);
+
+  useEffect(() => {
+    if (!projectId) {
+      setResendConfig(null);
+      return;
+    }
+    
+    const fetchResend = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("imphq_integration_credentials")
+          .select("credentials")
+          .eq("project_id", projectId)
+          .eq("provider", "resend")
+          .maybeSingle();
+        
+        if (data?.credentials) {
+          const creds = data.credentials as any;
+          setResendConfig({
+            from_email: creds.from_email || "",
+            from_name: creds.from_name || "",
+          });
+        } else {
+          // Fallback to legacy project data
+          const { data: proj } = await supabase
+            .from("imphq_projects")
+            .select("data")
+            .eq("id", projectId)
+            .single();
+          const emailConfig = (proj?.data as any)?.email_config || {};
+          const briefing = (proj?.data as any)?.checklist?.resend || {};
+          setResendConfig({
+            from_email: emailConfig.from_email || briefing.from_email || "sem_config@resend.com",
+            from_name: emailConfig.from_name || briefing.from_name || "Sem Nome",
+          });
+        }
+      } catch (e) {
+        console.error("Erro ao carregar credenciais do Resend", e);
+      }
+    };
+    
+    fetchResend();
+  }, [projectId]);
 
   // Flow View and Reorder States
   const [activeTab, setActiveTab] = useState<"editor" | "simulator">("editor");
@@ -557,12 +609,22 @@ export function FlowEditor({
                               Aguardar {acao.delay_min} min
                             </Badge>
                           )}
-                          {!isAguardar && !isCondicao && acao.template && (
+                          {(acao.tipo === "adicionar_tag" || acao.tipo === "remover_tag") && acao.tag && (
+                            <Badge variant="secondary" className="text-[8px] bg-indigo-500/10 text-indigo-400 border-indigo-500/20 max-w-full truncate">
+                              Tag: {acao.tag}
+                            </Badge>
+                          )}
+                          {acao.tipo === "ia_message" && acao.template && (
+                            <p className="text-[9px] text-purple-400 truncate leading-snug font-medium">
+                              Objetivo: {acao.template}
+                            </p>
+                          )}
+                          {!isAguardar && !isCondicao && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.tipo !== "ia_message" && acao.template && (
                             <p className="text-[9px] text-muted-foreground truncate leading-snug">
                               {acao.template}
                             </p>
                           )}
-                          {!isAguardar && !isCondicao && acao.delay_min > 0 && (
+                          {!isAguardar && !isCondicao && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.delay_min > 0 && (
                             <Badge variant="secondary" className="text-[8px] mt-0.5 bg-blue-500/10 text-blue-400 border-blue-500/20">
                               +{acao.delay_min}min delay
                             </Badge>
@@ -728,7 +790,13 @@ export function FlowEditor({
                         </div>
 
                         {/* WhatsApp Styled Outbound Bubble */}
-                        {isAguardar ? (
+                        {acao.tipo === "adicionar_tag" || acao.tipo === "remover_tag" ? (
+                          <div className="flex justify-center select-none my-1">
+                            <span className="text-[9px] bg-indigo-950/40 text-indigo-300 border border-indigo-500/20 px-3 py-1 rounded-lg text-center max-w-[85%] font-medium">
+                              🏷️ {acao.tipo === "adicionar_tag" ? "Atribuir" : "Remover"} Tag: {acao.tag || "vazia"}
+                            </span>
+                          </div>
+                        ) : isAguardar ? (
                           <div className="flex justify-center select-none my-1">
                             <span className="text-[9px] bg-slate-900/60 text-slate-400 border border-border px-3 py-1 rounded-lg">
                               ⏱️ Ação de Espera de {acao.delay_min} minutos
@@ -739,6 +807,27 @@ export function FlowEditor({
                             <span className="text-[9px] bg-violet-950/40 text-violet-300 border border-violet-500/20 px-3 py-1 rounded-lg text-center font-medium max-w-[85%]">
                               🔀 Se atender: "{CONDICAO_TIPOS.find(c => c.value === acao.condicao_tipo)?.label || acao.condicao_tipo}" (limite: {acao.condicao_tempo_min || 0}min)
                             </span>
+                          </div>
+                        ) : acao.tipo === "ia_message" ? (
+                          <div className="flex justify-end pr-1">
+                            <div className={`max-w-[85%] p-3 rounded-2xl rounded-tr-none shadow-md space-y-1 relative border transition-all ${
+                              isSelected 
+                                ? "bg-purple-900/95 border-purple-400 text-slate-100 shadow-[0_0_10px_rgba(168,85,247,0.1)]" 
+                                : "bg-purple-950/90 hover:bg-purple-900/95 border-purple-800/40 text-slate-200"
+                            }`}>
+                              <div className="flex items-center justify-between text-[8px] font-bold opacity-80 select-none pb-0.5 border-b border-white/10">
+                                <span className="flex items-center gap-1">
+                                  🤖 IA Conversacional (Mente)
+                                </span>
+                                <span>#{idx + 1}</span>
+                              </div>
+                              <p className="text-[10px] leading-relaxed font-sans">
+                                <strong>Objetivo:</strong> {acao.template}
+                              </p>
+                              <p className="text-[8px] text-purple-300 italic">
+                                * A IA assumirá a conversa de forma personalizada para cumprir este objetivo.
+                              </p>
+                            </div>
                           </div>
                         ) : (
                           <div className="flex justify-end pr-1">
@@ -915,21 +1004,55 @@ export function FlowEditor({
 
                 {/* Condition specific fields */}
                 {isCondicao && (
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Condição para Continuar</Label>
-                    <Select value={acao.condicao_tipo || ""} onValueChange={v => updateAcao(selectedIdx, "condicao_tipo", v)}>
-                      <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80">
-                        <SelectValue placeholder="Selecionar condição..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONDICAO_TIPOS.map(c => (
-                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
-                      ✓ Se a condição for atendida no tempo limite, o lead continuará para os próximos nós de ação sequenciais.
-                    </p>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Condição para Continuar</Label>
+                      <Select value={acao.condicao_tipo || ""} onValueChange={v => updateAcao(selectedIdx, "condicao_tipo", v)}>
+                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80">
+                          <SelectValue placeholder="Selecionar condição..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONDICAO_TIPOS.map(c => (
+                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        ✓ Se a condição for atendida no tempo limite, o lead continuará para os próximos nós de ação sequenciais.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Se não atendida:</Label>
+                      <Select 
+                        value={acao.else_action || "skip"} 
+                        onValueChange={v => updateAcao(selectedIdx, "else_action", v)}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="skip">Pular ações seguintes</SelectItem>
+                          <SelectItem value="abortar">Parar / Abortar fluxo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {acao.else_action !== "abortar" && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Ações a pular (N)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={acao.else_skip ?? 1}
+                          onChange={e => updateAcao(selectedIdx, "else_skip", Math.max(1, parseInt(e.target.value) || 1))}
+                          className="h-9 text-xs bg-background/50 border-border/80"
+                        />
+                        <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
+                          Pula as próximas {acao.else_skip ?? 1} ações do fluxo se a condição falhar.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1036,11 +1159,81 @@ export function FlowEditor({
                   </div>
                 )}
 
+                {/* Tag Action Fields */}
+                {(acao.tipo === "adicionar_tag" || acao.tipo === "remover_tag") && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Nome da Tag</Label>
+                    <Input
+                      value={acao.tag || ""}
+                      onChange={e => updateAcao(selectedIdx, "tag", e.target.value)}
+                      className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                      placeholder="ex: lead_quente"
+                    />
+                    <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                      🏷️ Esta tag será {acao.tipo === "adicionar_tag" ? "atribuída ao" : "removida do"} lead quando o fluxo atingir esta etapa.
+                    </p>
+                  </div>
+                )}
+
+                {/* Resend sender domain auditing */}
+                {acao.tipo === "email" && (
+                  <div className="p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/15 space-y-1">
+                    <span className="text-[9px] uppercase tracking-wider text-blue-400 font-bold block select-none">
+                      ✉️ Remetente de Email (Resend)
+                    </span>
+                    {resendConfig ? (
+                      <p className="text-[10px] text-muted-foreground">
+                        Enviando via: <strong className="text-slate-200">{resendConfig.from_name || "Sem Nome"} &lt;{resendConfig.from_email || "sem_config@resend.com"}&gt;</strong>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground italic">
+                        Carregando credenciais do Resend...
+                      </p>
+                    )}
+                    <p className="text-[8px] text-muted-foreground/60 leading-tight">
+                      Configurado nas credenciais de integração do projeto.
+                    </p>
+                  </div>
+                )}
+
+                {/* Conversational AI helper box */}
+                {acao.tipo === "ia_message" && (
+                  <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 text-xs leading-relaxed space-y-1.5">
+                    <p className="font-bold text-purple-400 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> IA Conversacional (Mente)
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/80">
+                      Este bloco pausa a sequência automática. A IA irá assumir o chat e conversar de forma personalizada com o lead para cumprir o objetivo definido abaixo.
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/80 font-medium">
+                      ✓ Quando o objetivo for cumprido, a IA avançará a automação gerando a tag secreta <code className="text-purple-300 font-mono">[PROXIMA_ETAPA]</code>.
+                    </p>
+                  </div>
+                )}
+
                 {/* Message template editor */}
-                {!isAguardar && !isCondicao && (
+                {!isAguardar && !isCondicao && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && (
                   <div className="space-y-2">
+                    {(acao.tipo === "whatsapp" || acao.tipo === "ia_message") && (
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/50 border border-border/20 mb-1 select-none animate-fade-in">
+                        <div className="space-y-0.5">
+                          <Label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                            <Split className="h-3.5 w-3.5 text-primary" /> Teste A/B de Copy
+                          </Label>
+                          <p className="text-[9px] text-muted-foreground leading-none">Dividir tráfego de leads 50/50 entre duas variações.</p>
+                        </div>
+                        <Switch
+                          checked={acao.ab_test_enabled || false}
+                          onCheckedChange={checked => updateAcao(selectedIdx, "ab_test_enabled", checked)}
+                          className="scale-90"
+                        />
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
-                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Copy / Template</Label>
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                        {acao.ab_test_enabled ? "Variante A (Controle)" : "Copy / Template"}
+                      </Label>
                       
                       <div className="flex items-center gap-1">
                         {templates.length > 0 && (
@@ -1074,9 +1267,23 @@ export function FlowEditor({
                     <Textarea
                       value={acao.template || ""}
                       onChange={e => updateAcao(selectedIdx, "template", e.target.value)}
-                      className="text-xs min-h-[140px] bg-background/50 border-border/80 resize-none font-sans focus:ring-1 focus:ring-primary shadow-inner"
+                      className="text-xs min-h-[120px] bg-background/50 border-border/80 resize-none font-sans focus:ring-1 focus:ring-primary shadow-inner"
                       placeholder={acao.tipo === "audio" ? "Digite o roteiro para gerar a mensagem de voz. Use {{nome}} para falar o nome do lead..." : "Oi {{nome}}, vimos que você se interessou pelo..."}
                     />
+
+                    {acao.ab_test_enabled && (
+                      <div className="space-y-1.5 pt-1.5 border-t border-border/10 animate-fade-in">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                          Variante B (Desafiante)
+                        </Label>
+                        <Textarea
+                          value={acao.template_b || ""}
+                          onChange={e => updateAcao(selectedIdx, "template_b", e.target.value)}
+                          className="text-xs min-h-[120px] bg-background/50 border-border/80 resize-none font-sans focus:ring-1 focus:ring-primary shadow-inner"
+                          placeholder={acao.tipo === "ia_message" ? "Objetivo/Prompt da Variante B (ex: persuadir baseando-se em urgência)" : "Digite a copy da Variante B..."}
+                        />
+                      </div>
+                    )}
 
                     {/* Char counts */}
                     <div className="flex items-center justify-between text-[9px] text-muted-foreground/60 select-none">
@@ -1106,6 +1313,19 @@ export function FlowEditor({
                         ))}
                       </div>
                     </div>
+
+                    {acao.template?.includes("{{link}}") && (
+                      <div className="mt-2 p-2.5 rounded-xl bg-slate-950/60 border border-border/40 text-[10px] text-muted-foreground space-y-1 select-none leading-normal">
+                        <p className="text-amber-400 font-bold uppercase tracking-wider text-[8px] flex items-center gap-1">
+                          ℹ️ Variável {"{{link}}"} ativa
+                        </p>
+                        <p>Esta variável resolve para:</p>
+                        <ol className="list-decimal list-inside pl-1 space-y-0.5 text-[9px]">
+                          <li>Link dinâmico do lead (<code className="text-slate-300">lead_data.link</code>)</li>
+                          <li>Link de checkout padrão definido neste fluxo.</li>
+                        </ol>
+                      </div>
+                    )}
 
                     {/* Preview box for standard text */}
                     {showPreview && acao.tipo !== "audio" && acao.template && (

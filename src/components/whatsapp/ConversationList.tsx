@@ -59,16 +59,47 @@ interface Props {
   onMarkUnread?: (id: string) => void;
 }
 
-function timeAgo(dateStr: string | undefined) {
+function formatMessageTime(dateStr: string | undefined): string {
   if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "agora";
-  if (mins < 60) return `${mins}min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d`;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const timeStr = `${hours}:${minutes}`;
+
+  // Check if it is today
+  const isToday = date.getDate() === now.getDate() &&
+                  date.getMonth() === now.getMonth() &&
+                  date.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return timeStr;
+  }
+
+  // Check if it was yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.getDate() === yesterday.getDate() &&
+                      date.getMonth() === yesterday.getMonth() &&
+                      date.getFullYear() === yesterday.getFullYear();
+
+  if (isYesterday) {
+    return `Ontem ${timeStr}`;
+  }
+
+  // Same year
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day}/${month} ${timeStr}`;
+  }
+
+  // Older years
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}/${month}/${year} ${timeStr}`;
 }
 
 function getInitials(name: string | null, phone: string): string {
@@ -339,7 +370,7 @@ export default function ConversationList({
 
                       </div>
                       <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
-                        {timeAgo(s.last_message_at || s.updated_at || s.created_at)}
+                        {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
                       </span>
                     </div>
                     {s.contact_name && (

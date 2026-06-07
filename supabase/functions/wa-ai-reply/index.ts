@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       try {
         const { data: lead } = await supabase
           .from("imphq_leads")
-          .select("id")
+          .select("*")
           .eq("phone", phone)
           .eq("project_id", project_id)
           .maybeSingle();
@@ -39,12 +39,17 @@ Deno.serve(async (req) => {
     let activeStepInstruction = "";
     let activeExecutionId = null;
     let activeExecutionStep = 0;
+    let activeAutomacaoId = null;
+    let activeTriggerTipo = "";
+    let replyCount = 0;
+    let shouldTransitionToHuman = false;
+    let handoffReason = "";
 
     if (leadRow?.id) {
       try {
         const { data: activeExec } = await supabase
           .from("imphq_flow_executions")
-          .select("id, automacao_id, current_step")
+          .select("id, automacao_id, current_step, trigger_tipo, step_results")
           .eq("lead_id", leadRow.id)
           .in("status", ["running", "waiting"])
           .order("created_at", { descending: false })
@@ -65,8 +70,39 @@ Deno.serve(async (req) => {
             if (step) {
               activeExecutionId = activeExec.id;
               activeExecutionStep = activeExec.current_step;
+              activeAutomacaoId = activeExec.automacao_id;
+              activeTriggerTipo = activeExec.trigger_tipo || "";
               activeStepInstruction = step.mensagem || step.template || step.texto || "";
               console.log(`[wa-ai-reply] Guideline from active step #${activeExec.current_step}: "${activeStepInstruction}"`);
+
+              // Incrementar reply_count para esta etapa ativa no step_results
+              const stepResults = Array.isArray(activeExec.step_results) ? activeExec.step_results : [];
+              let currentStepResIdx = stepResults.findIndex((r: any) => r.step === activeExecutionStep);
+              if (currentStepResIdx === -1) {
+                stepResults.push({
+                  step: activeExecutionStep,
+                  status: "waiting_for_lead_response",
+                  reply_count: 0,
+                  started_at: new Date().toISOString()
+                });
+                currentStepResIdx = stepResults.length - 1;
+              }
+
+              const currentStepRes = stepResults[currentStepResIdx];
+              if (currentStepRes?.ab_variant === "B") {
+                activeStepInstruction = step.template_b || step.mensagem_b || activeStepInstruction;
+                console.log(`[wa-ai-reply] A/B Variant B detected! Overriding guideline: "${activeStepInstruction}"`);
+              }
+              replyCount = (currentStepRes.reply_count || 0) + 1;
+              currentStepRes.reply_count = replyCount;
+              currentStepRes.last_reply_at = new Date().toISOString();
+
+              await supabase
+                .from("imphq_flow_executions")
+                .update({ step_results: stepResults })
+                .eq("id", activeExecutionId);
+
+              console.log(`[wa-ai-reply] Message exchange count for step #${activeExecutionStep}: ${replyCount}`);
             }
           }
         }
@@ -446,17 +482,32 @@ Deno.serve(async (req) => {
             const embedding = embData?.data?.[0]?.embedding;
             if (embedding) {
               // 7.1.1. Match knowledge base
-              const { data: matches, error: rpcErr } = await supabase.rpc("match_wa_knowledge", {
+              const { data: matches, error: rpcErr } = await supabase.rpc("match_wa_knowledge_hybrid", {
                 query_embedding: embedding,
                 p_project_id: project_id,
+                query_text: message,
                 match_count: 3,
                 min_similarity: 0.7,
               });
-              if (rpcErr) console.error("[wa-ai-reply] match_wa_knowledge RPC error:", rpcErr.message);
+              if (rpcErr) console.error("[wa-ai-reply] match_wa_knowledge_hybrid RPC error:", rpcErr.message);
               if (matches && matches.length > 0) {
                 lessonsBlock = `\nREGRAS E CONHECIMENTOS ADICIONAIS APRENDIDOS:\n` +
                   matches.map((m: any) => `- Se a dúvida/situação for semelhante a "${m.pergunta}", a regra/resposta é: "${m.resposta}"`).join("\n") + "\n";
                 console.log(`[wa-ai-reply] ${matches.length} lessons matched semantically`);
+              } else {
+                const cleanMsg = message.trim();
+                const isTrivial = cleanMsg.length <= 6 || ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite", "blz", "tudo bem", "sim", "não", "nao", "ok", "quero"].includes(cleanMsg.toLowerCase());
+                if (!isTrivial) {
+                  console.log(`[wa-ai-reply] No knowledge matches found. Logging query for review: "${cleanMsg.substring(0, 60)}..."`);
+                  await supabase.from("imphq_wa_knowledge").insert({
+                    project_id,
+                    pergunta: cleanMsg,
+                    resposta: "",
+                    aprovada: false,
+                    source: "lead_unanswered",
+                    embedding: embedding
+                  });
+                }
               }
 
               // 7.1.2. Match lead memory
@@ -523,9 +574,20 @@ Deno.serve(async (req) => {
         formal: "Tom formal e polido.",
       };
 
+      // Fallback checkout link from project data
+      let fallbackLink = null;
+      if (d) {
+        fallbackLink = d.produto_principal?.link_checkout || 
+                       d.produto_principal?.link || 
+                       (Array.isArray(d.produtos) && (d.produtos[0]?.link_checkout || d.produtos[0]?.link)) || 
+                       d.link_checkout || 
+                       d.link || 
+                       null;
+      }
+
       // CLOSER MODE: injecao de prompt agressivo quando ha intencao de compra
       const closerEnabled = aiConfig.closer_mode_enabled !== false; // default true
-      const paymentLink = aiConfig.payment_link || null;
+      const paymentLink = aiConfig.payment_link || fallbackLink || null;
       const closerBlock = (hasBuyIntent && closerEnabled)
         ? `
 
@@ -533,11 +595,11 @@ Deno.serve(async (req) => {
 O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR. Regras:
 1. Seja direto. Sem rodeios. Sem "vou te passar mais informacoes".
 2. Remova a ultima barreira com empatia e seguranca (ex: "muita gente ja comprou e transformou o resultado").
-3. ${paymentLink
-  ? `Passe ESTE link de pagamento EXATO, sem parafrasear: ${paymentLink}`
-  : `NAO invente link. Diga: "Vou te passar o link agora, me da um segundo." e aguarde o humano enviar.`}
-4. Se o lead tiver objecao (ex: "e caro"), use 1 frase de contorno e volte ao fechamento.
-5. Maximo 3 frases curtas. Nao explique. FECHE.`
+3. Identifique qual produto o lead deseja comprar (com base na conversa). Se houver um link de checkout especifico para esse produto listado na "OFERTA ATIVA" ou no FAQ, envie esse link exato de forma persuasiva.
+4. Se nao for possivel identificar um link especifico de produto nas ofertas ativas, use este link geral: ${paymentLink || "nenhum"}.
+5. Se nao houver NENHUM link de pagamento disponivel no prompt ou nas ofertas ativas (nem especifico, nem o geral), NAO invente nenhum link ficticio. Diga exatamente: "Vou te passar o link agora, me da um segundo." e OBRIGATORIAMENTE adicione a tag secreta [TRANSICAO_HUMANA] no final da sua resposta para que o suporte humano possa enviar o link correto.
+6. Se o lead tiver objecao (ex: "e caro"), use 1 frase de contorno e volte ao fechamento.
+7. Maximo 3 frases curtas. Nao explique. FECHE.`
         : "";
 
       // Nome do lead para personalizar
@@ -553,6 +615,26 @@ Instruções adicionais de progressão:
 - Mantenha o diálogo focado em obter esta informação ou cumprir esta meta.
 - Assim que você verificar que o lead respondeu de forma satisfatória a este objetivo (ou forneceu o dado solicitado), adicione exatamente a palavra-chave secreta [PROXIMA_ETAPA] no final da sua mensagem (ex: "Entendi perfeitamente! [PROXIMA_ETAPA]"). Não adicione esta palavra-chave antes de cumprir o objetivo.`
         : "";
+
+      // Regras de sentimentos e limite de interações para Transição Humana
+      const sentimentRules = `
+⚠️ TRANSIÇÃO HUMANA PREDITIVA (REGRAS CRÍTICAS):
+Analise o sentimento e a intenção do lead na última resposta dele. Se você detectar:
+1. Irritação extrema, agressividade, grosseria, deboche ou frustração severa com a conversa automática.
+2. Solicitação direta de reembolso, cancelamento de compra, reclamação de cobrança ou ameaças jurídicas/reclamação formal.
+3. Pedido direto para falar com um atendente humano ("passa para um humano", "quero falar com uma pessoa", etc.).
+Você deve responder de forma pacífica, acolhedora e prestativa, pedindo desculpas sinceras e curtas pelo inconveniente, informando que um especialista humano já está assumindo a conversa. No final dessa resposta, adicione exatamente a tag secreta: [TRANSICAO_HUMANA]
+`;
+
+      let draggingRules = "";
+      if (replyCount >= 4) {
+        draggingRules = `
+⚠️ DETECÇÃO DE CONVERSA PROLONGADA (LIMITE DE TOKENS):
+A conversa com este lead já se estendeu por ${replyCount} mensagens nesta mesma etapa sem que o objetivo fosse concluído. Esta deve ser sua última tentativa de persuasão.
+Você deve confrontar o lead estrategicamente de forma direta e concisa. Faça-o perceber a real necessidade de resolver o problema dele agora, abordando a dor principal ou o desejo principal dele (use os dados comportamentais do lead).
+Seja extremamente impactante e direto. Ao final da mensagem, adicione exatamente a tag secreta: [CHAMAR_HUMANO]
+`;
+      }
 
       const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${personalityMap[aiConfig.personality] || personalityMap.consultor}
@@ -572,6 +654,8 @@ REGRAS CRITICAS:
 - Respostas curtas (maximo 4 linhas no WhatsApp). Sem blocos de texto.
 - Nunca revele que e IA.
 - Responda em portugues brasileiro natural.
+${sentimentRules}
+${draggingRules}
 ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
@@ -767,8 +851,22 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
 
       if (activeExecutionId && aiReply.includes("[PROXIMA_ETAPA]")) {
         shouldAdvanceFlow = true;
-        finalAiReply = aiReply.replace(/\[PROXIMA_ETAPA\]/gi, "").trim();
+        finalAiReply = finalAiReply.replace(/\[PROXIMA_ETAPA\]/gi, "").trim();
         console.log(`[wa-ai-reply] [PROXIMA_ETAPA] detected! Preparing to advance flow execution ${activeExecutionId}`);
+      }
+
+      if (aiReply.includes("[TRANSICAO_HUMANA]")) {
+        shouldTransitionToHuman = true;
+        handoffReason = "Atrito emocional ou pedido de atendimento humano detectado pela IA";
+        finalAiReply = finalAiReply.replace(/\[TRANSICAO_HUMANA\]/gi, "").trim();
+        console.log(`[wa-ai-reply] [TRANSICAO_HUMANA] detected! Preparing handoff to human support.`);
+      }
+
+      if (aiReply.includes("[CHAMAR_HUMANO]")) {
+        shouldTransitionToHuman = true;
+        handoffReason = `Conversa prolongada (${replyCount} mensagens) na etapa ativa do fluxo sem avanço`;
+        finalAiReply = finalAiReply.replace(/\[CHAMAR_HUMANO\]/gi, "").trim();
+        console.log(`[wa-ai-reply] [CHAMAR_HUMANO] detected! Preparing handoff to human support.`);
       }
 
       if (shouldAdvanceFlow && activeExecutionId) {
@@ -797,6 +895,41 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
             .eq("id", activeExecutionId);
             
           console.log(`[wa-ai-reply] Flow advanced successfully to step ${activeExecutionStep + 1}`);
+
+          // Chamada assíncrona para o openflow-executor retomar o fluxo na nova etapa no background
+          console.log(`[wa-ai-reply] Invoking openflow-executor for execution ${activeExecutionId} step ${activeExecutionStep + 1}`);
+          
+          fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              trigger_tipo: activeTriggerTipo || "whatsapp",
+              project_id,
+              automacao_id: activeAutomacaoId,
+              resume_from_step: activeExecutionStep + 1,
+              lead_data: {
+                lead_id: leadRow.id,
+                nome: leadRow.name || "",
+                email: leadRow.email || "",
+                telefone: leadRow.phone || "",
+                phone: leadRow.phone || "",
+                tags: leadRow.tags || [],
+              },
+            }),
+          }).then(async (res) => {
+            if (res.ok) {
+              const resJson = await res.json();
+              console.log(`[wa-ai-reply] openflow-executor invocation succeeded:`, JSON.stringify(resJson));
+            } else {
+              console.error(`[wa-ai-reply] openflow-executor invocation failed: status=${res.status}`, await res.text());
+            }
+          }).catch((fetchErr) => {
+            console.error(`[wa-ai-reply] openflow-executor fetch error:`, fetchErr.message);
+          });
+
         } catch (err: any) {
           console.error("[wa-ai-reply] Error advancing flow execution:", err.message);
         }
@@ -992,14 +1125,49 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
           .eq("id", conversation_id)
           .maybeSingle();
 
-        await supabase.from("imphq_wa_conversations").update({
+        const updatePayload: any = {
           ai_last_reply_at: new Date().toISOString(),
           ai_lock_until: null,
           last_message: finalAiReply.slice(0, 500),
           last_message_at: new Date().toISOString(),
           last_message_direction: "outgoing",
           message_count: ((freshConv?.message_count as number) || 0) + 1,
-        }).eq("id", conversation_id);
+        };
+
+        if (shouldTransitionToHuman) {
+          updatePayload.status = "needs_human";
+        }
+
+        await supabase.from("imphq_wa_conversations")
+          .update(updatePayload)
+          .eq("id", conversation_id);
+
+        if (shouldTransitionToHuman) {
+          try {
+            await supabase.from("imphq_ai_actions").insert({
+              kind: "human_handoff",
+              risk_level: "medium",
+              confidence: 0.98,
+              title: "Transição Humana Preditiva",
+              reason: handoffReason,
+              payload: {
+                lead_id: leadRow?.id || null,
+                phone,
+                conversation_id,
+                reply_count: replyCount,
+                ai_message: finalAiReply,
+              },
+              projeto_id: project_id,
+              source: "wa-ai-reply",
+              status: "executed",
+              auto_executed: true,
+              executed_at: new Date().toISOString(),
+            });
+            console.log(`[wa-ai-reply] Handoff action logged in imphq_ai_actions`);
+          } catch (logErr: any) {
+            console.error(`[wa-ai-reply] Error logging handoff action:`, logErr.message);
+          }
+        }
 
         console.log(`[wa-ai-reply] SUCCESS: mensagem enviada para ${phone}`);
         return new Response(JSON.stringify({ ok: true, sent: true, model, preview: finalAiReply.slice(0, 100) }), {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -10,8 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy, Mic } from "lucide-react";
+import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy, Mic, Upload, FileIcon, Eye, Download, FileText, HelpCircle, Target } from "lucide-react";
 import { RefineAIDialog } from "./RefineAIDialog";
+import { DocViewerDialog } from "@/components/projeto/DocViewerDialog";
+
+const FILE_MARKER = /^\[\[file:(.+?)\|(.+?)\]\]$/;
+function parseDocContent(content: string | null | undefined): { kind: "file" | "text"; url?: string; mime?: string } {
+  if (!content) return { kind: "text" };
+  const m = content.trim().match(FILE_MARKER);
+  if (m) return { kind: "file", url: m[1], mime: m[2] };
+  return { kind: "text" };
+}
 
 interface FaqItem { pergunta: string; resposta: string; }
 
@@ -40,6 +49,8 @@ interface AIConfig {
   voice_name?: string;
   voice_stability?: number;
   voice_clarity?: number;
+  closer_mode_enabled?: boolean;
+  payment_link?: string | null;
 }
 
 const PERSONALITIES = [
@@ -91,6 +102,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     voice_name: "alloy",
     voice_stability: 75,
     voice_clarity: 85,
+    closer_mode_enabled: true,
+    payment_link: "",
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -106,7 +119,17 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [leads, setLeads] = useState<any[]>([]);
   const [testPhone, setTestPhone] = useState<string>("");
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [docs, setDocs] = useState<any[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [trainingIds, setTrainingIds] = useState<string[]>([]);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<any>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [logs, setLogs] = useState<any[]>([]);
+  const [unanswered, setUnanswered] = useState<any[]>([]);
+  const [unansweredLoading, setUnansweredLoading] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [approvingIds, setApprovingIds] = useState<string[]>([]);
   const [metrics, setMetrics] = useState({
     avgLatency: 0,
     totalCost: 0,
@@ -218,9 +241,250 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const fetchDocs = async () => {
+    setDocsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("imphq_docs")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setDocs(data || []);
+    } catch (err) {
+      console.error("Erro ao buscar documentos:", err);
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+  const fetchUnanswered = async () => {
+    setUnansweredLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("imphq_wa_knowledge")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("aprovada", false)
+        .eq("source", "lead_unanswered")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setUnanswered(data || []);
+    } catch (err: any) {
+      console.error("Erro ao buscar dúvidas não respondidas:", err.message);
+    } finally {
+      setUnansweredLoading(false);
+    }
+  };
+
+  const handleApproveUnanswered = async (id: string, question: string) => {
+    const answer = answers[id]?.trim();
+    if (!answer) {
+      toast.error("Por favor, digite uma resposta antes de aprovar.");
+      return;
+    }
+
+    setApprovingIds(prev => [...prev, id]);
+    try {
+      // 1. Generate embedding using Lovable AI / OpenRouter via wa-doc-embedder Function
+      const { data: embedData, error: embedErr } = await supabase.functions.invoke("wa-doc-embedder", {
+        body: {
+          action: "get_embedding",
+          text: question,
+        }
+      });
+
+      if (embedErr) throw embedErr;
+      if (!embedData?.success || !embedData?.embedding) {
+        throw new Error("Não foi possível gerar o embedding da pergunta.");
+      }
+
+      // 2. Update row in imphq_wa_knowledge
+      const { error: updateErr } = await supabase
+        .from("imphq_wa_knowledge")
+        .update({
+          resposta: answer,
+          aprovada: true,
+          embedding: embedData.embedding,
+          source: "approved_fallback",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+      if (updateErr) throw updateErr;
+
+      toast.success("Dúvida aprovada, vetorizada e adicionada ao cérebro!");
+      
+      // Remove from pending list
+      setUnanswered(prev => prev.filter(q => q.id !== id));
+      // Remove answer from state
+      setAnswers(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (err: any) {
+      console.error("Erro ao aprovar dúvida pendente:", err);
+      toast.error(`Erro ao aprovar: ${err.message}`);
+    } finally {
+      setApprovingIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleDeleteUnanswered = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("imphq_wa_knowledge")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      toast.success("Dúvida excluída com sucesso.");
+      setUnanswered(prev => prev.filter(q => q.id !== id));
+    } catch (err: any) {
+      toast.error(`Erro ao excluir: ${err.message}`);
+    }
+  };
+
+  const triggerEmbedder = async (doc: any, active: boolean) => {
+    setTrainingIds(prev => [...prev, doc.id]);
+    try {
+      const { data, error } = await supabase.functions.invoke("wa-doc-embedder", {
+        body: {
+          doc_id: doc.id,
+          project_id: projectId,
+          active
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      toast.success(active 
+        ? `Treinamento concluído! Documento vetorizado em ${data.chunks || 0} blocos.`
+        : "Conhecimento removido da IA com sucesso!"
+      );
+      fetchDocs();
+    } catch (err: any) {
+      console.error("[triggerEmbedder] Error:", err);
+      toast.error(`Falha no processamento: ${err.message || err}`);
+    } finally {
+      setTrainingIds(prev => prev.filter(id => id !== doc.id));
+    }
+  };
+
+  const handleUploadDoc = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    setFileUploading(true);
+    let ok = 0;
+    for (const file of Array.from(files)) {
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
+      const title = file.name.replace(/\.[^.]+$/, "");
+      const isText = ["txt", "md", "markdown"].includes(ext) || file.type.startsWith("text/");
+      let content = "";
+      
+      try {
+        if (isText) {
+          content = await file.text();
+        } else {
+          // upload binary to storage
+          const path = `docs/${projectId}/${crypto.randomUUID()}.${ext || "bin"}`;
+          const { error: upErr } = await supabase.storage
+            .from("project-media")
+            .upload(path, file, { upsert: false, contentType: file.type || undefined });
+          
+          if (upErr) {
+            toast.error(`Falha ao subir ${file.name}: ${upErr.message}`);
+            continue;
+          }
+          
+          const { data: urlData } = supabase.storage.from("project-media").getPublicUrl(path);
+          content = `[[file:${urlData.publicUrl}|${file.type || "application/octet-stream"}]]`;
+        }
+        
+        const newId = crypto.randomUUID();
+        const { data, error } = await supabase
+          .from("imphq_docs")
+          .insert({
+            id: newId,
+            project_id: projectId,
+            title,
+            content,
+            tags: ["ia_treinada"]
+          } as any)
+          .select()
+          .single();
+          
+        if (error) throw error;
+        
+        if (data) {
+          setDocs(prev => [data, ...prev]);
+          ok++;
+          triggerEmbedder(data, true);
+        }
+      } catch (err: any) {
+        toast.error(`Erro ao salvar ${file.name}: ${err.message}`);
+      }
+    }
+    setFileUploading(false);
+    if (importFileRef.current) importFileRef.current.value = "";
+    if (ok > 0) toast.success(`${ok} documento(s) importado(s) e enviado(s) para treinamento!`);
+  };
+
+  const toggleAiDoc = async (doc: any) => {
+    const isTrained = doc.tags?.includes("ia_treinada") || false;
+    const newTags = isTrained
+      ? (doc.tags || []).filter((t: string) => t !== "ia_treinada")
+      : [...(doc.tags || []), "ia_treinada"];
+
+    // Optimistic UI update
+    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, tags: newTags } : d));
+
+    try {
+      const { error: updateErr } = await supabase
+        .from("imphq_docs")
+        .update({ tags: newTags })
+        .eq("id", doc.id);
+
+      if (updateErr) throw updateErr;
+
+      await triggerEmbedder(doc, !isTrained);
+    } catch (err: any) {
+      toast.error(`Erro: ${err.message}`);
+      // Rollback
+      setDocs(prev => prev.map(d => d.id === doc.id ? doc : d));
+    }
+  };
+
+  const deleteDoc = async (id: string) => {
+    if (!confirm("Excluir este documento da base de conhecimento da IA?")) return;
+    try {
+      const doc = docs.find(d => d.id === id);
+      if (doc && doc.tags?.includes("ia_treinada")) {
+        await supabase.functions.invoke("wa-doc-embedder", {
+          body: {
+            doc_id: id,
+            project_id: projectId,
+            active: false
+          }
+        });
+      }
+      
+      const { error } = await supabase.from("imphq_docs").delete().eq("id", id);
+      if (error) throw error;
+      
+      setDocs(prev => prev.filter(d => d.id !== id));
+      toast.success("Documento excluído com sucesso!");
+    } catch (err: any) {
+      toast.error(`Erro ao excluir: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
     loadConfig();
     loadMetrics();
+    fetchDocs();
+    fetchUnanswered();
   }, [projectId, providerId]);
 
   const loadConfig = async () => {
@@ -261,6 +525,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
         voice_name: "alloy",
         voice_stability: 75,
         voice_clarity: 85,
+        closer_mode_enabled: true,
+        payment_link: "",
       });
       setKeywordsText("humano, atendente, pessoa, falar com alguém");
       setIgnoredPhonesText("");
@@ -550,6 +816,44 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     Se preenchido, dispara esse texto no primeiro contato antes de acionar a inteligência artificial.
                   </p>
                 </div>
+              </div>
+
+              {/* Closer Mode & Link de Pagamento */}
+              <div className="border-t border-border/20 pt-4 mt-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Target className="h-4 w-4 text-primary" /> Modo Closer Automático
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">
+                      Quando o lead demonstrar intenção de compra, a IA focará agressivamente em fechar a venda de forma ágil.
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={config.closer_mode_enabled !== false} 
+                    onCheckedChange={v => setConfig(p => ({ ...p, closer_mode_enabled: v }))} 
+                  />
+                </div>
+
+                {config.closer_mode_enabled !== false && (
+                  <div className="space-y-1.5 border border-border/30 bg-secondary/10 p-4 rounded-xl animate-fade-in">
+                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                      🔗 Link Geral de Checkout / Pagamento
+                    </Label>
+                    <Input
+                      placeholder="https://checkout.ticto.app/O854B666F"
+                      value={config.payment_link || ""}
+                      onChange={e => setConfig(p => ({ ...p, payment_link: e.target.value }))}
+                      className="text-xs bg-secondary/40 border-border/30 h-9.5"
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-normal">
+                      💡 **Dica de link dinâmico**: A IA procurará automaticamente o link específico correspondente ao nome do produto na lista de "Oferta Ativa". Caso não encontre um link específico para o produto, ela usará esse Link Geral de Checkout.
+                    </p>
+                    <p className="text-[10px] text-muted-foreground leading-normal">
+                      ⚠️ **Handoff Humano**: Se a IA não encontrar nenhum link correspondente (nem de produto específico, nem esse Link Geral), ela dirá *"Vou te passar o link agora, me dá um segundo."* e transferirá a conversa para um atendente real (IA pausará e notificará a equipe).
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Voice Configuration */}
@@ -1107,6 +1411,128 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                 />
               </div>
 
+              {/* Base de Documentos RAG (PDF/DOCX) */}
+              <div className="space-y-3 pt-3 border-t border-border/20">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Brain className="h-4 w-4 text-primary" /> Base de Documentos RAG (PDF / DOCX / TXT / MD)
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">Upload de manuais, transcrições e e-books para o treinamento semântico do Closer AI.</p>
+                  </div>
+                  <div>
+                    <input 
+                      ref={importFileRef} 
+                      type="file" 
+                      multiple 
+                      accept=".txt,.md,.pdf,.doc,.docx" 
+                      onChange={handleUploadDoc} 
+                      className="hidden" 
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-[10px] gap-1 border-primary/20 text-primary hover:bg-primary/5" 
+                      onClick={() => importFileRef.current?.click()}
+                      disabled={fileUploading}
+                    >
+                      {fileUploading ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" /> Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3 w-3" /> Enviar Documento
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Docs list */}
+                <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                  {docsLoading ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground bg-secondary/5 rounded-lg border border-border/30">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> Carregando documentos da base...
+                    </div>
+                  ) : docs.length === 0 ? (
+                    <div className="text-center py-8 border border-dashed border-border/40 rounded-lg bg-secondary/5">
+                      <FileText className="h-7 w-7 text-muted-foreground/45 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground italic">Nenhum documento anexado ainda.</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">Faça upload de materiais para turbinar as respostas da IA.</p>
+                    </div>
+                  ) : (
+                    docs.map((d) => {
+                      const isTrained = d.tags?.includes("ia_treinada") || false;
+                      const isProcessing = trainingIds.includes(d.id);
+                      const parsed = parseDocContent(d.content);
+                      const isFile = parsed.kind === "file";
+                      
+                      return (
+                        <div
+                          key={d.id}
+                          className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/25 border border-border/30 hover:bg-secondary/40 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {isFile ? (
+                              <FileIcon className="h-4 w-4 text-primary shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate text-foreground leading-tight">{d.title}</p>
+                              {isFile && parsed.mime && (
+                                <p className="text-[9px] text-muted-foreground font-mono leading-none mt-0.5 uppercase">
+                                  {parsed.mime.split("/")[1]?.replace("vnd.openxmlformats-officedocument.wordprocessingml.document", "docx") || parsed.mime}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1.5 bg-background/50 border border-border/30 px-2 py-0.5 rounded-full">
+                              <span className="text-[9px] text-muted-foreground font-medium">Treinamento:</span>
+                              <Switch
+                                checked={isTrained}
+                                disabled={isProcessing}
+                                onCheckedChange={() => toggleAiDoc(d)}
+                                className="scale-75"
+                              />
+                              <span className={`text-[9px] font-bold ${isProcessing ? "text-amber-400 animate-pulse" : isTrained ? "text-emerald-400" : "text-muted-foreground"}`}>
+                                {isProcessing ? "Processando..." : isTrained ? "Ativado" : "Desativado"}
+                              </span>
+                            </div>
+                            
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7.5 w-7.5 text-muted-foreground hover:text-foreground hover:bg-secondary" 
+                              onClick={() => setViewingDoc(d)} 
+                              title="Visualizar"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7.5 w-7.5 text-destructive hover:bg-destructive/10 shrink-0" 
+                              onClick={() => deleteDoc(d.id)} 
+                              title="Excluir"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               {/* FAQ Section */}
               <div className="space-y-3 pt-3 border-t border-border/20">
                 <div className="flex items-center justify-between">
@@ -1148,6 +1574,103 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       </Button>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Dúvidas Pendentes Section */}
+              <div className="space-y-3 pt-3 border-t border-border/20">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <HelpCircle className="h-4 w-4 text-amber-500 animate-pulse" /> Dúvidas Pendentes de Leads (Filtro de Lacunas)
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">Perguntas feitas por leads reais que a IA não soube responder com alta confiança. Responda-as para treinar a IA.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={fetchUnanswered}
+                    disabled={unansweredLoading}
+                    title="Atualizar lista"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${unansweredLoading ? "animate-spin text-primary" : ""}`} />
+                  </Button>
+                </div>
+
+                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                  {unansweredLoading ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground bg-secondary/5 rounded-lg border border-border/30">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" /> Carregando dúvidas pendentes...
+                    </div>
+                  ) : unanswered.length === 0 ? (
+                    <div className="text-center py-8 border border-dashed border-border/40 rounded-lg bg-secondary/5">
+                      <CheckCircle className="h-7 w-7 text-emerald-500/80 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground italic">Nenhuma dúvida pendente!</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">Sua IA está respondendo a tudo com boa confiança ou os leads ainda não mandaram perguntas novas.</p>
+                    </div>
+                  ) : (
+                    unanswered.map((q) => {
+                      const isApproving = approvingIds.includes(q.id);
+                      return (
+                        <div key={q.id} className="p-3.5 rounded-lg bg-secondary/25 border border-border/30 shadow-sm animate-fade-in space-y-2.5">
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="space-y-1">
+                              <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] uppercase tracking-wider font-semibold">
+                                Dúvida de Lead
+                              </Badge>
+                              <p className="text-xs font-semibold text-slate-100 leading-normal">
+                                "{q.pergunta}"
+                              </p>
+                              <p className="text-[9px] text-muted-foreground font-mono">
+                                Recebida em: {new Date(q.created_at).toLocaleString("pt-BR")}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
+                              onClick={() => handleDeleteUnanswered(q.id)}
+                              title="Descartar dúvida"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Textarea
+                              value={answers[q.id] || ""}
+                              onChange={e => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                              placeholder="Digite a resposta correta aqui para que a IA aprenda a responder nas próximas vezes..."
+                              className="min-h-[60px] text-xs bg-background border-border/30 resize-none leading-relaxed"
+                              disabled={isApproving}
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] h-7 px-3 gap-1"
+                                onClick={() => handleApproveUnanswered(q.id, q.pergunta)}
+                                disabled={isApproving}
+                              >
+                                {isApproving ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin" /> Treinando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="h-3 w-3" /> Aprovar & Treinar IA
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </TabsContent>
@@ -1522,6 +2045,20 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       </CardContent>
 
       <RefineAIDialog open={refineOpen} onOpenChange={setRefineOpen} projectId={projectId} />
+      {viewingDoc && (() => {
+        const p = parseDocContent(viewingDoc.content);
+        return (
+          <DocViewerDialog
+            open={!!viewingDoc}
+            onOpenChange={(v) => !v && setViewingDoc(null)}
+            title={viewingDoc.title}
+            kind={p.kind}
+            url={p.url}
+            mime={p.mime}
+            content={viewingDoc.content}
+          />
+        );
+      })()}
     </Card>
   );
 }

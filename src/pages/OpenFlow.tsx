@@ -11,13 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
 import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 import { CampanhasManager, type Campanha } from "@/components/openflow/CampanhasManager";
+import { OpenFlowAnalytics } from "@/components/openflow/OpenFlowAnalytics";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 // ── Constants ────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ interface Automacao {
   quiet_start?: number | null; quiet_end?: number | null; dedupe_hours?: number | null;
   campanha_id?: string | null;
   tag_filtro?: string | null;
+  link_checkout?: string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -249,6 +251,7 @@ export default function OpenFlow() {
       dedupe_hours: editing.dedupe_hours ?? 0,
       campanha_id: editing.campanha_id || null,
       tag_filtro: editing.tag_filtro || null,
+      link_checkout: (editing as any).link_checkout || null,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null);
@@ -360,12 +363,17 @@ export default function OpenFlow() {
           <TabsTrigger value="automacoes">Fluxos</TabsTrigger>
           <TabsTrigger value="campanhas"><Megaphone className="h-3 w-3 mr-1" /> Campanhas</TabsTrigger>
           <TabsTrigger value="execucoes"><Activity className="h-3 w-3 mr-1" /> Execuções</TabsTrigger>
+          <TabsTrigger value="analytics"><BarChart3 className="h-3 w-3 mr-1" /> Analytics</TabsTrigger>
           <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
           <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia</TabsTrigger>
         </TabsList>
 
         <TabsContent value="campanhas" className="mt-4">
           <CampanhasManager projects={projects} onChange={load} />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="mt-4">
+          <OpenFlowAnalytics automacoes={automacoes} />
         </TabsContent>
 
         {/* ── Automações Tab ────────────────────────────────────── */}
@@ -838,26 +846,38 @@ export default function OpenFlow() {
                   </Select>
                 </div>
               )}
-              <div>
-                <Label>WhatsApp Padrão</Label>
-                <Select 
-                  key={editing.provider_id || "auto"} 
-                  value={editing.provider_id || "auto"} 
-                  onValueChange={v => {
-                    const newPid = v === "auto" ? undefined : v;
-                    setEditing(prev => prev ? { ...prev, provider_id: newPid } : prev);
-                  }}
-                >
-                  <SelectTrigger><SelectValue placeholder="Auto (primeiro ativo)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">🔄 Auto (primeiro ativo)</SelectItem>
-                    {providers.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.display_name || p.instance_name || p.twilio_from || p.id.slice(0, 12)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>WhatsApp Padrão</Label>
+                  <Select 
+                    key={editing.provider_id || "auto"} 
+                    value={editing.provider_id || "auto"} 
+                    onValueChange={v => {
+                      const newPid = v === "auto" ? undefined : v;
+                      setEditing(prev => prev ? { ...prev, provider_id: newPid } : prev);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Auto (primeiro ativo)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">🔄 Auto (primeiro ativo)</SelectItem>
+                      {providers.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.display_name || p.instance_name || p.twilio_from || p.id.slice(0, 12)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Link de Checkout Padrão ({"{{link}}"})</Label>
+                  <Input 
+                    type="text" 
+                    placeholder="https://pay.kiwify.com.br/..." 
+                    value={(editing as any).link_checkout || ""} 
+                    onChange={e => setEditing({ ...editing, link_checkout: e.target.value })} 
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
                 <div>

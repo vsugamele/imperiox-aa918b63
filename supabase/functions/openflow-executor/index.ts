@@ -15,6 +15,26 @@ function normalizeBRPhone(raw: string): string {
   return digits;
 }
 
+// Helper to get fuso horário offset by Brazilian DDD
+function getLeadTimezoneOffset(phone: string): number {
+  const digits = (phone || "").replace(/\D/g, "");
+  // Brazilian numbers: starting with 55 (country code), then 2-digit DDD
+  if (!digits.startsWith("55") || digits.length < 4) {
+    return -3; // Default to Brasília (UTC-3)
+  }
+  const ddd = parseInt(digits.substring(2, 4));
+  
+  // Acre (AC) - UTC-5
+  if (ddd === 68) return -5;
+  
+  // UTC-4: Amazonas (92, 97), Rondônia (69), Roraima (95), Mato Grosso do Sul (67), Mato Grosso (65, 66)
+  const utc4DDDs = [92, 97, 69, 95, 67, 65, 66];
+  if (utc4DDDs.includes(ddd)) return -4;
+  
+  // UTC-3: Rest of Brazil (DF, GO, TO, and all South/Southeast/Northeast states)
+  return -3;
+}
+
 // Normalize step fields from editor format to executor format
 function normalizeStep(step: any): any {
   const tipo = step.tipo === "aguardar" ? "delay" : step.tipo;
@@ -128,18 +148,6 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const auto of matched) {
-      // ── Quiet hours: skip if current time falls inside the configured window
-      const qs = auto.quiet_start, qe = auto.quiet_end;
-      if (qs != null && qe != null && qs !== qe) {
-        const hourBR = Number(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
-        const inWindow = qs < qe ? (hourBR >= qs && hourBR < qe) : (hourBR >= qs || hourBR < qe);
-        if (inWindow) {
-          console.log(`[openflow-executor] Skipping ${auto.id}: dentro da janela de silêncio (${qs}-${qe}h, agora ${hourBR}h BR)`);
-          results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: "quiet_hours" });
-          continue;
-        }
-      }
-
       // ── Dedupe: skip if same automation ran for same lead within N hours
       const dedupeH = Number(auto.dedupe_hours || 0);
       if (dedupeH > 0 && lead_data?.lead_id) {
@@ -191,6 +199,72 @@ Deno.serve(async (req) => {
         const critical = ["criar_venda", "create_sale", "stop", "abortar"];
         return critical.includes(tipo);
       };
+
+      // ── Quiet hours: reschedule if current time falls inside the configured window (local timezone by DDD)
+      const qs = auto.quiet_start, qe = auto.quiet_end;
+      if (qs != null && qe != null && qs !== qe) {
+        const phone = lead_data?.phone || lead_data?.telefone || "";
+        const offset = phone ? getLeadTimezoneOffset(phone) : -3;
+        const utcHour = new Date().getUTCHours();
+        const hourLead = (utcHour + offset + 24) % 24;
+        
+        const inWindow = qs < qe ? (hourLead >= qs && hourLead < qe) : (hourLead >= qs || hourLead < qe);
+        if (inWindow) {
+          const hoursToWait = (qe - hourLead + 24) % 24;
+          const minutesToWait = hoursToWait * 60 + 5; // Add 5 min buffer
+          const nextRun = new Date(Date.now() + minutesToWait * 60 * 1000);
+          
+          console.log(`[openflow-executor] Lead phone ${phone} inside quiet hours window. Local hour: ${hourLead}h (limits: ${qs}-${qe}h). Rescheduling in ${hoursToWait}h (${minutesToWait}m) to ${nextRun.toISOString()}`);
+          
+          const delayResults = [
+            ...stepResults,
+            {
+              step: startStep,
+              status: "delayed_due_to_quiet_hours",
+              started_at: new Date().toISOString(),
+              notes: `Aguardando fim da janela de silêncio local (hora local do lead: ${hourLead}h, limites: ${qs}h a ${qe}h)`,
+            }
+          ];
+
+          // Create execution record in waiting status
+          const { data: execution, error: execErr } = await supabase
+            .from("imphq_flow_executions")
+            .insert({
+              automacao_id: auto.id,
+              project_id,
+              lead_id: lead_data?.lead_id || null,
+              trigger_tipo,
+              status: "waiting",
+              current_step: startStep,
+              next_run_at: nextRun.toISOString(),
+              step_results: delayResults,
+            })
+            .select("id")
+            .single();
+
+          if (execErr) {
+            console.error("[openflow-executor] Failed to create quiet hours execution:", execErr);
+          } else {
+            await supabase.from("imphq_automacao_logs").insert({
+              automacao_id: auto.id,
+              project_id,
+              trigger_data: { trigger_tipo, lead_data: lead_data || null },
+              acoes_executadas: [],
+              status: "waiting",
+              error_message: `Aguardando fim da janela de silêncio local do lead (${hourLead}h, limites: ${qs}-${qe}h). Reagendado para ${nextRun.toLocaleString("pt-BR")}.`,
+            });
+          }
+
+          results.push({ 
+            automacao_id: auto.id, 
+            automacao_nome: auto.nome, 
+            execution_id: execution?.id || null,
+            status: "waiting", 
+            reason: "quiet_hours_rescheduled" 
+          });
+          continue;
+        }
+      }
 
       // Create execution record
       const { data: execution, error: execErr } = await supabase
@@ -368,70 +442,82 @@ Deno.serve(async (req) => {
               // ── A/B Testing Copy override
               let selectedVariantId = null;
               let selectedTestId = null;
-              let selectedMsgTemplate = step.mensagem || "";
+              let selectedMsgTemplate = step.mensagem || step.template || "";
+              let abVariant = null;
 
-              try {
-                // Check for active A/B test for this trigger stage
-                const { data: activeTest } = await supabase
-                  .from("imphq_wa_ab_tests")
-                  .select("id, winner_variant_id")
-                  .eq("project_id", project_id)
-                  .eq("trigger_stage", trigger_tipo)
-                  .eq("active", true)
-                  .maybeSingle();
+              if (step.ab_test_enabled) {
+                const cleanPhone = phone.replace(/\D/g, "");
+                const lastDigit = parseInt(cleanPhone.slice(-1)) || 0;
+                abVariant = lastDigit % 2 === 0 ? "A" : "B";
+                if (abVariant === "B") {
+                  selectedMsgTemplate = step.template_b || step.mensagem_b || selectedMsgTemplate;
+                }
+                console.log(`[openflow-executor] Native block A/B test enabled. Lead phone ${phone} assigned to Variant: ${abVariant}`);
+                stepResult.ab_variant = abVariant;
+              } else {
+                try {
+                  // Check for active A/B test for this trigger stage
+                  const { data: activeTest } = await supabase
+                    .from("imphq_wa_ab_tests")
+                    .select("id, winner_variant_id")
+                    .eq("project_id", project_id)
+                    .eq("trigger_stage", trigger_tipo)
+                    .eq("active", true)
+                    .maybeSingle();
 
-                if (activeTest) {
-                  selectedTestId = activeTest.id;
-                  if (activeTest.winner_variant_id) {
-                    // Winner already promoted
-                    const { data: winnerVar } = await supabase
-                      .from("imphq_wa_ab_test_variants")
-                      .select("id, message_template")
-                      .eq("id", activeTest.winner_variant_id)
-                      .maybeSingle();
-                    if (winnerVar) {
-                      selectedVariantId = winnerVar.id;
-                      selectedMsgTemplate = winnerVar.message_template;
-                      console.log(`[openflow-executor] Using A/B test promoted winner variant: ${winnerVar.id}`);
-                    }
-                  } else {
-                    // Test running: select variant by traffic percentage
-                    const { data: variants } = await supabase
-                      .from("imphq_wa_ab_test_variants")
-                      .select("id, message_template, traffic_percentage")
-                      .eq("test_id", activeTest.id)
-                      .eq("active", true);
-
-                    if (variants && variants.length > 0) {
-                      const rand = Math.floor(Math.random() * 100);
-                      let cumulative = 0;
-                      let chosen = variants[0];
-                      for (const v of variants) {
-                        cumulative += v.traffic_percentage || 0;
-                        if (rand < cumulative) {
-                          chosen = v;
-                          break;
-                        }
+                  if (activeTest) {
+                    selectedTestId = activeTest.id;
+                    if (activeTest.winner_variant_id) {
+                      // Winner already promoted
+                      const { data: winnerVar } = await supabase
+                        .from("imphq_wa_ab_test_variants")
+                        .select("id, message_template")
+                        .eq("id", activeTest.winner_variant_id)
+                        .maybeSingle();
+                      if (winnerVar) {
+                        selectedVariantId = winnerVar.id;
+                        selectedMsgTemplate = winnerVar.message_template;
+                        console.log(`[openflow-executor] Using A/B test promoted winner variant: ${winnerVar.id}`);
                       }
-                      selectedVariantId = chosen.id;
-                      selectedMsgTemplate = chosen.message_template;
-                      console.log(`[openflow-executor] Enrolled lead ${lead_data?.lead_id} in A/B test variant: ${chosen.id}`);
+                    } else {
+                      // Test running: select variant by traffic percentage
+                      const { data: variants } = await supabase
+                        .from("imphq_wa_ab_test_variants")
+                        .select("id, message_template, traffic_percentage")
+                        .eq("test_id", activeTest.id)
+                        .eq("active", true);
 
-                      // Log enrollment
-                      if (lead_data?.lead_id) {
-                        await supabase.from("imphq_wa_ab_test_logs").insert({
-                          test_id: activeTest.id,
-                          variant_id: chosen.id,
-                          lead_id: lead_data.lead_id,
-                        });
-                        // Increment sent count
-                        await supabase.rpc("increment_ab_variant_sent", { p_variant_id: chosen.id });
+                      if (variants && variants.length > 0) {
+                        const rand = Math.floor(Math.random() * 100);
+                        let cumulative = 0;
+                        let chosen = variants[0];
+                        for (const v of variants) {
+                          cumulative += v.traffic_percentage || 0;
+                          if (rand < cumulative) {
+                            chosen = v;
+                            break;
+                          }
+                        }
+                        selectedVariantId = chosen.id;
+                        selectedMsgTemplate = chosen.message_template;
+                        console.log(`[openflow-executor] Enrolled lead ${lead_data?.lead_id} in A/B test variant: ${chosen.id}`);
+
+                        // Log enrollment
+                        if (lead_data?.lead_id) {
+                          await supabase.from("imphq_wa_ab_test_logs").insert({
+                            test_id: activeTest.id,
+                            variant_id: chosen.id,
+                            lead_id: lead_data.lead_id,
+                          });
+                          // Increment sent count
+                          await supabase.rpc("increment_ab_variant_sent", { p_variant_id: chosen.id });
+                        }
                       }
                     }
                   }
+                } catch (abErr: any) {
+                  console.error("[openflow-executor] Error in A/B test resolution:", abErr.message);
                 }
-              } catch (abErr: any) {
-                console.error("[openflow-executor] Error in A/B test resolution:", abErr.message);
               }
 
               const msgText = selectedMsgTemplate
@@ -759,26 +845,197 @@ Deno.serve(async (req) => {
           }
 
           else if (step.tipo === "condicao" || step.tipo === "condition") {
-            const field = step.campo || step.field;
-            const operator = step.operador || step.operator || "equals";
-            const value = step.valor || step.value;
-            const leadValue = lead_data?.[field];
+            const condDelay = Number(step.condicao_tempo_min || step.delay_min || 0);
+            if (condDelay > 5 && resume_from_step !== i) {
+              const nextRun = new Date(Date.now() + condDelay * 60000);
+              await supabase.from("imphq_flow_executions")
+                .update({
+                  status: "waiting",
+                  current_step: i, // Resume at THIS step to evaluate the condition!
+                  next_run_at: nextRun.toISOString(),
+                  step_results: [...stepResults, { ...stepResult, status: "delayed_for_condition", next_run: nextRun.toISOString() }],
+                })
+                .eq("id", executionId);
+              status = "waiting";
+              break;
+            }
+            
+            // Short delay wait inline if condDelay is > 0 but <= 5
+            if (condDelay > 0 && condDelay <= 5 && resume_from_step !== i) {
+              await delay(condDelay * 60000);
+            }
+
+            // Mapeia data de início da execução
+            let flowStartTime = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+            const { data: firstExec } = await supabase
+              .from("imphq_flow_executions")
+              .select("created_at")
+              .eq("id", executionId)
+              .maybeSingle();
+            if (firstExec) {
+              flowStartTime = firstExec.created_at;
+            }
+
+            // 1. Checa WhatsApp replies
+            let hasReplied = false;
+            const phone = lead_data?.phone || lead_data?.telefone;
+            if (phone) {
+              const cleanPhone = phone.replace(/\D/g, "");
+              const searchPhones = [phone, cleanPhone];
+              if (cleanPhone.startsWith("55")) {
+                searchPhones.push(cleanPhone.substring(2));
+              } else {
+                searchPhones.push("55" + cleanPhone);
+              }
+              const { data: incomingMsgs } = await supabase
+                .from("imphq_wa_messages")
+                .select("id")
+                .in("phone", searchPhones)
+                .eq("direction", "incoming")
+                .gt("created_at", flowStartTime)
+                .limit(1);
+              if (incomingMsgs && incomingMsgs.length > 0) {
+                hasReplied = true;
+              }
+            }
+
+            // 2. Checa Link clicks
+            let hasClicked = false;
+            const toEmail = lead_data?.email;
+            if (toEmail || lead_data?.lead_id) {
+              let query = supabase
+                .from("imphq_events")
+                .select("id")
+                .gt("created_at", flowStartTime)
+                .or(`event_name.eq.email_clicked,event_name.eq.link_clicked,event_name.eq.checkout_clicked`);
+              if (toEmail) {
+                query = query.filter("data->>to_email", "eq", toEmail);
+              } else {
+                query = query.filter("data->>lead_id", "eq", lead_data.lead_id);
+              }
+              const { data: clickEvents } = await query.limit(1);
+              if (clickEvents && clickEvents.length > 0) {
+                hasClicked = true;
+              }
+            }
+
+            // 3. Checa Email opens
+            let hasOpened = false;
+            if (toEmail) {
+              const { data: openEvents } = await supabase
+                .from("imphq_events")
+                .select("id")
+                .eq("event_name", "email_opened")
+                .filter("data->>to_email", "eq", toEmail)
+                .gt("created_at", flowStartTime)
+                .limit(1);
+              if (openEvents && openEvents.length > 0) {
+                hasOpened = true;
+              }
+            }
 
             let conditionMet = false;
-            if (operator === "equals") conditionMet = leadValue == value;
-            else if (operator === "not_equals") conditionMet = leadValue != value;
-            else if (operator === "contains") conditionMet = String(leadValue || "").includes(String(value));
-            else if (operator === "gt") conditionMet = Number(leadValue) > Number(value);
-            else if (operator === "lt") conditionMet = Number(leadValue) < Number(value);
-            else if (operator === "exists") conditionMet = leadValue != null && leadValue !== "";
+            const condTipo = step.condicao_tipo;
+
+            if (condTipo) {
+              if (condTipo === "respondeu_whatsapp") {
+                conditionMet = hasReplied;
+              } else if (condTipo === "nao_respondeu_whatsapp") {
+                conditionMet = !hasReplied;
+              } else if (condTipo === "clicou_link") {
+                conditionMet = hasClicked;
+              } else if (condTipo === "nao_clicou_link") {
+                conditionMet = !hasClicked;
+              } else if (condTipo === "abreu_email") {
+                conditionMet = hasOpened;
+              } else if (condTipo === "nao_abreu_email") {
+                conditionMet = !hasOpened;
+              }
+            } else {
+              const field = step.campo || step.field;
+              const operator = step.operador || step.operator || "equals";
+              const value = step.valor || step.value;
+              const leadValue = lead_data?.[field];
+
+              if (operator === "equals") conditionMet = leadValue == value;
+              else if (operator === "not_equals") conditionMet = leadValue != value;
+              else if (operator === "contains") conditionMet = String(leadValue || "").includes(String(value));
+              else if (operator === "gt") conditionMet = Number(leadValue) > Number(value);
+              else if (operator === "lt") conditionMet = Number(leadValue) < Number(value);
+              else if (operator === "exists") conditionMet = leadValue != null && leadValue !== "";
+            }
 
             stepResult.status = "evaluated";
             stepResult.condition_met = conditionMet;
 
-            if (!conditionMet && step.else_skip) {
-              const skipCount = parseInt(step.else_skip) || 1;
-              i += skipCount;
-              stepResult.skipped_steps = skipCount;
+            if (!conditionMet) {
+              if (step.else_action === "abortar") {
+                status = "completed";
+                stepResult.notes = "Fluxo abortado por condição não atendida";
+                stepResult.finished_at = new Date().toISOString();
+                stepResults.push(stepResult);
+                break;
+              } else {
+                const skipCount = parseInt(step.else_skip || step.else_skip_steps) || 1;
+                i += skipCount;
+                stepResult.skipped_steps = skipCount;
+              }
+            }
+          }
+
+          else if (step.tipo === "adicionar_tag") {
+            const tag = step.tag;
+            if (lead_data?.lead_id && tag) {
+              const { data: dbLead } = await supabase
+                .from("imphq_leads")
+                .select("tags")
+                .eq("id", lead_data.lead_id)
+                .maybeSingle();
+              const currentTags = dbLead?.tags || [];
+              if (!currentTags.includes(tag)) {
+                const newTags = [...currentTags, tag];
+                await supabase
+                  .from("imphq_leads")
+                  .update({ tags: newTags })
+                  .eq("id", lead_data.lead_id);
+                leadTags = newTags;
+                stepResult.status = "tag_added";
+                stepResult.tag = tag;
+              } else {
+                stepResult.status = "tag_already_exists";
+                stepResult.tag = tag;
+              }
+            } else {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou tag não configurada";
+            }
+          }
+
+          else if (step.tipo === "remover_tag") {
+            const tag = step.tag;
+            if (lead_data?.lead_id && tag) {
+              const { data: dbLead } = await supabase
+                .from("imphq_leads")
+                .select("tags")
+                .eq("id", lead_data.lead_id)
+                .maybeSingle();
+              const currentTags = dbLead?.tags || [];
+              if (currentTags.includes(tag)) {
+                const newTags = currentTags.filter((t: string) => t !== tag);
+                await supabase
+                  .from("imphq_leads")
+                  .update({ tags: newTags })
+                  .eq("id", lead_data.lead_id);
+                leadTags = newTags;
+                stepResult.status = "tag_removed";
+                stepResult.tag = tag;
+              } else {
+                stepResult.status = "tag_not_found";
+                stepResult.tag = tag;
+              }
+            } else {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou tag não configurada";
             }
           }
 
@@ -787,8 +1044,13 @@ Deno.serve(async (req) => {
             if (!phone) {
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
+            } else if (resume_from_step === i) {
+              // We are resuming this step after the conversation has finished.
+              // Just complete it and let the loop proceed to the next step!
+              stepResult.status = "completed";
+              stepResult.notes = "Conversa finalizada pelo assistente de IA";
             } else {
-              // 1. Verificar se o lead respondeu desde o início do fluxo
+              // First time running this step: send initial message and pause!
               const cleanPhone = phone.replace(/\D/g, "");
               const searchPhones = [phone, cleanPhone];
               if (cleanPhone.startsWith("55")) {
@@ -797,53 +1059,7 @@ Deno.serve(async (req) => {
                 searchPhones.push("55" + cleanPhone);
               }
 
-              let firstExecCreatedAt = new Date(Date.now() - 3 * 3600_000).toISOString(); // fallback
-              const execQuery = supabase
-                .from("imphq_flow_executions")
-                .select("created_at")
-                .eq("automacao_id", auto.id)
-                .order("created_at", { ascending: true })
-                .limit(1);
-              
-              if (lead_data?.lead_id) {
-                execQuery.eq("lead_id", lead_data.lead_id);
-              }
-              
-              const { data: firstExec } = await execQuery.maybeSingle();
-              if (firstExec) {
-                firstExecCreatedAt = firstExec.created_at;
-              }
-
-              const { data: incomingMsgs } = await supabase
-                .from("imphq_wa_messages")
-                .select("id")
-                .in("phone", searchPhones)
-                .eq("direction", "incoming")
-                .gt("created_at", firstExecCreatedAt)
-                .limit(1);
-
-              if (incomingMsgs && incomingMsgs.length > 0) {
-                console.log(`[openflow-executor] Lead ${phone} respondeu após o início do fluxo (${firstExecCreatedAt}). Abortando fluxo.`);
-                stepResult.status = "skipped";
-                stepResult.reason = "Lead respondeu à automação";
-                status = "completed";
-                stepResult.finished_at = new Date().toISOString();
-                stepResults.push(stepResult);
-                break; // Interrompe o fluxo
-              }
-
-              // 2. Carregar contexto do projeto e do lead
-              const { data: project } = await supabase
-                .from("imphq_projects")
-                .select("name, data, avatar, brand_kit")
-                .eq("id", project_id)
-                .maybeSingle();
-
-              const pData = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
-              const expert = pData.expert || pData.especialista || {};
-              const avatar = project?.avatar || {};
-              const brandKit = project?.brand_kit || {};
-
+              // Load lead details for personalization
               let leadDb = null;
               if (lead_data?.lead_id) {
                 const { data: l } = await supabase
@@ -862,21 +1078,49 @@ Deno.serve(async (req) => {
                 leadDb = l;
               }
 
-              const aiProfile = leadDb?.data?.ai_profile || {};
-              const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
-              const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
-              const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
-              const seekings = Array.isArray(aiProfile.seekings) ? aiProfile.seekings : [];
-              const schwartz = leadDb?.data?.desejo_schwartz || "";
+              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              // ── A/B Testing Copy override for IA Message
+              let abVariant = null;
+              let selectedMsgTemplate = step.mensagem || step.template || "";
 
-              const { data: aiConfig } = await supabase
-                .from("imphq_wa_ai_config")
-                .select("*")
-                .eq("project_id", project_id)
-                .eq("enabled", true)
-                .maybeSingle();
+              if (step.ab_test_enabled) {
+                const cleanPhone = phone.replace(/\D/g, "");
+                const lastDigit = parseInt(cleanPhone.slice(-1)) || 0;
+                abVariant = lastDigit % 2 === 0 ? "A" : "B";
+                if (abVariant === "B") {
+                  selectedMsgTemplate = step.template_b || step.mensagem_b || selectedMsgTemplate;
+                }
+                console.log(`[openflow-executor] Native block A/B test enabled for IA Message. Lead phone ${phone} assigned to Variant: ${abVariant}`);
+                stepResult.ab_variant = abVariant;
+              }
 
-              const systemPrompt = `Você é um assessor/vendedor de alta performance especializado em reativação de leads via WhatsApp.
+              let finalMsg = selectedMsgTemplate.trim();
+
+              if (!finalMsg) {
+                // Generate initial message using LLM
+                const { data: project } = await supabase
+                  .from("imphq_projects")
+                  .select("name, data, avatar, brand_kit")
+                  .eq("id", project_id)
+                  .maybeSingle();
+
+                const pData = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
+                const expert = pData.expert || pData.especialista || {};
+                const aiProfile = leadDb?.data?.ai_profile || {};
+                const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
+                const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
+                const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
+                const seekings = Array.isArray(aiProfile.seekings) ? aiProfile.seekings : [];
+                const schwartz = leadDb?.data?.desejo_schwartz || "";
+
+                const { data: aiConfig } = await supabase
+                  .from("imphq_wa_ai_config")
+                  .select("*")
+                  .eq("project_id", project_id)
+                  .eq("enabled", true)
+                  .maybeSingle();
+
+                const systemPrompt = `Você é um assessor/vendedor de alta performance especializado em reativação de leads via WhatsApp.
 Você representa o projeto/marca: "${project?.name || ''}".
 Expert/Persona: ${aiConfig?.expert_persona || JSON.stringify(expert)}
 Instruções gerais da marca: ${aiConfig?.custom_instructions || ''}
@@ -890,49 +1134,42 @@ Contexto do Lead:
 - Desejo de Schwartz: ${schwartz || "Não mapeado"}
 
 Objetivo do passo:
-Você deve enviar uma mensagem curta de reativação para o lead.
-A instrução de reativação da automação é: "${step.mensagem || 'Reativar o lead com simpatia e foco consultivo'}"
+Você deve enviar uma mensagem curta de reativação para iniciar a conversa com o lead.
+Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frases). Sem aspas, sem anotações.`.trim();
 
-Regras de Geração:
-1. Escreva uma mensagem curta, direta e amigável para o WhatsApp (máximo 3 linhas ou 2-3 frases).
-2. Não pareça um robô nem use introduções genéricas. Seja natural e informal.
-3. Use o nome do lead se disponível.
-4. Responda apenas com a mensagem a ser enviada no WhatsApp. Sem observações, sem aspas.`.trim();
+                const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+                if (!OPENROUTER_API_KEY) {
+                  throw new Error("OPENROUTER_API_KEY não configurado");
+                }
 
-              const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-              if (!OPENROUTER_API_KEY) {
-                throw new Error("OPENROUTER_API_KEY não configurado");
+                const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://imperiox.lovable.app",
+                    "X-Title": "Imperio HQ",
+                  },
+                  body: JSON.stringify({
+                    model: aiConfig?.ai_model || "openai/gpt-4o-mini",
+                    messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: "Gere a mensagem curta inicial de reativação." }
+                    ],
+                    max_tokens: 150,
+                    temperature: 0.7,
+                  }),
+                });
+
+                if (orRes.ok) {
+                  const orData = await orRes.json();
+                  finalMsg = (orData?.choices?.[0]?.message?.content || "").trim().replace(/^"|"$/g, "");
+                } else {
+                  finalMsg = "Oi, tudo bem? Gostaria de saber se você ainda tem interesse no nosso projeto!";
+                }
               }
 
-              const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-                  "Content-Type": "application/json",
-                  "HTTP-Referer": "https://imperiox.lovable.app",
-                  "X-Title": "Imperio HQ",
-                },
-                body: JSON.stringify({
-                  model: aiConfig?.ai_model || "openai/gpt-4o-mini",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: "Gere a mensagem de reativação para o lead." }
-                  ],
-                  max_tokens: 150,
-                  temperature: 0.7,
-                }),
-              });
-
-              if (!orRes.ok) {
-                const errText = await orRes.text();
-                throw new Error(`OpenRouter falhou: ${orRes.status} ${errText}`);
-              }
-
-              const orData = await orRes.json();
-              const aiText = (orData?.choices?.[0]?.message?.content || "").trim().replace(/^"|"$/g, "");
-
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
-              const finalMsg = aiText
+              finalMsg = finalMsg
                 .replace(/\{\{nome\}\}/g, lead_data?.nome || leadDb?.name || "")
                 .replace(/\{\{email\}\}/g, lead_data?.email || "")
                 .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
@@ -941,9 +1178,8 @@ Regras de Geração:
                 .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
                 .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
 
-              // Escolher o provider de WhatsApp
+              // Choose provider
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
-              
               if (!providerId && project_id) {
                 const { data: projProviders } = await supabase
                   .from("imphq_wa_providers")
@@ -952,11 +1188,8 @@ Regras de Geração:
                   .eq("project_id", project_id)
                   .order("created_at", { ascending: true })
                   .limit(1);
-                if (projProviders?.length) {
-                  providerId = projProviders[0].id;
-                }
+                if (projProviders?.length) providerId = projProviders[0].id;
               }
-
               if (!providerId) {
                 const { data: activeProviders } = await supabase
                   .from("imphq_wa_providers")
@@ -964,9 +1197,7 @@ Regras de Geração:
                   .eq("is_active", true)
                   .order("created_at", { ascending: true })
                   .limit(1);
-                if (activeProviders?.length) {
-                  providerId = activeProviders[0].id;
-                }
+                if (activeProviders?.length) providerId = activeProviders[0].id;
               }
 
               stepResult.provider_id = providerId || null;
@@ -995,16 +1226,15 @@ Regras de Geração:
                 const waData = await waRes.json();
                 stepResult.status = waData.success ? "sent" : "error";
                 stepResult.response = waData;
-                
+
                 if (waData.success) {
                   messagesSent++;
-                  // Registrar a ação em imphq_ai_actions
                   await supabase.from("imphq_ai_actions").insert({
                     kind: "openflow_ia_intervention",
                     risk_level: "low",
                     confidence: 0.95,
                     title: `Intervenção de IA no OpenFlow: ${auto.nome}`,
-                    reason: `Etapa ${i} (${step.tipo}): reativação enviada para ${phone}.`,
+                    reason: `Etapa ${i} (${step.tipo}): conversa inicializada para ${phone}.`,
                     payload: {
                       lead_id: lead_data?.lead_id || leadDb?.id || null,
                       phone,
@@ -1024,6 +1254,19 @@ Regras de Geração:
                   failureMessages.push(`Step ${i} (ia_message): ${waData.error || "Falha no envio"}`);
                 }
               }
+
+              // Update execution: set status = "waiting" at the CURRENT step i,
+              // so subsequent lead responses are routed through wa-ai-reply
+              await supabase.from("imphq_flow_executions")
+                .update({
+                  status: "waiting",
+                  current_step: i,
+                  step_results: [...stepResults, { ...stepResult, status: "waiting_for_lead_response", message_sent: finalMsg.substring(0, 100) }]
+                })
+                .eq("id", executionId);
+
+              status = "waiting";
+              break;
             }
           }
 

@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound } from "lucide-react";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
+import { ZernioTab } from "@/components/empresa/ZernioTab";
 import { toast } from "sonner";
 
 interface ContaEmpresa {
@@ -65,6 +66,7 @@ export default function Empresa() {
           <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
           <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>
           <TabsTrigger value="ad_accounts"><CreditCard className="h-3.5 w-3.5 mr-1" /> Ad Accounts</TabsTrigger>
+          <TabsTrigger value="zernio"><KeyRound className="h-3.5 w-3.5 mr-1" /> Zernio</TabsTrigger>
         </TabsList>
 
         <TabsContent value="email">
@@ -89,6 +91,9 @@ export default function Empresa() {
         </TabsContent>
         <TabsContent value="ad_accounts">
           <AdAccountsTab />
+        </TabsContent>
+        <TabsContent value="zernio">
+          <ZernioTab />
         </TabsContent>
       </Tabs>
     </div>

@@ -172,11 +172,32 @@ serve(async (req) => {
         } else {
           throw new Error(`Failed to fetch file content from URL. HTTP status: ${fileRes.status}`);
         }
+      } else if (mimeType.includes("pdf")) {
+        const fileRes = await fetch(fileUrl);
+        if (fileRes.ok) {
+          const arrayBuffer = await fileRes.arrayBuffer();
+          const { getDocumentProxy, extractText } = await import("npm:unpdf");
+          const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
+          const { text } = await extractText(pdf, { mergePages: true });
+          rawText = text || "";
+        } else {
+          throw new Error(`Failed to fetch PDF file from URL. HTTP status: ${fileRes.status}`);
+        }
+      } else if (mimeType.includes("wordprocessingml") || mimeType.includes("docx") || mimeType.includes("msword")) {
+        const fileRes = await fetch(fileUrl);
+        if (fileRes.ok) {
+          const arrayBuffer = await fileRes.arrayBuffer();
+          const mammoth = await import("npm:mammoth");
+          const { value } = await mammoth.extractRawText({ arrayBuffer });
+          rawText = value || "";
+        } else {
+          throw new Error(`Failed to fetch DOCX file from URL. HTTP status: ${fileRes.status}`);
+        }
       } else {
         // Binary files that cannot be easily parsed inside Edge Function are skipped
         return new Response(JSON.stringify({
           success: true,
-          message: "Files of this type (e.g. PDFs, images, DOCX) cannot be parsed directly in real-time. Text file was expected."
+          message: "Files of this type (e.g. images) cannot be parsed directly in real-time. PDF, DOCX or text files are expected."
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
