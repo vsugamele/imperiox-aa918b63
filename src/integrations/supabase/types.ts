@@ -19721,6 +19721,44 @@ export type Database = {
           },
         ]
       }
+      imphq_lead_session_events: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          lead_id: string | null
+          payload: Json | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          lead_id?: string | null
+          payload?: Json | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          lead_id?: string | null
+          payload?: Json | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_lead_session_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_leads: {
         Row: {
           campanha_id: string | null
@@ -22311,6 +22349,159 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_ab_test_logs: {
+        Row: {
+          converted: boolean | null
+          converted_at: string | null
+          enrolled_at: string
+          id: string
+          lead_id: string | null
+          replied: boolean | null
+          test_id: string | null
+          variant_id: string | null
+        }
+        Insert: {
+          converted?: boolean | null
+          converted_at?: string | null
+          enrolled_at?: string
+          id?: string
+          lead_id?: string | null
+          replied?: boolean | null
+          test_id?: string | null
+          variant_id?: string | null
+        }
+        Update: {
+          converted?: boolean | null
+          converted_at?: string | null
+          enrolled_at?: string
+          id?: string
+          lead_id?: string | null
+          replied?: boolean | null
+          test_id?: string | null
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_ab_test_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ab_test_logs_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_ab_tests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ab_test_logs_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_ab_test_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_ab_test_variants: {
+        Row: {
+          active: boolean | null
+          conversion_count: number | null
+          created_at: string
+          id: string
+          message_template: string
+          name: string
+          reply_count: number | null
+          sent_count: number | null
+          test_id: string | null
+          traffic_percentage: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          conversion_count?: number | null
+          created_at?: string
+          id?: string
+          message_template: string
+          name: string
+          reply_count?: number | null
+          sent_count?: number | null
+          test_id?: string | null
+          traffic_percentage?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          conversion_count?: number | null
+          created_at?: string
+          id?: string
+          message_template?: string
+          name?: string
+          reply_count?: number | null
+          sent_count?: number | null
+          test_id?: string | null
+          traffic_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_ab_test_variants_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_ab_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_ab_tests: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          id: string
+          min_sample_size: number | null
+          name: string
+          project_id: string | null
+          trigger_stage: string
+          updated_at: string
+          winner_variant_id: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          id?: string
+          min_sample_size?: number | null
+          name: string
+          project_id?: string | null
+          trigger_stage: string
+          updated_at?: string
+          winner_variant_id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          id?: string
+          min_sample_size?: number | null
+          name?: string
+          project_id?: string | null
+          trigger_stage?: string
+          updated_at?: string
+          winner_variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_ab_tests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ab_tests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_wa_ai_config: {
         Row: {
           ai_model: string | null
@@ -23319,6 +23510,7 @@ export type Database = {
         Row: {
           contexto_produto: string | null
           created_at: string
+          embedding: string | null
           id: string
           objecao: string
           origem: string
@@ -23331,6 +23523,7 @@ export type Database = {
         Insert: {
           contexto_produto?: string | null
           created_at?: string
+          embedding?: string | null
           id?: string
           objecao: string
           origem?: string
@@ -23343,6 +23536,7 @@ export type Database = {
         Update: {
           contexto_produto?: string | null
           created_at?: string
+          embedding?: string | null
           id?: string
           objecao?: string
           origem?: string
@@ -40445,6 +40639,10 @@ export type Database = {
         Args: { admin_uuid: string; prize_uuid: string }
         Returns: boolean
       }
+      clamp: {
+        Args: { max_val: number; min_val: number; val: number }
+        Returns: number
+      }
       clean_old_receipts: { Args: never; Returns: undefined }
       cleanup_expired_backups: { Args: never; Returns: undefined }
       cleanup_old_files: { Args: never; Returns: undefined }
@@ -40616,6 +40814,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      imphq_train_lead_scoring_model: { Args: never; Returns: Json }
+      increment_ab_variant_conversion: {
+        Args: { p_variant_id: string }
+        Returns: undefined
+      }
+      increment_ab_variant_reply: {
+        Args: { p_variant_id: string }
+        Returns: undefined
+      }
+      increment_ab_variant_sent: {
+        Args: { p_variant_id: string }
+        Returns: undefined
+      }
       increment_distributor_click: {
         Args: { _dist_id: string }
         Returns: undefined
@@ -40739,6 +40950,21 @@ export type Database = {
         Returns: {
           content: string
           id: string
+          similarity: number
+        }[]
+      }
+      match_wa_objections: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          p_project_id: string
+          query_embedding: string
+        }
+        Returns: {
+          contexto_produto: string
+          id: string
+          objecao: string
+          resposta_padrao: string
           similarity: number
         }[]
       }
