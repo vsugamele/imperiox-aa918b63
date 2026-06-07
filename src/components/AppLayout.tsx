@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -14,6 +14,7 @@ const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   dashboard: { kicker: "Overview", title: "Cockpit" },
   imperius: { kicker: "Autonomia", title: "Imperius" },
+  inbox: { kicker: "Canais", title: "Caixa de Entrada" },
   leads: { kicker: "CRM", title: "Leads" },
   whatsapp: { kicker: "Canal", title: "WhatsApp" },
   "sdr-coach": { kicker: "Operar", title: "SDR Coach" },
@@ -41,6 +42,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   skills: { kicker: "IA", title: "Skills" },
   kanban: { kicker: "Planejar", title: "Kanban" },
   tarefas: { kicker: "Planejar", title: "Tarefas" },
+  rascunhos: { kicker: "IA", title: "Rascunhos" },
   docs: { kicker: "KB", title: "Docs" },
   empresa: { kicker: "Setup", title: "Empresa" },
   equipe: { kicker: "Setup", title: "Equipe" },
@@ -48,6 +50,9 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   configuracoes: { kicker: "Setup", title: "Configurações" },
   guia: { kicker: "Setup", title: "Guia" },
   chat: { kicker: "IA", title: "Chat" },
+  assistente: { kicker: "IA", title: "Assistente" },
+  "product-copilot": { kicker: "IA", title: "Copilot de Produtos" },
+  webinar: { kicker: "Evento", title: "Webinar" },
 };
 
 function EditorialBreadcrumb() {
@@ -64,6 +69,36 @@ function EditorialBreadcrumb() {
         {meta.title}
       </span>
     </div>
+  );
+}
+
+// ⌘K hint — visible for first 5 sessions, then auto-hides
+const CMDK_LS_KEY = "imphq.cmdkhint.seen";
+function CmdKHint() {
+  const [visible, setVisible] = useState(() => {
+    try {
+      const n = parseInt(localStorage.getItem(CMDK_LS_KEY) || "0", 10);
+      return n < 5;
+    } catch { return true; }
+  });
+  const counted = useRef(false);
+
+  useEffect(() => {
+    if (!visible || counted.current) return;
+    counted.current = true;
+    try {
+      const n = parseInt(localStorage.getItem(CMDK_LS_KEY) || "0", 10);
+      localStorage.setItem(CMDK_LS_KEY, String(n + 1));
+      if (n + 1 >= 5) setTimeout(() => setVisible(false), 8000);
+    } catch {}
+  }, [visible]);
+
+  if (!visible) return null;
+  return (
+    <span className="hidden lg:flex items-center gap-1 text-[10px] text-muted-foreground/60 border border-border/40 rounded px-1.5 py-0.5 animate-pulse">
+      <kbd className="font-mono">⌘K</kbd>
+      <span>para tudo</span>
+    </span>
   );
 }
 
@@ -91,6 +126,7 @@ export function AppLayout() {
               <GlobalSearch />
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <CmdKHint />
               <CommandPalette />
               <ActionInbox />
               <PushOptIn />

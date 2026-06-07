@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Plus, Target, Trash2, Pencil } from "lucide-react";
 import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
 import { GuideDrawer } from "@/components/assistente/GuideDrawer";
+
+const Lancamentos = lazy(() => import("./Lancamentos"));
+const ABTests = lazy(() => import("./ABTests"));
+
+const SubLoader = () => (
+  <div className="flex items-center justify-center min-h-[40vh]">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
 
 interface Campaign {
   id: string;
@@ -38,6 +50,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Campanhas() {
+  const [params, setParams] = useSearchParams();
+  const activeTab = (params.get("tab") || "campanhas") as "campanhas" | "lancamentos" | "ab-tests";
+
+  const handleTabChange = (val: string) => {
+    setParams({ tab: val }, { replace: true });
+  };
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [projects, setProjects] = useState<Array<{ id: string; nome: string }>>([]);
   const [sequences, setSequences] = useState<Array<{ id: string; nome: string; project_id: string | null }>>([]);
@@ -127,21 +146,33 @@ export default function Campanhas() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl text-primary flex items-center gap-2">
-            <Target className="h-7 w-7" /> Campanhas
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Veja leads, status e desempenho por campanha.</p>
+    <div className="p-6 space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <TabsList className="bg-secondary/60">
+            <TabsTrigger value="campanhas">🎯 Campanhas</TabsTrigger>
+            <TabsTrigger value="lancamentos">🚀 Lançamentos</TabsTrigger>
+            <TabsTrigger value="ab-tests">🧪 Testes A/B</TabsTrigger>
+          </TabsList>
+          {activeTab === "campanhas" && (
+            <div className="flex items-center gap-2">
+              <GuideDrawer area="campanhas" projectId={filterProject !== "all" ? filterProject : undefined} />
+              <Button onClick={() => setEdit({ status: "ativa", funil: "aquisicao" })}>
+                <Plus className="h-4 w-4 mr-1" /> Nova campanha
+              </Button>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <GuideDrawer area="campanhas" projectId={filterProject !== "all" ? filterProject : undefined} />
-          <Button onClick={() => setEdit({ status: "ativa", funil: "aquisicao" })}>
-            <Plus className="h-4 w-4 mr-1" /> Nova campanha
-          </Button>
-        </div>
-      </header>
+
+        {/* ── Campanhas tab ───────────────────────────────────────────── */}
+        <TabsContent value="campanhas" className="mt-4">
+          <div className="space-y-6">
+            <header>
+              <h1 className="font-display text-3xl text-primary flex items-center gap-2">
+                <Target className="h-7 w-7" /> Campanhas
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">Veja leads, status e desempenho por campanha.</p>
+            </header>
 
       <div className="flex flex-wrap gap-2 items-center">
         <Input
@@ -222,6 +253,25 @@ export default function Campanhas() {
         </div>
       )}
 
+          </div>
+        </TabsContent>
+
+        {/* ── Lançamentos tab ─────────────────────────────────────────── */}
+        <TabsContent value="lancamentos" className="mt-0">
+          <Suspense fallback={<SubLoader />}>
+            <Lancamentos />
+          </Suspense>
+        </TabsContent>
+
+        {/* ── A/B Tests tab ────────────────────────────────────────────── */}
+        <TabsContent value="ab-tests" className="mt-0">
+          <Suspense fallback={<SubLoader />}>
+            <ABTests />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
+
+      {/* Campaign edit dialog — shared across tabs */}
       <Dialog open={!!edit} onOpenChange={(o) => { if (!o) setEdit(null); }}>
         <DialogContent className="max-w-md bg-secondary/40">
           <DialogHeader><DialogTitle>{edit?.id ? "Editar campanha" : "Nova campanha"}</DialogTitle></DialogHeader>

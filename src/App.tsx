@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -61,6 +61,7 @@ const ProductCopilot = lazy(() => import("./pages/ProductCopilot"));
 const SDRCoach = lazy(() => import("./pages/SDRCoach"));
 const ABTests = lazy(() => import("./pages/ABTests"));
 const MobileCockpit = lazy(() => import("./pages/MobileCockpit"));
+const Inbox = lazy(() => import("./pages/Inbox"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -102,7 +103,8 @@ const App = () => (
               <Route path="/f/:formId" element={<FormPublic />} />
               <Route path="/w/:sessionId" element={<WebinarPublic />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                <Route index element={<Dashboard />} />
+                {/* Smart landing — goes straight to pending AI actions */}
+                <Route index element={<Navigate to="/imperius" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
@@ -118,11 +120,16 @@ const App = () => (
                 <Route path="funis" element={<Funis />} />
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="docs" element={<Docs />} />
-                <Route path="whatsapp" element={<WhatsAppPage />} />
-                <Route path="sdr-coach" element={<SDRCoach />} />
-                <Route path="ab-tests" element={<ABTests />} />
+                {/* Unified Inbox */}
+                <Route path="inbox" element={<Inbox />} />
+                {/* Backward-compat redirects — old URLs still work */}
+                <Route path="whatsapp" element={<Navigate to="/inbox?tab=whatsapp" replace />} />
+                <Route path="instagram" element={<Navigate to="/inbox?tab=instagram" replace />} />
+                <Route path="lancamentos" element={<Navigate to="/campanhas?tab=lancamentos" replace />} />
+                <Route path="kanban" element={<Navigate to="/tarefas?view=kanban" replace />} />
+                <Route path="sdr-coach" element={<Navigate to="/inbox?tab=whatsapp" replace />} />
+                <Route path="ab-tests" element={<Navigate to="/campanhas?tab=ab-tests" replace />} />
                 <Route path="mobile-cockpit" element={<MobileCockpit />} />
-                <Route path="instagram" element={<InstagramPage />} />
                 <Route path="tracker" element={<Tracker />} />
                 <Route path="referencias" element={<Referencias />} />
                 <Route path="skills" element={<Skills />} />

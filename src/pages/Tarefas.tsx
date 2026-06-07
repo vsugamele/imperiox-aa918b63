@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,7 @@ import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
   Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
   RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon,
-  BookOpen, GripVertical, MessageSquare
+  BookOpen, GripVertical, MessageSquare, Kanban
 } from "lucide-react";
 import Chat from "./Chat";
 import { toast } from "sonner";
@@ -33,6 +34,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toLocalDateStr } from "@/lib/periodUtils";
+
+const KanbanPage = lazy(() => import("./KanbanPage"));
+const KanbanLoader = () => (
+  <div className="flex items-center justify-center min-h-[50vh]">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+  </div>
+);
 
 const safeFmt = (v?: string | null, mask = "dd/MM/yyyy") => {
   if (!v) return "—";
@@ -114,6 +122,8 @@ const isDoneColumn = (col: Column) => DONE_TITLES.includes(col.title.toLowerCase
 const isFirstColumn = (col: Column) => FIRST_COL_TITLES.includes(col.title.toLowerCase().trim());
 
 export default function Tarefas() {
+  const [params, setParams] = useSearchParams();
+  const viewParam = params.get("view");
   const { user } = useAuth();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
@@ -772,15 +782,22 @@ export default function Tarefas() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="calendar" className="w-full">
+      <Tabs
+        defaultValue={viewParam === "kanban" ? "kanban" : "calendar"}
+        onValueChange={(v) => setParams(v === "kanban" ? { view: "kanban" } : {}, { replace: true })}
+        className="w-full"
+      >
         <TabsList className="w-full justify-start bg-secondary/50">
           <TabsTrigger value="routines" className="gap-1.5">
             <RotateCcw className="h-3.5 w-3.5" /> Rotinas do Dia
             <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{completedCount}/{totalRoutines}</Badge>
           </TabsTrigger>
           <TabsTrigger value="tasks" className="gap-1.5">
-            <ListTodo className="h-3.5 w-3.5" /> Tarefas
+            <ListTodo className="h-3.5 w-3.5" /> Lista
             <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{filtered.filter(c => !isDone(c)).length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="kanban" className="gap-1.5">
+            <Kanban className="h-3.5 w-3.5" /> Kanban
           </TabsTrigger>
           <TabsTrigger value="calendar" className="gap-1.5">
             <CalendarIcon className="h-3.5 w-3.5" /> Calendário
@@ -794,6 +811,13 @@ export default function Tarefas() {
             <MessageSquare className="h-3.5 w-3.5" /> Chat
           </TabsTrigger>
         </TabsList>
+
+        {/* ====== KANBAN TAB ====== */}
+        <TabsContent value="kanban" className="mt-4">
+          <Suspense fallback={<KanbanLoader />}>
+            <KanbanPage />
+          </Suspense>
+        </TabsContent>
 
         {/* ====== CHAT TAB ====== */}
         <TabsContent value="chat" className="mt-4">
