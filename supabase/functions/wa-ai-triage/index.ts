@@ -10,13 +10,32 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 
-async function classifyMessage(message: string, lastMessages: string[] = [], openrouterKey: string) {
+async function classifyMessage(
+  message: string,
+  lastMessages: string[] = [],
+  openrouterKey: string,
+  triageStages: any[] | null = null,
+  triagePrompt: string | null = null
+) {
+  const stages = Array.isArray(triageStages) && triageStages.length > 0
+    ? triageStages
+    : [
+        { id: "frio", label: "Frio", description: "Sem interesse claro ou mensagem off-topic/saudacao" },
+        { id: "morno", label: "Morno", description: "Demonstrou interesse, fez perguntas, tirou dúvidas sobre o produto" },
+        { id: "quente", label: "Quente", description: "Pronto para comprar, pediu preço, link de pagamento ou pix" },
+        { id: "cliente", label: "Cliente", description: "Já é cliente ou comprou o produto" }
+      ];
+
+  const stagesDesc = stages.map((s: any) => `- "${s.id}" (${s.label}): ${s.description || ""}`).join("\n");
+  const stageIds = stages.map((s: any) => `"${s.id}"`).join(" | ");
+
   const sys = `Você é classificador de mensagens WhatsApp para vendas online. Responda apenas JSON válido com:
 {
   "intent": "compra_quente" | "duvida" | "objecao" | "suporte" | "saudacao" | "off_topic",
   "sentiment": "positivo" | "neutro" | "negativo",
   "urgency": "high" | "medium" | "low",
   "fit_score": 0-100,
+  "stage": ${stageIds},
   "objecao": "string ou null (se intent=objecao, descreva a objeção em <50 chars)",
   "desejo_schwartz": "tempo" | "dinheiro" | "estresse" | "status" | null,
   "extracted_profile": {
@@ -26,6 +45,12 @@ async function classifyMessage(message: string, lastMessages: string[] = [], ope
     "seeking": "o que o lead busca ou está precisando no produto (ex: quer aprender corte crespo, quer organizar finanças) de <80 caracteres, ou null"
   }
 }
+
+Estágios de Funil disponíveis para classificar o lead no campo "stage":
+${stagesDesc}
+
+${triagePrompt ? `Instruções adicionais de classificação do projeto:\n${triagePrompt}\n` : ""}
+
 Mapeie o desejo visceral do cliente (Lei 4 de Eugene Schwartz):
 - "tempo" (liberdade, economizar tempo, automatizar processos manuais)
 - "dinheiro" (escala de faturamento, lucro, retorno financeiro, ROI)
@@ -69,6 +94,23 @@ Deno.serve(async (req) => {
     if (!message) throw new Error("message obrigatório");
     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured in Supabase environment secrets");
 
+    // Busca configurações de triage personalizadas do projeto
+    let triageStages = null;
+    let triagePrompt = null;
+    if (projeto_id) {
+      const { data: config } = await supabase
+        .from("imphq_wa_ai_config")
+        .select("triage_stages, triage_prompt")
+        .eq("project_id", projeto_id)
+        .eq("enabled", true)
+        .limit(1)
+        .maybeSingle();
+      if (config) {
+        triageStages = config.triage_stages;
+        triagePrompt = config.triage_prompt;
+      }
+    }
+
     // Busca últimas 3 msgs do lead pra contexto
     let lastMessages: string[] = [];
     if (conversation_id) {
@@ -82,7 +124,7 @@ Deno.serve(async (req) => {
       lastMessages = (prev || []).map((m: any) => m.content).filter(Boolean);
     }
 
-    const classification = await classifyMessage(message, lastMessages, OPENROUTER_API_KEY);
+    const classification = await classifyMessage(message, lastMessages, OPENROUTER_API_KEY, triageStages, triagePrompt);
 
     // Busca resposta de objeção cadastrada
     let suggestedReply: string | null = null;
@@ -323,12 +365,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (lead_id && classification.stage) {
+      try {
+        await supabase
+          .from("imphq_leads")
+          .update({ status: classification.stage, updated_at: new Date().toISOString() })
+          .eq("id", lead_id);
+        console.log(`[triage] Updated lead ${lead_id} status to: ${classification.stage}`);
+      } catch (leadStageErr: any) {
+        console.warn("[triage] Failed to update lead stage status:", leadStageErr?.message);
+      }
+    }
+
     await supabase.from("imphq_wa_triage").insert({
       message_id,
       conversation_id,
       lead_id,
       projeto_id,
-      intent: classification.intent,
+      intent: classification.stage || classification.intent,
       sentiment: classification.sentiment,
       urgency: classification.urgency,
       fit_score: classification.fit_score,

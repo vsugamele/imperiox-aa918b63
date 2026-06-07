@@ -13,7 +13,8 @@ import {
   Instagram, MessageSquare, Settings2, Trash2, Eye, EyeOff, Mail,
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
   Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot,
-  Workflow, Zap, ArrowRight, Check, Play, Square, Info, ExternalLink
+  Workflow, Zap, ArrowRight, Check, Play, Square, Info, ExternalLink,
+  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -81,6 +82,10 @@ export default function InstagramPage() {
   
   // Tab control
   const [activeMainTab, setActiveMainTab] = useState<"dms" | "comments" | "brain" | "triggers" | "funil" | "sequencias">("dms");
+  const [brainSubTab, setBrainSubTab] = useState<"config" | "rag" | "aprendizado">("config");
+  const [feedbackMessages, setFeedbackMessages] = useState<any[]>([]);
+  const [promptEvolutions, setPromptEvolutions] = useState<any[]>([]);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
   
   // DMs state
   const [conversations, setConversations] = useState<IgConversation[]>([]);
@@ -234,21 +239,55 @@ export default function InstagramPage() {
   useEffect(() => {
     if (activeMainTab !== "funil" || !selectedAccount) return;
     setLoadingFunnel(true);
-    supabase.from("imphq_ig_conversations")
-      .select("*")
-      .eq("account_id", selectedAccount.id)
-      .order("last_message_at", { ascending: false })
-      .then(({ data: convs }) => {
-        const groups: Record<string, IgConversation[]> = { frio: [], morno: [], quente: [], cliente: [] };
-        for (const c of convs || []) {
+    
+    async function loadFunnelData() {
+      try {
+        const { data: convs } = await supabase.from("imphq_ig_conversations")
+          .select("*")
+          .eq("account_id", selectedAccount.id)
+          .order("last_message_at", { ascending: false });
+        
+        let enriched = convs || [];
+        
+        if (enriched.length > 0) {
+          const convIds = enriched.map((c: any) => c.id);
+          const { data: triages } = await supabase
+            .from("imphq_wa_triage")
+            .select("conversation_id, intent, fit_score, created_at")
+            .in("conversation_id", convIds)
+            .order("created_at", { ascending: false });
+
+          const latestByConv: Record<string, any> = {};
+          for (const t of triages || []) {
+            if (!latestByConv[t.conversation_id]) latestByConv[t.conversation_id] = t;
+          }
+
+          enriched = enriched.map((c: any) => ({
+            ...c,
+            triage_intent: latestByConv[c.id]?.intent ?? null,
+            triage_fit_score: latestByConv[c.id]?.fit_score ?? null,
+          }));
+        }
+
+        const groups: Record<string, IgConversation[]> = {};
+        for (const s of funnelStages) {
+          groups[s.id] = [];
+        }
+        for (const c of enriched) {
           const stage = (c as any).triage_intent || "frio";
           if (!groups[stage]) groups[stage] = [];
           groups[stage].push(c);
         }
         setFunnelGroups(groups);
+      } catch (err) {
+        console.error("Erro ao carregar dados do funil:", err);
+      } finally {
         setLoadingFunnel(false);
-      });
-  }, [activeMainTab, selectedAccount]);
+      }
+    }
+    
+    loadFunnelData();
+  }, [activeMainTab, selectedAccount, funnelStages]);
 
   // Load initial projects
   useEffect(() => {
@@ -839,6 +878,42 @@ export default function InstagramPage() {
     loadStats();
   }, [selectedAccount, activeMainTab]);
 
+  // Load data for Brain -> Aprendizado subtab
+  useEffect(() => {
+    if (activeMainTab !== "brain" || brainSubTab !== "aprendizado" || !selectedProjectId) return;
+    async function loadLearningData() {
+      setLoadingFeedback(true);
+      try {
+        const { data: msgs, error: msgsErr } = await supabase
+          .from("imphq_ig_messages")
+          .select("*, conversation:imphq_ig_conversations(participant_username, participant_name)")
+          .eq("ai_generated", true)
+          .not("feedback", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        
+        if (msgsErr) console.error("Error fetching feedback messages:", msgsErr.message);
+        setFeedbackMessages(msgs || []);
+
+        const { data: evolutions, error: evErr } = await supabase
+          .from("imphq_ai_actions")
+          .select("*")
+          .eq("projeto_id", selectedProjectId)
+          .in("kind", ["refine_skill", "refine_prompt", "hot_lead_responder"])
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        if (evErr) console.error("Error fetching prompt evolutions:", evErr.message);
+        setPromptEvolutions(evolutions || []);
+      } catch (err) {
+        console.error("Erro ao carregar feedbacks e evoluções da IA:", err);
+      } finally {
+        setLoadingFeedback(false);
+      }
+    }
+    loadLearningData();
+  }, [activeMainTab, brainSubTab, selectedProjectId]);
+
   // Human takeover toggle per conversation
   const handleToggleAiPaused = async (conv: IgConversation) => {
     const next = !conv.ai_paused;
@@ -856,6 +931,42 @@ export default function InstagramPage() {
     }
   };
   const selectedProjectName = useMemo(() => projects.find(p => p.id === selectedProjectId)?.name || "Projeto", [projects, selectedProjectId]);
+
+  const funnelStages = useMemo(() => {
+    if (aiConfig?.triage_stages && Array.isArray(aiConfig.triage_stages) && aiConfig.triage_stages.length > 0) {
+      const colorMap: Record<string, string> = {
+        blue: "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10",
+        amber: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
+        orange: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
+        yellow: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
+        red: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10",
+        pink: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10",
+        green: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
+        emerald: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
+      };
+      
+      const emojiMap: Record<string, string> = {
+        frio: "❄️",
+        morno: "🌡️",
+        quente: "🔥",
+        cliente: "✅"
+      };
+
+      return aiConfig.triage_stages.map((s: any) => ({
+        id: s.id,
+        label: s.label || s.id,
+        emoji: emojiMap[s.id] || "🏷️",
+        color: colorMap[s.color] || "border-border/50 bg-secondary/5 hover:bg-secondary/10"
+      }));
+    }
+
+    return [
+      { id: "frio", label: "Frio", emoji: "❄️", color: "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10" },
+      { id: "morno", label: "Morno", emoji: "🌡️", color: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10" },
+      { id: "quente", label: "Quente", emoji: "🔥", color: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10" },
+      { id: "cliente", label: "Cliente", emoji: "✅", color: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10" },
+    ];
+  }, [aiConfig?.triage_stages]);
 
   // Toggle IA for DMs or Comments directly from Instagram page
   const handleToggleAI = async (field: 'instagram_enabled' | 'instagram_comments_enabled', value: boolean) => {
@@ -1683,13 +1794,8 @@ export default function InstagramPage() {
                 {loadingFunnel ? (
                   <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { id: "frio", label: "Frio", emoji: "❄️", color: "border-blue-500/30 bg-blue-500/5" },
-                      { id: "morno", label: "Morno", emoji: "🌡️", color: "border-amber-500/30 bg-amber-500/5" },
-                      { id: "quente", label: "Quente", emoji: "🔥", color: "border-red-500/30 bg-red-500/5" },
-                      { id: "cliente", label: "Cliente", emoji: "✅", color: "border-emerald-500/30 bg-emerald-500/5" },
-                    ].map(stage => (
+                  <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-${Math.min(funnelStages.length, 4)} xl:grid-cols-${funnelStages.length}`}>
+                    {funnelStages.map(stage => (
                       <Card key={stage.id} className={`border ${stage.color}`}>
                         <CardHeader className="pb-2 pt-3 px-3">
                           <CardTitle className="text-sm font-semibold flex items-center justify-between">
@@ -1841,156 +1947,343 @@ export default function InstagramPage() {
             )}
 
             {activeMainTab === "brain" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Visualizador de Configurações */}
-                <Card className="md:col-span-1 bg-card border-border/60 shadow-lg">
-                  <CardHeader className="border-b border-border/40 pb-3">
-                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Cérebro da IA</CardTitle>
-                    <CardDescription className="text-xs">Configurações ativas para <strong>{selectedProjectName}</strong>.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    {loadingAi ? (
-                      <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                    ) : aiConfig ? (
-                      <div className="space-y-4 text-xs">
-                        <div className="space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Personalidade:</span>
-                          <p className="font-semibold capitalize bg-secondary/30 px-2 py-1 rounded border border-border/30">{aiConfig.personality || "Assistente"}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Tom Emocional:</span>
-                          <p className="font-semibold capitalize bg-secondary/30 px-2 py-1 rounded border border-border/30">{aiConfig.tone || "Profissional"}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Horário de Atendimento:</span>
-                          <p className="font-medium bg-secondary/30 px-2 py-1 rounded border border-border/30 flex items-center gap-1.5">
-                            <Clock className="h-3 w-3 text-amber-500" />
-                            {aiConfig.business_hours_only ? `${aiConfig.business_hours_start} às ${aiConfig.business_hours_end} (BRT)` : "24 Horas Ativo"}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Limites:</span>
-                          <p className="font-semibold bg-secondary/30 px-2 py-1 rounded border border-border/30">Até {aiConfig.max_tokens || 350} tokens por resposta</p>
-                        </div>
-                        
-                        <div className="border-t border-border/40 pt-3 space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Mensagem de Boas-vindas:</span>
-                          <p className="italic text-muted-foreground bg-secondary/10 p-2 rounded border border-border/20">
-                            "{aiConfig.welcome_message || "Nenhuma mensagem de boas-vindas configurada"}"
-                          </p>
-                        </div>
+              <div className="space-y-6">
+                {/* Header and Sub-tab selector */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-4">
+                  <div className="flex bg-muted/60 p-0.5 rounded-lg border border-border/40 shrink-0">
+                    <Button
+                      variant={brainSubTab === "config" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="text-xs h-7 px-3"
+                      onClick={() => setBrainSubTab("config")}
+                    >
+                      <Settings className="h-3 w-3 mr-1.5" />
+                      Configurações
+                    </Button>
+                    <Button
+                      variant={brainSubTab === "rag" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="text-xs h-7 px-3"
+                      onClick={() => setBrainSubTab("rag")}
+                    >
+                      <Database className="h-3 w-3 mr-1.5" />
+                      Conhecimento (RAG)
+                    </Button>
+                    <Button
+                      variant={brainSubTab === "aprendizado" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="text-xs h-7 px-3"
+                      onClick={() => setBrainSubTab("aprendizado")}
+                    >
+                      <GraduationCap className="h-3 w-3 mr-1.5" />
+                      Aprendizado
+                    </Button>
+                  </div>
+                </div>
 
-                        {/* IA Toggle Controls */}
-                        <div className="border-t border-border/40 pt-3 space-y-2">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ativar / Desativar IA:</span>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all select-none ${aiConfig?.instagram_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
-                            onClick={() => handleToggleAI('instagram_enabled', !aiConfig?.instagram_enabled)}
-                          >
-                            <span className="flex items-center gap-1.5 font-medium text-[11px]">
-                              <MessageSquare className="h-3 w-3" /> IA no Direct (DM)
-                            </span>
-                            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
-                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
-                            </span>
-                          </div>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all select-none ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
-                            onClick={() => handleToggleAI('instagram_comments_enabled', !aiConfig?.instagram_comments_enabled)}
-                          >
-                            <span className="flex items-center gap-1.5 font-medium text-[11px]">
-                              <Heart className="h-3 w-3" /> IA em Comentários
-                            </span>
-                            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
-                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_comments_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
-                        <AlertCircle className="h-5 w-5 text-amber-500" />
-                        <p>IA não configurada para este projeto.</p>
-                        <Button variant="outline" size="sm" className="text-xs h-7 border-amber-500/30 text-amber-400" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
-                          Configurar no Projeto
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                {/* Sub-tab Content */}
+                {brainSubTab === "config" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+                    {/* Visualizador de Configurações */}
+                    <Card className="md:col-span-1 bg-card border-border/60 shadow-lg">
+                      <CardHeader className="border-b border-border/40 pb-3">
+                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Cérebro da IA</CardTitle>
+                        <CardDescription className="text-xs">Configurações ativas para <strong>{selectedProjectName}</strong>.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+                        {loadingAi ? (
+                          <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                        ) : aiConfig ? (
+                          <div className="space-y-4 text-xs">
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground">Personalidade:</span>
+                              <p className="font-semibold capitalize bg-secondary/30 px-2 py-1 rounded border border-border/30">{aiConfig.personality || "Assistente"}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground">Tom Emocional:</span>
+                              <p className="font-semibold capitalize bg-secondary/30 px-2 py-1 rounded border border-border/30">{aiConfig.tone || "Profissional"}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground">Horário de Atendimento:</span>
+                              <p className="font-medium bg-secondary/30 px-2 py-1 rounded border border-border/30 flex items-center gap-1.5">
+                                <Clock className="h-3 w-3 text-amber-500" />
+                                {aiConfig.business_hours_only ? `${aiConfig.business_hours_start} às ${aiConfig.business_hours_end} (BRT)` : "24 Horas Ativo"}
+                              </p>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground">Limites:</span>
+                              <p className="font-semibold bg-secondary/30 px-2 py-1 rounded border border-border/30">Até {aiConfig.max_tokens || 350} tokens por resposta</p>
+                            </div>
+                            
+                            <div className="border-t border-border/40 pt-3 space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground">Mensagem de Boas-vindas:</span>
+                              <p className="italic text-muted-foreground bg-secondary/10 p-2 rounded border border-border/20">
+                                "{aiConfig.welcome_message || "Nenhuma mensagem de boas-vindas configurada"}"
+                              </p>
+                            </div>
 
-                {/* Testador de RAG Semântico */}
-                <Card className="md:col-span-2 bg-card border-border/60 shadow-lg">
-                  <CardHeader className="border-b border-border/40 pb-3">
-                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Testador RAG Semântico</CardTitle>
-                    <CardDescription className="text-xs">Teste perguntas de clientes para auditar quais documentos da Base de Conhecimento a IA utilizará para responder no WhatsApp e Instagram.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    <div className="flex gap-2">
-                      <Input
-                        value={testQuery}
-                        onChange={(e) => setTestQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleTestRAG()}
-                        placeholder="Simule a dúvida de um cliente (ex: 'qual o valor da formação?')"
-                        className="bg-secondary/40 border-border/60 focus-visible:ring-amber-500 text-sm"
-                      />
-                      <Button
-                        disabled={testLoading || !testQuery.trim()}
-                        onClick={handleTestRAG}
-                        className="bg-amber-500 text-black hover:bg-amber-400 h-10 px-4 flex gap-1.5 shrink-0"
-                      >
-                        {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                        Testar RAG
-                      </Button>
-                    </div>
-
-                    {testResult && (
-                      <div className="space-y-4 border-t border-border/30 pt-4 animate-fade-in">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Pergunta testada: <strong className="text-foreground">"{testResult.query}"</strong></span>
-                          <span>{testResult.matches.length} blocos semânticos recuperados</span>
-                        </div>
-
-                        {testResult.matches.length === 0 ? (
-                          <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-lg text-center space-y-1">
-                            <ShieldAlert className="h-5 w-5 mx-auto text-amber-500" />
-                            <p className="text-xs font-bold text-foreground">Nenhum bloco de conhecimento correspondente</p>
-                            <p className="text-[11px] text-muted-foreground">A relevância das informações ficou abaixo da nota de corte (72%). A IA responderá com base no conhecimento geral do expert.</p>
+                            {/* IA Toggle Controls */}
+                            <div className="border-t border-border/40 pt-3 space-y-2">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ativar / Desativar IA:</span>
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all select-none ${aiConfig?.instagram_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
+                                onClick={() => handleToggleAI('instagram_enabled', !aiConfig?.instagram_enabled)}
+                              >
+                                <span className="flex items-center gap-1.5 font-medium text-[11px]">
+                                  <MessageSquare className="h-3 w-3" /> IA no Direct (DM)
+                                </span>
+                                <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
+                                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                                </span>
+                              </div>
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all select-none ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500/10 border-emerald-500/30" : "bg-secondary/20 border-border/40"}`}
+                                onClick={() => handleToggleAI('instagram_comments_enabled', !aiConfig?.instagram_comments_enabled)}
+                              >
+                                <span className="flex items-center gap-1.5 font-medium text-[11px]">
+                                  <Heart className="h-3 w-3" /> IA em Comentários
+                                </span>
+                                <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${aiConfig?.instagram_comments_enabled ? "bg-emerald-500 border-emerald-400" : "bg-secondary border-border"}`}>
+                                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${aiConfig?.instagram_comments_enabled ? "translate-x-[13px]" : "translate-x-[1px]"}`} />
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         ) : (
-                          <div className="space-y-3">
-                            {testResult.matches.map((m: any, idx: number) => {
-                              const score = Math.round(m.similarity * 100);
-                              const isExcellent = score >= 75;
-                              return (
-                                <div key={idx} className="bg-secondary/20 p-3 rounded-lg border border-border/30 space-y-2">
-                                  <div className="flex justify-between items-center flex-wrap gap-2">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Bloco Semântico #{idx + 1}</span>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-xs text-muted-foreground">Relevância:</span>
-                                      <Badge className={isExcellent ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : "bg-amber-500/15 text-amber-300 border-amber-500/30"}>
-                                        {score}%
-                                      </Badge>
+                          <div className="text-center py-6 text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+                            <AlertCircle className="h-5 w-5 text-amber-500" />
+                            <p>IA não configurada para este projeto.</p>
+                            <Button variant="outline" size="sm" className="text-xs h-7 border-amber-500/30 text-amber-400" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+                              Configurar no Projeto
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Instruções Customizadas */}
+                    <Card className="md:col-span-2 bg-card border-border/60 shadow-lg">
+                      <CardHeader className="border-b border-border/40 pb-3">
+                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Instruções e Diretrizes</CardTitle>
+                        <CardDescription className="text-xs">Instruções finas que o agente de IA segue para manter o alinhamento da copy e scripts de venda.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+                        {loadingAi ? (
+                          <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                        ) : aiConfig ? (
+                          <div className="space-y-4 text-xs">
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground">Instruções Customizadas:</span>
+                              <p className="p-3 bg-secondary/15 rounded-lg border border-border/25 leading-relaxed whitespace-pre-wrap text-muted-foreground max-h-[25vh] overflow-y-auto">
+                                {aiConfig.custom_instructions || "Nenhuma instrução customizada cadastrada. A IA seguirá as diretrizes básicas da persona."}
+                              </p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border/30">
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground">Foco do Produto:</span>
+                                <p className="font-semibold bg-secondary/30 px-2 py-1.5 rounded border border-border/30">{aiConfig.product_focus || "Não especificado"}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground">Link de Checkout Principal:</span>
+                                <p className="font-mono bg-secondary/30 px-2 py-1.5 rounded border border-border/30 truncate flex items-center justify-between text-muted-foreground">
+                                  <span>{aiConfig.payment_link || "Nenhum link configurado"}</span>
+                                  {aiConfig.payment_link && <ExternalLink className="h-3 w-3 ml-1 text-primary shrink-0" />}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-center py-6 text-xs text-muted-foreground">Selecione uma conta ativa.</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {brainSubTab === "rag" && (
+                  <div className="animate-fade-in">
+                    {/* Testador de RAG Semântico */}
+                    <Card className="w-full bg-card border-border/60 shadow-lg">
+                      <CardHeader className="border-b border-border/40 pb-3">
+                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Testador RAG Semântico</CardTitle>
+                        <CardDescription className="text-xs">Teste perguntas de clientes para auditar quais documentos da Base de Conhecimento a IA utilizará para responder no WhatsApp e Instagram.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+                        <div className="flex gap-2">
+                          <Input
+                            value={testQuery}
+                            onChange={(e) => setTestQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleTestRAG()}
+                            placeholder="Simule a dúvida de um cliente (ex: 'qual o valor da formação?')"
+                            className="bg-secondary/40 border-border/60 focus-visible:ring-amber-500 text-sm"
+                          />
+                          <Button
+                            disabled={testLoading || !testQuery.trim()}
+                            onClick={handleTestRAG}
+                            className="bg-amber-500 text-black hover:bg-amber-400 h-10 px-4 flex gap-1.5 shrink-0"
+                          >
+                            {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            Testar RAG
+                          </Button>
+                        </div>
+
+                        {testResult && (
+                          <div className="space-y-4 border-t border-border/30 pt-4 animate-fade-in">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>Pergunta testada: <strong className="text-foreground">"{testResult.query}"</strong></span>
+                              <span>{testResult.matches.length} blocos semânticos recuperados</span>
+                            </div>
+
+                            {testResult.matches.length === 0 ? (
+                              <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-lg text-center space-y-1">
+                                <ShieldAlert className="h-5 w-5 mx-auto text-amber-500" />
+                                <p className="text-xs font-bold text-foreground">Nenhum bloco de conhecimento correspondente</p>
+                                <p className="text-[11px] text-muted-foreground">A relevância das informações ficou abaixo da nota de corte (72%). A IA responderá com base no conhecimento geral do expert.</p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {testResult.matches.map((m: any, idx: number) => {
+                                  const score = Math.round(m.similarity * 100);
+                                  const isExcellent = score >= 75;
+                                  return (
+                                    <div key={idx} className="bg-secondary/20 p-3.5 rounded-xl border border-border/30 space-y-2">
+                                      <div className="flex justify-between items-center flex-wrap gap-2">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Bloco Semântico #{idx + 1}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-xs text-muted-foreground">Relevância:</span>
+                                          <Badge className={isExcellent ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : "bg-amber-500/15 text-amber-300 border-emerald-500/30"}>
+                                            {score}%
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                      <div className="bg-secondary/40 p-2.5 rounded text-xs text-foreground font-mono leading-relaxed whitespace-pre-wrap">
+                                        <strong>P: {m.pergunta}</strong><br />
+                                        A: {m.resposta}
+                                      </div>
                                     </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {brainSubTab === "aprendizado" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+                    {/* Feedbacks de Respostas */}
+                    <Card className="md:col-span-2 bg-card border-border/60 shadow-lg">
+                      <CardHeader className="border-b border-border/40 pb-3">
+                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                          <GraduationCap className="h-4 w-4 text-amber-500" />
+                          Feedbacks de Respostas (Direct Messages)
+                        </CardTitle>
+                        <CardDescription className="text-xs">Avaliações dadas por usuários humanos às respostas geradas pela IA no direct.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        {loadingFeedback ? (
+                          <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                        ) : feedbackMessages.length === 0 ? (
+                          <div className="text-center py-12 text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+                            <Bot className="h-8 w-8 text-muted-foreground/45" />
+                            <p className="font-semibold text-foreground">Nenhum feedback registrado ainda</p>
+                            <p className="text-[11px] text-muted-foreground max-w-xs">Use os botões 👍/👎 ao passar o mouse sobre as mensagens enviadas pela IA no chat para registrar feedbacks e treinar o agente.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                            {feedbackMessages.map((msg: any) => {
+                              const isPositive = msg.feedback === "positive" || msg.feedback === "like" || msg.feedback === "👍";
+                              return (
+                                <div key={msg.id} className="bg-secondary/20 p-3.5 rounded-xl border border-border/30 space-y-2.5">
+                                  <div className="flex justify-between items-center flex-wrap gap-2 text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-[10px] bg-slate-900 border-border/40 font-semibold font-mono">
+                                        @{msg.conversation?.participant_username || msg.conversation?.participant_name || "Lead"}
+                                      </Badge>
+                                      <span className="text-[10px] text-muted-foreground/60">
+                                        {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true, locale: ptBR })}
+                                      </span>
+                                    </div>
+                                    <Badge className={isPositive ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/35 flex items-center gap-1 h-5 px-2 text-[10px]" : "bg-red-500/15 text-red-400 border-red-500/35 flex items-center gap-1 h-5 px-2 text-[10px]"}>
+                                      {isPositive ? <ThumbsUp className="h-3 w-3" /> : <ThumbsDown className="h-3 w-3" />}
+                                      {isPositive ? "Aprovado" : "Reprovado"}
+                                    </Badge>
                                   </div>
-                                  <div className="bg-secondary/40 p-2.5 rounded text-xs text-foreground font-mono leading-relaxed whitespace-pre-wrap">
-                                    <strong>P: {m.pergunta}</strong><br />
-                                    A: {m.resposta}
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] leading-relaxed">
+                                    <div className="space-y-1">
+                                      <span className="text-[9px] uppercase font-bold text-muted-foreground">Resposta da IA:</span>
+                                      <p className="p-2 bg-slate-950/40 rounded border border-border/20 text-muted-foreground italic">
+                                        "{msg.content}"
+                                      </p>
+                                    </div>
+                                    {msg.feedback_correction && (
+                                      <div className="space-y-1">
+                                        <span className="text-[9px] uppercase font-bold text-amber-500">Correção / Feedback do Operador:</span>
+                                        <p className="p-2 bg-amber-500/5 rounded border border-amber-500/20 text-amber-200">
+                                          "{msg.feedback_correction}"
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );
                             })}
                           </div>
                         )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      </CardContent>
+                    </Card>
+
+                    {/* Evolução de Prompts */}
+                    <Card className="md:col-span-1 bg-card border-border/60 shadow-lg">
+                      <CardHeader className="border-b border-border/40 pb-3">
+                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                          <Sparkles className="h-4 w-4 text-amber-500" />
+                          Evolução de Prompts (RAG / Skills)
+                        </CardTitle>
+                        <CardDescription className="text-xs">Registro de refinamentos automáticos e ações críticas executadas pela IA.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        {loadingFeedback ? (
+                          <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                        ) : promptEvolutions.length === 0 ? (
+                          <div className="text-center py-12 text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+                            <RefreshCw className="h-8 w-8 text-muted-foreground/45" />
+                            <p className="font-semibold text-foreground">Nenhum log de refinamento</p>
+                            <p className="text-[11px] text-muted-foreground">Os refinamentos de prompts e skills são gerados após a IA coletar feedbacks suficientes (mínimo de 20).</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+                            {promptEvolutions.map((evt: any) => (
+                              <div key={evt.id} className="p-3 bg-secondary/15 rounded-xl border border-border/25 space-y-1.5">
+                                <div className="flex justify-between items-start gap-2">
+                                  <h4 className="text-xs font-bold text-slate-100 flex items-center gap-1 leading-tight">
+                                    <Zap className="h-3 w-3 text-amber-500 shrink-0" />
+                                    {evt.title}
+                                  </h4>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">{evt.reason}</p>
+                                <div className="flex justify-between items-center text-[10px] text-muted-foreground/60 border-t border-border/10 pt-1.5 mt-1.5">
+                                  <span className="font-mono">Origem: {evt.source || "openflow-ai"}</span>
+                                  <span>{formatDistanceToNow(new Date(evt.created_at), { addSuffix: true, locale: ptBR })}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
 
                 {/* Painel de Telemetria e Logs da IA Omnichannel */}
                 <Card className="md:col-span-3 bg-card border-border/60 shadow-lg mt-2 overflow-hidden relative">

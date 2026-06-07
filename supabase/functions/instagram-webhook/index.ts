@@ -194,13 +194,20 @@ Deno.serve(async (req) => {
           // AI Direct Message Autoresponder!
           if (isInbound && content) {
             // Pause active sequence enrollments when lead replies (they engaged!)
-            supa.from("imphq_ig_sequence_enrollments")
-              .update({ paused: true })
-              .eq("conversation_id", conv.id)
-              .eq("completed", false)
-              .eq("paused", false)
-              .then(() => console.log(`[ig-webhook] Paused sequences for conv ${conv.id} — lead replied`))
-              .catch(() => {});
+            try {
+              const { error: pauseErr } = await supa.from("imphq_ig_sequence_enrollments")
+                .update({ paused: true })
+                .eq("conversation_id", conv.id)
+                .eq("completed", false)
+                .eq("paused", false);
+              if (pauseErr) {
+                console.error(`[ig-webhook] Error pausing sequences for conv ${conv.id}:`, pauseErr.message);
+              } else {
+                console.log(`[ig-webhook] Paused sequences for conv ${conv.id} — lead replied`);
+              }
+            } catch (err: any) {
+              console.error(`[ig-webhook] Catch error pausing sequences:`, err.message);
+            }
 
             try {
               (async () => {

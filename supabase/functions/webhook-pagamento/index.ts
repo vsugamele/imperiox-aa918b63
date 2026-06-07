@@ -1170,6 +1170,36 @@ Deno.serve(async (req) => {
         return true;
       });
 
+      // Auto-create default automation if none is configured for the project
+      if (matched.length === 0 && projectId && ["inicio_checkout", "pix_gerado"].includes(evento)) {
+        try {
+          const defaultName = evento === "pix_gerado" ? "Recuperação de Pix (Automático)" : "Recuperação de Carrinho (Automático)";
+          const defaultDelay = evento === "pix_gerado" ? 5 : 10;
+          const { data: newAuto, error: createErr } = await supabase
+            .from("imphq_automacoes")
+            .insert({
+              nome: defaultName,
+              trigger_tipo: evento,
+              ativo: true,
+              project_id: projectId,
+              acoes: [
+                { tipo: "delay", delay_min: defaultDelay },
+                { tipo: "ia_message" }
+              ]
+            })
+            .select("*")
+            .single();
+          if (createErr) {
+            console.error("[webhook-pagamento] Erro ao criar automação padrão:", createErr.message);
+          } else if (newAuto) {
+            console.log("[webhook-pagamento] Automação padrão criada:", newAuto.nome);
+            matched.push(newAuto);
+          }
+        } catch (err: any) {
+          console.error("[webhook-pagamento] Catch erro ao criar automação padrão:", err.message);
+        }
+      }
+
       let executorSuccess = true;
       let executorError: string | null = null;
       if (matched.length > 0) {

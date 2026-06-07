@@ -7,7 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Brain, ChevronRight } from "lucide-react";
+import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Brain, ChevronRight, Loader2 } from "lucide-react";
+import { getPeriodRange } from "@/lib/periodUtils";
 import { cn } from "@/lib/utils";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import DashboardRevenue from "@/components/dashboard/DashboardRevenue";
@@ -55,6 +56,8 @@ export default function Dashboard() {
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
   const [recoveryRisk, setRecoveryRisk] = useState(0);
+  const [projectComparison, setProjectComparison] = useState<any[]>([]);
+  const [loadingComparison, setLoadingComparison] = useState(false);
 
   useEffect(() => {
     const queries: PromiseLike<any>[] = [
@@ -74,6 +77,84 @@ export default function Dashboard() {
     }
     Promise.all(queries);
   }, [user]);
+
+  useEffect(() => {
+    if (dashProject !== "all") return;
+    
+    async function loadComparisonData() {
+      setLoadingComparison(true);
+      try {
+        const { from, to } = getPeriodRange(dashPeriod);
+        const fromDate = from.split("T")[0];
+        const toDate = to.split("T")[0];
+
+        // 1. Fetch all projects
+        const { data: projs } = await supabase.from("imphq_projects").select("id, name, icon");
+        if (!projs) return;
+
+        // 2. Fetch approved sales grouped by project
+        const { data: sales } = await supabase
+          .from("imphq_vendas")
+          .select("project_id, valor, valor_liquido")
+          .gte("data_venda", from)
+          .lte("data_venda", to)
+          .in("status", ["aprovado", "approved", "paid", "completed"]);
+
+        // 3. Fetch ads spend grouped by project
+        const { data: ads } = await supabase
+          .from("imphq_ads_spend")
+          .select("project_id, valor, moeda")
+          .gte("data_ref", fromDate)
+          .lte("data_ref", toDate);
+
+        // 4. Fetch leads count grouped by project
+        const { data: leads } = await supabase
+          .from("imphq_leads")
+          .select("project_id, criado_em")
+          .gte("criado_em", from)
+          .lte("criado_em", to);
+
+        // Aggregate data
+        const aggregated = projs.map(p => {
+          const projectSales = (sales || []).filter(s => s.project_id === p.id);
+          const revenue = projectSales.reduce((acc, s) => acc + (parseFloat(s.valor) || 0), 0);
+          const salesCount = projectSales.length;
+
+          const projectAds = (ads || []).filter(a => a.project_id === p.id);
+          const adsSpend = projectAds.reduce((acc, a) => {
+            const v = parseFloat(a.valor) || 0;
+            return acc + (a.moeda === "USD" ? v * 5.2 : v); // BRL conversions
+          }, 0);
+
+          const projectLeads = (leads || []).filter(l => l.project_id === p.id);
+          const leadsCount = projectLeads.length;
+
+          const roas = adsSpend > 0 ? revenue / adsSpend : 0;
+
+          return {
+            id: p.id,
+            name: p.name,
+            icon: p.icon || "📁",
+            revenue,
+            adsSpend,
+            roas,
+            leadsCount,
+            salesCount
+          };
+        });
+
+        // Sort by revenue descending
+        aggregated.sort((a, b) => b.revenue - a.revenue);
+        setProjectComparison(aggregated);
+      } catch (err) {
+        console.error("Erro ao carregar comparação de projetos:", err);
+      } finally {
+        setLoadingComparison(false);
+      }
+    }
+
+    loadComparisonData();
+  }, [dashProject, dashPeriod, allProjects]);
 
   const projectLabel = useMemo(() => {
     if (dashProject === "all") return "all";
@@ -163,6 +244,76 @@ export default function Dashboard() {
       <section>
         <ImperiusStrip projectId={dashProject} />
       </section>
+
+      {/* COMPARATIVO DE PROJETOS */}
+      {dashProject === "all" && (
+        <section className="space-y-3">
+          <SectionHead kicker="Consolidado" title="Performance Comparativa de Projetos" />
+          <div className="rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm overflow-hidden p-6">
+            {loadingComparison ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gold" />
+                <span>Carregando comparativo...</span>
+              </div>
+            ) : projectComparison.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-xs">
+                Nenhum dado encontrado para o período selecionado.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border/60 text-muted-foreground font-medium">
+                      <th className="py-3 px-4">Projeto</th>
+                      <th className="py-3 px-4 text-right">Faturamento</th>
+                      <th className="py-3 px-4 text-right">Gastos Ads</th>
+                      <th className="py-3 px-4 text-right">ROAS</th>
+                      <th className="py-3 px-4 text-right">Vendas</th>
+                      <th className="py-3 px-4 text-right">Leads</th>
+                      <th className="py-3 px-4 text-right">Contribuição %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectComparison.map((p) => {
+                      const totalRev = projectComparison.reduce((sum, item) => sum + item.revenue, 0);
+                      const contrib = totalRev > 0 ? (p.revenue / totalRev) * 100 : 0;
+                      return (
+                        <tr key={p.id} className="border-b border-border/40 hover:bg-secondary/10 transition-colors">
+                          <td className="py-3.5 px-4 font-medium flex items-center gap-2">
+                            <span className="text-base">{p.icon || "📁"}</span>
+                            <span>{p.name}</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-semibold text-emerald-400">
+                            {p.revenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-muted-foreground">
+                            {p.adsSpend.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </td>
+                          <td className={cn(
+                            "py-3.5 px-4 text-right font-medium",
+                            p.roas >= 2.0 ? "text-emerald-400" : p.roas >= 1.0 ? "text-amber-400" : "text-rose-400"
+                          )}>
+                            {p.roas.toFixed(2)}x
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-foreground font-medium">
+                            {p.salesCount}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-muted-foreground">
+                            {p.leadsCount}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-gold font-mono font-medium">
+                            {contrib.toFixed(1)}%
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* PRODUCT COPILOT AD BANNER */}
       <section className="relative rounded-xl border border-gold/30 bg-gradient-to-r from-gold/5 via-secondary/10 to-transparent p-5 backdrop-blur-md overflow-hidden animate-fade-in group">

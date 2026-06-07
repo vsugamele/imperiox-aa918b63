@@ -246,6 +246,89 @@ Deno.serve(async (req) => {
         const step = steps[i];
         const stepResult: any = { step: i, tipo: step.tipo, started_at: new Date().toISOString() };
 
+        // Check if lead replied or purchased since the beginning of this execution
+        let hasRepliedOrPurchased = false;
+        let abortReason = "";
+        
+        const phone = lead_data?.phone || lead_data?.telefone;
+        const leadId = lead_data?.lead_id;
+        
+        if (phone || leadId) {
+          let originalStart = new Date().toISOString();
+          if (resume_from_step && Number(resume_from_step) > 0) {
+            try {
+              const { data: originalExec } = await supabase
+                .from("imphq_flow_executions")
+                .select("created_at")
+                .eq("automacao_id", auto.id)
+                .eq("lead_id", leadId)
+                .order("created_at", { ascending: true })
+                .limit(1)
+                .maybeSingle();
+              if (originalExec) {
+                originalStart = originalExec.created_at;
+              }
+            } catch (err) {
+              console.error("[openflow-executor] Error fetching original execution start time:", err);
+            }
+          }
+
+          // Check if there is any approved purchase since originalStart
+          if (leadId) {
+            try {
+              const { data: purchases } = await supabase
+                .from("imphq_vendas")
+                .select("id")
+                .eq("lead_id", leadId)
+                .eq("status", "aprovado")
+                .gt("created_at", originalStart)
+                .limit(1);
+              if (purchases && purchases.length > 0) {
+                hasRepliedOrPurchased = true;
+                abortReason = "Lead realizou a compra";
+              }
+            } catch (err) {
+              console.error("[openflow-executor] Error checking recent purchases:", err);
+            }
+          }
+
+          // Check if there is any incoming WhatsApp message since originalStart
+          if (!hasRepliedOrPurchased && phone) {
+            try {
+              const cleanPhone = phone.replace(/\D/g, "");
+              const searchPhones = [phone, cleanPhone];
+              if (cleanPhone.startsWith("55")) {
+                searchPhones.push(cleanPhone.substring(2));
+              } else {
+                searchPhones.push("55" + cleanPhone);
+              }
+              const { data: incomingMsgs } = await supabase
+                .from("imphq_wa_messages")
+                .select("id")
+                .in("phone", searchPhones)
+                .eq("direction", "incoming")
+                .gt("created_at", originalStart)
+                .limit(1);
+              if (incomingMsgs && incomingMsgs.length > 0) {
+                hasRepliedOrPurchased = true;
+                abortReason = "Lead respondeu à automação";
+              }
+            } catch (err) {
+              console.error("[openflow-executor] Error checking incoming WhatsApp messages:", err);
+            }
+          }
+        }
+
+        if (hasRepliedOrPurchased) {
+          console.log(`[openflow-executor] Aborting execution ${executionId}: ${abortReason}`);
+          status = "completed";
+          stepResult.status = "skipped";
+          stepResult.reason = abortReason;
+          stepResult.finished_at = new Date().toISOString();
+          stepResults.push(stepResult);
+          break; // Stop flow
+        }
+
         try {
           // Update current step
           await supabase.from("imphq_flow_executions")
