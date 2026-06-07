@@ -388,8 +388,7 @@ export default function SessionDetailView({ session, projectName, providerLabel,
                   );
                 })}
               </div>
-            )}     );
-            })()}
+            )}
           </CardContent>
         </Card>
       )}
