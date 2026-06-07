@@ -1150,7 +1150,6 @@ export default function InstagramPage() {
                 )}
               </div>
             </Card>
-            </Card>
 
             {/* LISTA DE CONVERSAS (SE ESTIVER EM DMS) */}
             {activeMainTab === "dms" && (

@@ -291,9 +291,75 @@ export default function Skills() {
     }
   };
 
+  const [lastOutputId, setLastOutputId] = useState<string | null>(null);
+  const [feedbackVote, setFeedbackVote] = useState<string | null>(null);
+  const [feedbackCorrection, setFeedbackCorrection] = useState("");
+
+  const handleVoteFeedback = async (vote: "thumbs_up" | "thumbs_down") => {
+    if (!lastOutputId || !executeSkill) return;
+    setFeedbackVote(vote);
+    const { error } = await supabase
+      .from("imphq_skill_outputs")
+      .update({ feedback: vote })
+      .eq("id", lastOutputId);
+
+    if (error) {
+      toast.error("Falha ao salvar voto: " + error.message);
+    } else {
+      toast.success("Obrigado pelo feedback!");
+      checkFeedbackAndRefine(executeSkill.id);
+    }
+  };
+
+  const submitFeedbackText = async () => {
+    if (!lastOutputId) return;
+    const { error } = await supabase
+      .from("imphq_skill_outputs")
+      .update({ feedback_correction: feedbackCorrection })
+      .eq("id", lastOutputId);
+
+    if (error) {
+      toast.error("Falha ao salvar comentário: " + error.message);
+    } else {
+      toast.success("Comentário salvo!");
+    }
+  };
+
+  const checkFeedbackAndRefine = async (skillId: string) => {
+    const { count, error } = await supabase
+      .from("imphq_skill_outputs")
+      .select("id", { count: "exact", head: true })
+      .eq("skill_id", skillId)
+      .not("feedback", "is", null)
+      .eq("refined", false);
+
+    if (!error && count && count >= 20) {
+      toast.info("Atingimos 20 avaliações! A IA irá refinar automaticamente o System Prompt desta skill.");
+      try {
+        const { data, error: refErr } = await supabase.functions.invoke("openflow-ai", {
+          body: {
+            action: "refine_skill",
+            skill_id: skillId,
+          }
+        });
+        if (!refErr && data?.refined) {
+          toast.success(`Skill evoluída com sucesso para a versão ${data.nextVersion}!`, {
+            description: data.analise,
+            duration: 10000,
+          });
+        }
+      } catch (err) {
+        console.error("Erro no refinamento da skill:", err);
+      }
+    }
+  };
+
   const runExecuteSkill = async () => {
     if (!executeSkill) return;
     setExecLoading(true);
+    setFeedbackVote(null);
+    setFeedbackCorrection("");
+    setLastOutputId(null);
     try {
       const { data, error } = await supabase.functions.invoke("openflow-ai", {
         body: {
@@ -307,8 +373,23 @@ export default function Skills() {
         },
       });
       if (error) throw error;
-      setExecResult(data?.result || data?.error || "Sem resultado");
+      const result = data?.result || data?.error || "Sem resultado";
+      setExecResult(result);
       setShowResult(true);
+
+      const { data: outputData } = await supabase.from("imphq_skill_outputs").insert({
+        project_id: execProjectId || null,
+        skill_id: executeSkill.id,
+        skill_nome: executeSkill.nome,
+        result,
+        model: execModel,
+        extra_instructions: execExtra || null,
+        produto: execProduto || null,
+      }).select("id").maybeSingle();
+
+      if (outputData) {
+        setLastOutputId(outputData.id);
+      }
     } catch (err: any) {
       toast.error(err.message || "Erro ao executar skill");
     } finally {
@@ -703,7 +784,46 @@ export default function Skills() {
               <ReactMarkdown>{execResult}</ReactMarkdown>
             </div>
           </ScrollArea>
-          <DialogFooter className="gap-2">
+
+          {/* Seção de Feedback */}
+          {lastOutputId && (
+            <div className="border-t border-border/40 p-4 bg-secondary/10 flex flex-col gap-2 rounded-b-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground">O que achou do resultado?</span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={feedbackVote === "thumbs_up" ? "default" : "outline"}
+                    className={feedbackVote === "thumbs_up" ? "bg-emerald-600 hover:bg-emerald-700 h-8 text-xs" : "h-8 text-xs"}
+                    onClick={() => handleVoteFeedback("thumbs_up")}
+                  >
+                    👍 Bom
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={feedbackVote === "thumbs_down" ? "default" : "outline"}
+                    className={feedbackVote === "thumbs_down" ? "bg-red-600 hover:bg-red-700 h-8 text-xs" : "h-8 text-xs"}
+                    onClick={() => handleVoteFeedback("thumbs_down")}
+                  >
+                    👎 Ruim
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2 items-center">
+                <Input
+                  placeholder="Sugestões de melhoria ou correção (opcional)..."
+                  value={feedbackCorrection}
+                  onChange={e => setFeedbackCorrection(e.target.value)}
+                  className="h-8 text-xs bg-background/50 flex-1"
+                />
+                <Button size="sm" onClick={submitFeedbackText} className="h-8 text-xs">
+                  Enviar Observação
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="px-6 py-4 border-t border-border/40 gap-2">
             <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(execResult); toast.success("Copiado!"); }} className="gap-1">
               <Copy className="h-3.5 w-3.5" /> Copiar
             </Button>

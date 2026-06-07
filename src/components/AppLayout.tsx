@@ -16,6 +16,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   imperius: { kicker: "Autonomia", title: "Imperius" },
   leads: { kicker: "CRM", title: "Leads" },
   whatsapp: { kicker: "Canal", title: "WhatsApp" },
+  "sdr-coach": { kicker: "Operar", title: "SDR Coach" },
   instagram: { kicker: "Canal", title: "Instagram" },
   openflow: { kicker: "Fluxos", title: "OpenFlow" },
   recuperacao: { kicker: "Resgate", title: "Recuperação" },

@@ -18,7 +18,13 @@ async function classifyMessage(message: string, lastMessages: string[] = [], ope
   "urgency": "high" | "medium" | "low",
   "fit_score": 0-100,
   "objecao": "string ou null (se intent=objecao, descreva a objeção em <50 chars)",
-  "desejo_schwartz": "tempo" | "dinheiro" | "estresse" | "status" | null
+  "desejo_schwartz": "tempo" | "dinheiro" | "estresse" | "status" | null,
+  "extracted_profile": {
+    "pain": "uma descrição curta (<80 caracteres) de uma dor/dificuldade/medo que o lead demonstrou ter, ou null",
+    "desire": "uma descrição curta (<80 caracteres) de uma meta/desejo/objetivo que o lead quer alcançar, ou null",
+    "moment": "momento/situação atual profissional ou pessoal relatada pelo lead (ex: iniciante, trabalha em salão, desempregada) de <80 caracteres, ou null",
+    "seeking": "o que o lead busca ou está precisando no produto (ex: quer aprender corte crespo, quer organizar finanças) de <80 caracteres, ou null"
+  }
 }
 Mapeie o desejo visceral do cliente (Lei 4 de Eugene Schwartz):
 - "tempo" (liberdade, economizar tempo, automatizar processos manuais)
@@ -188,6 +194,71 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Process and merge dynamic AI lead profile
+    if (lead_id && classification.extracted_profile) {
+      try {
+        const { data: currentLead } = await supabase
+          .from("imphq_leads")
+          .select("data")
+          .eq("id", lead_id)
+          .maybeSingle();
+
+        const currentData = currentLead?.data || {};
+        const oldProfile = currentData.ai_profile || { pains: [], desires: [], moments: [], seekings: [] };
+        
+        const ep = classification.extracted_profile;
+        const newProfile = {
+          pains: Array.isArray(oldProfile.pains) ? [...oldProfile.pains] : [],
+          desires: Array.isArray(oldProfile.desires) ? [...oldProfile.desires] : [],
+          moments: Array.isArray(oldProfile.moments) ? [...oldProfile.moments] : [],
+          seekings: Array.isArray(oldProfile.seekings) ? [...oldProfile.seekings] : [],
+          updated_at: new Date().toISOString()
+        };
+
+        let needsProfileUpdate = false;
+
+        const addUnique = (arr: string[], val: any) => {
+          if (val && typeof val === "string" && val.trim() !== "" && !val.toLowerCase().includes("null") && !arr.some(v => v.toLowerCase() === val.trim().toLowerCase())) {
+            arr.push(val.trim());
+            return true;
+          }
+          return false;
+        };
+
+        if (addUnique(newProfile.pains, ep.pain)) needsProfileUpdate = true;
+        if (addUnique(newProfile.desires, ep.desire)) needsProfileUpdate = true;
+        if (addUnique(newProfile.moments, ep.moment)) needsProfileUpdate = true;
+        if (addUnique(newProfile.seekings, ep.seeking)) needsProfileUpdate = true;
+
+        if (needsProfileUpdate) {
+          newProfile.pains = newProfile.pains.slice(-5);
+          newProfile.desires = newProfile.desires.slice(-5);
+          newProfile.moments = newProfile.moments.slice(-5);
+          newProfile.seekings = newProfile.seekings.slice(-5);
+
+          const mergedData = {
+            ...currentData,
+            ai_profile: newProfile
+          };
+          
+          if (classification.desejo_schwartz) {
+            mergedData.desejo_schwartz = classification.desejo_schwartz;
+          }
+
+          await supabase
+            .from("imphq_leads")
+            .update({
+              data: mergedData,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", lead_id);
+          console.log(`[triage] Updated lead ${lead_id} AI profile:`, newProfile);
+        }
+      } catch (profileErr: any) {
+        console.warn("[triage] Failed to update lead AI profile:", profileErr?.message);
+      }
+    }
+
     if (classification.sentiment === "negativo") {
       // Conta últimas negativas
       const { count } = await supabase
@@ -211,6 +282,44 @@ Deno.serve(async (req) => {
           source: "wa-ai-triage",
           status: "proposed",
         });
+      }
+    }
+
+    // 8. Memória Vetorial (pgvector) do lead
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (LOVABLE_API_KEY && conversation_id && projeto_id) {
+      try {
+        const { data: conv } = await supabase
+          .from("imphq_wa_conversations")
+          .select("phone")
+          .eq("id", conversation_id)
+          .maybeSingle();
+
+        if (conv?.phone) {
+          const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: "google/gemini-embedding-001", input: message, dimensions: 768 }),
+          });
+          if (embRes.ok) {
+            const embData = await embRes.json();
+            const embedding = embData?.data?.[0]?.embedding;
+            if (embedding) {
+              await supabase.from("imphq_wa_lead_memory").insert({
+                lead_id: lead_id || null,
+                project_id: projeto_id,
+                phone: conv.phone,
+                content: message,
+                embedding: embedding,
+              });
+              console.log(`[triage] Stored lead memory embedding for conversation=${conversation_id} phone=${conv.phone}`);
+            }
+          } else {
+            console.warn(`[triage] Lovable embedding failed: ${embRes.status}`);
+          }
+        }
+      } catch (embErr: any) {
+        console.error("[triage] Error storing lead memory:", embErr.message);
       }
     }
 

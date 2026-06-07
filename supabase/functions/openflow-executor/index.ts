@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { trigger_tipo, project_id, lead_data, automacao_id } = await req.json();
+    const { trigger_tipo, project_id, lead_data, automacao_id, resume_from_step } = await req.json();
     if (!trigger_tipo || !project_id) {
       return new Response(JSON.stringify({ error: "trigger_tipo e project_id obrigatórios" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -162,7 +162,24 @@ Deno.serve(async (req) => {
       // CRITICAL FIX: Read from 'acoes' (editor field) with fallback to 'etapas' (legacy)
       const rawSteps = auto.acoes || auto.etapas || [];
       const steps = rawSteps.map(normalizeStep);
-      const stepResults: any[] = [];
+
+      const startStep = resume_from_step ? Number(resume_from_step) : 0;
+      let prevStepResults: any[] = [];
+      if (startStep > 0 && lead_data?.lead_id) {
+        const { data: lastExec } = await supabase
+          .from("imphq_flow_executions")
+          .select("step_results")
+          .eq("automacao_id", auto.id)
+          .eq("lead_id", lead_data.lead_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastExec && Array.isArray(lastExec.step_results)) {
+          prevStepResults = lastExec.step_results;
+        }
+      }
+
+      const stepResults: any[] = [...prevStepResults];
       let status = "completed";
       let errorMessage: string | null = null;
       let messagesSent = 0;
@@ -184,7 +201,8 @@ Deno.serve(async (req) => {
           lead_id: lead_data?.lead_id || null,
           trigger_tipo,
           status: "running",
-          current_step: 0,
+          current_step: startStep,
+          step_results: stepResults,
         })
         .select("id")
         .single();
@@ -224,7 +242,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      for (let i = 0; i < steps.length; i++) {
+      for (let i = startStep; i < steps.length; i++) {
         const step = steps[i];
         const stepResult: any = { step: i, tipo: step.tipo, started_at: new Date().toISOString() };
 
@@ -609,6 +627,251 @@ Deno.serve(async (req) => {
               const skipCount = parseInt(step.else_skip) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
+            }
+          }
+
+          else if (step.tipo === "ia_message") {
+            const phone = lead_data?.phone || lead_data?.telefone;
+            if (!phone) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem telefone do lead";
+            } else {
+              // 1. Verificar se o lead respondeu desde o início do fluxo
+              const cleanPhone = phone.replace(/\D/g, "");
+              const searchPhones = [phone, cleanPhone];
+              if (cleanPhone.startsWith("55")) {
+                searchPhones.push(cleanPhone.substring(2));
+              } else {
+                searchPhones.push("55" + cleanPhone);
+              }
+
+              let firstExecCreatedAt = new Date(Date.now() - 3 * 3600_000).toISOString(); // fallback
+              const execQuery = supabase
+                .from("imphq_flow_executions")
+                .select("created_at")
+                .eq("automacao_id", auto.id)
+                .order("created_at", { ascending: true })
+                .limit(1);
+              
+              if (lead_data?.lead_id) {
+                execQuery.eq("lead_id", lead_data.lead_id);
+              }
+              
+              const { data: firstExec } = await execQuery.maybeSingle();
+              if (firstExec) {
+                firstExecCreatedAt = firstExec.created_at;
+              }
+
+              const { data: incomingMsgs } = await supabase
+                .from("imphq_wa_messages")
+                .select("id")
+                .in("phone", searchPhones)
+                .eq("direction", "incoming")
+                .gt("created_at", firstExecCreatedAt)
+                .limit(1);
+
+              if (incomingMsgs && incomingMsgs.length > 0) {
+                console.log(`[openflow-executor] Lead ${phone} respondeu após o início do fluxo (${firstExecCreatedAt}). Abortando fluxo.`);
+                stepResult.status = "skipped";
+                stepResult.reason = "Lead respondeu à automação";
+                status = "completed";
+                stepResult.finished_at = new Date().toISOString();
+                stepResults.push(stepResult);
+                break; // Interrompe o fluxo
+              }
+
+              // 2. Carregar contexto do projeto e do lead
+              const { data: project } = await supabase
+                .from("imphq_projects")
+                .select("name, data, avatar, brand_kit")
+                .eq("id", project_id)
+                .maybeSingle();
+
+              const pData = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
+              const expert = pData.expert || pData.especialista || {};
+              const avatar = project?.avatar || {};
+              const brandKit = project?.brand_kit || {};
+
+              let leadDb = null;
+              if (lead_data?.lead_id) {
+                const { data: l } = await supabase
+                  .from("imphq_leads")
+                  .select("*")
+                  .eq("id", lead_data.lead_id)
+                  .maybeSingle();
+                leadDb = l;
+              } else {
+                const { data: l } = await supabase
+                  .from("imphq_leads")
+                  .select("*")
+                  .eq("project_id", project_id)
+                  .in("phone", searchPhones)
+                  .maybeSingle();
+                leadDb = l;
+              }
+
+              const aiProfile = leadDb?.data?.ai_profile || {};
+              const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
+              const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
+              const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
+              const seekings = Array.isArray(aiProfile.seekings) ? aiProfile.seekings : [];
+              const schwartz = leadDb?.data?.desejo_schwartz || "";
+
+              const { data: aiConfig } = await supabase
+                .from("imphq_wa_ai_config")
+                .select("*")
+                .eq("project_id", project_id)
+                .eq("enabled", true)
+                .maybeSingle();
+
+              const systemPrompt = `Você é um assessor/vendedor de alta performance especializado em reativação de leads via WhatsApp.
+Você representa o projeto/marca: "${project?.name || ''}".
+Expert/Persona: ${aiConfig?.expert_persona || JSON.stringify(expert)}
+Instruções gerais da marca: ${aiConfig?.custom_instructions || ''}
+
+Contexto do Lead:
+- Nome: ${lead_data?.nome || leadDb?.name || "lead"}
+- Momento atual: ${moments.join(", ") || "Não mapeado"}
+- Dores principais: ${pains.join(", ") || "Não mapeada"}
+- Desejos/Metas: ${desires.join(", ") || "Não mapeado"}
+- O que busca: ${seekings.join(", ") || "Não mapeado"}
+- Desejo de Schwartz: ${schwartz || "Não mapeado"}
+
+Objetivo do passo:
+Você deve enviar uma mensagem curta de reativação para o lead.
+A instrução de reativação da automação é: "${step.mensagem || 'Reativar o lead com simpatia e foco consultivo'}"
+
+Regras de Geração:
+1. Escreva uma mensagem curta, direta e amigável para o WhatsApp (máximo 3 linhas ou 2-3 frases).
+2. Não pareça um robô nem use introduções genéricas. Seja natural e informal.
+3. Use o nome do lead se disponível.
+4. Responda apenas com a mensagem a ser enviada no WhatsApp. Sem observações, sem aspas.`.trim();
+
+              const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+              if (!OPENROUTER_API_KEY) {
+                throw new Error("OPENROUTER_API_KEY não configurado");
+              }
+
+              const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                  "Content-Type": "application/json",
+                  "HTTP-Referer": "https://imperiox.lovable.app",
+                  "X-Title": "Imperio HQ",
+                },
+                body: JSON.stringify({
+                  model: aiConfig?.ai_model || "openai/gpt-4o-mini",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: "Gere a mensagem de reativação para o lead." }
+                  ],
+                  max_tokens: 150,
+                  temperature: 0.7,
+                }),
+              });
+
+              if (!orRes.ok) {
+                const errText = await orRes.text();
+                throw new Error(`OpenRouter falhou: ${orRes.status} ${errText}`);
+              }
+
+              const orData = await orRes.json();
+              const aiText = (orData?.choices?.[0]?.message?.content || "").trim().replace(/^"|"$/g, "");
+
+              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const finalMsg = aiText
+                .replace(/\{\{nome\}\}/g, lead_data?.nome || leadDb?.name || "")
+                .replace(/\{\{email\}\}/g, lead_data?.email || "")
+                .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
+                .replace(/\{\{telefone\}\}/g, phone || "")
+                .replace(/\{\{link\}\}/g, linkUrl)
+                .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
+                .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
+
+              // Escolher o provider de WhatsApp
+              let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+              
+              if (!providerId && project_id) {
+                const { data: projProviders } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("id")
+                  .eq("is_active", true)
+                  .eq("project_id", project_id)
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+                if (projProviders?.length) {
+                  providerId = projProviders[0].id;
+                }
+              }
+
+              if (!providerId) {
+                const { data: activeProviders } = await supabase
+                  .from("imphq_wa_providers")
+                  .select("id")
+                  .eq("is_active", true)
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+                if (activeProviders?.length) {
+                  providerId = activeProviders[0].id;
+                }
+              }
+
+              stepResult.provider_id = providerId || null;
+              stepResult.phone = phone;
+              stepResult.message_preview = finalMsg.substring(0, 100);
+
+              if (!providerId) {
+                stepResult.status = "error";
+                stepResult.reason = "Nenhum provider WhatsApp ativo encontrado";
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (ia_message): Nenhum provider ativo`);
+              } else {
+                const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${supabaseKey}`,
+                  },
+                  body: JSON.stringify({
+                    provider_id: providerId,
+                    phone: normalizeBRPhone(phone),
+                    content: finalMsg,
+                    project_id,
+                  }),
+                });
+                const waData = await waRes.json();
+                stepResult.status = waData.success ? "sent" : "error";
+                stepResult.response = waData;
+                
+                if (waData.success) {
+                  messagesSent++;
+                  // Registrar a ação em imphq_ai_actions
+                  await supabase.from("imphq_ai_actions").insert({
+                    kind: "openflow_ia_intervention",
+                    risk_level: "low",
+                    confidence: 0.95,
+                    title: `Intervenção de IA no OpenFlow: ${auto.nome}`,
+                    reason: `Etapa ${i} (${step.tipo}): reativação enviada para ${phone}.`,
+                    payload: {
+                      lead_id: lead_data?.lead_id || leadDb?.id || null,
+                      phone,
+                      automation_id: auto.id,
+                      automation_name: auto.nome,
+                      step_index: i,
+                      message_content: finalMsg,
+                    },
+                    projeto_id: project_id,
+                    source: "openflow-executor",
+                    status: "executed",
+                    auto_executed: true,
+                    executed_at: new Date().toISOString(),
+                  });
+                } else {
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (ia_message): ${waData.error || "Falha no envio"}`);
+                }
+              }
             }
           }
 

@@ -17,6 +17,7 @@ const operarItems = [
   { title: "Rascunhos IA", url: "/rascunhos", icon: Sparkles },
   { title: "Leads", url: "/leads", icon: Users },
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare },
+  { title: "SDR Coach", url: "/sdr-coach", icon: UsersRound },
   { title: "Instagram", url: "/instagram", icon: Instagram },
   { title: "OpenFlow", url: "/openflow", icon: Workflow },
   { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy },

@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Play, Loader2, ArrowRight, CheckCircle2, Circle, Save,
   Zap, Target, Brain, PenTool, Globe, Copy, ChevronDown, ChevronUp,
@@ -184,6 +185,74 @@ export function SkillPipelines({ projects }: Props) {
     } else setProdutos([]);
   };
 
+  const [pipelineOutputIds, setPipelineOutputIds] = useState<Record<number, string>>({});
+  const [stepFeedbackVotes, setStepFeedbackVotes] = useState<Record<number, string>>({});
+  const [stepFeedbackCorrections, setStepFeedbackCorrections] = useState<Record<number, string>>({});
+
+  const handleVotePipelineStep = async (stepIdx: number, skillId: string, vote: "thumbs_up" | "thumbs_down") => {
+    const outputId = pipelineOutputIds[stepIdx];
+    if (!outputId) return;
+
+    setStepFeedbackVotes(prev => ({ ...prev, [stepIdx]: vote }));
+    const { error } = await supabase
+      .from("imphq_skill_outputs")
+      .update({ feedback: vote })
+      .eq("id", outputId);
+
+    if (error) {
+      toast.error("Falha ao salvar voto: " + error.message);
+    } else {
+      toast.success("Obrigado pelo feedback!");
+      checkPipelineFeedbackAndRefine(skillId);
+    }
+  };
+
+  const submitPipelineStepCorrection = async (stepIdx: number) => {
+    const outputId = pipelineOutputIds[stepIdx];
+    const correction = stepFeedbackCorrections[stepIdx] || "";
+    if (!outputId) return;
+
+    const { error } = await supabase
+      .from("imphq_skill_outputs")
+      .update({ feedback_correction: correction })
+      .eq("id", outputId);
+
+    if (error) {
+      toast.error("Falha ao salvar comentário: " + error.message);
+    } else {
+      toast.success("Comentário salvo!");
+    }
+  };
+
+  const checkPipelineFeedbackAndRefine = async (skillId: string) => {
+    const { count, error } = await supabase
+      .from("imphq_skill_outputs")
+      .select("id", { count: "exact", head: true })
+      .eq("skill_id", skillId)
+      .not("feedback", "is", null)
+      .eq("refined", false);
+
+    if (!error && count && count >= 20) {
+      toast.info("Atingimos 20 avaliações! A IA irá refinar automaticamente o System Prompt desta skill.");
+      try {
+        const { data } = await supabase.functions.invoke("openflow-ai", {
+          body: {
+            action: "refine_skill",
+            skill_id: skillId,
+          }
+        });
+        if (data?.refined) {
+          toast.success(`Skill evoluída com sucesso para a versão ${data.nextVersion}!`, {
+            description: data.analise,
+            duration: 10000,
+          });
+        }
+      } catch (err) {
+        console.error("Erro no refinamento da skill:", err);
+      }
+    }
+  };
+
   const runPipeline = async () => {
     if (!selectedPipeline || !projectId) {
       toast.error("Selecione um projeto para continuar");
@@ -193,6 +262,9 @@ export function SkillPipelines({ projects }: Props) {
     setShowResults(true);
     setSavedToDb(false);
     setExpandedStep(0);
+    setPipelineOutputIds({});
+    setStepFeedbackVotes({});
+    setStepFeedbackCorrections({});
 
     const results: StepResult[] = selectedPipeline.steps.map(s => ({
       skill_id: s.skill_id, result: "", status: "pending" as const
@@ -230,7 +302,7 @@ export function SkillPipelines({ projects }: Props) {
         setExpandedStep(i);
 
         // Salva output no banco
-        await supabase.from("imphq_skill_outputs").insert({
+        const { data: outputData } = await supabase.from("imphq_skill_outputs").insert({
           project_id: projectId,
           skill_id: step.skill_id,
           skill_nome: step.skill_nome,
@@ -238,7 +310,11 @@ export function SkillPipelines({ projects }: Props) {
           result,
           model,
           produto: produto || null,
-        }).then(undefined, () => {});
+        }).select("id").maybeSingle();
+
+        if (outputData) {
+          setPipelineOutputIds(prev => ({ ...prev, [i]: outputData.id }));
+        }
 
       } catch (err: any) {
         results[i].status = "error";
@@ -460,16 +536,56 @@ export function SkillPipelines({ projects }: Props) {
                       )}
                     </button>
                     {isExpanded && r.status === "done" && (
-                      <div className="px-4 pb-4 border-t border-border/30">
+                      <div className="px-4 pb-4 border-t border-border/30 space-y-3">
                         <div className="prose prose-invert prose-sm max-w-none mt-3">
                           <ReactMarkdown>{r.result}</ReactMarkdown>
                         </div>
-                        <Button
-                          size="sm" variant="ghost" className="mt-2 h-6 text-[10px] gap-1"
-                          onClick={() => { navigator.clipboard.writeText(r.result); toast.success("Copiado!"); }}
-                        >
-                          <Copy className="h-3 w-3" /> Copiar este step
-                        </Button>
+                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border/10">
+                          <Button
+                            size="sm" variant="ghost" className="h-6 text-[10px] gap-1"
+                            onClick={() => { navigator.clipboard.writeText(r.result); toast.success("Copiado!"); }}
+                          >
+                            <Copy className="h-3 w-3" /> Copiar este step
+                          </Button>
+                        </div>
+
+                        {/* Feedback section for the pipeline step */}
+                        {pipelineOutputIds[i] && (
+                          <div className="border-t border-border/30 pt-3 mt-2 flex flex-col gap-2.5 bg-secondary/10 p-3 rounded-lg">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="text-[11px] font-semibold text-muted-foreground">O que achou deste step?</span>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant={stepFeedbackVotes[i] === "thumbs_up" ? "default" : "outline"}
+                                  className={stepFeedbackVotes[i] === "thumbs_up" ? "bg-emerald-600 hover:bg-emerald-700 h-7 text-[10px]" : "h-7 text-[10px]"}
+                                  onClick={() => handleVotePipelineStep(i, step.skill_id, "thumbs_up")}
+                                >
+                                  👍 Bom
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={stepFeedbackVotes[i] === "thumbs_down" ? "default" : "outline"}
+                                  className={stepFeedbackVotes[i] === "thumbs_down" ? "bg-red-600 hover:bg-red-700 h-7 text-[10px]" : "h-7 text-[10px]"}
+                                  onClick={() => handleVotePipelineStep(i, step.skill_id, "thumbs_down")}
+                                >
+                                  👎 Ruim
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 items-center">
+                              <Input
+                                placeholder="Sugestões de melhoria ou correção (opcional)..."
+                                value={stepFeedbackCorrections[i] || ""}
+                                onChange={e => setStepFeedbackCorrections(prev => ({ ...prev, [i]: e.target.value }))}
+                                className="h-7 text-[10px] bg-background/50 flex-1"
+                              />
+                              <Button size="sm" onClick={() => submitPipelineStepCorrection(i)} className="h-7 text-[10px]">
+                                Enviar Observação
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

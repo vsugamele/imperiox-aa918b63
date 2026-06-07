@@ -237,6 +237,45 @@ Deno.serve(async (req) => {
         .eq("id", project_id)
         .maybeSingle();
 
+      // 7.0. Busca informações do lead para injetar inteligência comportamental
+      let leadContextBlock = "";
+      try {
+        const cleanPhone = phone.replace(/\D/g, "");
+        const searchPhones = [cleanPhone];
+        if (cleanPhone.startsWith("55")) {
+          searchPhones.push(cleanPhone.substring(2));
+        } else {
+          searchPhones.push("55" + cleanPhone);
+        }
+
+        const { data: lead } = await supabase
+          .from("imphq_leads")
+          .select("*")
+          .eq("project_id", project_id)
+          .in("phone", searchPhones)
+          .maybeSingle();
+
+        if (lead) {
+          const aiProfile = lead.data?.ai_profile || {};
+          const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
+          const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
+          const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
+          const seekings = Array.isArray(aiProfile.seekings) ? aiProfile.seekings : [];
+          const schwartz = lead.data?.desejo_schwartz || "";
+
+          leadContextBlock = `\nPERFIL COMPORTAMENTAL DO LEAD (MAPEADO EM TEMPO REAL):`;
+          if (moments.length > 0) leadContextBlock += `\n- Momento/Situação Atual: ${moments.join(", ")}`;
+          if (pains.length > 0) leadContextBlock += `\n- Dores Principais: ${pains.join(", ")}`;
+          if (desires.length > 0) leadContextBlock += `\n- Desejos & Metas: ${desires.join(", ")}`;
+          if (seekings.length > 0) leadContextBlock += `\n- O que busca: ${seekings.join(", ")}`;
+          if (schwartz) leadContextBlock += `\n- Desejo de Schwartz: ${schwartz}`;
+          if (lead.score) leadContextBlock += `\n- Score de Engajamento: ${lead.score}/100`;
+          leadContextBlock += `\n`;
+        }
+      } catch (err) {
+        console.error("[wa-ai-reply] Error fetching lead context:", err);
+      }
+
       const d = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
       const sources = aiConfig.context_sources || [];
       let ctx = "";
@@ -248,8 +287,9 @@ Deno.serve(async (req) => {
         if (ex) ctx += `Expert: ${JSON.stringify(ex).slice(0, 300)}\n`;
       }
 
-      // 7.1. Busca semântica de Lições (RAG) da base de conhecimento da IA
+      // 7.1. Busca semântica de Lições (RAG) e Memórias do lead (pgvector)
       let lessonsBlock = "";
+      let memoryBlock = "";
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (LOVABLE_API_KEY) {
         try {
@@ -262,6 +302,7 @@ Deno.serve(async (req) => {
             const embData = await embRes.json();
             const embedding = embData?.data?.[0]?.embedding;
             if (embedding) {
+              // 7.1.1. Match knowledge base
               const { data: matches, error: rpcErr } = await supabase.rpc("match_wa_knowledge", {
                 query_embedding: embedding,
                 p_project_id: project_id,
@@ -274,12 +315,27 @@ Deno.serve(async (req) => {
                   matches.map((m: any) => `- Se a dúvida/situação for semelhante a "${m.pergunta}", a regra/resposta é: "${m.resposta}"`).join("\n") + "\n";
                 console.log(`[wa-ai-reply] ${matches.length} lessons matched semantically`);
               }
+
+              // 7.1.2. Match lead memory
+              const { data: memories, error: memErr } = await supabase.rpc("match_wa_lead_memory", {
+                query_embedding: embedding,
+                p_project_id: project_id,
+                p_phone: phone,
+                match_count: 3,
+                min_similarity: 0.7,
+              });
+              if (memErr) console.error("[wa-ai-reply] match_wa_lead_memory RPC error:", memErr.message);
+              if (memories && memories.length > 0) {
+                memoryBlock = `\nRELEMBRE O QUE O LEAD JÁ DISSE ANTERIORMENTE (MEMÓRIA VETORIAL):\n` +
+                  memories.map((m: any) => `- O lead já comentou/disse: "${m.content}"`).join("\n") + "\n";
+                console.log(`[wa-ai-reply] ${memories.length} lead memories matched semantically`);
+              }
             }
           } else {
             console.warn(`[wa-ai-reply] Lovable embeddings failed with status ${embRes.status}`);
           }
         } catch (e: any) {
-          console.warn("[wa-ai-reply] Error fetching semantic lessons:", e.message);
+          console.warn("[wa-ai-reply] Error fetching semantic context:", e.message);
         }
       }
 
@@ -347,6 +403,7 @@ O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR. Regras:
 ${personalityMap[aiConfig.personality] || personalityMap.consultor}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
+${leadContextBlock}
 
 METODO OBRIGATORIO — use SEMPRE:
 1. EMPATIA: 1 frase que valida a situacao ou desejo do lead (ex: "Faz todo sentido querer isso!")
@@ -354,12 +411,13 @@ METODO OBRIGATORIO — use SEMPRE:
 3. ENVOLVIMENTO: Feche com 1 pergunta consultiva que avanca a conversa
 
 REGRAS CRITICAS:
+- MANTER O LEAD NA ROTA: Se o lead desviar para conversas aleatórias, assuntos pessoais não relacionados, ou desabafos que fujam da venda/solução, aja com empatia imediata (máximo 1 frase validando ou acolhendo o sentimento), mas em seguida retome o foco principal, conectando a dor dele com a solução/oferta e fazendo uma pergunta consultiva. Evite alongar-se em conversas vazias que esfriam o lead.
 - NUNCA use placeholders como [Link] ou [Nome do curso]. Se nao souber algo, diga que vai buscar.
 - NUNCA seja vago. Ex: ruim: "o curso e focado em corte". Bom: "o curso ensina 7 tecnicas de corte que funcionam em cabelos lisos e cacheados".
 - Respostas curtas (maximo 4 linhas no WhatsApp). Sem blocos de texto.
 - Nunca revele que e IA.
 - Responda em portugues brasileiro natural.
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${objectionsBlock}${closerBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string }[] = [{ role: "system", content: systemPrompt }];

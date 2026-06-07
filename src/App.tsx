@@ -58,6 +58,7 @@ const WebinarSessao = lazy(() => import("./pages/WebinarSessao"));
 const WebinarPublic = lazy(() => import("./pages/WebinarPublic"));
 const FormPublic = lazy(() => import("./pages/FormPublic"));
 const ProductCopilot = lazy(() => import("./pages/ProductCopilot"));
+const SDRCoach = lazy(() => import("./pages/SDRCoach"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -116,6 +117,7 @@ const App = () => (
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="docs" element={<Docs />} />
                 <Route path="whatsapp" element={<WhatsAppPage />} />
+                <Route path="sdr-coach" element={<SDRCoach />} />
                 <Route path="instagram" element={<InstagramPage />} />
                 <Route path="tracker" element={<Tracker />} />
                 <Route path="referencias" element={<Referencias />} />

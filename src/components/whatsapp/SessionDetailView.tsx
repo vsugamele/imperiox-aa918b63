@@ -99,6 +99,41 @@ export default function SessionDetailView({ session, projectName, providerLabel,
 
   useEffect(() => { loadCrm(); }, [loadCrm]);
 
+  const [lead, setLead] = useState<any>(null);
+  const [loadingLead, setLoadingLead] = useState(false);
+
+  const loadLead = useCallback(async () => {
+    setLoadingLead(true);
+    const cleanPhone = session.phone.replace(/\D/g, "");
+    const searchPhones = [cleanPhone];
+    if (cleanPhone.startsWith("55")) {
+      searchPhones.push(cleanPhone.substring(2));
+    } else {
+      searchPhones.push("55" + cleanPhone);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("imphq_leads")
+        .select("*")
+        .eq("project_id", session.project_id)
+        .in("phone", searchPhones)
+        .maybeSingle();
+      if (!error && data) {
+        setLead(data);
+      } else {
+        setLead(null);
+      }
+    } catch (err) {
+      console.error("[SessionDetailView] error loading lead:", err);
+      setLead(null);
+    } finally {
+      setLoadingLead(false);
+    }
+  }, [session.phone, session.project_id]);
+
+  useEffect(() => { loadLead(); }, [loadLead]);
+
   const saveCrm = async () => {
     setSaving(true);
     const payload = {
@@ -180,6 +215,86 @@ export default function SessionDetailView({ session, projectName, providerLabel,
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Intelligence Card */}
+      {lead && (
+        <Card className="bg-card border-border border-purple-500/20">
+          <CardContent className="space-y-3 pt-5">
+            <h4 className="font-semibold text-sm flex items-center gap-1.5 text-purple-400">
+              <span className="text-base">🧠</span> Inteligência IA (Dores & Desejos)
+            </h4>
+
+            {(() => {
+              const aiProfile = lead.data?.ai_profile || {};
+              const hasPains = Array.isArray(aiProfile.pains) && aiProfile.pains.length > 0;
+              const hasDesires = Array.isArray(aiProfile.desires) && aiProfile.desires.length > 0;
+              const hasMoments = Array.isArray(aiProfile.moments) && aiProfile.moments.length > 0;
+              const hasSeekings = Array.isArray(aiProfile.seekings) && aiProfile.seekings.length > 0;
+
+              if (!hasPains && !hasDesires && !hasMoments && !hasSeekings) {
+                return (
+                  <p className="text-xs text-muted-foreground py-2 text-center">
+                    Nenhum perfil comportamental extraído pela IA ainda. Conforme o lead conversar, a inteligência mapeará as dores.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-2.5 text-xs">
+                  {hasMoments && (
+                    <div>
+                      <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Momento do Lead:</span>
+                      <ul className="list-disc pl-4 space-y-0.5 mt-0.5">
+                        {aiProfile.moments.map((item: string, idx: number) => (
+                          <li key={idx} className="text-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {hasPains && (
+                    <div>
+                      <span className="font-bold text-[10px] uppercase tracking-wider text-red-400">Dores Principais:</span>
+                      <ul className="list-disc pl-4 space-y-0.5 mt-0.5">
+                        {aiProfile.pains.map((item: string, idx: number) => (
+                          <li key={idx} className="text-red-200/80">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {hasDesires && (
+                    <div>
+                      <span className="font-bold text-[10px] uppercase tracking-wider text-emerald-400">Desejos & Metas:</span>
+                      <ul className="list-disc pl-4 space-y-0.5 mt-0.5">
+                        {aiProfile.desires.map((item: string, idx: number) => (
+                          <li key={idx} className="text-emerald-200/80">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {hasSeekings && (
+                    <div>
+                      <span className="font-bold text-[10px] uppercase tracking-wider text-blue-400">O que busca:</span>
+                      <ul className="list-disc pl-4 space-y-0.5 mt-0.5">
+                        {aiProfile.seekings.map((item: string, idx: number) => (
+                          <li key={idx} className="text-blue-200/80">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex items-center justify-between text-[10px] text-muted-foreground border-t border-border/40 mt-1">
+                    <span>Eugene Schwartz: <span className="font-semibold text-foreground">{lead.data?.desejo_schwartz ? String(lead.data.desejo_schwartz).toUpperCase() : "Não detectado"}</span></span>
+                    <span>Score: <span className="font-semibold text-foreground">{lead.score || 0}/100</span></span>
+                  </div>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Grupos em Comum */}
       {session.provider_id && (
