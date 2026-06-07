@@ -179,6 +179,7 @@ export default function Leads() {
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<"recent" | "score">("recent");
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -211,7 +212,11 @@ export default function Leads() {
     if (tagFilter !== "all") leadsQuery = leadsQuery.contains("tags", [tagFilter]);
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    leadsQuery = leadsQuery.order("updated_at", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
+    if (sortBy === "score") {
+      leadsQuery = leadsQuery.order("score", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
+    } else {
+      leadsQuery = leadsQuery.order("updated_at", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
+    }
 
     let vendasQuery = supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }).limit(1000);
     if (projectFilter !== "all" && projectFilter !== "none") {
@@ -264,7 +269,7 @@ export default function Leads() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter, tagFilter]);
+  useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter, tagFilter, sortBy]);
 
   // Persist filters
   useEffect(() => {
@@ -601,6 +606,7 @@ export default function Leads() {
               <div className="relative max-w-xs flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Buscar nome, email..." className="pl-9 bg-secondary h-9" /></div>
               <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Plataforma" /></SelectTrigger><SelectContent><SelectItem value="all">Plataforma</SelectItem>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
+              <Select value={sortBy} onValueChange={(v) => { setSortBy(v as "recent" | "score"); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Ordenar" /></SelectTrigger><SelectContent><SelectItem value="recent">⏱️ Recentes</SelectItem><SelectItem value="score">🧠 Score (ML)</SelectItem></SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
               {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>📋 {f.name}</SelectItem>)}</SelectContent></Select>)}
               {topTags.length > 0 && (<Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Tag" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Tag (todas)</SelectItem>{topTags.map(({ tag, count }) => <SelectItem key={tag} value={tag}>🏷️ {tag} <span className="text-muted-foreground ml-1">({count})</span></SelectItem>)}</SelectContent></Select>)}

@@ -76,6 +76,26 @@ export default function LeadPredictivePanel({ leadIds, projectFilter }: Props) {
     setAnalyzing(false);
   };
 
+  const [trainingML, setTrainingML] = useState(false);
+
+  const runMLTraining = async () => {
+    setTrainingML(true);
+    toast.info("Treinando classificador Bayesiano com histórico de vendas do CRM...");
+    try {
+      const { data, error } = await supabase.rpc("imphq_train_lead_scoring_model");
+      if (error) throw error;
+      if (data && (data as any).success) {
+        toast.success(`Modelo treinado com sucesso! ${(data as any).total_leads} leads recalculados baseados em ${(data as any).converted} conversões.`);
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast.error((data as any)?.message || "Erro ao treinar modelo.");
+      }
+    } catch (err: any) {
+      toast.error("Erro no treinamento: " + (err.message || err));
+    }
+    setTrainingML(false);
+  };
+
   const toggleExpand = (id: string) => {
     setExpanded(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
@@ -95,10 +115,16 @@ export default function LeadPredictivePanel({ leadIds, projectFilter }: Props) {
           <h3 className="font-display font-bold text-lg">CRM Preditivo</h3>
           <Badge variant="outline" className="text-[10px]">{predictions.length} predições</Badge>
         </div>
-        <Button size="sm" onClick={runAnalysis} disabled={analyzing} className="gap-1.5">
-          {analyzing ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-          {analyzing ? "Analisando..." : "Analisar com IA"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={runMLTraining} disabled={trainingML} className="border-gold/30 hover:border-gold text-gold hover:bg-gold/10 gap-1.5 h-8 text-xs">
+            {trainingML ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+            {trainingML ? "Treinando ML..." : "Treinar ML e Reordenar CRM"}
+          </Button>
+          <Button size="sm" onClick={runAnalysis} disabled={analyzing} className="gap-1.5 h-8 text-xs">
+            {analyzing ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            {analyzing ? "Analisando..." : "Analisar com IA"}
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}

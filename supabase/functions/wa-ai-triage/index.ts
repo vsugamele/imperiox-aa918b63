@@ -382,7 +382,7 @@ Deno.serve(async (req) => {
       conversation_id,
       lead_id,
       projeto_id,
-      intent: classification.stage || classification.intent,
+      intent: classification.intent,
       sentiment: classification.sentiment,
       urgency: classification.urgency,
       fit_score: classification.fit_score,

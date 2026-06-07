@@ -17,7 +17,46 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, project_id, provider_id, phone, message, push_name } = body;
+    const { conversation_id, project_id, provider_id, phone, push_name } = body;
+    let message = body.message || "";
+    
+    const isAudio = body.media_type === "audio" || (body.media_url && (body.media_url.endsWith(".ogg") || body.media_url.endsWith(".mp3") || body.media_url.endsWith(".m4a") || body.media_url.endsWith(".wav")));
+    
+    if (isAudio && body.media_url) {
+      console.log(`[wa-ai-reply] Audio message detected: ${body.media_url}. Transcribing via Whisper...`);
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      if (openaiKey) {
+        try {
+          const audioFetch = await fetch(body.media_url);
+          if (audioFetch.ok) {
+            const audioBlob = await audioFetch.blob();
+            const formData = new FormData();
+            formData.append("file", audioBlob, "audio.ogg");
+            formData.append("model", "whisper-1");
+
+            const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${openaiKey}` },
+              body: formData,
+            });
+
+            if (whisperRes.ok) {
+              const whisperData = await whisperRes.json();
+              message = whisperData.text || message;
+              console.log(`[wa-ai-reply] Whisper transcribed text: "${message}"`);
+            } else {
+              console.error("[wa-ai-reply] Whisper API returned error:", await whisperRes.text());
+            }
+          } else {
+            console.error("[wa-ai-reply] Failed to fetch audio file:", audioFetch.status);
+          }
+        } catch (err: any) {
+          console.error("[wa-ai-reply] Whisper error:", err.message);
+        }
+      } else {
+        console.warn("[wa-ai-reply] OPENAI_API_KEY not configured, cannot transcribe voice message.");
+      }
+    }
 
     console.log(`[wa-ai-reply] START conv=${conversation_id} project=${project_id} phone=${phone} msg=${String(message).slice(0, 50)}`);
 
@@ -28,7 +67,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!conversation_id || !project_id || !provider_id || !phone || !message) {
+    if (!conversation_id || !project_id || !provider_id || !phone || (!message && !body.media_url)) {
       return new Response(JSON.stringify({ error: "Missing required fields", received: { conversation_id, project_id, provider_id, phone, has_message: !!message } }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -202,7 +241,7 @@ Deno.serve(async (req) => {
         "quero fechar", "bora fechar", "vou comprar", "quero sim", "pode ser", "ta bom",
         "fechado", "vou entrar",
       ];
-      const hasBuyIntent = BUY_INTENT_KEYWORDS.some(kw => lc.includes(kw));
+      const hasBuyIntent = BUY_INTENT_KEYWORDS.some(kw => lc.includes(kw)) || conv?.buy_intent_detected === true;
       if (hasBuyIntent) {
         console.log(`[wa-ai-reply] 🔥 BUY INTENT detected: "${message.slice(0, 60)}"`);
         // Update conversation temperature
@@ -290,6 +329,24 @@ Deno.serve(async (req) => {
       // 7.1. Busca semântica de Lições (RAG) e Memórias do lead (pgvector)
       let lessonsBlock = "";
       let memoryBlock = "";
+      let objectionsBlock = "";
+
+      let triageIntent = "";
+      try {
+        const { data: lastTriage } = await supabase
+          .from("imphq_wa_triage")
+          .select("intent")
+          .eq("conversation_id", conversation_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastTriage) {
+          triageIntent = lastTriage.intent || "";
+        }
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] Error loading triage intent:", e.message);
+      }
+
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (LOVABLE_API_KEY) {
         try {
@@ -330,6 +387,27 @@ Deno.serve(async (req) => {
                   memories.map((m: any) => `- O lead já comentou/disse: "${m.content}"`).join("\n") + "\n";
                 console.log(`[wa-ai-reply] ${memories.length} lead memories matched semantically`);
               }
+
+              // 7.1.3. Match calibrated objections semantically if intent is 'objecao'
+              if (triageIntent === "objecao") {
+                const { data: matchedObjections, error: objRpcErr } = await supabase.rpc("match_wa_objections", {
+                  query_embedding: embedding,
+                  p_project_id: project_id,
+                  match_count: 1,
+                  min_similarity: 0.75,
+                });
+                if (objRpcErr) console.error("[wa-ai-reply] match_wa_objections RPC error:", objRpcErr.message);
+                if (matchedObjections && matchedObjections.length > 0) {
+                  const match = matchedObjections[0];
+                  objectionsBlock = `\nOBJEÇÃO DETECTADA E DIRETRIZ COMERCIAL MANDATÓRIA:\nO lead apresentou a objeção: "${match.objecao}".\nVocê DEVE responder exatamente contornando a objeção usando a seguinte resposta padrão calibrada: "${match.resposta_padrao}". Não mude o sentido comercial dessa resposta e seja extremamente preciso.\n`;
+                  console.log(`[wa-ai-reply] Semantic objection match: "${match.objecao}" (similarity: ${match.similarity})`);
+
+                  // Increment objection usage
+                  supabase.rpc("increment_objection_score", { obj_id: match.id }).catch(() => {
+                    supabase.from("imphq_wa_objections").update({ score_uso: (match.score_uso || 0) + 1 }).eq("id", match.id);
+                  });
+                }
+              }
             }
           } else {
             console.warn(`[wa-ai-reply] Lovable embeddings failed with status ${embRes.status}`);
@@ -337,25 +415,6 @@ Deno.serve(async (req) => {
         } catch (e: any) {
           console.warn("[wa-ai-reply] Error fetching semantic context:", e.message);
         }
-      }
-
-      // 7.2. Busca Objeções ativas cadastradas no refinamento
-      let objectionsBlock = "";
-      try {
-        const { data: objections, error: objErr } = await supabase
-          .from("imphq_wa_objections")
-          .select("objecao, resposta_padrao")
-          .eq("projeto_id", project_id)
-          .eq("status", "ativa");
-        
-        if (objErr) console.error("[wa-ai-reply] Error querying objections:", objErr.message);
-        if (objections && objections.length > 0) {
-          objectionsBlock = `\nOBJEÇÕES CADASTRADAS E COMO RESPONDER:\n` +
-            objections.map((o: any) => `- Se o lead apresentar a objeção "${o.objecao}", contorne usando estritamente a linha de resposta: "${o.resposta_padrao}"`).join("\n") + "\n";
-          console.log(`[wa-ai-reply] ${objections.length} active objections loaded`);
-        }
-      } catch (e: any) {
-        console.warn("[wa-ai-reply] Error loading objections:", e.message);
       }
 
       const expertPersona = aiConfig.expert_persona ? `PERSONA DO EXPERT:\n${String(aiConfig.expert_persona).slice(0, 600)}\n\n` : "";
@@ -491,6 +550,57 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         });
       }
 
+      // Voice response generation (TTS)
+      let responseAudioUrl: string | null = null;
+      const voiceReplyEnabled = aiConfig.voice_reply_enabled === true || isAudio;
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+
+      if (voiceReplyEnabled && openaiKey && aiReply) {
+        console.log(`[wa-ai-reply] Generating voice response via OpenAI TTS...`);
+        try {
+          const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${openaiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "tts-1",
+              input: aiReply,
+              voice: aiConfig.voice_name || "alloy",
+            }),
+          });
+
+          if (ttsRes.ok) {
+            const ttsBlob = await ttsRes.blob();
+            const fileName = `voice_${Date.now()}.mp3`;
+            const filePath = `${project_id}/${fileName}`;
+            
+            // Ensure media bucket exists
+            await supabase.storage.createBucket("media", { public: true }).catch(() => {});
+            
+            // Upload to Supabase Storage
+            const { error: uploadErr } = await supabase.storage
+              .from("media")
+              .upload(filePath, ttsBlob, { contentType: "audio/mpeg" });
+
+            if (!uploadErr) {
+              const { data: publicUrlData } = supabase.storage
+                .from("media")
+                .getPublicUrl(filePath);
+              responseAudioUrl = publicUrlData?.publicUrl || null;
+              console.log(`[wa-ai-reply] TTS audio uploaded successfully: ${responseAudioUrl}`);
+            } else {
+              console.error("[wa-ai-reply] Failed to upload TTS audio to storage:", uploadErr.message);
+            }
+          } else {
+            console.error("[wa-ai-reply] OpenAI TTS failed:", await ttsRes.text());
+          }
+        } catch (ttsErr: any) {
+          console.error("[wa-ai-reply] TTS generation error:", ttsErr.message);
+        }
+      }
+
       // 10. Draft mode
       if (aiConfig.draft_mode) {
         await supabase.from("imphq_wa_ai_drafts").insert({
@@ -519,13 +629,26 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       if (provider.provider === "evolution") {
         const base = provider.api_url.replace(/\/+$/, "");
         const inst = encodeURIComponent(provider.instance_name);
-        const url = `${base}/message/sendText/${inst}`;
-        console.log(`[wa-ai-reply] Enviando via Evolution: ${url} → ${phone}`);
+        
+        let url = `${base}/message/sendText/${inst}`;
+        let bodyPayload: any = { number: phone + "@s.whatsapp.net", text: aiReply };
+
+        if (responseAudioUrl) {
+          url = `${base}/message/sendAudio/${inst}`;
+          bodyPayload = {
+            number: phone + "@s.whatsapp.net",
+            audio: responseAudioUrl,
+            options: { delay: 1000, presence: "composing" }
+          };
+          console.log(`[wa-ai-reply] Enviando ÁUDIO via Evolution: ${url} → ${phone}`);
+        } else {
+          console.log(`[wa-ai-reply] Enviando TEXTO via Evolution: ${url} → ${phone}`);
+        }
 
         const sendRes = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: provider.api_key },
-          body: JSON.stringify({ number: phone + "@s.whatsapp.net", text: aiReply }),
+          body: JSON.stringify(bodyPayload),
         });
         const sendData = await sendRes.json().catch(() => ({}));
         console.log(`[wa-ai-reply] Evolution status=${sendRes.status} data=${JSON.stringify(sendData).slice(0, 200)}`);

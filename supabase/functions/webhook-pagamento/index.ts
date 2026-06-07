@@ -727,6 +727,29 @@ Deno.serve(async (req) => {
         }
         await supabase.from("imphq_vendas").update(upd).eq("id", promotable.id);
         console.log("[webhook-pagamento] Promoted pending sale to aprovado:", promotable.id);
+
+        // Register A/B test conversion
+        try {
+          const { data: recentLog } = await supabase
+            .from("imphq_wa_ab_test_logs")
+            .select("id, variant_id")
+            .eq("lead_id", leadId)
+            .eq("converted", false)
+            .order("enrolled_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (recentLog) {
+            await supabase
+              .from("imphq_wa_ab_test_logs")
+              .update({ converted: true, converted_at: new Date().toISOString() })
+              .eq("id", recentLog.id);
+            await supabase.rpc("increment_ab_variant_conversion", { p_variant_id: recentLog.variant_id });
+            console.log(`[webhook-pagamento] Registered A/B test conversion for variant: ${recentLog.variant_id}`);
+          }
+        } catch (abErr: any) {
+          console.error("[webhook-pagamento] Error updating A/B test conversion:", abErr.message);
+        }
       } else {
 
       // Deduplication: try external_transaction_id first (strongest), fallback to 5-min window
@@ -799,6 +822,29 @@ Deno.serve(async (req) => {
           }
         } else {
           console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
+
+          // Register A/B test conversion
+          try {
+            const { data: recentLog } = await supabase
+              .from("imphq_wa_ab_test_logs")
+              .select("id, variant_id")
+              .eq("lead_id", leadId)
+              .eq("converted", false)
+              .order("enrolled_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (recentLog) {
+              await supabase
+                .from("imphq_wa_ab_test_logs")
+                .update({ converted: true, converted_at: new Date().toISOString() })
+                .eq("id", recentLog.id);
+              await supabase.rpc("increment_ab_variant_conversion", { p_variant_id: recentLog.variant_id });
+              console.log(`[webhook-pagamento] Registered A/B test conversion for variant: ${recentLog.variant_id}`);
+            }
+          } catch (abErr: any) {
+            console.error("[webhook-pagamento] Error updating A/B test conversion:", abErr.message);
+          }
         }
       }
       } // end of else (no promotable pending sale)

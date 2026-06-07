@@ -365,7 +365,76 @@ Deno.serve(async (req) => {
               // Resolve link: lead_data.link > auto.link_checkout > ""
               const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
 
-              const msgText = (step.mensagem || "")
+              // ── A/B Testing Copy override
+              let selectedVariantId = null;
+              let selectedTestId = null;
+              let selectedMsgTemplate = step.mensagem || "";
+
+              try {
+                // Check for active A/B test for this trigger stage
+                const { data: activeTest } = await supabase
+                  .from("imphq_wa_ab_tests")
+                  .select("id, winner_variant_id")
+                  .eq("project_id", project_id)
+                  .eq("trigger_stage", trigger_tipo)
+                  .eq("active", true)
+                  .maybeSingle();
+
+                if (activeTest) {
+                  selectedTestId = activeTest.id;
+                  if (activeTest.winner_variant_id) {
+                    // Winner already promoted
+                    const { data: winnerVar } = await supabase
+                      .from("imphq_wa_ab_test_variants")
+                      .select("id, message_template")
+                      .eq("id", activeTest.winner_variant_id)
+                      .maybeSingle();
+                    if (winnerVar) {
+                      selectedVariantId = winnerVar.id;
+                      selectedMsgTemplate = winnerVar.message_template;
+                      console.log(`[openflow-executor] Using A/B test promoted winner variant: ${winnerVar.id}`);
+                    }
+                  } else {
+                    // Test running: select variant by traffic percentage
+                    const { data: variants } = await supabase
+                      .from("imphq_wa_ab_test_variants")
+                      .select("id, message_template, traffic_percentage")
+                      .eq("test_id", activeTest.id)
+                      .eq("active", true);
+
+                    if (variants && variants.length > 0) {
+                      const rand = Math.floor(Math.random() * 100);
+                      let cumulative = 0;
+                      let chosen = variants[0];
+                      for (const v of variants) {
+                        cumulative += v.traffic_percentage || 0;
+                        if (rand < cumulative) {
+                          chosen = v;
+                          break;
+                        }
+                      }
+                      selectedVariantId = chosen.id;
+                      selectedMsgTemplate = chosen.message_template;
+                      console.log(`[openflow-executor] Enrolled lead ${lead_data?.lead_id} in A/B test variant: ${chosen.id}`);
+
+                      // Log enrollment
+                      if (lead_data?.lead_id) {
+                        await supabase.from("imphq_wa_ab_test_logs").insert({
+                          test_id: activeTest.id,
+                          variant_id: chosen.id,
+                          lead_id: lead_data.lead_id,
+                        });
+                        // Increment sent count
+                        await supabase.rpc("increment_ab_variant_sent", { p_variant_id: chosen.id });
+                      }
+                    }
+                  }
+                }
+              } catch (abErr: any) {
+                console.error("[openflow-executor] Error in A/B test resolution:", abErr.message);
+              }
+
+              const msgText = selectedMsgTemplate
                 .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
                 .replace(/\{\{email\}\}/g, lead_data?.email || "")
                 .replace(/\{\{produto\}\}/g, lead_data?.produto || "")

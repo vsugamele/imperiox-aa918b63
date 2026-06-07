@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Kanban, Users, DollarSign,
   Search, Brain, Workflow, FileText, MessageSquare, Instagram, Link2, Image,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot, Compass, Radio, FlaskConical
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Target, KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Layers, Activity, Clapperboard, Library, Bot, Compass, Radio, FlaskConical, Split, Smartphone
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,6 +18,8 @@ const operarItems = [
   { title: "Leads", url: "/leads", icon: Users },
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare },
   { title: "SDR Coach", url: "/sdr-coach", icon: UsersRound },
+  { title: "Testes A/B", url: "/ab-tests", icon: Split },
+  { title: "Mobile Cockpit", url: "/mobile-cockpit", icon: Smartphone },
   { title: "Instagram", url: "/instagram", icon: Instagram },
   { title: "OpenFlow", url: "/openflow", icon: Workflow },
   { title: "Recuperação", url: "/recuperacao", icon: LifeBuoy },

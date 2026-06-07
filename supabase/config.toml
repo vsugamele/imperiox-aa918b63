@@ -71,3 +71,11 @@ verify_jwt = false
 
 [functions.wa-learn-from-human]
 verify_jwt = false
+
+[functions.wa-ab-test-evaluator]
+verify_jwt = false
+
+[functions.weekly-backup]
+verify_jwt = false
+
+

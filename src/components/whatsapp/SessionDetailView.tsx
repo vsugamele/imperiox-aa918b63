@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, ExternalLink, Trash2, Phone, Tag, X, Loader2, Users } from "lucide-react";
+import { Copy, ExternalLink, Trash2, Phone, Tag, X, Loader2, Users, Eye, Activity, DollarSign, History } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
@@ -101,6 +104,35 @@ export default function SessionDetailView({ session, projectName, providerLabel,
 
   const [lead, setLead] = useState<any>(null);
   const [loadingLead, setLoadingLead] = useState(false);
+  const [sessionEvents, setSessionEvents] = useState<any[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+
+  const loadSessionEvents = useCallback(async () => {
+    if (!lead?.id) return;
+    setLoadingEvents(true);
+    try {
+      const { data, error } = await supabase
+        .from("imphq_lead_session_events")
+        .select("*")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        setSessionEvents(data);
+      }
+    } catch (err) {
+      console.error("[SessionDetailView] Error loading session events:", err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, [lead?.id]);
+
+  useEffect(() => {
+    if (lead?.id) {
+      loadSessionEvents();
+    } else {
+      setSessionEvents([]);
+    }
+  }, [lead?.id, loadSessionEvents]);
 
   const loadLead = useCallback(async () => {
     setLoadingLead(true);
@@ -221,7 +253,7 @@ export default function SessionDetailView({ session, projectName, providerLabel,
         <Card className="bg-card border-border border-purple-500/20">
           <CardContent className="space-y-3 pt-5">
             <h4 className="font-semibold text-sm flex items-center gap-1.5 text-purple-400">
-              <span className="text-base">🧠</span> Inteligência IA (Dores & Desejos)
+              <span className="text-base">🧠</span>  Inteligência IA (Dores & Desejos)
             </h4>
 
             {(() => {
@@ -291,6 +323,72 @@ export default function SessionDetailView({ session, projectName, providerLabel,
                   </div>
                 </div>
               );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Jornada (Replay) Card */}
+      {lead && (
+        <Card className="bg-card border-border">
+          <CardContent className="space-y-4 pt-5">
+            <h4 className="font-semibold text-sm flex items-center gap-1.5 text-orange-400">
+              <History className="h-4 w-4" /> Jornada (Replay)
+            </h4>
+            
+            {loadingEvents ? (
+              <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : sessionEvents.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 text-center">
+                Nenhuma navegação registrada para este lead ainda.
+              </p>
+            ) : (
+              <div className="relative border-l border-border/40 pl-4 ml-2 space-y-4 my-2">
+                {sessionEvents.map((evt) => {
+                  let icon = <Eye className="h-3.5 w-3.5" />;
+                  let color = "text-blue-400 bg-blue-500/10 border-blue-500/20";
+                  let title = evt.event_name;
+                  let subtitle = evt.url || "";
+
+                  if (evt.event_name.toLowerCase().includes("click")) {
+                    icon = <Activity className="h-3.5 w-3.5" />;
+                    color = "text-amber-400 bg-amber-500/10 border-amber-500/20";
+                    title = evt.payload?.button_text ? `Clique: ${evt.payload.button_text}` : "Clique em Botão";
+                  } else if (evt.event_name.toLowerCase().includes("checkout") || evt.event_name.toLowerCase().includes("buy")) {
+                    icon = <DollarSign className="h-3.5 w-3.5" />;
+                    color = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+                    title = evt.payload?.product_name ? `Checkout: ${evt.payload.product_name}` : "Checkout Acessado";
+                  } else if (evt.event_name.toLowerCase().includes("page") || evt.event_name.toLowerCase().includes("view")) {
+                    icon = <Eye className="h-3.5 w-3.5" />;
+                    color = "text-blue-400 bg-blue-500/10 border-blue-500/20";
+                    title = "Página Vista";
+                  }
+
+                  return (
+                    <div key={evt.id} className="relative">
+                      {/* Timeline dot */}
+                      <span className={cn("absolute -left-[23px] top-0.5 rounded-full p-0.5 border", color)}>
+                        {icon}
+                      </span>
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-foreground capitalize">{title}</span>
+                          <span className="text-[9px] text-muted-foreground/60">
+                            {formatDistanceToNow(new Date(evt.created_at), { addSuffix: true, locale: ptBR })}
+                          </span>
+                        </div>
+                        {subtitle && <p className="text-[10px] text-muted-foreground break-all">{subtitle}</p>}
+                        {evt.payload && Object.keys(evt.payload).length > 0 && !evt.payload.button_text && !evt.payload.product_name && (
+                          <pre className="text-[9px] bg-slate-950/40 p-1.5 rounded border border-border/15 font-mono text-muted-foreground mt-1 max-h-16 overflow-y-auto">
+                            {JSON.stringify(evt.payload, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}     );
             })()}
           </CardContent>
         </Card>

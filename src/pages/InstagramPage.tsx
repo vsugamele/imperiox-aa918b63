@@ -82,10 +82,18 @@ export default function InstagramPage() {
   
   // Tab control
   const [activeMainTab, setActiveMainTab] = useState<"dms" | "comments" | "brain" | "triggers" | "funil" | "sequencias">("dms");
-  const [brainSubTab, setBrainSubTab] = useState<"config" | "rag" | "aprendizado">("config");
+  const [brainSubTab, setBrainSubTab] = useState<"config" | "rag" | "aprendizado" | "objecoes">("config");
   const [feedbackMessages, setFeedbackMessages] = useState<any[]>([]);
   const [promptEvolutions, setPromptEvolutions] = useState<any[]>([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+
+  // Objeções Calibradas state
+  const [objections, setObjections] = useState<any[]>([]);
+  const [loadingObjections, setLoadingObjections] = useState(false);
+  const [showObjectionDialog, setShowObjectionDialog] = useState(false);
+  const [editingObjection, setEditingObjection] = useState<any | null>(null);
+  const [objForm, setObjForm] = useState({ objecao: "", resposta_padrao: "", contexto_produto: "", status: "ativa" });
+  const [savingObjection, setSavingObjection] = useState(false);
   
   // DMs state
   const [conversations, setConversations] = useState<IgConversation[]>([]);
@@ -913,6 +921,110 @@ export default function InstagramPage() {
     }
     loadLearningData();
   }, [activeMainTab, brainSubTab, selectedProjectId]);
+
+  // Load data for Brain -> Objeções Calibradas subtab
+  const loadObjections = useCallback(async () => {
+    if (!selectedProjectId) return;
+    setLoadingObjections(true);
+    try {
+      const { data, error } = await supabase
+        .from("imphq_wa_objections")
+        .select("*")
+        .eq("projeto_id", selectedProjectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setObjections(data || []);
+    } catch (err: any) {
+      console.error("Erro ao carregar objeções:", err.message);
+      toast.error("Erro ao carregar objeções.");
+    } finally {
+      setLoadingObjections(false);
+    }
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (activeMainTab === "brain" && brainSubTab === "objecoes") {
+      loadObjections();
+    }
+  }, [activeMainTab, brainSubTab, loadObjections]);
+
+  const handleSaveObjection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProjectId) return;
+    if (!objForm.objecao.trim() || !objForm.resposta_padrao.trim()) {
+      toast.error("Preencha a objeção e a resposta.");
+      return;
+    }
+
+    setSavingObjection(true);
+    try {
+      toast.info("Gerando representação semântica (embedding) para a objeção...");
+      const { data: embData, error: embError } = await supabase.functions.invoke("wa-doc-embedder", {
+        body: { action: "get_embedding", text: `${objForm.objecao}\n${objForm.resposta_padrao}` }
+      });
+      if (embError) {
+        console.warn("Embedding generation failed, saving without embedding:", embError);
+      }
+      const embedding = embData?.embedding || null;
+
+      if (editingObjection) {
+        const { error } = await supabase
+          .from("imphq_wa_objections")
+          .update({
+            objecao: objForm.objecao,
+            resposta_padrao: objForm.resposta_padrao,
+            contexto_produto: objForm.contexto_produto,
+            status: objForm.status,
+            embedding,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", editingObjection.id);
+
+        if (error) throw error;
+        toast.success("Objeção atualizada com sucesso!");
+      } else {
+        const { error } = await supabase
+          .from("imphq_wa_objections")
+          .insert({
+            projeto_id: selectedProjectId,
+            objecao: objForm.objecao,
+            resposta_padrao: objForm.resposta_padrao,
+            contexto_produto: objForm.contexto_produto,
+            status: objForm.status,
+            origem: "manual",
+            embedding
+          });
+
+        if (error) throw error;
+        toast.success("Objeção cadastrada com sucesso!");
+      }
+
+      setShowObjectionDialog(false);
+      setEditingObjection(null);
+      setObjForm({ objecao: "", resposta_padrao: "", contexto_produto: "", status: "ativa" });
+      loadObjections();
+    } catch (err: any) {
+      console.error("Erro ao salvar objeção:", err.message);
+      toast.error("Erro ao salvar objeção: " + err.message);
+    } finally {
+      setSavingObjection(false);
+    }
+  };
+
+  const handleDeleteObjection = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta objeção?")) return;
+    try {
+      const { error } = await supabase
+        .from("imphq_wa_objections")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Objeção excluída.");
+      loadObjections();
+    } catch (err: any) {
+      toast.error("Erro ao excluir: " + err.message);
+    }
+  };
 
   // Human takeover toggle per conversation
   const handleToggleAiPaused = async (conv: IgConversation) => {
@@ -1978,6 +2090,15 @@ export default function InstagramPage() {
                       <GraduationCap className="h-3 w-3 mr-1.5" />
                       Aprendizado
                     </Button>
+                    <Button
+                      variant={brainSubTab === "objecoes" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="text-xs h-7 px-3"
+                      onClick={() => setBrainSubTab("objecoes")}
+                    >
+                      <ShieldAlert className="h-3 w-3 mr-1.5" />
+                      Objeções Calibradas
+                    </Button>
                   </div>
                 </div>
 
@@ -2280,7 +2401,191 @@ export default function InstagramPage() {
                           </div>
                         )}
                       </CardContent>
-                    </Card>
+                  </div>
+                )}
+
+                {brainSubTab === "objecoes" && (
+                  <div className="animate-fade-in space-y-4">
+                    <div className="flex justify-between items-center flex-wrap gap-4">
+                      <div>
+                        <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                          <ShieldAlert className="h-5 w-5 text-amber-500" />
+                          Biblioteca de Objeções Calibradas
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Cadastre objeções comuns de clientes e as respostas comerciais padrão para a IA usar via busca semântica (RAG).
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setEditingObjection(null);
+                          setObjForm({ objecao: "", resposta_padrao: "", contexto_produto: "", status: "ativa" });
+                          setShowObjectionDialog(true);
+                        }}
+                        className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold"
+                      >
+                        + Nova Objeção
+                      </Button>
+                    </div>
+
+                    {loadingObjections ? (
+                      <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                    ) : objections.length === 0 ? (
+                      <Card className="bg-card border-border/60">
+                        <CardContent className="p-8 text-center space-y-2">
+                          <Bot className="h-10 w-10 mx-auto text-muted-foreground/45" />
+                          <p className="text-sm font-semibold text-foreground">Nenhuma objeção cadastrada</p>
+                          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                            Cadastre objeções como "está caro" ou "vou falar com meu sócio" para calibrar as respostas da IA.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {objections.map((obj) => (
+                          <Card key={obj.id} className="bg-card border-border/60 hover:border-amber-500/20 transition-all shadow-md">
+                            <CardHeader className="p-4 border-b border-border/40 flex flex-row items-start justify-between gap-2">
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-amber-500">Objeção:</span>
+                                <CardTitle className="text-sm font-bold text-foreground leading-tight">"{obj.objecao}"</CardTitle>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Badge className={obj.status === "ativa" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-[10px]" : "bg-zinc-500/15 text-zinc-400 border-zinc-500/20 text-[10px]"}>
+                                  {obj.status}
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                                  onClick={() => {
+                                    setEditingObjection(obj);
+                                    setObjForm({
+                                      objecao: obj.objecao,
+                                      resposta_padrao: obj.resposta_padrao || "",
+                                      contexto_produto: obj.contexto_produto || "",
+                                      status: obj.status || "ativa"
+                                    });
+                                    setShowObjectionDialog(true);
+                                  }}
+                                >
+                                  <Settings2 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteObjection(obj.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3">
+                              <div className="space-y-1 text-xs">
+                                <span className="text-[9px] uppercase font-bold text-muted-foreground block">Contorno / Resposta Padrão Calibrada:</span>
+                                <p className="p-2.5 bg-slate-950/45 rounded-lg border border-border/20 text-foreground italic whitespace-pre-wrap">
+                                  "{obj.resposta_padrao}"
+                                </p>
+                              </div>
+                              {obj.contexto_produto && (
+                                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 bg-secondary/20 p-2 rounded-md border border-border/20">
+                                  <Info className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                  <span>Contexto/Produto: <strong>{obj.contexto_produto}</strong></span>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 border-t border-border/10 pt-2.5">
+                                <span>Origem: <strong className="capitalize">{obj.origem}</strong></span>
+                                <span>Usos: <strong className="text-amber-500">{obj.score_uso || 0}</strong></span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+
+                    <Dialog open={showObjectionDialog} onOpenChange={setShowObjectionDialog}>
+                      <DialogContent className="bg-slate-900 border-border text-foreground max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle className="text-base font-bold">
+                            {editingObjection ? "Editar Objeção Calibrada" : "Cadastrar Nova Objeção Calibrada"}
+                          </DialogTitle>
+                          <DialogDescription className="text-xs">
+                            Define a frase da objeção e a resposta comercial padrão para contorná-la. O sistema irá gerar um embedding vetorial automaticamente.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSaveObjection} className="space-y-4 pt-2">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="objecao" className="text-xs font-semibold">Frase da Objeção (O que o cliente diz)</Label>
+                            <Input
+                              id="objecao"
+                              value={objForm.objecao}
+                              onChange={(e) => setObjForm(prev => ({ ...prev, objecao: e.target.value }))}
+                              placeholder="Ex: está muito caro / preciso falar com minha esposa"
+                              className="bg-secondary/40 border-border/50 text-sm focus-visible:ring-amber-500"
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="resposta_padrao" className="text-xs font-semibold">Contorno Padrão (Resposta Ideal Calibrada)</Label>
+                            <textarea
+                              id="resposta_padrao"
+                              value={objForm.resposta_padrao}
+                              onChange={(e) => setObjForm(prev => ({ ...prev, resposta_padrao: e.target.value }))}
+                              placeholder="Ex: Entendo perfeitamente, mas se você pensar no retorno do investimento..."
+                              className="w-full h-24 p-2 rounded-md bg-secondary/40 border border-border/50 text-sm focus-visible:ring-amber-500 focus-visible:outline-none"
+                              required
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="contexto_produto" className="text-xs font-semibold">Contexto / Produto Associado</Label>
+                              <Input
+                                id="contexto_produto"
+                                value={objForm.contexto_produto}
+                                onChange={(e) => setObjForm(prev => ({ ...prev, contexto_produto: e.target.value }))}
+                                placeholder="Ex: Formação Closer / Geral"
+                                className="bg-secondary/40 border-border/50 text-sm focus-visible:ring-amber-500"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="status" className="text-xs font-semibold">Status</Label>
+                              <select
+                                id="status"
+                                value={objForm.status}
+                                onChange={(e) => setObjForm(prev => ({ ...prev, status: e.target.value }))}
+                                className="w-full h-10 px-2 rounded-md bg-secondary/40 border border-border/50 text-sm focus-visible:ring-amber-500 focus-visible:outline-none"
+                              >
+                                <option value="ativa">Ativa</option>
+                                <option value="inativa">Inativa</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => setShowObjectionDialog(false)}
+                              disabled={savingObjection}
+                              className="text-xs"
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              type="submit"
+                              disabled={savingObjection}
+                              className="bg-amber-500 hover:bg-amber-400 text-black text-xs gap-1.5 font-semibold"
+                            >
+                              {savingObjection && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                              {savingObjection ? "Salvando..." : "Salvar Objeção"}
+                            </Button>
+                          </div>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 )}
 
