@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter, Zap, Code, Calendar, Eye } from "lucide-react";
+import { Plus, Copy, Trash2, TrendingUp, DollarSign, MousePointerClick, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, BarChart3, Filter, Zap, Code, Calendar, Eye, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
@@ -104,6 +104,8 @@ export default function Tracker() {
   const [vendas, setVendas] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
+  const [clicks, setClicks] = useState<any[]>([]);
+  const [selectedFunnelLink, setSelectedFunnelLink] = useState<TrackingLink | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showTargets, setShowTargets] = useState(false);
   const [showScript, setShowScript] = useState(false);
@@ -121,16 +123,16 @@ export default function Tracker() {
   const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
 
   const load = async () => {
-    const [lRes, adsRes, vRes, pRes, leadsRes] = await Promise.all([
+    const [lRes, adsRes, vRes, pRes, leadsRes, cRes] = await Promise.all([
       supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }),
       supabase.from("imphq_vendas").select("*").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_leads").select("utm_source, score, created_at").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
+      supabase.from("imphq_clicks").select("id, link_id, convertido, lead_id, created_at").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
     ]);
-    // Also get click counts for links
-    const cRes = await supabase.from("imphq_clicks").select("link_id");
     const clicksData = cRes.data || [];
+    setClicks(clicksData);
     const enriched = (lRes.data || []).map((l: any) => ({
       ...l, clickCount: clicksData.filter((c: any) => c.link_id === l.id).length,
     }));
@@ -960,6 +962,7 @@ export default function Tracker() {
                       <TableCell><Switch checked={l.ativo} onCheckedChange={() => toggleAtivo(l)} /></TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => setSelectedFunnelLink(l)} title="Ver Funil de Vendas"><BarChart3 className="h-3.5 w-3.5 text-primary" /></Button>
                           <Button size="icon" variant="ghost" onClick={() => copyLink(l)}><Copy className="h-3 w-3" /></Button>
                           <Button size="icon" variant="ghost" onClick={() => deleteLink(l.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
                         </div>
@@ -1328,6 +1331,151 @@ export default function Tracker() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Funnel Dialog */}
+      <Dialog open={selectedFunnelLink !== null} onOpenChange={(open) => !open && setSelectedFunnelLink(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Funil de Vendas - {selectedFunnelLink?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedFunnelLink && (() => {
+            const linkClicks = clicks.filter(c => c.link_id === selectedFunnelLink.id);
+            const numClicks = linkClicks.length;
+            
+            const linkLeads = linkClicks.filter(c => c.convertido || c.lead_id);
+            const numLeads = linkLeads.length;
+            const leadIds = new Set(linkLeads.map(c => c.lead_id).filter(Boolean));
+            
+            const clickIds = new Set(linkClicks.map(c => c.id));
+            const linkVendas = vendas.filter(v => clickIds.has(v.click_id) || (v.lead_id && leadIds.has(v.lead_id)));
+            
+            const numCheckouts = linkVendas.length;
+            const linkSalesAprovadas = linkVendas.filter(v => v.status === 'aprovado');
+            const numSales = linkSalesAprovadas.length;
+            
+            const faturamento = linkSalesAprovadas.reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
+            const aov = numSales > 0 ? faturamento / numSales : 0;
+            
+            const linkSpend = adsSpend
+              .filter(a => selectedFunnelLink.utm_campaign && (a.campanha === selectedFunnelLink.utm_campaign || a.campanha?.includes(selectedFunnelLink.utm_campaign)))
+              .reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
+              
+            const roi = linkSpend > 0 ? ((faturamento - linkSpend) / linkSpend) * 100 : null;
+            const roas = linkSpend > 0 ? faturamento / linkSpend : null;
+            
+            const clickToLeadRate = numClicks > 0 ? (numLeads / numClicks) * 100 : 0;
+            const leadToCheckoutRate = numLeads > 0 ? (numCheckouts / numLeads) * 100 : 0;
+            const checkoutToSaleRate = numCheckouts > 0 ? (numSales / numCheckouts) * 100 : 0;
+            const overallConversion = numClicks > 0 ? (numSales / numClicks) * 100 : 0;
+            
+            return (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-lg bg-secondary/35 border border-border">
+                    <span className="text-xs text-muted-foreground block">Faturamento Gerado</span>
+                    <span className="text-xl font-bold font-mono text-emerald-400">R$ {faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="p-4 rounded-lg bg-secondary/35 border border-border">
+                    <span className="text-xs text-muted-foreground block">Ticket Médio (AOV)</span>
+                    <span className="text-xl font-bold font-mono text-foreground">R$ {aov.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                {linkSpend > 0 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg bg-secondary/35 border border-border">
+                      <span className="text-xs text-muted-foreground block">Investimento (Campanha)</span>
+                      <span className="text-xl font-bold font-mono text-red-400">R$ {linkSpend.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="p-4 rounded-lg bg-secondary/35 border border-border">
+                      <span className="text-xs text-muted-foreground block">ROI Estimado</span>
+                      <span className={`text-xl font-bold font-mono ${roi !== null && roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {roi !== null ? `${roi.toFixed(1)}%` : '—'} 
+                        {roas !== null && <span className="text-xs text-muted-foreground ml-1">({roas.toFixed(1)}x ROAS)</span>}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="space-y-4 pt-2">
+                  <h4 className="text-sm font-semibold text-foreground">Etapas do Funil</h4>
+                  
+                  <FunnelStage 
+                    label="1. Cliques" 
+                    value={numClicks} 
+                    pct={100} 
+                    colorClass="bg-blue-500" 
+                    desc="Cliques totais no link" 
+                  />
+                  
+                  <FunnelStage 
+                    label="2. Leads" 
+                    value={numLeads} 
+                    pct={clickToLeadRate} 
+                    colorClass="bg-violet-500" 
+                    desc={`${clickToLeadRate.toFixed(1)}% de conversão (Clique → Lead)`} 
+                  />
+                  
+                  <FunnelStage 
+                    label="3. Checkouts Iniciados" 
+                    value={numCheckouts} 
+                    pct={numClicks > 0 ? (numCheckouts / numClicks) * 100 : 0} 
+                    subPct={leadToCheckoutRate}
+                    colorClass="bg-amber-500" 
+                    desc={`${leadToCheckoutRate.toFixed(1)}% de conversão (Lead → Checkout)`} 
+                  />
+                  
+                  <FunnelStage 
+                    label="4. Vendas Concluídas" 
+                    value={numSales} 
+                    pct={overallConversion} 
+                    subPct={checkoutToSaleRate}
+                    colorClass="bg-emerald-500" 
+                    desc={`${checkoutToSaleRate.toFixed(1)}% de conversão (Checkout → Venda) · Global: ${overallConversion.toFixed(1)}%`} 
+                  />
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function FunnelStage({ label, value, pct, subPct, colorClass, desc }: {
+  label: string;
+  value: number;
+  pct: number;
+  subPct?: number;
+  colorClass: string;
+  desc: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center text-xs font-semibold text-foreground">
+        <span>{label}</span>
+        <span className="font-mono text-primary font-bold">
+          {value.toLocaleString("pt-BR")} 
+          <span className="text-[10px] text-muted-foreground ml-1">({pct.toFixed(1)}%)</span>
+        </span>
+      </div>
+      <div className="h-3 w-full bg-secondary rounded-full overflow-hidden relative border border-border/20">
+        <div 
+          className={`h-full ${colorClass} transition-all duration-500`} 
+          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} 
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground flex justify-between">
+        <span>{desc}</span>
+        {subPct !== undefined && (
+          <span>Conversão etapa anterior: <strong className="text-foreground font-mono">{subPct.toFixed(1)}%</strong></span>
+        )}
+      </p>
     </div>
   );
 }

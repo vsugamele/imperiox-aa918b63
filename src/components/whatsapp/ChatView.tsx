@@ -206,6 +206,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const newestTimestampRef = useRef<string | null>(null);
     const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
     const [loadingCopilot, setLoadingCopilot] = useState(false);
+    const [objections, setObjections] = useState<any[]>([]);
 
     // Recording voice states
     const [recordingState, setRecordingState] = useState<"idle" | "recording" | "preview">("idle");
@@ -600,6 +601,17 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .eq("is_active", true)
         .order("trigger_word")
         .then(({ data }) => setCommands((data as any[]) || []));
+    }, [projectId]);
+
+    // Load objections matching current project ID
+    useEffect(() => {
+      if (!projectId) return;
+      supabase
+        .from("imphq_wa_objections")
+        .select("id, objecao, resposta_padrao")
+        .eq("projeto_id", projectId)
+        .order("objecao")
+        .then(({ data }) => setObjections(data || []));
     }, [projectId]);
 
     // Keep newestTimestampRef in sync
@@ -1082,6 +1094,30 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Calibrated Objections Pill Bar */}
+          {objections.length > 0 && (
+            <div className="max-w-3xl mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none">
+              <span className="text-[10px] text-muted-foreground font-semibold shrink-0 bg-secondary/50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                🛡️ Objeções:
+              </span>
+              {objections.map((obj) => (
+                <button
+                  key={obj.id}
+                  type="button"
+                  onClick={() => {
+                    setText(obj.resposta_padrao);
+                    textareaRef.current?.focus();
+                    toast.success("Resposta de objeção colada!");
+                  }}
+                  className="shrink-0 text-[11px] bg-secondary/40 border border-border/60 hover:bg-primary/10 hover:border-primary/30 transition-all rounded-full px-2.5 py-0.5 text-muted-foreground hover:text-primary active:scale-95"
+                  title={obj.resposta_padrao}
+                >
+                  {obj.objecao}
+                </button>
+              ))}
             </div>
           )}
 
