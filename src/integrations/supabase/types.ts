@@ -21126,16 +21126,61 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_sdr_coach_audits: {
+        Row: {
+          created_at: string
+          detalhes: Json
+          id: string
+          objecao_travou: string
+          periodo_fim: string
+          periodo_inicio: string
+          ponto_forte: string
+          ponto_fraco: string
+          project_id: string
+          score: number
+          vendedor_name: string
+        }
+        Insert: {
+          created_at?: string
+          detalhes: Json
+          id?: string
+          objecao_travou: string
+          periodo_fim: string
+          periodo_inicio: string
+          ponto_forte: string
+          ponto_fraco: string
+          project_id: string
+          score: number
+          vendedor_name: string
+        }
+        Update: {
+          created_at?: string
+          detalhes?: Json
+          id?: string
+          objecao_travou?: string
+          periodo_fim?: string
+          periodo_inicio?: string
+          ponto_forte?: string
+          ponto_fraco?: string
+          project_id?: string
+          score?: number
+          vendedor_name?: string
+        }
+        Relationships: []
+      }
       imphq_skill_outputs: {
         Row: {
           created_at: string | null
           created_by: string | null
           extra_instructions: string | null
+          feedback: string | null
+          feedback_correction: string | null
           id: string
           model: string | null
           pipeline_id: string | null
           produto: string | null
           project_id: string | null
+          refined: boolean | null
           result: string
           skill_id: string
           skill_nome: string | null
@@ -21144,11 +21189,14 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           extra_instructions?: string | null
+          feedback?: string | null
+          feedback_correction?: string | null
           id?: string
           model?: string | null
           pipeline_id?: string | null
           produto?: string | null
           project_id?: string | null
+          refined?: boolean | null
           result: string
           skill_id: string
           skill_nome?: string | null
@@ -21157,11 +21205,14 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           extra_instructions?: string | null
+          feedback?: string | null
+          feedback_correction?: string | null
           id?: string
           model?: string | null
           pipeline_id?: string | null
           produto?: string | null
           project_id?: string | null
+          refined?: boolean | null
           result?: string
           skill_id?: string
           skill_nome?: string | null
@@ -23157,6 +23208,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      imphq_wa_lead_memory: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string
+          id: string
+          lead_id: string | null
+          phone: string
+          project_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding: string
+          id?: string
+          lead_id?: string | null
+          phone: string
+          project_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string
+          id?: string
+          lead_id?: string | null
+          phone?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_lead_memory_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_wa_messages: {
         Row: {
@@ -40636,6 +40725,20 @@ export type Database = {
           id: string
           pergunta: string
           resposta: string
+          similarity: number
+        }[]
+      }
+      match_wa_lead_memory: {
+        Args: {
+          match_count: number
+          min_similarity: number
+          p_phone: string
+          p_project_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
           similarity: number
         }[]
       }
