@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
@@ -206,6 +206,120 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const newestTimestampRef = useRef<string | null>(null);
     const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
     const [loadingCopilot, setLoadingCopilot] = useState(false);
+
+    // Recording voice states
+    const [recordingState, setRecordingState] = useState<"idle" | "recording" | "preview">("idle");
+    const [recordTime, setRecordTime] = useState(0);
+    const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+    
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const timerIntervalRef = useRef<any>(null);
+    const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+    const startRecording = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
+        const recorder = new MediaRecorder(stream, { mimeType: "audio/ogg; codecs=opus" });
+        
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          const blob = new Blob(audioChunksRef.current, { type: "audio/ogg; codecs=opus" });
+          const url = URL.createObjectURL(blob);
+          setAudioBlob(blob);
+          setAudioUrl(url);
+          setRecordingState("preview");
+          
+          // Stop all audio tracks to release the microphone
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorderRef.current = recorder;
+        recorder.start();
+        setRecordingState("recording");
+        setRecordTime(0);
+
+        timerIntervalRef.current = setInterval(() => {
+          setRecordTime(prev => prev + 1);
+        }, 1000);
+
+      } catch (err: any) {
+        toast.error("Erro ao acessar microfone: " + (err.message || err));
+      }
+    };
+
+    const stopRecording = () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+
+    const cancelRecording = () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      
+      // Cleanup preview audio player if active
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      setIsPlayingPreview(false);
+      
+      setAudioBlob(null);
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+      audioChunksRef.current = [];
+      setRecordingState("idle");
+    };
+
+    const togglePlayPreview = () => {
+      if (!audioUrl) return;
+      if (isPlayingPreview) {
+        audioPlayerRef.current?.pause();
+        setIsPlayingPreview(false);
+      } else {
+        if (!audioPlayerRef.current) {
+          const player = new Audio(audioUrl);
+          player.onended = () => setIsPlayingPreview(false);
+          audioPlayerRef.current = player;
+        }
+        audioPlayerRef.current.play();
+        setIsPlayingPreview(true);
+      }
+    };
+
+    const sendRecordedAudio = async () => {
+      if (!audioBlob) return;
+      const file = new File([audioBlob], `gravacao_${Date.now()}.ogg`, { type: "audio/ogg" });
+      await uploadAndSendFile(file, "");
+      cancelRecording(); // Resets and cleans up
+    };
+
+    useEffect(() => {
+      return () => {
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        if (audioPlayerRef.current) audioPlayerRef.current.pause();
+      };
+    }, []);
 
     // 🔥 Live temperature score based on last 5 messages
     const BUY_KEYWORDS = [
@@ -971,133 +1085,188 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             </div>
           )}
 
-          <div className="flex items-end gap-2 max-w-3xl mx-auto">
-            {/* Temperature badge */}
-            <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
-              temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
-              temperature === "warm" ? "bg-amber-500/20 text-amber-400" :
-              "bg-blue-500/10 text-blue-400/70"
-            }`} title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}>
-              {temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}
-            </div>
-            {/* Emoji picker */}
-            <Popover open={showEmoji} onOpenChange={setShowEmoji}>
-              <PopoverTrigger asChild>
-                <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Emojis">
-                  <Smile className="h-5 w-5 text-muted-foreground" />
+          {recordingState === "recording" ? (
+            <div className="flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse max-w-3xl mx-auto">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+                <span className="text-xs font-semibold text-red-400">Gravando áudio...</span>
+                <span className="text-xs font-mono text-muted-foreground ml-2 font-bold">
+                  {Math.floor(recordTime / 60).toString().padStart(2, "0")}:{(recordTime % 60).toString().padStart(2, "0")}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="icon" variant="ghost" onClick={cancelRecording} className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" title="Cancelar gravação">
+                  <Trash2 className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-2" align="start" side="top">
-                <div className="grid grid-cols-8 gap-0.5">
-                  {EMOJI_LIST.map(e => (
-                    <button key={e} className="text-lg hover:bg-muted rounded p-0.5 transition-colors"
-                      onClick={() => { setText(prev => prev + e); setShowEmoji(false); textareaRef.current?.focus(); }}>
-                      {e}
-                    </button>
-                  ))}
+                <Button size="icon" onClick={stopRecording} className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white rounded-full shadow" title="Parar gravação">
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                </Button>
+              </div>
+            </div>
+          ) : recordingState === "preview" ? (
+            <div className="flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 max-w-3xl mx-auto">
+              <div className="flex items-center gap-3 flex-1">
+                <Button size="icon" variant="outline" onClick={togglePlayPreview} className="h-8 w-8 rounded-full border-primary/30 text-primary hover:bg-primary/5 shadow-sm">
+                  {isPlayingPreview ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+                </Button>
+                <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden relative border border-border/30">
+                  <div className="absolute top-0 left-0 h-full bg-primary animate-pulse" style={{ width: "100%" }} />
                 </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Attach media */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-            <Button
-              size="icon"
-              variant="ghost"
-              className="shrink-0 h-9 w-9 rounded-full"
-              title="Enviar mídia"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
-            </Button>
-
-            {/* Templates */}
-            {templates.length > 0 && (
-              <Popover>
+                <span className="text-[11px] font-medium text-muted-foreground mr-2 select-none">Pré-escutar áudio</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="icon" variant="ghost" onClick={cancelRecording} className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" title="Deletar áudio">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button size="icon" onClick={sendRecordedAudio} className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow" title="Enviar áudio">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
+              {/* Temperature badge */}
+              <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
+                temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
+                temperature === "warm" ? "bg-amber-500/20 text-amber-400" :
+                "bg-blue-500/10 text-blue-400/70"
+              }`} title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}>
+                {temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}
+              </div>
+              {/* Emoji picker */}
+              <Popover open={showEmoji} onOpenChange={setShowEmoji}>
                 <PopoverTrigger asChild>
-                  <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Templates">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Emojis">
+                    <Smile className="h-5 w-5 text-muted-foreground" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-56 p-1" align="start" side="top">
-                  <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
-                  {templates.map(t => (
-                    <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
-                      onClick={() => { setText(t.content); textareaRef.current?.focus(); }}>
-                      {t.name}
-                    </button>
-                  ))}
+                <PopoverContent className="w-52 p-2" align="start" side="top">
+                  <div className="grid grid-cols-8 gap-0.5">
+                    {EMOJI_LIST.map(e => (
+                      <button key={e} className="text-lg hover:bg-muted rounded p-0.5 transition-colors"
+                        onClick={() => { setText(prev => prev + e); setShowEmoji(false); textareaRef.current?.focus(); }}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
                 </PopoverContent>
               </Popover>
-            )}
 
-            {/* AI Copilot Suggestion */}
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="shrink-0 h-9 w-9 rounded-full text-primary hover:text-primary/80 hover:bg-primary/5"
-              title="Pedir sugestão da IA (Copilot)"
-              onClick={generateCopilotSuggestion}
-              disabled={loadingCopilot || messages.length === 0}
-            >
-              {loadingCopilot ? (
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              ) : (
-                <Brain className="h-4 w-4 text-primary" />
+              {/* Attach media */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="shrink-0 h-9 w-9 rounded-full"
+                title="Enviar mídia"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+
+              {/* Templates */}
+              {templates.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Templates">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-1" align="start" side="top">
+                    <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
+                    {templates.map(t => (
+                      <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
+                        onClick={() => { setText(t.content); textareaRef.current?.focus(); }}>
+                        {t.name}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
               )}
-            </Button>
 
-            {/* 3 opções rápidas (empática, técnica, fechamento) */}
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className={`shrink-0 h-9 w-9 rounded-full hover:bg-amber-500/10 ${
-                showQuickSuggest ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground"
-              }`}
-              title="3 sugestões de resposta (empática, técnica, fechamento)"
-              onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()}
-              disabled={loadingQuick || messages.length === 0}
-            >
-              <Sparkles className="h-4 w-4" />
-            </Button>
+              {/* AI Copilot Suggestion */}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="shrink-0 h-9 w-9 rounded-full text-primary hover:text-primary/80 hover:bg-primary/5"
+                title="Pedir sugestão da IA (Copilot)"
+                onClick={generateCopilotSuggestion}
+                disabled={loadingCopilot || messages.length === 0}
+              >
+                {loadingCopilot ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <Brain className="h-4 w-4 text-primary" />
+                )}
+              </Button>
 
-            {/* Message input */}
-            <Textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleTextChange}
-              placeholder="Digite sua mensagem... (/ para comandos)"
-              onFocus={() => { isComposingRef.current = true; }}
-              onBlur={() => { isComposingRef.current = false; }}
-              onPaste={handlePaste}
+              {/* 3 opções rápidas (empática, técnica, fechamento) */}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className={`shrink-0 h-9 w-9 rounded-full hover:bg-amber-500/10 ${
+                  showQuickSuggest ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground"
+                }`}
+                title="3 sugestões de resposta (empática, técnica, fechamento)"
+                onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()}
+                disabled={loadingQuick || messages.length === 0}
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
 
-              onKeyDown={e => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-              }}
-              disabled={sending}
-              className="min-h-[36px] max-h-[120px] resize-none py-2 rounded-2xl bg-background border-border/50 text-sm"
-              rows={1}
-            />
+              {/* Message input */}
+              <Textarea
+                ref={textareaRef}
+                value={text}
+                onChange={handleTextChange}
+                placeholder="Digite sua mensagem... (/ para comandos)"
+                onFocus={() => { isComposingRef.current = true; }}
+                onBlur={() => { isComposingRef.current = false; }}
+                onPaste={handlePaste}
 
-            {/* Send button */}
-            <Button
-              size="icon"
-              onClick={send}
-              disabled={sending || !text.trim()}
-              className="shrink-0 h-9 w-9 rounded-full bg-emerald-600 hover:bg-emerald-700"
-            >
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </div>
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                }}
+                disabled={sending}
+                className="min-h-[36px] max-h-[120px] resize-none py-2 rounded-2xl bg-background border-border/50 text-sm"
+                rows={1}
+              />
+
+              {/* Send or Record button */}
+              {!text.trim() ? (
+                <Button
+                  size="icon"
+                  onClick={startRecording}
+                  type="button"
+                  className="shrink-0 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow"
+                  title="Gravar áudio"
+                >
+                  <Mic className="h-4.5 w-4.5" />
+                </Button>
+              ) : (
+                <Button
+                  size="icon"
+                  onClick={send}
+                  disabled={sending || !text.trim()}
+                  className="shrink-0 h-9 w-9 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow text-white"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

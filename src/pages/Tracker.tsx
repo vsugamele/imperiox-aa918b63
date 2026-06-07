@@ -103,6 +103,7 @@ export default function Tracker() {
   const [adsSpend, setAdsSpend] = useState<AdsSpendRow[]>([]);
   const [vendas, setVendas] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [showTargets, setShowTargets] = useState(false);
   const [showScript, setShowScript] = useState(false);
@@ -113,15 +114,19 @@ export default function Tracker() {
   const [datePeriod, setDatePeriod] = useState("30d");
   const [allProducts, setAllProducts] = useState<string[]>([]);
   const [form, setForm] = useState({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
+  const [selectedUtm, setSelectedUtm] = useState<string>("");
+  const [additionalInvestment, setAdditionalInvestment] = useState<number>(5000);
+  const [realisticScale, setRealisticScale] = useState<boolean>(true);
 
   const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
 
   const load = async () => {
-    const [lRes, adsRes, vRes, pRes] = await Promise.all([
+    const [lRes, adsRes, vRes, pRes, leadsRes] = await Promise.all([
       supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }),
       supabase.from("imphq_vendas").select("*").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
       supabase.from("imphq_projects").select("id, name").order("name"),
+      supabase.from("imphq_leads").select("utm_source, score, created_at").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
     ]);
     // Also get click counts for links
     const cRes = await supabase.from("imphq_clicks").select("link_id");
@@ -133,6 +138,7 @@ export default function Tracker() {
     setAdsSpend((adsRes.data || []) as any);
     setVendas(vRes.data || []);
     setProjects(pRes.data || []);
+    setLeads(leadsRes.data || []);
     // Extract unique product names
     const prods = [...new Set((vRes.data || []).map((v: any) => v.produto_nome as string).filter(Boolean))].sort();
     setAllProducts(prods);
@@ -411,6 +417,127 @@ export default function Tracker() {
 })();
 </script>`;
 
+  // ── SIMULADOR DE ESCALA DE TRÁFEGO LÓGICA ──
+  const utmSourcesList = useMemo(() => {
+    const sources = new Set<string>();
+    adsSpend.forEach(a => {
+      if (a.plataforma) {
+        if (a.plataforma.toLowerCase().includes("facebook") || a.plataforma.toLowerCase().includes("meta")) {
+          sources.add("FB");
+        } else if (a.plataforma.toLowerCase().includes("google")) {
+          sources.add("google");
+        } else if (a.plataforma.toLowerCase().includes("tiktok")) {
+          sources.add("tiktok");
+        } else {
+          sources.add(a.plataforma);
+        }
+      }
+    });
+    vendas.forEach(v => {
+      if (v.utm_source) sources.add(v.utm_source);
+    });
+    leads.forEach(l => {
+      if (l.utm_source) sources.add(l.utm_source);
+    });
+    
+    if (sources.size === 0) {
+      sources.add("FB");
+      sources.add("google");
+      sources.add("tiktok");
+    }
+    return Array.from(sources);
+  }, [adsSpend, vendas, leads]);
+
+  const utmToPlatform = (utm: string) => {
+    const u = utm.toLowerCase();
+    if (u.includes("fb") || u.includes("facebook") || u.includes("meta")) return "Facebook";
+    if (u.includes("google")) return "Google Ads";
+    if (u.includes("tiktok")) return "TikTok Ads";
+    if (u.includes("kwai")) return "Kwai Ads";
+    if (u.includes("email")) return "Email";
+    return "Outro";
+  };
+
+  const simulationMetrics = useMemo(() => {
+    const activeUtm = selectedUtm || utmSourcesList[0] || "FB";
+    const platformName = utmToPlatform(activeUtm);
+
+    const historicalSpend = adsSpend
+      .filter(a => a.plataforma === platformName || (platformName === "Facebook" && a.plataforma === "Meta Ads"))
+      .reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
+    const baseBudget = Math.max(historicalSpend, 1000);
+
+    const leadsListForUtm = leads.filter(l => l.utm_source === activeUtm || (activeUtm === "FB" && (l.utm_source === "facebook" || l.utm_source === "Meta Ads" || l.utm_source === "FB")));
+    const historicalLeadsCount = leadsListForUtm.length;
+
+    const salesListForUtm = vendas.filter(v => v.utm_source === activeUtm || (activeUtm === "FB" && (v.utm_source === "facebook" || v.utm_source === "Meta Ads" || v.utm_source === "FB")));
+    const historicalSalesCount = salesListForUtm.length;
+    const historicalRevenue = salesListForUtm.reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
+
+    const baseCpl = historicalLeadsCount > 0 ? historicalSpend / historicalLeadsCount : 6.00;
+    const baseCr = historicalLeadsCount > 0 ? historicalSalesCount / historicalLeadsCount : 0.025;
+    const baseAov = historicalSalesCount > 0 ? historicalRevenue / historicalSalesCount : 497.00;
+
+    const validScores = leadsListForUtm.map(l => l.score).filter(s => s !== null && s !== undefined);
+    const avgMlScore = validScores.length > 0 ? validScores.reduce((s, x) => s + x, 0) / validScores.length : 50;
+    const mlMultiplier = avgMlScore / 50;
+
+    const ratio = additionalInvestment / baseBudget;
+    const cplScaled = realisticScale ? baseCpl * (1 + 0.15 * Math.log(1 + ratio)) : baseCpl;
+    const crScaled = realisticScale ? baseCr * (1 - 0.08 * Math.log(1 + ratio)) : baseCr;
+    const finalCrVal = Math.min(crScaled * mlMultiplier, 0.20);
+
+    const projectedLeads = additionalInvestment / cplScaled;
+    const projectedSales = projectedLeads * finalCrVal;
+    const projectedRevenue = projectedSales * baseAov;
+    const projectedRoas = additionalInvestment > 0 ? projectedRevenue / additionalInvestment : 0;
+    const projectedProfit = projectedRevenue - additionalInvestment;
+
+    const scaleSteps = [1000, 2000, 5000, 10000, 15000, 20000, 30000, 50000, 75000, 100000];
+    const chartData = scaleSteps.map(inv => {
+      const stepRatio = inv / baseBudget;
+      const stepCpl = realisticScale ? baseCpl * (1 + 0.15 * Math.log(1 + stepRatio)) : baseCpl;
+      const stepCr = realisticScale ? baseCr * (1 - 0.08 * Math.log(1 + stepRatio)) : baseCr;
+      const stepFinalCr = Math.min(stepCr * mlMultiplier, 0.20);
+      
+      const stepLeads = inv / stepCpl;
+      const stepSales = stepLeads * stepFinalCr;
+      const stepRevenue = stepSales * baseAov;
+      const stepRoas = inv > 0 ? stepRevenue / inv : 0;
+      const stepProfit = stepRevenue - inv;
+
+      return {
+        investimento: inv,
+        gastoLabel: `+R$ ${(inv / 1000).toFixed(0)}k`,
+        lucro: Math.round(stepProfit),
+        roas: parseFloat(stepRoas.toFixed(2)),
+        leads: Math.round(stepLeads),
+        vendas: parseFloat(stepSales.toFixed(1))
+      };
+    });
+
+    return {
+      activeUtm,
+      historicalSpend,
+      historicalLeadsCount,
+      historicalSalesCount,
+      historicalRevenue,
+      baseCpl,
+      baseCr,
+      baseAov,
+      avgMlScore,
+      mlMultiplier,
+      cplScaled,
+      finalCrVal,
+      projectedLeads,
+      projectedSales,
+      projectedRevenue,
+      projectedRoas,
+      projectedProfit,
+      chartData
+    };
+  }, [selectedUtm, utmSourcesList, adsSpend, vendas, leads, additionalInvestment, realisticScale]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -473,6 +600,7 @@ export default function Tracker() {
         <TabsList>
           <TabsTrigger value="dashboard"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Dashboard</TabsTrigger>
           <TabsTrigger value="links"><MousePointerClick className="h-3.5 w-3.5 mr-1" /> Links UTM</TabsTrigger>
+          <TabsTrigger value="simulator"><TrendingUp className="h-3.5 w-3.5 mr-1" /> Simulador de Escala</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
@@ -824,6 +952,183 @@ export default function Tracker() {
               </TableBody>
             </Table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="simulator" className="space-y-6">
+          <Card className="border-border/50 bg-card/60 backdrop-blur-md">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left Controls Column */}
+                <div className="lg:col-span-4 space-y-6">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-1">🎛️ Parâmetros de Escala</h3>
+                    <p className="text-[11px] text-muted-foreground leading-normal">
+                      Configure as variáveis de tráfego adicional para simular a curva de ROI.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-muted-foreground">Canal de Origem (utm_source)</Label>
+                      <Select value={selectedUtm || utmSourcesList[0] || ""} onValueChange={setSelectedUtm}>
+                        <SelectTrigger className="bg-secondary/30 border-border/30 text-xs h-9.5">
+                          <SelectValue placeholder="Selecione a fonte" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {utmSourcesList.map(utm => (
+                            <SelectItem key={utm} value={utm} className="text-xs">
+                              {utm === "FB" ? "Facebook / Meta Ads (FB)" : utm}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-muted-foreground flex justify-between">
+                        <span>Investimento Adicional</span>
+                        <span className="font-mono text-primary font-bold">R$ {additionalInvestment.toLocaleString("pt-BR")}</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min={100}
+                        step={500}
+                        value={additionalInvestment}
+                        onChange={e => setAdditionalInvestment(parseFloat(e.target.value) || 0)}
+                        className="text-xs bg-secondary/30 border-border/30 h-9.5"
+                      />
+                    </div>
+
+                    <div className="p-4 rounded-lg border border-border/30 bg-secondary/10 flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-bold text-foreground">Escala Realista (Decay)</p>
+                        <p className="text-[9px] text-muted-foreground leading-normal max-w-[180px]">
+                          Aplica diluição de público, aumentando o CPL e diminuindo a conversão marginalmente ao investir mais.
+                        </p>
+                      </div>
+                      <Switch checked={realisticScale} onCheckedChange={setRealisticScale} />
+                    </div>
+
+                    {/* Historical Baseline Reference */}
+                    <div className="p-4 rounded-lg border border-border/30 bg-secondary/15 space-y-3">
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Baseline Histórico do Canal</h4>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="block text-[10px] text-muted-foreground">CPL Base:</span>
+                          <span className="font-mono font-bold text-foreground">R$ {simulationMetrics.baseCpl.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] text-muted-foreground">Conv. Lead-to-Sale:</span>
+                          <span className="font-mono font-bold text-foreground">{(simulationMetrics.baseCr * 100).toFixed(2)}%</span>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] text-muted-foreground">Ticket Médio (AOV):</span>
+                          <span className="font-mono font-bold text-foreground">R$ {simulationMetrics.baseAov.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] text-muted-foreground">Gasto Histórico:</span>
+                          <span className="font-mono font-bold text-foreground">R$ {simulationMetrics.historicalSpend.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Results Column */}
+                <div className="lg:col-span-8 space-y-6">
+                  
+                  {/* Projected KPIs */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/10 flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground">Leads Previstos</span>
+                      <span className="text-lg font-bold text-foreground font-mono">{Math.round(simulationMetrics.projectedLeads).toLocaleString("pt-BR")}</span>
+                      <span className="text-[8px] text-muted-foreground font-mono">CPL Sim: R$ {simulationMetrics.cplScaled.toFixed(2)}</span>
+                    </div>
+                    <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/10 flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground">Vendas Previstas</span>
+                      <span className="text-lg font-bold text-foreground font-mono">{simulationMetrics.projectedSales.toFixed(1)}</span>
+                      <span className="text-[8px] text-muted-foreground font-mono">Conv Sim: {(simulationMetrics.finalCrVal * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/10 flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground">Faturamento Previsto</span>
+                      <span className="text-lg font-bold text-emerald-400 font-mono">R$ {Math.round(simulationMetrics.projectedRevenue).toLocaleString("pt-BR")}</span>
+                    </div>
+                    <div className="p-3.5 rounded-lg border border-border/30 bg-secondary/10 flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground">ROAS Projetado</span>
+                      <span className="text-lg font-bold text-primary font-mono">{simulationMetrics.projectedRoas.toFixed(2)}x</span>
+                    </div>
+                    <div className={`p-3.5 rounded-lg border flex flex-col gap-1 ${simulationMetrics.projectedProfit > 0 ? "border-emerald-500/20 bg-emerald-500/5" : "border-destructive/20 bg-destructive/5"}`}>
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground">Lucro Adicional</span>
+                      <span className={`text-lg font-bold font-mono ${simulationMetrics.projectedProfit > 0 ? "text-emerald-400" : "text-destructive"}`}>
+                        R$ {Math.round(simulationMetrics.projectedProfit).toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Sweet Spot Chart */}
+                  <Card className="border-border/40 bg-slate-950/20">
+                    <CardContent className="pt-6">
+                      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                        <div>
+                          <h4 className="text-xs font-bold text-foreground flex items-center gap-1">
+                            <TrendingUp className="h-4 w-4 text-primary" />
+                            Curva de Escala e Sweet Spot
+                          </h4>
+                          <p className="text-[9px] text-muted-foreground">Previsão de Lucro Líquido vs ROAS por nível de orçamento</p>
+                        </div>
+                        <div className="flex gap-4 text-[9px] font-mono">
+                          <span className="flex items-center gap-1 text-emerald-400">● Lucro Projetado (R$)</span>
+                          <span className="flex items-center gap-1 text-primary">● ROAS Projetado (x)</span>
+                        </div>
+                      </div>
+
+                      <ResponsiveContainer width="100%" height={260}>
+                        <AreaChart data={simulationMetrics.chartData} margin={{ left: 10, right: 10, top: 10, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(142 76% 36%)" stopOpacity={0.25}/>
+                              <stop offset="95%" stopColor="hsl(142 76% 36%)" stopOpacity={0.02}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
+                          <XAxis dataKey="gastoLabel" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                          <YAxis yAxisId="left" tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                          <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}x`} tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}
+                            labelFormatter={(label) => `Gasto: ${label}`}
+                          />
+                          <Area yAxisId="left" type="monotone" dataKey="lucro" name="Lucro Líquido" stroke="hsl(142 76% 36%)" fill="url(#profitGrad)" strokeWidth={2} />
+                          <Area yAxisId="right" type="monotone" dataKey="roas" name="ROAS" stroke="hsl(var(--primary))" fill="transparent" strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* ML Lead Quality Analytics */}
+                  <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-start gap-4">
+                    <Brain className="h-5 w-5 text-primary shrink-0 mt-0.5 animate-pulse" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-foreground">Análise de Qualidade ML (Lead Scoring)</h4>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Este canal apresenta um Score ML médio de <span className="font-mono font-semibold text-primary">{simulationMetrics.avgMlScore.toFixed(1)}/100</span>.
+                        {simulationMetrics.avgMlScore >= 70 ? (
+                          <> O público gerado possui <span className="text-emerald-400 font-semibold">qualidade premium</span> com engajamento acima da média. A propensão à compra é muito alta, compensando com folga o CPL da escala.</>
+                        ) : simulationMetrics.avgMlScore >= 45 ? (
+                          <> O público gerado possui <span className="text-amber-400 font-semibold">qualidade moderada</span>. Espera-se uma diluição de ROI padrão, mantendo ROAS saudável em volumes de escala intermediários.</>
+                        ) : (
+                          <> Cuidado: O canal atrai leads de <span className="text-destructive font-semibold">baixo engajamento</span>. Escalar o orçamento deste canal sem otimizar criativos ou qualificar o bot pode causar queda brusca no ROI.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

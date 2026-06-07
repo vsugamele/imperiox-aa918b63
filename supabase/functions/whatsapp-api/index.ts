@@ -2063,7 +2063,7 @@ Deno.serve(async (req) => {
     // ── ACTION: simulate_ai_reply ──
     if (action === "simulate_ai_reply") {
       const body = await req.json();
-      const { project_id, provider_id, message: leadMessage, history = [] } = body;
+      const { project_id, provider_id, message: leadMessage, history = [], phone = "5511999999999" } = body;
       
       if (!project_id || !leadMessage) {
         return new Response(JSON.stringify({ success: false, error: "project_id e message são obrigatórios" }), {
@@ -2126,21 +2126,146 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 4. Fetch objections library to simulate objections matching
-      const { data: objections } = await supabase
-        .from("imphq_wa_objections")
-        .select("id, objecao, resposta_padrao")
-        .eq("projeto_id", project_id);
+      // 3.1. Fetch lead behavioral profile
+      let leadContextBlock = "";
+      let leadNameSim = "";
+      if (phone && project_id) {
+        try {
+          const cleanPhone = String(phone).replace(/\D/g, "");
+          const searchPhones = [cleanPhone];
+          if (cleanPhone.startsWith("55")) {
+            searchPhones.push(cleanPhone.substring(2));
+          } else {
+            searchPhones.push("55" + cleanPhone);
+          }
 
-      // 5. Query LLM to simulate response + output thoughts & matched metrics
-      const personalityPrompts: Record<string, string> = {
+          const { data: lead } = await supabase
+            .from("imphq_leads")
+            .select("*")
+            .eq("project_id", project_id)
+            .in("phone", searchPhones)
+            .maybeSingle();
+
+          if (lead) {
+            leadNameSim = lead.nome || "";
+            const aiProfile = lead.data?.ai_profile || {};
+            const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
+            const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
+            const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
+            const seekings = Array.isArray(aiProfile.seekings) ? aiProfile.seekings : [];
+            const schwartz = lead.data?.desejo_schwartz || "";
+
+            leadContextBlock = `\nPERFIL COMPORTAMENTAL DO LEAD (MAPEADO EM TEMPO REAL):`;
+            if (moments.length > 0) leadContextBlock += `\n- Momento/Situação Atual: ${moments.join(", ")}`;
+            if (pains.length > 0) leadContextBlock += `\n- Dores Principais: ${pains.join(", ")}`;
+            if (desires.length > 0) leadContextBlock += `\n- Desejos & Metas: ${desires.join(", ")}`;
+            if (seekings.length > 0) leadContextBlock += `\n- O que busca: ${seekings.join(", ")}`;
+            if (schwartz) leadContextBlock += `\n- Desejo de Schwartz: ${schwartz}`;
+            if (lead.score) leadContextBlock += `\n- Score de Engajamento: ${lead.score}/100`;
+            leadContextBlock += `\n`;
+          }
+        } catch (err) {
+          console.error("[whatsapp-api] Error fetching lead context for simulation:", err);
+        }
+      }
+
+      // 3.2. Fetch semantic matches (RAG & objections) if LOVABLE_API_KEY is available
+      let lessonsBlock = "";
+      let memoryBlock = "";
+      let objectionsBlock = "";
+      const vectorMemories: any[] = [];
+      let matchedObjectionObj: any = null;
+
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (LOVABLE_API_KEY && leadMessage) {
+        try {
+          const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: "google/gemini-embedding-001", input: leadMessage, dimensions: 768 }),
+          });
+          if (embRes.ok) {
+            const embData = await embRes.json();
+            const embedding = embData?.data?.[0]?.embedding;
+            if (embedding) {
+              // Match knowledge base
+              const { data: matches } = await supabase.rpc("match_wa_knowledge", {
+                query_embedding: embedding,
+                p_project_id: project_id,
+                match_count: 3,
+                min_similarity: 0.7,
+              });
+              if (matches && matches.length > 0) {
+                lessonsBlock = `\nREGRAS E CONHECIMENTOS ADICIONAIS APRENDIDOS:\n` +
+                  matches.map((m: any) => `- Se a dúvida/situação for semelhante a "${m.pergunta}", a regra/resposta é: "${m.resposta}"`).join("\n") + "\n";
+                
+                matches.forEach((m: any) => {
+                  vectorMemories.push({
+                    type: "knowledge",
+                    title: `Conhecimento: "${m.pergunta}"`,
+                    content: m.resposta,
+                    similarity: m.similarity
+                  });
+                });
+              }
+
+              // Match lead memory
+              const cleanPhone = String(phone).replace(/\D/g, "");
+              const { data: memories } = await supabase.rpc("match_wa_lead_memory", {
+                query_embedding: embedding,
+                p_project_id: project_id,
+                p_phone: cleanPhone,
+                match_count: 3,
+                min_similarity: 0.7,
+              });
+              if (memories && memories.length > 0) {
+                memoryBlock = `\nRELEMBRE O QUE O LEAD JÁ DISSE ANTERIORMENTE (MEMÓRIA VETORIAL):\n` +
+                  memories.map((m: any) => `- O lead já comentou/disse: "${m.content}"`).join("\n") + "\n";
+
+                memories.forEach((m: any) => {
+                  vectorMemories.push({
+                    type: "memory",
+                    title: "Memória do Lead",
+                    content: m.content,
+                    similarity: m.similarity
+                  });
+                });
+              }
+
+              // Match calibrated objections
+              const { data: matchedObjections } = await supabase.rpc("match_wa_objections", {
+                query_embedding: embedding,
+                p_project_id: project_id,
+                match_count: 1,
+                min_similarity: 0.75,
+              });
+              if (matchedObjections && matchedObjections.length > 0) {
+                const match = matchedObjections[0];
+                objectionsBlock = `\nOBJEÇÃO DETECTADA E DIRETRIZ COMERCIAL MANDATÓRIA:\nO lead apresentou a objeção: "${match.objecao}".\nVocê DEVE responder exatamente contornando a objeção usando a seguinte resposta padrão calibrada: "${match.resposta_padrao}". Não mude o sentido comercial dessa resposta e seja extremamente preciso.\n`;
+                
+                matchedObjectionObj = {
+                  id: match.id,
+                  objecao: match.objecao,
+                  resposta_padrao: match.resposta_padrao,
+                  similarity: match.similarity
+                };
+              }
+            }
+          }
+        } catch (e: any) {
+          console.warn("[whatsapp-api] Error generating simulated semantic context:", e.message);
+        }
+      }
+
+      // 4. Construct actual Bot System Prompt
+      const personalityMap: Record<string, string> = {
         assistente: "Você é um assistente virtual cordial e prestativo.",
         vendedor: "Você é um closer de vendas persuasivo mas não agressivo. Foque em entender a dor e apresentar a solução.",
         suporte: "Você é um agente de suporte técnico eficiente e empático.",
         consultor: "Você é um consultor especialista. Fale com autoridade e dê recomendações valiosas.",
       };
 
-      const toneInstructions: Record<string, string> = {
+      const toneMap: Record<string, string> = {
         profissional: "Tom profissional e direto.",
         casual: "Tom casual e descontraído, use emojis moderadamente.",
         amigavel: "Tom amigável e acolhedor, use emojis.",
@@ -2148,28 +2273,37 @@ Deno.serve(async (req) => {
         urgente: "Tom de urgência e escassez.",
       };
 
-      const expertPersona = aiConfig?.expert_persona;
-      const customInstr = aiConfig?.custom_instructions;
-      const productFocus = aiConfig?.product_focus;
+      const leadFirstName = leadNameSim.trim().split(/\s+/)[0] || "";
+      const leadGreeting = leadFirstName ? `O nome do lead e "${leadFirstName}". Use o nome dele nas primeiras mensagens da conversa.` : "";
 
+      const botSystemPrompt = `${aiConfig?.expert_persona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${aiConfig.expert_persona}\n\n` : ""}Você é um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+${personalityMap[aiConfig?.personality || "assistente"]}
+${toneMap[aiConfig?.tone || "profissional"]}
+${leadGreeting}
+${leadContextBlock}
+
+METODO OBRIGATORIO — use SEMPRE:
+1. EMPATIA: 1 frase que valida a situacao ou desejo do lead (ex: "Faz todo sentido querer isso!")
+2. ESPECIFICIDADE: 1-2 frases com dado ou beneficio concreto do produto (NAO seja vago)
+3. ENVOLVIMENTO: Feche com 1 pergunta consultiva que avanca a conversa
+
+REGRAS CRITICAS:
+- MANTER O LEAD NA ROTA: Aja com empatia imediata, mas retome o foco principal, conectando a dor dele com a solução/oferta.
+- NUNCA use placeholders como [Link] ou [Nome do curso].
+- Respostas curtas (maximo 4 linhas no WhatsApp). Sem blocos de texto.
+- Nunca revele que e IA.
+- Responda em portugues brasileiro natural.
+${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}${aiConfig?.product_focus ? `\nOFERTA ATIVA: ${aiConfig.product_focus}` : ""}${aiConfig?.custom_instructions ? `\nREGRAS GERAIS ADICIONAIS:\n${aiConfig.custom_instructions}` : ""}${lessonsBlock}${memoryBlock}${objectionsBlock}`.trim();
+
+      // 5. Query LLM to simulate response + output thoughts & matched metrics
       const systemPrompt = `Você é o simulador oficial de testes de IA do ImperioHQ.
-Seu objetivo é analisar a mensagem atual do lead e simular com precisão a resposta da IA como se ela estivesse respondendo no WhatsApp.
+Seu objetivo é analisar a mensagem atual do lead e simular com precisão a resposta da IA como se ela estivesse respondendo no WhatsApp com base no System Prompt real da IA fornecido abaixo.
 Além disso, você deve simular a análise interna de sentimentos e o mapeamento de objeções do cérebro da IA.
 
-INFORMAÇÕES DE CONFIGURAÇÃO DA IA:
-- Personalidade: ${personalityPrompts[aiConfig?.personality || "assistente"]}
-- Tom de Voz Base: ${toneInstructions[aiConfig?.tone || "profissional"]}
-- Persona do Expert: ${expertPersona || "—"}
-- Regras e Barreiras Customizadas: ${customInstr || "—"}
-- Produto em Foco: ${productFocus || "—"}
-
-CONTEXTO DO PROJETO:
-${projectContext || "Nenhum contexto configurado."}
-
-BIBLIOTECA DE OBJEÇÕES CADASTRADAS NO PROJETO (se a mensagem do lead corresponder a alguma dessas objeções, você DEVE simular que ativou a resposta cadastrada correspondente):
-${objections && objections.length > 0 
-  ? objections.map(o => `ID: ${o.id} | Objeção: "${o.objecao}" | Resposta Padrão Recomendada: "${o.resposta_padrao}"`).join("\n")
-  : "Nenhuma objeção cadastrada no projeto."}
+PENSAMENTO E DIRETRIZES DA IA (O que a IA simulada deve seguir):
+----------------------------------
+${botSystemPrompt}
+----------------------------------
 
 Você deve responder rigorosamente no formato JSON abaixo, contendo os seguintes campos:
 {
@@ -2184,10 +2318,7 @@ Você deve responder rigorosamente no formato JSON abaixo, contendo os seguintes
 REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO DO "replyText"):
 - Responda em português brasileiro de forma fluida, natural, evitando ser robótico.
 - NUNCA diga que é uma inteligência artificial, robô ou assistente limitado. Não use frases como "como sou um assistente virtual, não tenho acesso".
-- Se o lead perguntar sobre entrega de produtos, status de pedidos, envio, rastreamento ou qualquer suporte técnico/financeiro que você não saiba responder, diga amigavelmente que vai verificar os detalhes com a equipe administrativa interna imediatamente e que ele receberá uma notificação com a resposta em breve (por e-mail, WhatsApp ou notificação push no aplicativo/PWA).
-- ALINHAMENTO DE TOM EMOCIONAL (DYN TOM): Analise o estilo da última mensagem (seco ➔ responda seco; amigável ➔ responda caloroso e com emojis).
 - Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos). Mensagens longas são ignoradas.
-- NUNCA repita apresentações do tipo "Olá, eu sou o assistente..." se o histórico mostra que o papo já está em andamento.
 - Use formatação de WhatsApp (*negrito*, _itálico_).`;
 
       const messages = [
@@ -2206,7 +2337,6 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
       messages.push({ role: "user", content: leadMessage });
 
       // Call LLM (using Lovable AI gateway or OpenRouter based on config)
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
       const provider = aiConfig?.ai_provider === "openrouter" ? "openrouter" : "lovable";
       const model = aiConfig?.ai_model || (provider === "openrouter" ? "openai/gpt-4o-mini" : "google/gemini-3-flash-preview");
@@ -2273,10 +2403,16 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
         const completionText = data.choices?.[0]?.message?.content || "{}";
         const parsedSimulation = JSON.parse(completionText.trim());
 
-        return new Response(JSON.stringify({ success: true, ...parsedSimulation }), {
+        return new Response(JSON.stringify({
+          success: true,
+          ...parsedSimulation,
+          systemPrompt: botSystemPrompt,
+          vectorMemories,
+          matchedObjection: matchedObjectionObj
+        }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch (parseErr) {
+      } catch (parseErr: any) {
         return new Response(JSON.stringify({ success: false, error: `Falha ao interpretar JSON da IA: ${parseErr.message}` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
