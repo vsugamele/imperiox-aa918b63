@@ -227,6 +227,43 @@ export default function InstagramPage() {
   const [funnelGroups, setFunnelGroups] = useState<Record<string, IgConversation[]>>({});
   const [loadingFunnel, setLoadingFunnel] = useState(false);
 
+  // funnelStages must be declared before the useEffect below that references it
+  const funnelStages = useMemo(() => {
+    if (aiConfig?.triage_stages && Array.isArray(aiConfig.triage_stages) && aiConfig.triage_stages.length > 0) {
+      const colorMap: Record<string, string> = {
+        blue: "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10",
+        amber: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
+        orange: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
+        yellow: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
+        red: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10",
+        pink: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10",
+        green: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
+        emerald: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
+      };
+      
+      const emojiMap: Record<string, string> = {
+        frio: "❄️",
+        morno: "🌡️",
+        quente: "🔥",
+        cliente: "✅"
+      };
+
+      return aiConfig.triage_stages.map((s: any) => ({
+        id: s.id,
+        label: s.label || s.id,
+        emoji: emojiMap[s.id] || "🏷️",
+        color: colorMap[s.color] || "border-border/50 bg-secondary/5 hover:bg-secondary/10"
+      }));
+    }
+
+    return [
+      { id: "frio", label: "Frio", emoji: "❄️", color: "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10" },
+      { id: "morno", label: "Morno", emoji: "🌡️", color: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10" },
+      { id: "quente", label: "Quente", emoji: "🔥", color: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10" },
+      { id: "cliente", label: "Cliente", emoji: "✅", color: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10" },
+    ];
+  }, [aiConfig?.triage_stages]);
+
   // Persist project filter
   useEffect(() => {
     if (selectedProjectId) {
@@ -1044,41 +1081,6 @@ export default function InstagramPage() {
   };
   const selectedProjectName = useMemo(() => projects.find(p => p.id === selectedProjectId)?.name || "Projeto", [projects, selectedProjectId]);
 
-  const funnelStages = useMemo(() => {
-    if (aiConfig?.triage_stages && Array.isArray(aiConfig.triage_stages) && aiConfig.triage_stages.length > 0) {
-      const colorMap: Record<string, string> = {
-        blue: "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10",
-        amber: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
-        orange: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
-        yellow: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10",
-        red: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10",
-        pink: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10",
-        green: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
-        emerald: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
-      };
-      
-      const emojiMap: Record<string, string> = {
-        frio: "❄️",
-        morno: "🌡️",
-        quente: "🔥",
-        cliente: "✅"
-      };
-
-      return aiConfig.triage_stages.map((s: any) => ({
-        id: s.id,
-        label: s.label || s.id,
-        emoji: emojiMap[s.id] || "🏷️",
-        color: colorMap[s.color] || "border-border/50 bg-secondary/5 hover:bg-secondary/10"
-      }));
-    }
-
-    return [
-      { id: "frio", label: "Frio", emoji: "❄️", color: "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10" },
-      { id: "morno", label: "Morno", emoji: "🌡️", color: "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10" },
-      { id: "quente", label: "Quente", emoji: "🔥", color: "border-red-500/30 bg-red-500/5 hover:bg-red-500/10" },
-      { id: "cliente", label: "Cliente", emoji: "✅", color: "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10" },
-    ];
-  }, [aiConfig?.triage_stages]);
 
   // Toggle IA for DMs or Comments directly from Instagram page
   const handleToggleAI = async (field: 'instagram_enabled' | 'instagram_comments_enabled', value: boolean) => {

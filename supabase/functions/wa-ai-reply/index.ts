@@ -20,6 +20,21 @@ Deno.serve(async (req) => {
     const { conversation_id, project_id, provider_id, phone, push_name } = body;
     let message = body.message || "";
     
+    let leadRow: any = null;
+    if (phone && project_id) {
+      try {
+        const { data: lead } = await supabase
+          .from("imphq_leads")
+          .select("id")
+          .eq("phone", phone)
+          .eq("project_id", project_id)
+          .maybeSingle();
+        leadRow = lead;
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] Query leadRow error:", e.message);
+      }
+    }
+    
     const isAudio = body.media_type === "audio" || (body.media_url && (body.media_url.endsWith(".ogg") || body.media_url.endsWith(".mp3") || body.media_url.endsWith(".m4a") || body.media_url.endsWith(".wav")));
     const isImage = body.media_type === "image" || (body.media_url && (body.media_url.endsWith(".png") || body.media_url.endsWith(".jpg") || body.media_url.endsWith(".jpeg") || body.media_url.endsWith(".webp")));
     
@@ -45,6 +60,36 @@ Deno.serve(async (req) => {
               const whisperData = await whisperRes.json();
               message = whisperData.text || message;
               console.log(`[wa-ai-reply] Whisper transcribed text: "${message}"`);
+              
+              // Index transcribed audio text into vector memory
+              const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+              if (lovableApiKey && project_id && message) {
+                try {
+                  const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ model: "google/gemini-embedding-001", input: message, dimensions: 768 }),
+                  });
+                  if (embRes.ok) {
+                    const embData = await embRes.json();
+                    const embedding = embData?.data?.[0]?.embedding;
+                    if (embedding) {
+                      await supabase.from("imphq_wa_lead_memory").insert({
+                        lead_id: leadRow?.id || null,
+                        project_id: project_id,
+                        phone: phone,
+                        content: `[Áudio] ${message}`,
+                        embedding: embedding,
+                      });
+                      console.log(`[wa-ai-reply] Audio indexado na memoria do lead: phone=${phone}`);
+                    }
+                  } else {
+                    console.warn(`[wa-ai-reply] Lovable embedding for audio failed: ${embRes.status}`);
+                  }
+                } catch (embErr: any) {
+                  console.error("[wa-ai-reply] Lovable embedding error for audio:", embErr.message);
+                }
+              }
             } else {
               console.error("[wa-ai-reply] Whisper API returned error:", await whisperRes.text());
             }
@@ -537,6 +582,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       console.log(`[wa-ai-reply] Chamando OpenRouter model=${model} msgs=${msgs.length} lastRole=${msgs[msgs.length - 1]?.role}`);
 
       // 9. Chama OpenRouter
+      const startTime = Date.now();
       let orRes: Response;
       try {
         orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -556,6 +602,19 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         });
       } catch (fetchErr: any) {
         console.error(`[wa-ai-reply] OpenRouter fetch error: ${fetchErr.message}`);
+        
+        // Log failure to database
+        const latencySeconds = (Date.now() - startTime) / 1000;
+        await supabase.from("imphq_wa_ai_logs").insert({
+          project_id,
+          conversation_id,
+          lead_id: leadRow?.id || null,
+          model,
+          latency_seconds: latencySeconds,
+          success: false,
+          error_message: `Fetch error: ${fetchErr.message}`
+        }).catch((err) => console.error("[wa-ai-reply] DB log error:", err.message));
+
         await clearLock();
         return new Response(JSON.stringify({ error: `OpenRouter unreachable: ${fetchErr.message}` }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -565,6 +624,19 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       if (!orRes.ok) {
         const errText = await orRes.text();
         console.error(`[wa-ai-reply] OpenRouter error ${orRes.status}: ${errText.slice(0, 400)}`);
+        
+        // Log failure to database
+        const latencySeconds = (Date.now() - startTime) / 1000;
+        await supabase.from("imphq_wa_ai_logs").insert({
+          project_id,
+          conversation_id,
+          lead_id: leadRow?.id || null,
+          model,
+          latency_seconds: latencySeconds,
+          success: false,
+          error_message: `HTTP ${orRes.status}: ${errText.slice(0, 200)}`
+        }).catch((err) => console.error("[wa-ai-reply] DB log error:", err.message));
+
         await clearLock();
         return new Response(JSON.stringify({ error: `OpenRouter ${orRes.status}`, detail: errText.slice(0, 200) }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -572,6 +644,63 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       }
 
       const orData = await orRes.json();
+      
+      // Log success to database
+      try {
+        const latencySeconds = (Date.now() - startTime) / 1000;
+        const usage = orData?.usage || {};
+        const prompt_tokens = usage.prompt_tokens || 0;
+        const completion_tokens = usage.completion_tokens || 0;
+        const total_tokens = usage.total_tokens || 0;
+        
+        // Calculate cost based on model
+        let inputRate = 0.5; // default fallback / M tokens
+        let outputRate = 1.5; // default fallback / M tokens
+        const modelLower = String(model).toLowerCase();
+        
+        if (modelLower.includes("gpt-4o-mini")) {
+          inputRate = 0.15;
+          outputRate = 0.60;
+        } else if (modelLower.includes("gpt-4o")) {
+          inputRate = 2.50;
+          outputRate = 10.00;
+        } else if (modelLower.includes("claude-3-5-sonnet") || modelLower.includes("claude-3.5-sonnet")) {
+          inputRate = 3.00;
+          outputRate = 15.00;
+        } else if (modelLower.includes("claude-3-5-haiku") || modelLower.includes("claude-3.5-haiku")) {
+          inputRate = 0.80;
+          outputRate = 4.00;
+        } else if (modelLower.includes("gemini-2.5-flash") || modelLower.includes("gemini-1.5-flash")) {
+          inputRate = 0.075;
+          outputRate = 0.30;
+        } else if (modelLower.includes("gemini-2.5-pro") || modelLower.includes("gemini-1.5-pro")) {
+          inputRate = 1.25;
+          outputRate = 5.00;
+        } else if (modelLower.includes("deepseek-chat") || modelLower.includes("deepseek")) {
+          inputRate = 0.14;
+          outputRate = 0.28;
+        } else if (modelLower.includes("llama-3.3")) {
+          inputRate = 0.20;
+          outputRate = 0.20;
+        }
+        
+        const costUsd = ((prompt_tokens * inputRate) + (completion_tokens * outputRate)) / 1000000;
+        
+        await supabase.from("imphq_wa_ai_logs").insert({
+          project_id,
+          conversation_id,
+          lead_id: leadRow?.id || null,
+          model,
+          prompt_tokens,
+          completion_tokens,
+          total_tokens,
+          latency_seconds: latencySeconds,
+          cost_usd: costUsd,
+          success: true
+        });
+      } catch (logErr: any) {
+        console.error("[wa-ai-reply] Failed to write DB log:", logErr.message);
+      }
       const aiReply = (orData?.choices?.[0]?.message?.content || "").trim();
       console.log(`[wa-ai-reply] Resposta recebida length=${aiReply.length}: ${aiReply.slice(0, 100)}`);
 

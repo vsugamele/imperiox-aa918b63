@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -22687,6 +22687,83 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_ai_logs: {
+        Row: {
+          completion_tokens: number | null
+          conversation_id: string | null
+          cost_usd: number | null
+          created_at: string
+          error_message: string | null
+          id: string
+          latency_seconds: number | null
+          lead_id: string | null
+          model: string | null
+          project_id: string | null
+          prompt_tokens: number | null
+          success: boolean
+          total_tokens: number | null
+        }
+        Insert: {
+          completion_tokens?: number | null
+          conversation_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          latency_seconds?: number | null
+          lead_id?: string | null
+          model?: string | null
+          project_id?: string | null
+          prompt_tokens?: number | null
+          success?: boolean
+          total_tokens?: number | null
+        }
+        Update: {
+          completion_tokens?: number | null
+          conversation_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          latency_seconds?: number | null
+          lead_id?: string | null
+          model?: string | null
+          project_id?: string | null
+          prompt_tokens?: number | null
+          success?: boolean
+          total_tokens?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_ai_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ai_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ai_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ai_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_wa_campaign_logs: {
         Row: {
           campaign_id: string | null
@@ -41280,3 +41357,4 @@ export const Constants = {
     },
   },
 } as const
+

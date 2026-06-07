@@ -95,6 +95,56 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [projectProducts, setProjectProducts] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [testPhone, setTestPhone] = useState<string>("");
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState({
+    avgLatency: 0,
+    totalCost: 0,
+    successRate: 100,
+    totalCalls: 0,
+    successCalls: 0,
+    failedCalls: 0
+  });
+
+  const loadMetrics = async () => {
+    setMetricsLoading(true);
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from("imphq_wa_ai_logs")
+        .select("id, latency_seconds, cost_usd, success, prompt_tokens, completion_tokens, total_tokens, created_at, model, error_message")
+        .eq("project_id", projectId)
+        .gte("created_at", thirtyDaysAgo.toISOString())
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const items = data || [];
+      setLogs(items.slice(0, 10)); // keep last 10 for display
+
+      const totalCalls = items.length;
+      const successCalls = items.filter(l => l.success).length;
+      const failedCalls = totalCalls - successCalls;
+      const successRate = totalCalls > 0 ? (successCalls / totalCalls) * 100 : 100;
+      const avgLatency = successCalls > 0 ? items.filter(l => l.success).reduce((acc, l) => acc + Number(l.latency_seconds || 0), 0) / successCalls : 0;
+      const totalCost = items.reduce((acc, l) => acc + Number(l.cost_usd || 0), 0);
+
+      setMetrics({
+        avgLatency,
+        totalCost,
+        successRate,
+        totalCalls,
+        successCalls,
+        failedCalls
+      });
+    } catch (err: any) {
+      console.error("Error loading AI metrics:", err.message);
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
 
   const isProductSelected = (productName: string) => {
     if (!config.product_focus) return false;
@@ -140,6 +190,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       if (data?.success) {
         setSimulationResult(data);
         toast.success("Simulação concluída com sucesso!");
+        loadMetrics();
       } else {
         toast.error(data?.error || "Falha na simulação");
       }
@@ -159,6 +210,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
   useEffect(() => {
     loadConfig();
+    loadMetrics();
   }, [projectId, providerId]);
 
   const loadConfig = async () => {
@@ -488,6 +540,110 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
             {/* ── TAB 2: MODEL & COST ── */}
             <TabsContent value="model" className="mt-0 space-y-4 animate-fade-in">
+              {/* Telemetry Dashboard */}
+              <div className="space-y-4 border-b border-border/20 pb-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary animate-pulse" />
+                    <span className="text-xs font-bold text-foreground">Monitor de Latência e Custos da IA (Últimos 30 dias)</span>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={loadMetrics} disabled={metricsLoading}>
+                    <RefreshCw className={`h-3 w-3 ${metricsLoading ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Latency card */}
+                  <Card className="bg-secondary/10 border-border/20 p-3 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Tempo de Resposta</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {metricsLoading ? "..." : `${metrics.avgLatency.toFixed(2)}s`}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">Média das chamadas com sucesso</p>
+                    </div>
+                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
+                      <Clock className="h-4 w-4 text-primary" />
+                    </div>
+                  </Card>
+
+                  {/* Cost card */}
+                  <Card className="bg-secondary/10 border-border/20 p-3 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Custo de API</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {metricsLoading ? "..." : `R$ ${(metrics.totalCost * 5.5).toFixed(2)}`}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">
+                        {metricsLoading ? "..." : `$${metrics.totalCost.toFixed(4)} USD · ${metrics.totalCalls} msgs`}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-green-500/10 rounded-lg shrink-0">
+                      <Bot className="h-4 w-4 text-green-500" />
+                    </div>
+                  </Card>
+
+                  {/* Success rate card */}
+                  <Card className="bg-secondary/10 border-border/20 p-3 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Taxa de Sucesso</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {metricsLoading ? "..." : `${metrics.successRate.toFixed(1)}%`}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">
+                        {metricsLoading ? "..." : `${metrics.successCalls} OK · ${metrics.failedCalls} falhas`}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-indigo-500/10 rounded-lg shrink-0">
+                      <CheckCircle className="h-4 w-4 text-indigo-500" />
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Latest Logs list */}
+                {logs.length > 0 && (
+                  <Card className="border-border/20 bg-secondary/5 overflow-hidden">
+                    <CardHeader className="p-3 border-b border-border/25 bg-secondary/10">
+                      <CardTitle className="text-[11px] font-bold flex items-center gap-1.5">
+                        <Server className="h-3.5 w-3.5 text-muted-foreground" /> Últimas Requisições da IA
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="divide-y divide-border/20 text-[10px] max-h-[220px] overflow-y-auto">
+                        {logs.map((log, i) => (
+                          <div key={log.id || i} className="p-2.5 flex items-center justify-between hover:bg-secondary/20 transition-colors">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant={log.success ? "secondary" : "destructive"} className="text-[9px] px-1 h-4 py-0 font-normal">
+                                  {log.success ? "OK" : "Erro"}
+                                </Badge>
+                                <span className="font-semibold text-foreground truncate max-w-[150px] sm:max-w-[200px]">
+                                  {log.model?.replace("openai/", "").replace("google/", "") || "—"}
+                                </span>
+                              </div>
+                              {log.success ? (
+                                <p className="text-[9px] text-muted-foreground">
+                                  {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · {log.prompt_tokens + log.completion_tokens} tokens
+                                </p>
+                              ) : (
+                                <p className="text-[9px] text-destructive truncate max-w-[180px] sm:max-w-[240px]" title={log.error_message || ""}>
+                                  {log.error_message || "Erro desconhecido"}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right space-y-0.5">
+                              <p className="font-bold text-foreground">{log.latency_seconds ? `${Number(log.latency_seconds).toFixed(1)}s` : "—"}</p>
+                              <p className="text-[9px] text-green-500 font-semibold">
+                                {log.cost_usd ? `R$ ${(log.cost_usd * 5.5).toFixed(4)}` : "R$ 0,00"}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
               <div className="bg-primary/5 rounded-lg border border-primary/10 p-4 flex gap-3 items-start">
                 <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div className="space-y-1">

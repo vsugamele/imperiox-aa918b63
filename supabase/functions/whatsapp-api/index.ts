@@ -345,7 +345,8 @@ Deno.serve(async (req) => {
       projectId: string,
       providerType: string,
       jidSuffix: string,
-      incomingAt: number
+      incomingAt: number,
+      mediaUrl?: string | null
     ) {
       await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, true);
 
@@ -480,9 +481,11 @@ Deno.serve(async (req) => {
               phone,
               message: content,
               push_name: pushName,
+              media_url: mediaUrl || undefined,
+              media_type: messageType || undefined,
             },
           }).catch((e) => console.warn("[webhook] wa-ai-reply invoke error:", e?.message));
-          console.log("[webhook] wa-ai-reply invocado conv=" + conv.id);
+          console.log("[webhook] wa-ai-reply invocado conv=" + conv.id + " media=" + !!mediaUrl);
         }
       } catch (aiErr) {
         console.error("[webhook] AI delegate error:", aiErr.message);
@@ -1412,7 +1415,8 @@ Deno.serve(async (req) => {
               projectId,
               "evolution",
               jidSuffix,
-              incomingAt
+              incomingAt,
+              mediaUrl
             );
           }
 
