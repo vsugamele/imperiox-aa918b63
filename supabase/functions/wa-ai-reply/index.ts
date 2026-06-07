@@ -34,6 +34,46 @@ Deno.serve(async (req) => {
         console.warn("[wa-ai-reply] Query leadRow error:", e.message);
       }
     }
+
+    // Active flow (OpenFlow) step query
+    let activeStepInstruction = "";
+    let activeExecutionId = null;
+    let activeExecutionStep = 0;
+
+    if (leadRow?.id) {
+      try {
+        const { data: activeExec } = await supabase
+          .from("imphq_flow_executions")
+          .select("id, automacao_id, current_step")
+          .eq("lead_id", leadRow.id)
+          .in("status", ["running", "waiting"])
+          .order("created_at", { descending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (activeExec) {
+          console.log(`[wa-ai-reply] Active flow execution found: ${activeExec.id}, step: ${activeExec.current_step}`);
+          const { data: automacao } = await supabase
+            .from("imphq_automacoes")
+            .select("id, nome, acoes, etapas")
+            .eq("id", activeExec.automacao_id)
+            .single();
+            
+          if (automacao) {
+            const rawAcoes = automacao.acoes || automacao.etapas || [];
+            const step = rawAcoes[activeExec.current_step];
+            if (step) {
+              activeExecutionId = activeExec.id;
+              activeExecutionStep = activeExec.current_step;
+              activeStepInstruction = step.mensagem || step.template || step.texto || "";
+              console.log(`[wa-ai-reply] Guideline from active step #${activeExec.current_step}: "${activeStepInstruction}"`);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("[wa-ai-reply] Error reading active flow:", err.message);
+      }
+    }
     
     const isAudio = body.media_type === "audio" || (body.media_url && (body.media_url.endsWith(".ogg") || body.media_url.endsWith(".mp3") || body.media_url.endsWith(".m4a") || body.media_url.endsWith(".wav")));
     const isImage = body.media_type === "image" || (body.media_url && (body.media_url.endsWith(".png") || body.media_url.endsWith(".jpg") || body.media_url.endsWith(".jpeg") || body.media_url.endsWith(".webp")));
@@ -504,6 +544,16 @@ O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR. Regras:
       const leadFirstName = (conv?.contact_name || push_name || "").trim().split(/\s+/)[0] || "";
       const leadGreeting = leadFirstName ? `O nome do lead e "${leadFirstName}". Use o nome dele nas primeiras mensagens da conversa.` : "";
 
+      const openFlowBlock = activeStepInstruction 
+        ? `\n\nOBJETIVO CRÍTICO ATUAL (FUNIL ATIVO):
+Você deve orientar a conversa para cumprir este objetivo específico da etapa atual do funil:
+"${activeStepInstruction}"
+
+Instruções adicionais de progressão:
+- Mantenha o diálogo focado em obter esta informação ou cumprir esta meta.
+- Assim que você verificar que o lead respondeu de forma satisfatória a este objetivo (ou forneceu o dado solicitado), adicione exatamente a palavra-chave secreta [PROXIMA_ETAPA] no final da sua mensagem (ex: "Entendi perfeitamente! [PROXIMA_ETAPA]"). Não adicione esta palavra-chave antes de cumprir o objetivo.`
+        : "";
+
       const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${personalityMap[aiConfig.personality] || personalityMap.consultor}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
@@ -522,7 +572,7 @@ REGRAS CRITICAS:
 - Respostas curtas (maximo 4 linhas no WhatsApp). Sem blocos de texto.
 - Nunca revele que e IA.
 - Responda em portugues brasileiro natural.
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
@@ -712,54 +762,155 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         });
       }
 
+      let finalAiReply = aiReply;
+      let shouldAdvanceFlow = false;
+
+      if (activeExecutionId && aiReply.includes("[PROXIMA_ETAPA]")) {
+        shouldAdvanceFlow = true;
+        finalAiReply = aiReply.replace(/\[PROXIMA_ETAPA\]/gi, "").trim();
+        console.log(`[wa-ai-reply] [PROXIMA_ETAPA] detected! Preparing to advance flow execution ${activeExecutionId}`);
+      }
+
+      if (shouldAdvanceFlow && activeExecutionId) {
+        try {
+          const { data: currentExec } = await supabase
+            .from("imphq_flow_executions")
+            .select("step_results")
+            .eq("id", activeExecutionId)
+            .single();
+            
+          const results = Array.isArray(currentExec?.step_results) ? currentExec.step_results : [];
+          results.push({
+            step: activeExecutionStep,
+            status: "guided_ai_completed",
+            finished_at: new Date().toISOString(),
+            notes: "Objetivo atingido e validado pela IA",
+          });
+          
+          await supabase
+            .from("imphq_flow_executions")
+            .update({
+              current_step: activeExecutionStep + 1,
+              step_results: results,
+              status: "running",
+            })
+            .eq("id", activeExecutionId);
+            
+          console.log(`[wa-ai-reply] Flow advanced successfully to step ${activeExecutionStep + 1}`);
+        } catch (err: any) {
+          console.error("[wa-ai-reply] Error advancing flow execution:", err.message);
+        }
+      }
+
       // Voice response generation (TTS)
       let responseAudioUrl: string | null = null;
       const voiceReplyEnabled = aiConfig.voice_reply_enabled === true || isAudio;
-      const openaiKey = Deno.env.get("OPENAI_API_KEY");
 
-      if (voiceReplyEnabled && openaiKey && aiReply) {
-        console.log(`[wa-ai-reply] Generating voice response via OpenAI TTS...`);
-        try {
-          const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${openaiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "tts-1",
-              input: aiReply,
-              voice: aiConfig.voice_name || "alloy",
-            }),
-          });
+      if (voiceReplyEnabled && finalAiReply) {
+        const voiceProvider = aiConfig.voice_provider || "openai";
+        const voiceName = aiConfig.voice_name || "alloy";
+        const stability = aiConfig.voice_stability || 75;
+        const clarity = aiConfig.voice_clarity || 85;
 
-          if (ttsRes.ok) {
-            const ttsBlob = await ttsRes.blob();
-            const fileName = `voice_${Date.now()}.mp3`;
-            const filePath = `${project_id}/${fileName}`;
-            
-            // Ensure media bucket exists
-            await supabase.storage.createBucket("media", { public: true }).catch(() => {});
-            
-            // Upload to Supabase Storage
-            const { error: uploadErr } = await supabase.storage
-              .from("media")
-              .upload(filePath, ttsBlob, { contentType: "audio/mpeg" });
+        const openaiKey = Deno.env.get("OPENAI_API_KEY");
+        const elevenKey = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
 
-            if (!uploadErr) {
-              const { data: publicUrlData } = supabase.storage
+        if (voiceProvider === "elevenlabs" && elevenKey) {
+          console.log(`[wa-ai-reply] Generating voice response via ElevenLabs...`);
+          try {
+            const elevenVoices: Record<string, string> = {
+              fernanda_hq: "21m00Tcm4TlvDq8ikWAM", // Rachel
+              felipe_sales: "ErXwobaYiN019PkySvjV", // Antoni
+              tatiane_suporte: "AZnzlk1XyvMsSnfcehzq", // Nicole
+            };
+            const targetVoiceId = elevenVoices[voiceName] || voiceName;
+
+            const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}`, {
+              method: "POST",
+              headers: {
+                "xi-api-key": elevenKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                text: finalAiReply,
+                model_id: "eleven_multilingual_v2",
+                voice_settings: {
+                  stability: stability / 100,
+                  similarity_boost: clarity / 100,
+                }
+              })
+            });
+
+            if (ttsRes.ok) {
+              const ttsBlob = await ttsRes.blob();
+              const fileName = `voice_${Date.now()}.mp3`;
+              const filePath = `${project_id}/${fileName}`;
+              await supabase.storage.createBucket("media", { public: true }).catch(() => {});
+              const { error: uploadErr } = await supabase.storage
                 .from("media")
-                .getPublicUrl(filePath);
-              responseAudioUrl = publicUrlData?.publicUrl || null;
-              console.log(`[wa-ai-reply] TTS audio uploaded successfully: ${responseAudioUrl}`);
+                .upload(filePath, ttsBlob, { contentType: "audio/mpeg" });
+
+              if (!uploadErr) {
+                const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(filePath);
+                responseAudioUrl = publicUrlData?.publicUrl || null;
+                console.log(`[wa-ai-reply] ElevenLabs TTS audio uploaded: ${responseAudioUrl}`);
+              } else {
+                console.error("[wa-ai-reply] Storage upload error for ElevenLabs audio:", uploadErr.message);
+              }
             } else {
-              console.error("[wa-ai-reply] Failed to upload TTS audio to storage:", uploadErr.message);
+              console.error("[wa-ai-reply] ElevenLabs TTS failed:", await ttsRes.text());
             }
-          } else {
-            console.error("[wa-ai-reply] OpenAI TTS failed:", await ttsRes.text());
+          } catch (ttsErr: any) {
+            console.error("[wa-ai-reply] ElevenLabs TTS error:", ttsErr.message);
           }
-        } catch (ttsErr: any) {
-          console.error("[wa-ai-reply] TTS generation error:", ttsErr.message);
+        }
+
+        // Fallback to OpenAI TTS
+        if (!responseAudioUrl && openaiKey) {
+          console.log(`[wa-ai-reply] Generating voice response via OpenAI TTS...`);
+          try {
+            const voiceMap: Record<string, string> = {
+              fernanda_hq: "nova",
+              felipe_sales: "onyx",
+              tatiane_suporte: "shimmer",
+            };
+            const targetOpenAiVoice = voiceMap[voiceName] || voiceName || "alloy";
+
+            const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${openaiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "tts-1",
+                input: finalAiReply,
+                voice: targetOpenAiVoice,
+              }),
+            });
+
+            if (ttsRes.ok) {
+              const ttsBlob = await ttsRes.blob();
+              const fileName = `voice_${Date.now()}.mp3`;
+              const filePath = `${project_id}/${fileName}`;
+              await supabase.storage.createBucket("media", { public: true }).catch(() => {});
+              const { error: uploadErr } = await supabase.storage
+                .from("media")
+                .upload(filePath, ttsBlob, { contentType: "audio/mpeg" });
+
+              if (!uploadErr) {
+                const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(filePath);
+                responseAudioUrl = publicUrlData?.publicUrl || null;
+                console.log(`[wa-ai-reply] OpenAI TTS audio uploaded: ${responseAudioUrl}`);
+              } else {
+                console.error("[wa-ai-reply] Failed to upload OpenAI TTS audio to storage:", uploadErr.message);
+              }
+            } else {
+              console.error("[wa-ai-reply] OpenAI TTS failed:", await ttsRes.text());
+            }
+          } catch (ttsErr: any) {
+            console.error("[wa-ai-reply] OpenAI TTS fallback error:", ttsErr.message);
+          }
         }
       }
 
@@ -767,13 +918,13 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       if (aiConfig.draft_mode) {
         await supabase.from("imphq_wa_ai_drafts").insert({
           conversation_id, project_id, incoming_text: message,
-          suggested_text: aiReply, model, status: "pending",
+          suggested_text: finalAiReply, model, status: "pending",
         });
         await supabase.from("imphq_wa_conversations").update({
           ai_last_reply_at: new Date().toISOString(), ai_lock_until: null,
         }).eq("id", conversation_id);
         console.log(`[wa-ai-reply] Draft salvo`);
-        return new Response(JSON.stringify({ ok: true, draft: true, preview: aiReply.slice(0, 100) }), {
+        return new Response(JSON.stringify({ ok: true, draft: true, preview: finalAiReply.slice(0, 100) }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -793,7 +944,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         const inst = encodeURIComponent(provider.instance_name);
         
         let url = `${base}/message/sendText/${inst}`;
-        let bodyPayload: any = { number: phone + "@s.whatsapp.net", text: aiReply };
+        let bodyPayload: any = { number: phone + "@s.whatsapp.net", text: finalAiReply };
 
         if (responseAudioUrl) {
           url = `${base}/message/sendAudio/${inst}`;
@@ -828,7 +979,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       if (sendSuccess) {
         await supabase.from("imphq_wa_messages").insert({
           conversation_id, direction: "outgoing", phone,
-          content: aiReply, message_type: "text",
+          content: finalAiReply, message_type: "text",
           project_id, provider: provider.provider,
           provider_message_id: outMsgId,
           status: "sent", sent_by: "ai",
@@ -844,14 +995,14 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         await supabase.from("imphq_wa_conversations").update({
           ai_last_reply_at: new Date().toISOString(),
           ai_lock_until: null,
-          last_message: aiReply.slice(0, 500),
+          last_message: finalAiReply.slice(0, 500),
           last_message_at: new Date().toISOString(),
           last_message_direction: "outgoing",
           message_count: ((freshConv?.message_count as number) || 0) + 1,
         }).eq("id", conversation_id);
 
         console.log(`[wa-ai-reply] SUCCESS: mensagem enviada para ${phone}`);
-        return new Response(JSON.stringify({ ok: true, sent: true, model, preview: aiReply.slice(0, 100) }), {
+        return new Response(JSON.stringify({ ok: true, sent: true, model, preview: finalAiReply.slice(0, 100) }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else {

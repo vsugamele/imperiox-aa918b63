@@ -22543,6 +22543,11 @@ export type Database = {
           triage_stages: Json | null
           updated_at: string | null
           welcome_message: string | null
+          voice_reply_enabled: boolean | null
+          voice_provider: string | null
+          voice_name: string | null
+          voice_stability: number | null
+          voice_clarity: number | null
         }
         Insert: {
           ai_model?: string | null
@@ -22584,6 +22589,11 @@ export type Database = {
           triage_stages?: Json | null
           updated_at?: string | null
           welcome_message?: string | null
+          voice_reply_enabled?: boolean | null
+          voice_provider?: string | null
+          voice_name?: string | null
+          voice_stability?: number | null
+          voice_clarity?: number | null
         }
         Update: {
           ai_model?: string | null
@@ -22625,6 +22635,11 @@ export type Database = {
           triage_stages?: Json | null
           updated_at?: string | null
           welcome_message?: string | null
+          voice_reply_enabled?: boolean | null
+          voice_provider?: string | null
+          voice_name?: string | null
+          voice_stability?: number | null
+          voice_clarity?: number | null
         }
         Relationships: [
           {

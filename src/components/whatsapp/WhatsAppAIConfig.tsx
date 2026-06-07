@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy } from "lucide-react";
+import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy, Mic } from "lucide-react";
 import { RefineAIDialog } from "./RefineAIDialog";
 
 interface FaqItem { pergunta: string; resposta: string; }
@@ -35,6 +35,11 @@ interface AIConfig {
   product_focus?: string;
   faq?: FaqItem[];
   ignored_phones?: string[];
+  voice_reply_enabled?: boolean;
+  voice_provider?: string;
+  voice_name?: string;
+  voice_stability?: number;
+  voice_clarity?: number;
 }
 
 const PERSONALITIES = [
@@ -81,6 +86,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     business_hours_only: false,
     business_hours_start: "08:00",
     business_hours_end: "20:00",
+    voice_reply_enabled: false,
+    voice_provider: "openai",
+    voice_name: "alloy",
+    voice_stability: 75,
+    voice_clarity: 85,
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -246,6 +256,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
         business_hours_only: false,
         business_hours_start: "08:00",
         business_hours_end: "20:00",
+        voice_reply_enabled: false,
+        voice_provider: "openai",
+        voice_name: "alloy",
+        voice_stability: 75,
+        voice_clarity: 85,
       });
       setKeywordsText("humano, atendente, pessoa, falar com alguém");
       setIgnoredPhonesText("");
@@ -535,6 +550,136 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     Se preenchido, dispara esse texto no primeiro contato antes de acionar a inteligência artificial.
                   </p>
                 </div>
+              </div>
+
+              {/* Voice Configuration */}
+              <div className="border-t border-border/20 pt-4 mt-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Mic className="h-4 w-4 text-primary" /> Resposta por Voz Ativa
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">
+                      A IA responderá automaticamente usando áudio sintetizado (PTT) simulando gravação humana.
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={config.voice_reply_enabled === true} 
+                    onCheckedChange={v => setConfig(p => ({ ...p, voice_reply_enabled: v }))} 
+                  />
+                </div>
+
+                {config.voice_reply_enabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-border/30 bg-secondary/10 p-4 rounded-xl animate-fade-in">
+                    
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-muted-foreground">Provedor de Voz</Label>
+                      <Select 
+                        value={config.voice_provider || "openai"} 
+                        onValueChange={v => setConfig(p => ({ ...p, voice_provider: v }))}
+                      >
+                        <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="openai" className="text-xs">OpenAI TTS (Kits de Voz Padrão)</SelectItem>
+                          <SelectItem value="elevenlabs" className="text-xs">ElevenLabs (Vozes Clonadas HD)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-muted-foreground">Avatar de Voz (Voice ID)</Label>
+                      {config.voice_provider === "openai" ? (
+                        <Select 
+                          value={config.voice_name || "alloy"} 
+                          onValueChange={v => setConfig(p => ({ ...p, voice_name: v }))}
+                        >
+                          <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="alloy" className="text-xs">Alloy (Neutro)</SelectItem>
+                            <SelectItem value="echo" className="text-xs">Echo (Masculino Neutro)</SelectItem>
+                            <SelectItem value="fable" className="text-xs">Fable (Narrativa)</SelectItem>
+                            <SelectItem value="onyx" className="text-xs">Onyx (Masculino Profundo)</SelectItem>
+                            <SelectItem value="nova" className="text-xs">Nova (Feminino Enérgico)</SelectItem>
+                            <SelectItem value="shimmer" className="text-xs">Shimmer (Feminino Profissional)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="space-y-2">
+                          <Select 
+                            value={["fernanda_hq", "felipe_sales", "tatiane_suporte"].includes(config.voice_name || "") ? config.voice_name : "custom"} 
+                            onValueChange={v => {
+                              if (v === "custom") {
+                                setConfig(p => ({ ...p, voice_name: "" }));
+                              } else {
+                                setConfig(p => ({ ...p, voice_name: v }));
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fernanda_hq" className="text-xs">Fernanda HQ (Voz Rachel)</SelectItem>
+                              <SelectItem value="felipe_sales" className="text-xs">Felipe Sales (Voz Antoni)</SelectItem>
+                              <SelectItem value="tatiane_suporte" className="text-xs">Tatiane Suporte (Voz Nicole)</SelectItem>
+                              <SelectItem value="custom" className="text-xs">Voz Customizada (ElevenLabs ID)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {!["fernanda_hq", "felipe_sales", "tatiane_suporte"].includes(config.voice_name || "") && (
+                            <Input
+                              placeholder="Digite o ElevenLabs Voice ID"
+                              value={config.voice_name || ""}
+                              onChange={e => setConfig(p => ({ ...p, voice_name: e.target.value }))}
+                              className="text-xs bg-secondary/40 border-border/30 h-9.5 mt-1.5"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {config.voice_provider === "elevenlabs" && (
+                      <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/20">
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-xs text-muted-foreground">
+                            <span>Estabilidade</span>
+                            <span>{config.voice_stability || 75}%</span>
+                          </div>
+                          <Input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={config.voice_stability || 75}
+                            onChange={e => setConfig(p => ({ ...p, voice_stability: parseInt(e.target.value) }))}
+                            className="h-7 accent-primary"
+                          />
+                          <span className="text-[9px] text-muted-foreground/60 leading-none block">Valores maiores deixam a fala mais estável, menores adicionam mais emoção e ruídos de respiração.</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-xs text-muted-foreground">
+                            <span>Clareza / Similaridade</span>
+                            <span>{config.voice_clarity || 85}%</span>
+                          </div>
+                          <Input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={config.voice_clarity || 85}
+                            onChange={e => setConfig(p => ({ ...p, voice_clarity: parseInt(e.target.value) }))}
+                            className="h-7 accent-primary"
+                          />
+                          <span className="text-[9px] text-muted-foreground/60 leading-none block">Aumenta a fidelidade com a voz original. Valores muito altos podem causar pequenos ruídos.</span>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                )}
               </div>
             </TabsContent>
 
