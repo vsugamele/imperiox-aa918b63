@@ -2401,6 +2401,7 @@ export default function InstagramPage() {
                           </div>
                         )}
                       </CardContent>
+                    </Card>
                   </div>
                 )}
 
