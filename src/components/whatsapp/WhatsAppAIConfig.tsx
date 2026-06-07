@@ -88,6 +88,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [refineOpen, setRefineOpen] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [testMessage, setTestMessage] = useState("");
+  const [testImageUrl, setTestImageUrl] = useState("");
   const [simulationResult, setSimulationResult] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const [ignoredPhonesText, setIgnoredPhonesText] = useState("");
@@ -113,8 +114,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   };
 
   const handleSimulate = async () => {
-    if (!testMessage.trim()) {
-      toast.error("Digite uma mensagem para simular");
+    if (!testMessage.trim() && !testImageUrl.trim()) {
+      toast.error("Digite uma mensagem ou insira uma URL de imagem para simular");
       return;
     }
     setSimulating(true);
@@ -129,6 +130,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
           message: testMessage,
           history: [],
           phone: testPhone || null,
+          media_url: testImageUrl || null,
+          media_type: testImageUrl ? "image" : null,
         }
       });
 
@@ -924,6 +927,44 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       ))}
                     </div>
                   </div>
+                  
+                  {/* Test Image URL field */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                      📷 URL da Imagem de Teste (opcional)
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={testImageUrl}
+                        onChange={(e) => setTestImageUrl(e.target.value)}
+                        placeholder="https://exemplo.com/comprovante-pix.jpg"
+                        className="text-xs bg-secondary/20 border-border/30 h-9.5 flex-1"
+                      />
+                      {testImageUrl && (
+                        <Button 
+                          type="button"
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-9.5 text-[10px] text-destructive hover:bg-destructive/10" 
+                          onClick={() => setTestImageUrl("")}
+                        >
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                    {testImageUrl && (
+                      <div className="mt-2 p-1.5 rounded-lg border border-border/30 bg-slate-950/40 w-fit">
+                        <img 
+                          src={testImageUrl} 
+                          className="max-h-[80px] rounded object-contain" 
+                          alt="Preview da imagem" 
+                          onError={() => {
+                            toast.error("URL de imagem inválida ou inacessível");
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
 
                   <Button
                     type="button"
@@ -1019,14 +1060,30 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                           {/* Mockup WhatsApp Balloon */}
                           <div className="space-y-2">
                             <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground select-none">Mensagem Simulada no WhatsApp</Label>
-                            <div className="p-4 rounded-xl bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat min-h-[140px] flex items-end justify-start border border-border/30 shadow-inner relative">
-                              <div className="absolute top-2 right-2 bg-emerald-500/10 text-emerald-400 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider select-none animate-pulse">
+                            <div className="p-4 rounded-xl bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat min-h-[200px] flex flex-col gap-3 justify-end items-stretch border border-border/30 shadow-inner relative select-none">
+                              <div className="absolute top-2 right-2 bg-emerald-500/10 text-emerald-400 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider select-none animate-pulse z-10">
                                 Closer Live
                               </div>
                               
-                              <div className="bg-[#1f2c34] text-[#e9edef] rounded-lg p-3 text-xs max-w-[85%] shadow-md leading-relaxed relative border border-[#233138] mt-4 select-text">
+                              {/* Balão do Lead (Incoming - Left) */}
+                              {(testMessage || testImageUrl) && (
+                                <div className="self-start bg-[#202c33] text-[#e9edef] rounded-lg p-2.5 text-xs max-w-[80%] shadow border border-[#233138] select-text">
+                                  {testImageUrl && (
+                                    <div className="mb-1.5 max-w-full overflow-hidden rounded bg-black/20">
+                                      <img src={testImageUrl} className="max-w-full max-h-[140px] object-cover mx-auto" alt="Midia enviada" />
+                                    </div>
+                                  )}
+                                  {testMessage && <div className="whitespace-pre-wrap">{testMessage}</div>}
+                                  <div className="text-[8px] text-muted-foreground/60 text-right mt-1 font-sans">
+                                    {new Date().toLocaleTimeString().slice(0, 5)}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Balão do Closer AI (Outgoing - Right) */}
+                              <div className="self-end bg-[#005c4b] text-[#e9edef] rounded-lg p-3 text-xs max-w-[80%] shadow-md leading-relaxed border border-[#025142] select-text">
                                 <div className="whitespace-pre-wrap">{simulationResult.replyText}</div>
-                                <div className="text-[9px] text-muted-foreground/60 text-right mt-1.5 font-sans leading-none flex items-center justify-end gap-1 select-none">
+                                <div className="text-[9px] text-muted-foreground/60 text-right mt-1.5 font-sans leading-none flex items-center justify-end gap-1">
                                   <span>{new Date().toLocaleTimeString().slice(0, 5)}</span>
                                   <span className="text-[#53bdeb] text-[12px]">✓✓</span>
                                 </div>

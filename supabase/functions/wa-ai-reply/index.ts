@@ -21,6 +21,7 @@ Deno.serve(async (req) => {
     let message = body.message || "";
     
     const isAudio = body.media_type === "audio" || (body.media_url && (body.media_url.endsWith(".ogg") || body.media_url.endsWith(".mp3") || body.media_url.endsWith(".m4a") || body.media_url.endsWith(".wav")));
+    const isImage = body.media_type === "image" || (body.media_url && (body.media_url.endsWith(".png") || body.media_url.endsWith(".jpg") || body.media_url.endsWith(".jpeg") || body.media_url.endsWith(".webp")));
     
     if (isAudio && body.media_url) {
       console.log(`[wa-ai-reply] Audio message detected: ${body.media_url}. Transcribing via Whisper...`);
@@ -479,7 +480,7 @@ REGRAS CRITICAS:
 ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
-      const msgs: { role: string; content: string }[] = [{ role: "system", content: systemPrompt }];
+      const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
       const ordered = [...(history || [])].reverse();
       let lastRole: string | null = null;
 
@@ -487,7 +488,10 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         if (m.content === message && m.direction === "incoming") continue;
         const role = m.direction === "incoming" ? "user" : "assistant";
         if (role === lastRole && msgs.length > 0) {
-          msgs[msgs.length - 1].content += "\n" + m.content;
+          const lastMsg = msgs[msgs.length - 1];
+          if (typeof lastMsg.content === "string") {
+            lastMsg.content += "\n" + m.content;
+          }
         } else {
           msgs.push({ role, content: m.content || "" });
           lastRole = role;
@@ -495,9 +499,38 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       }
 
       if (msgs.length === 0 || msgs[msgs.length - 1].role !== "user") {
-        msgs.push({ role: "user", content: message });
+        if (isImage && body.media_url) {
+          msgs.push({
+            role: "user",
+            content: [
+              { type: "text", text: message || "Analise esta imagem enviada pelo lead." },
+              { type: "image_url", image_url: { url: body.media_url } }
+            ]
+          });
+        } else {
+          msgs.push({ role: "user", content: message });
+        }
       } else {
-        msgs[msgs.length - 1].content += "\n" + message;
+        if (isImage && body.media_url) {
+          const lastMsg = msgs[msgs.length - 1];
+          const textContent = (typeof lastMsg.content === "string" ? lastMsg.content : "") + (message ? "\n" + message : "");
+          lastMsg.content = [
+            { type: "text", text: textContent || "Analise esta imagem enviada pelo lead." },
+            { type: "image_url", image_url: { url: body.media_url } }
+          ];
+        } else {
+          const lastMsg = msgs[msgs.length - 1];
+          if (Array.isArray(lastMsg.content)) {
+            const textObj = lastMsg.content.find(c => c.type === "text");
+            if (textObj) {
+              textObj.text += "\n" + message;
+            } else {
+              lastMsg.content.unshift({ type: "text", text: message });
+            }
+          } else {
+            lastMsg.content += "\n" + message;
+          }
+        }
       }
 
       const model = aiConfig.ai_model || "openai/gpt-4o-mini";

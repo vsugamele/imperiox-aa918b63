@@ -2063,10 +2063,10 @@ Deno.serve(async (req) => {
     // ── ACTION: simulate_ai_reply ──
     if (action === "simulate_ai_reply") {
       const body = await req.json();
-      const { project_id, provider_id, message: leadMessage, history = [], phone = "5511999999999" } = body;
+      const { project_id, provider_id, message: leadMessage, history = [], phone = "5511999999999", media_url, media_type } = body;
       
-      if (!project_id || !leadMessage) {
-        return new Response(JSON.stringify({ success: false, error: "project_id e message são obrigatórios" }), {
+      if (!project_id || (!leadMessage && !media_url)) {
+        return new Response(JSON.stringify({ success: false, error: "project_id e message (ou media_url) são obrigatórios" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400
         });
@@ -2334,7 +2334,18 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
       });
 
       // Add current test message
-      messages.push({ role: "user", content: leadMessage });
+      const isImage = media_type === "image" || (media_url && (media_url.endsWith(".png") || media_url.endsWith(".jpg") || media_url.endsWith(".jpeg") || media_url.endsWith(".webp")));
+      if (isImage && media_url) {
+        messages.push({
+          role: "user",
+          content: [
+            { type: "text", text: leadMessage || "Analise esta imagem enviada pelo lead." },
+            { type: "image_url", image_url: { url: media_url } }
+          ]
+        } as any);
+      } else {
+        messages.push({ role: "user", content: leadMessage || "" });
+      }
 
       // Call LLM (using Lovable AI gateway or OpenRouter based on config)
       const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
