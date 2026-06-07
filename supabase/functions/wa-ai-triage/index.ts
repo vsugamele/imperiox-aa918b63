@@ -165,9 +165,14 @@ Deno.serve(async (req) => {
     if (classification.urgency === "high" || classification.intent === "compra_quente") {
       escalated = true;
       if (lead_id) {
+        // Evolutionary score: don't overwrite, accumulate upward (capped at 100)
+        const { data: scoreLead } = await supabase
+          .from("imphq_leads").select("score").eq("id", lead_id).maybeSingle();
+        const current = Number(scoreLead?.score ?? 50);
+        const newScore = Math.min(current + 30, 100);
         await supabase
           .from("imphq_leads")
-          .update({ score: 90, updated_at: new Date().toISOString() })
+          .update({ score: newScore, updated_at: new Date().toISOString() })
           .eq("id", lead_id);
       }
       await supabase.from("imphq_ai_actions").insert({
@@ -182,6 +187,97 @@ Deno.serve(async (req) => {
         source: "wa-ai-triage",
         status: "proposed",
       });
+
+      // Push notification: alert owner immediately when hot lead detected
+      if (projeto_id) {
+        try {
+          const { data: proj } = await supabase
+            .from("imphq_projects")
+            .select("user_id, name")
+            .eq("id", projeto_id)
+            .maybeSingle();
+          if (proj?.user_id) {
+            const { data: leadData } = lead_id
+              ? await supabase.from("imphq_leads").select("nome, phone").eq("id", lead_id).maybeSingle()
+              : { data: null };
+            const leadLabel = leadData?.nome || leadData?.phone || "Lead";
+            await supabase.functions.invoke("send-push", {
+              body: {
+                user_id: proj.user_id,
+                title: `🔥 Hot Lead — ${proj.name || "Projeto"}`,
+                message: `${leadLabel}: "${message.slice(0, 80)}"`,
+                url: conversation_id ? `/inbox?tab=whatsapp&conv=${conversation_id}` : "/inbox?tab=whatsapp",
+              },
+            });
+            console.log(`[triage] Push sent to user ${proj.user_id} for hot lead`);
+          }
+        } catch (pushErr: any) {
+          console.warn("[triage] Push notification failed:", pushErr.message);
+        }
+      }
+    }
+
+    // Auto-tag lead by intent classification
+    if (lead_id && classification.intent) {
+      const intentTagMap: Record<string, string> = {
+        compra_quente: "🔥 Hot Lead",
+        objecao: "🛡️ Tem Objeção",
+        suporte: "🛟 Precisa Suporte",
+        duvida: "❓ Tem Dúvida",
+      };
+      const intentTag = intentTagMap[classification.intent];
+      // Also add urgency tag if high
+      const urgencyTag = classification.urgency === "high" ? "⚡ Urgente" : null;
+
+      if (intentTag || urgencyTag) {
+        try {
+          const { data: tagLead } = await supabase
+            .from("imphq_leads")
+            .select("tags")
+            .eq("id", lead_id)
+            .maybeSingle();
+          const existingTags: string[] = tagLead?.tags || [];
+          const tagsToAdd = [intentTag, urgencyTag].filter(Boolean) as string[];
+          const newTags = [...new Set([...existingTags, ...tagsToAdd])];
+          if (newTags.length !== existingTags.length) {
+            await supabase
+              .from("imphq_leads")
+              .update({ tags: newTags, updated_at: new Date().toISOString() })
+              .eq("id", lead_id);
+            console.log(`[triage] Auto-tagged lead ${lead_id} with: ${tagsToAdd.join(", ")}`);
+            // Log tag history
+            const addedTags = tagsToAdd.filter(t => !existingTags.includes(t));
+            if (addedTags.length > 0) {
+              await supabase.from("imphq_lead_tag_history").insert(
+                addedTags.map(tag => ({ lead_id, project_id: projeto_id || null, tag, action: "added", source: "triage" }))
+              ).catch(() => {});
+            }
+          }
+        } catch (autoTagErr) {
+          console.warn("[triage] Failed to auto-tag lead by intent:", autoTagErr);
+        }
+      }
+    }
+
+    // Evolutionary score increments for non-hot intents (compra_quente is handled above)
+    if (lead_id && !escalated && classification.intent) {
+      const intentScoreBoost: Record<string, number> = {
+        duvida: 10,   // asked questions → interested
+        objecao: 8,   // raised objection → still engaged
+        suporte: 5,   // needs help → already customer or warm
+        saudacao: 2,  // said hi → just entered
+      };
+      const boost = intentScoreBoost[classification.intent] ?? 0;
+      if (boost > 0) {
+        try {
+          const { data: sLead } = await supabase
+            .from("imphq_leads").select("score").eq("id", lead_id).maybeSingle();
+          const cur = Number(sLead?.score ?? 30);
+          await supabase.from("imphq_leads")
+            .update({ score: Math.min(cur + boost, 99), updated_at: new Date().toISOString() })
+            .eq("id", lead_id);
+        } catch (se) { /* non-critical */ }
+      }
     }
 
     // Eugene Schwartz desire classification and tagging

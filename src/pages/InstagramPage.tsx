@@ -1923,18 +1923,42 @@ export default function InstagramPage() {
                           ) : (funnelGroups[stage.id] || []).map(c => (
                             <div
                               key={c.id}
-                              onClick={() => { setSelectedConv(c); setActiveMainTab("dms"); }}
-                              className="cursor-pointer p-2 rounded-lg bg-card hover:bg-secondary/40 border border-border/40 transition-colors"
+                              className="p-2 rounded-lg bg-card border border-border/40 transition-colors"
                             >
-                              <p className="text-xs font-semibold truncate">
-                                {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || "Lead"}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
-                              {c.last_message_at && (
-                                <p className="text-[9px] text-muted-foreground/60 mt-0.5">
-                                  {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
-                                </p>
-                              )}
+                              <div className="flex items-start justify-between gap-1">
+                                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => { setSelectedConv(c); setActiveMainTab("dms"); }}>
+                                  <p className="text-xs font-semibold truncate">
+                                    {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || "Lead"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
+                                  {c.last_message_at && (
+                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+                                      {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+                                    </p>
+                                  )}
+                                </div>
+                                {(stage.id === "quente" || stage.id === "cliente") && (
+                                  <button
+                                    title="Enviar lead para WhatsApp (OpenFlow)"
+                                    className="shrink-0 text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded px-1.5 py-1 hover:bg-emerald-500/30 transition-colors font-medium"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (!selectedAccount?.project_id) { toast.error("Projeto não encontrado"); return; }
+                                      try {
+                                        const res = await supabase.functions.invoke("ig-to-wa-bridge", {
+                                          body: { ig_conversation_id: c.id, project_id: selectedAccount.project_id },
+                                        });
+                                        if (res.error) throw res.error;
+                                        toast.success(`Lead enviado para WhatsApp! ${res.data?.phone_available ? "Flow disparado." : "Sem telefone — lead criado."}`);
+                                      } catch (err: any) {
+                                        toast.error("Erro ao enviar para WA: " + (err.message || err));
+                                      }
+                                    }}
+                                  >
+                                    → WA
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </CardContent>

@@ -19,6 +19,8 @@ import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 import { CampanhasManager, type Campanha } from "@/components/openflow/CampanhasManager";
 import { OpenFlowAnalytics } from "@/components/openflow/OpenFlowAnalytics";
+import { ColdLeadReactivation } from "@/components/openflow/ColdLeadReactivation";
+import { FlowSimulator } from "@/components/openflow/FlowSimulator";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 // ── Constants ────────────────────────────────────────────────────
@@ -363,6 +365,8 @@ export default function OpenFlow() {
           <TabsTrigger value="automacoes">Fluxos</TabsTrigger>
           <TabsTrigger value="campanhas"><Megaphone className="h-3 w-3 mr-1" /> Campanhas</TabsTrigger>
           <TabsTrigger value="execucoes"><Activity className="h-3 w-3 mr-1" /> Execuções</TabsTrigger>
+          <TabsTrigger value="reativacao"><Clock className="h-3 w-3 mr-1" /> Reativação</TabsTrigger>
+          <TabsTrigger value="simulador"><Play className="h-3 w-3 mr-1" /> Simulador</TabsTrigger>
           <TabsTrigger value="analytics"><BarChart3 className="h-3 w-3 mr-1" /> Analytics</TabsTrigger>
           <TabsTrigger value="logs"><ScrollText className="h-3 w-3 mr-1" /> Logs</TabsTrigger>
           <TabsTrigger value="guia"><BookOpen className="h-3 w-3 mr-1" /> Guia</TabsTrigger>
@@ -370,6 +374,14 @@ export default function OpenFlow() {
 
         <TabsContent value="campanhas" className="mt-4">
           <CampanhasManager projects={projects} onChange={load} />
+        </TabsContent>
+
+        <TabsContent value="reativacao" className="mt-4">
+          <ColdLeadReactivation projects={projects} automacoes={automacoes} />
+        </TabsContent>
+
+        <TabsContent value="simulador" className="mt-4">
+          <FlowSimulator automacoes={automacoes} projects={projects} />
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-4">
