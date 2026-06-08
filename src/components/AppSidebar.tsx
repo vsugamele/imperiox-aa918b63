@@ -45,6 +45,7 @@ const inteligenciaItems = [
   { title: "Swipe File",           url: "/swipe",          icon: Library },
   { title: "Market Intel",         url: "/market-intel",   icon: Search },
   { title: "Copilot de Produtos",  url: "/product-copilot",icon: Sparkles },
+  { title: "Orquestrador Infoproduto", url: "/infoproduto-copilot", icon: Sparkles },
 ];
 
 const planejarItems = [
