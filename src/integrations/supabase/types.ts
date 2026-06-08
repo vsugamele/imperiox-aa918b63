@@ -16603,7 +16603,9 @@ export type Database = {
           custo_por_compra: number | null
           custo_por_resultado: number | null
           daily_budget: number | null
+          data: string | null
           data_ref: string
+          date: string | null
           effective_status: string | null
           frequencia: number | null
           hold_rate: number | null
@@ -16618,7 +16620,9 @@ export type Database = {
           nivel_veiculacao: string | null
           plataforma: string
           project_id: string | null
+          purchases: number | null
           resultados: number | null
+          spend: number | null
           stop_rate: number | null
           thumbnail_url: string | null
           valor: number
@@ -16646,7 +16650,9 @@ export type Database = {
           custo_por_compra?: number | null
           custo_por_resultado?: number | null
           daily_budget?: number | null
+          data?: string | null
           data_ref: string
+          date?: string | null
           effective_status?: string | null
           frequencia?: number | null
           hold_rate?: number | null
@@ -16661,7 +16667,9 @@ export type Database = {
           nivel_veiculacao?: string | null
           plataforma?: string
           project_id?: string | null
+          purchases?: number | null
           resultados?: number | null
+          spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
           valor?: number
@@ -16689,7 +16697,9 @@ export type Database = {
           custo_por_compra?: number | null
           custo_por_resultado?: number | null
           daily_budget?: number | null
+          data?: string | null
           data_ref?: string
+          date?: string | null
           effective_status?: string | null
           frequencia?: number | null
           hold_rate?: number | null
@@ -16704,7 +16714,9 @@ export type Database = {
           nivel_veiculacao?: string | null
           plataforma?: string
           project_id?: string | null
+          purchases?: number | null
           resultados?: number | null
+          spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
           valor?: number
@@ -17037,6 +17049,8 @@ export type Database = {
           campanha_id: string | null
           created_at: string | null
           dedupe_hours: number | null
+          follow_up_hours: number | null
+          follow_up_template: string | null
           id: string
           link_checkout: string | null
           nome: string
@@ -17045,6 +17059,8 @@ export type Database = {
           provider_id: string | null
           quiet_end: number | null
           quiet_start: number | null
+          stalled_hours: number | null
+          stalled_operator: string | null
           tag_filtro: string | null
           trigger_tipo: string
           updated_at: string | null
@@ -17055,6 +17071,8 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          follow_up_hours?: number | null
+          follow_up_template?: string | null
           id: string
           link_checkout?: string | null
           nome: string
@@ -17063,6 +17081,8 @@ export type Database = {
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          stalled_hours?: number | null
+          stalled_operator?: string | null
           tag_filtro?: string | null
           trigger_tipo: string
           updated_at?: string | null
@@ -17073,6 +17093,8 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          follow_up_hours?: number | null
+          follow_up_template?: string | null
           id?: string
           link_checkout?: string | null
           nome?: string
@@ -17081,6 +17103,8 @@ export type Database = {
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          stalled_hours?: number | null
+          stalled_operator?: string | null
           tag_filtro?: string | null
           trigger_tipo?: string
           updated_at?: string | null
@@ -19918,6 +19942,7 @@ export type Database = {
       imphq_leads: {
         Row: {
           campanha_id: string | null
+          created_at: string | null
           criado_em: string | null
           data: Json | null
           email: string | null
@@ -19935,6 +19960,7 @@ export type Database = {
         }
         Insert: {
           campanha_id?: string | null
+          created_at?: string | null
           criado_em?: string | null
           data?: Json | null
           email?: string | null
@@ -19952,6 +19978,7 @@ export type Database = {
         }
         Update: {
           campanha_id?: string | null
+          created_at?: string | null
           criado_em?: string | null
           data?: Json | null
           email?: string | null
@@ -23701,6 +23728,7 @@ export type Database = {
           project_id: string | null
           provider: string | null
           provider_message_id: string | null
+          read: boolean | null
           role: string | null
           sent_by: string | null
           status: string | null
@@ -23720,6 +23748,7 @@ export type Database = {
           project_id?: string | null
           provider?: string | null
           provider_message_id?: string | null
+          read?: boolean | null
           role?: string | null
           sent_by?: string | null
           status?: string | null
@@ -23739,6 +23768,7 @@ export type Database = {
           project_id?: string | null
           provider?: string | null
           provider_message_id?: string | null
+          read?: boolean | null
           role?: string | null
           sent_by?: string | null
           status?: string | null
