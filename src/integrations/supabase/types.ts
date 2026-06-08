@@ -12248,6 +12248,84 @@ export type Database = {
         }
         Relationships: []
       }
+      club_pro_content: {
+        Row: {
+          active: boolean
+          calendar_items: Json
+          created_at: string
+          created_by: string | null
+          cycle_theme: string
+          id: string
+          lunar_ritual: string
+          reflection_question: string
+          title: string
+          updated_at: string
+          week_energy: string
+        }
+        Insert: {
+          active?: boolean
+          calendar_items?: Json
+          created_at?: string
+          created_by?: string | null
+          cycle_theme: string
+          id?: string
+          lunar_ritual: string
+          reflection_question: string
+          title: string
+          updated_at?: string
+          week_energy: string
+        }
+        Update: {
+          active?: boolean
+          calendar_items?: Json
+          created_at?: string
+          created_by?: string | null
+          cycle_theme?: string
+          id?: string
+          lunar_ritual?: string
+          reflection_question?: string
+          title?: string
+          updated_at?: string
+          week_energy?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_pro_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_pro_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_pro_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "club_pro_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_pro_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       columns: {
         Row: {
           board_id: string
@@ -17646,6 +17724,54 @@ export type Database = {
           },
         ]
       }
+      imphq_cold_reactivation_rules: {
+        Row: {
+          ativo: boolean
+          automacao_id: string
+          created_at: string
+          dias_sem_resposta: number
+          id: string
+          last_run_at: string | null
+          leads_reactivated: number
+          nome: string
+          project_id: string | null
+          score_max: number | null
+          status_filtro: string | null
+          tag_filtro: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          automacao_id: string
+          created_at?: string
+          dias_sem_resposta?: number
+          id?: string
+          last_run_at?: string | null
+          leads_reactivated?: number
+          nome: string
+          project_id?: string | null
+          score_max?: number | null
+          status_filtro?: string | null
+          tag_filtro?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          automacao_id?: string
+          created_at?: string
+          dias_sem_resposta?: number
+          id?: string
+          last_run_at?: string | null
+          leads_reactivated?: number
+          nome?: string
+          project_id?: string | null
+          score_max?: number | null
+          status_filtro?: string | null
+          tag_filtro?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_competitors: {
         Row: {
           ads_ativos: boolean | null
@@ -19758,6 +19884,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_lead_tag_history: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          lead_id: string
+          project_id: string | null
+          source: string | null
+          tag: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          project_id?: string | null
+          source?: string | null
+          tag: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          project_id?: string | null
+          source?: string | null
+          tag?: string
+        }
+        Relationships: []
       }
       imphq_leads: {
         Row: {
@@ -22542,12 +22698,12 @@ export type Database = {
           triage_prompt: string | null
           triage_stages: Json | null
           updated_at: string | null
-          welcome_message: string | null
-          voice_reply_enabled: boolean | null
-          voice_provider: string | null
-          voice_name: string | null
-          voice_stability: number | null
           voice_clarity: number | null
+          voice_name: string | null
+          voice_provider: string | null
+          voice_reply_enabled: boolean | null
+          voice_stability: number | null
+          welcome_message: string | null
         }
         Insert: {
           ai_model?: string | null
@@ -22588,12 +22744,12 @@ export type Database = {
           triage_prompt?: string | null
           triage_stages?: Json | null
           updated_at?: string | null
-          welcome_message?: string | null
-          voice_reply_enabled?: boolean | null
-          voice_provider?: string | null
-          voice_name?: string | null
-          voice_stability?: number | null
           voice_clarity?: number | null
+          voice_name?: string | null
+          voice_provider?: string | null
+          voice_reply_enabled?: boolean | null
+          voice_stability?: number | null
+          welcome_message?: string | null
         }
         Update: {
           ai_model?: string | null
@@ -22634,12 +22790,12 @@ export type Database = {
           triage_prompt?: string | null
           triage_stages?: Json | null
           updated_at?: string | null
-          welcome_message?: string | null
-          voice_reply_enabled?: boolean | null
-          voice_provider?: string | null
-          voice_name?: string | null
-          voice_stability?: number | null
           voice_clarity?: number | null
+          voice_name?: string | null
+          voice_provider?: string | null
+          voice_reply_enabled?: boolean | null
+          voice_stability?: number | null
+          welcome_message?: string | null
         }
         Relationships: [
           {
@@ -28473,6 +28629,96 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_profiles: {
+        Row: {
+          area: string
+          checkout_url: string | null
+          created_at: string
+          email: string | null
+          extra: string
+          id: string
+          lead_key: string
+          lead_status: string
+          product_label: string | null
+          product_type: string
+          report_id: string | null
+          style: string
+          updated_at: string
+          urgency: string
+          user_id: string | null
+        }
+        Insert: {
+          area: string
+          checkout_url?: string | null
+          created_at?: string
+          email?: string | null
+          extra: string
+          id?: string
+          lead_key: string
+          lead_status?: string
+          product_label?: string | null
+          product_type: string
+          report_id?: string | null
+          style: string
+          updated_at?: string
+          urgency: string
+          user_id?: string | null
+        }
+        Update: {
+          area?: string
+          checkout_url?: string | null
+          created_at?: string
+          email?: string | null
+          extra?: string
+          id?: string
+          lead_key?: string
+          lead_status?: string
+          product_label?: string | null
+          product_type?: string
+          report_id?: string | null
+          style?: string
+          updated_at?: string
+          urgency?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "lead_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           attachments: Json | null
@@ -28829,6 +29075,72 @@ export type Database = {
           },
           {
             foreignKeyName: "medical_exams_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_journey_progress: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          lesson_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_journey_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_journey_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_journey_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "member_journey_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_journey_progress_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
@@ -36604,6 +36916,42 @@ export type Database = {
         }
         Relationships: []
       }
+      product_catalog: {
+        Row: {
+          active: boolean
+          checkout_product_id: string | null
+          checkout_url: string
+          created_at: string
+          id: string
+          name: string
+          price: number
+          resource_type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          checkout_product_id?: string | null
+          checkout_url: string
+          created_at?: string
+          id: string
+          name: string
+          price?: number
+          resource_type: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          checkout_product_id?: string | null
+          checkout_url?: string
+          created_at?: string
+          id?: string
+          name?: string
+          price?: number
+          resource_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           aspect_ratio: string | null
@@ -41023,6 +41371,21 @@ export type Database = {
           min_similarity?: number
           p_project_id: string
           query_embedding: string
+        }
+        Returns: {
+          id: string
+          pergunta: string
+          resposta: string
+          similarity: number
+        }[]
+      }
+      match_wa_knowledge_hybrid: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          p_project_id: string
+          query_embedding: string
+          query_text: string
         }
         Returns: {
           id: string
