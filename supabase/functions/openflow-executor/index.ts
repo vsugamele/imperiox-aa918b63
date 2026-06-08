@@ -147,7 +147,40 @@ Deno.serve(async (req) => {
 
     const results: any[] = [];
 
+    // ── Cross-flow lock: check if lead is already inside a DIFFERENT active flow
+    // Prevent a lead in Flow A from being pulled into conflicting Flow B simultaneously.
+    // Exception: resume_from_step (re-entry from wa-ai-reply) and explicit automacao_id bypass.
+    let activeFlowId: string | null = null;
+    let activeFlowName: string | null = null;
+    if (lead_data?.lead_id && !resume_from_step && !automacao_id) {
+      const { data: activeExecs } = await supabase
+        .from("imphq_flow_executions")
+        .select("id, automacao_id")
+        .eq("lead_id", lead_data.lead_id)
+        .in("status", ["running", "waiting"])
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (activeExecs && activeExecs.length > 0) {
+        activeFlowId = activeExecs[0].automacao_id;
+        // Look up automation name for logging
+        const { data: activeAuto } = await supabase
+          .from("imphq_automacoes")
+          .select("nome")
+          .eq("id", activeFlowId)
+          .maybeSingle();
+        activeFlowName = activeAuto?.nome || activeFlowId;
+        console.log(`[openflow-executor] Lead ${lead_data.lead_id} already in flow "${activeFlowName}" (${activeFlowId})`);
+      }
+    }
+
     for (const auto of matched) {
+      // ── Cross-flow lock: skip if lead is in a different active flow
+      if (activeFlowId && activeFlowId !== auto.id) {
+        console.log(`[openflow-executor] Skipping ${auto.id} (${auto.nome}): lead already in flow "${activeFlowName}"`);
+        results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: "cross_flow_lock", active_flow: activeFlowName });
+        continue;
+      }
+
       // ── Dedupe: skip if same automation ran for same lead within N hours
       const dedupeH = Number(auto.dedupe_hours || 0);
       if (dedupeH > 0 && lead_data?.lead_id) {
@@ -1267,6 +1300,89 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
 
               status = "waiting";
               break;
+            }
+          }
+
+          else if (step.tipo === "branch_by_awareness") {
+            let awarenessLevel = 0;
+            if (lead_data?.awareness_level) {
+              awarenessLevel = Number(lead_data.awareness_level);
+            } else if (lead_data?.lead_id) {
+              const { data: ld } = await supabase.from("imphq_leads").select("awareness_level").eq("id", lead_data.lead_id).maybeSingle();
+              awarenessLevel = Number((ld as any)?.awareness_level || 0);
+            }
+            const min = Number(step.awareness_min ?? 1);
+            const max = Number(step.awareness_max ?? 5);
+            const conditionMet = awarenessLevel >= min && awarenessLevel <= max;
+            stepResult.status = "evaluated";
+            stepResult.awareness_level = awarenessLevel;
+            stepResult.condition_met = conditionMet;
+            if (!conditionMet) {
+              const skipCount = parseInt(step.else_skip) || 1;
+              i += skipCount;
+              stepResult.skipped_steps = skipCount;
+              console.log(`[openflow-executor] branch_by_awareness: level=${awarenessLevel} fora de [${min},${max}], pulando ${skipCount} step(s)`);
+            }
+          }
+
+          else if (step.tipo === "branch_by_intent") {
+            const allowedIntents = (step.intents || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+            let lastIntent: string | null = null;
+            if (lead_data?.lead_id) {
+              const { data: tr } = await supabase.from("imphq_wa_triage")
+                .select("intent").eq("lead_id", lead_data.lead_id)
+                .order("created_at", { ascending: false }).limit(1).maybeSingle();
+              lastIntent = (tr as any)?.intent || null;
+            }
+            const conditionMet = allowedIntents.length === 0 || (lastIntent != null && allowedIntents.includes(lastIntent));
+            stepResult.status = "evaluated";
+            stepResult.last_intent = lastIntent;
+            stepResult.condition_met = conditionMet;
+            if (!conditionMet) {
+              const skipCount = parseInt(step.else_skip) || 1;
+              i += skipCount;
+              stepResult.skipped_steps = skipCount;
+            }
+          }
+
+          else if (step.tipo === "update_memory") {
+            const key = step.memory_key;
+            const rawValue = (step.memory_value || "")
+              .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
+              .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
+              .replace(/\{\{valor\}\}/g, lead_data?.valor || "")
+              .replace(/\{\{email\}\}/g, lead_data?.email || "");
+            if (!key || !lead_data?.lead_id) {
+              stepResult.status = "skipped";
+              stepResult.reason = !key ? "memory_key não definida" : "lead_id ausente";
+            } else {
+              const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+              const current = (ld as any)?.lead_memory || {};
+              const { error: memErr } = await supabase.from("imphq_leads")
+                .update({ lead_memory: { ...current, [key]: rawValue }, updated_at: new Date().toISOString() })
+                .eq("id", lead_data.lead_id);
+              stepResult.status = memErr ? "error" : "completed";
+              stepResult.memory_key = key;
+              if (memErr) { stepsFailed++; failureMessages.push(`Step ${i} (update_memory): ${memErr.message}`); }
+            }
+          }
+
+          else if (step.tipo === "qualify_lead") {
+            if (!lead_data?.lead_id) {
+              stepResult.status = "skipped";
+              stepResult.reason = "lead_id ausente";
+            } else {
+              const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+              if (step.lead_score != null) updates.score = Number(step.lead_score);
+              if (step.lead_stage) updates.stage = step.lead_stage;
+              if (step.lead_tags) {
+                const newTags = step.lead_tags.split(",").map((t: string) => t.trim()).filter(Boolean);
+                const { data: ld } = await supabase.from("imphq_leads").select("tags").eq("id", lead_data.lead_id).maybeSingle();
+                updates.tags = [...new Set([...((ld as any)?.tags || []), ...newTags])];
+              }
+              const { error: qErr } = await supabase.from("imphq_leads").update(updates).eq("id", lead_data.lead_id);
+              stepResult.status = qErr ? "error" : "completed";
+              if (qErr) { stepsFailed++; failureMessages.push(`Step ${i} (qualify_lead): ${qErr.message}`); }
             }
           }
 

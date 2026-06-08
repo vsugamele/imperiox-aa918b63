@@ -37,6 +37,7 @@ async function classifyMessage(
   "fit_score": 0-100,
   "stage": ${stageIds},
   "objecao": "string ou null (se intent=objecao, descreva a objeção em <50 chars)",
+  "awareness_level": 1-5,
   "desejo_schwartz": "tempo" | "dinheiro" | "estresse" | "status" | null,
   "extracted_profile": {
     "pain": "uma descrição curta (<80 caracteres) de uma dor/dificuldade/medo que o lead demonstrou ter, ou null",
@@ -56,7 +57,15 @@ Mapeie o desejo visceral do cliente (Lei 4 de Eugene Schwartz):
 - "dinheiro" (escala de faturamento, lucro, retorno financeiro, ROI)
 - "estresse" (alívio de complexidade, facilidade, estabilidade, paz de espírito)
 - "status" (prestígio, autoridade no mercado, ser o melhor da área, destaque de marca)
-Considere o contexto. 'compra_quente' = quer comprar agora (pede link, preço, pix).`;
+Considere o contexto. 'compra_quente' = quer comprar agora (pede link, preço, pix).
+
+Nível de consciência (awareness_level — Eugene Schwartz):
+1 = Inconsciente do problema ("como isso funciona?", curiosidade geral)
+2 = Consciente do problema ("tô travado em X", "não consigo Y")
+3 = Consciente da solução ("preciso de curso/mentoria/ferramenta")
+4 = Consciente do produto ("vi sua mentoria", "quanto custa?", "tem garantia?")
+5 = Pronto para comprar ("como eu pago?", "manda o pix", "qual é o link?")
+'compra_quente' sempre implica awareness_level 4 ou 5.`;
 
   const ctx = lastMessages.length > 0 ? `\n\nÚltimas msgs do lead:\n${lastMessages.join("\n")}` : "";
 
@@ -473,6 +482,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Salva awareness_level no lead (nunca desce, só sobe)
+    if (lead_id && classification.awareness_level > 0) {
+      try {
+        const { data: aLead } = await supabase
+          .from("imphq_leads").select("awareness_level").eq("id", lead_id).maybeSingle();
+        const currentLevel = Number((aLead as any)?.awareness_level || 0);
+        if (classification.awareness_level > currentLevel) {
+          await supabase.from("imphq_leads")
+            .update({ awareness_level: classification.awareness_level, updated_at: new Date().toISOString() })
+            .eq("id", lead_id);
+          console.log(`[triage] awareness_level lead ${lead_id}: ${currentLevel} → ${classification.awareness_level}`);
+        }
+      } catch (awErr: any) {
+        console.warn("[triage] Failed to update awareness_level:", awErr?.message);
+      }
+    }
+
     await supabase.from("imphq_wa_triage").insert({
       message_id,
       conversation_id,
@@ -482,6 +508,7 @@ Deno.serve(async (req) => {
       sentiment: classification.sentiment,
       urgency: classification.urgency,
       fit_score: classification.fit_score,
+      awareness_level: classification.awareness_level || null,
       raw_message: message,
       ai_response: suggestedReply,
       escalated,

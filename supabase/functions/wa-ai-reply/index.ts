@@ -275,9 +275,17 @@ Deno.serve(async (req) => {
     // 2. Verifica cooldown e se a conversa está sob atendimento humano
     const { data: conv } = await supabase
       .from("imphq_wa_conversations")
-      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until")
+      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa")
       .eq("id", conversation_id)
       .maybeSingle();
+
+    // ia_ativa === false = toggle manual permanente (diferente de ai_paused_until que é temporário)
+    if (conv?.ia_ativa === false) {
+      console.log(`[wa-ai-reply] ia_ativa=false para conversa ${conversation_id}, ignorando IA`);
+      return new Response(JSON.stringify({ skipped: "ia_desativada" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (conv?.status === "needs_human") {
       console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA`);
@@ -554,6 +562,12 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Off-topic guard: if last triage classified as off_topic, inject redirect instruction
+      const offTopicBlock = triageIntent === "off_topic"
+        ? `\n⚠️ TÓPICO FORA DO ESCOPO DETECTADO:
+A mensagem do lead foi classificada como fora do assunto principal. Responda de forma empática em 1 frase curta acolhendo o que ele disse, mas IMEDIATAMENTE redirecione para o produto/oferta com uma pergunta consultiva. Máximo 2 frases no total. Não se prolongue no assunto off-topic.`
+        : "";
+
       const expertPersona = aiConfig.expert_persona ? `PERSONA DO EXPERT:\n${String(aiConfig.expert_persona).slice(0, 600)}\n\n` : "";
       const productFocus = aiConfig.product_focus ? `\nOFERTA ATIVA: ${String(aiConfig.product_focus).slice(0, 400)}` : "";
       const customInstr = aiConfig.custom_instructions ? `\nREGRAS GERAIS ADICIONAIS:\n${String(aiConfig.custom_instructions).slice(0, 600)}` : "";
@@ -574,14 +588,29 @@ Deno.serve(async (req) => {
         formal: "Tom formal e polido.",
       };
 
+      // Build explicit product→link mapping block to prevent link hallucination
+      let productLinkMapBlock = "";
+      if (d && Array.isArray(d.produtos) && d.produtos.length > 0) {
+        const entries = d.produtos
+          .filter((p: any) => p.nome && (p.link_checkout || p.link))
+          .map((p: any) => {
+            const link = p.link_checkout || p.link;
+            const price = p.preco ? ` · R$ ${p.preco}` : "";
+            return `  - "${p.nome}"${price} → ${link}`;
+          });
+        if (entries.length > 0) {
+          productLinkMapBlock = `\nMAPEAMENTO PRODUTO → LINK (use EXATAMENTE estes links, nunca invente):\n${entries.join("\n")}\n`;
+        }
+      }
+
       // Fallback checkout link from project data
       let fallbackLink = null;
       if (d) {
-        fallbackLink = d.produto_principal?.link_checkout || 
-                       d.produto_principal?.link || 
-                       (Array.isArray(d.produtos) && (d.produtos[0]?.link_checkout || d.produtos[0]?.link)) || 
-                       d.link_checkout || 
-                       d.link || 
+        fallbackLink = d.produto_principal?.link_checkout ||
+                       d.produto_principal?.link ||
+                       (Array.isArray(d.produtos) && (d.produtos[0]?.link_checkout || d.produtos[0]?.link)) ||
+                       d.link_checkout ||
+                       d.link ||
                        null;
       }
 
@@ -636,12 +665,23 @@ Seja extremamente impactante e direto. Ao final da mensagem, adicione exatamente
 `;
       }
 
+      const humanizationRules = `
+REGRAS DE COMUNICACAO HUMANA (OBRIGATORIO):
+- NUNCA comece respostas com: "Certamente!", "Com prazer!", "Claro que sim!", "Ótimo!", "Excelente!", "Maravilha!", "Perfeito!", "Com certeza!", "Absolutamente!", "Entendido!"
+- NUNCA use formatacao de lista numerada ou bullets (1. 2. 3. ou - - -) — voce esta no WhatsApp, nao num email
+- NUNCA termine com perguntas genericas como "Posso te ajudar com mais alguma coisa?"
+- Use linguagem natural e coloquial, como alguem que realmente conhece o lead
+- Varie o comprimento das frases — misture curtas e medias
+- Se for enviar mais de 2 ideias, QUEBRE em paragrafos separados por linha em branco (assim parecem mensagens diferentes)
+- Use contrações naturais do PT-BR: "tô", "tá", "pra", "pro", "né", "viu" quando o tom for casual
+`;
+
       const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${personalityMap[aiConfig.personality] || personalityMap.consultor}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
 ${leadContextBlock}
-
+${humanizationRules}
 METODO OBRIGATORIO — use SEMPRE:
 1. EMPATIA: 1 frase que valida a situacao ou desejo do lead (ex: "Faz todo sentido querer isso!")
 2. ESPECIFICIDADE: 1-2 frases com dado ou beneficio concreto do produto (NAO seja vago)
@@ -656,7 +696,8 @@ REGRAS CRITICAS:
 - Responda em portugues brasileiro natural.
 ${sentimentRules}
 ${draggingRules}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
+${offTopicBlock}
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
@@ -846,7 +887,29 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         });
       }
 
-      let finalAiReply = aiReply;
+      // Filter robotic AI phrases from response
+      const roboticPhrases = [
+        /^certamente[!,.]?\s*/i,
+        /^com prazer[!,.]?\s*/i,
+        /^claro que sim[!,.]?\s*/i,
+        /^claro[!,.]?\s+/i,
+        /^ótimo[!,.]?\s*/i,
+        /^excelente[!,.]?\s*/i,
+        /^maravilha[!,.]?\s*/i,
+        /^perfeito[!,.]?\s*/i,
+        /^com certeza[!,.]?\s*/i,
+        /^absolutamente[!,.]?\s*/i,
+        /^entendido[!,.]?\s*/i,
+        /^olá[!,.]?\s+/i,
+      ];
+      let cleaned = aiReply;
+      for (const pattern of roboticPhrases) {
+        cleaned = cleaned.replace(pattern, "");
+      }
+      // Capitalize first char after stripping
+      cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+
+      let finalAiReply = cleaned.trim();
       let shouldAdvanceFlow = false;
 
       if (activeExecutionId && aiReply.includes("[PROXIMA_ETAPA]")) {
@@ -1062,12 +1125,42 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
         });
       }
 
-      // Delay configurável
-      const delaySec = Number(aiConfig.response_delay_seconds ?? 2);
-      if (delaySec > 0) {
-        console.log(`[wa-ai-reply] Aguardando ${delaySec}s antes de enviar...`);
-        await new Promise((r) => setTimeout(r, Math.min(delaySec * 1000, 10000)));
+      // Randomized delay: base + jitter (makes responses feel human, not instant/robotic)
+      const delaySec = Number(aiConfig.response_delay_seconds ?? 3);
+      const jitterMs = Math.floor(Math.random() * 7000); // 0-7s extra jitter
+      const totalDelayMs = Math.min(delaySec * 1000 + jitterMs, 18000);
+      if (totalDelayMs > 0) {
+        console.log(`[wa-ai-reply] Aguardando ${(totalDelayMs / 1000).toFixed(1)}s (base=${delaySec}s + jitter=${(jitterMs/1000).toFixed(1)}s)`);
+        await new Promise((r) => setTimeout(r, totalDelayMs));
       }
+
+      // Split long replies into multiple messages (human-like behavior)
+      // Split on double newline boundaries; if no splits, keep as single message
+      function splitIntoMessages(text: string): string[] {
+        const parts = text.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+        if (parts.length <= 1) return [text];
+        // Merge very short parts (< 40 chars) with next one to avoid tiny fragments
+        const merged: string[] = [];
+        let buffer = "";
+        for (const part of parts) {
+          if (buffer && (buffer.length + part.length) < 40) {
+            buffer += "\n\n" + part;
+          } else {
+            if (buffer) merged.push(buffer);
+            buffer = part;
+          }
+        }
+        if (buffer) merged.push(buffer);
+        // Cap at 3 messages max
+        if (merged.length > 3) {
+          const last = merged.splice(2).join("\n\n");
+          return [...merged, last];
+        }
+        return merged;
+      }
+
+      const messageParts = responseAudioUrl ? [finalAiReply] : splitIntoMessages(finalAiReply);
+      console.log(`[wa-ai-reply] Sending ${messageParts.length} message part(s)`);
 
       let sendSuccess = false;
       let outMsgId: string | null = null;
@@ -1075,35 +1168,55 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${customInstr}${faq
       if (provider.provider === "evolution") {
         const base = provider.api_url.replace(/\/+$/, "");
         const inst = encodeURIComponent(provider.instance_name);
-        
-        let url = `${base}/message/sendText/${inst}`;
-        let bodyPayload: any = { number: phone + "@s.whatsapp.net", text: finalAiReply };
 
         if (responseAudioUrl) {
-          url = `${base}/message/sendAudio/${inst}`;
-          bodyPayload = {
+          const url = `${base}/message/sendAudio/${inst}`;
+          const bodyPayload = {
             number: phone + "@s.whatsapp.net",
             audio: responseAudioUrl,
             options: { delay: 1000, presence: "composing" }
           };
           console.log(`[wa-ai-reply] Enviando ÁUDIO via Evolution: ${url} → ${phone}`);
+          const sendRes = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: provider.api_key },
+            body: JSON.stringify(bodyPayload),
+          });
+          const sendData = await sendRes.json().catch(() => ({}));
+          console.log(`[wa-ai-reply] Evolution audio status=${sendRes.status}`);
+          if (sendRes.ok) { sendSuccess = true; outMsgId = sendData?.key?.id || null; }
+          else console.error(`[wa-ai-reply] Evolution API rejeitou áudio: ${sendRes.status}`);
         } else {
-          console.log(`[wa-ai-reply] Enviando TEXTO via Evolution: ${url} → ${phone}`);
-        }
-
-        const sendRes = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", apikey: provider.api_key },
-          body: JSON.stringify(bodyPayload),
-        });
-        const sendData = await sendRes.json().catch(() => ({}));
-        console.log(`[wa-ai-reply] Evolution status=${sendRes.status} data=${JSON.stringify(sendData).slice(0, 200)}`);
-
-        if (sendRes.ok) {
-          sendSuccess = true;
-          outMsgId = sendData?.key?.id || null;
-        } else {
-          console.error(`[wa-ai-reply] Evolution API rejeitou: ${sendRes.status} ${JSON.stringify(sendData).slice(0, 200)}`);
+          // Send each part sequentially with a short typing delay between them
+          for (let i = 0; i < messageParts.length; i++) {
+            const part = messageParts[i];
+            if (i > 0) {
+              // Simulate typing time proportional to message length (40ms/char, 1s–5s range)
+              const typingMs = Math.min(Math.max(part.length * 40, 1000), 5000);
+              await new Promise((r) => setTimeout(r, typingMs));
+            }
+            const url = `${base}/message/sendText/${inst}`;
+            const bodyPayload: any = {
+              number: phone + "@s.whatsapp.net",
+              text: part,
+              options: { delay: 1000, presence: "composing" }
+            };
+            console.log(`[wa-ai-reply] Enviando parte ${i + 1}/${messageParts.length} TEXTO via Evolution → ${phone}`);
+            const sendRes = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: provider.api_key },
+              body: JSON.stringify(bodyPayload),
+            });
+            const sendData = await sendRes.json().catch(() => ({}));
+            console.log(`[wa-ai-reply] Evolution status=${sendRes.status} part=${i + 1}`);
+            if (sendRes.ok) {
+              sendSuccess = true;
+              if (i === 0) outMsgId = sendData?.key?.id || null;
+            } else {
+              console.error(`[wa-ai-reply] Evolution API rejeitou parte ${i + 1}: ${sendRes.status} ${JSON.stringify(sendData).slice(0, 200)}`);
+              break;
+            }
+          }
         }
       } else {
         console.warn(`[wa-ai-reply] Provider type '${provider.provider}' não suportado nesta função`);

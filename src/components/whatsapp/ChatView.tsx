@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2 } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
@@ -205,6 +205,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const initialLoadDone = useRef(false);
     const newestTimestampRef = useRef<string | null>(null);
     const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
+    const [iaAtiva, setIaAtiva] = useState<boolean>(true);
+    const [togglingIa, setTogglingIa] = useState(false);
     const [loadingCopilot, setLoadingCopilot] = useState(false);
     const [objections, setObjections] = useState<any[]>([]);
 
@@ -545,6 +547,32 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       }
     };
 
+    // Carrega ia_ativa e mantém sincronizado
+    useEffect(() => {
+      if (!conversationId) return;
+      supabase.from("imphq_wa_conversations")
+        .select("ia_ativa")
+        .eq("id", conversationId)
+        .maybeSingle()
+        .then(({ data }) => { if (data != null) setIaAtiva((data as any).ia_ativa ?? true); });
+    }, [conversationId]);
+
+    const toggleIa = async () => {
+      if (togglingIa) return;
+      setTogglingIa(true);
+      const next = !iaAtiva;
+      const { error } = await supabase.from("imphq_wa_conversations")
+        .update({ ia_ativa: next })
+        .eq("id", conversationId);
+      if (!error) {
+        setIaAtiva(next);
+        toast.success(next ? "IA ativada para esta conversa" : "IA pausada — atendimento manual");
+      } else {
+        toast.error("Erro ao alterar IA: " + error.message);
+      }
+      setTogglingIa(false);
+    };
+
     // Poll AI drafts (modo rascunho)
     useEffect(() => {
       if (!conversationId) return;
@@ -719,7 +747,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       if (el) el.scrollTop = el.scrollHeight;
     }, [messages]);
 
-    // Auto-resize textarea + slash command detection
+    // Auto-resize textarea + slash command/template detection
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value;
       setText(val);
@@ -727,12 +755,23 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       el.style.height = "auto";
       el.style.height = Math.min(el.scrollHeight, 120) + "px";
 
-      // Slash command detection
       if (val.startsWith("/") && val.length > 0) {
         const query = val.substring(1).toLowerCase();
-        const matched = commands.filter(c => c.trigger_word.toLowerCase().includes(query));
-        setCommandSuggestions(matched);
-        setShowCommands(matched.length > 0);
+        const matchedCmds = commands.filter(c => c.trigger_word.toLowerCase().includes(query));
+        // Also search templates by name/content
+        const matchedTpls = templates
+          .filter(t => t.name.toLowerCase().includes(query) || t.content.toLowerCase().includes(query))
+          .slice(0, 5)
+          .map(t => ({
+            id: `tpl_${t.id}`,
+            trigger_word: t.name,
+            response_text: t.content,
+            sequence: [],
+            _isTemplate: true,
+          } as any));
+        const all = [...matchedCmds, ...matchedTpls].slice(0, 8);
+        setCommandSuggestions(all);
+        setShowCommands(all.length > 0);
       } else {
         setShowCommands(false);
         setCommandSuggestions([]);
@@ -1037,19 +1076,26 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         <div className="border-t border-border bg-card p-3 shrink-0">
           {/* Slash command suggestions */}
           {showCommands && commandSuggestions.length > 0 && (
-            <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[200px] overflow-y-auto">
-              <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos</p>
+            <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto">
+              <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos & Templates — Tab ou clique para inserir</p>
               {commandSuggestions.map(cmd => (
                 <button
                   key={cmd.id}
                   className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
                   onClick={() => selectCommand(cmd)}
                 >
-                  <span className="font-mono text-primary">/{cmd.trigger_word}</span>
-                  {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
-                    <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded">seq {cmd.sequence.length}</span>
+                  {(cmd as any)._isTemplate ? (
+                    <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded shrink-0">template</span>
+                  ) : (
+                    <span className="font-mono text-primary shrink-0">/{cmd.trigger_word}</span>
                   )}
-                  <span className="text-muted-foreground truncate flex-1">{(cmd.response_text || (cmd.sequence?.[0]?.content) || "").substring(0, 60)}{cmd.response_text && cmd.response_text.length > 60 ? "..." : ""}</span>
+                  {(cmd as any)._isTemplate && (
+                    <span className="font-medium text-foreground/80 shrink-0">{cmd.trigger_word}</span>
+                  )}
+                  {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
+                    <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded shrink-0">seq {cmd.sequence.length}</span>
+                  )}
+                  <span className="text-muted-foreground truncate flex-1">{(cmd.response_text || (cmd.sequence?.[0]?.content) || "").substring(0, 60)}{cmd.response_text && cmd.response_text.length > 60 ? "…" : ""}</span>
                 </button>
               ))}
             </div>
@@ -1172,6 +1218,18 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
               }`} title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}>
                 {temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}
               </div>
+              {/* Toggle IA */}
+              <Button
+                size="icon"
+                variant={iaAtiva ? "ghost" : "destructive"}
+                className={`shrink-0 h-9 w-9 rounded-full transition-colors ${iaAtiva ? "text-emerald-500 hover:text-emerald-600" : "opacity-80"}`}
+                title={iaAtiva ? "IA ativa — clique para pausar atendimento manual" : "IA pausada — clique para reativar"}
+                onClick={toggleIa}
+                disabled={togglingIa}
+              >
+                {togglingIa ? <Loader2 className="h-4 w-4 animate-spin" /> : iaAtiva ? <Bot className="h-4 w-4" /> : <BotOff className="h-4 w-4" />}
+              </Button>
+
               {/* Emoji picker */}
               <Popover open={showEmoji} onOpenChange={setShowEmoji}>
                 <PopoverTrigger asChild>

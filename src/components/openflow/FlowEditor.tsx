@@ -11,7 +11,7 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,10 @@ const ACAO_TIPOS = [
   { value: "telegram", label: "Telegram", icon: Send, emoji: "📨", color: "border-sky-500/40 bg-sky-500/5 hover:border-sky-400" },
   { value: "aguardar", label: "Aguardar", icon: Clock, emoji: "⏱", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
+  { value: "branch_by_awareness", label: "Ramificar por Consciência", icon: Brain, emoji: "🧠", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
+  { value: "branch_by_intent", label: "Ramificar por Intenção", icon: GitBranch, emoji: "🎯", color: "border-pink-500/40 bg-pink-500/5 hover:border-pink-400" },
+  { value: "update_memory", label: "Atualizar Memória", icon: Brain, emoji: "💾", color: "border-teal-500/40 bg-teal-500/5 hover:border-teal-400" },
+  { value: "qualify_lead", label: "Qualificar Lead", icon: BarChart3, emoji: "⭐", color: "border-yellow-500/40 bg-yellow-500/5 hover:border-yellow-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
@@ -82,6 +86,18 @@ export interface Acao {
   tag?: string;
   else_action?: string;
   else_skip?: number;
+  // branch_by_awareness
+  awareness_min?: number;
+  awareness_max?: number;
+  // branch_by_intent
+  intents?: string;
+  // update_memory
+  memory_key?: string;
+  memory_value?: string;
+  // qualify_lead
+  lead_score?: number;
+  lead_tags?: string;
+  lead_stage?: string;
 }
 
 export interface WaProvider {
@@ -1053,6 +1069,102 @@ export function FlowEditor({
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* branch_by_awareness */}
+                {acao.tipo === "branch_by_awareness" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Continua o fluxo apenas se o nível de consciência do lead estiver dentro do intervalo. Caso contrário, pula N nós.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Nível mín.</Label>
+                        <Select value={String(acao.awareness_min ?? 1)} onValueChange={v => updateAcao(selectedIdx, "awareness_min", Number(v))}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{n} — {["Inconsciente","Ciente do problema","Ciente da solução","Ciente do produto","Pronto p/ comprar"][n-1]}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Nível máx.</Label>
+                        <Select value={String(acao.awareness_max ?? 5)} onValueChange={v => updateAcao(selectedIdx, "awareness_max", Number(v))}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Pular N nós (se fora do range)</Label>
+                      <Input type="number" min={1} value={acao.else_skip ?? 1} onChange={e => updateAcao(selectedIdx, "else_skip", parseInt(e.target.value) || 1)} className="h-9 text-xs bg-background/50 border-border/80" />
+                    </div>
+                  </div>
+                )}
+
+                {/* branch_by_intent */}
+                {acao.tipo === "branch_by_intent" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Continua apenas se a última intenção detectada pelo triage bater com a lista. Caso contrário, pula N nós.
+                    </p>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Intenções (separadas por vírgula)</Label>
+                      <Input value={acao.intents || ""} onChange={e => updateAcao(selectedIdx, "intents", e.target.value)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="compra_quente, duvida" />
+                      <p className="text-[9px] text-muted-foreground/60">Valores: compra_quente · duvida · objecao · suporte · saudacao · off_topic</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Pular N nós (se não bater)</Label>
+                      <Input type="number" min={1} value={acao.else_skip ?? 1} onChange={e => updateAcao(selectedIdx, "else_skip", parseInt(e.target.value) || 1)} className="h-9 text-xs bg-background/50 border-border/80" />
+                    </div>
+                  </div>
+                )}
+
+                {/* update_memory */}
+                {acao.tipo === "update_memory" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Escreve uma chave/valor no campo lead_memory do lead. Use <code className="bg-muted px-0.5 rounded">{"{{variavel}}"}</code> para valores dinâmicos.
+                    </p>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Chave</Label>
+                      <Input value={acao.memory_key || ""} onChange={e => updateAcao(selectedIdx, "memory_key", e.target.value)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="interesse_principal" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Valor</Label>
+                      <Input value={acao.memory_value || ""} onChange={e => updateAcao(selectedIdx, "memory_value", e.target.value)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="{'{{produto}}'}" />
+                    </div>
+                  </div>
+                )}
+
+                {/* qualify_lead */}
+                {acao.tipo === "qualify_lead" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Atualiza score, stage e/ou tags do lead diretamente no fluxo.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Score (0–100)</Label>
+                        <Input type="number" min={0} max={100} value={acao.lead_score ?? ""} onChange={e => updateAcao(selectedIdx, "lead_score", parseInt(e.target.value) || 0)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="75" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Stage</Label>
+                        <Select value={acao.lead_stage || ""} onValueChange={v => updateAcao(selectedIdx, "lead_stage", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                          <SelectContent>
+                            {["lead","prospect","qualified","opportunity","customer","churned"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Tags (vírgula)</Label>
+                      <Input value={acao.lead_tags || ""} onChange={e => updateAcao(selectedIdx, "lead_tags", e.target.value)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="quente, interesse-produto-x" />
+                    </div>
                   </div>
                 )}
 
