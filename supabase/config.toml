@@ -63,6 +63,10 @@ verify_jwt = false
 [functions.instagram-webhook]
 verify_jwt = false
 
+[functions.instagram-api]
+verify_jwt = false
+
+
 [functions.wa-ai-reply]
 verify_jwt = false
 
@@ -77,5 +81,9 @@ verify_jwt = false
 
 [functions.weekly-backup]
 verify_jwt = false
+
+[functions.chat-with-ai]
+verify_jwt = false
+
 
 
