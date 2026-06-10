@@ -11,7 +11,7 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,7 @@ const ACAO_TIPOS = [
   { value: "telegram", label: "Telegram", icon: Send, emoji: "📨", color: "border-sky-500/40 bg-sky-500/5 hover:border-sky-400" },
   { value: "aguardar", label: "Aguardar", icon: Clock, emoji: "⏱", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "wait_event", label: "Aguardar Evento", icon: Clock, emoji: "⏱️", color: "border-cyan-500/40 bg-cyan-500/5 hover:border-cyan-400" },
+  { value: "wait_reply", label: "Aguardar Resposta do Lead", icon: MessageSquare, emoji: "💬", color: "border-lime-500/40 bg-lime-500/5 hover:border-lime-400" },
   { value: "ab_split", label: "Teste A/B de Caminho", icon: Split, emoji: "🔀", color: "border-fuchsia-500/40 bg-fuchsia-500/5 hover:border-fuchsia-400" },
   { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
   { value: "condicao_lead", label: "Condição por Dado do Lead", icon: GitBranch, emoji: "🔀", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
@@ -1298,14 +1299,48 @@ export function FlowEditor({
                   </h3>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Configure os parâmetros da ação #{selectedIdx + 1}</p>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setSelectedIdx(null)} 
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground rounded-full"
-                >
-                  <Plus className="h-4 w-4 rotate-45" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Duplicar etapa"
+                    onClick={() => {
+                      const updated = [...acoes];
+                      const clone = JSON.parse(JSON.stringify(acoes[selectedIdx]));
+                      delete clone.position_x;
+                      delete clone.position_y;
+                      updated.splice(selectedIdx + 1, 0, clone);
+                      onChange(updated);
+                      setSelectedIdx(selectedIdx + 1);
+                      toast.success("Etapa duplicada!");
+                    }}
+                    className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Excluir etapa"
+                    onClick={() => {
+                      const updated = acoes.filter((_, i) => i !== selectedIdx);
+                      onChange(updated);
+                      setSelectedIdx(null);
+                      toast.success("Etapa removida!");
+                    }}
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive rounded-full"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedIdx(null)}
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground rounded-full"
+                  >
+                    <Plus className="h-4 w-4 rotate-45" />
+                  </Button>
+                </div>
               </div>
 
               {/* Drawer Body */}
@@ -1356,7 +1391,7 @@ export function FlowEditor({
                 </div>
 
                 {/* Delay Selector */}
-                {!isWaitEvent && !isAbSplit && (
+                {!isWaitEvent && !isAbSplit && acao.tipo !== "wait_reply" && (
                   <div className="space-y-1">
                     <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
                       {isAguardar ? "Tempo de Espera (minutos)" : isCondicao ? "Verificar após (minutos)" : "Atraso no Envio (minutos)"}
@@ -1471,6 +1506,30 @@ export function FlowEditor({
                       />
                       <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
                         Tempo limite para aguardar o evento. Se o evento não ocorrer nesse intervalo, a automação avança para a próxima etapa.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* wait_reply Fields */}
+                {acao.tipo === "wait_reply" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-lime-500/30 bg-lime-500/5 p-3">
+                      <p className="text-[10px] text-lime-300/90 leading-relaxed">
+                        💬 <strong>Aguardar Resposta:</strong> o fluxo para aqui e só continua quando o lead enviar qualquer mensagem no WhatsApp. Se o lead não responder até o timeout, o fluxo avança mesmo assim.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Timeout (minutos)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={acao.timeout_min ?? 1440}
+                        onChange={e => updateAcao(selectedIdx, "timeout_min", Math.max(1, parseInt(e.target.value) || 1440))}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
+                        Padrão: 1440 min (24h). Sugestões: 60 = 1h · 1440 = 1 dia · 4320 = 3 dias.
                       </p>
                     </div>
                   </div>

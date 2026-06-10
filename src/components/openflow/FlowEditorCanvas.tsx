@@ -46,6 +46,7 @@ const NODE_META: Record<string, { color: string; bg: string; icon: any; emoji: s
   delay:           { color: "#f59e0b", bg: "#78350f", icon: Clock, emoji: "⏱", label: "Aguardar" },
   aguardar:        { color: "#f59e0b", bg: "#78350f", icon: Clock, emoji: "⏱", label: "Aguardar" },
   wait_event:      { color: "#06b6d4", bg: "#164e63", icon: Timer, emoji: "⏱️", label: "Aguardar Evento" },
+  wait_reply:      { color: "#84cc16", bg: "#1a2e05", icon: MessageCircle, emoji: "💬", label: "Aguardar Resposta" },
   ab_split:        { color: "#d946ef", bg: "#701a75", icon: Split, emoji: "🔀", label: "Divisão A/B" },
   condicao:        { color: "#8b5cf6", bg: "#4c1d95", icon: GitBranch, emoji: "🔀", label: "Condição" },
   condicao_lead:   { color: "#f97316", bg: "#7c2d12", icon: GitBranch, emoji: "🔀", label: "Condição Lead" },
@@ -329,6 +330,8 @@ function acoesToNodesEdges(
       label = `${acao.condition_field} ${acao.condition_operator} ${acao.condition_value}`;
     } else if (acao.tipo === "wait_event") {
       label = `Aguardar: ${acao.event_name}`;
+    } else if (acao.tipo === "wait_reply") {
+      label = `Esperar lead responder (timeout ${acao.timeout_min ?? 1440}min)`;
     } else if (acao.tipo === "loop_steps") {
       label = `Loop: Repetir ${acao.loop_count ?? 3}x`;
     } else if (acao.tipo === "stop_on_event") {
@@ -496,6 +499,25 @@ interface FlowEditorCanvasProps {
   stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>;
 }
 
+// Tipos disponíveis na paleta rápida do canvas (ordem de uso mais comum)
+const PALETTE_TYPES: { tipo: string; label: string }[] = [
+  { tipo: "whatsapp", label: "💬 WhatsApp" },
+  { tipo: "ia_message", label: "🤖 IA Conversacional" },
+  { tipo: "audio", label: "🎙️ Áudio IA" },
+  { tipo: "wait_reply", label: "💬 Aguardar Resposta" },
+  { tipo: "aguardar", label: "⏱ Aguardar Tempo" },
+  { tipo: "wait_event", label: "⏱️ Aguardar Evento" },
+  { tipo: "condicao_lead", label: "🔀 Condição por Lead" },
+  { tipo: "ab_split", label: "🔀 Teste A/B" },
+  { tipo: "adicionar_tag", label: "🏷️ Atribuir Tag" },
+  { tipo: "qualify_lead", label: "⭐ Qualificar Lead" },
+  { tipo: "notify_operator", label: "🔔 Notificar Atendente" },
+  { tipo: "webhook_call", label: "🌐 Webhook" },
+  { tipo: "email", label: "✉️ Email" },
+  { tipo: "gpt_prompt", label: "🤖 Prompt GPT" },
+  { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
+];
+
 export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, stepStats }: FlowEditorCanvasProps) {
   const { nodes: initNodes, edges: initEdges } = useMemo(
     () => acoesToNodesEdges(acoes, triggerTipo, stepStats),
@@ -570,6 +592,31 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
           className="bg-slate-900/90 border border-slate-800 text-[10px] text-muted-foreground p-2 rounded-lg"
         >
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
+        </Panel>
+
+        {/* Paleta de adicionar etapa direto no canvas */}
+        <Panel
+          position="top-center"
+          className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-xl p-1.5 flex items-center gap-1.5"
+        >
+          <select
+            className="bg-slate-950 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1.5 outline-none focus:border-amber-500 cursor-pointer"
+            defaultValue=""
+            onChange={(e) => {
+              const tipo = e.target.value;
+              if (!tipo) return;
+              onChange([...acoes, { tipo, template: "", delay_min: 0 } as Acao]);
+              e.target.value = "";
+            }}
+          >
+            <option value="" disabled>＋ Adicionar etapa…</option>
+            {PALETTE_TYPES.map((t) => (
+              <option key={t.tipo} value={t.tipo}>{t.label}</option>
+            ))}
+          </select>
+          <span className="text-[9px] text-slate-500 pr-1 hidden sm:inline">
+            adiciona ao final do fluxo
+          </span>
         </Panel>
       </ReactFlow>
     </div>
